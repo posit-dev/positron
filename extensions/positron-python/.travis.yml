@@ -1,0 +1,59 @@
+language: python
+cache: pip
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-4.9
+      - g++-4.9
+      - gcc-4.9-multilib
+      - g++-4.9-multilib
+      - libgtk2.0-0
+      - libx11-dev
+      - libxkbfile-dev
+      - libsecret-1-dev
+      - python-dev
+matrix:
+    include:
+        # # Use the built in venv for linux builds
+        - os: linux
+          python: 2.7
+        - os: linux
+          python: 3.6
+        # # # Use generic language for osx
+        # - os: osx
+        #   language: generic
+        #   env: PYTHON=2.7.10
+        # # Use generic language for osx
+        # - os: osx
+        #   language: generic
+        #   env: PYTHON=3.6.1
+# Perform the manual steps on osx to install python 2.7.1 and 3.6.1 and set it as the global interpreter.
+# This way when the node unit tests will pick the right version of python (from global)
+before_install: |
+  if [ $TRAVIS_OS_NAME == "linux" ]; then
+    export CXX="g++-4.9" CC="gcc-4.9" DISPLAY=:99.0;
+    sh -e /etc/init.d/xvfb start;
+    sleep 3;
+  fi
+  git submodule update --init --recursive
+  git clone https://github.com/creationix/nvm.git ./.nvm
+  source ./.nvm/nvm.sh
+  nvm install 8.9.1
+  nvm use 8.9.1
+  npm i -g npm@5.5.1
+  npm config set python `which python`
+  if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+    pyenv install $PYTHON
+    pyenv global $PYTHON
+  fi
+  export TRAVIS_PYTHON_PATH=`which python`
+install:
+  - pip install --upgrade -r requirements.txt
+  - npm install
+  - npm run vscode:prepublish
+
+script:
+  - npm test --silent
