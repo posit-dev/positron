@@ -1,12 +1,26 @@
 {
-	"compilerOptions": {
-		"module": "commonjs",
-		"target": "es5",
-		"outDir": "out",
-		"noLib": true,
-		"sourceMap": true
-	},
-	"exclude": [
-		"node_modules"
-	]
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es6",
+        "outDir": "out",
+        "lib": [
+            "es6"
+        ],
+        "sourceMap": true,
+        "rootDir": "src",
+        "experimentalDecorators": true,
+        "noImplicitThis": false
+        // TODO: enable to ensure all code complies with strict coding standards
+        // , "noUnusedLocals": true
+        // , "noUnusedParameters": false
+        // , "strict": true
+    },
+    "exclude": [
+        "node_modules",
+        ".vscode-test",
+        "src/server/node_modules",
+        "src/client/node_modules",
+        "src/server/src/typings",
+        "src/client/src/typings"
+    ]
 }
