@@ -4,6 +4,7 @@
 import { ChildProcess, SpawnOptions as ChildProcessSpawnOptions } from 'child_process';
 import * as Rx from 'rxjs';
 import { CancellationToken, Uri } from 'vscode';
+import { ExecutionInfo } from '../types';
 import { EnvironmentVariables } from '../variables/types';
 
 export const IBufferDecoder = Symbol('IBufferDecoder');
@@ -68,4 +69,11 @@ export class StdErrError extends Error {
 
 export interface IExecutionEnvironmentVariablesService {
     getEnvironmentVariables(resource?: Uri): Promise<EnvironmentVariables | undefined>;
+}
+
+export const IPythonToolExecutionService = Symbol('IPythonToolRunnerService');
+
+export interface IPythonToolExecutionService {
+    execObservable(executionInfo: ExecutionInfo, options: SpawnOptions, resource: Uri): Promise<ObservableExecutionResult<string>>;
+    exec(executionInfo: ExecutionInfo, options: SpawnOptions, resource: Uri): Promise<ExecutionResult<string>>;
 }
