@@ -62,7 +62,7 @@ export abstract class BaseFormatter {
                 .then(output => output.stdout);
         } else {
             const executionService = this.serviceContainer.get<IProcessService>(IProcessService);
-            executionPromise = this.serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider).getEnvironmentVariables(true, document.uri)
+            executionPromise = this.serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider).getEnvironmentVariables(document.uri)
                 .then(env => executionService.exec(executionInfo.execPath!, executionInfo.args.concat([filePath]), { cwd, env, throwOnStdErr: true, token }))
                 .then(output => output.stdout);
         }

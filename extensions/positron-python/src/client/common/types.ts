@@ -3,6 +3,7 @@
 // Licensed under the MIT License.
 
 import { Uri } from 'vscode';
+import { EnvironmentVariables } from './variables/types';
 export const IOutputChannel = Symbol('IOutputChannel');
 export const IDocumentSymbolProvider = Symbol('IDocumentSymbolProvider');
 export const IsWindows = Symbol('IS_WINDOWS');
@@ -79,4 +80,9 @@ export const IPathUtils = Symbol('IPathUtils');
 
 export interface IPathUtils {
     getPathVariableName(): 'Path' | 'PATH';
+}
+
+export const ICurrentProcess = Symbol('ICurrentProcess');
+export interface ICurrentProcess {
+    env: EnvironmentVariables;
 }
