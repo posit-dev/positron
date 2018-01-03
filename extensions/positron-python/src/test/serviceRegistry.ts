@@ -10,8 +10,9 @@ import { PathUtils } from '../client/common/platform/pathUtils';
 import { BufferDecoder } from '../client/common/process/decoder';
 import { ProcessService } from '../client/common/process/proc';
 import { PythonExecutionFactory } from '../client/common/process/pythonExecutionFactory';
+import { PythonToolExecutionService } from '../client/common/process/pythonToolService';
 import { registerTypes as processRegisterTypes } from '../client/common/process/serviceRegistry';
-import { IBufferDecoder, IProcessService, IPythonExecutionFactory } from '../client/common/process/types';
+import { IBufferDecoder, IProcessService, IPythonExecutionFactory, IPythonToolExecutionService } from '../client/common/process/types';
 import { registerTypes as commonRegisterTypes } from '../client/common/serviceRegistry';
 import { GLOBAL_MEMENTO, ICurrentProcess, IDisposableRegistry, ILogger, IMemento, IOutputChannel, IPathUtils, Is64Bit, IsWindows, WORKSPACE_MEMENTO } from '../client/common/types';
 import { registerTypes as variableRegisterTypes } from '../client/common/variables/serviceRegistry';
@@ -86,6 +87,7 @@ export class IocContainer {
         this.serviceManager.addSingleton<IProcessService>(IOriginalProcessService, ProcessService);
         this.serviceManager.addSingleton<IProcessService>(IProcessService, MockProcessService);
         this.serviceManager.addSingleton<IPythonExecutionFactory>(IPythonExecutionFactory, PythonExecutionFactory);
+        this.serviceManager.addSingleton<IPythonToolExecutionService>(IPythonToolExecutionService, PythonToolExecutionService);
     }
 
     public registerMockProcess() {
