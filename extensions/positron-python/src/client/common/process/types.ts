@@ -37,8 +37,8 @@ export type ExecutionResult<T extends string | Buffer> = {
 export const IProcessService = Symbol('IProcessService');
 
 export interface IProcessService {
-    execObservable(file: string, args: string[], options: SpawnOptions): ObservableExecutionResult<string>;
-    exec(file: string, args: string[], options: SpawnOptions): Promise<ExecutionResult<string>>;
+    execObservable(file: string, args: string[], options?: SpawnOptions): ObservableExecutionResult<string>;
+    exec(file: string, args: string[], options?: SpawnOptions): Promise<ExecutionResult<string>>;
 }
 
 export const IPythonExecutionFactory = Symbol('IPythonExecutionFactory');
