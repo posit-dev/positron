@@ -1,7 +1,6 @@
 'use strict';
 // tslint:disable: no-any one-line no-suspicious-comment prefer-template prefer-const no-unnecessary-callback-wrapper no-function-expression no-string-literal no-control-regex no-shadowed-variable
 
-import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -30,18 +29,6 @@ export function fsReaddirAsync(root: string): Promise<string[]> {
     });
 }
 
-export async function getPathFromPythonCommand(pythonPath: string): Promise<string> {
-    return await new Promise<string>((resolve, reject) => {
-        child_process.execFile(pythonPath, ['-c', 'import sys;print(sys.executable)'], (_, stdout) => {
-            if (stdout) {
-                const lines = stdout.split(/\r?\n/g).map(line => line.trim()).filter(line => line.length > 0);
-                resolve(lines.length > 0 ? lines[0] : '');
-            } else {
-                reject();
-            }
-        });
-    });
-}
 export function formatErrorForLogging(error: Error | string): string {
     let message: string = '';
     if (typeof error === 'string') {

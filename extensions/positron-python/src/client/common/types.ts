@@ -58,7 +58,8 @@ export enum Product {
     mypy = 11,
     unittest = 12,
     ctags = 13,
-    rope = 14
+    rope = 14,
+    isort = 15
 }
 
 export enum ModuleNamePurpose {

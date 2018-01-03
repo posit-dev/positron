@@ -1,8 +1,8 @@
-import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IPythonSettings, PythonSettings } from '../common/configSettings';
+import { IProcessService } from '../common/process/types';
 import { captureTelemetry } from '../telemetry';
 import { WORKSPACE_SYMBOLS_BUILD } from '../telemetry/constants';
 
@@ -16,7 +16,8 @@ export class Generator implements vscode.Disposable {
     public get enabled(): boolean {
         return this.pythonSettings.workspaceSymbols.enabled;
     }
-    constructor(public readonly workspaceFolder: vscode.Uri, private output: vscode.OutputChannel) {
+    constructor(public readonly workspaceFolder: vscode.Uri, private output: vscode.OutputChannel,
+        private processService: IProcessService) {
         this.disposables = [];
         this.optionsFile = path.join(__dirname, '..', '..', '..', 'resources', 'ctagOptions');
         this.pythonSettings = PythonSettings.getInstance(workspaceFolder);
@@ -61,33 +62,22 @@ export class Generator implements vscode.Disposable {
         this.output.appendLine(`${'-'.repeat(10)}Generating Tags${'-'.repeat(10)}`);
         this.output.appendLine(`${cmd} ${args.join(' ')}`);
         const promise = new Promise<void>((resolve, reject) => {
-            const options: child_process.SpawnOptions = {
-                cwd: source.directory
-            };
-
-            let hasErrors = false;
+            const result = this.processService.execObservable(cmd, args, { cwd: source.directory });
             let errorMsg = '';
-            const proc = child_process.spawn(cmd, args, options);
-            proc.stderr.setEncoding('utf8');
-            proc.stdout.setEncoding('utf8');
-            proc.on('error', (error: Error) => {
-                reject(error);
-            });
-            proc.stderr.on('data', (data: string) => {
-                hasErrors = true;
-                errorMsg += data;
-                this.output.append(data);
-            });
-            proc.stdout.on('data', (data: string) => {
-                this.output.append(data);
-            });
-            proc.on('exit', () => {
-                if (hasErrors) {
-                    reject(errorMsg);
-                } else {
-                    resolve();
+            result.out.subscribe(output => {
+                if (output.source === 'stderr') {
+                    errorMsg += output.out;
                 }
-            });
+                this.output.append(output.out);
+            },
+                reject,
+                () => {
+                    if (errorMsg.length > 0) {
+                        reject(new Error(errorMsg));
+                    } else {
+                        resolve();
+                    }
+                });
         });
 
         vscode.window.setStatusBarMessage('Generating Tags', promise);

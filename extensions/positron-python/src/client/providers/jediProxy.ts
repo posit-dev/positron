@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import * as child_process from 'child_process';
+import { ChildProcess } from 'child_process';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -127,7 +127,7 @@ commandNames.set(CommandType.Usages, 'usages');
 commandNames.set(CommandType.Symbols, 'names');
 
 export class JediProxy implements vscode.Disposable {
-    private proc: child_process.ChildProcess | null;
+    private proc: ChildProcess | null;
     private pythonSettings: PythonSettings;
     private cmdId: number = 0;
     private lastKnownPythonInterpreter: string;

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { OutputChannel, workspace } from 'vscode';
 import { Commands, PythonLanguage, STANDARD_OUTPUT_CHANNEL } from '../common/constants';
 import { isNotInstalledError } from '../common/helpers';
+import { IProcessService } from '../common/process/types';
 import { IInstaller, InstallerResponse, IOutputChannel, Product } from '../common/types';
 import { fsExistsAsync } from '../common/utils';
 import { IServiceContainer } from '../ioc/types';
@@ -36,7 +37,8 @@ export class WorkspaceSymbols implements vscode.Disposable {
 
         if (Array.isArray(vscode.workspace.workspaceFolders)) {
             vscode.workspace.workspaceFolders.forEach(wkSpc => {
-                this.generators.push(new Generator(wkSpc.uri, this.outputChannel));
+                const processService = this.serviceContainer.get<IProcessService>(IProcessService);
+                this.generators.push(new Generator(wkSpc.uri, this.outputChannel, processService));
             });
         }
     }
