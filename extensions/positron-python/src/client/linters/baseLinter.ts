@@ -124,7 +124,7 @@ export abstract class BaseLinter {
             const pythonExecutionService = await this.serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory).create(document.uri);
             executionPromise = pythonExecutionService.execModule(executionInfo.moduleName!, executionInfo.args, { cwd, mergeStdOutErr: true, token: cancellation });
         } else {
-            const env = await this.serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider).getEnvironmentVariables(true, document.uri);
+            const env = await this.serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider).getEnvironmentVariables(document.uri);
             const executionService = this.serviceContainer.get<IProcessService>(IProcessService);
             executionPromise = executionService.exec(executionInfo.execPath!, executionInfo.args, { cwd, env, token: cancellation, mergeStdOutErr: true });
         }

@@ -25,20 +25,18 @@ export class Generator implements vscode.Disposable {
     public dispose() {
         this.disposables.forEach(d => d.dispose());
     }
-
+    public async generateWorkspaceTags(): Promise<void> {
+        if (!this.pythonSettings.workspaceSymbols.enabled) {
+            return;
+        }
+        return await this.generateTags({ directory: this.workspaceFolder.fsPath });
+    }
     private buildCmdArgs(): string[] {
         const optionsFile = this.optionsFile.indexOf(' ') > 0 ? `"${this.optionsFile}"` : this.optionsFile;
         const exclusions = this.pythonSettings.workspaceSymbols.exclusionPatterns;
         const excludes = exclusions.length === 0 ? [] : exclusions.map(pattern => `--exclude=${pattern}`);
 
         return [`--options=${optionsFile}`, '--languages=Python'].concat(excludes);
-    }
-
-    public async generateWorkspaceTags(): Promise<void> {
-        if (!this.pythonSettings.workspaceSymbols.enabled) {
-            return;
-        }
-        return await this.generateTags({ directory: this.workspaceFolder.fsPath });
     }
     @captureTelemetry(WORKSPACE_SYMBOLS_BUILD)
     private generateTags(source: { directory?: string, file?: string }): Promise<void> {
@@ -60,10 +58,10 @@ export class Generator implements vscode.Disposable {
         }
         outputFile = outputFile.indexOf(' ') > 0 ? `"${outputFile}"` : outputFile;
         args.push(`-o ${outputFile}`, '.');
-        this.output.appendLine('-'.repeat(10) + 'Generating Tags' + '-'.repeat(10));
+        this.output.appendLine(`${'-'.repeat(10)}Generating Tags${'-'.repeat(10)}`);
         this.output.appendLine(`${cmd} ${args.join(' ')}`);
         const promise = new Promise<void>((resolve, reject) => {
-            let options: child_process.SpawnOptions = {
+            const options: child_process.SpawnOptions = {
                 cwd: source.directory
             };
 
@@ -76,6 +74,7 @@ export class Generator implements vscode.Disposable {
                 reject(error);
             });
             proc.stderr.on('data', (data: string) => {
+                hasErrors = true;
                 errorMsg += data;
                 this.output.append(data);
             });
@@ -85,8 +84,7 @@ export class Generator implements vscode.Disposable {
             proc.on('exit', () => {
                 if (hasErrors) {
                     reject(errorMsg);
-                }
-                else {
+                } else {
                     resolve();
                 }
             });

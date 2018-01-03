@@ -12,9 +12,10 @@ import { IS_64_BIT, IS_WINDOWS } from './platform/constants';
 import { PathUtils } from './platform/pathUtils';
 import { RegistryImplementation } from './platform/registry';
 import { IRegistry } from './platform/types';
+import { CurrentProcess } from './process/currentProcess';
 import { TerminalService } from './terminal/service';
 import { ITerminalService } from './terminal/types';
-import { IInstaller, ILogger, IPathUtils, IPersistentStateFactory, Is64Bit, IsWindows } from './types';
+import { ICurrentProcess, IInstaller, ILogger, IPathUtils, IPersistentStateFactory, Is64Bit, IsWindows } from './types';
 
 export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingletonInstance<boolean>(IsWindows, IS_WINDOWS);
@@ -27,6 +28,7 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<ILogger>(ILogger, Logger);
     serviceManager.addSingleton<ITerminalService>(ITerminalService, TerminalService);
     serviceManager.addSingleton<IPathUtils>(IPathUtils, PathUtils);
+    serviceManager.addSingleton<ICurrentProcess>(ICurrentProcess, CurrentProcess);
 
     if (IS_WINDOWS) {
         serviceManager.addSingleton<IRegistry>(IRegistry, RegistryImplementation);

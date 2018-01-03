@@ -42,7 +42,7 @@ export async function run(serviceContainer: IServiceContainer, testProvider: Tes
     } else if (testExecutablePath) {
         const processService = serviceContainer.get<IProcessService>(IProcessService);
         const envVarsService = serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
-        promise = envVarsService.getEnvironmentVariables(true, options.workspaceFolder).then(executionService => {
+        promise = envVarsService.getEnvironmentVariables(options.workspaceFolder).then(executionService => {
             return processService.execObservable(testExecutablePath, options.args, { ...spawnOptions });
         });
     } else {
