@@ -78,7 +78,8 @@
 		"onCommand:python.startREPL",
 		"onCommand:python.goToPythonObject",
 		"onCommand:python.setLinter",
-		"onCommand:python.enableLinting"
+        "onCommand:python.enableLinting",
+        "onCommand:python.createTerminal"
 	],
 	"main": "./out/client/extension",
 	"contributes": {
