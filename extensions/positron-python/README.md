@@ -40,6 +40,7 @@ contributors (if you would like to contribute a translation, see the
 
 * `en`
 * `ja`
+* `ko-kr`
 * `ru`
 * `zh-cn`
 
@@ -99,8 +100,6 @@ contributors (if you would like to contribute a translation, see the
 ![Debugging](https://raw.githubusercontent.com/microsoft/vscode-python/master/images/debugDemo.gif)
 
 ![Unit Tests](https://raw.githubusercontent.com/microsoft/vscode-python/master/images/unittest.gif)
-
-
 
 
 ## Data and telemetry
