@@ -1,6 +1,6 @@
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
-import { ConfigurationTarget, Disposable, Uri } from 'vscode';
+import { ConfigurationTarget, Disposable, Event, EventEmitter, Uri } from 'vscode';
 import { IDocumentManager, IWorkspaceService } from '../common/application/types';
 import { PythonSettings } from '../common/configSettings';
 import { IPythonExecutionFactory } from '../common/process/types';
@@ -8,7 +8,11 @@ import { IConfigurationService, IDisposableRegistry } from '../common/types';
 import * as utils from '../common/utils';
 import { IServiceContainer } from '../ioc/types';
 import { IPythonPathUpdaterServiceManager } from './configuration/types';
-import { IInterpreterDisplay, IInterpreterHelper, IInterpreterLocatorService, IInterpreterService, IInterpreterVersionService, INTERPRETER_LOCATOR_SERVICE, InterpreterType, PythonInterpreter, WORKSPACE_VIRTUAL_ENV_SERVICE } from './contracts';
+import {
+    IInterpreterDisplay, IInterpreterHelper, IInterpreterLocatorService,
+    IInterpreterService, IInterpreterVersionService, INTERPRETER_LOCATOR_SERVICE,
+    InterpreterType, PythonInterpreter, WORKSPACE_VIRTUAL_ENV_SERVICE
+} from './contracts';
 import { IVirtualEnvironmentManager } from './virtualEnvs/types';
 
 @injectable()
@@ -16,16 +20,20 @@ export class InterpreterManager implements Disposable, IInterpreterService {
     private readonly interpreterProvider: IInterpreterLocatorService;
     private readonly pythonPathUpdaterService: IPythonPathUpdaterServiceManager;
     private readonly helper: IInterpreterHelper;
+    private readonly didChangeInterpreterEmitter = new EventEmitter<void>();
+
     constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
         this.interpreterProvider = serviceContainer.get<IInterpreterLocatorService>(IInterpreterLocatorService, INTERPRETER_LOCATOR_SERVICE);
         this.helper = serviceContainer.get<IInterpreterHelper>(IInterpreterHelper);
 
         this.pythonPathUpdaterService = this.serviceContainer.get<IPythonPathUpdaterServiceManager>(IPythonPathUpdaterServiceManager);
     }
+
     public async refresh(resource?: Uri) {
         const interpreterDisplay = this.serviceContainer.get<IInterpreterDisplay>(IInterpreterDisplay);
         return interpreterDisplay.refresh(resource);
     }
+
     public initialize() {
         const disposables = this.serviceContainer.get<Disposable[]>(IDisposableRegistry);
         const documentManager = this.serviceContainer.get<IDocumentManager>(IDocumentManager);
@@ -33,9 +41,11 @@ export class InterpreterManager implements Disposable, IInterpreterService {
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         (configService.getSettings() as PythonSettings).addListener('change', this.onConfigChanged);
     }
+
     public getInterpreters(resource?: Uri) {
         return this.interpreterProvider.getInterpreters(resource);
     }
+
     public async autoSetInterpreter() {
         if (!this.shouldAutoSetInterpreter()) {
             return;
@@ -63,10 +73,16 @@ export class InterpreterManager implements Disposable, IInterpreterService {
             await this.pythonPathUpdaterService.updatePythonPath(pythonPath, activeWorkspace.configTarget, 'load', activeWorkspace.folderUri);
         }
     }
+
     public dispose(): void {
         this.interpreterProvider.dispose();
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         (configService.getSettings() as PythonSettings).removeListener('change', this.onConfigChanged);
+        this.didChangeInterpreterEmitter.dispose();
+    }
+
+    public get onDidChangeInterpreter(): Event<void> {
+        return this.didChangeInterpreterEmitter.event;
     }
 
     public async getActiveInterpreter(resource?: Uri): Promise<PythonInterpreter | undefined> {
@@ -117,6 +133,7 @@ export class InterpreterManager implements Disposable, IInterpreterService {
         return false;
     }
     private onConfigChanged = () => {
+        this.didChangeInterpreterEmitter.fire();
         const interpreterDisplay = this.serviceContainer.get<IInterpreterDisplay>(IInterpreterDisplay);
         interpreterDisplay.refresh()
             .catch(ex => console.error('Python Extension: display.refresh', ex));
