@@ -313,6 +313,12 @@ export const IDocumentManager = Symbol('IDocumentManager');
 
 export interface IDocumentManager {
     /**
+     * All text documents currently known to the system.
+     *
+     * @readonly
+     */
+    readonly textDocuments: TextDocument[];
+    /**
      * The currently active editor or `undefined`. The active editor is the one
      * that currently has focus or, when none has focus, the one that has changed
      * input most recently.
@@ -352,6 +358,14 @@ export interface IDocumentManager {
      */
     readonly onDidChangeTextEditorViewColumn: Event<TextEditorViewColumnChangeEvent>;
 
+    /**
+     * An event that is emitted when a [text document](#TextDocument) is opened.
+     */
+    readonly onDidOpenTextDocument: Event<TextDocument>;
+    /**
+     * An event that is emitted when a [text document](#TextDocument) is disposed.
+     */
+    readonly onDidCloseTextDocument: Event<TextDocument>;
     /**
      * An event that is emitted when a [text document](#TextDocument) is saved to disk.
      */

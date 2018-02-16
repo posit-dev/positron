@@ -20,7 +20,7 @@ export class InterpreterDisplay implements IInterpreterDisplay {
     private readonly configurationService: IConfigurationService;
     private readonly helper: IInterpreterHelper;
     private readonly workspaceService: IWorkspaceService;
-    private currentWorkspaceInterpreter?: Uri;
+
     constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer) {
         this.interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this.virtualEnvMgr = serviceContainer.get<IVirtualEnvironmentManager>(IVirtualEnvironmentManager);
@@ -48,14 +48,7 @@ export class InterpreterDisplay implements IInterpreterDisplay {
         }
         await this.updateDisplay(resource);
     }
-    private shouldRefresh(workspaceFolder?: Uri) {
-        if (!workspaceFolder || !this.currentWorkspaceInterpreter) {
-            return true;
-        }
-        return !this.fileSystem.arePathsSame(workspaceFolder.fsPath, this.currentWorkspaceInterpreter.fsPath);
-    }
     private async updateDisplay(workspaceFolder?: Uri) {
-        this.currentWorkspaceInterpreter = workspaceFolder;
         const interpreters = await this.interpreterService.getInterpreters(workspaceFolder);
         const interpreter = await this.interpreterService.getActiveInterpreter(workspaceFolder);
         const pythonPath = interpreter ? interpreter.path : this.configurationService.getSettings(workspaceFolder).pythonPath;

@@ -31,10 +31,10 @@ import { registerTypes as interpretersRegisterTypes } from './interpreter/servic
 import { ServiceContainer } from './ioc/container';
 import { ServiceManager } from './ioc/serviceManager';
 import { IServiceContainer } from './ioc/types';
-import { JupyterProvider } from './jupyter/provider';
 import { JediFactory } from './languageServices/jediProxyFactory';
 import { LinterCommands } from './linters/linterCommands';
 import { registerTypes as lintersRegisterTypes } from './linters/serviceRegistry';
+import { ILintingEngine } from './linters/types';
 import { PythonCompletionItemProvider } from './providers/completionProvider';
 import { PythonDefinitionProvider } from './providers/definitionProvider';
 import { PythonFormattingEditProvider } from './providers/formatProvider';
@@ -165,29 +165,16 @@ export async function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(vscode.languages.registerDocumentRangeFormattingEditProvider(PYTHON, formatProvider));
     }
 
-    // tslint:disable-next-line:promise-function-async
-    const linterProvider = new LinterProvider(context, standardOutputChannel, (a, b) => Promise.resolve(false), serviceContainer);
+    const linterProvider = new LinterProvider(context, serviceContainer);
     context.subscriptions.push(linterProvider);
-    const jupyterExtInstalled = vscode.extensions.getExtension('donjayamanne.jupyter');
-    if (jupyterExtInstalled) {
-        if (jupyterExtInstalled.isActive) {
-            // tslint:disable-next-line:no-unsafe-any
-            jupyterExtInstalled.exports.registerLanguageProvider(PYTHON.language, new JupyterProvider());
-            // tslint:disable-next-line:no-unsafe-any
-            linterProvider.documentHasJupyterCodeCells = jupyterExtInstalled.exports.hasCodeCells;
-        }
 
-        jupyterExtInstalled.activate().then(() => {
-            // tslint:disable-next-line:no-unsafe-any
-            jupyterExtInstalled.exports.registerLanguageProvider(PYTHON.language, new JupyterProvider());
-            // tslint:disable-next-line:no-unsafe-any
-            linterProvider.documentHasJupyterCodeCells = jupyterExtInstalled.exports.hasCodeCells;
-        });
-    }
+    const jupyterExtension = vscode.extensions.getExtension('donjayamanne.jupyter');
+    const lintingEngine = serviceContainer.get<ILintingEngine>(ILintingEngine);
+    lintingEngine.linkJupiterExtension(jupyterExtension).ignoreErrors();
+
     tests.activate(context, unitTestOutChannel, symbolProvider, serviceContainer);
 
     context.subscriptions.push(new WorkspaceSymbols(serviceContainer));
-
     context.subscriptions.push(vscode.languages.registerOnTypeFormattingEditProvider(PYTHON, new BlockFormatProviders(), ':'));
     context.subscriptions.push(vscode.languages.registerOnTypeFormattingEditProvider(PYTHON, new OnEnterFormatter(), '\n'));
 
@@ -199,9 +186,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // tslint:disable-next-line:no-unused-expression
     new BannerService(persistentStateFactory);
 
-    const deprecationMgr = new FeatureDeprecationManager(persistentStateFactory, !!jupyterExtInstalled);
+    const deprecationMgr = new FeatureDeprecationManager(persistentStateFactory, !!jupyterExtension);
     deprecationMgr.initialize();
-    context.subscriptions.push(new FeatureDeprecationManager(persistentStateFactory, !!jupyterExtInstalled));
+    context.subscriptions.push(new FeatureDeprecationManager(persistentStateFactory, !!jupyterExtension));
 }
 
 async function sendStartupTelemetry(activatedPromise: Promise<void>, serviceContainer: IServiceContainer) {

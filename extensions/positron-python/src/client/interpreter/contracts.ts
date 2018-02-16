@@ -1,4 +1,4 @@
-import { CodeLensProvider, ConfigurationTarget, Disposable, TextDocument, Uri } from 'vscode';
+import { CodeLensProvider, ConfigurationTarget, Disposable, Event, TextDocument, Uri } from 'vscode';
 import { Architecture } from '../common/platform/types';
 
 export const INTERPRETER_LOCATOR_SERVICE = 'IInterpreterLocatorService';
@@ -75,8 +75,8 @@ export type WorkspacePythonPath = {
 };
 
 export const IInterpreterService = Symbol('IInterpreterService');
-
 export interface IInterpreterService {
+    onDidChangeInterpreter: Event<void>;
     getInterpreters(resource?: Uri): Promise<PythonInterpreter[]>;
     autoSetInterpreter(): Promise<void>;
     getActiveInterpreter(resource?: Uri): Promise<PythonInterpreter | undefined>;
