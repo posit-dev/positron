@@ -25,6 +25,9 @@ import { BaseDebugServer } from './DebugServers/BaseDebugServer';
 import { initializeIoc } from './serviceRegistry';
 import { IDebugStreamProvider, IProtocolLogger, IProtocolMessageWriter, IProtocolParser } from './types';
 
+const DEBUGGER_CONNECT_TIMEOUT = 10000;
+const MIN_DEBUGGER_CONNECT_TIMEOUT = DEBUGGER_CONNECT_TIMEOUT / 2;
+
 export class PythonDebugger extends DebugSession {
     public debugServer?: BaseDebugServer;
     public debugClient?: DebugClient<{}>;
@@ -180,9 +183,8 @@ export class PythonDebugger extends DebugSession {
         const enableLogging = args.logToFile === true;
         this.emit('_py_enable_protocol_logging', enableLogging);
 
-        this.emit('_py_pre_launch');
-
         this.startPTVSDDebugger(args)
+            .then(() => this.waitForDebuggerConnection(args))
             .then(() => this.sendResponse(response))
             .catch(ex => {
                 const message = this.getErrorUserFriendlyMessage(args, ex) || 'Debug Error';
@@ -194,6 +196,30 @@ export class PythonDebugger extends DebugSession {
         this.debugServer = launcher.CreateDebugServer(undefined, this.serviceContainer);
         const serverInfo = await this.debugServer!.Start();
         return launcher.LaunchApplicationToDebug(serverInfo);
+    }
+    private async waitForDebuggerConnection(args: LaunchRequestArguments) {
+        return new Promise<void>(async (resolve, reject) => {
+            let rejected = false;
+            const duration = this.getConnectionTimeout(args);
+            const timeout = setTimeout(() => {
+                rejected = true;
+                reject(new Error('Timeout waiting for debugger connection'));
+            }, duration);
+
+            try {
+                await this.debugServer!.client;
+                timeout.unref();
+                if (!rejected) {
+                    resolve();
+                }
+            } catch (ex) {
+                reject(ex);
+            }
+        });
+    }
+    private getConnectionTimeout(args: LaunchRequestArguments) {
+        const connectionTimeout = typeof (args as any).connectionTimeout === 'number' ? (args as any).connectionTimeout as number : DEBUGGER_CONNECT_TIMEOUT;
+        return Math.max(connectionTimeout, MIN_DEBUGGER_CONNECT_TIMEOUT);
     }
     private getErrorUserFriendlyMessage(launchArgs: LaunchRequestArguments, error: any): string | undefined {
         if (!error) {
