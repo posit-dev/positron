@@ -54,10 +54,7 @@ export class BaseVirtualEnvService extends CacheableLocatorService {
                 .then(dirs => {
                     const scriptOrBinDirs = dirs.filter(dir => {
                         const folderName = path.basename(dir);
-                        // Perform case insistive search on windows.
-                        // On windows its named eitgher 'Scripts' or 'scripts'.
-                        const folderNameToCheck = isWindows ? folderName.toUpperCase() : folderName;
-                        return folderNameToCheck === dirToLookFor;
+                        return this.fileSystem.arePathsSame(folderName, dirToLookFor);
                     });
                     return scriptOrBinDirs.length === 1 ? scriptOrBinDirs[0] : '';
                 })
