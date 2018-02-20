@@ -37,14 +37,14 @@ export class CurrentPathService extends CacheableLocatorService {
     private async getInterpreterDetails(interpreter: string): Promise<PythonInterpreter> {
         return Promise.all([
             this.versionProvider.getVersion(interpreter, path.basename(interpreter)),
-            this.virtualEnvMgr.detect(interpreter)
+            this.virtualEnvMgr.getEnvironmentName(interpreter)
         ]).
-            then(([displayName, virtualEnv]) => {
-                displayName += virtualEnv ? ` (${virtualEnv.name})` : '';
+            then(([displayName, virtualEnvName]) => {
+                displayName += virtualEnvName.length > 0 ? ` (${virtualEnvName})` : '';
                 return {
                     displayName,
                     path: interpreter,
-                    type: virtualEnv ? virtualEnv.type : InterpreterType.Unknown
+                    type: virtualEnvName ? InterpreterType.VirtualEnv : InterpreterType.Unknown
                 };
             });
     }
