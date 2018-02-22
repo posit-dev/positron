@@ -1755,6 +1755,7 @@
         "compile": "tsc -watch -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "node ./out/test/standardTest.js && node ./out/test/multiRootTest.js",
+        "testDebugger": "node ./out/test/debuggerTest.js",
         "testSingleWorkspace": "node ./out/test/standardTest.js",
         "testMultiWorkspace": "node ./out/test/multiRootTest.js",
         "precommit": "node gulpfile.js",
