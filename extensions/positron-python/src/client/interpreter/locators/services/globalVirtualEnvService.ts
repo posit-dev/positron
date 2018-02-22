@@ -4,14 +4,13 @@
 'use strict';
 
 import { inject, injectable, named } from 'inversify';
+import * as os from 'os';
+import * as path from 'path';
 import { Uri } from 'vscode';
-import { IPlatformService } from '../../../common/platform/types';
+import { ICurrentProcess } from '../../../common/types';
 import { IServiceContainer } from '../../../ioc/types';
 import { IVirtualEnvironmentsSearchPathProvider } from '../../contracts';
 import { BaseVirtualEnvService } from './baseVirtualEnvService';
-
-// tslint:disable-next-line:no-require-imports no-var-requires
-const untildify = require('untildify');
 
 @injectable()
 export class GlobalVirtualEnvService extends BaseVirtualEnvService {
@@ -24,16 +23,22 @@ export class GlobalVirtualEnvService extends BaseVirtualEnvService {
 
 @injectable()
 export class GlobalVirtualEnvironmentsSearchPathProvider implements IVirtualEnvironmentsSearchPathProvider {
-    public constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
+    private readonly process: ICurrentProcess;
 
+    constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer) {
+        this.process = serviceContainer.get<ICurrentProcess>(ICurrentProcess);
     }
+
     public getSearchPaths(_resource?: Uri): string[] {
-        const platformService = this.serviceContainer.get<IPlatformService>(IPlatformService);
-        if (platformService.isWindows) {
-            return [];
-        } else {
-            return ['/Envs', '/.virtualenvs', '/.pyenv', '/.pyenv/versions']
-                .map(item => untildify(`~${item}`));
-        }
+        const homedir = os.homedir();
+        const folders = ['Envs', '.virtualenvs'].map(item => path.join(homedir, item));
+
+        // tslint:disable-next-line:no-string-literal
+        let pyenvRoot = this.process.env['PYENV_ROOT'];
+        pyenvRoot = pyenvRoot ? pyenvRoot : path.join(homedir, '.pyenv');
+
+        folders.push(pyenvRoot);
+        folders.push(path.join(pyenvRoot, 'versions'));
+        return folders;
     }
 }
