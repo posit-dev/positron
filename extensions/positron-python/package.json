@@ -23,7 +23,7 @@
             "description": "Continuous integration (Travis)"
         },
         {
-            url: "https://ci.appveyor.com/api/projects/status/s0pt8d79gqw222j7?svg=true",
+            "url": "https://ci.appveyor.com/api/projects/status/s0pt8d79gqw222j7?svg=true",
             "href: "https://ci.appveyor.com/project/DonJayamanne/vscode-python-v3vd6/branch/master",
             "description": "Continuous integration (AppVeyor)"
         },
