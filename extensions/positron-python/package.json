@@ -929,7 +929,7 @@
                         "label": "Python Experimental: Terminal (integrated)",
                         "description": "%python.snippet.launch.terminal.description%",
                         "body": {
-                            "name": "Integrated Terminal/Console",
+                            "name": "Python Experimental: Terminal (integrated)",
                             "type": "pythonExperimental",
                             "request": "launch",
                             "stopOnEntry": true,
@@ -947,7 +947,7 @@
                         "label": "Python Experimental: Terminal (external)",
                         "description": "%python.snippet.launch.externalTerminal.description%",
                         "body": {
-                            "name": "External Terminal/Console",
+                            "name": "Python Experimental: Terminal (external)",
                             "type": "pythonExperimental",
                             "request": "launch",
                             "stopOnEntry": true,
