@@ -44,13 +44,9 @@ Use the `Launch Extension` launch option.
 
 ### Unit Tests
 
-Run the Unit Tests via the `Launch Test` and `Launch Multiroot Tests`  launch option.
-Currently unit tests only run on [Travis](https://travis-ci.org/Microsoft/vscode-python)
-
-#### Requirements
-
 1. Ensure you have disabled breaking into 'Uncaught Exceptions' when running the Unit Tests
 1. For the linters and formatters tests to pass successfully, you will need to have those corresponding Python libraries installed locally
+1. Run the Unit Tests via the `Launch Test` and `Launch Multiroot Tests`  launch options.
 
 ### Standard Debugging
 
