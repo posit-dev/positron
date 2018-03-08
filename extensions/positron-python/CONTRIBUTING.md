@@ -149,6 +149,7 @@ it should have an appropriate `closed-` label.
    * The pull request must pass its CI run before merging will be
      considered
    * Code coverage is expected to (at minimum) not worsen
+   * A [news entry file](https://github.com/Microsoft/vscode-python/tree/master/news) (as appropriate)
 1. Make sure all status checks are green (e.g. CLA check, CI, etc.)
 1. Address any review comments
 1. [Maintainers only] Merge the pull request
