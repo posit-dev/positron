@@ -171,7 +171,7 @@ the release made when we reach feature freeze in July 2018
 would be `2018.7.0`, and if a second release was necessary to fix a
 critical bug it would be `2018.7.1`.
 
-## In-Development Build
+## Development Build
 
 We publish the latest development
 build of the extension onto a cloud storage provider.
