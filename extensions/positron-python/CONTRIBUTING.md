@@ -171,7 +171,7 @@ the release made when we reach feature freeze in July 2018
 would be `2018.7.0`, and if a second release was necessary to fix a
 critical bug it would be `2018.7.1`.
 
-## Insiders Build
+## In-Development Build
 
 We publish the latest development
 build of the extension onto a cloud storage provider.
@@ -186,11 +186,11 @@ file, please follow the instructions on
 [this page](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix)
 to install the extension.
 
-The insiders build of the extension:
+The development build of the extension:
 
 * Will be replaced with new releases published onto the
   [VS Code Marketplace](https://marketplace.visualstudio.com/VSCode).
-* Does not get updated with new insider build releases (if you want to
-  test a newer insiders build, uninstall the old version of the
+* Does not get updated with new development builds of the extension (if you want to
+  test a newer development build, uninstall the old version of the
   extension and then install the new version)
 * Is built everytime a PR is commited into the [`master` branch](https://github.com/Microsoft/vscode-python).
