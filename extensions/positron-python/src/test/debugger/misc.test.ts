@@ -10,6 +10,8 @@ import { ThreadEvent } from 'vscode-debugadapter';
 import { DebugClient } from 'vscode-debugadapter-testsupport';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { noop } from '../../client/common/core.utils';
+import { FileSystem } from '../../client/common/platform/fileSystem';
+import { PlatformService } from '../../client/common/platform/platformService';
 import { LaunchRequestArguments } from '../../client/debugger/Common/Contracts';
 import { sleep } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
@@ -457,17 +459,17 @@ const THREAD_TIMEOUT = 10000;
 
             // hit breakpoint.
             const stackframes = await debugClient.assertStoppedLocation('breakpoint', breakpointLocation);
-
+            const fileSystem = new FileSystem(new PlatformService());
             expect(stackframes.body.stackFrames[0].line).to.be.equal(5);
-            expect(stackframes.body.stackFrames[0].source!.path).to.be.equal(pythonFile);
+            expect(fileSystem.arePathsSame(stackframes.body.stackFrames[0].source!.path!, pythonFile)).to.be.equal(true, 'paths do not match');
             expect(stackframes.body.stackFrames[0].name).to.be.equal('foo');
 
             expect(stackframes.body.stackFrames[1].line).to.be.equal(8);
-            expect(stackframes.body.stackFrames[1].source!.path).to.be.equal(pythonFile);
+            expect(fileSystem.arePathsSame(stackframes.body.stackFrames[1].source!.path!, pythonFile)).to.be.equal(true, 'paths do not match');
             expect(stackframes.body.stackFrames[1].name).to.be.equal('bar');
 
             expect(stackframes.body.stackFrames[2].line).to.be.equal(10);
-            expect(stackframes.body.stackFrames[2].source!.path).to.be.equal(pythonFile);
+            expect(fileSystem.arePathsSame(stackframes.body.stackFrames[2].source!.path!, pythonFile)).to.be.equal(true, 'paths do not match');
         });
     });
 });
