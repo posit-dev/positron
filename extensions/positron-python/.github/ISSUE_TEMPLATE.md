@@ -12,33 +12,33 @@ Otherwise **please** fill in the requested details below. "XXX" markers should n
 
 ## Environment data
 
-- VS Code version: < XXX >
-- Extension version (available under the Extensions sidebar): < XXX >
-- OS and version: < XXX >
-- Python version: < XXX; include the distribution details if applicable, e.g. Anaconda >
-- Type of virtual environment used (if applicable): < XXX: N/A | venv | virtualenv | conda | ... >
-- Relevant/affected Python packages and their versions: < XXX >
+- VS Code version: XXX
+- Extension version (available under the Extensions sidebar): XXX
+- OS and version: XXX
+- Python version (& distribution if applicable, e.g. Anaconda): XXX
+- Type of virtual environment used (N/A | venv | virtualenv | conda | ...): XXX 
+- Relevant/affected Python packages and their versions: XXX
 
 ## Actual behavior
 
-< XXX >
+XXX
 
 ## Expected  behavior
 
-< XXX >
+XXX
 
 ## Steps to reproduce:
-1. < XXX >
+1. XXX
 
 ## Logs
 Output for `Python` in the `Output` panel (`View`→`Output`, change the drop-down the upper-right of the `Output` panel to `Python`)
 
 ```
-< XXX >
+XXX
 ```   
 
 Output from `Console` under the `Developer Tools` panel (toggle Developer Tools on under `Help`)
 
 ```
-< XXX >
+XXX
 ```
