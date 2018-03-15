@@ -51,7 +51,7 @@ const THREAD_TIMEOUT = 10000;
             await sleep(1000);
         });
         function buildLauncArgs(pythonFile: string, stopOnEntry: boolean = false): LaunchRequestArguments {
-            return {
+            const options: LaunchRequestArguments = {
                 program: path.join(debugFilesPath, pythonFile),
                 cwd: debugFilesPath,
                 stopOnEntry,
@@ -63,6 +63,13 @@ const THREAD_TIMEOUT = 10000;
                 logToFile: false,
                 type: debuggerType
             };
+
+            // Custom experimental debugger options (filled in by DebugConfigurationProvider).
+            if (debuggerType === 'pythonExperimental') {
+                (options as any).redirectOutput = true;
+            }
+
+            return options;
         }
 
         test('Should run program to the end', async () => {
@@ -84,23 +91,18 @@ const THREAD_TIMEOUT = 10000;
                 debugClient.waitForEvent('stopped')
             ]);
         });
-        test('test stderr output', async function () {
-            if (debuggerType !== 'python') {
-                return this.skip();
-            }
+        test('test stderr output for Python', async () => {
+            const output = debuggerType === 'python' ? 'stdout' : 'stderr';
             await Promise.all([
                 debugClient.configurationSequence(),
                 debugClient.launch(buildLauncArgs('stdErrOutput.py', false)),
                 debugClient.waitForEvent('initialized'),
                 //TODO: ptvsd does not differentiate.
-                debugClient.assertOutput('stdout', 'error output'),
+                debugClient.assertOutput(output, 'error output'),
                 debugClient.waitForEvent('terminated')
             ]);
         });
-        test('Test stdout output', async function () {
-            if (debuggerType !== 'python') {
-                return this.skip();
-            }
+        test('Test stdout output', async () => {
             await Promise.all([
                 debugClient.configurationSequence(),
                 debugClient.launch(buildLauncArgs('stdOutOutput.py', false)),
