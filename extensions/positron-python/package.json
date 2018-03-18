@@ -61,6 +61,7 @@
     "activationEvents": [
         "onLanguage:python",
         "onDebugResolve:python",
+        "onDebugResolve:pythonExperimental",
         "onCommand:python.execInTerminal",
         "onCommand:python.sortImports",
         "onCommand:python.runtests",
@@ -831,6 +832,21 @@
                                 "bikes.json"
                             ]
                         }
+                    },
+                    {
+                        "label": "Python Experimental: Pyramid",
+                        "description": "%python.snippet.launch.pyramid.description%",
+                        "body": {
+                            "name": "Pyramid",
+                            "type": "pythonExperimental",
+                            "request": "launch",
+                            "args": [
+                                "^\"\\${workspaceFolder}/development.ini\""
+                            ],
+                            "debugOptions": [
+                                "Pyramid"
+                            ]
+                        }
                     }
                 ],
                 "configurationAttributes": {
@@ -884,7 +900,8 @@
                                 "items": {
                                     "type": "string",
                                     "enum": [
-                                        "Sudo"
+                                        "Sudo",
+                                        "Pyramid"
                                     ]
                                 },
                                 "default": []
