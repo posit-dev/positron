@@ -54,6 +54,7 @@ contributors (if you would like to contribute a translation, see the
 * Any and all feedback is appreciated and welcome!
   - If someone has already [file an issue](https://github.com/Microsoft/vscode-python) that encompasses your feedback, please leave a 👍/👎 reaction on the issue
   - Otherwise please file a new issue
+* If you're interested in the development of the extension, you can read about our [development process](https://github.com/Microsoft/vscode-python/blob/master/CONTRIBUTING.md#development-process)
 
 ## Feature details
 
