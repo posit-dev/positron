@@ -55,9 +55,6 @@ export class PythonDebugger extends LoggingDebugSession {
         this.debuggerLoaded = new Promise(resolve => {
             this.debuggerLoadedPromiseResolve = resolve;
         });
-        if (!isServer) {
-            process.on('SIGINT', this.shutdown);
-        }
     }
     // tslint:disable-next-line:no-unnecessary-override
     @sendPerformanceTelemetry(PerformanceTelemetryCondition.stoppedEvent)
