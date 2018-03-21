@@ -200,7 +200,7 @@ suite('Module Installer', () => {
 
         let argsSent: string[] = [];
         mockTerminalService
-            .setup(async t => await t.sendCommand(TypeMoq.It.isAnyString(), TypeMoq.It.isAny()))
+            .setup(t => t.sendCommand(TypeMoq.It.isAnyString(), TypeMoq.It.isAny()))
             .returns((cmd: string, args: string[]) => { argsSent = args; return Promise.resolve(void 0); });
         await pipInstaller.installModule(moduleName);
 
@@ -255,6 +255,6 @@ suite('Module Installer', () => {
         await pipInstaller.installModule(moduleName);
 
         expect(command!).equal('pipenv', 'Invalid command sent to terminal for installation.');
-        expect(argsSent.join(' ')).equal(`install ${moduleName}`, 'Invalid command arguments sent to terminal for installation.');
+        expect(argsSent.join(' ')).equal(`install ${moduleName} --dev`, 'Invalid command arguments sent to terminal for installation.');
     });
 });
