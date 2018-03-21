@@ -27,7 +27,7 @@ export class PipEnvInstaller implements IModuleInstaller {
 
     public installModule(name: string): Promise<void> {
         const terminalService = this.serviceContainer.get<ITerminalServiceFactory>(ITerminalServiceFactory).getTerminalService();
-        return terminalService.sendCommand(pipenvName, ['install', name]);
+        return terminalService.sendCommand(pipenvName, ['install', name, '--dev']);
     }
 
     public async isSupported(resource?: Uri): Promise<boolean> {
