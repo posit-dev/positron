@@ -3,16 +3,18 @@
 Our changelog is automatically generate from individual news entries.
 This alleviates the burden of having to go back and try to figure out
 what changed in a release. It also helps tie pull requests back to the
-issue(s) it addresses.
+issue(s) it addresses. Finally, it avoids merge conflicts if multiple
+pull requests try to edit the changelog.
 
 ## Entries
 
-Each news entries is represented by a Markdown file that contains the
+Each news entry is represented by a Markdown file that contains the
 relevant details of what changed. The file name of the news entry is
-the issue that corresponds to the change along with an option nonce in
+the issue that corresponds to the change along with an optional nonce in
 case a single issue corresponds to multiple changes. The directory
 the news entry is saved in specifies what section of the changelog the
-change corresponds to.
+change corresponds to. External contributors should also make sure to
+thank themselves for taking the time and effort to contribute.
 
 As an example, a change corresponding to a bug reported in issue #42
 would be saved in the `1 Fixes` directory and named `42.md`
@@ -22,6 +24,7 @@ regarding issue #42) and could contain the following:
 ```markdown
 [Answer](https://en.wikipedia.org/wiki/42_(number))
 to the Ultimate Question of Life, the Universe, and Everything!
+(thanks [Don Jaymanne](https://github.com/donjayamanne/))
 ```
 
 This would then be made into an entry in the changelog that was in the
