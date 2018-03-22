@@ -14,6 +14,7 @@ import { debounce, swallowExceptions } from '../common/decorators';
 import '../common/extensions';
 import { createDeferred, Deferred } from '../common/helpers';
 import { IPythonExecutionFactory } from '../common/process/types';
+import { StopWatch } from '../common/stopWatch';
 import { ILogger } from '../common/types';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { IServiceContainer } from '../ioc/types';
@@ -131,7 +132,7 @@ commandNames.set(CommandType.Usages, 'usages');
 commandNames.set(CommandType.Symbols, 'names');
 
 export class JediProxy implements vscode.Disposable {
-    private proc: ChildProcess | null;
+    private proc?: ChildProcess;
     private pythonSettings: PythonSettings;
     private cmdId: number = 0;
     private lastKnownPythonInterpreter: string;
@@ -141,10 +142,12 @@ export class JediProxy implements vscode.Disposable {
     private spawnRetryAttempts = 0;
     private additionalAutoCompletePaths: string[] = [];
     private workspacePath: string;
-    private languageServerStarted: Deferred<void>;
+    private languageServerStarted!: Deferred<void>;
     private initialized: Deferred<void>;
-    private environmentVariablesProvider: IEnvironmentVariablesProvider;
+    private environmentVariablesProvider!: IEnvironmentVariablesProvider;
     private logger: ILogger;
+    private ignoreJediMemoryFootprint: boolean = false;
+    private pidUsageFailures = { timer: new StopWatch(), counter: 0 };
 
     public constructor(private extensionRootDir: string, workspacePath: string, private serviceContainer: IServiceContainer) {
         this.workspacePath = workspacePath;
@@ -158,7 +161,9 @@ export class JediProxy implements vscode.Disposable {
         // Check memory footprint periodically. Do not check on every request due to
         // the performance impact. See https://github.com/soyuka/pidusage - on Windows
         // it is using wmic which means spawning cmd.exe process on every request.
-        setInterval(() => this.checkJediMemoryFootprint(), 2000);
+        if (this.shouldCheckJediMemoryFootprint()) {
+            setInterval(() => this.checkJediMemoryFootprint(), 2000);
+        }
     }
 
     private static getProperty<T>(o: object, name: string): T {
@@ -212,13 +217,28 @@ export class JediProxy implements vscode.Disposable {
                 this.handleError('spawnProcess', ex);
             });
     }
-
+    private shouldCheckJediMemoryFootprint() {
+        if (this.ignoreJediMemoryFootprint || this.pythonSettings.jediMemoryLimit === -1) {
+            return false;
+        }
+        return true;
+    }
     private checkJediMemoryFootprint() {
         if (!this.proc || this.proc.killed) {
             return;
         }
+        if (!this.shouldCheckJediMemoryFootprint()) {
+            return;
+        }
         pidusage.stat(this.proc.pid, async (err, result) => {
             if (err) {
+                this.pidUsageFailures.counter += 1;
+                // If this function fails 5 times in the last 30 seconds, lets not try ever again.
+                if (this.pidUsageFailures.timer.elapsedTime > 30 * 1000) {
+                    this.ignoreJediMemoryFootprint = this.pidUsageFailures.counter > 5;
+                    this.pidUsageFailures.counter = 0;
+                    this.pidUsageFailures.timer.reset();
+                }
                 return console.error('Python Extension: (pidusage)', err);
             }
             const limit = Math.min(Math.max(this.pythonSettings.jediMemoryLimit, 1024), 8192);
@@ -276,7 +296,7 @@ export class JediProxy implements vscode.Disposable {
             }
             // tslint:disable-next-line:no-empty
         } catch (ex) { }
-        this.proc = null;
+        this.proc = undefined;
     }
 
     private handleError(source: string, errorMessage: string) {
@@ -512,6 +532,7 @@ export class JediProxy implements vscode.Disposable {
     private onArguments(command: IExecutionCommand<ICommandResult>, response: object): void {
         // tslint:disable-next-line:no-any
         const defs = JediProxy.getProperty<any[]>(response, 'results');
+        // tslint:disable-next-line:no-object-literal-type-assertion
         this.safeResolve(command, <IArgumentsResult>{
             requestId: command.id,
             definitions: defs

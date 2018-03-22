@@ -30,7 +30,7 @@ export type CodeExecutionTelemetry = {
     scope: 'file' | 'selection';
 };
 export type DebuggerTelemetry = {
-    trigger: 'launch' | 'attach'
+    trigger: 'launch' | 'attach';
     console?: 'none' | 'integratedTerminal' | 'externalTerminal';
     debugOptions?: string;
     pyspark?: boolean;
@@ -41,14 +41,14 @@ export type DebuggerPerformanceTelemetry = {
     action: 'stepIn' | 'stepOut' | 'continue' | 'next' | 'launch';
 };
 export type TestRunTelemetry = {
-    tool: 'nosetest' | 'pytest' | 'unittest'
+    tool: 'nosetest' | 'pytest' | 'unittest';
     scope: 'currentFile' | 'all' | 'file' | 'class' | 'function' | 'failed';
     debugging: boolean;
     trigger: 'ui' | 'codelens' | 'commandpalette' | 'auto';
     failed: boolean;
 };
 export type TestDiscoverytTelemetry = {
-    tool: 'nosetest' | 'pytest' | 'unittest'
+    tool: 'nosetest' | 'pytest' | 'unittest';
     trigger: 'ui' | 'commandpalette';
     failed: boolean;
 };
