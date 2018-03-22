@@ -11,9 +11,9 @@ export class TestResultDisplay {
     private discoverCounter = 0;
     private ticker = ['|', '/', '-', '|', '/', '-', '\\'];
     private progressTimeout;
-    private progressPrefix: string;
+    private progressPrefix!: string;
     // tslint:disable-next-line:no-any
-    constructor(private outputChannel: vscode.OutputChannel, private onDidChange?: vscode.EventEmitter<any>) {
+    constructor(private onDidChange?: vscode.EventEmitter<any>) {
         this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     }
     public dispose() {
@@ -35,10 +35,10 @@ export class TestResultDisplay {
             // tslint:disable-next-line:no-empty
             .catch(() => { });
     }
-    public displayDiscoverStatus(testDiscovery: Promise<Tests>) {
+    public displayDiscoverStatus(testDiscovery: Promise<Tests>, quietMode: boolean = false) {
         this.displayProgress('Discovering Tests', 'Discovering Tests (Click to Stop)', constants.Commands.Tests_Ask_To_Stop_Discovery);
         return testDiscovery.then(tests => {
-            this.updateWithDiscoverSuccess(tests);
+            this.updateWithDiscoverSuccess(tests, quietMode);
             return tests;
         }).catch(reason => {
             this.updateWithDiscoverFailure(reason);
@@ -143,7 +143,7 @@ export class TestResultDisplay {
         return def.promise;
     }
 
-    private updateWithDiscoverSuccess(tests: Tests) {
+    private updateWithDiscoverSuccess(tests: Tests, quietMode: boolean = false) {
         this.clearProgressTicker();
         const haveTests = tests && (tests.testFunctions.length > 0);
         this.statusBar.text = '$(zap) Run Tests';
@@ -154,7 +154,7 @@ export class TestResultDisplay {
             this.onDidChange.fire();
         }
 
-        if (!haveTests) {
+        if (!haveTests && !quietMode) {
             vscode.window.showInformationMessage('No tests discovered, please check the configuration settings for the tests.', 'Disable Tests').then(item => {
                 if (item === 'Disable Tests') {
                     this.disableTests()

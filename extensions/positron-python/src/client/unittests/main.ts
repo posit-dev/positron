@@ -1,5 +1,6 @@
 'use strict';
 import * as vscode from 'vscode';
+// tslint:disable-next-line:no-duplicate-imports
 import { Disposable, Uri, window, workspace } from 'vscode';
 import { PythonSettings } from '../common/configSettings';
 import * as constants from '../common/constants';
@@ -77,7 +78,7 @@ async function onDocumentSaved(doc: vscode.TextDocument): Promise<void> {
     if (timeoutId) {
         clearTimeout(timeoutId);
     }
-    timeoutId = setTimeout(() => discoverTests(CommandSource.auto, doc.uri, true), 1000);
+    timeoutId = setTimeout(() => discoverTests(CommandSource.auto, doc.uri, true, false, true), 1000);
 }
 
 function dispose() {
@@ -157,7 +158,7 @@ async function selectAndRunTestMethod(cmdSource: CommandSource, resource: Uri, d
     if (!selectedTestFn) {
         return;
     }
-    // tslint:disable-next-line:prefer-type-cast
+    // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
     await runTestsImpl(cmdSource, testManager.workspaceFolder, { testFunction: [selectedTestFn.testFunction] } as TestsToRun, false, debug);
 }
 async function selectAndRunTestFile(cmdSource: CommandSource) {
@@ -177,7 +178,7 @@ async function selectAndRunTestFile(cmdSource: CommandSource) {
     if (!selectedFile) {
         return;
     }
-    // tslint:disable-next-line:prefer-type-cast
+    // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
     await runTestsImpl(cmdSource, testManager.workspaceFolder, { testFile: [selectedFile] } as TestsToRun);
 }
 async function runCurrentTestFile(cmdSource: CommandSource) {
@@ -200,7 +201,7 @@ async function runCurrentTestFile(cmdSource: CommandSource) {
     if (testFiles.length < 1) {
         return;
     }
-    // tslint:disable-next-line:prefer-type-cast
+    // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
     await runTestsImpl(cmdSource, testManager.workspaceFolder, { testFile: [testFiles[0]] } as TestsToRun);
 }
 async function displayStopUI(message: string) {
@@ -272,16 +273,16 @@ async function stopTests(resource: Uri) {
         testManager.stop();
     }
 }
-async function discoverTests(cmdSource: CommandSource, resource?: Uri, ignoreCache?: boolean, userInitiated?: boolean) {
+async function discoverTests(cmdSource: CommandSource, resource?: Uri, ignoreCache?: boolean, userInitiated?: boolean, quietMode?: boolean) {
     const testManager = await getTestManager(true, resource);
     if (!testManager) {
         return;
     }
 
     if (testManager && (testManager.status !== TestStatus.Discovering && testManager.status !== TestStatus.Running)) {
-        testResultDisplay = testResultDisplay ? testResultDisplay : new TestResultDisplay(outChannel, onDidChange);
-        const discoveryPromise = testManager.discoverTests(cmdSource, ignoreCache, false, userInitiated);
-        testResultDisplay.displayDiscoverStatus(discoveryPromise)
+        testResultDisplay = testResultDisplay ? testResultDisplay : new TestResultDisplay(onDidChange);
+        const discoveryPromise = testManager.discoverTests(cmdSource, ignoreCache, quietMode, userInitiated);
+        testResultDisplay.displayDiscoverStatus(discoveryPromise, quietMode)
             .catch(ex => console.error('Python Extension: displayDiscoverStatus', ex));
         await discoveryPromise;
     }
@@ -292,7 +293,7 @@ async function runTestsImpl(cmdSource: CommandSource, resource?: Uri, testsToRun
         return;
     }
 
-    testResultDisplay = testResultDisplay ? testResultDisplay : new TestResultDisplay(outChannel, onDidChange);
+    testResultDisplay = testResultDisplay ? testResultDisplay : new TestResultDisplay(onDidChange);
     const promise = testManager.runTest(cmdSource, testsToRun, runFailedTests, debug)
         .catch(reason => {
             if (reason !== CANCELLATION_REASON) {
