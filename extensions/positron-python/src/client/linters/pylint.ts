@@ -4,8 +4,8 @@
 
 import * as os from 'os';
 import * as path from 'path';
-import { OutputChannel } from 'vscode';
-import { CancellationToken, TextDocument } from 'vscode';
+import { CancellationToken, OutputChannel, TextDocument } from 'vscode';
+import '../common/extensions';
 import { IFileSystem, IPlatformService } from '../common/platform/types';
 import { Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
@@ -70,7 +70,7 @@ export class Pylint extends BaseLinter {
             '--msg-template=\'{line},{column},{category},{msg_id}:{msg}\'',
             '--reports=n',
             '--output-format=text',
-            uri.fsPath
+            uri.fsPath.fileToCommandArgument()
         ];
         const messages = await this.run(minArgs.concat(args), document, cancellation);
         messages.forEach(msg => {

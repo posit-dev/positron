@@ -1,5 +1,5 @@
-import { OutputChannel } from 'vscode';
-import { CancellationToken, TextDocument } from 'vscode';
+import { CancellationToken, OutputChannel, TextDocument } from 'vscode';
+import '../common/extensions';
 import { Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { BaseLinter } from './baseLinter';
@@ -28,7 +28,7 @@ export class Prospector extends BaseLinter {
     }
 
     protected async runLinter(document: TextDocument, cancellation: CancellationToken): Promise<ILintMessage[]> {
-        return await this.run(['--absolute-paths', '--output-format=json', document.uri.fsPath], document, cancellation);
+        return this.run(['--absolute-paths', '--output-format=json', document.uri.fsPath.fileToCommandArgument()], document, cancellation);
     }
     protected async parseMessages(output: string, document: TextDocument, token: CancellationToken, regEx: string) {
         let parsedData: IProspectorResponse;
