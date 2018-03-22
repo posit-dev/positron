@@ -1,6 +1,6 @@
 import * as path from 'path';
-import { OutputChannel } from 'vscode';
-import { CancellationToken, TextDocument } from 'vscode';
+import { CancellationToken, OutputChannel, TextDocument } from 'vscode';
+import '../common/extensions';
 import { Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { IS_WINDOWS } from './../common/utils';
@@ -13,7 +13,7 @@ export class PyDocStyle extends BaseLinter {
     }
 
     protected async runLinter(document: TextDocument, cancellation: CancellationToken): Promise<ILintMessage[]> {
-        const messages = await this.run([document.uri.fsPath], document, cancellation);
+        const messages = await this.run([document.uri.fsPath.fileToCommandArgument()], document, cancellation);
         // All messages in pep8 are treated as warnings for now.
         messages.forEach(msg => {
             msg.severity = LintMessageSeverity.Warning;
@@ -61,6 +61,7 @@ export class PyDocStyle extends BaseLinter {
                     const trmmedSourceLine = sourceLine.trim();
                     const sourceStart = sourceLine.indexOf(trmmedSourceLine);
 
+                    // tslint:disable-next-line:no-object-literal-type-assertion
                     return {
                         code: code,
                         message: message,

@@ -1,5 +1,5 @@
-import { OutputChannel } from 'vscode';
-import { CancellationToken, TextDocument } from 'vscode';
+import { CancellationToken, OutputChannel, TextDocument } from 'vscode';
+import '../common/extensions';
 import { Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { BaseLinter } from './baseLinter';
@@ -14,7 +14,7 @@ export class PyLama extends BaseLinter {
     }
 
     protected async runLinter(document: TextDocument, cancellation: CancellationToken): Promise<ILintMessage[]> {
-        const messages = await this.run(['--format=parsable', document.uri.fsPath], document, cancellation, REGEX);
+        const messages = await this.run(['--format=parsable', document.uri.fsPath.fileToCommandArgument()], document, cancellation, REGEX);
         // All messages in pylama are treated as warnings for now.
         messages.forEach(msg => {
             msg.severity = LintMessageSeverity.Warning;
