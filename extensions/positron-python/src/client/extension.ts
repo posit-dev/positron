@@ -20,6 +20,7 @@ import { registerTypes as installerRegisterTypes } from './common/installer/serv
 import { registerTypes as platformRegisterTypes } from './common/platform/serviceRegistry';
 import { registerTypes as processRegisterTypes } from './common/process/serviceRegistry';
 import { registerTypes as commonRegisterTypes } from './common/serviceRegistry';
+import { StopWatch } from './common/stopWatch';
 import { GLOBAL_MEMENTO, IDisposableRegistry, ILogger, IMemento, IOutputChannel, IPersistentStateFactory, WORKSPACE_MEMENTO } from './common/types';
 import { registerTypes as variableRegisterTypes } from './common/variables/serviceRegistry';
 import { BaseConfigurationProvider } from './debugger/configProviders/baseProvider';
@@ -53,7 +54,6 @@ import { activateUpdateSparkLibraryProvider } from './providers/updateSparkLibra
 import * as sortImports from './sortImports';
 import { sendTelemetryEvent } from './telemetry';
 import { EDITOR_LOAD } from './telemetry/constants';
-import { StopWatch } from './telemetry/stopWatch';
 import { registerTypes as commonRegisterTerminalTypes } from './terminals/serviceRegistry';
 import { ICodeExecutionManager } from './terminals/types';
 import { BlockFormatProviders } from './typeFormatters/blockFormatProvider';

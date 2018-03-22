@@ -1,10 +1,10 @@
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { ConfigurationTarget, Uri, window } from 'vscode';
+import { StopWatch } from '../../common/stopWatch';
 import { IServiceContainer } from '../../ioc/types';
 import { sendTelemetryEvent } from '../../telemetry';
 import { PYTHON_INTERPRETER } from '../../telemetry/constants';
-import { StopWatch } from '../../telemetry/stopWatch';
 import { PythonInterpreterTelemetry } from '../../telemetry/types';
 import { IInterpreterVersionService } from '../contracts';
 import { IPythonPathUpdaterServiceFactory, IPythonPathUpdaterServiceManager } from './types';

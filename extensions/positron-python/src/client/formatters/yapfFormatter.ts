@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
+import { StopWatch } from '../common/stopWatch';
 import { IConfigurationService, Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { sendTelemetryWhenDone } from '../telemetry';
 import { FORMAT } from '../telemetry/constants';
-import { StopWatch } from '../telemetry/stopWatch';
 import { BaseFormatter } from './baseFormatter';
 
 export class YapfFormatter extends BaseFormatter {

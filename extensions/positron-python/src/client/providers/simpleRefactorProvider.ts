@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import { PythonSettings } from '../common/configSettings';
 import { getTextEditsFromPatch } from '../common/editor';
+import { StopWatch } from '../common/stopWatch';
 import { IInstaller, Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { RefactorProxy } from '../refactor/proxy';
 import { sendTelemetryWhenDone } from '../telemetry';
 import { REFACTOR_EXTRACT_FUNCTION, REFACTOR_EXTRACT_VAR } from '../telemetry/constants';
-import { StopWatch } from '../telemetry/stopWatch';
 
 type RenameResponse = {
     results: [{ diff: string }];
