@@ -14,6 +14,7 @@ import { PythonLanguage } from '../../../client/common/constants';
 import { IFileSystem, IPlatformService } from '../../../client/common/platform/types';
 import { IConfigurationService, IPythonSettings } from '../../../client/common/types';
 import { PythonDebugConfigurationProvider, PythonV2DebugConfigurationProvider } from '../../../client/debugger';
+import { DebugOptions } from '../../../client/debugger/Common/Contracts';
 import { IServiceContainer } from '../../../client/ioc/types';
 
 [
@@ -260,24 +261,8 @@ import { IServiceContainer } from '../../../client/ioc/types';
 
             expect(debugConfig).to.have.property('stopOnEntry', false);
             expect(debugConfig).to.have.property('debugOptions');
-            expect((debugConfig as any).debugOptions).to.be.deep.equal(['RedirectOutput']);
+            expect((debugConfig as any).debugOptions).to.be.deep.equal([DebugOptions.RedirectOutput]);
         });
-        test('Test redirection of output', async () => {
-            if (provider.debugType === 'python') {
-                return;
-            }
-            const pythonPath = `PythonPath_${new Date().toString()}`;
-            const workspaceFolder = createMoqWorkspaceFolder(__dirname);
-            const pythonFile = 'xyz.py';
-            setupIoc(pythonPath);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
-
-            const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { debugOptions: ['RedirectOutput'] } as any);
-
-            expect(debugConfig).to.have.property('redirectOutput');
-            expect((debugConfig as any).redirectOutput).to.be.equal(true, 'invalid value');
-        });
-
         async function testFixFilePathCase(isWindows: boolean, isMac: boolean, isLinux: boolean) {
             const pythonPath = `PythonPath_${new Date().toString()}`;
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
@@ -286,9 +271,11 @@ import { IServiceContainer } from '../../../client/ioc/types';
             setupActiveEditor(pythonFile, PythonLanguage.language);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, {} as DebugConfiguration);
-
-            expect(debugConfig).to.have.property('fixFilePathCase');
-            expect((debugConfig as any).fixFilePathCase).to.be.equal(isWindows, 'invalid value (true only for windows)');
+            if (isWindows) {
+                expect(debugConfig).to.have.property('debugOptions').contains(DebugOptions.FixFilePathCase);
+            } else {
+                expect(debugConfig).to.have.property('debugOptions').not.contains(DebugOptions.FixFilePathCase);
+            }
         }
         test('Test fixFilePathCase for Windows', async () => {
             if (provider.debugType === 'python') {
@@ -318,7 +305,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             setupIoc(pythonPath, isWindows, isMac, isLinux);
             setupActiveEditor(pythonFile, PythonLanguage.language);
 
-            const options = addPyramidDebugOption ? { debugOptions: ['Pyramid'] } : {};
+            const options = addPyramidDebugOption ? { debugOptions: [DebugOptions.Pyramid] } : {};
             fileSystem.setup(fs => fs.fileExistsSync(TypeMoq.It.isValue(pythonPath))).returns(() => pythonPathExists);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, options as any as DebugConfiguration);

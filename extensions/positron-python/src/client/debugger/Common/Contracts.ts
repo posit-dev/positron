@@ -29,13 +29,17 @@ export enum DebugFlags {
     IgnoreCommandBursts = 1
 }
 
-export class DebugOptions {
-    public static get WaitOnAbnormalExit(): string { return 'WaitOnAbnormalExit'; }
-    public static get WaitOnNormalExit(): string { return 'WaitOnNormalExit'; }
-    public static get RedirectOutput(): string { return 'RedirectOutput'; }
-    public static get DjangoDebugging(): string { return 'DjangoDebugging'; }
-    public static get DebugStdLib(): string { return 'DebugStdLib'; }
-    public static get BreakOnSystemExitZero(): string { return 'BreakOnSystemExitZero'; }
+export enum DebugOptions {
+    WaitOnAbnormalExit = 'WaitOnAbnormalExit',
+    WaitOnNormalExit = 'WaitOnNormalExit',
+    RedirectOutput = 'RedirectOutput',
+    DjangoDebugging = 'DjangoDebugging',
+    FlaskDebugging = 'FlaskDebugging',
+    DebugStdLib = 'DebugStdLib',
+    BreakOnSystemExitZero = 'BreakOnSystemExitZero',
+    Sudo = 'Sudo',
+    Pyramid = 'Pyramid',
+    FixFilePathCase = 'FixFilePathCase'
 }
 
 export interface ExceptionHandling {
@@ -57,7 +61,7 @@ export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArgum
     args: string[];
     applicationType?: string;
     cwd?: string;
-    debugOptions?: string[];
+    debugOptions?: DebugOptions[];
     env?: Object;
     envFile: string;
     exceptionHandling?: ExceptionHandling;
