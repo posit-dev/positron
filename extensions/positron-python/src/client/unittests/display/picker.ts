@@ -1,6 +1,5 @@
 import * as path from 'path';
-import { QuickPickItem, Uri, window } from 'vscode';
-import * as vscode from 'vscode';
+import { commands, QuickPickItem, Uri, window } from 'vscode';
 import * as constants from '../../common/constants';
 import { CommandSource } from '../common/constants';
 import { FlattenedTestFunction, ITestCollectionStorageService, TestFile, TestFunction, Tests, TestStatus, TestsToRun } from '../common/types';
@@ -10,7 +9,7 @@ export class TestDisplay {
     public displayStopTestUI(workspace: Uri, message: string) {
         window.showQuickPick([message]).then(item => {
             if (item === message) {
-                vscode.commands.executeCommand(constants.Commands.Tests_Stop, workspace);
+                commands.executeCommand(constants.Commands.Tests_Stop, undefined, workspace);
             }
         });
     }
@@ -194,7 +193,7 @@ function onItemSelected(cmdSource: CommandSource, wkspace: Uri, selection: TestI
     }
     let cmd = '';
     // tslint:disable-next-line:no-any
-    const args: any[] = [cmdSource, wkspace];
+    const args: any[] = [undefined, cmdSource, wkspace];
     switch (selection.type) {
         case Type.Null: {
             return;
@@ -221,13 +220,13 @@ function onItemSelected(cmdSource: CommandSource, wkspace: Uri, selection: TestI
         }
         case Type.RunMethod: {
             cmd = constants.Commands.Tests_Run;
-            // tslint:disable-next-line:prefer-type-cast
+            // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
             args.push({ testFunction: [selection.fn.testFunction] } as TestsToRun);
             break;
         }
         case Type.DebugMethod: {
             cmd = constants.Commands.Tests_Debug;
-            // tslint:disable-next-line:prefer-type-cast
+            // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
             args.push({ testFunction: [selection.fn.testFunction] } as TestsToRun);
             args.push(true);
             break;
@@ -237,5 +236,5 @@ function onItemSelected(cmdSource: CommandSource, wkspace: Uri, selection: TestI
         }
     }
 
-    vscode.commands.executeCommand(cmd, ...args);
+    commands.executeCommand(cmd, ...args);
 }

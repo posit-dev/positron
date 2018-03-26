@@ -1,7 +1,8 @@
 'use strict';
 
-import { CancellationToken, CancellationTokenSource, CodeLens, CodeLensProvider, Event, EventEmitter, Position, Range, SymbolInformation, SymbolKind, TextDocument, workspace } from 'vscode';
-import { Uri } from 'vscode';
+// tslint:disable:no-object-literal-type-assertion
+
+import { CancellationToken, CancellationTokenSource, CodeLens, CodeLensProvider, Event, EventEmitter, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
 import * as constants from '../../common/constants';
 import { PythonSymbolProvider } from '../../providers/symbolProvider';
 import { CommandSource } from '../common/constants';
@@ -108,12 +109,12 @@ export class TestFileCodeLensProvider implements CodeLensProvider {
                     new CodeLens(range, {
                         title: getTestStatusIcon(cls.status) + constants.Text.CodeLensRunUnitTest,
                         command: constants.Commands.Tests_Run,
-                        arguments: [CommandSource.codelens, file, <TestsToRun>{ testSuite: [cls] }]
+                        arguments: [undefined, CommandSource.codelens, file, <TestsToRun>{ testSuite: [cls] }]
                     }),
                     new CodeLens(range, {
                         title: getTestStatusIcon(cls.status) + constants.Text.CodeLensDebugUnitTest,
                         command: constants.Commands.Tests_Debug,
-                        arguments: [CommandSource.codelens, file, <TestsToRun>{ testSuite: [cls] }]
+                        arguments: [undefined, CommandSource.codelens, file, <TestsToRun>{ testSuite: [cls] }]
                     })
                 ];
             }
@@ -182,12 +183,12 @@ function getFunctionCodeLens(file: Uri, functionsAndSuites: FunctionsAndSuites,
             new CodeLens(range, {
                 title: getTestStatusIcon(fn.status) + constants.Text.CodeLensRunUnitTest,
                 command: constants.Commands.Tests_Run,
-                arguments: [CommandSource.codelens, file, <TestsToRun>{ testFunction: [fn] }]
+                arguments: [undefined, CommandSource.codelens, file, <TestsToRun>{ testFunction: [fn] }]
             }),
             new CodeLens(range, {
                 title: getTestStatusIcon(fn.status) + constants.Text.CodeLensDebugUnitTest,
                 command: constants.Commands.Tests_Debug,
-                arguments: [CommandSource.codelens, file, <TestsToRun>{ testFunction: [fn] }]
+                arguments: [undefined, CommandSource.codelens, file, <TestsToRun>{ testFunction: [fn] }]
             })
         ];
     }
@@ -203,12 +204,12 @@ function getFunctionCodeLens(file: Uri, functionsAndSuites: FunctionsAndSuites,
             new CodeLens(range, {
                 title: constants.Text.CodeLensRunUnitTest,
                 command: constants.Commands.Tests_Run,
-                arguments: [CommandSource.codelens, file, <TestsToRun>{ testFunction: functions }]
+                arguments: [undefined, CommandSource.codelens, file, <TestsToRun>{ testFunction: functions }]
             }),
             new CodeLens(range, {
                 title: constants.Text.CodeLensDebugUnitTest,
                 command: constants.Commands.Tests_Debug,
-                arguments: [CommandSource.codelens, file, <TestsToRun>{ testFunction: functions }]
+                arguments: [undefined, CommandSource.codelens, file, <TestsToRun>{ testFunction: functions }]
             })
         ];
     }
@@ -218,12 +219,12 @@ function getFunctionCodeLens(file: Uri, functionsAndSuites: FunctionsAndSuites,
         new CodeLens(range, {
             title: `${getTestStatusIcons(functions)}${constants.Text.CodeLensRunUnitTest} (Multiple)`,
             command: constants.Commands.Tests_Picker_UI,
-            arguments: [CommandSource.codelens, file, functions]
+            arguments: [undefined, CommandSource.codelens, file, functions]
         }),
         new CodeLens(range, {
             title: `${getTestStatusIcons(functions)}${constants.Text.CodeLensDebugUnitTest} (Multiple)`,
             command: constants.Commands.Tests_Picker_UI_Debug,
-            arguments: [CommandSource.codelens, file, functions]
+            arguments: [undefined, CommandSource.codelens, file, functions]
         })
     ];
 }

@@ -1,15 +1,11 @@
 import { inject, injectable, named } from 'inversify';
 import * as path from 'path';
-import * as vscode from 'vscode';
-import { Uri, workspace } from 'vscode';
-import { window } from 'vscode';
+import { commands, Uri, window, workspace } from 'vscode';
 import * as constants from '../../common/constants';
-import { IUnitTestSettings } from '../../common/types';
-import { Product } from '../../common/types';
+import { IUnitTestSettings, Product } from '../../common/types';
 import { CommandSource } from './constants';
 import { TestFlatteningVisitor } from './testVisitors/flatteningVisitor';
-import { ITestVisitor, TestFile, TestFolder, TestProvider, Tests, TestSettingsPropertyNames, TestsToRun, UnitTestProduct } from './types';
-import { ITestsHelper } from './types';
+import { ITestsHelper, ITestVisitor, TestFile, TestFolder, TestProvider, Tests, TestSettingsPropertyNames, TestsToRun, UnitTestProduct } from './types';
 
 export async function selectTestWorkspace(): Promise<Uri | undefined> {
     if (!Array.isArray(workspace.workspaceFolders) || workspace.workspaceFolders.length === 0) {
@@ -24,9 +20,9 @@ export async function selectTestWorkspace(): Promise<Uri | undefined> {
 }
 
 export function displayTestErrorMessage(message: string) {
-    vscode.window.showErrorMessage(message, constants.Button_Text_Tests_View_Output).then(action => {
+    window.showErrorMessage(message, constants.Button_Text_Tests_View_Output).then(action => {
         if (action === constants.Button_Text_Tests_View_Output) {
-            vscode.commands.executeCommand(constants.Commands.Tests_ViewOutput, CommandSource.ui);
+            commands.executeCommand(constants.Commands.Tests_ViewOutput, undefined, CommandSource.ui);
         }
     });
 
@@ -44,7 +40,7 @@ export function convertFileToPackage(filePath: string): string {
 
 @injectable()
 export class TestsHelper implements ITestsHelper {
-    constructor( @inject(ITestVisitor) @named('TestFlatteningVisitor') private flatteningVisitor: TestFlatteningVisitor) { }
+    constructor(@inject(ITestVisitor) @named('TestFlatteningVisitor') private flatteningVisitor: TestFlatteningVisitor) { }
     public parseProviderName(product: UnitTestProduct): TestProvider {
         switch (product) {
             case Product.nosetest: return 'nosetest';
@@ -96,6 +92,7 @@ export class TestsHelper implements ITestsHelper {
     public flattenTestFiles(testFiles: TestFile[]): Tests {
         testFiles.forEach(testFile => this.flatteningVisitor.visitTestFile(testFile));
 
+        // tslint:disable-next-line:no-object-literal-type-assertion
         const tests = <Tests>{
             testFiles: testFiles,
             testFunctions: this.flatteningVisitor.flattenedTestFunctions,
@@ -165,6 +162,7 @@ export class TestsHelper implements ITestsHelper {
         if (testFns.length > 0) { return { testFunction: testFns }; }
 
         // Just return this as a test file.
+        // tslint:disable-next-line:no-object-literal-type-assertion
         return <TestsToRun>{ testFile: [{ name: name, nameToRun: name, functions: [], suites: [], xmlName: name, fullPath: '', time: 0 }] };
     }
 }

@@ -87,34 +87,34 @@ function dispose() {
 }
 function registerCommands(): vscode.Disposable[] {
     const disposables: Disposable[] = [];
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Discover, (cmdSource: CommandSource = CommandSource.commandPalette, resource?: Uri) => {
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Discover, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource?: Uri) => {
         // Ignore the exceptions returned.
         // This command will be invoked else where in the extension.
         // tslint:disable-next-line:no-empty
         discoverTests(cmdSource, resource, true, true).catch(() => { });
     }));
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Run_Failed, (cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => runTestsImpl(cmdSource, resource, undefined, true)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Run_Failed, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => runTestsImpl(cmdSource, resource, undefined, true)));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Run, (cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testToRun?: TestsToRun) => runTestsImpl(cmdSource, file, testToRun)));
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Debug, (cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testToRun: TestsToRun) => runTestsImpl(cmdSource, file, testToRun, false, true)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Run, (_, cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testToRun?: TestsToRun) => runTestsImpl(cmdSource, file, testToRun)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Debug, (_, cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testToRun: TestsToRun) => runTestsImpl(cmdSource, file, testToRun, false, true)));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
     disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_View_UI, () => displayUI(CommandSource.commandPalette)));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Picker_UI, (cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testFunctions: TestFunction[]) => displayPickerUI(cmdSource, file, testFunctions)));
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Picker_UI_Debug, (cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testFunctions: TestFunction[]) => displayPickerUI(cmdSource, file, testFunctions, true)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Picker_UI, (_, cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testFunctions: TestFunction[]) => displayPickerUI(cmdSource, file, testFunctions)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Picker_UI_Debug, (_, cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testFunctions: TestFunction[]) => displayPickerUI(cmdSource, file, testFunctions, true)));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Stop, (resource: Uri) => stopTests(resource)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Stop, (_, resource: Uri) => stopTests(resource)));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_ViewOutput, (cmdSource: CommandSource = CommandSource.commandPalette) => viewOutput(cmdSource)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_ViewOutput, (_, cmdSource: CommandSource = CommandSource.commandPalette) => viewOutput(cmdSource)));
     disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Ask_To_Stop_Discovery, () => displayStopUI('Stop discovering tests')));
     disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Ask_To_Stop_Test, () => displayStopUI('Stop running tests')));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Select_And_Run_Method, (cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => selectAndRunTestMethod(cmdSource, resource)));
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Select_And_Debug_Method, (cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => selectAndRunTestMethod(cmdSource, resource, true)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Select_And_Run_Method, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => selectAndRunTestMethod(cmdSource, resource)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Select_And_Debug_Method, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => selectAndRunTestMethod(cmdSource, resource, true)));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Select_And_Run_File, (cmdSource: CommandSource = CommandSource.commandPalette) => selectAndRunTestFile(cmdSource)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Select_And_Run_File, (_, cmdSource: CommandSource = CommandSource.commandPalette) => selectAndRunTestFile(cmdSource)));
     // tslint:disable-next-line:no-unnecessary-callback-wrapper
-    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Run_Current_File, (cmdSource: CommandSource = CommandSource.commandPalette) => runCurrentTestFile(cmdSource)));
+    disposables.push(vscode.commands.registerCommand(constants.Commands.Tests_Run_Current_File, (_, cmdSource: CommandSource = CommandSource.commandPalette) => runCurrentTestFile(cmdSource)));
 
     return disposables;
 }
