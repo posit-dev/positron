@@ -21,7 +21,8 @@ const VALID_DEBUG_OPTIONS = [
     'RedirectOutput',
     'DebugStdLib',
     'BreakOnSystemExitZero',
-    'DjangoDebugging'];
+    'DjangoDebugging',
+    'Django'];
 
 enum DebugServerStatus {
     Unknown = 1,
@@ -163,12 +164,16 @@ export class LocalDebugClient extends DebugClient<LaunchRequestArguments> {
     }
     // tslint:disable-next-line:member-ordering
     protected buildLauncherArguments(): string[] {
-        const vsDebugOptions = [DebugOptions.RedirectOutput];
+        const vsDebugOptions: string[] = [DebugOptions.RedirectOutput];
         if (Array.isArray(this.args.debugOptions)) {
             this.args.debugOptions.filter(opt => VALID_DEBUG_OPTIONS.indexOf(opt) >= 0)
                 .forEach(item => vsDebugOptions.push(item));
         }
-
+        const djangoIndex = vsDebugOptions.indexOf(DebugOptions.Django);
+        // PTVSD expects the string `DjangoDebugging`
+        if (djangoIndex >= 0) {
+            vsDebugOptions[djangoIndex] = 'DjangoDebugging';
+        }
         const programArgs = Array.isArray(this.args.args) && this.args.args.length > 0 ? this.args.args : [];
         if (typeof this.args.module === 'string' && this.args.module.length > 0) {
             return [vsDebugOptions.join(','), '-m', this.args.module].concat(programArgs);

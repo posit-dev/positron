@@ -19,11 +19,15 @@ export class PythonV2DebugConfigurationProvider extends BaseConfigurationProvide
         super.provideDefaults(workspaceFolder, debugConfiguration);
 
         debugConfiguration.stopOnEntry = false;
+        debugConfiguration.debugOptions = Array.isArray(debugConfiguration.debugOptions) ? debugConfiguration.debugOptions : [];
 
         // Add PTVSD specific flags.
         if (this.serviceContainer.get<IPlatformService>(IPlatformService).isWindows) {
-            debugConfiguration.debugOptions = Array.isArray(debugConfiguration.debugOptions) ? debugConfiguration.debugOptions : [];
             debugConfiguration.debugOptions.push(DebugOptions.FixFilePathCase);
+        }
+        if (debugConfiguration.module && debugConfiguration.module.toUpperCase() === 'FLASK'
+            && debugConfiguration.debugOptions.indexOf(DebugOptions.Flask) === -1) {
+            debugConfiguration.debugOptions.push(DebugOptions.Flask);
         }
     }
 }

@@ -332,7 +332,7 @@ export class PythonDebugger extends LoggingDebugSession {
         let isDjangoFile = false;
         if (this.launchArgs &&
             Array.isArray(this.launchArgs.debugOptions) &&
-            this.launchArgs.debugOptions.indexOf(DebugOptions.DjangoDebugging) >= 0) {
+            this.launchArgs.debugOptions.indexOf(DebugOptions.Django) >= 0) {
             isDjangoFile = filePath.toUpperCase().endsWith(".HTML");
         }
 
