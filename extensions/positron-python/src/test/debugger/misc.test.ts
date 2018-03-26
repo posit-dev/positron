@@ -14,7 +14,7 @@ import { noop } from '../../client/common/core.utils';
 import { IS_WINDOWS } from '../../client/common/platform/constants';
 import { FileSystem } from '../../client/common/platform/fileSystem';
 import { PlatformService } from '../../client/common/platform/platformService';
-import { LaunchRequestArguments } from '../../client/debugger/Common/Contracts';
+import { DebugOptions, LaunchRequestArguments } from '../../client/debugger/Common/Contracts';
 import { sleep } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { DEBUGGER_TIMEOUT } from './common/constants';
@@ -78,7 +78,7 @@ let testCounter = 0;
                 program: path.join(debugFilesPath, pythonFile),
                 cwd: debugFilesPath,
                 stopOnEntry,
-                debugOptions: ['RedirectOutput'],
+                debugOptions: [DebugOptions.RedirectOutput],
                 pythonPath: 'python',
                 args: [],
                 env,

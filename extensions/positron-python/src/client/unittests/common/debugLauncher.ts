@@ -4,6 +4,7 @@ import { Uri } from 'vscode';
 import { IDebugService, IWorkspaceService } from '../../common/application/types';
 import { EXTENSION_ROOT_DIR } from '../../common/constants';
 import { IConfigurationService } from '../../common/types';
+import { DebugOptions } from '../../debugger/Common/Contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { ITestDebugLauncher, LaunchOptions, TestProvider } from './types';
 
@@ -40,7 +41,7 @@ export class DebugLauncher implements ITestDebugLauncher {
             cwd,
             args: debugArgs,
             console: 'none',
-            debugOptions: ['RedirectOutput']
+            debugOptions: [DebugOptions.RedirectOutput]
         }).then(() => void (0));
     }
     private fixArgs(args: string[], testProvider: TestProvider, useExperimentalDebugger: boolean): string[] {

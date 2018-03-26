@@ -901,6 +901,10 @@
                                 "items": {
                                     "type": "string",
                                     "enum": [
+                                        "RedirectOutput",
+                                        "DebugStdLib",
+                                        "DjangoDebugging",
+                                        "FlaskDebugging",
                                         "Sudo",
                                         "Pyramid"
                                     ]

@@ -8,7 +8,7 @@ import { PathUtils } from '../../common/platform/pathUtils';
 import { CurrentProcess } from '../../common/process/currentProcess';
 import { EnvironmentVariablesService } from '../../common/variables/environment';
 import { IServiceContainer } from '../../ioc/types';
-import { IDebugServer, IPythonProcess, LaunchRequestArguments } from '../Common/Contracts';
+import { DebugOptions, IDebugServer, IPythonProcess, LaunchRequestArguments } from '../Common/Contracts';
 import { IS_WINDOWS } from '../Common/Utils';
 import { BaseDebugServer } from '../DebugServers/BaseDebugServer';
 import { LocalDebugServer } from '../DebugServers/LocalDebugServer';
@@ -163,7 +163,7 @@ export class LocalDebugClient extends DebugClient<LaunchRequestArguments> {
     }
     // tslint:disable-next-line:member-ordering
     protected buildLauncherArguments(): string[] {
-        const vsDebugOptions = ['RedirectOutput'];
+        const vsDebugOptions = [DebugOptions.RedirectOutput];
         if (Array.isArray(this.args.debugOptions)) {
             this.args.debugOptions.filter(opt => VALID_DEBUG_OPTIONS.indexOf(opt) >= 0)
                 .forEach(item => vsDebugOptions.push(item));

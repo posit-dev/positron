@@ -14,6 +14,7 @@ import { IDebugService, IWorkspaceService } from '../../../client/common/applica
 import { EXTENSION_ROOT_DIR } from '../../../client/common/constants';
 import '../../../client/common/extensions';
 import { IConfigurationService, IPythonSettings, IUnitTestSettings } from '../../../client/common/types';
+import { DebugOptions } from '../../../client/debugger/Common/Contracts';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { DebugLauncher } from '../../../client/unittests/common/debugLauncher';
 import { TestProvider } from '../../../client/unittests/common/types';
@@ -47,7 +48,7 @@ suite('Unit Tests - Debug Launcher', () => {
     });
     function setupDebugManager(workspaceFolder: WorkspaceFolder, name: string, type: string,
         request: string, program: string, cwd: string,
-        args: string[], console, debugOptions: string[],
+        args: string[], console, debugOptions: DebugOptions[],
         testProvider: TestProvider, useExperimentalDebugger: boolean) {
 
         const debugArgs = testProvider === 'unittest' && useExperimentalDebugger ? args.filter(item => item !== '--debug') : args;
@@ -96,7 +97,7 @@ suite('Unit Tests - Debug Launcher', () => {
                 const args = ['/one/two/three/testfile.py'];
                 const cwd = workspaceFolders[0].uri.fsPath;
                 const program = testLaunchScript;
-                setupDebugManager(workspaceFolders[0], 'Debug Unit Test', debuggerType, 'launch', program, cwd, args, 'none', ['RedirectOutput'], testProvider, useExperimentalDebugger);
+                setupDebugManager(workspaceFolders[0], 'Debug Unit Test', debuggerType, 'launch', program, cwd, args, 'none', [DebugOptions.RedirectOutput], testProvider, useExperimentalDebugger);
 
                 debugLauncher.launchDebugger({ cwd, args, testProvider }).ignoreErrors();
                 debugService.verifyAll();
@@ -111,7 +112,7 @@ suite('Unit Tests - Debug Launcher', () => {
                 const args = ['/one/two/three/testfile.py', '--debug', '1'];
                 const cwd = workspaceFolders[0].uri.fsPath;
                 const program = testLaunchScript;
-                setupDebugManager(workspaceFolders[0], 'Debug Unit Test', debuggerType, 'launch', program, cwd, args, 'none', ['RedirectOutput'], testProvider, useExperimentalDebugger);
+                setupDebugManager(workspaceFolders[0], 'Debug Unit Test', debuggerType, 'launch', program, cwd, args, 'none', [DebugOptions.RedirectOutput], testProvider, useExperimentalDebugger);
 
                 debugLauncher.launchDebugger({ cwd, args, testProvider }).ignoreErrors();
                 debugService.verifyAll();

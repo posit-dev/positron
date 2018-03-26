@@ -11,12 +11,11 @@ import { PythonLanguage } from '../../common/constants';
 import { IFileSystem, IPlatformService } from '../../common/platform/types';
 import { IConfigurationService } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
-import { DebuggerType, LaunchRequestArguments } from '../Common/Contracts';
+import { DebuggerType, DebugOptions, LaunchRequestArguments } from '../Common/Contracts';
 
 // tslint:disable:no-invalid-template-strings
 
 export type PythonDebugConfiguration = DebugConfiguration & LaunchRequestArguments;
-export type PTVSDDebugConfiguration = PythonDebugConfiguration & { redirectOutput: boolean; fixFilePathCase: boolean };
 
 @injectable()
 export abstract class BaseConfigurationProvider implements DebugConfigurationProvider {
@@ -62,10 +61,10 @@ export abstract class BaseConfigurationProvider implements DebugConfigurationPro
             debugConfiguration.debugOptions = [];
         }
         // Always redirect output.
-        if (debugConfiguration.debugOptions.indexOf('RedirectOutput') === -1) {
-            debugConfiguration.debugOptions.push('RedirectOutput');
+        if (debugConfiguration.debugOptions.indexOf(DebugOptions.RedirectOutput) === -1) {
+            debugConfiguration.debugOptions.push(DebugOptions.RedirectOutput);
         }
-        if (debugConfiguration.debugOptions.indexOf('Pyramid') >= 0) {
+        if (debugConfiguration.debugOptions.indexOf(DebugOptions.Pyramid) >= 0) {
             const platformService = this.serviceContainer.get<IPlatformService>(IPlatformService);
             const fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
             const pserve = platformService.isWindows ? 'pserve.exe' : 'pserve';
