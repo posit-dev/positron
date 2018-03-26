@@ -342,5 +342,21 @@ import { IServiceContainer } from '../../../client/ioc/types';
         test('Program is set to executable name for Pyramid when python exec does not exist (Mac)', async () => {
             await testPyramidConfiguration(false, false, true, true, false, true);
         });
+        test('Auto detect flask debugging', async () => {
+            if (provider.debugType === 'python') {
+                return;
+            }
+            const pythonPath = `PythonPath_${new Date().toString()}`;
+            const workspaceFolder = createMoqWorkspaceFolder(__dirname);
+            const pythonFile = 'xyz.py';
+            setupIoc(pythonPath);
+            setupActiveEditor(pythonFile, PythonLanguage.language);
+
+            const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { module: 'flask' } as any as DebugConfiguration);
+
+            expect(debugConfig).to.have.property('debugOptions');
+            expect((debugConfig as any).debugOptions).contains(DebugOptions.RedirectOutput);
+            expect((debugConfig as any).debugOptions).contains(DebugOptions.Flask);
+        });
     });
 });
