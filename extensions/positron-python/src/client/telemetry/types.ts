@@ -44,7 +44,7 @@ export type TestRunTelemetry = {
     tool: 'nosetest' | 'pytest' | 'unittest';
     scope: 'currentFile' | 'all' | 'file' | 'class' | 'function' | 'failed';
     debugging: boolean;
-    trigger: 'ui' | 'codelens' | 'commandpalette' | 'auto';
+    triggeredBy: 'ui' | 'codelens' | 'commandpalette' | 'auto';
     failed: boolean;
 };
 export type TestDiscoverytTelemetry = {

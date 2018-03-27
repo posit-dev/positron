@@ -177,7 +177,7 @@ export abstract class BaseTestManager implements ITestManager {
             tool: this.testProvider,
             scope: 'all',
             debugging: debug === true,
-            trigger: cmdSource,
+            triggeredBy: cmdSource,
             failed: false
         };
         if (runFailedTests === true) {
