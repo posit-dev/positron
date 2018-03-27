@@ -806,7 +806,7 @@
                             ],
                             "debugOptions": [
                                 "RedirectOutput",
-                                "Flask"
+                                "Jinja"
                             ]
                         }
                     },
@@ -930,7 +930,7 @@
                                         "RedirectOutput",
                                         "DebugStdLib",
                                         "Django",
-                                        "Flask",
+                                        "Jinja",
                                         "Sudo",
                                         "Pyramid"
                                     ]
@@ -1004,7 +1004,7 @@
                         ],
                         "debugOptions": [
                             "RedirectOutput",
-                            "Flask"
+                            "Jinja"
                         ]
                     },
                     {

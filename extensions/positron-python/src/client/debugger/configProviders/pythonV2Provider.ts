@@ -26,8 +26,8 @@ export class PythonV2DebugConfigurationProvider extends BaseConfigurationProvide
             debugConfiguration.debugOptions.push(DebugOptions.FixFilePathCase);
         }
         if (debugConfiguration.module && debugConfiguration.module.toUpperCase() === 'FLASK'
-            && debugConfiguration.debugOptions.indexOf(DebugOptions.Flask) === -1) {
-            debugConfiguration.debugOptions.push(DebugOptions.Flask);
+            && debugConfiguration.debugOptions.indexOf(DebugOptions.Jinja) === -1) {
+            debugConfiguration.debugOptions.push(DebugOptions.Jinja);
         }
     }
 }

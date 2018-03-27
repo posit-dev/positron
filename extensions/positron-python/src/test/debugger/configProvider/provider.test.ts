@@ -356,7 +356,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
 
             expect(debugConfig).to.have.property('debugOptions');
             expect((debugConfig as any).debugOptions).contains(DebugOptions.RedirectOutput);
-            expect((debugConfig as any).debugOptions).contains(DebugOptions.Flask);
+            expect((debugConfig as any).debugOptions).contains(DebugOptions.Jinja);
         });
     });
 });

@@ -34,7 +34,7 @@ export enum DebugOptions {
     WaitOnNormalExit = 'WaitOnNormalExit',
     RedirectOutput = 'RedirectOutput',
     Django = 'Django',
-    Flask = 'Flask',
+    Jinja = 'Jinja',
     DebugStdLib = 'DebugStdLib',
     BreakOnSystemExitZero = 'BreakOnSystemExitZero',
     Sudo = 'Sudo',
