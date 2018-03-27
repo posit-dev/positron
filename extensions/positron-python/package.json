@@ -990,7 +990,7 @@
                         ]
                     },
                     {
-                        "label": "Python Experimental: Flask",
+                        "name": "Python Experimental: Flask",
                         "type": "pythonExperimental",
                         "request": "launch",
                         "module": "flask",
