@@ -98,16 +98,17 @@ export interface IPythonSettings {
     readonly pythonPath: string;
     readonly venvPath: string;
     readonly venvFolders: string[];
+    readonly jediEnabled: boolean;
     readonly jediPath: string;
     readonly jediMemoryLimit: number;
     readonly devOptions: string[];
-    readonly linting: ILintingSettings;
-    readonly formatting: IFormattingSettings;
-    readonly unitTest: IUnitTestSettings;
-    readonly autoComplete: IAutoCompeteSettings;
-    readonly terminal: ITerminalSettings;
-    readonly sortImports: ISortImportSettings;
-    readonly workspaceSymbols: IWorkspaceSymbolSettings;
+    readonly linting?: ILintingSettings;
+    readonly formatting?: IFormattingSettings;
+    readonly unitTest?: IUnitTestSettings;
+    readonly autoComplete?: IAutoCompeteSettings;
+    readonly terminal?: ITerminalSettings;
+    readonly sortImports?: ISortImportSettings;
+    readonly workspaceSymbols?: IWorkspaceSymbolSettings;
     readonly envFile: string;
     readonly disablePromptForFeatures: string[];
     readonly disableInstallationChecks: boolean;
@@ -218,6 +219,7 @@ export interface IConfigurationService {
     getSettings(resource?: Uri): IPythonSettings;
     isTestExecution(): boolean;
     updateSettingAsync(setting: string, value?: {}, resource?: Uri, configTarget?: ConfigurationTarget): Promise<void>;
+    checkDependencies(): Promise<boolean>;
 }
 
 export const ISocketServer = Symbol('ISocketServer');
