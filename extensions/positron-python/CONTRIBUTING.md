@@ -28,7 +28,7 @@ You may see warnings that ```The engine "vscode" appears to be invalid.```, you 
 
 ### Incremental Build
 
-Run the `Compile` build Tasks from the [Command Palette](https://code.visualstudio.com/docs/editor/tasks) (short cut `CTRL+SHIFT+B` or `⇧⌘B`)
+Run the `Compile` and `Hygiene` build Tasks from the [Command Palette](https://code.visualstudio.com/docs/editor/tasks) (short cut `CTRL+SHIFT+B` or `⇧⌘B`)
 
 ### Errors and Warnings
 
