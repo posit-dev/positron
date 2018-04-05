@@ -11,13 +11,13 @@ import * as path from 'path';
 import { DebugClient } from 'vscode-debugadapter-testsupport';
 import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import '../../client/common/extensions';
+import { PTVSD_PATH } from '../../client/debugger/Common/constants';
 import { DebugOptions } from '../../client/debugger/Common/Contracts';
 import { sleep } from '../common';
 import { initialize, IS_APPVEYOR, IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { continueDebugging, createDebugAdapter } from './utils';
 
 const fileToDebug = path.join(EXTENSION_ROOT_DIR, 'src', 'testMultiRootWkspc', 'workspace5', 'remoteDebugger-start-with-ptvsd.py');
-const ptvsdPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'experimental', 'ptvsd');
 
 suite('Attach Debugger - Experimental', () => {
     let debugClient: DebugClient;
@@ -55,7 +55,7 @@ suite('Attach Debugger - Experimental', () => {
 
         // Set the path for PTVSD to be picked up.
         // tslint:disable-next-line:no-string-literal
-        customEnv['PYTHONPATH'] = ptvsdPath;
+        customEnv['PYTHONPATH'] = PTVSD_PATH;
         const pythonArgs = ['-m', 'ptvsd', '--server', '--port', `${port}`, '--file', fileToDebug.fileToCommandArgument()];
         procToKill = spawn('python', pythonArgs, { env: customEnv, cwd: path.dirname(fileToDebug) });
 
