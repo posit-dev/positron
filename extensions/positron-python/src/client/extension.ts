@@ -11,12 +11,11 @@ import {
     extensions, IndentAction, languages, Memento,
     OutputChannel, window
 } from 'vscode';
-import { IS_ANALYSIS_ENGINE_TEST } from '../test/constants';
 import { AnalysisExtensionActivator } from './activation/analysis';
 import { ClassicExtensionActivator } from './activation/classic';
 import { IExtensionActivator } from './activation/types';
 import { PythonSettings } from './common/configSettings';
-import { STANDARD_OUTPUT_CHANNEL } from './common/constants';
+import { isPythonAnalysisEngineTest, STANDARD_OUTPUT_CHANNEL } from './common/constants';
 import { FeatureDeprecationManager } from './common/featureDeprecationManager';
 import { createDeferred } from './common/helpers';
 import { PythonInstaller } from './common/installer/pythonInstallation';
@@ -75,7 +74,7 @@ export async function activate(context: ExtensionContext) {
     const configuration = serviceManager.get<IConfigurationService>(IConfigurationService);
     const pythonSettings = configuration.getSettings();
 
-    const activator: IExtensionActivator = IS_ANALYSIS_ENGINE_TEST || !pythonSettings.jediEnabled
+    const activator: IExtensionActivator = isPythonAnalysisEngineTest() || !pythonSettings.jediEnabled
         ? new AnalysisExtensionActivator(serviceManager, pythonSettings)
         : new ClassicExtensionActivator(serviceManager, pythonSettings);
 
@@ -108,7 +107,11 @@ export async function activate(context: ExtensionContext) {
     languages.setLanguageConfiguration(PYTHON.language!, {
         onEnterRules: [
             {
-                beforeText: /^\s*(?:def|class|for|if|elif|else|while|try|with|finally|except|async)\b.*/,
+                beforeText: /^\s*(?:def|class|for|if|elif|else|while|try|with|finally|except)\b.*:\s*\S+/,
+                action: { indentAction: IndentAction.None }
+            },
+            {
+                beforeText: /^\s*(?:def|class|for|if|elif|else|while|try|with|finally|except|async)\b.*:\s*/,
                 action: { indentAction: IndentAction.Indent }
             },
             {
