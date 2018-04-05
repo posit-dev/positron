@@ -9,12 +9,11 @@ import { expect } from 'chai';
 import { ChildProcess, spawn } from 'child_process';
 import * as getFreePort from 'get-port';
 import { connect, Socket } from 'net';
-import * as path from 'path';
 import { PassThrough } from 'stream';
 import { Message } from 'vscode-debugadapter/lib/messages';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { createDeferred } from '../../client/common/helpers';
+import { PTVSD_PATH } from '../../client/debugger/Common/constants';
 import { ProtocolParser } from '../../client/debugger/Common/protocolParser';
 import { ProtocolMessageWriter } from '../../client/debugger/Common/protocolWriter';
 import { PythonDebugger } from '../../client/debugger/mainV2';
@@ -75,7 +74,7 @@ suite('Debugging - Capabilities', () => {
         const host = 'localhost';
         const port = await getFreePort({ host });
         const env = { ...process.env };
-        env.PYTHONPATH = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'experimental', 'ptvsd');
+        env.PYTHONPATH = PTVSD_PATH;
         proc = spawn('python', ['-m', 'ptvsd', '--server', '--port', `${port}`, '--file', 'someFile.py'], { cwd: __dirname, env });
         // Wait for the socket server to start.
         // Keep trying till we timeout.
