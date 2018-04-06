@@ -19,7 +19,7 @@ import { PythonV2DebugConfigurationProvider } from '../../client/debugger';
 import { PTVSD_PATH } from '../../client/debugger/Common/constants';
 import { AttachRequestArguments, DebugOptions } from '../../client/debugger/Common/Contracts';
 import { IServiceContainer } from '../../client/ioc/types';
-import { sleep } from '../common';
+import { PYTHON_PATH, sleep } from '../common';
 import { initialize, IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { continueDebugging, createDebugAdapter } from './utils';
 
@@ -59,7 +59,7 @@ suite('Attach Debugger - Experimental', () => {
         // tslint:disable-next-line:no-string-literal
         env['PYTHONPATH'] = PTVSD_PATH;
         const pythonArgs = ['-m', 'ptvsd', '--server', '--port', `${port}`, '--file', fileToDebug.fileToCommandArgument()];
-        proc = spawn('python', pythonArgs, { env: env, cwd: path.dirname(fileToDebug) });
+        proc = spawn(PYTHON_PATH, pythonArgs, { env: env, cwd: path.dirname(fileToDebug) });
         await sleep(3000);
 
         // Send initialize, attach

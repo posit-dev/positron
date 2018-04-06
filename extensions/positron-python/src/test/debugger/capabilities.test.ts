@@ -20,6 +20,7 @@ import { PTVSD_PATH } from '../../client/debugger/Common/constants';
 import { ProtocolParser } from '../../client/debugger/Common/protocolParser';
 import { ProtocolMessageWriter } from '../../client/debugger/Common/protocolWriter';
 import { PythonDebugger } from '../../client/debugger/mainV2';
+import { PYTHON_PATH } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 
 class Request extends Message implements DebugProtocol.InitializeRequest {
@@ -80,7 +81,7 @@ suite('Debugging - Capabilities', () => {
         const port = await getFreePort({ host, port: 3000 });
         const env = { ...process.env };
         env.PYTHONPATH = PTVSD_PATH;
-        proc = spawn('python', ['-m', 'ptvsd', '--server', '--port', `${port}`, '--file', fileToDebug], { cwd: path.dirname(fileToDebug), env });
+        proc = spawn(PYTHON_PATH, ['-m', 'ptvsd', '--server', '--port', `${port}`, '--file', fileToDebug], { cwd: path.dirname(fileToDebug), env });
         await sleep(3000);
 
         const connected = createDeferred();
