@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { PythonSettings } from '../client/common/configSettings';
 import { activated } from '../client/extension';
-import { clearPythonPathInWorkspaceFolder, resetGlobalPythonPathSetting, setPythonPathInWorkspaceRoot } from './common';
+import { clearPythonPathInWorkspaceFolder, PYTHON_PATH, resetGlobalPythonPathSetting, setPythonPathInWorkspaceRoot } from './common';
 
 export * from './constants';
 
@@ -15,8 +15,6 @@ const workspace3Uri = vscode.Uri.file(path.join(multirootPath, 'workspace3'));
 
 //First thing to be executed.
 process.env['VSC_PYTHON_CI_TEST'] = '1';
-
-const PYTHON_PATH = getPythonPath();
 
 // Ability to use custom python environments for testing
 export async function initializePython() {
@@ -53,13 +51,4 @@ export async function closeActiveWindows(): Promise<void> {
             reject(new Error('Command \'workbench.action.closeAllEditors\' timedout'));
         }, 15000);
     });
-}
-
-function getPythonPath(): string {
-    // tslint:disable-next-line:no-unsafe-any
-    if (process.env.TRAVIS_PYTHON_PATH && fs.existsSync(process.env.TRAVIS_PYTHON_PATH)) {
-        // tslint:disable-next-line:no-unsafe-any
-        return process.env.TRAVIS_PYTHON_PATH;
-    }
-    return 'python';
 }
