@@ -42,11 +42,17 @@ export async function initializeTest(): Promise<any> {
     // Dispose any cached python settings (used only in test env).
     PythonSettings.dispose();
 }
-
 export async function closeActiveWindows(): Promise<void> {
-    return new Promise<void>((resolve, reject) => vscode.commands.executeCommand('workbench.action.closeAllEditors')
-        // tslint:disable-next-line:no-unnecessary-callback-wrapper
-        .then(() => resolve(), reject));
+    return new Promise<void>((resolve, reject) => {
+        vscode.commands.executeCommand('workbench.action.closeAllEditors')
+            // tslint:disable-next-line:no-unnecessary-callback-wrapper
+            .then(() => resolve(), reject);
+        // Attempt to fix #1301.
+        // Lets not waste too much time.
+        setTimeout(() => {
+            reject(new Error('Command \'workbench.action.closeAllEditors\' timedout'));
+        }, 15000);
+    });
 }
 
 function getPythonPath(): string {

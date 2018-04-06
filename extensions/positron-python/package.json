@@ -1017,6 +1017,31 @@
                                 },
                                 "default": []
                             },
+                            "pathMappings": {
+                                "type": "array",
+                                "label": "Additional path mappings.",
+                                "items": {
+                                    "type": "object",
+                                    "label": "Path mapping",
+                                    "required": [
+                                        "localRoot",
+                                        "remoteRoot"
+                                    ],
+                                    "properties": {
+                                        "localRoot": {
+                                            "type": "string",
+                                            "label": "Local source root.",
+                                            "default": ""
+                                        },
+                                        "remoteRoot": {
+                                            "type": "string",
+                                            "label": "Remote source root.",
+                                            "default": ""
+                                        }
+                                    }
+                                },
+                                "default": []
+                            },
                             "logToFile": {
                                 "type": "boolean",
                                 "description": "Enable logging of debugger events to a log file.",
