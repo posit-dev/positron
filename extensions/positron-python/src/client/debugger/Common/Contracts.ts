@@ -39,7 +39,8 @@ export enum DebugOptions {
     BreakOnSystemExitZero = 'BreakOnSystemExitZero',
     Sudo = 'Sudo',
     Pyramid = 'Pyramid',
-    FixFilePathCase = 'FixFilePathCase'
+    FixFilePathCase = 'FixFilePathCase',
+    WindowsClient = 'WindowsClient'
 }
 
 export interface ExceptionHandling {
