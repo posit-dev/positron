@@ -80,7 +80,7 @@ suite('Attach Debugger - Experimental', () => {
             type: 'pythonExperimental',
             port: port,
             host: 'localhost',
-            logToFile: true,
+            logToFile: false,
             debugOptions: [DebugOptions.RedirectOutput]
         };
         const platformService = TypeMoq.Mock.ofType<IPlatformService>();
