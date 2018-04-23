@@ -110,7 +110,7 @@ foo = 42  # Marked as a blacklisted name.
 - [ ] 3 or more linters work simultaneously
   - [ ] `Run Linting` runs all linters
   - [ ] The `Select Linter` command lists all the above linters and prompts to install a linter when missing
-  - [ ] `"python.linting.enabled"` disables all linters
+  - [ ] `"python.linting.enabled": false` disables all linters
   - [ ] The `Enable Linting` command changes `"python.linting.enabled"`
   - [ ] `"python.linting.lintOnSave` works
 
