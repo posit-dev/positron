@@ -105,9 +105,9 @@ You can always use the `Run Linting` command to immediately trigger a newly inst
 
 - [ ] flake8 works
 - [ ] mypy works
-- [ ] pydocstyle works
 - [ ] pep8 works
 - [ ] prospector works
+- [ ] pydocstyle works
 - [ ] pylama works
 - [ ] 3 or more linters work simultaneously
   - [ ] `Run Linting` runs all linters
