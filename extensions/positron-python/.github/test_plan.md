@@ -32,7 +32,6 @@
 
 - [ ] Detected a single virtual environment at the top-level of the workspace folder
   - [ ] Appropriate suffix label specified in status bar
-  - [ ] Prompt to install Pylint uses `--user`
   - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
   - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works and steals focus
 - [ ] Detect multiple virtual environments in a directory specified by `"python.venvPath"`
@@ -87,6 +86,8 @@ enable=bad-names
 foo = 42  # Marked as a blacklisted name.
 ```
 - [ ] Installation via the prompt installs Pylint as appropriate
+  - [ ] Uses `--user` for system-install of Python
+  - [ ] Installs into a virtual environment environment directly
 - [ ] Pylint works
 - [ ] `"python.linting.pylintUseMinimalCheckers": false` turns off the default rules w/ no `pylintrc` file present
 - [ ] The existense of a `pylintrc` file turns off the default rules
