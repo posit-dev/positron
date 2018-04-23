@@ -128,6 +128,9 @@ Please also test for general accuracy on the most "interesting" code you can fin
 
 #### [Formatting](https://code.visualstudio.com/docs/python/editing#_formatting)
 
+- [ ] Prompted to install a formatter if none installed and `Format Document` is run
+  - [ ] Installing `autopep8` works
+  - [ ] Installing `yapf` works
 - [ ] autopep8 works
 - [ ] yapf works
 - [ ] `"editor.formatOnType": true` works and has expected results
