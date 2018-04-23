@@ -94,6 +94,12 @@
                 "path": "./snippets/python.json"
             }
         ],
+        "keybindings":[
+            {
+                "command": "python.execSelectionInTerminal",
+                "key": "ctrl+enter"
+            }
+        ],
         "commands": [
             {
                 "command": "python.sortImports",
