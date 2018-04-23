@@ -48,7 +48,7 @@
   - [ ] Prompt to install Pylint uses `pipenv install --dev`
   - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
   - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
-- [ ] (Linux/macOS) Detected virtual environments created under `{workspaceFolder}/.direnv/python-{python_version}` for [direnv](https://direnv.net/) and its [`layout python3`](https://github.com/direnv/direnv/blob/master/stdlib.sh) support
+- [ ] (Linux/macOS) Virtual environments created under `{workspaceFolder}/.direnv/python-{python_version}` are detected (for [direnv](https://direnv.net/) and its [`layout python3`](https://github.com/direnv/direnv/blob/master/stdlib.sh) support)
   - [ ] Appropriate suffix label specified in status bar
   - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
 
