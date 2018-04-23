@@ -7,6 +7,7 @@ our features:
 - [jedi 0.12.0](https://pypi.org/project/jedi/0.12.0/)
   and [parso 0.2.0](https://pypi.org/project/parso/0.2.0/)
 - [isort 4.2.15](https://pypi.org/project/isort/4.2.15/)
+- [ptvsd 3.0.0](https://pypi.org/project/ptvsd/3.0.0/) and [4.1.1a1](https://pypi.org/project/ptvsd/4.1.1a1/)
 - [rope](https://pypi.org/project/rope/) (user-installed)
 - [exuberant ctags](http://ctags.sourceforge.net/) (user-installed)
 
