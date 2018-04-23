@@ -38,7 +38,9 @@
 - [ ] Detect multiple virtual environments in a directory specified by `"python.venvPath"`
 - [ ] Detected all [conda environments created with an interpreter](https://code.visualstudio.com/docs/python/environments#_conda-environments)
   - [ ] Appropriate suffix label specified in status bar
-  - [ ] Prompt to install Pylint installs into the conda environment
+  - [ ] Prompted to install Pylint
+    - [ ] Asked whether to install using conda or pip
+    - [ ] Installs into environment
   - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
   - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
 - [ ] (Linux/macOS until [`-m` is supported](https://github.com/Microsoft/vscode-python/issues/978)) Detected the virtual environment created by [pipenv](https://docs.pipenv.org/)
