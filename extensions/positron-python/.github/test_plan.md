@@ -101,6 +101,8 @@ foo = 42  # Marked as a blacklisted name.
 
 #### Other linters
 
+You can always use the `Run Linting` command to immediately trigger a newly installed linter.
+
 - [ ] flake8 works
 - [ ] mypy works
 - [ ] pydocstyle works
