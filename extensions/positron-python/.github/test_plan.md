@@ -64,6 +64,8 @@ print('Hello,', os.environ.get('WHO'), '!')
 WHO=world
 ```
 
+Make sure to use `Reload Window` between tests to reset your environment.
+
 - [ ] Environment variables in a `.env` file are exposed when running under the debugger
 - [ ] `"python.envFile"` allows for specifying an environment file manually
 
