@@ -34,7 +34,7 @@
   - [ ] Appropriate suffix label specified in status bar
   - [ ] Prompt to install Pylint uses `--user`
   - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
-  - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
+  - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works and steals focus
 - [ ] Detect multiple virtual environments in a directory specified by `"python.venvPath"`
 - [ ] Detected all [conda environments created with an interpreter](https://code.visualstudio.com/docs/python/environments#_conda-environments)
   - [ ] Appropriate suffix label specified in status bar
