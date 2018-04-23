@@ -32,8 +32,9 @@
 
 - [ ] Detected a single virtual environment at the top-level of the workspace folder
   - [ ] Appropriate suffix label specified in status bar
-  - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
-  - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works and steals focus
+  - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
+    - [ ] Steals focus
+    - [ ] `"python.terminal.activateEnvironment": false` turns off automatic activation of the environment
 - [ ] Detect multiple virtual environments in a directory specified by `"python.venvPath"`
 - [ ] Detected all [conda environments created with an interpreter](https://code.visualstudio.com/docs/python/environments#_conda-environments)
   - [ ] Appropriate suffix label specified in status bar
