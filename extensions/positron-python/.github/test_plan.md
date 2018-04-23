@@ -22,6 +22,9 @@
 - [ ] [`"python.pythonPath"`](https://code.visualstudio.com/docs/python/environments#_manually-specifying-an-interpreter) triggers an update in the status bar
 - [ ] `Run Python File in Terminal`
 - [ ] `Run Selection/Line in Python Terminal`
+  - [ ] Right-click
+  - [ ] Command
+  - [ ] `Ctrl-Enter`
 
 #### Virtual environments
 
