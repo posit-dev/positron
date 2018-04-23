@@ -62,12 +62,14 @@ print('Hello,', os.environ.get('WHO'), '!')
 ```
 # .env
 WHO=world
-```
+PYTHONPATH=some/path/somewhere
+````
 
 Make sure to use `Reload Window` between tests to reset your environment.
 
 - [ ] Environment variables in a `.env` file are exposed when running under the debugger
-- [ ] `"python.envFile"` allows for specifying an environment file manually
+- [ ] `"python.envFile"` allows for specifying an environment file manually (e.g. Jedi picks up `PYTHONPATH` changes)
+- [ ] `envFile` in a `launch.json` configuration works
 
 #### [Debugging](https://code.visualstudio.com/docs/python/environments#_python-interpreter-for-debugging)
 
