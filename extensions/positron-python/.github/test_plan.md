@@ -15,7 +15,7 @@
 - Have `Developer Tools` open to detect any errors
 
 <details>
-  <summary>Click to expand ...</summary>
+  <summary>Click to display/hide tests ...</summary>
 
 ### [Environment](https://code.visualstudio.com/docs/python/environments)
 #### Interpreters
