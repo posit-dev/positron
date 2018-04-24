@@ -37,28 +37,28 @@
 **ALWAYS**:
 - Create an environment with a space in their path somewhere
 - Make sure that you do not have `python.pythonPath` specified in your `settings.json` when testing automatic detection
+- Do note that the `Select Interpreter` drop-down window scrolls
 
 - [ ] Detected a single virtual environment at the top-level of the workspace folder (if you created this _after_ opening VS Code, then run `Reload Window` to pick up the new environment)
-  - [ ] Appropriate suffix label specified in status bar
+  - [ ] Appropriate suffix label specified in status bar (e.g. `(venv)`)
   - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
     - [ ] Steals focus
-    - [ ] `"python.terminal.activateEnvironment": false` turns off automatic activation of the environment
+    - [ ] `"python.terminal.activateEnvironment": false` deactivates automatically running the activation script in the terminal
 - [ ] Detect multiple virtual environments in a directory specified by `"python.venvPath"`
 - [ ] Detected all [conda environments created with an interpreter](https://code.visualstudio.com/docs/python/environments#_conda-environments)
-  - [ ] Appropriate suffix label specified in status bar
+  - [ ] Appropriate suffix label specified in status bar (e.g. `(condaenv)`)
   - [ ] Prompted to install Pylint
     - [ ] Asked whether to install using conda or pip
     - [ ] Installs into environment
-  - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
   - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
+    - [ ] `"python.terminal.activateEnvironment": false` deactivates automatically running the activation script in the terminal
 - [ ] (Linux/macOS until [`-m` is supported](https://github.com/Microsoft/vscode-python/issues/978)) Detected the virtual environment created by [pipenv](https://docs.pipenv.org/)
-  - [ ] Appropriate suffix label specified in status bar
+  - [ ] Appropriate suffix label specified in status bar (e.g. `(pipenv)`)
   - [ ] Prompt to install Pylint uses `pipenv install --dev`
-  - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
   - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
+    - [ ] `"python.terminal.activateEnvironment": false` deactivates automatically running the activation script in the terminal
 - [ ] (Linux/macOS) Virtual environments created under `{workspaceFolder}/.direnv/python-{python_version}` are detected (for [direnv](https://direnv.net/) and its [`layout python3`](https://github.com/direnv/direnv/blob/master/stdlib.sh) support)
-  - [ ] Appropriate suffix label specified in status bar
-  - [ ] `"python.terminal.activateEnvironments": false` deactivates detection
+  - [ ] Appropriate suffix label specified in status bar (e.g. `(venv)`)
 
 #### [Environment files](https://code.visualstudio.com/docs/python/environments#_environment-variable-definitions-file)
 Sample files:
