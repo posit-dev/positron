@@ -13,6 +13,7 @@
 **ALWAYS**:
 - Check the `Output` window under `Python` for logged errors
 - Have `Developer Tools` open to detect any errors
+- Consider running the tests in a multi-folder workspace
 
 <details>
   <summary>Scenarios</summary>
