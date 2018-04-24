@@ -14,6 +14,9 @@
 - Check the `Output` window under `Python` for logged errors
 - Have `Developer Tools` open to detect any errors
 
+<details>
+  <summary>Click to expand ...</summary>
+
 ### [Environment](https://code.visualstudio.com/docs/python/environments)
 #### Interpreters
 
@@ -258,3 +261,5 @@ def test_failure():
   - [ ] `Run Unit Test Method ...` works
   - [ ] `View Unit Test Output` works
   - [ ] After having at least one failure, `Run Failed Tests` works
+
+</details>
