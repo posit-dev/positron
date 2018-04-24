@@ -1157,7 +1157,7 @@
                         ".pyenv",
                         ".direnv"
                     ],
-                    "description": "Folders to look into for virtual environments.",
+                    "description": "Folders in your home directory to look into for virtual environments.",
                     "scope": "resource",
                     "items": {
                         "type": "string"
