@@ -10,7 +10,9 @@
 
 ## Tests
 
-**ALWAYS check the `Output` window under `Python` for logged errors!**
+**ALWAYS**:
+- Check the `Output` window under `Python` for logged errors
+- Have `Developer Tools` open to detect any errors
 
 ### [Environment](https://code.visualstudio.com/docs/python/environments)
 #### Interpreters
@@ -29,8 +31,9 @@
 
 #### Virtual environments
 
-- **ALWAYS create an environment with a space in their path somewhere.**
-- **For all automatic detection tests, make sure that you do not have `python.pythonPath` specified in your `settings.json`.**
+**ALWAYS**:
+- Create an environment with a space in their path somewhere
+- Make sure that you do not have `python.pythonPath` specified in your `settings.json` when testing automatic detection
 
 - [ ] Detected a single virtual environment at the top-level of the workspace folder (if you created this _after_ opening VS Code, then run `Reload Window` to pick up the new environment)
   - [ ] Appropriate suffix label specified in status bar
@@ -67,8 +70,9 @@ WHO=world
 PYTHONPATH=some/path/somewhere
 ````
 
-- **Make sure to use `Reload Window` between tests to reset your environment!**
-- **Note that environment files only apply under the debugger and Jedi.**
+**ALWAYS**:
+- Make sure to use `Reload Window` between tests to reset your environment
+- Note that environment files only apply under the debugger and Jedi
 
 - [ ] Environment variables in a `.env` file are exposed when running under the debugger
 - [ ] `"python.envFile"` allows for specifying an environment file manually (e.g. Jedi picks up `PYTHONPATH` changes)
@@ -80,7 +84,8 @@ PYTHONPATH=some/path/somewhere
 
 ### [Linting](https://code.visualstudio.com/docs/python/linting)
 
-**ALWAYS check under the `Problems` tab to see e.g. if a linter is raising errors!**
+**ALWAYS**:
+- Check under the `Problems` tab to see e.g. if a linter is raising errors
 
 #### Pylint/default linting
 [Prompting to install Pylint is covered under `Environments` above]
@@ -153,7 +158,9 @@ def foo():pass
 
 ### [Debugging](https://code.visualstudio.com/docs/python/debugging)
 
-Test **both** old and new debugger (and notice if the new debugger seems _at least_ as fast as the old debugger).
+**ALWAYS**:
+- Test the current debugger
+- Text the experimental debugger (and note whether it is _at least_ as fast as the old debugger)
 
 - [ ] [Configurations](https://code.visualstudio.com/docs/python/debugging#_debugging-specific-app-types) work
   - [ ] `Current File`
