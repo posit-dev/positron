@@ -145,6 +145,7 @@ def foo():pass
 - [ ] [`Extract Variable`](https://code.visualstudio.com/docs/python/editing#_extract-variable) works
 - [ ] [`Extract method`](https://code.visualstudio.com/docs/python/editing#_extract-method) works
 - [ ] [`Sort Imports`](https://code.visualstudio.com/docs/python/editing#_sort-imports) works
+- [ ] You are prompted to install `rope` when running any of these commands if it is not already installed
 
 ### [Debugging](https://code.visualstudio.com/docs/python/debugging)
 
