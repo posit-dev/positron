@@ -169,6 +169,9 @@ Test **both** old and new debugger (and notice if the new debugger seems _at lea
   - [ ] Set
   - [ ] Hit
   - [ ] Conditional
+    - [ ] Expression
+    - [ ] Hit count
+  - [ ] Log points (experimental debugger only)
 - [ ] Stepping
   - [ ] Over
   - [ ] Into
