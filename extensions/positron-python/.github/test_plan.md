@@ -6,7 +6,7 @@
 - Python
   - Distribution: XXX
   - Version: XXX
-- VS Code version: XXX
+- VS Code: XXX
 
 ## Tests
 
