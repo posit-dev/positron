@@ -127,6 +127,11 @@ Please also test for general accuracy on the most "interesting" code you can fin
 - [ ] `"python.autocomplete.addBrackets": true` causes auto-completion of functions to append `()`
 
 #### [Formatting](https://code.visualstudio.com/docs/python/editing#_formatting)
+Sample file:
+```python
+# There should be _some_ change after running `Format Document`.
+def foo():pass
+```
 
 - [ ] Prompted to install a formatter if none installed and `Format Document` is run
   - [ ] Installing `autopep8` works
