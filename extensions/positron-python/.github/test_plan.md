@@ -55,7 +55,7 @@
 
 #### [Environment files](https://code.visualstudio.com/docs/python/environments#_environment-variable-definitions-file)
 Sample files:
-```python3
+```python
 # example.py
 import os
 print('Hello,', os.environ.get('WHO'), '!')
