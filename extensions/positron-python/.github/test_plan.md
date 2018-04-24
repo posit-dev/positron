@@ -168,7 +168,7 @@ Test **both** old and new debugger (and notice if the new debugger seems _at lea
 - [ ] Breakpoints
   - [ ] Set
   - [ ] Hit
-  - [ ] Watch
+  - [ ] Conditional
 - [ ] Stepping
   - [ ] Over
   - [ ] Into
