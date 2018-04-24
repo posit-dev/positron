@@ -29,9 +29,10 @@
 
 #### Virtual environments
 
-**ALWAYS create environments with a space in their name.***
+- **ALWAYS create an environment with a space in their path somewhere.**
+- **For all automatic detection tests, make sure that you do not have `python.pythonPath` specified in your `settings.json`.**
 
-- [ ] Detected a single virtual environment at the top-level of the workspace folder
+- [ ] Detected a single virtual environment at the top-level of the workspace folder (if you created this _after_ opening VS Code, then run `Reload Window` to pick up the new environment)
   - [ ] Appropriate suffix label specified in status bar
   - [ ] [`Create Terminal`](https://code.visualstudio.com/docs/python/environments#_activating-an-environment-in-the-terminal) works
     - [ ] Steals focus
@@ -66,7 +67,8 @@ WHO=world
 PYTHONPATH=some/path/somewhere
 ````
 
-**Make sure to use `Reload Window` between tests to reset your environment!**
+- **Make sure to use `Reload Window` between tests to reset your environment!**
+- **Note that environment files only apply under the debugger and Jedi.**
 
 - [ ] Environment variables in a `.env` file are exposed when running under the debugger
 - [ ] `"python.envFile"` allows for specifying an environment file manually (e.g. Jedi picks up `PYTHONPATH` changes)
