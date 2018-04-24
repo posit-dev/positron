@@ -164,7 +164,7 @@ Test **both** old and new debugger (and notice if the new debugger seems _at lea
   - [ ] `Watson`
   - [ ] `Scrapy`
   - [ ] `PySpark`
-  - [ ] `All debug Options` with [appropriate values](https://code.visualstudio.com/docs/python/debugging#_standard-configuration-and-options) changed
+  - [ ] `All debug Options` with [appropriate values](https://code.visualstudio.com/docs/python/debugging#_standard-configuration-and-options) edited to make values valid
 - [ ] Breakpoints
   - [ ] Set
   - [ ] Hit
