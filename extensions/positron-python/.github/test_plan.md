@@ -112,20 +112,27 @@ foo = 42  # Marked as a blacklisted name.
 
 #### Other linters
 
-You can always use the `Run Linting` command to immediately trigger a newly installed linter.
+**Note**:
+- You can use the `Run Linting` command to run a newly installed linter
+- When the extension installs a new linter, it turns off all other linters
 
 - [ ] flake8 works
+  - [ ] `Select linter` lists the linter and installs it if necessary
 - [ ] mypy works
+  - [ ] `Select linter` lists the linter and installs it if necessary
 - [ ] pep8 works
+  - [ ] `Select linter` lists the linter and installs it if necessary
 - [ ] prospector works
+  - [ ] `Select linter` lists the linter and installs it if necessary
 - [ ] pydocstyle works
+  - [ ] `Select linter` lists the linter and installs it if necessary
 - [ ] pylama works
-- [ ] 3 or more linters work simultaneously
-  - [ ] `Run Linting` runs all linters
-  - [ ] The `Select Linter` command lists all the above linters and prompts to install a linter when missing
+  - [ ] `Select linter` lists the linter and installs it if necessary
+- [ ] 3 or more linters work simultaneously (make sure you have turned on the linters in your `settings.json`)
+  - [ ] `Run Linting` runs all activated linters
   - [ ] `"python.linting.enabled": false` disables all linters
   - [ ] The `Enable Linting` command changes `"python.linting.enabled"`
-  - [ ] `"python.linting.lintOnSave` works
+- [ ] `"python.linting.lintOnSave` works
 
 ### [Editing](https://code.visualstudio.com/docs/python/editing)
 
