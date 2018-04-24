@@ -219,7 +219,7 @@ def test_failure():
 ```
 
 - [ ] `Run All Unit Tests` triggers the prompt to configure the test runner
-  - [ ] Pytest gets installed
+  - [ ] `pytest` gets installed
 - [ ] Tests are discovered (as shown by code lenses on each test)
 
 #### [`nose`](https://code.visualstudio.com/docs/python/unit-testing#_nose-configuration-settings)
