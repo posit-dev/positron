@@ -97,7 +97,7 @@ foo = 42  # Marked as a blacklisted name.
   - [ ] Installs into a virtual environment environment directly
 - [ ] Pylint works
 - [ ] `"python.linting.pylintUseMinimalCheckers": false` turns off the default rules w/ no `pylintrc` file present
-- [ ] The existense of a `pylintrc` file turns off the default rules
+- [ ] The existence of a `pylintrc` file turns off the default rules
 
 #### Other linters
 
