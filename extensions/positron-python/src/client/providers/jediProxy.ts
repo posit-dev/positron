@@ -305,10 +305,14 @@ export class JediProxy implements Disposable {
     // tslint:disable-next-line:max-func-body-length
     private async spawnProcess(cwd: string) {
         if (this.languageServerStarted && !this.languageServerStarted.completed) {
-            this.languageServerStarted.reject();
+            this.languageServerStarted.reject(new Error('Language Server not started.'));
         }
         this.languageServerStarted = createDeferred<void>();
         const pythonProcess = await this.serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory).create(Uri.file(this.workspacePath));
+        // Check if the python path is valid.
+        if ((await pythonProcess.getExecutablePath().catch(() => '')).length === 0) {
+            return;
+        }
         const args = ['completion.py'];
         if (typeof this.pythonSettings.jediPath === 'string' && this.pythonSettings.jediPath.length > 0) {
             args.push('custom');
@@ -638,14 +642,14 @@ export class JediProxy implements Disposable {
         // Add support for paths relative to workspace.
         const extraPaths = this.pythonSettings.autoComplete ?
             this.pythonSettings.autoComplete.extraPaths.map(extraPath => {
-            if (path.isAbsolute(extraPath)) {
-                return extraPath;
-            }
-            if (typeof this.workspacePath !== 'string') {
-                return '';
-            }
-            return path.join(this.workspacePath, extraPath);
-        }) : [];
+                if (path.isAbsolute(extraPath)) {
+                    return extraPath;
+                }
+                if (typeof this.workspacePath !== 'string') {
+                    return '';
+                }
+                return path.join(this.workspacePath, extraPath);
+            }) : [];
 
         // Always add workspace path into extra paths.
         if (typeof this.workspacePath === 'string') {
