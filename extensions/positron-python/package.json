@@ -788,10 +788,7 @@
                                 "--noreload",
                                 "--nothreading"
                             ],
-                            "debugOptions": [
-                                "RedirectOutput",
-                                "Django"
-                            ]
+                            "django": true
                         }
                     },
                     {
@@ -810,10 +807,7 @@
                                 "--no-debugger",
                                 "--no-reload"
                             ],
-                            "debugOptions": [
-                                "RedirectOutput",
-                                "Jinja"
-                            ]
+                            "jinja": true
                         }
                     },
                     {
@@ -876,9 +870,7 @@
                             "args": [
                                 "^\"\\${workspaceFolder}/development.ini\""
                             ],
-                            "debugOptions": [
-                                "Pyramid"
-                            ]
+                            "pyramid": true
                         }
                     },
                     {
@@ -888,8 +880,6 @@
                             "name": "Attach (Remote Debug)",
                             "type": "pythonExperimental",
                             "request": "attach",
-                            "localRoot": "^\"\\${workspaceFolder}\"",
-                            "remoteRoot": "^\"\\${workspaceFolder}\"",
                             "port": 3000,
                             "host": "localhost"
                         }
@@ -1101,10 +1091,7 @@
                             "--noreload",
                             "--nothreading"
                         ],
-                        "debugOptions": [
-                            "RedirectOutput",
-                            "Django"
-                        ]
+                        "django": true
                     },
                     {
                         "name": "Python Experimental: Flask",
@@ -1119,10 +1106,7 @@
                             "--no-debugger",
                             "--no-reload"
                         ],
-                        "debugOptions": [
-                            "RedirectOutput",
-                            "Jinja"
-                        ]
+                        "jinja": true
                     },
                     {
                         "name": "Python Experimental: Current File (External Terminal)",
