@@ -323,7 +323,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             setupIoc(pythonPath, isWindows, isMac, isLinux);
             setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
-            const execOutput = pyramidExists ? Promise.resolve({ stdout: pyramidFilePath }) : Promise.reject(new Error('No Module'));
+            const execOutput = pyramidExists ? Promise.resolve({ stdout: pyramidFilePath }) : Promise.reject('No Module');
             pythonExecutionService.setup(e => e.exec(TypeMoq.It.isValue(args), TypeMoq.It.isAny()))
                 .returns(() => execOutput)
                 .verifiable(TypeMoq.Times.exactly(addPyramidDebugOption ? 1 : 0));
@@ -337,13 +337,18 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, options as any as DebugConfiguration);
             if (shouldWork) {
                 expect(debugConfig).to.have.property('program', pserveFilePath);
+
+                if (provider.debugType === 'pythonExperimental') {
+                    expect(debugConfig).to.have.property('debugOptions');
+                    expect((debugConfig as any).debugOptions).contains(DebugOptions.Jinja);
+                }
             } else {
                 expect(debugConfig!.program).to.be.not.equal(pserveFilePath);
             }
             pythonExecutionService.verifyAll();
             fileSystem.verifyAll();
             appShell.verifyAll();
-    }
+        }
         test('Program is set for Pyramid (windows)', async () => {
             await testPyramidConfiguration(true, false, false);
         });

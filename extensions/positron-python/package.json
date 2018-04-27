@@ -872,7 +872,8 @@
                             "args": [
                                 "^\"\\${workspaceFolder}/development.ini\""
                             ],
-                            "pyramid": true
+                            "pyramid": true,
+                            "jinja": true
                         }
                     },
                     {
