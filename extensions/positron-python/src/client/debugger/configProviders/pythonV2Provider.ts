@@ -37,7 +37,8 @@ export class PythonV2DebugConfigurationProvider extends BaseConfigurationProvide
         if (this.serviceContainer.get<IPlatformService>(IPlatformService).isWindows) {
             this.debugOption(debugOptions, DebugOptions.FixFilePathCase);
         }
-        if (debugConfiguration.module && debugConfiguration.module.toUpperCase() === 'FLASK'
+        const isFlask = debugConfiguration.module && debugConfiguration.module.toUpperCase() === 'FLASK';
+        if ((debugConfiguration.pyramid || isFlask)
             && debugOptions.indexOf(DebugOptions.Jinja) === -1
             && debugConfiguration.jinja !== false) {
             this.debugOption(debugOptions, DebugOptions.Jinja);
@@ -57,6 +58,11 @@ export class PythonV2DebugConfigurationProvider extends BaseConfigurationProvide
             this.debugOption(debugOptions, DebugOptions.Django);
         }
         if (debugConfiguration.jinja) {
+            this.debugOption(debugOptions, DebugOptions.Jinja);
+        }
+        if (debugConfiguration.pyramid
+            && debugOptions.indexOf(DebugOptions.Jinja) === -1
+            && debugConfiguration.jinja !== false) {
             this.debugOption(debugOptions, DebugOptions.Jinja);
         }
         if (debugConfiguration.redirectOutput || debugConfiguration.redirectOutput === undefined) {
