@@ -842,7 +842,8 @@
                                 "dev",
                                 "runserver",
                                 "--noreload=True"
-                            ]
+                            ],
+                            "jinja": true
                         }
                     },
                     {
