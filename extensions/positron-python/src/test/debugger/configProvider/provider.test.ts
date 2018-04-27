@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as TypeMoq from 'typemoq';
 import { DebugConfiguration, DebugConfigurationProvider, TextDocument, TextEditor, Uri, WorkspaceFolder } from 'vscode';
 import { IApplicationShell, IDocumentManager, IWorkspaceService } from '../../../client/common/application/types';
-import { PythonLanguage } from '../../../client/common/constants';
+import { PYTHON_LANGUAGE } from '../../../client/common/constants';
 import { IFileSystem, IPlatformService } from '../../../client/common/platform/types';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../../client/common/process/types';
 import { IConfigurationService, IPythonSettings } from '../../../client/common/types';
@@ -94,7 +94,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const pythonFile = 'xyz.py';
             setupIoc(pythonPath);
 
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, {} as DebugConfiguration);
 
@@ -116,7 +116,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
             const pythonFile = 'xyz.py';
             setupIoc(pythonPath);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { noDebug: true } as any as DebugConfiguration);
 
@@ -137,7 +137,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const pythonPath = `PythonPath_${new Date().toString()}`;
             const pythonFile = 'xyz.py';
             setupIoc(pythonPath);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
             setupWorkspaces([]);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(undefined, {} as DebugConfiguration);
@@ -159,7 +159,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
         test('Defaults should be returned when an empty object is passed without Workspace Folder, no workspaces and no active file', async () => {
             const pythonPath = `PythonPath_${new Date().toString()}`;
             setupIoc(pythonPath);
-            setupActiveEditor(undefined, PythonLanguage.language);
+            setupActiveEditor(undefined, PYTHON_LANGUAGE);
             setupWorkspaces([]);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(undefined, {} as DebugConfiguration);
@@ -199,7 +199,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const pythonPath = `PythonPath_${new Date().toString()}`;
             const activeFile = 'xyz.py';
             setupIoc(pythonPath);
-            setupActiveEditor(activeFile, PythonLanguage.language);
+            setupActiveEditor(activeFile, PYTHON_LANGUAGE);
             const defaultWorkspace = path.join('usr', 'desktop');
             setupWorkspaces([defaultWorkspace]);
 
@@ -224,7 +224,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const activeFile = 'xyz.py';
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
             setupIoc(pythonPath);
-            setupActiveEditor(activeFile, PythonLanguage.language);
+            setupActiveEditor(activeFile, PYTHON_LANGUAGE);
             const defaultWorkspace = path.join('usr', 'desktop');
             setupWorkspaces([defaultWorkspace]);
 
@@ -237,7 +237,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const activeFile = 'xyz.py';
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
             setupIoc(pythonPath);
-            setupActiveEditor(activeFile, PythonLanguage.language);
+            setupActiveEditor(activeFile, PYTHON_LANGUAGE);
             const defaultWorkspace = path.join('usr', 'desktop');
             setupWorkspaces([defaultWorkspace]);
 
@@ -254,7 +254,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
             const pythonFile = 'xyz.py';
             setupIoc(pythonPath);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, {} as DebugConfiguration);
 
@@ -271,7 +271,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
             const pythonFile = 'xyz.py';
             setupIoc(pythonPath);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, {} as DebugConfiguration);
 
@@ -284,7 +284,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
             const pythonFile = 'xyz.py';
             setupIoc(pythonPath, isWindows, isMac, isLinux);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, {} as DebugConfiguration);
             if (isWindows) {
@@ -321,7 +321,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const pythonFile = 'xyz.py';
 
             setupIoc(pythonPath, isWindows, isMac, isLinux);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
             const execOutput = pyramidExists ? Promise.resolve({ stdout: pyramidFilePath }) : Promise.reject(new Error('No Module'));
             pythonExecutionService.setup(e => e.exec(TypeMoq.It.isValue(args), TypeMoq.It.isAny()))
@@ -379,7 +379,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
             const workspaceFolder = createMoqWorkspaceFolder(__dirname);
             const pythonFile = 'xyz.py';
             setupIoc(pythonPath);
-            setupActiveEditor(pythonFile, PythonLanguage.language);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
 
             const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { module: 'flask' } as any as DebugConfiguration);
 

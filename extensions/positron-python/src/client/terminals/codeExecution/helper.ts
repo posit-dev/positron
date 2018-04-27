@@ -4,7 +4,7 @@
 import { inject, injectable } from 'inversify';
 import { Range, TextEditor, Uri } from 'vscode';
 import { IApplicationShell, IDocumentManager } from '../../common/application/types';
-import { PythonLanguage } from '../../common/constants';
+import { PYTHON_LANGUAGE } from '../../common/constants';
 import '../../common/extensions';
 import { IServiceContainer } from '../../ioc/types';
 import { ICodeExecutionHelper } from '../types';
@@ -42,7 +42,7 @@ export class CodeExecutionHelper implements ICodeExecutionHelper {
             this.applicationShell.showErrorMessage('The active file needs to be saved before it can be run');
             return;
         }
-        if (activeEditor.document.languageId !== PythonLanguage.language) {
+        if (activeEditor.document.languageId !== PYTHON_LANGUAGE) {
             this.applicationShell.showErrorMessage('The active file is not a Python source file');
             return;
         }

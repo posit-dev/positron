@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as TypeMoq from 'typemoq';
 import { Range, Selection, TextDocument, TextEditor, TextLine, Uri } from 'vscode';
 import { IApplicationShell, IDocumentManager } from '../../../client/common/application/types';
-import { EXTENSION_ROOT_DIR, PythonLanguage } from '../../../client/common/constants';
+import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../../client/common/constants';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { CodeExecutionHelper } from '../../../client/terminals/codeExecution/helper';
 import { ICodeExecutionHelper } from '../../../client/terminals/types';
@@ -92,7 +92,7 @@ suite('Terminal - Code Execution Helper', () => {
 
     test('Returns file uri', async () => {
         document.setup(doc => doc.isUntitled).returns(() => false);
-        document.setup(doc => doc.languageId).returns(() => PythonLanguage.language);
+        document.setup(doc => doc.languageId).returns(() => PYTHON_LANGUAGE);
         const expectedUri = Uri.file('one.py');
         document.setup(doc => doc.uri).returns(() => expectedUri);
         documentManager.setup(doc => doc.activeTextEditor).returns(() => editor.object);
@@ -104,7 +104,7 @@ suite('Terminal - Code Execution Helper', () => {
     test('Returns file uri even if saving fails', async () => {
         document.setup(doc => doc.isUntitled).returns(() => false);
         document.setup(doc => doc.isDirty).returns(() => true);
-        document.setup(doc => doc.languageId).returns(() => PythonLanguage.language);
+        document.setup(doc => doc.languageId).returns(() => PYTHON_LANGUAGE);
         document.setup(doc => doc.save()).returns(() => Promise.resolve(false));
         const expectedUri = Uri.file('one.py');
         document.setup(doc => doc.uri).returns(() => expectedUri);
@@ -117,7 +117,7 @@ suite('Terminal - Code Execution Helper', () => {
     test('Dirty files are saved', async () => {
         document.setup(doc => doc.isUntitled).returns(() => false);
         document.setup(doc => doc.isDirty).returns(() => true);
-        document.setup(doc => doc.languageId).returns(() => PythonLanguage.language);
+        document.setup(doc => doc.languageId).returns(() => PYTHON_LANGUAGE);
         const expectedUri = Uri.file('one.py');
         document.setup(doc => doc.uri).returns(() => expectedUri);
         documentManager.setup(doc => doc.activeTextEditor).returns(() => editor.object);
@@ -130,7 +130,7 @@ suite('Terminal - Code Execution Helper', () => {
     test('Non-Dirty files are not-saved', async () => {
         document.setup(doc => doc.isUntitled).returns(() => false);
         document.setup(doc => doc.isDirty).returns(() => false);
-        document.setup(doc => doc.languageId).returns(() => PythonLanguage.language);
+        document.setup(doc => doc.languageId).returns(() => PYTHON_LANGUAGE);
         const expectedUri = Uri.file('one.py');
         document.setup(doc => doc.uri).returns(() => expectedUri);
         documentManager.setup(doc => doc.activeTextEditor).returns(() => editor.object);
@@ -173,7 +173,7 @@ suite('Terminal - Code Execution Helper', () => {
         documentManager.setup(d => d.textDocuments).returns(() => [document.object]).verifiable(TypeMoq.Times.once());
         document.setup(doc => doc.isUntitled).returns(() => false);
         document.setup(doc => doc.isDirty).returns(() => true);
-        document.setup(doc => doc.languageId).returns(() => PythonLanguage.language);
+        document.setup(doc => doc.languageId).returns(() => PYTHON_LANGUAGE);
         const expectedUri = Uri.file('one.py');
         document.setup(doc => doc.uri).returns(() => expectedUri);
 
@@ -186,7 +186,7 @@ suite('Terminal - Code Execution Helper', () => {
         documentManager.setup(d => d.textDocuments).returns(() => [document.object]).verifiable(TypeMoq.Times.once());
         document.setup(doc => doc.isUntitled).returns(() => false);
         document.setup(doc => doc.isDirty).returns(() => false);
-        document.setup(doc => doc.languageId).returns(() => PythonLanguage.language);
+        document.setup(doc => doc.languageId).returns(() => PYTHON_LANGUAGE);
         const expectedUri = Uri.file('one.py');
         document.setup(doc => doc.uri).returns(() => expectedUri);
 

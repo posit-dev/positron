@@ -9,7 +9,7 @@ import { injectable, unmanaged } from 'inversify';
 import * as path from 'path';
 import { CancellationToken, DebugConfiguration, DebugConfigurationProvider, Uri, WorkspaceFolder } from 'vscode';
 import { IDocumentManager, IWorkspaceService } from '../../common/application/types';
-import { PythonLanguage } from '../../common/constants';
+import { PYTHON_LANGUAGE } from '../../common/constants';
 import { IConfigurationService } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
 import { BaseAttachRequestArguments, BaseLaunchRequestArguments, DebuggerType, DebugOptions } from '../Common/Contracts';
@@ -105,7 +105,7 @@ export abstract class BaseConfigurationProvider<L extends BaseLaunchRequestArgum
     private getProgram(): string | undefined {
         const documentManager = this.serviceContainer.get<IDocumentManager>(IDocumentManager);
         const editor = documentManager.activeTextEditor;
-        if (editor && editor.document.languageId === PythonLanguage.language) {
+        if (editor && editor.document.languageId === PYTHON_LANGUAGE) {
             return editor.document.fileName;
         }
     }
