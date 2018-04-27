@@ -69,6 +69,7 @@ suite(`Django and Flask Debugging: ${debuggerType}`, () => {
             'run',
             '--no-debugger',
             '--no-reload',
+            '--without-threads',
             '--port',
             `${port}`
         ];
