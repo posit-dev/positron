@@ -17,6 +17,10 @@ export class PythonDebugConfigurationProvider extends BaseConfigurationProvider<
     }
     protected async provideLaunchDefaults(workspaceFolder: Uri, debugConfiguration: PythonLaunchDebugConfiguration<LaunchRequestArgumentsV1>): Promise<void> {
         await super.provideLaunchDefaults(workspaceFolder, debugConfiguration);
+        // Always redirect output.
+        if (debugConfiguration.debugOptions!.indexOf(DebugOptions.RedirectOutput) === -1) {
+            debugConfiguration.debugOptions!.push(DebugOptions.RedirectOutput);
+        }
         if (debugConfiguration.debugOptions!.indexOf(DebugOptions.Pyramid) >= 0) {
             const utils = this.serviceContainer.get<IConfigurationProviderUtils>(IConfigurationProviderUtils);
             debugConfiguration.program = (await utils.getPyramidStartupScriptFilePath(workspaceFolder))!;
