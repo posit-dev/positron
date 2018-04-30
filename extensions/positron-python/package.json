@@ -98,7 +98,7 @@
             {
                 "command": "python.execSelectionInTerminal",
                 "key": "ctrl+enter",
-                "when": "editorFocus && editorHasSelection && editorLangId == python"    
+                "when": "editorFocus && editorHasSelection && editorLangId == python"
             }
         ],
         "commands": [
@@ -1078,8 +1078,6 @@
                         "name": "Python Experimental: Attach",
                         "type": "pythonExperimental",
                         "request": "attach",
-                        "localRoot": "${workspaceFolder}",
-                        "remoteRoot": "${workspaceFolder}",
                         "port": 3000,
                         "host": "localhost"
                     },
