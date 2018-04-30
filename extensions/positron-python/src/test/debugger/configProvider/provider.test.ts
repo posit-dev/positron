@@ -15,7 +15,8 @@ import { IFileSystem, IPlatformService } from '../../../client/common/platform/t
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../../client/common/process/types';
 import { IConfigurationService, IPythonSettings } from '../../../client/common/types';
 import { PythonDebugConfigurationProvider, PythonV2DebugConfigurationProvider } from '../../../client/debugger';
-import { DebugOptions } from '../../../client/debugger/Common/Contracts';
+import { DebugOptions, LaunchRequestArguments } from '../../../client/debugger/Common/Contracts';
+import { PythonLaunchDebugConfiguration } from '../../../client/debugger/configProviders/baseProvider';
 import { ConfigurationProviderUtils } from '../../../client/debugger/configProviders/configurationProviderUtils';
 import { IConfigurationProviderUtils } from '../../../client/debugger/configProviders/types';
 import { IServiceContainer } from '../../../client/ioc/types';
@@ -278,6 +279,23 @@ import { IServiceContainer } from '../../../client/ioc/types';
             expect(debugConfig).to.have.property('stopOnEntry', false);
             expect(debugConfig).to.have.property('debugOptions');
             expect((debugConfig as any).debugOptions).to.be.deep.equal([DebugOptions.RedirectOutput]);
+        });
+        test('Test overriding defaults of experimental debugger', async () => {
+            if (provider.debugType !== 'pythonExperimental') {
+                return;
+            }
+            const pythonPath = `PythonPath_${new Date().toString()}`;
+            const workspaceFolder = createMoqWorkspaceFolder(__dirname);
+            const pythonFile = 'xyz.py';
+            setupIoc(pythonPath);
+            setupActiveEditor(pythonFile, PYTHON_LANGUAGE);
+
+            const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { redirectOutput: false } as PythonLaunchDebugConfiguration<LaunchRequestArguments>);
+
+            expect(debugConfig).to.have.property('console', 'integratedTerminal');
+            expect(debugConfig).to.have.property('stopOnEntry', false);
+            expect(debugConfig).to.have.property('debugOptions');
+            expect((debugConfig as any).debugOptions).to.be.deep.equal([]);
         });
         async function testFixFilePathCase(isWindows: boolean, isMac: boolean, isLinux: boolean) {
             const pythonPath = `PythonPath_${new Date().toString()}`;

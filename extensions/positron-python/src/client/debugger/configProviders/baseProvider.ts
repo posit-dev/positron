@@ -12,7 +12,7 @@ import { IDocumentManager, IWorkspaceService } from '../../common/application/ty
 import { PYTHON_LANGUAGE } from '../../common/constants';
 import { IConfigurationService } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
-import { BaseAttachRequestArguments, BaseLaunchRequestArguments, DebuggerType, DebugOptions } from '../Common/Contracts';
+import { BaseAttachRequestArguments, BaseLaunchRequestArguments, DebuggerType } from '../Common/Contracts';
 
 export type PythonLaunchDebugConfiguration<T extends BaseLaunchRequestArguments> = DebugConfiguration & T;
 export type PythonAttachDebugConfiguration<T extends BaseAttachRequestArguments> = DebugConfiguration & T;
@@ -77,10 +77,6 @@ export abstract class BaseConfigurationProvider<L extends BaseLaunchRequestArgum
         }
         if (!Array.isArray(debugConfiguration.debugOptions)) {
             debugConfiguration.debugOptions = [];
-        }
-        // Always redirect output.
-        if (debugConfiguration.debugOptions.indexOf(DebugOptions.RedirectOutput) === -1) {
-            debugConfiguration.debugOptions.push(DebugOptions.RedirectOutput);
         }
     }
     private getWorkspaceFolder(folder: WorkspaceFolder | undefined): Uri | undefined {
