@@ -1153,7 +1153,7 @@
                 "python.disableInstallationCheck": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Whether to check if Python is installed.",
+                    "description": "Whether to check if Python is installed (also warn when using the macOS-installed Python).",
                     "scope": "resource"
                 },
                 "python.disablePromptForFeatures": {
@@ -1226,7 +1226,7 @@
                 "python.globalModuleInstallation": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Whether to install Python modules globally.",
+                    "description": "Whether to install Python modules globally when not using an environment.",
                     "scope": "resource"
                 },
                 "python.jediMemoryLimit": {
