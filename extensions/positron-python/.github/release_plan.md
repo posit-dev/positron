@@ -28,12 +28,6 @@
 - [ ] Go through telemetry for GDPR
 - [ ] Go through all [merged pull requests](https://github.com/Microsoft/vscode-python/pulls?utf8=%E2%9C%93&q=is%3Apr+is%3Amerged) and add the [`validate fix` label](https://github.com/Microsoft/vscode-python/labels/validate%20fix) as appropriate as well as checking for news entries
 
-# Monday, XXX
-
-- [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
-- [ ] Go through telemetry for GDPR
-- [ ] Go through all [merged pull requests](https://github.com/Microsoft/vscode-python/pulls?utf8=%E2%9C%93&q=is%3Apr+is%3Amerged) and add the [`validate fix` label](https://github.com/Microsoft/vscode-python/labels/validate%20fix) as appropriate as well as checking for news entries
-
 ## Legal
 - [ ] Announce the lock-down of dependencies for this release
 - [ ] Notify CELA of all changes to the [repository](https://github.com/Microsoft/vscode-python/tree/master/pythonFiles) and [distribution dependencies](https://github.com/Microsoft/vscode-python/blob/master/package.json)
