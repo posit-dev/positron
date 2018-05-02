@@ -1,4 +1,4 @@
-# Monday, XXX XX
+# Monday, XXX
 
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
@@ -12,7 +12,7 @@
 - [ ] Make sure all issues for this [milestone](https://github.com/Microsoft/vscode-python/milestones) are assigned
 - [ ] Close issues that have [needed more info](https://github.com/Microsoft/vscode-python/issues?q=is%3Aopen+label%3A%22needs+more+info%22+sort%3Aupdated-asc) for over a month
 
-# Monday, XXX XXX
+# Monday, XXX
 
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
@@ -22,13 +22,13 @@
 - [ ] Check if there have been no performance regressions
 - [ ] Read through [VS Code's iteration plan](https://github.com/Microsoft/vscode/labels/iteration-plan) (it may still be a [draft](https://github.com/Microsoft/vscode/labels/iteration-plan-draft))
 
-# Monday, XXX XXX
+# Monday, XXX
 
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
 - [ ] Go through all [merged pull requests](https://github.com/Microsoft/vscode-python/pulls?utf8=%E2%9C%93&q=is%3Apr+is%3Amerged) and add the [`validate fix` label](https://github.com/Microsoft/vscode-python/labels/validate%20fix) as appropriate as well as checking for news entries
 
-# Monday, XXX XXX
+# Monday, XXX
 
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
@@ -43,7 +43,7 @@
 - [ ] Announce the beta [development build](https://github.com/Microsoft/vscode-python/blob/master/CONTRIBUTING.md#development-build) (along with how to help [validate fixes](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed))
 - [ ] Open appropriate [documentation issues](https://github.com/microsoft/vscode-docs)
 
-# Monday, XXX XXX
+# Monday, XXX
 
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
@@ -65,7 +65,7 @@
 - [ ] Make sure no extraneous files are being included in the `.vsix` file (make sure to check for hidden files)
 - [ ] Make sure the [appropriate pull requests](https://github.com/microsoft/vscode-docs/pulls) for the [documentation](https://code.visualstudio.com/docs/python/python-tutorial) -- including the [WOW](https://code.visualstudio.com/docs/languages/python) page -- are ready
 
-# Wednesday, XXX XXX (hopefully 😉)
+# Wednesday, XXX (hopefully 😉)
 
 ## Release
 - [ ] Update the [changelog](https://github.com/Microsoft/vscode-python/blob/master/CHANGELOG.md) (including the names of external contributors & projects)
