@@ -77,12 +77,17 @@ def normalize_lines(source):
     """
     lines = source.splitlines(False)
     # Find out if we have any trailing blank lines
-    has_blank_lines = len(lines[-1].strip()) == 0 or source.endswith(os.linesep)
+    if len(lines[-1].strip()) == 0 or source.endswith('\n'):
+        trailing_newline = '\n'
+    else:
+        trailing_newline = ''
 
     # Step 1: Remove empty lines.
     tokens = _tokenize(source)
     newlines_indexes_to_remove = (spos[0] for (toknum, tokval, spos, epos, line) in tokens
-                                    if len(line.strip()) == 0 and token.tok_name[toknum] == 'NL' and spos[0] == epos[0])
+                                  if len(line.strip()) == 0
+                                     and token.tok_name[toknum] == 'NL'
+                                     and spos[0] == epos[0])
 
     for line_number in reversed(list(newlines_indexes_to_remove)):
         del lines[line_number-1]
@@ -90,17 +95,17 @@ def normalize_lines(source):
     # Step 2: Add blank lines between each global statement block.
     # A consequtive single lines blocks of code will be treated as a single statement,
     # just to ensure we do not unnecessarily add too many blank lines.
-    source = os.linesep.join(lines)
+    source = '\n'.join(lines)
     tokens = _tokenize(source)
     dedent_indexes = (spos[0] for (toknum, tokval, spos, epos, line) in tokens
                                 if toknum == token.DEDENT and _indent_size(line) == 0)
 
     global_statement_ranges = _get_global_statement_blocks(source, lines)
-
-    for line_number in filter(lambda x: x > 1, map(operator.itemgetter(0), reversed(global_statement_ranges))):
+    start_positions = map(operator.itemgetter(0), reversed(global_statement_ranges))
+    for line_number in filter(lambda x: x > 1, start_positions):
         lines.insert(line_number-1, '')
 
-    sys.stdout.write(os.linesep.join(lines) + (os.linesep if has_blank_lines else ''))
+    sys.stdout.write('\n'.join(lines) + trailing_newline)
     sys.stdout.flush()
 
 
@@ -108,7 +113,8 @@ if __name__ == '__main__':
     contents = sys.argv[1]
     try:
         default_encoding = sys.getdefaultencoding()
-        contents = contents.encode(default_encoding, 'surrogateescape').decode(default_encoding, 'replace')
+        encoded_contents = contents.encode(default_encoding, 'surrogateescape')
+        contents = encoded_contents.decode(default_encoding, 'replace')
     except (UnicodeError, LookupError):
         pass
     if isinstance(contents, bytes):
