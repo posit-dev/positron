@@ -109,7 +109,7 @@ export class PipEnvService extends CacheableLocatorService {
             console.error(error);
             const errorMessage = error.message || error;
             const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
-            appShell.showWarningMessage(`Workspace contains pipfile but attempt to run 'pipenv --venv' failed with ${errorMessage}. Make sure pipenv is on the PATH.`);
+            appShell.showWarningMessage(`Workspace contains pipfile but attempt to run 'pipenv --venv' failed with '${errorMessage}'. Make sure pipenv is on the PATH.`);
         }
     }
 }
