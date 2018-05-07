@@ -19,6 +19,7 @@ import { PYTHON_PATH, sleep } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { DEBUGGER_TIMEOUT } from './common/constants';
 import { DebugClientEx } from './debugClient';
+import { continueDebugging } from './utils';
 
 const isProcessRunning = require('is-running') as (number) => boolean;
 
@@ -538,6 +539,34 @@ let testCounter = 0;
 
             expect(stackframes.body.stackFrames[2].line).to.be.equal(10);
             expect(fileSystem.arePathsSame(stackframes.body.stackFrames[2].source!.path!, pythonFile)).to.be.equal(true, 'paths do not match');
+        });
+        test('Test Evaluation of Expressions', async function () {
+            if (debuggerType !== 'pythonExperimental') {
+                return this.skip();
+            }
+
+            const breakpointLocation = { path: path.join(debugFilesPath, 'sample2WithoutSleep.py'), column: 1, line: 5 };
+            const breakpointArgs = {
+                lines: [breakpointLocation.line],
+                breakpoints: [{ line: breakpointLocation.line, column: breakpointLocation.column }],
+                source: { path: breakpointLocation.path }
+            };
+            await Promise.all([
+                debugClient.launch(buildLauncArgs('sample2WithoutSleep.py', false)),
+                debugClient.waitForEvent('initialized')
+                    .then(() => debugClient.setBreakpointsRequest(breakpointArgs))
+                    .then(() => debugClient.configurationDoneRequest())
+                    .then(() => debugClient.threadsRequest()),
+                debugClient.waitForEvent('thread'),
+                debugClient.assertStoppedLocation('breakpoint', breakpointLocation)
+            ]);
+
+            //Do not remove this, this is required to ensure PTVSD is ready to accept other requests.
+            await debugClient.threadsRequest();
+            const evaluateResponse = await debugClient.evaluateRequest({ context: 'repl', expression: 'a+b+2', frameId: 1 });
+            expect(evaluateResponse.body.type).to.equal('int');
+            expect(evaluateResponse.body.result).to.equal('5');
+            await continueDebugging(debugClient);
         });
     });
 });
