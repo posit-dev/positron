@@ -634,5 +634,33 @@ let testCounter = 0;
                 debugClient.waitForEvent('terminated')
             ]);
         });
+        test('Test Hit Count Breakpoints', async function () {
+            if (debuggerType !== 'pythonExperimental') {
+                return this.skip();
+            }
+
+            const breakpointLocation = { path: path.join(debugFilesPath, 'loopyTest.py'), column: 1, line: 2 };
+            const breakpointArgs: DebugProtocol.SetBreakpointsArguments = {
+                lines: [breakpointLocation.line],
+                breakpoints: [{ line: breakpointLocation.line, column: breakpointLocation.column, hitCondition: '5' }],
+                source: { path: breakpointLocation.path }
+            };
+            await Promise.all([
+                debugClient.launch(buildLaunchArgs('loopyTest.py', false)),
+                debugClient.waitForEvent('initialized')
+                    .then(() => debugClient.setBreakpointsRequest(breakpointArgs))
+                    .then(() => debugClient.configurationDoneRequest())
+                    .then(() => debugClient.threadsRequest()),
+                debugClient.waitForEvent('thread'),
+                debugClient.assertStoppedLocation('breakpoint', breakpointLocation)
+            ]);
+
+            //Do not remove this, this is required to ensure PTVSD is ready to accept other requests.
+            await debugClient.threadsRequest();
+            const evaluateResponse = await debugClient.evaluateRequest({ context: 'repl', expression: 'i', frameId: 1 });
+            expect(evaluateResponse.body.type).to.equal('int');
+            expect(evaluateResponse.body.result).to.equal('4');
+            await continueDebugging(debugClient);
+        });
     });
 });
