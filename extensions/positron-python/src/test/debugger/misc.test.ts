@@ -467,7 +467,7 @@ let testCounter = 0;
             await Promise.all([
                 debugClient.configurationSequence(),
                 setBreakpointFilter(),
-                debugClient.launch(buildLauncArgs('sampleWithAssertEx.py', false)),
+                debugClient.launch(buildLaunchArgs('sampleWithAssertEx.py', false)),
                 waitToStopDueToException(),
                 debugClient.assertStoppedLocation('exception', pauseLocation)
             ]);
@@ -609,6 +609,28 @@ let testCounter = 0;
                 debugClient.configurationSequence(),
                 debugClient.launch(options),
                 debugClient.assertOutput('stdout', options.args.join(',')),
+                debugClient.waitForEvent('terminated')
+            ]);
+        });
+        test('Test Logpoints', async function () {
+            if (debuggerType !== 'pythonExperimental') {
+                return this.skip();
+            }
+            const breakpointLocation = { path: path.join(debugFilesPath, 'logMessage.py'), line: 4 };
+            const breakpointArgs: DebugProtocol.SetBreakpointsArguments = {
+                lines: [breakpointLocation.line],
+                breakpoints: [{ line: breakpointLocation.line, logMessage: 'Sum of {a} and {b} is 3' }],
+                source: { path: breakpointLocation.path }
+            };
+            await Promise.all([
+                debugClient.launch(buildLaunchArgs('logMessage.py', false)),
+                debugClient.waitForEvent('initialized')
+                    .then(() => debugClient.setBreakpointsRequest(breakpointArgs))
+                    .then(() => debugClient.configurationDoneRequest())
+                    .then(() => debugClient.threadsRequest()),
+                debugClient.waitForEvent('thread')
+                    .then(() => debugClient.threadsRequest()),
+                debugClient.assertOutput('stdout', 'Sum of 1 and 2 is 3'),
                 debugClient.waitForEvent('terminated')
             ]);
         });
