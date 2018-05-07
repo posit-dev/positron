@@ -123,7 +123,6 @@ export interface ISortImportSettings {
 export interface IUnitTestSettings {
     readonly promptToConfigure: boolean;
     readonly debugPort: number;
-    readonly debugHost?: string;
     readonly nosetestsEnabled: boolean;
     nosetestPath: string;
     nosetestArgs: string[];
