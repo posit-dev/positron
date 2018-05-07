@@ -440,6 +440,42 @@ let testCounter = 0;
             const pauseLocation = { path: path.join(debugFilesPath, 'sample3WithEx.py'), line: 5 };
             await debugClient.assertStoppedLocation('exception', pauseLocation);
         });
+        test('Test pausing on assert failures', async () => {
+            const pauseLocation = { path: path.join(debugFilesPath, 'sampleWithAssertEx.py'), line: 1 };
+
+            function waitToStopDueToException() {
+                return new Promise((resolve, reject) => {
+                    debugClient.once('stopped', (event: DebugProtocol.StoppedEvent) => {
+                        if (event.body.reason === 'exception' &&
+                            event.body.text && event.body.text!.startsWith('AssertionError')) {
+                            resolve();
+                        } else {
+                            reject(new Error('Stopped for some other reason'));
+                        }
+                    });
+                    setTimeout(() => {
+                        reject(new Error(`waitToStopDueToException not received after ${debugClient.defaultTimeout} ms`));
+                    }, debugClient.defaultTimeout);
+                });
+            }
+
+            function setBreakpointFilter(): Promise<any> {
+                if (debuggerType === 'python') {
+                    return Promise.resolve();
+                } else {
+                    return debugClient.waitForEvent('initialized')
+                        .then(() => debugClient.setExceptionBreakpointsRequest({ filters: ['uncaught'] }))
+                        .then(() => debugClient.configurationDoneRequest());
+                }
+            }
+            await Promise.all([
+                debugClient.configurationSequence(),
+                setBreakpointFilter(),
+                debugClient.launch(buildLauncArgs('sampleWithAssertEx.py', false)),
+                waitToStopDueToException(),
+                debugClient.assertStoppedLocation('exception', pauseLocation)
+            ]);
+        });
         test('Test multi-threaded debugging', async function () {
             if (debuggerType !== 'python') {
                 // See GitHub issue #1250
