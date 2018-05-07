@@ -31,7 +31,7 @@ export class Generator implements vscode.Disposable {
         if (!this.pythonSettings.workspaceSymbols.enabled) {
             return;
         }
-        return await this.generateTags({ directory: this.workspaceFolder.fsPath });
+        return this.generateTags({ directory: this.workspaceFolder.fsPath });
     }
     private buildCmdArgs(): string[] {
         const exclusions = this.pythonSettings.workspaceSymbols.exclusionPatterns;
@@ -40,7 +40,7 @@ export class Generator implements vscode.Disposable {
         return [`--options=${this.optionsFile}`, '--languages=Python'].concat(excludes);
     }
     @captureTelemetry(WORKSPACE_SYMBOLS_BUILD)
-    private generateTags(source: { directory?: string, file?: string }): Promise<void> {
+    private generateTags(source: { directory?: string; file?: string }): Promise<void> {
         const tagFile = path.normalize(this.pythonSettings.workspaceSymbols.tagFilePath);
         const cmd = this.pythonSettings.workspaceSymbols.ctagsPath;
         const args = this.buildCmdArgs();
