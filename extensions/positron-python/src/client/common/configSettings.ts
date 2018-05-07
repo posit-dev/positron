@@ -29,7 +29,6 @@ export class PythonSettings extends EventEmitter implements IPythonSettings {
     public jediPath = '';
     public jediMemoryLimit = 1024;
     public envFile = '';
-    public disablePromptForFeatures: string[] = [];
     public venvPath = '';
     public venvFolders: string[] = [];
     public devOptions: string[] = [];
@@ -136,9 +135,6 @@ export class PythonSettings extends EventEmitter implements IPythonSettings {
 
         // tslint:disable-next-line:no-backbone-get-set-outside-model no-non-null-assertion
         const lintingSettings = systemVariables.resolveAny(pythonSettings.get<ILintingSettings>('linting'))!;
-        // tslint:disable-next-line:no-backbone-get-set-outside-model no-non-null-assertion
-        this.disablePromptForFeatures = pythonSettings.get<string[]>('disablePromptForFeatures')!;
-        this.disablePromptForFeatures = Array.isArray(this.disablePromptForFeatures) ? this.disablePromptForFeatures : [];
         if (this.linting) {
             Object.assign<ILintingSettings, ILintingSettings>(this.linting, lintingSettings);
         } else {
