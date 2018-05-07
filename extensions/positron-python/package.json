@@ -1632,12 +1632,6 @@
                     "description": "Optional working directory for unit tests.",
                     "scope": "resource"
                 },
-                "python.unitTest.debugHost": {
-                    "type": "number",
-                    "default": "localhost",
-                    "description": "IP Address of the of the local unit test server (default is localhost or use 127.0.0.1).",
-                    "scope": "resource"
-                },
                 "python.unitTest.debugPort": {
                     "type": "number",
                     "default": 3000,
