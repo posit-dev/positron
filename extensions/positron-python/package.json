@@ -84,7 +84,8 @@
         "onCommand:python.goToPythonObject",
         "onCommand:python.setLinter",
         "onCommand:python.enableLinting",
-        "onCommand:python.createTerminal"
+        "onCommand:python.createTerminal",
+        "onCommand:python.discoverTests"
     ],
     "main": "./out/client/extension",
     "contributes": {
@@ -185,6 +186,11 @@
             {
                 "command": "python.runFailedTests",
                 "title": "%python.command.python.runFailedTests.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.discoverTests",
+                "title": "%python.command.python.discoverTests.title%",
                 "category": "Python"
             },
             {
