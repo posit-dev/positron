@@ -1156,26 +1156,6 @@
                     "description": "Whether to check if Python is installed (also warn when using the macOS-installed Python).",
                     "scope": "resource"
                 },
-                "python.disablePromptForFeatures": {
-                    "type": "array",
-                    "default": [],
-                    "description": "Do not display a prompt to install these features",
-                    "items": {
-                        "type": "string",
-                        "default": "pylint",
-                        "description": "Feature",
-                        "enum": [
-                            "flake8",
-                            "mypy",
-                            "pep8",
-                            "pylama",
-                            "prospector",
-                            "pydocstyle",
-                            "pylint"
-                        ]
-                    },
-                    "scope": "resource"
-                },
                 "python.envFile": {
                     "type": "string",
                     "description": "Absolute path to a file containing environment variable definitions.",
