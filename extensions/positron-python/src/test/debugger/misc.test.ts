@@ -67,12 +67,8 @@ let testCounter = 0;
                 return new DebugClientEx(testAdapterFilePath, debuggerType, coverageDirectory, { cwd: EXTENSION_ROOT_DIR });
             }
         }
-        function buildLauncArgs(pythonFile: string, stopOnEntry: boolean = false): LaunchRequestArguments {
-            const env = {};
-            if (debuggerType === 'pythonExperimental') {
-                // tslint:disable-next-line:no-string-literal
-                env['PYTHONPATH'] = PTVSD_PATH;
-            }
+        function buildLaunchArgs(pythonFile: string, stopOnEntry: boolean = false): LaunchRequestArguments {
+            const env = debuggerType === 'pythonExperimental' ? { PYTHONPATH: PTVSD_PATH } : {};
             // tslint:disable-next-line:no-unnecessary-local-variable
             const options: LaunchRequestArguments = {
                 program: path.join(debugFilesPath, pythonFile),
@@ -93,7 +89,7 @@ let testCounter = 0;
         test('Should run program to the end', async () => {
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('simplePrint.py', false)),
+                debugClient.launch(buildLaunchArgs('simplePrint.py', false)),
                 debugClient.waitForEvent('initialized'),
                 debugClient.waitForEvent('terminated')
             ]);
@@ -104,7 +100,7 @@ let testCounter = 0;
             }
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('simplePrint.py', true)),
+                debugClient.launch(buildLaunchArgs('simplePrint.py', true)),
                 debugClient.waitForEvent('initialized'),
                 debugClient.waitForEvent('stopped')
             ]);
@@ -113,7 +109,7 @@ let testCounter = 0;
             const output = debuggerType === 'python' ? 'stdout' : 'stderr';
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('stdErrOutput.py', false)),
+                debugClient.launch(buildLaunchArgs('stdErrOutput.py', false)),
                 debugClient.waitForEvent('initialized'),
                 //TODO: ptvsd does not differentiate.
                 debugClient.assertOutput(output, 'error output'),
@@ -123,7 +119,7 @@ let testCounter = 0;
         test('Test stdout output', async () => {
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('stdOutOutput.py', false)),
+                debugClient.launch(buildLaunchArgs('stdOutOutput.py', false)),
                 debugClient.waitForEvent('initialized'),
                 debugClient.assertOutput('stdout', 'normal output'),
                 debugClient.waitForEvent('terminated')
@@ -137,7 +133,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('simplePrint.py', true)),
+                debugClient.launch(buildLaunchArgs('simplePrint.py', true)),
                 debugClient.waitForEvent('initialized'),
                 debugClient.waitForEvent('stopped')
             ]);
@@ -156,7 +152,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('simplePrint.py', true)),
+                debugClient.launch(buildLaunchArgs('simplePrint.py', true)),
                 debugClient.waitForEvent('initialized'),
                 debugClient.waitForEvent('stopped')
             ]);
@@ -169,7 +165,7 @@ let testCounter = 0;
             ]);
         });
         test('Should break at print statement (line 3)', async () => {
-            const launchArgs = buildLauncArgs('sample2.py', false);
+            const launchArgs = buildLaunchArgs('sample2.py', false);
             const breakpointLocation = { path: path.join(debugFilesPath, 'sample2.py'), column: 1, line: 5 };
             await debugClient.hitBreakpoint(launchArgs, breakpointLocation);
         });
@@ -177,7 +173,7 @@ let testCounter = 0;
             if (debuggerType === 'python') {
                 return this.skip();
             }
-            const launchArgs = buildLauncArgs('sample2.py', false);
+            const launchArgs = buildLaunchArgs('sample2.py', false);
             const breakpointLocation = { path: path.join(debugFilesPath, 'sample2.py'), column: 1, line: 5 };
             const processPromise = debugClient.waitForEvent('process') as Promise<DebugProtocol.ProcessEvent>;
             await debugClient.hitBreakpoint(launchArgs, breakpointLocation);
@@ -196,7 +192,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('forever.py', false)),
+                debugClient.launch(buildLaunchArgs('forever.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -226,7 +222,7 @@ let testCounter = 0;
             const threadIdPromise = debugClient.waitForEvent('thread');
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('sample2.py', false)),
+                debugClient.launch(buildLaunchArgs('sample2.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -263,7 +259,7 @@ let testCounter = 0;
         test('Test editing variables', async () => {
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('sample2.py', false)),
+                debugClient.launch(buildLaunchArgs('sample2.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -297,7 +293,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('sample2.py', false)),
+                debugClient.launch(buildLaunchArgs('sample2.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -323,7 +319,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('sample2.py', false)),
+                debugClient.launch(buildLaunchArgs('sample2.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -361,7 +357,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('sample2.py', false)),
+                debugClient.launch(buildLaunchArgs('sample2.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -412,7 +408,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('forever.py', false)),
+                debugClient.launch(buildLaunchArgs('forever.py', false)),
                 debugClient.waitForEvent('initialized'),
                 debugClient.waitForEvent('process')
             ]);
@@ -433,7 +429,7 @@ let testCounter = 0;
 
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('sample3WithEx.py', false)),
+                debugClient.launch(buildLaunchArgs('sample3WithEx.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -484,7 +480,7 @@ let testCounter = 0;
             }
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('multiThread.py', false)),
+                debugClient.launch(buildLaunchArgs('multiThread.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -508,7 +504,7 @@ let testCounter = 0;
         test('Test multi-threaded debugging', async function () {
             this.timeout(30000);
             await Promise.all([
-                debugClient.launch(buildLauncArgs('multiThread.py', false)),
+                debugClient.launch(buildLaunchArgs('multiThread.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
 
@@ -551,7 +547,7 @@ let testCounter = 0;
         test('Test stack frames', async () => {
             await Promise.all([
                 debugClient.configurationSequence(),
-                debugClient.launch(buildLauncArgs('stackFrame.py', false)),
+                debugClient.launch(buildLaunchArgs('stackFrame.py', false)),
                 debugClient.waitForEvent('initialized')
             ]);
             const pythonFile = path.join(debugFilesPath, 'stackFrame.py');
@@ -580,7 +576,6 @@ let testCounter = 0;
             if (debuggerType !== 'pythonExperimental') {
                 return this.skip();
             }
-
             const breakpointLocation = { path: path.join(debugFilesPath, 'sample2WithoutSleep.py'), column: 1, line: 5 };
             const breakpointArgs = {
                 lines: [breakpointLocation.line],
@@ -588,7 +583,7 @@ let testCounter = 0;
                 source: { path: breakpointLocation.path }
             };
             await Promise.all([
-                debugClient.launch(buildLauncArgs('sample2WithoutSleep.py', false)),
+                debugClient.launch(buildLaunchArgs('sample2WithoutSleep.py', false)),
                 debugClient.waitForEvent('initialized')
                     .then(() => debugClient.setBreakpointsRequest(breakpointArgs))
                     .then(() => debugClient.configurationDoneRequest())
@@ -603,6 +598,19 @@ let testCounter = 0;
             expect(evaluateResponse.body.type).to.equal('int');
             expect(evaluateResponse.body.result).to.equal('5');
             await continueDebugging(debugClient);
+        });
+        test('Test Passing custom args to python file', async function () {
+            if (debuggerType !== 'pythonExperimental') {
+                return this.skip();
+            }
+            const options = buildLaunchArgs('printSysArgv.py', false);
+            options.args = ['1', '2', '3'];
+            await Promise.all([
+                debugClient.configurationSequence(),
+                debugClient.launch(options),
+                debugClient.assertOutput('stdout', options.args.join(',')),
+                debugClient.waitForEvent('terminated')
+            ]);
         });
     });
 });
