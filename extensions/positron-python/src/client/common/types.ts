@@ -103,7 +103,7 @@ export interface IPythonSettings {
     readonly jediPath: string;
     readonly jediMemoryLimit: number;
     readonly devOptions: string[];
-    readonly linting?: ILintingSettings;
+    readonly linting: ILintingSettings;
     readonly formatting: IFormattingSettings;
     readonly unitTest: IUnitTestSettings;
     readonly autoComplete?: IAutoCompleteSettings;
