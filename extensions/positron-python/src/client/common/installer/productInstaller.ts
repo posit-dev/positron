@@ -9,7 +9,7 @@ import { ITestsHelper } from '../../unittests/common/types';
 import { IApplicationShell } from '../application/types';
 import { STANDARD_OUTPUT_CHANNEL } from '../constants';
 import { IPlatformService } from '../platform/types';
-import { IProcessService, IPythonExecutionFactory } from '../process/types';
+import { IProcessServiceFactory, IPythonExecutionFactory } from '../process/types';
 import { ITerminalServiceFactory } from '../terminal/types';
 import { IConfigurationService, IInstaller, ILogger, InstallerResponse, IOutputChannel, ModuleNamePurpose, Product } from '../types';
 import { ProductNames } from './productNames';
@@ -77,7 +77,7 @@ abstract class BaseInstaller {
             const pythonProcess = await this.serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory).create(resource);
             return pythonProcess.isModuleInstalled(executableName);
         } else {
-            const process = this.serviceContainer.get<IProcessService>(IProcessService);
+            const process = await this.serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory).create(resource);
             return process.exec(executableName, ['--version'], { mergeStdOutErr: true })
                 .then(() => true)
                 .catch(() => false);

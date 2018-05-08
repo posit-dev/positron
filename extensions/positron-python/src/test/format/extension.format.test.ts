@@ -1,7 +1,8 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IProcessService, IPythonExecutionFactory } from '../../client/common/process/types';
+import { CancellationTokenSource, Position, Uri, window, workspace } from 'vscode';
+import { IProcessServiceFactory, IPythonExecutionFactory } from '../../client/common/process/types';
 import { AutoPep8Formatter } from '../../client/formatters/autoPep8Formatter';
 import { BlackFormatter } from '../../client/formatters/blackFormatter';
 import { YapfFormatter } from '../../client/formatters/yapfFormatter';
@@ -10,7 +11,7 @@ import { MockProcessService } from '../mocks/proc';
 import { compareFiles } from '../textUtils';
 import { UnitTestIocContainer } from '../unittests/serviceRegistry';
 
-const ch = vscode.window.createOutputChannel('Tests');
+const ch = window.createOutputChannel('Tests');
 const formatFilesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'pythonFiles', 'formatting');
 const workspaceRootPath = path.join(__dirname, '..', '..', '..', 'src', 'test');
 const originalUnformattedFile = path.join(formatFilesPath, 'fileToFormat.py');
@@ -85,8 +86,8 @@ suite('Formatting', () => {
         ioc.registerMockProcessTypes();
     }
 
-    function injectFormatOutput(outputFileName: string) {
-        const procService = ioc.serviceContainer.get<MockProcessService>(IProcessService);
+    async function injectFormatOutput(outputFileName: string) {
+        const procService = await ioc.serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory).create() as MockProcessService;
         procService.onExecObservable((file, args, options, callback) => {
             if (args.indexOf('--diff') >= 0) {
                 callback({
@@ -102,7 +103,7 @@ suite('Formatting', () => {
         const textEditor = await vscode.window.showTextDocument(textDocument);
         const options = { insertSpaces: textEditor.options.insertSpaces! as boolean, tabSize: textEditor.options.tabSize! as number };
 
-        injectFormatOutput(outputFileName);
+        await injectFormatOutput(outputFileName);
 
         const edits = await formatter.formatDocument(textDocument, options, new vscode.CancellationTokenSource().token);
         await textEditor.edit(editBuilder => {
@@ -137,11 +138,11 @@ suite('Formatting', () => {
         fs.copySync(path.join(sourceDir, originalName), fileToFormat, { overwrite: true });
         fs.copySync(path.join(sourceDir, resultsName), formattedFile, { overwrite: true });
 
-        const textDocument = await vscode.workspace.openTextDocument(fileToFormat);
-        const textEditor = await vscode.window.showTextDocument(textDocument);
+        const textDocument = await workspace.openTextDocument(fileToFormat);
+        const textEditor = await window.showTextDocument(textDocument);
         await textEditor.edit(builder => {
             // Make file dirty. Trailing blanks will be removed.
-            builder.insert(new vscode.Position(0, 0), '\n    \n');
+            builder.insert(new Position(0, 0), '\n    \n');
         });
 
         const dir = path.dirname(fileToFormat);
