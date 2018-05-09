@@ -1232,6 +1232,18 @@
                     "description": "Whether to install Python modules globally when not using an environment.",
                     "scope": "resource"
                 },
+                "python.pythiaEnabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enables AI-driven additions to the completion list. Does not apply to Jedi.",
+                    "scope": "resource"
+                },
+                "python.jediEnabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enables Jedi as IntelliSense engine instead of Microsoft Python Analysis Engine.",
+                    "scope": "resource"
+                },
                 "python.jediMemoryLimit": {
                     "type": "number",
                     "default": 0,

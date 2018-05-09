@@ -58,7 +58,7 @@ export class CurrentPathService extends CacheableLocatorService {
             return processService.exec(pythonPath, ['-c', 'import sys;print(sys.executable)'], {})
                 .then(output => output.stdout.trim())
                 .then(async value => {
-                    if (value.length > 0 && await this.fs.fileExistsAsync(value)) {
+                    if (value.length > 0 && await this.fs.fileExists(value)) {
                         return value;
                     }
                     return defaultValue;
