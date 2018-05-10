@@ -28,7 +28,7 @@ suite('Interpreters Display Helper', () => {
     });
     test('getActiveWorkspaceUri should return undefined if there are no workspaces', () => {
         workspaceService.setup(w => w.workspaceFolders).returns(() => []);
-
+        documentManager.setup(doc => doc.activeTextEditor).returns(() => undefined);
         const workspace = helper.getActiveWorkspaceUri();
         expect(workspace).to.be.equal(undefined, 'incorrect value');
     });
