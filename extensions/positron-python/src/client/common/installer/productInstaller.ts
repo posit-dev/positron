@@ -108,7 +108,7 @@ class CTagsInstaller extends BaseInstaller {
             this.outputChannel.appendLine('Option 3: Extract to any folder and define that path in the python.workspaceSymbols.ctagsPath setting of your user settings file (settings.json).');
             this.outputChannel.show();
         } else {
-            const terminalService = this.serviceContainer.get<ITerminalServiceFactory>(ITerminalServiceFactory).getTerminalService();
+            const terminalService = this.serviceContainer.get<ITerminalServiceFactory>(ITerminalServiceFactory).getTerminalService(resource);
             const logger = this.serviceContainer.get<ILogger>(ILogger);
             terminalService.sendCommand(CTagsInsllationScript, [])
                 .catch(logger.logError.bind(logger, `Failed to install ctags. Script sent '${CTagsInsllationScript}'.`));
