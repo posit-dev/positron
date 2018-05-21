@@ -18,10 +18,10 @@ import { PlatformData } from './platformData';
 const StreamZip = require('node-stream-zip');
 
 const downloadUriPrefix = 'https://pvsc.blob.core.windows.net/python-analysis';
-const downloadBaseFileName = 'python-analysis-vscode';
+const downloadBaseFileName = 'Python-Analysis-VSCode';
 const downloadVersion = '0.1.0';
 const downloadFileExtension = '.nupkg';
-const pythiaModelName = 'model-sequence.json.gz';
+const modelName = 'model-sequence.json.gz';
 
 export class AnalysisEngineDownloader {
     private readonly output: OutputChannel;
@@ -56,16 +56,16 @@ export class AnalysisEngineDownloader {
         }
     }
 
-    public async downloadPythiaModel(context: ExtensionContext): Promise<void> {
+    public async downloadIntelliCodeModel(context: ExtensionContext): Promise<void> {
         const modelFolder = path.join(context.extensionPath, 'analysis', 'Pythia', 'model');
-        const localPath = path.join(modelFolder, pythiaModelName);
+        const localPath = path.join(modelFolder, modelName);
         if (await this.fs.fileExists(localPath)) {
             return;
         }
 
         let localTempFilePath = '';
         try {
-            localTempFilePath = await this.downloadFile(downloadUriPrefix, pythiaModelName, 'Downloading IntelliSense Model File... ');
+            localTempFilePath = await this.downloadFile(downloadUriPrefix, modelName, 'Downloading IntelliCode Model File... ');
             await this.fs.createDirectory(modelFolder);
             await this.fs.copyFile(localTempFilePath, localPath);
         } catch (err) {
@@ -129,11 +129,10 @@ export class AnalysisEngineDownloader {
         if (!await verifier.verifyHash(filePath, platformString, await this.platformData.getExpectedHash())) {
             throw new Error('Hash of the downloaded file does not match.');
         }
-        this.output.append('valid.');
+        this.output.appendLine('valid.');
     }
 
     private async unpackArchive(extensionPath: string, tempFilePath: string): Promise<void> {
-        this.output.appendLine('');
         this.output.append('Unpacking archive... ');
 
         const installFolder = path.join(extensionPath, this.engineFolder);
@@ -170,12 +169,12 @@ export class AnalysisEngineDownloader {
             });
             return deferred.promise;
         });
-        this.output.append('done.');
 
         // Set file to executable
         if (!this.platform.isWindows) {
             const executablePath = path.join(installFolder, this.platformData.getEngineExecutableName());
             fileSystem.chmodSync(executablePath, '0764'); // -rwxrw-r--
         }
+        this.output.appendLine('done.');
     }
 }
