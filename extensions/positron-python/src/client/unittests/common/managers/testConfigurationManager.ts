@@ -1,18 +1,26 @@
 import * as path from 'path';
 import { OutputChannel, QuickPickItem, Uri, window } from 'vscode';
 import { createDeferred } from '../../../common/helpers';
-import { IInstaller, Product } from '../../../common/types';
+import { IInstaller, IOutputChannel, Product } from '../../../common/types';
 import { getSubDirectories } from '../../../common/utils';
+import { IServiceContainer } from '../../../ioc/types';
+import { ITestConfigurationManager } from '../../types';
+import { TEST_OUTPUT_CHANNEL } from '../constants';
 import { ITestConfigSettingsService, UnitTestProduct } from './../types';
 
-export abstract class TestConfigurationManager {
+export abstract class TestConfigurationManager implements ITestConfigurationManager {
+    protected readonly outputChannel: OutputChannel;
+    protected readonly installer: IInstaller;
+    protected readonly testConfigSettingsService: ITestConfigSettingsService;
     constructor(protected workspace: Uri,
         protected product: UnitTestProduct,
-        protected readonly outputChannel: OutputChannel,
-        protected installer: IInstaller,
-        protected testConfigSettingsService: ITestConfigSettingsService) { }
-    // tslint:disable-next-line:no-any
-    public abstract configure(wkspace: Uri): Promise<any>;
+        protected readonly serviceContainer: IServiceContainer) {
+        this.outputChannel = serviceContainer.get<OutputChannel>(IOutputChannel, TEST_OUTPUT_CHANNEL);
+        this.installer = serviceContainer.get<IInstaller>(IInstaller);
+        this.testConfigSettingsService = serviceContainer.get<ITestConfigSettingsService>(ITestConfigSettingsService);
+    }
+    public abstract configure(wkspace: Uri): Promise<void>;
+    public abstract requiresUserToConfigure(wkspace: Uri): Promise<boolean>;
     public async enable() {
         // Disable other test frameworks.
         const testProducsToDisable = [Product.pytest, Product.unittest, Product.nosetest]

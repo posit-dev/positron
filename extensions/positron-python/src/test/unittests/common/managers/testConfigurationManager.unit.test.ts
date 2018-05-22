@@ -6,14 +6,18 @@
 // tslint:disable:no-any
 
 import * as TypeMoq from 'typemoq';
-import { OutputChannel } from 'vscode';
+import { OutputChannel, Uri } from 'vscode';
 import { EnumEx } from '../../../../client/common/enumUtils';
-import { IInstaller, Product } from '../../../../client/common/types';
+import { IInstaller, IOutputChannel, Product } from '../../../../client/common/types';
+import { IServiceContainer } from '../../../../client/ioc/types';
+import { TEST_OUTPUT_CHANNEL } from '../../../../client/unittests/common/constants';
 import { TestConfigurationManager } from '../../../../client/unittests/common/managers/testConfigurationManager';
 import { ITestConfigSettingsService, UnitTestProduct } from '../../../../client/unittests/common/types';
-import { Uri } from '../../../vscode-mock';
 
 class MockTestConfigurationManager extends TestConfigurationManager {
+    public requiresUserToConfigure(wkspace: Uri): Promise<boolean> {
+        throw new Error('Method not implemented.');
+    }
     public configure(wkspace: any): Promise<any> {
         throw new Error('Method not implemented.');
     }
@@ -32,9 +36,11 @@ suite('Unit Test Configuration Manager (unit)', () => {
                 configService = TypeMoq.Mock.ofType<ITestConfigSettingsService>();
                 const outputChannel = TypeMoq.Mock.ofType<OutputChannel>().object;
                 const installer = TypeMoq.Mock.ofType<IInstaller>().object;
-
-                manager = new MockTestConfigurationManager(workspaceUri, product as UnitTestProduct,
-                    outputChannel, installer, configService.object);
+                const serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
+                serviceContainer.setup(s => s.get(TypeMoq.It.isValue(IOutputChannel), TypeMoq.It.isValue(TEST_OUTPUT_CHANNEL))).returns(() => outputChannel);
+                serviceContainer.setup(s => s.get(TypeMoq.It.isValue(ITestConfigSettingsService))).returns(() => configService.object);
+                serviceContainer.setup(s => s.get(TypeMoq.It.isValue(IInstaller))).returns(() => installer);
+                manager = new MockTestConfigurationManager(workspaceUri, product as UnitTestProduct, serviceContainer.object);
             });
 
             test('Enabling a test product shoud disable other products', async () => {

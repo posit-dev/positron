@@ -15,15 +15,6 @@ const mockedVSCode: Partial<VSCode> = {};
 const mockedVSCodeNamespaces: { [P in keyof VSCode]?: TypeMoq.IMock<VSCode[P]> } = {};
 const originalLoad = Module._load;
 
-generateMock('workspace');
-generateMock('window');
-generateMock('commands');
-generateMock('languages');
-generateMock('env');
-generateMock('debug');
-generateMock('extensions');
-generateMock('scm');
-
 function generateMock<K extends keyof VSCode>(name: K): void {
     const mockedObj = TypeMoq.Mock.ofType<VSCode[K]>();
     mockedVSCode[name] = mockedObj.object;
@@ -31,6 +22,15 @@ function generateMock<K extends keyof VSCode>(name: K): void {
 }
 
 export function initialize() {
+    generateMock('workspace');
+    generateMock('window');
+    generateMock('commands');
+    generateMock('languages');
+    generateMock('env');
+    generateMock('debug');
+    generateMock('extensions');
+    generateMock('scm');
+
     Module._load = function (request, parent) {
         if (request === 'vscode') {
             return mockedVSCode;
@@ -76,9 +76,14 @@ export class Uri implements vscode.Uri {
         throw new Error('Not implemented');
     }
     public toString(skipEncoding?: boolean): string {
-        throw new Error('Not implemented');
+        return this.fsPath;
     }
     public toJSON(): any {
         return this.fsPath;
     }
 }
+
+mockedVSCode.Uri = Uri as any;
+// tslint:disable-next-line:no-function-expression
+mockedVSCode.EventEmitter = function () { return TypeMoq.Mock.ofType<vscode.EventEmitter<any>>(); } as any;
+mockedVSCode.StatusBarAlignment = TypeMoq.Mock.ofType<vscode.StatusBarAlignment>().object as any;
