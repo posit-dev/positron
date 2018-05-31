@@ -133,10 +133,11 @@ def main(run_type, directory):
 
 if __name__ == '__main__':
     arguments = docopt.docopt(__doc__)
-    run_type = RunType.interim
     for possible_run_type in RunType:
         if arguments[f"--{possible_run_type.name}"]:
             run_type = possible_run_type
             break
+    else:
+        run_type = RunType.interim
     directory = arguments["<directory>"] or pathlib.Path(__file__).parent
     main(run_type, directory)
