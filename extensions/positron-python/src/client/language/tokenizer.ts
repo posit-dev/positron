@@ -280,6 +280,8 @@ export class Tokenizer implements ITokenizer {
             case Char.Caret:
             case Char.Equal:
             case Char.ExclamationMark:
+            case Char.Percent:
+            case Char.Tilde:
                 length = nextChar === Char.Equal ? 2 : 1;
                 break;
 
@@ -350,23 +352,40 @@ export class Tokenizer implements ITokenizer {
         this.tokens.push(new Token(TokenType.Comment, start, this.cs.position - start));
     }
 
+    // tslint:disable-next-line:cyclomatic-complexity
     private getStringPrefixLength(): number {
-        if (this.cs.currentChar === Char.f && (this.cs.nextChar === Char.SingleQuote || this.cs.nextChar === Char.DoubleQuote)) {
-            return 1; // f-string
+        if (this.cs.currentChar === Char.SingleQuote || this.cs.currentChar === Char.DoubleQuote) {
+            return 0; // Simple string, no prefix
         }
-        if (this.cs.currentChar === Char.b || this.cs.currentChar === Char.B || this.cs.currentChar === Char.u || this.cs.currentChar === Char.U) {
-            if (this.cs.nextChar === Char.SingleQuote || this.cs.nextChar === Char.DoubleQuote) {
-                // b-string or u-string
-                return 1;
-            }
-            if (this.cs.nextChar === Char.r || this.cs.nextChar === Char.R) {
-                // b-string or u-string with 'r' suffix
-                if (this.cs.lookAhead(2) === Char.SingleQuote || this.cs.lookAhead(2) === Char.DoubleQuote) {
-                    return 2;
-                }
+
+        if (this.cs.nextChar === Char.SingleQuote || this.cs.nextChar === Char.DoubleQuote) {
+            switch (this.cs.currentChar) {
+                case Char.f:
+                case Char.F:
+                case Char.r:
+                case Char.R:
+                case Char.b:
+                case Char.B:
+                case Char.u:
+                case Char.U:
+                    return 1; // single-char prefix like u"" or r""
+                default:
+                    break;
             }
         }
-        return this.cs.currentChar === Char.SingleQuote || this.cs.currentChar === Char.DoubleQuote ? 0 : -1;
+
+        if (this.cs.lookAhead(2) === Char.SingleQuote || this.cs.lookAhead(2) === Char.DoubleQuote) {
+            const prefix = this.cs.getText().substr(this.cs.position, 2).toLowerCase();
+            switch (prefix) {
+                case 'rf':
+                case 'ur':
+                case 'br':
+                     return 2;
+                default:
+                    break;
+            }
+        }
+        return -1;
     }
 
     private getQuoteType(): QuoteType {
