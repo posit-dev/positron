@@ -59,7 +59,7 @@ suite('Formatting - line formatter', () => {
         testFormatLine('[ 1 :[2: (x,),y]]{1}', '[1:[2:(x,), y]]{1}');
     });
     test('Trailing comment', () => {
-        testFormatLine('x=1  # comment', 'x = 1 # comment');
+        testFormatLine('x=1    # comment', 'x = 1  # comment');
     });
     test('Single comment', () => {
         testFormatLine('# comment', '# comment');
@@ -87,9 +87,14 @@ suite('Formatting - line formatter', () => {
     });
     test('Brace after keyword', () => {
         testFormatLine('for x in(1,2,3)', 'for x in (1, 2, 3)');
+        testFormatLine('assert(1,2,3)', 'assert (1, 2, 3)');
+        testFormatLine('if (True|False)and(False/True)not (! x )', 'if (True | False) and (False / True) not (!x)');
+        testFormatLine('while (True|False)', 'while (True | False)');
+        testFormatLine('yield(a%b)', 'yield (a % b)');
     });
     test('Dot operator', () => {
         testFormatLine('x.y', 'x.y');
+        testFormatLine('5 .y', '5.y');
     });
     test('Unknown tokens no space', () => {
         testFormatLine('abc\\n\\', 'abc\\n\\');
@@ -120,6 +125,32 @@ suite('Formatting - line formatter', () => {
     });
     test('from..x import', () => {
         testFormatLine('from..x import', 'from ..x import');
+    });
+    test('Raw strings', () => {
+        testFormatLine('z=r""', 'z = r""');
+        testFormatLine('z=rf""', 'z = rf""');
+        testFormatLine('z=R""', 'z = R""');
+        testFormatLine('z=RF""', 'z = RF""');
+    });
+    test('Binary @', () => {
+        testFormatLine('a@  b', 'a @ b');
+    });
+    test('Unary operators', () => {
+        testFormatLine('x= - y', 'x = -y');
+        testFormatLine('x= + y', 'x = +y');
+        testFormatLine('x= ~ y', 'x = ~y');
+        testFormatLine('x=-1', 'x = -1');
+        testFormatLine('x=   +1', 'x = +1');
+        testFormatLine('x=  ~1 ', 'x = ~1');
+    });
+    test('Equals with type hints', () => {
+        testFormatLine('def foo(x:int=3,x=100.)', 'def foo(x: int = 3, x=100.)');
+    });
+    test('Trailing comma', () => {
+        testFormatLine('a, =[1]', 'a, = [1]');
+    });
+    test('if()', () => {
+        testFormatLine('if(True) :', 'if (True):');
     });
     test('Grammar file', () => {
         const content = fs.readFileSync(grammarFile).toString('utf8');

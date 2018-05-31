@@ -10,6 +10,21 @@ import { TextRangeCollection } from '../language/textRangeCollection';
 import { Tokenizer } from '../language/tokenizer';
 import { ITextRangeCollection, IToken, TokenType } from '../language/types';
 
+const keywordsWithSpaceBeforeBrace = [
+    'and', 'as', 'assert', 'await',
+    'del',
+    'except', 'elif',
+    'for', 'from',
+    'global',
+    'if', 'import', 'in', 'is',
+    'lambda',
+    'nonlocal', 'not',
+    'or',
+    'raise', 'return',
+    'while', 'with',
+    'yield'
+];
+
 export class LineFormatter {
     private builder = new TextBuilder();
     private tokens: ITextRangeCollection<IToken> = new TextRangeCollection<IToken>([]);
@@ -59,7 +74,7 @@ export class LineFormatter {
                     }
                     const id = this.text.substring(t.start, t.end);
                     this.builder.append(id);
-                    if (this.keywordWithSpaceAfter(id) && next && this.isOpenBraceType(next.type)) {
+                    if (this.isKeywordWithSpaceBeforeBrace(id) && next && this.isOpenBraceType(next.type)) {
                         // for x in ()
                         this.builder.softAppendSpace();
                     }
@@ -75,9 +90,9 @@ export class LineFormatter {
                     break;
 
                 case TokenType.Comment:
-                    // Add space before in-line comment.
+                    // Add 2 spaces before in-line comment per PEP guidelines.
                     if (prev) {
-                        this.builder.softAppendSpace();
+                        this.builder.softAppendSpace(2);
                     }
                     this.builder.append(this.text.substring(t.start, t.end));
                     break;
@@ -98,28 +113,35 @@ export class LineFormatter {
     private handleOperator(index: number): void {
         const t = this.tokens.getItemAt(index);
         const prev = index > 0 ? this.tokens.getItemAt(index - 1) : undefined;
+        const opCode = this.text.charCodeAt(t.start);
         const next = index < this.tokens.count - 1 ? this.tokens.getItemAt(index + 1) : undefined;
 
         if (t.length === 1) {
-            const opCode = this.text.charCodeAt(t.start);
             switch (opCode) {
                 case Char.Equal:
-                    if (this.handleEqual(t, index)) {
-                        return;
-                    }
-                    break;
+                    this.handleEqual(t, index);
+                    return;
                 case Char.Period:
                     if (prev && this.isKeyword(prev, 'from')) {
                         this.builder.softAppendSpace();
                     }
-                    this.builder.append(this.text[t.start]);
+                    this.builder.append('.');
                     if (next && this.isKeyword(next, 'import')) {
                         this.builder.softAppendSpace();
                     }
                     return;
                 case Char.At:
+                    if (prev) {
+                        // Binary case
+                        this.builder.softAppendSpace();
+                        this.builder.append('@');
+                        this.builder.softAppendSpace();
+                    } else {
+                        this.builder.append('@');
+                    }
+                    return;
                 case Char.ExclamationMark:
-                    this.builder.append(this.text[t.start]);
+                    this.builder.append('!');
                     return;
                 case Char.Asterisk:
                     if (prev && this.isKeyword(prev, 'lambda')) {
@@ -153,19 +175,34 @@ export class LineFormatter {
 
         this.builder.softAppendSpace();
         this.builder.append(this.text.substring(t.start, t.end));
+
+        // Check unary case
+        if (prev && prev.type === TokenType.Operator) {
+            if (opCode === Char.Hyphen || opCode === Char.Plus || opCode === Char.Tilde) {
+                return;
+            }
+        }
         this.builder.softAppendSpace();
     }
 
-    private handleEqual(t: IToken, index: number): boolean {
+    private handleEqual(t: IToken, index: number): void {
         if (this.isMultipleStatements(index) && !this.braceCounter.isOpened(TokenType.OpenBrace)) {
-            return false; // x = 1; x, y = y, x
+            // x = 1; x, y = y, x
+            this.builder.softAppendSpace();
+            this.builder.append('=');
+            this.builder.softAppendSpace();
+            return;
         }
+
         // Check if this is = in function arguments. If so, do not add spaces around it.
         if (this.isEqualsInsideArguments(index)) {
             this.builder.append('=');
-            return true;
+            return;
         }
-        return false;
+
+        this.builder.softAppendSpace();
+        this.builder.append('=');
+        this.builder.softAppendSpace();
     }
 
     private handleOther(t: IToken, index: number): void {
@@ -184,6 +221,12 @@ export class LineFormatter {
 
         if (prev && (this.isOpenBraceType(prev.type) || prev.type === TokenType.Colon)) {
             // Don't insert space after (, [ or { .
+            this.builder.append(this.text.substring(t.start, t.end));
+            return;
+        }
+
+        if (t.type === TokenType.Number && prev && prev.type === TokenType.Operator && prev.length === 1 && this.text.charCodeAt(prev.start) === Char.Tilde) {
+            // Special case for ~ before numbers
             this.builder.append(this.text.substring(t.start, t.end));
             return;
         }
@@ -222,6 +265,10 @@ export class LineFormatter {
         const prev = this.tokens.getItemAt(index - 1);
         if (prev.type !== TokenType.Identifier) {
             return false;
+        }
+
+        if (index > 1 && this.tokens.getItemAt(index - 2).type === TokenType.Colon) {
+            return false; // Type hint should have spaces around like foo(x: int = 1) per PEP 8
         }
 
         const first = this.tokens.getItemAt(0);
@@ -278,11 +325,9 @@ export class LineFormatter {
         }
         return false;
     }
-    private keywordWithSpaceAfter(s: string): boolean {
-        return s === 'in' || s === 'return' || s === 'and' ||
-            s === 'or' || s === 'not' || s === 'from' ||
-            s === 'import' || s === 'except' || s === 'for' ||
-            s === 'as' || s === 'is';
+
+    private isKeywordWithSpaceBeforeBrace(s: string): boolean {
+        return keywordsWithSpaceBeforeBrace.indexOf(s) >= 0;
     }
     private isKeyword(t: IToken, keyword: string): boolean {
         return t.type === TokenType.Identifier && t.length === keyword.length && this.text.substr(t.start, t.length) === keyword;
