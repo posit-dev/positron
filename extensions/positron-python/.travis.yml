@@ -113,7 +113,7 @@ script:
     fi
   - if [ "$TRAVIS_PYTHON_VERSION" != "2.7" ]; then
         python3 -m pip install --upgrade -r news/requirements.txt;
-        python3 news/announce.py --dry-run;
+        python3 news/announce.py --dry_run;
     fi
   - if [[ $AZURE_STORAGE_ACCOUNT && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
         yarn run clean;
