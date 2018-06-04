@@ -108,10 +108,6 @@ export async function activate(context: ExtensionContext) {
     languages.setLanguageConfiguration(PYTHON_LANGUAGE, {
         onEnterRules: [
             {
-                beforeText: /^\s*(?:def|class|for|if|elif|else|while|try|with|finally|except)\b.*:\s*\S+/,
-                action: { indentAction: IndentAction.None }
-            },
-            {
                 beforeText: /^\s*(?:def|class|for|if|elif|else|while|try|with|finally|except|async)\b.*:\s*/,
                 action: { indentAction: IndentAction.Indent }
             },
