@@ -122,7 +122,7 @@ suite('Linting - Arguments', () => {
                 });
                 test('Prospector', async () => {
                     const linter = new Prospector(outputChannel.object, serviceContainer);
-                    const expectedPath = workspaceUri ? path.relative(workspaceUri, fileUri.fsPath) : path.basename(fileUri.fsPath);
+                    const expectedPath = workspaceUri ? fileUri.fsPath.substring(workspaceUri.length + 2) : path.basename(fileUri.fsPath);
                     const expectedArgs = ['--absolute-paths', '--output-format=json', expectedPath];
                     await testLinter(linter, expectedArgs);
                 });
