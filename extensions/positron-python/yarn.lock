@@ -53,6 +53,12 @@
   dependencies:
     "@types/glob" "*"
 
+"@types/dotenv@^4.0.3":
+  version "4.0.3"
+  resolved "https://registry.yarnpkg.com/@types/dotenv/-/dotenv-4.0.3.tgz#ebcfc40da7bc0728b705945b7db48485ec5b4b67"
+  dependencies:
+    "@types/node" "*"
+
 "@types/event-stream@^3.3.33":
   version "3.3.33"
   resolved "https://registry.yarnpkg.com/@types/event-stream/-/event-stream-3.3.33.tgz#ca155f6e805b606175322c03e6d75bc3b940cb95"
@@ -1070,6 +1076,10 @@ doctrine@0.7.2:
   dependencies:
     esutils "^1.1.6"
     isarray "0.0.1"
+
+dotenv@^5.0.1:
+  version "5.0.1"
+  resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-5.0.1.tgz#a5317459bd3d79ab88cff6e44057a6a3fbb1fcef"
 
 duplexer2@0.0.2:
   version "0.0.2"
