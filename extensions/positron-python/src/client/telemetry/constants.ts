@@ -4,6 +4,7 @@
 'use strict';
 
 export const COMPLETION = 'COMPLETION';
+export const COMPLETION_ADD_BRACKETS = 'COMPLETION.ADD_BRACKETS';
 export const DEFINITION = 'DEFINITION';
 export const HOVER_DEFINITION = 'HOVER_DEFINITION';
 export const REFERENCE = 'REFERENCE';
@@ -11,6 +12,7 @@ export const SIGNATURE = 'SIGNATURE';
 export const SYMBOL = 'SYMBOL';
 export const FORMAT_SORT_IMPORTS = 'FORMAT.SORT_IMPORTS';
 export const FORMAT = 'FORMAT.FORMAT';
+export const FORMAT_ON_TYPE = 'FORMAT.FORMAT_ON_TYPE';
 export const EDITOR_LOAD = 'EDITOR.LOAD';
 export const LINTING = 'LINTING';
 export const GO_TO_OBJECT_DEFINITION = 'GO_TO_OBJECT_DEFINITION';
