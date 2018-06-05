@@ -72,10 +72,13 @@ export type TestDiscoverytTelemetry = {
 export type FeedbackTelemetry = {
     action: 'accepted' | 'dismissed' | 'doNotShowAgain';
 };
+export type SettingsTelemetry = {
+    enabled: boolean;
+};
 export type TerminalTelemetry = {
     terminal?: TerminalShellType;
     triggeredBy?: 'commandpalette';
     pythonVersion?: string;
     interpreterType?: InterpreterType;
 };
-export type TelemetryProperties = FormatTelemetry | LintingTelemetry | EditorLoadTelemetry | PythonInterpreterTelemetry | CodeExecutionTelemetry | TestRunTelemetry | TestDiscoverytTelemetry | FeedbackTelemetry | TerminalTelemetry | DebuggerTelemetryV2;
+export type TelemetryProperties = FormatTelemetry | LintingTelemetry | EditorLoadTelemetry | PythonInterpreterTelemetry | CodeExecutionTelemetry | TestRunTelemetry | TestDiscoverytTelemetry | FeedbackTelemetry | TerminalTelemetry | DebuggerTelemetryV2 | SettingsTelemetry;
