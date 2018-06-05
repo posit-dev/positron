@@ -10,7 +10,6 @@
 - [ ] Evaluate [projects](https://github.com/Microsoft/vscode-python/projects) & [`meta` issues](https://github.com/Microsoft/vscode-python/labels/meta)
 - [ ] Go through [`needs PR` issues](https://github.com/Microsoft/vscode-python/issues?utf8=%E2%9C%93&q=is%3Aopen+label%3A%22needs+PR%22+-label%3A%22help+wanted%22+-label%3A%22good+first+issue%22+no%3Amilestone) to see if there's anything we want to add to this milestone
 - [ ] Finalize the initial set of issues for the [milestone](https://github.com/Microsoft/vscode-python/milestones)
-- [ ] Make sure all issues for this [milestone](https://github.com/Microsoft/vscode-python/milestones) are assigned
 - [ ] Close issues that have [needed more info](https://github.com/Microsoft/vscode-python/issues?q=is%3Aopen+label%3A%22needs+more+info%22+sort%3Aupdated-asc) for over a month
 
 # Week of Monday, XXX
