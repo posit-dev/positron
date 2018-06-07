@@ -71,7 +71,7 @@ export class PythonSettings extends EventEmitter implements IPythonSettings {
         if (!PythonSettings.pythonSettings.has(workspaceFolderKey)) {
             const settings = new PythonSettings(workspaceFolderUri);
             PythonSettings.pythonSettings.set(workspaceFolderKey, settings);
-            const formatOnType = workspace.getConfiguration('editor', resource).get('formatOnType', false);
+            const formatOnType = workspace.getConfiguration('editor', resource ? resource : null).get('formatOnType', false);
             sendTelemetryEvent(COMPLETION_ADD_BRACKETS, undefined, { enabled: settings.autoComplete.addBrackets });
             sendTelemetryEvent(FORMAT_ON_TYPE, undefined, { enabled: formatOnType });
         }
