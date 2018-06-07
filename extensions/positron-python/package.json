@@ -819,6 +819,17 @@
                         }
                     },
                     {
+                        "label": "Python Experimental: Gevent",
+                        "description": "%python.snippet.launch.gevent.description%",
+                        "body": {
+                            "name": "Gevent",
+                            "type": "pythonExperimental",
+                            "request": "launch",
+                            "program": "^\"\\${file}\"",
+                            "gevent": true
+                        }
+                    },
+                    {
                         "label": "Python Experimental: PySpark",
                         "description": "%python.snippet.launch.pyspark.description%",
                         "body": {
@@ -973,6 +984,11 @@
                             "debugStdLib": {
                                 "type": "boolean",
                                 "description": "Debug standard library code.",
+                                "default": false
+                            },
+                            "gevent": {
+                                "type": "boolean",
+                                "description": "Enable debugging of gevent monkey-patched code.",
                                 "default": false
                             },
                             "django": {
