@@ -18,7 +18,7 @@ suite('Activation Times', () => {
     if (process.env.ACTIVATION_TIMES_LOG_FILE_PATH) {
         const logFile = process.env.ACTIVATION_TIMES_LOG_FILE_PATH;
         const sampleCounter = fs.existsSync(logFile) ? fs.readFileSync(logFile, { encoding: 'utf8' }).toString().split(/\r?\n/g).length : 1;
-        if (sampleCounter > 10) {
+        if (sampleCounter > 5) {
             return;
         }
         test(`Capture Extension Activation Times (Version: ${process.env.ACTIVATION_TIMES_EXT_VERSION}, sample: ${sampleCounter})`, async () => {

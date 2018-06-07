@@ -38,7 +38,7 @@ class TestRunner {
         await del([path.join(tmpFolder, '**')]);
         await this.extractLatestExtension(publishedExtensionPath);
 
-        const timesToLoadEachVersion = 3;
+        const timesToLoadEachVersion = 2;
         const devLogFiles: string[] = [];
         const releaseLogFiles: string[] = [];
         const newAnalysisEngineLogFiles: string[] = [];
@@ -47,20 +47,24 @@ class TestRunner {
             await this.enableNewAnalysisEngine(false);
 
             const devLogFile = path.join(logFilesPath, `dev_loadtimes${i}.txt`);
+            console.log(`Start Performance Tests: Counter ${i}, for Dev version with Jedi`);
             await this.capturePerfTimes(Version.Dev, devLogFile);
             devLogFiles.push(devLogFile);
 
             const releaseLogFile = path.join(logFilesPath, `release_loadtimes${i}.txt`);
+            console.log(`Start Performance Tests: Counter ${i}, for Release version with Jedi`);
             await this.capturePerfTimes(Version.Release, releaseLogFile);
             releaseLogFiles.push(releaseLogFile);
 
             // New Analysis engine.
             await this.enableNewAnalysisEngine(true);
             const newAnalysisEngineLogFile = path.join(logFilesPath, `newAnalysisEngine_loadtimes${i}.txt`);
+            console.log(`Start Performance Tests: Counter ${i}, for Release version with Analysis Engine`);
             await this.capturePerfTimes(Version.Release, newAnalysisEngineLogFile);
             newAnalysisEngineLogFiles.push(newAnalysisEngineLogFile);
         }
 
+        console.log('Compare Performance Results');
         await this.runPerfTest(devLogFiles, releaseLogFiles, newAnalysisEngineLogFiles);
     }
     private async enableNewAnalysisEngine(enable: boolean) {
