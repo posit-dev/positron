@@ -23,7 +23,7 @@ suite('Activation Times', () => {
         }
         test(`Capture Extension Activation Times (Version: ${process.env.ACTIVATION_TIMES_EXT_VERSION}, sample: ${sampleCounter})`, async () => {
             const pythonExtension = extensions.getExtension('ms-python.python');
-            if (pythonExtension) {
+            if (!pythonExtension) {
                 throw new Error('Python Extension not found');
             }
             const stopWatch = new StopWatch();
