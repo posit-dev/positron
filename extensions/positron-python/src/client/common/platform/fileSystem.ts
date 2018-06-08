@@ -4,6 +4,7 @@
 
 import { createHash } from 'crypto';
 import * as fs from 'fs-extra';
+import * as glob from 'glob';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { createDeferred } from '../helpers';
@@ -127,6 +128,16 @@ export class FileSystem implements IFileSystem {
                     const actual = createHash('sha512').update(`${stats.ctimeMs}-${stats.mtimeMs}`).digest('hex');
                     resolve(actual);
                 }
+            });
+        });
+    }
+    public search(globPattern: string): Promise<string[]> {
+        return new Promise<string[]>((resolve, reject) => {
+            glob(globPattern, (ex, files) => {
+                if (ex) {
+                    return reject(ex);
+                }
+                resolve(Array.isArray(files) ? files : []);
             });
         });
     }

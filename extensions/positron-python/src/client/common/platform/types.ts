@@ -47,4 +47,5 @@ export interface IFileSystem {
     copyFile(src: string, dest: string): Promise<void>;
     deleteFile(filename: string): Promise<void>;
     getFileHash(filePath: string): Promise<string | undefined>;
+    search(globPattern: string): Promise<string[]>;
 }

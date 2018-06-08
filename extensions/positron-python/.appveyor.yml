@@ -72,7 +72,7 @@ init:
 
 install:
   - ps: Install-Product node $env:nodejs_version
-  - npm ci
+  - npm i
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
   - python -m pip install -U pip
   - pip install -t ./pythonFiles/experimental/ptvsd git+https://github.com/Microsoft/ptvsd/
