@@ -40,6 +40,7 @@ import { IServiceContainer, IServiceManager } from './ioc/types';
 import { LinterCommands } from './linters/linterCommands';
 import { registerTypes as lintersRegisterTypes } from './linters/serviceRegistry';
 import { ILintingEngine } from './linters/types';
+import { PythonCodeActionProvider } from './providers/codeActionsProvider';
 import { PythonFormattingEditProvider } from './providers/formatProvider';
 import { LinterProvider } from './providers/linterProvider';
 import { PythonRenameProvider } from './providers/renameProvider';
@@ -144,6 +145,8 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ReplProvider(serviceContainer));
     context.subscriptions.push(new TerminalProvider(serviceContainer));
     context.subscriptions.push(new WorkspaceSymbols(serviceContainer));
+
+    context.subscriptions.push(languages.registerCodeActionsProvider(PYTHON, new PythonCodeActionProvider()));
 
     type ConfigurationProvider = BaseConfigurationProvider<LaunchRequestArguments, AttachRequestArguments>;
     serviceContainer.getAll<ConfigurationProvider>(IDebugConfigurationProvider).forEach(debugConfig => {
