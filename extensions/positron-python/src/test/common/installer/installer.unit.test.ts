@@ -12,7 +12,8 @@ import { EnumEx } from '../../../client/common/enumUtils';
 import '../../../client/common/extensions';
 import { createDeferred, Deferred } from '../../../client/common/helpers';
 import { ProductInstaller } from '../../../client/common/installer/productInstaller';
-import { IInstallationChannelManager, IModuleInstaller } from '../../../client/common/installer/types';
+import { ProductService } from '../../../client/common/installer/productService';
+import { IInstallationChannelManager, IModuleInstaller, IProductPathService, IProductService } from '../../../client/common/installer/types';
 import { IDisposableRegistry, ILogger, InstallerResponse, ModuleNamePurpose, Product } from '../../../client/common/types';
 import { IServiceContainer } from '../../../client/ioc/types';
 
@@ -34,11 +35,9 @@ suite('Module Installer', () => {
                 serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
                 const outputChannel = TypeMoq.Mock.ofType<OutputChannel>();
 
-                installer = new ProductInstaller(serviceContainer.object, outputChannel.object);
-
                 disposables = [];
                 serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IDisposableRegistry), TypeMoq.It.isAny())).returns(() => disposables);
-
+                serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IProductService), TypeMoq.It.isAny())).returns(() => new ProductService());
                 installationChannel = TypeMoq.Mock.ofType<IInstallationChannelManager>();
                 serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IInstallationChannelManager), TypeMoq.It.isAny())).returns(() => installationChannel.object);
                 app = TypeMoq.Mock.ofType<IApplicationShell>();
@@ -51,6 +50,13 @@ suite('Module Installer', () => {
                 moduleInstaller.setup((x: any) => x.then).returns(() => undefined);
                 installationChannel.setup(i => i.getInstallationChannel(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => Promise.resolve(moduleInstaller.object));
                 installationChannel.setup(i => i.getInstallationChannel(TypeMoq.It.isAny())).returns(() => Promise.resolve(moduleInstaller.object));
+
+                const productPathService = TypeMoq.Mock.ofType<IProductPathService>();
+                serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IProductPathService), TypeMoq.It.isAny())).returns(() => productPathService.object);
+                productPathService.setup(p => p.getExecutableNameFromSettings(TypeMoq.It.isAny(), TypeMoq.It.isValue(resource))).returns(() => 'xyz');
+                productPathService.setup(p => p.isExecutableAModule(TypeMoq.It.isAny(), TypeMoq.It.isValue(resource))).returns(() => true);
+
+                installer = new ProductInstaller(serviceContainer.object, outputChannel.object);
             });
             teardown(() => {
                 // This must be resolved, else all subsequent tests will fail (as this same promise will be used for other tests).
