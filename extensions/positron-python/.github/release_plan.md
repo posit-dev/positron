@@ -3,7 +3,7 @@
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
 - [ ] Go through all [merged pull requests](https://github.com/Microsoft/vscode-python/pulls?utf8=%E2%9C%93&q=is%3Apr+is%3Amerged) and add the [`validate fix` label](https://github.com/Microsoft/vscode-python/labels/validate%20fix) as appropriate as well as checking for news entries
-- [ ] Validated [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
+- [ ] Validate [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
 - [ ] Triage [unverified issues](https://github.com/Microsoft/vscode-python/labels/needs%20verification)
 
 ## Planning
@@ -18,7 +18,7 @@
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
 - [ ] Go through all [merged pull requests](https://github.com/Microsoft/vscode-python/pulls?utf8=%E2%9C%93&q=is%3Apr+is%3Amerged) and add the [`validate fix` label](https://github.com/Microsoft/vscode-python/labels/validate%20fix) as appropriate as well as checking for news entries
-- [ ] Validated [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
+- [ ] Validate [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
 - [ ] Triage [unverified issues](https://github.com/Microsoft/vscode-python/labels/needs%20verification)
 
 ## Planning
@@ -30,7 +30,7 @@
 - [ ] Review the state of the current [milestone](https://github.com/Microsoft/vscode-python/milestones)
 - [ ] Go through telemetry for GDPR
 - [ ] Go through all [merged pull requests](https://github.com/Microsoft/vscode-python/pulls?utf8=%E2%9C%93&q=is%3Apr+is%3Amerged) and add the [`validate fix` label](https://github.com/Microsoft/vscode-python/labels/validate%20fix) as appropriate as well as checking for news entries
-- [ ] Validated [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
+- [ ] Validate [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
 - [ ] Triage [unverified issues](https://github.com/Microsoft/vscode-python/labels/needs%20verification)
 
 ## Legal
@@ -48,7 +48,7 @@
 - [ ] Go through telemetry for GDPR
 - [ ] Merge any last-minute [pull requests](https://github.com/Microsoft/vscode-python/pulls)
 - [ ] Go through all [merged pull requests](https://github.com/Microsoft/vscode-python/pulls?utf8=%E2%9C%93&q=is%3Apr+is%3Amerged) and add the [`validate fix` label](https://github.com/Microsoft/vscode-python/labels/validate%20fix) as appropriate as well as checking for news entries
-- [ ] Validated [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
+- [ ] Validate [fixed issues](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
 - [ ] Triage [unverified issues](https://github.com/Microsoft/vscode-python/labels/needs%20verification)
 
 ## Prep for the release candidate
