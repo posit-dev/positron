@@ -22,7 +22,7 @@ export enum PersistentStateKeys {
 @injectable()
 export class ExperimentalDebuggerBanner implements IExperimentalDebuggerBanner {
     private initialized?: boolean;
-    private disabled?: boolean;
+    private disabledInCurrentSession?: boolean;
     public get enabled(): boolean {
         const factory = this.serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
         return factory.createGlobalPersistentState<boolean>(PersistentStateKeys.ShowBanner, true).value;
@@ -39,10 +39,10 @@ export class ExperimentalDebuggerBanner implements IExperimentalDebuggerBanner {
             return;
         }
         const debuggerService = this.serviceContainer.get<IDebugService>(IDebugService);
-        const disposable = debuggerService.onDidStartDebugSession(e => {
+        const disposable = debuggerService.onDidStartDebugSession(async e => {
             if (e.type === ExperimentalDebuggerType) {
                 const logger = this.serviceContainer.get<ILogger>(ILogger);
-                this.onDebugSessionStarted()
+                await this.onDebugSessionStarted()
                     .catch(ex => logger.logError('Error in debugger Banner', ex));
             }
         });
@@ -51,9 +51,9 @@ export class ExperimentalDebuggerBanner implements IExperimentalDebuggerBanner {
     }
     public async showBanner(): Promise<void> {
         const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
-        const yes = 'Take Survey';
+        const yes = 'Yes, take survey now';
         const no = 'No thanks';
-        const response = await appShell.showInformationMessage('Can you take 2 minutes to tell us how the Experimental Debugger is working for you?', yes, no);
+        const response = await appShell.showInformationMessage('Can you please take 2 minutes to tell us how the Experimental Debugger is working for you?', yes, no);
         switch (response) {
             case yes:
                 {
@@ -66,12 +66,13 @@ export class ExperimentalDebuggerBanner implements IExperimentalDebuggerBanner {
                 break;
             }
             default: {
-                return;
+                // Disable for the current session.
+                this.disabledInCurrentSession = true;
             }
         }
     }
     public async shouldShowBanner(): Promise<boolean> {
-        if (!this.enabled) {
+        if (!this.enabled || this.disabledInCurrentSession) {
             return false;
         }
         const [threshold, debuggerCounter] = await Promise.all([this.getDebuggerLaunchThresholdCounter(), this.getGetDebuggerLaunchCounter()]);
@@ -81,7 +82,6 @@ export class ExperimentalDebuggerBanner implements IExperimentalDebuggerBanner {
     public async disable(): Promise<void> {
         const factory = this.serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
         await factory.createGlobalPersistentState<boolean>(PersistentStateKeys.ShowBanner, false).updateValue(false);
-        this.disabled = true;
     }
     public async launchSurvey(): Promise<void> {
         const debuggerLaunchCounter = await this.getGetDebuggerLaunchCounter();
@@ -115,7 +115,7 @@ export class ExperimentalDebuggerBanner implements IExperimentalDebuggerBanner {
         return isNaN(num) ? crypto.randomBytes(1).toString('hex').slice(-1) : lastHexValue;
     }
     private async onDebugSessionStarted(): Promise<void> {
-        if (this.disabled) {
+        if (!this.enabled) {
             return;
         }
         await this.incrementDebuggerLaunchCounter();
