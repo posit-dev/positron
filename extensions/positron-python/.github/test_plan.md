@@ -191,6 +191,7 @@ def foo():pass
   - [ ] `Scrapy`
   - [ ] `PySpark`
   - [ ] `All debug Options` with [appropriate values](https://code.visualstudio.com/docs/python/debugging#_standard-configuration-and-options) edited to make values valid
+- [ ] Running code from start to finish w/ no special debugging options (e.g. no breakpoints)
 - [ ] Breakpoints
   - [ ] Set
   - [ ] Hit
