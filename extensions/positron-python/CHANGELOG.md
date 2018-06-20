@@ -100,7 +100,7 @@ part of!
    ([#1811](https://github.com/Microsoft/vscode-python/issues/1811))
 1. Automatically add path mappings for remote debugging when attaching to the localhost.
    ([#1829](https://github.com/Microsoft/vscode-python/issues/1829))
-1. Change keyboard shortcut for `Run Selection/Line in Python Terminal` to `Shit+Enter`.
+1. Change keyboard shortcut for `Run Selection/Line in Python Terminal` to `Shift+Enter`.
    ([#1875](https://github.com/Microsoft/vscode-python/issues/1875))
 1. Fix unhandled rejected promises in unit tests.
    ([#1919](https://github.com/Microsoft/vscode-python/issues/1919))
