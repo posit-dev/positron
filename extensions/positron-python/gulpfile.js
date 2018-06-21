@@ -516,12 +516,5 @@ exports.hygiene = hygiene;
 
 // this allows us to run hygiene as a git pre-commit hook.
 if (require.main === module) {
-    const result = run({ exitOnError: true, mode: 'staged' });
-    // Run unit tests and ensure they pass as well.
-    if (result && result.on) {
-        result.on('end', () => {
-            const main = require('./out/test/unittests');
-            main.runTests();
-        })
-    }
+    run({ exitOnError: true, mode: 'staged' });
 }
