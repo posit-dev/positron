@@ -1169,7 +1169,7 @@
                 },
                 "python.autoComplete.showAdvancedMembers": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Controls appearance of methods with double underscores in the completion list.",
                     "scope": "resource"
                 },
