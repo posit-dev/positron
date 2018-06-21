@@ -7,7 +7,7 @@
 
 | VSCode-Python-CI | VSCode-Python-Rolling-CI | VSCode-Python-ptvsd_master-CI |
 |-|-|-|
-|[![Build status](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-CI)](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/latest/VSCode-Python-CI) | [![vsts](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-Rolling-CI)](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/latest/VSCode-Python-Rolling-CI) | [![Build status](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-ptvsd_master-CI)](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/latest/VSCode-Python-ptvsd_master-CI)|
+|[![Build status - CI](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-CI)](https://vscode-python.visualstudio.com/VSCode-Python/VSCode-Python%20Team/_build/results?buildId=375&view=logs) | [![Build status - Rolling](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-Rolling-CI)](https://vscode-python.visualstudio.com/3dc2a9b3-d195-4dba-9886-844383409c6c/_build/index?buildId=378) | [![Build status - PTVSD](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-ptvsd_master-CI)](https://vscode-python.visualstudio.com/3dc2a9b3-d195-4dba-9886-844383409c6c/_build/index?buildId=361)|
 ---
 
 # Contributing to Microsoft Python Analysis Engine
