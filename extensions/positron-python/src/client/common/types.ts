@@ -221,6 +221,7 @@ export interface IAutoCompleteSettings {
     readonly extraPaths: string[];
     readonly preloadModules: string[];
     readonly showAdvancedMembers: boolean;
+    readonly typeshedPaths: string[];
 }
 export interface IWorkspaceSymbolSettings {
     readonly enabled: boolean;
@@ -237,6 +238,7 @@ export interface ITerminalSettings {
 }
 export interface IPythonAnalysisEngineSettings {
     readonly showAdvancedMembers: boolean;
+    readonly typeshedPaths: string[];
 }
 
 export const IConfigurationService = Symbol('IConfigurationService');
