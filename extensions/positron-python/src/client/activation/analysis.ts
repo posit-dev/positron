@@ -190,7 +190,7 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
             const interpreterDataService = new InterpreterDataService(this.context, this.services);
             interpreterData = await interpreterDataService.getInterpreterData();
         } catch (ex) {
-            this.appShell.showErrorMessage('Unable to determine path to the Python interpreter. IntelliSense will be limited.');
+            this.appShell.showWarningMessage('Unable to determine path to the Python interpreter. IntelliSense will be limited.');
         }
 
         this.interpreterHash = interpreterData ? interpreterData.hash : '';
@@ -204,13 +204,16 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
             properties['PrefixPath'] = interpreterData.prefix;
         }
 
-        let searchPaths = interpreterData ? interpreterData.searchPaths : '';
+        let searchPathsString = interpreterData ? interpreterData.searchPaths : '';
+        let typeshedPaths: string[] = [];
+
         const settings = this.configuration.getSettings();
         if (settings.autoComplete) {
             const extraPaths = settings.autoComplete.extraPaths;
             if (extraPaths && extraPaths.length > 0) {
-                searchPaths = `${searchPaths};${extraPaths.join(';')}`;
+                searchPathsString = `${searchPathsString};${extraPaths.join(';')}`;
             }
+            typeshedPaths = settings.autoComplete.typeshedPaths;
         }
 
         // tslint:disable-next-line:no-string-literal
@@ -219,9 +222,13 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
         // Make sure paths do not contain multiple slashes so file URIs
         // in VS Code (Node.js) and in the language server (.NET) match.
         // Note: for the language server paths separator is always ;
-        searchPaths = searchPaths.split(path.delimiter).map(p => path.normalize(p)).join(';');
+        const searchPaths = searchPathsString.split(path.delimiter).map(p => path.normalize(p));
         // tslint:disable-next-line:no-string-literal
-        properties['SearchPaths'] = `${searchPaths};${pythonPath}`;
+        properties['SearchPaths'] = `${searchPaths.join(';')};${pythonPath}`;
+
+        if (!typeshedPaths || typeshedPaths.length === 0) {
+            typeshedPaths = [path.join(this.context.extensionPath, 'typeshed')];
+        }
 
         const selector = [{ language: PYTHON, scheme: 'file' }];
         const excludeFiles = this.getExcludedFiles();
@@ -245,6 +252,8 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
                     trimDocumentationText: false,
                     maxDocumentationTextLength: 0
                 },
+                searchPaths,
+                typeStubSearchPaths: typeshedPaths,
                 asyncStartup: true,
                 excludeFiles: excludeFiles,
                 testEnvironment: isTestExecution()
