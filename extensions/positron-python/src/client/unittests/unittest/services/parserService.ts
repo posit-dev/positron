@@ -3,9 +3,9 @@
 
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
-import { ITestsHelper, ITestsParser, TestDiscoveryOptions, TestFile, TestFunction, Tests, TestStatus } from '../../common/types';
-
-type UnitTestParserOptions = TestDiscoveryOptions & { startDirectory: string };
+import { ITestsHelper, ITestsParser, TestFile,
+    TestFunction, Tests, TestStatus,
+    UnitTestParserOptions } from '../../common/types';
 
 @injectable()
 export class TestsParser implements ITestsParser {
@@ -60,6 +60,7 @@ export class TestsParser implements ITestsParser {
         const paths = testIdParts.slice(0, testIdParts.length - 2);
         const filePath = `${path.join(rootDirectory, ...paths)}.py`;
         const functionName = testIdParts.pop()!;
+        const suiteToRun = testIdParts.join('.');
         const className = testIdParts.pop()!;
 
         // Check if we already have this test file
@@ -70,7 +71,7 @@ export class TestsParser implements ITestsParser {
                 fullPath: filePath,
                 functions: [],
                 suites: [],
-                nameToRun: `${className}.${functionName}`,
+                nameToRun: `${suiteToRun}.${functionName}`,
                 xmlName: '',
                 status: TestStatus.Idle,
                 time: 0
@@ -78,9 +79,9 @@ export class TestsParser implements ITestsParser {
             testFiles.push(testFile);
         }
 
-        // Check if we already have this test file
-        const classNameToRun = className;
-        let testSuite = testFile.suites.find(cls => cls.nameToRun === classNameToRun);
+        // Check if we already have this suite
+        // nameToRun = testId - method name
+        let testSuite = testFile.suites.find(cls => cls.nameToRun === suiteToRun);
         if (!testSuite) {
             testSuite = {
                 name: className,
@@ -88,7 +89,7 @@ export class TestsParser implements ITestsParser {
                 suites: [],
                 isUnitTest: true,
                 isInstance: false,
-                nameToRun: `${path.parse(filePath).name}.${classNameToRun}`,
+                nameToRun: suiteToRun,
                 xmlName: '',
                 status: TestStatus.Idle,
                 time: 0
