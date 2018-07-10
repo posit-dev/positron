@@ -22,6 +22,7 @@ import { getTelemetryReporter } from '../telemetry/telemetry';
 import { AnalysisEngineDownloader } from './downloader';
 import { InterpreterData, InterpreterDataService } from './interpreterDataService';
 import { PlatformData } from './platformData';
+import { ProgressReporting } from './progress';
 import { IExtensionActivator } from './types';
 
 const PYTHON = 'python';
@@ -49,6 +50,8 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
     private excludedFiles: string[] = [];
     private typeshedPaths: string[] = [];
     private loadExtensionArgs: {} | undefined;
+    // tslint:disable-next-line:no-unused-variable
+    private progressReporting: ProgressReporting | undefined;
 
     constructor(@inject(IServiceContainer) private readonly services: IServiceContainer) {
         this.context = this.services.get<IExtensionContext>(IExtensionContext);
@@ -134,20 +137,19 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
     }
 
     private async startLanguageClient(): Promise<void> {
-        this.languageClient!.onReady()
-            .then(() => {
-                this.startupCompleted.resolve();
-                if (this.loadExtensionArgs) {
-                    this.languageClient!.sendRequest('python/loadExtension', this.loadExtensionArgs);
-                    this.loadExtensionArgs = undefined;
-                }
-            })
-            .catch(error => this.startupCompleted.reject(error));
-
         this.context.subscriptions.push(this.languageClient!.start());
-        if (isTestExecution()) {
-            await this.startupCompleted.promise;
+        await this.serverReady();
+        this.progressReporting = new ProgressReporting(this.languageClient!);
+    }
+
+    private async serverReady(): Promise<void> {
+        while (!this.languageClient!.initializeResult) {
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
+        if (this.loadExtensionArgs) {
+            this.languageClient!.sendRequest('python/loadExtension', this.loadExtensionArgs);
+        }
+        this.startupCompleted.resolve();
     }
 
     private createSimpleLanguageClient(clientOptions: LanguageClientOptions): LanguageClient {
@@ -215,6 +217,8 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
         this.excludedFiles = this.getExcludedFiles();
         this.typeshedPaths = this.getTypeshedPaths(settings);
 
+        const traceLogging = (settings.analysis && settings.analysis.traceLogging) ? settings.analysis.traceLogging : false;
+
         // Options to control the language client
         return {
             // Register the server for Python documents
@@ -237,7 +241,9 @@ export class AnalysisExtensionActivator implements IExtensionActivator {
                 searchPaths,
                 typeStubSearchPaths: this.typeshedPaths,
                 excludeFiles: this.excludedFiles,
-                testEnvironment: isTestExecution()
+                testEnvironment: isTestExecution(),
+                analysisUpdates: true,
+                traceLogging
             }
         };
     }
