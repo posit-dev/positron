@@ -108,7 +108,7 @@ script:
         yarn run vscode:prepublish;
         yarn run testPerformance --silent;
     fi
-  - if [ "$TRAVIS_PYTHON_VERSION" != "2.7" ]; then
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.7" ]; then
         python3 -m pip install --upgrade -r news/requirements.txt;
         python3 news/announce.py --dry_run;
     fi
