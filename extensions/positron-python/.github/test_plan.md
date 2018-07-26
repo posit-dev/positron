@@ -239,6 +239,10 @@ class FailingTests(unittest.TestCase):
 ```
 - [ ] `Run All Unit Tests` triggers the prompt to configure the test runner
 - [ ] Tests are discovered (as shown by code lenses on each test)
+  - [ ] Code lens for a class runs all tests for that class
+  - [ ] Code lens for a method runs just that test
+    - [ ] `Run Test` works
+    - [ ] `Debug Test` works
 
 #### [`pytest`](https://code.visualstudio.com/docs/python/unit-testing#_pytest-configuration-settings)
 ```python
@@ -252,6 +256,8 @@ def test_failure():
 - [ ] `Run All Unit Tests` triggers the prompt to configure the test runner
   - [ ] `pytest` gets installed
 - [ ] Tests are discovered (as shown by code lenses on each test)
+  - [ ] `Run Test` works
+  - [ ] `Debug Test` works
 
 #### [`nose`](https://code.visualstudio.com/docs/python/unit-testing#_nose-configuration-settings)
 ```python
@@ -265,6 +271,8 @@ def test_failure():
 - [ ] `Run All Unit Tests` triggers the prompt to configure the test runner
   - [ ] Nose gets installed
 - [ ] Tests are discovered (as shown by code lenses on each test)
+  - [ ] `Run Test` works
+  - [ ] `Debug Test` works
 
 #### General
 
