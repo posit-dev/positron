@@ -8,6 +8,9 @@
 | macOS/Windows CI | Linux CI | Rolling CI (macOS/Windows) | Code Coverage |
 |-|-|-|-|
 |[![Build status](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-CI)](https://vscode-python.visualstudio.com/VSCode-Python/_build/latest?definitionId=4) | [![Build Status (Travis)](https://travis-ci.org/Microsoft/vscode-python.svg?branch=master)](https://travis-ci.org/Microsoft/vscode-python) | [![Build status](https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-Rolling-CI)](https://vscode-python.visualstudio.com/VSCode-Python/_build/latest?definitionId=9) | [![codecov](https://codecov.io/gh/Microsoft/vscode-python/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/vscode-python)|
+
+[[Development build](https://pvsc.blob.core.windows.net/extension-builds/ms-python-insiders.vsix)]
+
 ---
 
 [[Contributing to Python Analysis Engine](https://github.com/Microsoft/vscode-python/blob/master/CONTRIBUTING%20-%20PYTHON_ANALYSIS.md) is covered in a separate document.]
