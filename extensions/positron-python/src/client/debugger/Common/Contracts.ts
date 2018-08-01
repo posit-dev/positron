@@ -43,7 +43,8 @@ export enum DebugOptions {
     Pyramid = 'Pyramid',
     FixFilePathCase = 'FixFilePathCase',
     WindowsClient = 'WindowsClient',
-    UnixClient = 'UnixClient'
+    UnixClient = 'UnixClient',
+    StopOnEntry = 'StopOnEntry'
 }
 
 export interface ExceptionHandling {
@@ -60,6 +61,7 @@ export interface AdditionalLaunchDebugOptions {
     debugStdLib?: boolean;
     sudo?: boolean;
     pyramid?: boolean;
+    stopOnEntry?: boolean;
 }
 
 export interface AdditionalAttachDebugOptions {

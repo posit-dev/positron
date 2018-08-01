@@ -20,6 +20,7 @@ import { DebugClientHelper } from './helper';
 const VALID_DEBUG_OPTIONS = [
     'RedirectOutput',
     'DebugStdLib',
+    'stopOnEntry',
     'BreakOnSystemExitZero',
     'DjangoDebugging',
     'Django'];
