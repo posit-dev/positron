@@ -152,7 +152,6 @@ export interface IUnitTestSettings {
     readonly unittestEnabled: boolean;
     unittestArgs: string[];
     cwd?: string;
-    readonly useExperimentalDebugger?: boolean;
     readonly autoTestDiscoverOnSaveEnabled: boolean;
 }
 export interface IPylintCategorySeverity {
