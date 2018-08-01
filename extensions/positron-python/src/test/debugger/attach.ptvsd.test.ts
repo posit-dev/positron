@@ -128,10 +128,4 @@ suite('Attach Debugger', () => {
     test('Confirm we are able to attach to a running program', async () => {
         await testAttachingToRemoteProcess(path.dirname(fileToDebug), path.dirname(fileToDebug), IS_WINDOWS);
     });
-    test('Confirm local and remote paths are translated', async () => {
-        // If tests are running on windows, then treat debug client as a unix client and remote process as current OS.
-        const isLocalHostWindows = !IS_WINDOWS;
-        const localWorkspace = isLocalHostWindows ? 'C:\\Project\\src' : '/home/user/Desktop/project/src';
-        await testAttachingToRemoteProcess(localWorkspace, path.dirname(fileToDebug), isLocalHostWindows);
-    });
 });
