@@ -14,7 +14,8 @@ export class RemoteDebugClient<T extends BaseAttachRequestArguments> extends Deb
 
     public CreateDebugServer(_pythonProcess?: IPythonProcess): BaseDebugServer {
         // tslint:disable-next-line:no-any
-        return new RemoteDebugServerV2(this.debugSession, undefined as any, this.args);
+        this.debugServer = new RemoteDebugServerV2(this.debugSession, undefined as any, this.args);
+        return this.debugServer;
     }
     public get DebugType(): DebugType {
         return DebugType.Remote;

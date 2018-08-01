@@ -8,11 +8,11 @@ import * as net from 'net';
 import * as path from 'path';
 import { DebugClient } from 'vscode-debugadapter-testsupport';
 import { noop } from '../../client/common/core.utils';
+import { DebuggerTypeName } from '../../client/debugger/Common/constants';
 import { DebugOptions, LaunchRequestArguments } from '../../client/debugger/Common/Contracts';
 import { PYTHON_PATH } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { DEBUGGER_TIMEOUT } from './common/constants';
-import { DebuggerTypeName } from '../../client/debugger/Common/constants';
 
 use(chaiAsPromised);
 
@@ -49,6 +49,7 @@ suite(`Standard Debugging of ports and hosts: ${debuggerType}`, () => {
             program: path.join(debugFilesPath, pythonFile),
             cwd: debugFilesPath,
             stopOnEntry,
+            logToFile: true,
             debugOptions: [DebugOptions.RedirectOutput],
             pythonPath: PYTHON_PATH,
             args: [],
