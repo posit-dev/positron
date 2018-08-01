@@ -25,6 +25,9 @@ export class PythonV2DebugConfigurationProvider extends BaseConfigurationProvide
         if (debugConfiguration.debugStdLib) {
             this.debugOption(debugOptions, DebugOptions.DebugStdLib);
         }
+        if (debugConfiguration.stopOnEntry) {
+            this.debugOption(debugOptions, DebugOptions.StopOnEntry);
+        }
         if (debugConfiguration.django) {
             this.debugOption(debugOptions, DebugOptions.Django);
         }
