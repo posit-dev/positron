@@ -21,7 +21,6 @@ import docopt
 FILENAME_RE = re.compile(r"(?P<issue>\d+)(?P<nonce>-\S+)?\.md")
 
 
-
 @dataclasses.dataclass
 class NewsEntry:
     """Representation of a news entry."""
