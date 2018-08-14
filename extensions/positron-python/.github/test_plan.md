@@ -196,13 +196,20 @@ def foo():pass
   - [ ] `PySpark`
   - [ ] `All debug Options` with [appropriate values](https://code.visualstudio.com/docs/python/debugging#_standard-configuration-and-options) edited to make values valid
 - [ ] Running code from start to finish w/ no special debugging options (e.g. no breakpoints)
-- [ ] Breakpoints
-  - [ ] Set
-  - [ ] Hit
-  - [ ] Conditional
+- [ ] Breakpoint-like things
+  - [ ] Breakpoint
+    - [ ] Set
+    - [ ] Hit
+  - [ ] Conditional breakpoint
     - [ ] Expression
+      - [ ] Set
+      - [ ] Hit
     - [ ] Hit count
-  - [ ] Log points (experimental debugger only)
+      - [ ] Set
+      - [ ] Hit
+  - [ ] Logpoint
+    - [ ] Set
+    - [ ] Hit
 - [ ] Stepping
   - [ ] Over
   - [ ] Into
