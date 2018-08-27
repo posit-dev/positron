@@ -18,7 +18,6 @@ import { IApplicationDiagnostics } from './application/types';
 import { IWorkspaceService } from './common/application/types';
 import { PythonSettings } from './common/configSettings';
 import { PYTHON, PYTHON_LANGUAGE, STANDARD_OUTPUT_CHANNEL } from './common/constants';
-import { FeatureDeprecationManager } from './common/featureDeprecationManager';
 import { createDeferred } from './common/helpers';
 import { PythonInstaller } from './common/installer/pythonInstallation';
 import { registerTypes as installerRegisterTypes } from './common/installer/serviceRegistry';
@@ -26,9 +25,11 @@ import { registerTypes as platformRegisterTypes } from './common/platform/servic
 import { registerTypes as processRegisterTypes } from './common/process/serviceRegistry';
 import { registerTypes as commonRegisterTypes } from './common/serviceRegistry';
 import { ITerminalHelper } from './common/terminal/types';
-import { GLOBAL_MEMENTO, IConfigurationService, IDisposableRegistry,
-    IExtensionContext, ILogger, IMemento, IOutputChannel,
-    IPersistentStateFactory, WORKSPACE_MEMENTO } from './common/types';
+import {
+    GLOBAL_MEMENTO, IConfigurationService, IDisposableRegistry,
+    IExtensionContext, IFeatureDeprecationManager, ILogger,
+    IMemento, IOutputChannel, WORKSPACE_MEMENTO
+} from './common/types';
 import { registerTypes as variableRegisterTypes } from './common/variables/serviceRegistry';
 import { AttachRequestArguments, LaunchRequestArguments } from './debugger/Common/Contracts';
 import { BaseConfigurationProvider } from './debugger/configProviders/baseProvider';
@@ -141,10 +142,9 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(languages.registerOnTypeFormattingEditProvider(PYTHON, new BlockFormatProviders(), ':'));
     context.subscriptions.push(languages.registerOnTypeFormattingEditProvider(PYTHON, new OnEnterFormatter(), '\n'));
 
-    const persistentStateFactory = serviceManager.get<IPersistentStateFactory>(IPersistentStateFactory);
-    const deprecationMgr = new FeatureDeprecationManager(persistentStateFactory, !!jupyterExtension);
+    const deprecationMgr = serviceContainer.get<IFeatureDeprecationManager>(IFeatureDeprecationManager);
     deprecationMgr.initialize();
-    context.subscriptions.push(new FeatureDeprecationManager(persistentStateFactory, !!jupyterExtension));
+    context.subscriptions.push(deprecationMgr);
 
     context.subscriptions.push(serviceContainer.get<IInterpreterSelector>(IInterpreterSelector));
     context.subscriptions.push(activateUpdateSparkLibraryProvider());

@@ -8,9 +8,13 @@ import { CommandManager } from './application/commandManager';
 import { DebugService } from './application/debugService';
 import { DocumentManager } from './application/documentManager';
 import { TerminalManager } from './application/terminalManager';
-import { IApplicationEnvironment, IApplicationShell, ICommandManager, IDebugService, IDocumentManager, ITerminalManager, IWorkspaceService } from './application/types';
+import {
+    IApplicationEnvironment, IApplicationShell, ICommandManager,
+    IDebugService, IDocumentManager, ITerminalManager, IWorkspaceService
+} from './application/types';
 import { WorkspaceService } from './application/workspace';
 import { ConfigurationService } from './configuration/service';
+import { FeatureDeprecationManager } from './featureDeprecationManager';
 import { ProductInstaller } from './installer/productInstaller';
 import { Logger } from './logger';
 import { BrowserService } from './net/browser';
@@ -19,11 +23,21 @@ import { IS_64_BIT, IS_WINDOWS } from './platform/constants';
 import { PathUtils } from './platform/pathUtils';
 import { CurrentProcess } from './process/currentProcess';
 import { Bash } from './terminal/environmentActivationProviders/bash';
-import { CommandPromptAndPowerShell } from './terminal/environmentActivationProviders/commandPrompt';
+import {
+    CommandPromptAndPowerShell
+} from './terminal/environmentActivationProviders/commandPrompt';
 import { TerminalServiceFactory } from './terminal/factory';
 import { TerminalHelper } from './terminal/helper';
-import { ITerminalActivationCommandProvider, ITerminalHelper, ITerminalServiceFactory } from './terminal/types';
-import { IBrowserService, IConfigurationService, ICurrentProcess, IInstaller, ILogger, IPathUtils, IPersistentStateFactory, IRandom, Is64Bit, IsWindows } from './types';
+import {
+    ITerminalActivationCommandProvider,
+    ITerminalHelper, ITerminalServiceFactory
+} from './terminal/types';
+import {
+    IBrowserService, IConfigurationService, ICurrentProcess,
+    IFeatureDeprecationManager, IInstaller, ILogger,
+    IPathUtils, IPersistentStateFactory,
+    IRandom, Is64Bit, IsWindows
+} from './types';
 import { Random } from './utils';
 
 export function registerTypes(serviceManager: IServiceManager) {
@@ -48,6 +62,9 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<IBrowserService>(IBrowserService, BrowserService);
 
     serviceManager.addSingleton<ITerminalHelper>(ITerminalHelper, TerminalHelper);
-    serviceManager.addSingleton<ITerminalActivationCommandProvider>(ITerminalActivationCommandProvider, Bash, 'bashCShellFish');
-    serviceManager.addSingleton<ITerminalActivationCommandProvider>(ITerminalActivationCommandProvider, CommandPromptAndPowerShell, 'commandPromptAndPowerShell');
+    serviceManager.addSingleton<ITerminalActivationCommandProvider>(
+        ITerminalActivationCommandProvider, Bash, 'bashCShellFish');
+    serviceManager.addSingleton<ITerminalActivationCommandProvider>(
+        ITerminalActivationCommandProvider, CommandPromptAndPowerShell, 'commandPromptAndPowerShell');
+    serviceManager.addSingleton<IFeatureDeprecationManager>(IFeatureDeprecationManager, FeatureDeprecationManager);
 }
