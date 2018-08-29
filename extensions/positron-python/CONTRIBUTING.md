@@ -195,3 +195,19 @@ The development build of the extension:
   test a newer development build, uninstall the old version of the
   extension and then install the new version)
 * Is built everytime a PR is commited into the [`master` branch](https://github.com/Microsoft/vscode-python).
+
+### Installing the extension from a git clone
+
+If you would like to have a copy of the extension installed from a git clone so it can be refreshed regularly, the [`pvsc-dev-ext.py` script](https://github.com/Microsoft/vscode-python/blob/master/pvsc-dev-ext.py) will help facilitate that. The script provides two commands.
+
+To create the git clone and do the initial build, use the `setup` command:
+```
+$ python3 pvsc-dev-ext.py setup stable
+```
+You may choose to have the script set up either a stable or insiders install of VS Code.
+
+Once the extension is set up with a dev install, you can update it at any time to match what is in the `master` branch by using the `update` command:
+```
+$ python3 pvsc-dev-ext.py update
+```
+This will update stable and/or insiders installs of the extension. You can run this command at e.g. startup of your computer to make sure you are always using the latest version of the extension in VS Code.
