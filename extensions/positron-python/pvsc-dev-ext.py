@@ -111,7 +111,7 @@ def update():
 
 def parse_args(args=sys.argv[1:]):
     """Parse CLI arguments."""
-    parser = argparse.ArgumentParser(help="Setup and maintain a development build of PVSC (requires git, node, and npm)")
+    parser = argparse.ArgumentParser(description="Setup and maintain a development build of PVSC (requires git, node, and npm)")
     subparsers = parser.add_subparsers(dest="cmd")
     setup_parser = subparsers.add_parser("setup")
     setup_parser.add_argument("install_type", choices=[install_type.name for install_type in VSCode])
