@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { Position, Range, TextDocument } from 'vscode';
 import { IRandom } from './types';
+import { isNumber } from './variables/sysTypes';
 
 export const IS_WINDOWS = /^win/.test(process.platform);
 export const Is_64Bit = os.arch() === 'x64';
@@ -134,4 +135,105 @@ export class Random implements IRandom {
     public getRandomInt(min: number = 0, max: number = 10): number {
         return getRandomBetween(min, max);
     }
+}
+
+/**
+ * Return [parent name, name] for the given qualified (dotted) name.
+ *
+ * Examples:
+ *  'x.y'   -> ['x', 'y']
+ *  'x'     -> ['', 'x']
+ *  'x.y.z' -> ['x.y', 'z']
+ *  ''      -> ['', '']
+ */
+export function splitParent(fullName: string): [string, string] {
+    if (fullName.length === 0) {
+        return ['', ''];
+    }
+    const pos = fullName.lastIndexOf('.');
+    if (pos < 0) {
+        return ['', fullName];
+    }
+    const parentName = fullName.slice(0, pos);
+    const name = fullName.slice(pos + 1);
+    return [parentName, name];
+}
+
+/**
+ * Return the range represented by the given string.
+ *
+ * If a number is provided then it is used as both lines and the
+ * character are set to 0.
+ *
+ * Examples:
+ *  '1:5-3:5' -> Range(1, 5, 3, 5)
+ *  '1-3'     -> Range(1, 0, 3, 0)
+ *  '1:3-1:5' -> Range(1, 3, 1, 5)
+ *  '1-1'     -> Range(1, 0, 1, 0)
+ *  '1'       -> Range(1, 0, 1, 0)
+ *  '1:3-'    -> Range(1, 3, 1, 0)
+ *  '1:3'     -> Range(1, 3, 1, 0)
+ *  ''        -> Range(0, 0, 0, 0)
+ *  '3-1'     -> Range(1, 0, 3, 0)
+ */
+export function parseRange(raw: string | number): Range {
+    if (isNumber(raw)) {
+        return new Range(raw, 0, raw, 0);
+    }
+    if (raw === '') {
+        return new Range(0, 0, 0, 0);
+    }
+
+    const parts = raw.split('-');
+    if (parts.length > 2) {
+        throw new Error(`invalid range ${raw}`);
+    }
+
+    const start = parsePosition(parts[0]);
+    let end = start;
+    if (parts.length === 2) {
+        end = parsePosition(parts[1]);
+    }
+    return new Range(start, end);
+}
+
+/**
+ * Return the line/column represented by the given string.
+ *
+ * If a number is provided then it is used as the line and the character
+ * is set to 0.
+ *
+ * Examples:
+ *  '1:5' -> Position(1, 5)
+ *  '1'   -> Position(1, 0)
+ *  ''    -> Position(0, 0)
+ */
+export function parsePosition(raw: string | number): Position {
+    if (isNumber(raw)) {
+        return new Position(raw, 0);
+    }
+    if (raw === '') {
+        return new Position(0, 0);
+    }
+
+    const parts = raw.split(':');
+    if (parts.length > 2) {
+        throw new Error(`invalid position ${raw}`);
+    }
+
+    let line = 0;
+    if (parts[0] !== '') {
+        if (!/^\d+$/.test(parts[0])) {
+            throw new Error(`invalid position ${raw}`);
+        }
+        line = +parts[0];
+    }
+    let col = 0;
+    if (parts.length === 2 && parts[1] !== '') {
+        if (!/^\d+$/.test(parts[1])) {
+            throw new Error(`invalid position ${raw}`);
+        }
+        col = +parts[1];
+    }
+    return new Position(line, col);
 }

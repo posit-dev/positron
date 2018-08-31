@@ -26,6 +26,7 @@ import {
     IPythonExtensionBanner, IPythonSettings
 } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
+import { LanguageServerSymbolProvider } from '../providers/symbolProvider';
 import {
     PYTHON_LANGUAGE_SERVER_DOWNLOADED,
     PYTHON_LANGUAGE_SERVER_ENABLED,
@@ -118,9 +119,12 @@ export class LanguageServerExtensionActivator implements IExtensionActivator {
             return false;
         }
 
-        const testManagementService = this.services.get<IUnitTestManagementService>(IUnitTestManagementService);
-        testManagementService.activate()
-            .catch(ex => this.services.get<ILogger>(ILogger).logError('Failed to activate Unit Tests', ex));
+        this.startupCompleted.promise.then(() => {
+            const testManagementService = this.services.get<IUnitTestManagementService>(IUnitTestManagementService);
+            testManagementService.activate()
+                .then(() => testManagementService.activateCodeLenses(new LanguageServerSymbolProvider(this.languageClient!)))
+                .catch(ex => this.services.get<ILogger>(ILogger).logError('Failed to activate Unit Tests', ex));
+        }).ignoreErrors();
 
         return this.startLanguageServer(clientOptions);
     }
