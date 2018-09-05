@@ -7,23 +7,7 @@
 
 import { expect } from 'chai';
 import { Position, Range } from 'vscode';
-import { parsePosition, parseRange, splitParent } from '../../client/common/utils';
-
-suite('splitParent()', () => {
-    test('valid values', async () => {
-        const tests: [string, [string, string]][] = [
-            ['x.y', ['x', 'y']],
-            ['x', ['', 'x']],
-            ['x.y.z', ['x.y', 'z']],
-            ['', ['', '']]
-        ];
-        for (const [raw, expected] of tests) {
-            const result = splitParent(raw);
-
-            expect(result).to.deep.equal(expected);
-        }
-    });
-});
+import { parsePosition, parseRange } from '../../utils/text';
 
 suite('parseRange()', () => {
     test('valid strings', async () => {
