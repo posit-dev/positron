@@ -24,7 +24,7 @@ webpack.config.js
 yarn.lock
 
 .github/**
-.mocha_reporter/**
+.mocha-reporter/**
 .nvm/**
 .vscode/**
 .vscode-test/**
