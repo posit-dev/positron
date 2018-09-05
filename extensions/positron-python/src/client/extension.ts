@@ -5,12 +5,13 @@ if ((Reflect as any).metadata === undefined) {
     // tslint:disable-next-line:no-require-imports no-var-requires
     require('reflect-metadata');
 }
-import { StopWatch } from './common/stopWatch';
+import { StopWatch } from '../utils/stopWatch';
 // Do not move this linne of code (used to measure extension load times).
 const stopWatch = new StopWatch();
 
 import { Container } from 'inversify';
 import { CodeActionKind, debug, Disposable, ExtensionContext, extensions, IndentAction, languages, Memento, OutputChannel, window } from 'vscode';
+import { createDeferred } from '../utils/async';
 import { registerTypes as activationRegisterTypes } from './activation/serviceRegistry';
 import { IExtensionActivationService } from './activation/types';
 import { registerTypes as appRegisterTypes } from './application/serviceRegistry';
@@ -18,7 +19,6 @@ import { IApplicationDiagnostics } from './application/types';
 import { IWorkspaceService } from './common/application/types';
 import { PythonSettings } from './common/configSettings';
 import { PYTHON, PYTHON_LANGUAGE, STANDARD_OUTPUT_CHANNEL } from './common/constants';
-import { createDeferred } from './common/helpers';
 import { PythonInstaller } from './common/installer/pythonInstallation';
 import { registerTypes as installerRegisterTypes } from './common/installer/serviceRegistry';
 import { registerTypes as platformRegisterTypes } from './common/platform/serviceRegistry';

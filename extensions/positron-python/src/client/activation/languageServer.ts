@@ -11,15 +11,15 @@ import {
     Disposable, LanguageClient, LanguageClientOptions,
     ProvideCompletionItemsSignature, ServerOptions
 } from 'vscode-languageclient';
+import { createDeferred, Deferred } from '../../utils/async';
+import { StopWatch } from '../../utils/stopWatch';
 import {
     IApplicationShell, ICommandManager, IWorkspaceService
 } from '../common/application/types';
 import { PythonSettings } from '../common/configSettings';
 // tslint:disable-next-line:ordered-imports
 import { isTestExecution, STANDARD_OUTPUT_CHANNEL } from '../common/constants';
-import { createDeferred, Deferred } from '../common/helpers';
 import { IFileSystem, IPlatformService } from '../common/platform/types';
-import { StopWatch } from '../common/stopWatch';
 import {
     BANNER_NAME_LS_SURVEY, DeprecatedFeatureInfo, IConfigurationService,
     IExtensionContext, IFeatureDeprecationManager, ILogger, IOutputChannel,

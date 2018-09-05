@@ -8,32 +8,32 @@
 import { expect } from 'chai';
 import * as TypeMoq from 'typemoq';
 import { Uri } from 'vscode';
-import { EnumEx } from '../../../client/common/enumUtils';
-import { OSInfo } from '../../../client/common/platform/osinfo';
-import { Architecture, IPlatformService, OSType } from '../../../client/common/platform/types';
+import { IPlatformService } from '../../../client/common/platform/types';
 import { IDisposableRegistry } from '../../../client/common/types';
 import { CONDA_ENV_FILE_SERVICE, CONDA_ENV_SERVICE, CURRENT_PATH_SERVICE, GLOBAL_VIRTUAL_ENV_SERVICE, IInterpreterLocatorHelper, IInterpreterLocatorService, InterpreterType, KNOWN_PATH_SERVICE, PIPENV_SERVICE, PythonInterpreter, WINDOWS_REGISTRY_SERVICE, WORKSPACE_VIRTUAL_ENV_SERVICE } from '../../../client/interpreter/contracts';
 import { PythonInterpreterLocatorService } from '../../../client/interpreter/locators';
 import { IServiceContainer } from '../../../client/ioc/types';
+import { getNamesAndValues } from '../../../utils/enum';
+import { Architecture, Info as PlatformInfo, OSType } from '../../../utils/platform';
 
 suite('Interpreters - Locators Index', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
-    let info: OSInfo;
-    let platform: TypeMoq.IMock<IPlatformService>;
+    let info: PlatformInfo;
+    let platformSvc: TypeMoq.IMock<IPlatformService>;
     let helper: TypeMoq.IMock<IInterpreterLocatorHelper>;
     let locator: IInterpreterLocatorService;
     setup(() => {
         serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
-        platform = TypeMoq.Mock.ofType<IPlatformService>();
+        platformSvc = TypeMoq.Mock.ofType<IPlatformService>();
         helper = TypeMoq.Mock.ofType<IInterpreterLocatorHelper>();
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IDisposableRegistry))).returns(() => []);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IPlatformService))).returns(() => platform.object);
+        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IPlatformService))).returns(() => platformSvc.object);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IInterpreterLocatorHelper))).returns(() => helper.object);
 
         locator = new PythonInterpreterLocatorService(serviceContainer.object);
     });
     [undefined, Uri.file('Something')].forEach(resource => {
-        EnumEx.getNamesAndValues<OSType>(OSType).forEach(osType => {
+        getNamesAndValues<OSType>(OSType).forEach(osType => {
             if (osType.value === OSType.Unknown) {
                 return;
             }
@@ -43,11 +43,11 @@ suite('Interpreters - Locators Index', () => {
                 if (osType.value === OSType.Windows) {
                     locatorsTypes.push(WINDOWS_REGISTRY_SERVICE);
                 }
-                info = new OSInfo(osType.value);
-                platform.setup(p => p.os).returns(() => info);
-                platform.setup(p => p.isWindows).returns(() => osType.value === OSType.Windows);
-                platform.setup(p => p.isLinux).returns(() => osType.value === OSType.Linux);
-                platform.setup(p => p.isMac).returns(() => osType.value === OSType.OSX);
+                info = new PlatformInfo(osType.value);
+                platformSvc.setup(p => p.info).returns(() => info);
+                platformSvc.setup(p => p.isWindows).returns(() => osType.value === OSType.Windows);
+                platformSvc.setup(p => p.isLinux).returns(() => osType.value === OSType.Linux);
+                platformSvc.setup(p => p.isMac).returns(() => osType.value === OSType.OSX);
 
                 locatorsTypes.push(CONDA_ENV_SERVICE);
                 locatorsTypes.push(CONDA_ENV_FILE_SERVICE);
@@ -104,11 +104,11 @@ suite('Interpreters - Locators Index', () => {
                 if (osType.value === OSType.Windows) {
                     locatorsTypes.push(WINDOWS_REGISTRY_SERVICE);
                 }
-                info = new OSInfo(osType.value);
-                platform.setup(p => p.os).returns(() => info);
-                platform.setup(p => p.isWindows).returns(() => osType.value === OSType.Windows);
-                platform.setup(p => p.isLinux).returns(() => osType.value === OSType.Linux);
-                platform.setup(p => p.isMac).returns(() => osType.value === OSType.OSX);
+                info = new PlatformInfo(osType.value);
+                platformSvc.setup(p => p.info).returns(() => info);
+                platformSvc.setup(p => p.isWindows).returns(() => osType.value === OSType.Windows);
+                platformSvc.setup(p => p.isLinux).returns(() => osType.value === OSType.Linux);
+                platformSvc.setup(p => p.isMac).returns(() => osType.value === OSType.OSX);
 
                 locatorsTypes.push(CONDA_ENV_SERVICE);
                 locatorsTypes.push(CONDA_ENV_FILE_SERVICE);
