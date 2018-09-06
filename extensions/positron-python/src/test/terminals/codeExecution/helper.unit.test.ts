@@ -80,11 +80,16 @@ suite('Terminal - Code Execution Helper', () => {
             const expectedCode = await fs.readFile(path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_normalized.py`), 'utf8');
             await ensureBlankLinesAreRemoved(code, expectedCode);
         });
-        // test(`Ensure blank lines are removed, including leading empty lines (${fileName})`, async () => {
-        //     const code = await fs.readFile(path.join(TEST_FILES_PATH, `${fileName}_raw.py`), 'utf8');
-        //     const expectedCode = await fs.readFile(path.join(TEST_FILES_PATH, `${fileName}_normalized.py`), 'utf8');
-        //     await ensureBlankLinesAreRemoved(['', '', ''].join(EOL) + EOL + code, expectedCode);
-        // });
+        test(`Ensure last two blank lines are preserved (Sample${fileNameSuffix})`, async () => {
+            const code = await fs.readFile(path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_raw.py`), 'utf8');
+            const expectedCode = await fs.readFile(path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_normalized.py`), 'utf8');
+            await ensureBlankLinesAreRemoved(code + EOL, expectedCode + EOL);
+        });
+        test(`Ensure last two blank lines are preserved even if we have more than 2 trailing blank lines (Sample${fileNameSuffix})`, async () => {
+            const code = await fs.readFile(path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_raw.py`), 'utf8');
+            const expectedCode = await fs.readFile(path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_normalized.py`), 'utf8');
+            await ensureBlankLinesAreRemoved(code + EOL + EOL + EOL + EOL, expectedCode + EOL);
+        });
     });
     test('Display message if there\s no active file', async () => {
         documentManager.setup(doc => doc.activeTextEditor).returns(() => undefined);
