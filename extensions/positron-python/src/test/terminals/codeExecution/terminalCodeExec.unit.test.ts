@@ -1,13 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// tslint:disable:no-multiline-string no-trailing-whitespace
+// tslint:disable:no-multiline-string no-trailing-whitespace max-func-body-length
 
 import { expect } from 'chai';
 import * as path from 'path';
 import * as TypeMoq from 'typemoq';
 import { Disposable, Uri, WorkspaceFolder } from 'vscode';
 import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../../client/common/application/types';
+import { noop } from '../../../client/common/core.utils';
 import { IFileSystem, IPlatformService } from '../../../client/common/platform/types';
 import { ITerminalService, ITerminalServiceFactory } from '../../../client/common/terminal/types';
 import { IConfigurationService, IPythonSettings, ITerminalSettings } from '../../../client/common/types';
@@ -17,9 +18,7 @@ import { TerminalCodeExecutionProvider } from '../../../client/terminals/codeExe
 import { ICodeExecutionService } from '../../../client/terminals/types';
 import { PYTHON_PATH } from '../../common';
 
-// tslint:disable-next-line:max-func-body-length
 suite('Terminal - Code Execution', () => {
-    // tslint:disable-next-line:max-func-body-length
     ['Terminal Execution', 'Repl Execution', 'Django Execution'].forEach(testSuiteName => {
         let terminalSettings: TypeMoq.IMock<ITerminalSettings>;
         let terminalService: TypeMoq.IMock<ITerminalService>;
@@ -46,7 +45,6 @@ suite('Terminal - Code Execution', () => {
             disposables = [];
         });
 
-        // tslint:disable-next-line:max-func-body-length
         setup(() => {
             terminalFactory = TypeMoq.Mock.ofType<ITerminalServiceFactory>();
             terminalSettings = TypeMoq.Mock.ofType<ITerminalSettings>();
@@ -76,8 +74,7 @@ suite('Terminal - Code Execution', () => {
                 case 'Django Execution': {
                     isDjangoRepl = true;
                     workspace.setup(w => w.onDidChangeWorkspaceFolders(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => {
-                        // tslint:disable-next-line:no-empty
-                        return { dispose: () => { } };
+                        return { dispose: noop };
                     });
                     executor = new DjangoShellCodeExecutionProvider(terminalFactory.object, configService.object, workspace.object, documentManager.object,
                         platform.object, commandManager.object, fileSystem.object, disposables);
@@ -119,7 +116,6 @@ suite('Terminal - Code Execution', () => {
             });
         });
 
-        // tslint:disable-next-line:max-func-body-length
         suite(testSuiteName, () => {
             setup(() => {
                 terminalFactory.setup(f => f.getTerminalService(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => terminalService.object);
@@ -323,8 +319,7 @@ suite('Terminal - Code Execution', () => {
                 terminalService.setup(t => t.onDidCloseTerminal(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns((callback => {
                     closeTerminalCallback = callback;
                     return {
-                        // tslint:disable-next-line:no-empty
-                        dispose: () => void 0
+                        dispose: noop
                     };
                 }));
 
