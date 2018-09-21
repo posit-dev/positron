@@ -112,7 +112,7 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
                     deferred.reject(err);
                 })
                 .on('end', () => {
-                    this.output.append('complete.');
+                    this.output.appendLine('complete.');
                     deferred.resolve();
                 })
                 .pipe(fileStream);
@@ -130,8 +130,7 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
 
         const title = 'Extracting files... ';
         await window.withProgress({
-            location: ProgressLocation.Window,
-            title
+            location: ProgressLocation.Window
         }, (progress) => {
             const zip = new StreamZip({
                 file: tempFilePath,
