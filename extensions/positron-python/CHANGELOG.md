@@ -1,6 +1,6 @@
 # Changelog
 
-## 2018.9.0-rc (2 Oct 2018)
+## 2018.9.0 (9 Oct 2018)
 
 ### Thanks
 
@@ -9,7 +9,7 @@ our features:
 - [isort 4.3.4](https://pypi.org/project/isort/4.3.4/)
 - [jedi 0.12.0](https://pypi.org/project/jedi/0.12.0/)
   and [parso 0.2.1](https://pypi.org/project/parso/0.2.1/)
-- [Microsoft Python Language Server](https://github.com/microsoft/python-language-server)
+- [Microsoft Python Language Server 2018.9.0](https://github.com/Microsoft/python-language-server/releases/tag/2018.9.0)
 - [ptvsd 4.1.3](https://github.com/Microsoft/ptvsd/releases/tag/v4.1.3)
 - [exuberant ctags](http://ctags.sourceforge.net/) (user-installed)
 - [rope](https://pypi.org/project/rope/) (user-installed)
