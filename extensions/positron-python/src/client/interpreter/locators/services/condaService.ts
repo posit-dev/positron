@@ -31,12 +31,12 @@ export const CondaLocationsGlob = untildify('~/*conda*/bin/conda');
 
 // ...and for windows, the known default install locations:
 const condaGlobPathsForWindows = [
-    '/ProgramData/Miniconda*/Scripts/conda.exe',
-    '/ProgramData/Anaconda*/Scripts/conda.exe',
-    untildify('~/Miniconda*/Scripts/conda.exe'),
-    untildify('~/Anaconda*/Scripts/conda.exe'),
-    untildify('~/AppData/Local/Continuum/Miniconda*/Scripts/conda.exe'),
-    untildify('~/AppData/Local/Continuum/Anaconda*/Scripts/conda.exe')];
+    '/ProgramData/[Mm]iniconda*/Scripts/conda.exe',
+    '/ProgramData/[Aa]naconda*/Scripts/conda.exe',
+    untildify('~/[Mm]iniconda*/Scripts/conda.exe'),
+    untildify('~/[Aa]naconda*/Scripts/conda.exe'),
+    untildify('~/AppData/Local/Continuum/[Mm]iniconda*/Scripts/conda.exe'),
+    untildify('~/AppData/Local/Continuum/[Aa]naconda*/Scripts/conda.exe')];
 
 // format for glob processing:
 export const CondaLocationsGlobWin = `{${condaGlobPathsForWindows.join(',')}}`;
