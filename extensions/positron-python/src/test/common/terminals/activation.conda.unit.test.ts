@@ -26,9 +26,9 @@ import {
     IConfigurationService, IDisposableRegistry,
     IPythonSettings, ITerminalSettings
 } from '../../../client/common/types';
+import { getNamesAndValues } from '../../../client/common/utils/enum';
 import { ICondaService } from '../../../client/interpreter/contracts';
 import { IServiceContainer } from '../../../client/ioc/types';
-import { getNamesAndValues } from '../../../utils/enum';
 
 suite('Terminal Environment Activation conda', () => {
     let terminalHelper: TerminalHelper;
