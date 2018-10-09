@@ -78,7 +78,8 @@ export enum Product {
     ctags = 13,
     rope = 14,
     isort = 15,
-    black = 16
+    black = 16,
+    bandit = 17
 }
 
 export enum ModuleNamePurpose {
@@ -212,6 +213,9 @@ export interface ILintingSettings {
     mypyEnabled: boolean;
     mypyArgs: string[];
     mypyPath: string;
+    banditEnabled: boolean;
+    banditArgs: string[];
+    banditPath: string;
     readonly pylintUseMinimalCheckers: boolean;
 }
 export interface IFormattingSettings {
