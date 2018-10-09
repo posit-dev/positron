@@ -22,7 +22,7 @@ import {
     IUnitTestSettings,
     IWorkspaceSymbolSettings
 } from '../../client/common/types';
-import { noop } from '../../utils/misc';
+import { noop } from '../../client/common/utils/misc';
 
 // tslint:disable-next-line:max-func-body-length
 suite('Python Settings', () => {
