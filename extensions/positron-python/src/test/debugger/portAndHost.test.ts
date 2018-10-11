@@ -8,8 +8,8 @@ import * as net from 'net';
 import * as path from 'path';
 import { DebugClient } from 'vscode-debugadapter-testsupport';
 import { noop } from '../../client/common/utils/misc';
-import { DebuggerTypeName } from '../../client/debugger/Common/constants';
-import { DebugOptions, LaunchRequestArguments } from '../../client/debugger/Common/Contracts';
+import { DebuggerTypeName } from '../../client/debugger/constants';
+import { DebugOptions, LaunchRequestArguments } from '../../client/debugger/types';
 import { PYTHON_PATH } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { DEBUGGER_TIMEOUT } from './common/constants';
@@ -18,7 +18,7 @@ use(chaiAsPromised);
 
 const debugFilesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'pythonFiles', 'debugging');
 
-const EXPERIMENTAL_DEBUG_ADAPTER = path.join(__dirname, '..', '..', 'client', 'debugger', 'mainV2.js');
+const EXPERIMENTAL_DEBUG_ADAPTER = path.join(__dirname, '..', '..', 'client', 'debugger', 'debugAdapter', 'main.js');
 
 const testAdapterFilePath = EXPERIMENTAL_DEBUG_ADAPTER;
 const debuggerType = DebuggerTypeName;
