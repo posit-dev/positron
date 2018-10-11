@@ -8,8 +8,8 @@ import { DebugClient } from 'vscode-debugadapter-testsupport';
 import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { IS_WINDOWS } from '../../client/common/platform/constants';
 import { noop } from '../../client/common/utils/misc';
-import { DebuggerTypeName, PTVSD_PATH } from '../../client/debugger/Common/constants';
-import { DebugOptions, LaunchRequestArguments } from '../../client/debugger/Common/Contracts';
+import { DebuggerTypeName, PTVSD_PATH } from '../../client/debugger/constants';
+import { DebugOptions, LaunchRequestArguments } from '../../client/debugger/types';
 import { PYTHON_PATH, sleep } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { DEBUGGER_TIMEOUT } from './common/constants';
@@ -17,7 +17,7 @@ import { DebugClientEx } from './debugClient';
 
 const debugFilesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'pythonFiles', 'debugging');
 
-const EXPERIMENTAL_DEBUG_ADAPTER = path.join(__dirname, '..', '..', 'client', 'debugger', 'mainV2.js');
+const EXPERIMENTAL_DEBUG_ADAPTER = path.join(__dirname, '..', '..', 'client', 'debugger', 'debugAdapter', 'main.js');
 
 let testCounter = 0;
 const testAdapterFilePath = EXPERIMENTAL_DEBUG_ADAPTER;
