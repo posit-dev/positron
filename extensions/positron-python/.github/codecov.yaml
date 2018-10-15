@@ -2,7 +2,3 @@ coverage:
   precision: 0
   round: up
   range: "70...90"
-
-comment:
-  layout: "diff, files"
-  behavior: default
