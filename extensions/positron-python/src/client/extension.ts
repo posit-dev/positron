@@ -33,8 +33,8 @@ import {
 import { createDeferred } from './common/utils/async';
 import { registerTypes as variableRegisterTypes } from './common/variables/serviceRegistry';
 import { DebuggerTypeName } from './debugger/constants';
-import { CustomDebugSessionEventDispatcher } from './debugger/extension/hooks/customEventHandlerDispatcher';
-import { ICustomDebugSessionEventHandlers } from './debugger/extension/hooks/types';
+import { DebugSessionEventDispatcher } from './debugger/extension/hooks/eventHandlerDispatcher';
+import { IDebugSessionEventHandlers } from './debugger/extension/hooks/types';
 import { registerTypes as debugConfigurationRegisterTypes } from './debugger/extension/serviceRegistry';
 import { IDebugConfigurationProvider, IDebuggerBanner } from './debugger/extension/types';
 import { registerTypes as formattersRegisterTypes } from './formatters/serviceRegistry';
@@ -197,10 +197,10 @@ function initializeServices(context: ExtensionContext, serviceManager: ServiceMa
     const interpreterManager = serviceContainer.get<IInterpreterService>(IInterpreterService);
     interpreterManager.initialize();
 
-    const handlers = serviceManager.getAll<ICustomDebugSessionEventHandlers>(ICustomDebugSessionEventHandlers);
+    const handlers = serviceManager.getAll<IDebugSessionEventHandlers>(IDebugSessionEventHandlers);
     const disposables = serviceManager.get<IDisposableRegistry>(IDisposableRegistry);
-    const dispatccher = new CustomDebugSessionEventDispatcher(handlers, DebugService.instance, disposables);
-    dispatccher.registerEventHandlers();
+    const dispatcher = new DebugSessionEventDispatcher(handlers, DebugService.instance, disposables);
+    dispatcher.registerEventHandlers();
 }
 
 async function sendStartupTelemetry(activatedPromise: Promise<void>, serviceContainer: IServiceContainer) {
