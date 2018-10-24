@@ -32,6 +32,7 @@ yarn.lock
 languageServer/**
 languageServer.*/**
 bin/**
+build/**
 BuildOutput/**
 coverage/**
 debug_coverage*/**
@@ -44,6 +45,7 @@ out/pythonFiles/**
 out/src/**
 out/test/**
 out/testMultiRootWkspc/**
+precommit.hook
 pythonFiles/**/*.pyc
 requirements.txt
 scripts/**

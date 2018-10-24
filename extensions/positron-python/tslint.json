@@ -1,9 +1,14 @@
 {
+    "rulesDirectory": [
+        "./build/tslint-rules"
+    ],
     "extends": [
         "tslint-eslint-rules",
         "tslint-microsoft-contrib"
     ],
     "rules": {
+        "messages-must-be-localized": true,
+        "copyright-and-strict-header": true,
         "no-unused-expression": true,
         "no-duplicate-variable": true,
         "no-unused-variable": true,
