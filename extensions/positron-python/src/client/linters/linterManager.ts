@@ -1,9 +1,15 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+'use strict';
+
 import { inject, injectable } from 'inversify';
-import { CancellationToken, OutputChannel, TextDocument, Uri } from 'vscode';
-import { IConfigurationService, ILogger, Product } from '../common/types';
+import {
+    CancellationToken, OutputChannel, TextDocument, Uri
+} from 'vscode';
+import {
+    IConfigurationService, ILogger, Product
+} from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { Bandit } from './bandit';
 import { Flake8 } from './flake8';
@@ -14,7 +20,9 @@ import { Prospector } from './prospector';
 import { PyDocStyle } from './pydocstyle';
 import { PyLama } from './pylama';
 import { Pylint } from './pylint';
-import { ILinter, ILinterInfo, ILinterManager, ILintMessage } from './types';
+import {
+    IAvailableLinterActivator, ILinter, ILinterInfo, ILinterManager, ILintMessage
+} from './types';
 
 class DisabledLinter implements ILinter {
     constructor(private configService: IConfigurationService) { }
@@ -31,8 +39,9 @@ export class LinterManager implements ILinterManager {
     private lintingEnabledSettingName = 'enabled';
     private linters: ILinterInfo[];
     private configService: IConfigurationService;
+    private checkedForInstalledLinters: boolean = false;
 
-    constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer) {
+    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
         this.configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
         this.linters = [
             new LinterInfo(Product.bandit, 'bandit', this.configService),
@@ -58,40 +67,49 @@ export class LinterManager implements ILinterManager {
         throw new Error('Invalid linter');
     }
 
-    public isLintingEnabled(resource?: Uri): boolean {
+    public async isLintingEnabled(silent: boolean, resource?: Uri): Promise<boolean> {
         const settings = this.configService.getSettings(resource);
-        return (settings.linting[this.lintingEnabledSettingName] as boolean) && this.getActiveLinters(resource).length > 0;
+        const activeLintersPresent = await this.getActiveLinters(silent, resource);
+        return (settings.linting[this.lintingEnabledSettingName] as boolean) && activeLintersPresent.length > 0;
     }
 
     public async enableLintingAsync(enable: boolean, resource?: Uri): Promise<void> {
         await this.configService.updateSetting(`linting.${this.lintingEnabledSettingName}`, enable, resource);
-
-        // If nothing is enabled, fix it up to PyLint (default).
-        if (enable && this.getActiveLinters(resource).length === 0) {
-            await this.setActiveLintersAsync([Product.pylint], resource);
-        }
     }
 
-    public getActiveLinters(resource?: Uri): ILinterInfo[] {
+    public async getActiveLinters(silent: boolean, resource?: Uri): Promise<ILinterInfo[]> {
+        if (!silent) {
+            await this.enableUnconfiguredLinters(resource);
+        }
         return this.linters.filter(x => x.isEnabled(resource));
     }
 
     public async setActiveLintersAsync(products: Product[], resource?: Uri): Promise<void> {
-        const active = this.getActiveLinters(resource);
-        for (const x of active) {
-            await x.enableAsync(false, resource);
-        }
-        if (products.length > 0) {
-            const toActivate = this.linters.filter(x => products.findIndex(p => x.product === p) >= 0);
-            for (const x of toActivate) {
-                await x.enableAsync(true, resource);
+        // ensure we only allow valid linters to be set, otherwise leave things alone.
+        // filter out any invalid products:
+        const validProducts = products.filter(product => {
+            const foundIndex = this.linters.findIndex(validLinter => validLinter.product === product);
+            return foundIndex !== -1;
+        });
+
+        // if we have valid linter product(s), enable only those
+        if (validProducts.length > 0) {
+            const active = await this.getActiveLinters(true, resource);
+            for (const x of active) {
+                await x.enableAsync(false, resource);
             }
-            await this.enableLintingAsync(true, resource);
+            if (products.length > 0) {
+                const toActivate = this.linters.filter(x => products.findIndex(p => x.product === p) >= 0);
+                for (const x of toActivate) {
+                    await x.enableAsync(true, resource);
+                }
+                await this.enableLintingAsync(true, resource);
+            }
         }
     }
 
-    public createLinter(product: Product, outputChannel: OutputChannel, serviceContainer: IServiceContainer, resource?: Uri): ILinter {
-        if (!this.isLintingEnabled(resource)) {
+    public async createLinter(product: Product, outputChannel: OutputChannel, serviceContainer: IServiceContainer, resource?: Uri): Promise<ILinter> {
+        if (!await this.isLintingEnabled(true, resource)) {
             return new DisabledLinter(this.configService);
         }
         const error = 'Linter manager: Unknown linter';
@@ -117,5 +135,25 @@ export class LinterManager implements ILinterManager {
                 break;
         }
         throw new Error(error);
+    }
+
+    protected async enableUnconfiguredLinters(resource?: Uri): Promise<boolean> {
+        // if we've already checked during this session, don't bother again
+        if (this.checkedForInstalledLinters) {
+            return false;
+        }
+        this.checkedForInstalledLinters = true;
+
+        // only check & ask the user if they'd like to enable pylint
+        const pylintInfo = this.linters.find(
+            (linter: ILinterInfo) => linter.id === 'pylint'
+        );
+
+        // If linting is disabled, don't bother checking further.
+        if (pylintInfo && await this.isLintingEnabled(true, resource)) {
+            const activator = this.serviceContainer.get<IAvailableLinterActivator>(IAvailableLinterActivator);
+            return activator.promptIfLinterAvailable(pylintInfo, resource);
+        }
+        return false;
     }
 }
