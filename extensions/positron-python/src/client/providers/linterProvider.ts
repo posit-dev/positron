@@ -1,21 +1,26 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+'use strict';
+
 import * as path from 'path';
-import * as vscode from 'vscode';
-import { ConfigurationTarget, Uri, workspace } from 'vscode';
+import {
+    ConfigurationTarget, Disposable, ExtensionContext,
+    TextDocument, Uri, workspace
+} from 'vscode';
 import { IDocumentManager } from '../common/application/types';
 import { ConfigSettingMonitor } from '../common/configSettingMonitor';
 import { isTestExecution } from '../common/constants';
+import '../common/extensions';
 import { IFileSystem } from '../common/platform/types';
 import { IConfigurationService } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { ILinterManager, ILintingEngine } from '../linters/types';
 
-export class LinterProvider implements vscode.Disposable {
-    private context: vscode.ExtensionContext;
-    private disposables: vscode.Disposable[];
+export class LinterProvider implements Disposable {
+    private context: ExtensionContext;
+    private disposables: Disposable[];
     private configMonitor: ConfigSettingMonitor;
     private interpreterService: IInterpreterService;
     private documents: IDocumentManager;
@@ -24,7 +29,7 @@ export class LinterProvider implements vscode.Disposable {
     private engine: ILintingEngine;
     private fs: IFileSystem;
 
-    public constructor(context: vscode.ExtensionContext, serviceContainer: IServiceContainer) {
+    public constructor(context: ExtensionContext, serviceContainer: IServiceContainer) {
         this.context = context;
         this.disposables = [];
 
@@ -39,7 +44,7 @@ export class LinterProvider implements vscode.Disposable {
 
         this.documents.onDidOpenTextDocument(e => this.onDocumentOpened(e), this.context.subscriptions);
         this.documents.onDidCloseTextDocument(e => this.onDocumentClosed(e), this.context.subscriptions);
-        this.documents.onDidSaveTextDocument((e) => this.onDocumentSaved(e), this.context.subscriptions);
+        this.documents.onDidSaveTextDocument(e => this.onDocumentSaved(e), this.context.subscriptions);
 
         this.configMonitor = new ConfigSettingMonitor('linting');
         this.configMonitor.on('change', this.lintSettingsChangedHandler.bind(this));
@@ -56,7 +61,7 @@ export class LinterProvider implements vscode.Disposable {
         this.configMonitor.dispose();
     }
 
-    private isDocumentOpen(uri: vscode.Uri): boolean {
+    private isDocumentOpen(uri: Uri): boolean {
         return this.documents.textDocuments.some(document => this.fs.arePathsSame(document.uri.fsPath, uri.fsPath));
     }
 
@@ -74,26 +79,28 @@ export class LinterProvider implements vscode.Disposable {
         });
     }
 
-    private onDocumentOpened(document: vscode.TextDocument): void {
+    private onDocumentOpened(document: TextDocument): void {
         this.engine.lintDocument(document, 'auto').ignoreErrors();
     }
 
-    private onDocumentSaved(document: vscode.TextDocument): void {
+    private onDocumentSaved(document: TextDocument): void {
         const settings = this.configuration.getSettings(document.uri);
         if (document.languageId === 'python' && settings.linting.enabled && settings.linting.lintOnSave) {
             this.engine.lintDocument(document, 'save').ignoreErrors();
             return;
         }
 
-        const linters = this.linterManager.getActiveLinters(document.uri);
-        const fileName = path.basename(document.uri.fsPath).toLowerCase();
-        const watchers = linters.filter((info) => info.configFileNames.indexOf(fileName) >= 0);
-        if (watchers.length > 0) {
-            setTimeout(() => this.engine.lintOpenPythonFiles(), 1000);
-        }
+        this.linterManager.getActiveLinters(false, document.uri)
+            .then((linters) => {
+                const fileName = path.basename(document.uri.fsPath).toLowerCase();
+                const watchers = linters.filter((info) => info.configFileNames.indexOf(fileName) >= 0);
+                if (watchers.length > 0) {
+                    setTimeout(() => this.engine.lintOpenPythonFiles(), 1000);
+                }
+            }).ignoreErrors();
     }
 
-    private onDocumentClosed(document: vscode.TextDocument) {
+    private onDocumentClosed(document: TextDocument) {
         if (!document || !document.fileName || !document.uri) {
             return;
         }
