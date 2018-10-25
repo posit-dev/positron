@@ -84,7 +84,7 @@ const copyrightHeaders = [copyrightHeader.join('\n'), copyrightHeader.join('\r\n
 
 gulp.task('precommit', (done) => run({ exitOnError: true, mode: 'staged' }, done));
 
-gulp.task('hygiene-watch', () => gulp.watch(tsFilter, debounce(() => run({ mode: 'changes', skipFormatCheck: true, skipIndentationCheck: true, skipCopyrightCheck: true }), 100)));
+gulp.task('hygiene-watch', () => gulp.watch(tsFilter, gulp.series('hygiene-modified')));
 
 gulp.task('hygiene', (done) => run({ mode: 'all', skipFormatCheck: true, skipIndentationCheck: true }, done));
 
@@ -533,7 +533,7 @@ function getModifiedFilesSync() {
             .split(/\r?\n/)
             .filter(l => !!l)
             .filter(l => l.length > 0)
-            .map(l => l.trim())
+            .map(l => l.trim().replace(/\//g, path.sep))
             .map(l => path.join(__dirname, l));
     } else {
         const out = cp.execSync('git status -u -s', { encoding: 'utf8' });
@@ -541,7 +541,7 @@ function getModifiedFilesSync() {
             .split(/\r?\n/)
             .filter(l => !!l)
             .filter(l => _.intersection(['M', 'A', 'R', 'C', 'U', '?'], l.substring(0, 2).trim().split('')).length > 0)
-            .map(l => path.join(__dirname, l.substring(2).trim()));
+            .map(l => path.join(__dirname, l.substring(2).trim().replace(/\//g, path.sep)));
     }
 }
 
@@ -562,11 +562,13 @@ function getFileListToProcess(options) {
 
     // If we need only modified files, then filter the glob.
     if (options && options.mode === 'changes') {
-        return getModifiedFilesSync();
+        return getModifiedFilesSync()
+            .filter(file => fs.existsSync(file));
     }
 
     if (options && options.mode === 'staged') {
-        return getStagedFilesSync();
+        return getStagedFilesSync()
+            .filter(file => fs.existsSync(file));
     }
 
     return all;
