@@ -27,7 +27,7 @@
 1. Following VS Code extensions:
     * [TSLint](https://marketplace.visualstudio.com/items?itemName=eg2.tslint)
     * [EditorConfig for VS Code](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
-1. Open an issue which has been accepted as needing a pull request (feel free to indicate you would be happy to provide a PR for the issue)
+1. Have an issue which has been accepted with a "needs PR" label (feel free to indicate you would be happy to provide a PR for the issue)
 
 ### Setup
 
