@@ -1,8 +1,8 @@
 /* tslint:disable */
 'use strict';
 
-// THis code is from @nteract/transforms-full except without the Vega transforms
-// https://github.com/nteract/nteract/blob/master/packages/transforms-full/src/index.js
+// This code is from @nteract/transforms-full except without the Vega transforms:
+// https://github.com/nteract/nteract/blob/v0.12.2/packages/transforms-full/src/index.js .
 // Vega transforms mess up our npm pkg install because they rely on the npm canvas module that needs
 // to be built on each system.
 
