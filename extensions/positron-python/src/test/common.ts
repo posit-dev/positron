@@ -3,16 +3,20 @@
 'use strict';
 
 import * as fs from 'fs-extra';
+import * as glob from 'glob';
 import * as path from 'path';
 import { coerce, SemVer } from 'semver';
 import { ConfigurationTarget, Uri, workspace } from 'vscode';
+import { IExtensionApi } from '../client/api';
 import { PythonSettings } from '../client/common/configSettings';
 import { EXTENSION_ROOT_DIR } from '../client/common/constants';
 import { traceError } from '../client/common/logger';
 import { BufferDecoder } from '../client/common/process/decoder';
 import { ProcessService } from '../client/common/process/proc';
 import { IProcessService } from '../client/common/process/types';
+import { noop } from '../client/common/utils/misc';
 import { getOSType, OSType } from '../client/common/utils/platform';
+import { IServiceContainer } from '../client/ioc/types';
 import { IS_MULTI_ROOT_TEST } from './initialize';
 
 export { sleep } from './core';
@@ -134,6 +138,13 @@ export async function deleteFile(file: string) {
     }
 }
 
+export async function deleteFiles(globPattern: string) {
+    const items = await new Promise<string[]>((resolve, reject) => {
+        glob(globPattern, (ex, files) => ex ? reject(ex) : resolve(files));
+    });
+
+    return Promise.all(items.map(item => fs.remove(item).catch(noop)));
+}
 function getPythonPath(): string {
     if (process.env.CI_PYTHON_PATH && fs.existsSync(process.env.CI_PYTHON_PATH)) {
         return process.env.CI_PYTHON_PATH;
@@ -291,18 +302,21 @@ export async function isPythonVersion(...versions: string[]): Promise<boolean> {
     }
 }
 
+export interface IExtensionTestApi extends IExtensionApi {
+    serviceContainer: IServiceContainer;
+}
 // Custom module loader so we skip .css files that break non webpack wrapped compiles
 // tslint:disable-next-line:no-var-requires no-require-imports
 const Module = require('module');
 
 // tslint:disable-next-line:no-function-expression
-(function() {
+(function () {
     const origRequire = Module.prototype.require;
     const _require = (context, filepath) => {
         return origRequire.call(context, filepath);
     };
 
-    Module.prototype.require = function(filepath) {
+    Module.prototype.require = function (filepath) {
         if (filepath.endsWith('.css')) {
             return '';
         }
