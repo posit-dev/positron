@@ -18,6 +18,7 @@ import { setUpDomEnvironment } from './datascience/reactHelpers';
 import * as vscodeMoscks from './vscode-mock';
 
 process.env.VSC_PYTHON_CI_TEST = '1';
+process.env.VSC_PYTHON_UNIT_TEST = '1';
 
 export function runTests(testOptions?: { grep?: string; timeout?: number }) {
     vscodeMoscks.initialize();

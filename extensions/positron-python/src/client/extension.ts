@@ -163,7 +163,13 @@ export async function activate(context: ExtensionContext): Promise<IExtensionApi
     durations.endActivateTime = stopWatch.elapsedTime;
     activationDeferred.resolve();
 
-    return { ready: activationDeferred.promise };
+    const api = { ready: activationDeferred.promise };
+    // In test environment return the DI Container.
+    if (isTestExecution()) {
+        // tslint:disable-next-line:no-any
+        (api as any).serviceContainer = serviceContainer;
+    }
+    return api;
 }
 
 function registerServices(context: ExtensionContext, serviceManager: ServiceManager, serviceContainer: ServiceContainer) {
