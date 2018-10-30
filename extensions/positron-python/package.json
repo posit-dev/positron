@@ -403,10 +403,10 @@
                             "program": "^\"\\${workspaceFolder}/manage.py\"",
                             "args": [
                                 "runserver",
+                                "--noreload",
                                 "--nothreading"
                             ],
-                            "django": true,
-                            "subProcess": true
+                            "django": true
                         }
                     },
                     {
@@ -420,13 +420,14 @@
                             "env": {
                                 "FLASK_APP": "app.py",
                                 "FLASK_ENV": "development",
-                                "FLASK_DEBUG": "1"
+                                "FLASK_DEBUG": "0"
                             },
                             "args": [
-                                "run"
+                                "run",
+                                "--no-debugger",
+                                "--no-reload"
                             ],
-                            "jinja": true,
-                            "subProcess": true
+                            "jinja": true
                         }
                     },
                     {
@@ -745,10 +746,10 @@
                         "console": "integratedTerminal",
                         "args": [
                             "runserver",
+                            "--noreload",
                             "--nothreading"
                         ],
-                        "django": true,
-                        "subProcess": true
+                        "django": true
                     },
                     {
                         "name": "Python: Flask",
@@ -756,15 +757,14 @@
                         "request": "launch",
                         "module": "flask",
                         "env": {
-                            "FLASK_APP": "app.py",
-                            "FLASK_ENV": "development",
-                            "FLASK_DEBUG": "1"
+                            "FLASK_APP": "app.py"
                         },
                         "args": [
-                            "run"
+                            "run",
+                            "--no-debugger",
+                            "--no-reload"
                         ],
-                        "jinja": true,
-                        "subProcess": true
+                        "jinja": true
                     },
                     {
                         "name": "Python: Current File (External Terminal)",
