@@ -1,15 +1,18 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+import '../common/extensions';
+
 import { inject, injectable } from 'inversify';
-import { Position, TextDocument, Uri, ViewColumn } from 'vscode';
+import { Disposable, Position, TextDocument, Uri, ViewColumn } from 'vscode';
 
 import { IApplicationShell, ICommandManager, IDocumentManager } from '../common/application/types';
 import { IConfigurationService, IDisposableRegistry, ILogger } from '../common/types';
 import * as localize from '../common/utils/localize';
 import { IServiceContainer } from '../ioc/types';
+import { captureTelemetry } from '../telemetry';
 import { CommandSource } from '../unittests/common/constants';
-import { Commands } from './constants';
+import { Commands, Telemetry } from './constants';
 import { JupyterImporter } from './jupyterImporter';
 import { IDataScienceCommandListener, IHistoryProvider } from './types';
 
@@ -39,7 +42,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
     }
 
     public register(commandManager: ICommandManager): void {
-        let disposable = commandManager.registerCommand(Commands.ShowHistoryPane, this.showHistoryPane);
+        let disposable = commandManager.registerCommand(Commands.ShowHistoryPane, () => this.showHistoryPane());
         this.disposableRegistry.push(disposable);
         disposable = commandManager.registerCommand(Commands.ImportNotebook, async (file: Uri, cmdSource: CommandSource = CommandSource.commandPalette) => {
             try {
@@ -95,12 +98,21 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
         }
 
     }
-    private showHistoryPane = async () : Promise<void> => {
+
+    @captureTelemetry(Telemetry.ShowHistoryPane, {}, false)
+    private async showHistoryPane() : Promise<void>{
         const active = await this.historyProvider.getOrCreateHistory();
         return active.show();
     }
 
-    private importNotebook = async () : Promise<void> => {
+    private setImportStatus = (file: string) : Disposable => {
+        const formatString = localize.DataScience.importingFormat();
+        const message = formatString.format(file);
+        return this.applicationShell.setStatusBarMessage(message);
+    }
+
+    @captureTelemetry(Telemetry.ImportNotebook, { scope: 'command' }, false)
+    private async importNotebook() : Promise<void> {
 
         const filtersKey = localize.DataScience.importDialogFilter();
         const filtersObject = {};
@@ -113,7 +125,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
             });
 
         if (uris && uris.length > 0) {
-            const status = this.applicationShell.setStatusBarMessage(localize.DataScience.importingFormat().format(uris[0].fsPath));
+            const status = this.setImportStatus(uris[0].fsPath);
             try {
                 const contents = await this.jupyterImporter.importFromFile(uris[0].fsPath);
                 await this.viewDocument(contents);
@@ -126,9 +138,10 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
         }
     }
 
-    private importNotebookOnFile = async (file: string) : Promise<void> => {
+    @captureTelemetry(Telemetry.ImportNotebook, { scope: 'file' }, false)
+    private async importNotebookOnFile(file: string) : Promise<void> {
         if (file && file.length > 0) {
-            const status = this.applicationShell.setStatusBarMessage(localize.DataScience.importingFormat().format(file));
+            const status = this.setImportStatus(file);
             try {
                 const contents = await this.jupyterImporter.importFromFile(file);
                 await this.viewDocument(contents);

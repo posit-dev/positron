@@ -3,7 +3,7 @@
 
 'use strict';
 import * as React from 'react';
-import { CellState, ICell } from '../types';
+import { CellState, ICell } from '../../client/datascience/types';
 import './executionCount.css';
 
 interface IExecutionCountProps {

@@ -46,6 +46,8 @@
 .cell-output {
     margin-top: 5px;
     background: var(--vscode-notifications-background);
+    white-space: pre-wrap;
+    font-family: monospace;
 }
 
 .cell-output table {

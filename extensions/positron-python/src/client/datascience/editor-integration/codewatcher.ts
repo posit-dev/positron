@@ -1,12 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { CodeLens, Command, Position, Range, Selection, TextDocument, TextEditorRevealType, window} from 'vscode';
+import { CodeLens, Command, Position, Range, Selection, TextDocument, TextEditorRevealType, window } from 'vscode';
+
 import { IApplicationShell, ICommandManager } from '../../common/application/types';
 import { ContextKey } from '../../common/contextKey';
 import * as localize from '../../common/utils/localize';
 import { IServiceContainer } from '../../ioc/types';
-import { Commands, EditorContexts, RegExpValues } from '../constants';
+import { captureTelemetry } from '../../telemetry';
+import { Commands, EditorContexts, RegExpValues, Telemetry } from '../constants';
 import { ICodeWatcher, IHistoryProvider } from '../types';
 
 export interface ICell {
@@ -66,6 +68,7 @@ export class CodeWatcher implements ICodeWatcher {
         return this.codeLenses;
     }
 
+    @captureTelemetry(Telemetry.RunAllCells)
     public async runAllCells() {
         const activeHistory = await this.historyProvider.getOrCreateHistory();
 
@@ -83,6 +86,7 @@ export class CodeWatcher implements ICodeWatcher {
         }
     }
 
+    @captureTelemetry(Telemetry.RunCell)
     public async runCell(range: Range) {
         const activeHistory = await this.historyProvider.getOrCreateHistory();
         if (this.document) {
@@ -97,6 +101,7 @@ export class CodeWatcher implements ICodeWatcher {
         }
     }
 
+    @captureTelemetry(Telemetry.RunCurrentCell)
     public async runCurrentCell() {
         if (!window.activeTextEditor || !window.activeTextEditor.document) {
             return;
@@ -111,6 +116,7 @@ export class CodeWatcher implements ICodeWatcher {
         }
     }
 
+    @captureTelemetry(Telemetry.RunCurrentCellAndAdvance)
     public async runCurrentCellAndAdvance() {
         if (!window.activeTextEditor || !window.activeTextEditor.document) {
             return;

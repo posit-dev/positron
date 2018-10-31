@@ -7,7 +7,6 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 
 import { IWorkspaceService } from '../common/application/types';
-import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { ICurrentProcess, ILogger } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 
@@ -243,9 +242,11 @@ export class CodeCssGenerator {
         const tokenColors = theme['tokenColors'] as JSONArray;
         if (tokenColors && tokenColors.length > 0) {
             // This theme may include others. If so we need to combine the two together
-            if (theme['include']) {
-                const include = path.join(path.dirname(themeFile), theme['include'].toString());
-                return this.mergeColors(tokenColors, await this.readTokenColors(include));
+            const include = theme ? theme['include'] : undefined;
+            if (include && include !== null) {
+                const includePath = path.join(path.dirname(themeFile), include.toString());
+                const includedColors = await this.readTokenColors(includePath);
+                return this.mergeColors(tokenColors, includedColors);
             }
 
             // Theme is a root, don't need to include others
@@ -257,10 +258,15 @@ export class CodeCssGenerator {
 
     private findTokenColors = async (theme : string) : Promise<JSONArray> => {
         const currentExe = this.currentProcess.execPath;
-        const currentPath = path.dirname(currentExe);
+        let currentPath = path.dirname(currentExe);
 
         // Should be somewhere under currentPath/resources/app/extensions inside of a json file
-        const extensionsPath = path.join(currentPath, 'resources', 'app', 'extensions');
+        let extensionsPath = path.join(currentPath, 'resources', 'app', 'extensions');
+        if (!(await fs.pathExists(extensionsPath))) {
+            // Might be on mac or linux. try a different path
+            currentPath = path.resolve(currentPath, '../../../..');
+            extensionsPath = path.join(currentPath, 'resources', 'app', 'extensions');
+        }
 
         // Search through all of the json files for the theme name
         const escapedThemeName = theme.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -309,7 +315,7 @@ export class CodeCssGenerator {
         }
 
         // We should return a default. The vscode-light theme
-        const defaultThemeFile = path.join(EXTENSION_ROOT_DIR, 'src', 'client', 'datascience', 'defaultTheme.json');
+        const defaultThemeFile = path.join(__dirname, 'defaultTheme.json');
         return this.readTokenColors(defaultThemeFile);
     }
 }
