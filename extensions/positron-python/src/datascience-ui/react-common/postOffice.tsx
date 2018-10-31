@@ -4,7 +4,7 @@
 'use strict';
 
 import * as React from 'react';
-import { WebPanelMessage } from '../../common/application/types';
+import { WebPanelMessage } from '../../client/common/application/types';
 
 export interface IVsCodeApi {
     // tslint:disable-next-line:no-any

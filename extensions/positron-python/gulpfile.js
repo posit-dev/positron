@@ -168,6 +168,10 @@ gulp.task('compile-webviews', (done) => {
     gulp.src('./src/**/*.{png,svg,css}')
         .pipe(gulp.dest('./out'));
 
+    // Then our theme json
+    gulp.src('./src/**/*theme*.json')
+        .pipe(gulp.dest('./out'));
+
     // Then run webpack on the output files
     gulp.src('./out/**/*react/index.js')
         .pipe(es.through(file => webify(file, false)));

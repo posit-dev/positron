@@ -4,7 +4,7 @@
 'use strict';
 
 import { nbformat } from '@jupyterlab/coreutils';
-import { CellState, ICell } from '../types';
+import { CellState, ICell } from '../../client/datascience/types';
 import { Cell, ICellViewModel } from './cell';
 
 export interface IMainPanelState {

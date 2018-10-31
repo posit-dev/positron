@@ -13,12 +13,14 @@ import {
     IWebPanelMessageListener,
     IWebPanelProvider
 } from '../common/application/types';
+import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { createDeferred } from '../common/utils/async';
 import * as localize from '../common/utils/localize';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
+import { captureTelemetry, sendTelemetryEvent } from '../telemetry';
 import { CodeCssGenerator } from './codeCssGenerator';
-import { HistoryMessages } from './constants';
+import { HistoryMessages, Telemetry } from './constants';
 import { CellState, ICell, IJupyterServer, IJupyterServerProvider } from './types';
 
 export class History implements IWebPanelMessageListener {
@@ -117,6 +119,30 @@ export class History implements IWebPanelMessageListener {
                 this.export(payload);
                 break;
 
+            case HistoryMessages.DeleteAllCells:
+                this.logTelemetry(Telemetry.DeleteAllCells);
+                break;
+
+            case HistoryMessages.DeleteCell:
+                this.logTelemetry(Telemetry.DeleteCell);
+                break;
+
+            case HistoryMessages.Undo:
+                this.logTelemetry(Telemetry.Undo);
+                break;
+
+            case HistoryMessages.Redo:
+                this.logTelemetry(Telemetry.Redo);
+                break;
+
+            case HistoryMessages.ExpandAll:
+                this.logTelemetry(Telemetry.ExpandAll);
+                break;
+
+            case HistoryMessages.CollapseAll:
+                this.logTelemetry(Telemetry.CollapseAll);
+                break;
+
             default:
                 break;
         }
@@ -130,6 +156,10 @@ export class History implements IWebPanelMessageListener {
         if (History.activeHistory === this) {
             delete History.activeHistory;
         }
+    }
+
+    private logTelemetry = (event : string) => {
+        sendTelemetryEvent(event);
     }
 
     private onAddCodeEvent = (cells : ICell[], editor?: TextEditor) => {
@@ -177,21 +207,24 @@ export class History implements IWebPanelMessageListener {
         this.loadPromise = this.loadJupyterServer(this.serviceContainer);
     }
 
-    private gotoCode = (file: string, line: number) => {
+    @captureTelemetry(Telemetry.GotoSourceCode)
+    private gotoCode(file: string, line: number) {
         this.documentManager.showTextDocument(Uri.file(file), { viewColumn: ViewColumn.One }).then((editor: TextEditor) => {
             editor.revealRange(new Range(line, 0, line, 0));
             editor.selection = new Selection(new Position(line, 0), new Position(line, 0));
         });
     }
 
-    private restartKernel = () => {
+    @captureTelemetry(Telemetry.RestartKernel)
+    private restartKernel() {
         if (this.jupyterServer) {
             this.jupyterServer.restartKernel();
         }
     }
 
+    @captureTelemetry(Telemetry.ExportNotebook, {}, false)
     // tslint:disable-next-line: no-any no-empty
-    private export = (payload: any) => {
+    private export (payload: any) {
         if (payload.contents) {
             // Should be an array of cells
             const cells = payload.contents as ICell[];
@@ -257,7 +290,7 @@ export class History implements IWebPanelMessageListener {
         const provider = serviceContainer.get<IWebPanelProvider>(IWebPanelProvider);
 
         // Figure out the name of our main bundle. Should be in our output directory
-        const mainScriptPath = path.join(__dirname, 'history-react', 'index_bundle.js');
+        const mainScriptPath = path.join(EXTENSION_ROOT_DIR, 'out', 'datascience-ui', 'history-react', 'index_bundle.js');
 
         // Generate a css to put into the webpanel for viewing code
         const codeCssGenerator = new CodeCssGenerator(serviceContainer);
