@@ -205,12 +205,31 @@ export class History implements IWebPanelMessageListener, IHistory {
         this.loadPromise = this.loadJupyterServer();
     }
 
-    @captureTelemetry(Telemetry.GotoSourceCode)
+    @captureTelemetry(Telemetry.GotoSourceCode, {}, false)
     private gotoCode(file: string, line: number) {
-        this.documentManager.showTextDocument(Uri.file(file), { viewColumn: ViewColumn.One }).then((editor: TextEditor) => {
+        this.gotoCodeInternal(file, line).catch(err => {
+            this.applicationShell.showErrorMessage(err);
+        });
+    }
+
+    private async gotoCodeInternal(file: string, line: number) {
+        let editor : TextEditor | undefined;
+
+        if (await fs.pathExists(file)) {
+            editor = await this.documentManager.showTextDocument(Uri.file(file), {viewColumn: ViewColumn.One});
+        } else {
+            // File URI isn't going to work. Look through the active text documents
+            editor = this.documentManager.visibleTextEditors.find(te => te.document.fileName === file);
+            if (editor) {
+                editor.show(ViewColumn.One);
+            }
+        }
+
+        // If we found the editor change its selection
+        if (editor) {
             editor.revealRange(new Range(line, 0, line, 0));
             editor.selection = new Selection(new Position(line, 0), new Position(line, 0));
-        });
+        }
     }
 
     @captureTelemetry(Telemetry.RestartKernel)
