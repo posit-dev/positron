@@ -1,16 +1,50 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+import {
+    Breakpoint,
+    BreakpointsChangeEvent,
+    CancellationToken,
+    ConfigurationChangeEvent,
+    DebugConfiguration,
+    DebugConfigurationProvider,
+    DebugConsole,
+    DebugSession,
+    DebugSessionCustomEvent,
+    Disposable,
+    Event,
+    FileSystemWatcher,
+    GlobPattern,
+    InputBoxOptions,
+    MessageItem,
+    MessageOptions,
+    OpenDialogOptions,
+    Progress,
+    ProgressOptions,
+    QuickPickItem,
+    QuickPickOptions,
+    SaveDialogOptions,
+    StatusBarAlignment,
+    StatusBarItem,
+    Terminal,
+    TerminalOptions,
+    TextDocument,
+    TextDocumentShowOptions,
+    TextEditor,
+    TextEditorEdit,
+    TextEditorOptionsChangeEvent,
+    TextEditorSelectionChangeEvent,
+    TextEditorViewColumnChangeEvent,
+    Uri,
+    ViewColumn,
+    WorkspaceConfiguration,
+    WorkspaceEdit,
+    WorkspaceFolder,
+    WorkspaceFolderPickOptions,
+    WorkspaceFoldersChangeEvent
+} from 'vscode';
 
 // tslint:disable:no-any unified-signatures
-
-import {
-    Breakpoint, BreakpointsChangeEvent, CancellationToken, ConfigurationChangeEvent, DebugConfiguration, DebugConfigurationProvider, DebugConsole, DebugSession, DebugSessionCustomEvent, Disposable,
-    Event, FileSystemWatcher, GlobPattern, InputBoxOptions, MessageItem,
-    MessageOptions, OpenDialogOptions, Progress, ProgressOptions, QuickPickItem, QuickPickOptions, SaveDialogOptions,
-    StatusBarAlignment, StatusBarItem, Terminal, TerminalOptions, TextDocument, TextDocumentShowOptions, TextEditor, TextEditorEdit,
-    TextEditorOptionsChangeEvent, TextEditorSelectionChangeEvent, TextEditorViewColumnChangeEvent, Uri, ViewColumn, WorkspaceConfiguration, WorkspaceEdit, WorkspaceFolder, WorkspaceFolderPickOptions, WorkspaceFoldersChangeEvent
-} from 'vscode';
 
 export const IApplicationShell = Symbol('IApplicationShell');
 export interface IApplicationShell {
@@ -736,7 +770,7 @@ export interface IApplicationEnvironment {
 }
 
 export const IWebPanelMessageListener = Symbol('IWebPanelMessageListener');
-export interface IWebPanelMessageListener {
+export interface IWebPanelMessageListener extends Disposable {
     /**
      * Listens to web panel messages
      * @param message: the message being sent
@@ -744,11 +778,6 @@ export interface IWebPanelMessageListener {
      * @return A IWebPanel that can be used to show html pages.
      */
     onMessage(message: string, payload: any): void;
-
-    /**
-     * Called when the panel is closed/disposed
-     */
-    onDisposed(): void;
 }
 
 export type WebPanelMessage = {

@@ -1,10 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+import '../common/extensions';
+
 import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
-import { Position, Range, Selection, TextEditor, Uri, ViewColumn } from 'vscode';
+import { Event, EventEmitter, Position, Range, Selection, TextEditor, Uri, ViewColumn } from 'vscode';
 import { Disposable } from 'vscode-jsonrpc';
 
 import {
@@ -15,6 +17,7 @@ import {
     IWebPanelProvider
 } from '../common/application/types';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
+import { IDisposableRegistry } from '../common/types';
 import { createDeferred } from '../common/utils/async';
 import * as localize from '../common/utils/localize';
 import { IInterpreterService } from '../interpreter/contracts';
@@ -24,11 +27,12 @@ import { CellState, ICell, ICodeCssGenerator, IHistory, INotebookServer } from '
 
 @injectable()
 export class History implements IWebPanelMessageListener, IHistory {
-    private static activeHistory: History;
+    private disposed : boolean = false;
     private webPanel : IWebPanel | undefined;
     // tslint:disable-next-line: no-any
     private loadPromise: Promise<any>;
     private settingsChangedDisposable : Disposable;
+    private closedEvent : EventEmitter<IHistory>;
 
     constructor(
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
@@ -36,23 +40,34 @@ export class History implements IWebPanelMessageListener, IHistory {
         @inject(IInterpreterService) private interpreterService: IInterpreterService,
         @inject(INotebookServer) private jupyterServer: INotebookServer,
         @inject(IWebPanelProvider) private provider: IWebPanelProvider,
+        @inject(IDisposableRegistry) private disposables: IDisposableRegistry,
         @inject(ICodeCssGenerator) private cssGenerator : ICodeCssGenerator) {
 
         // Sign up for configuration changes
         this.settingsChangedDisposable = this.interpreterService.onDidChangeInterpreter(this.onSettingsChanged);
+
+        // Create our event emitter
+        this.closedEvent = new EventEmitter<IHistory>();
+        this.disposables.push(this.closedEvent);
 
         // Load on a background thread.
         this.loadPromise = this.load();
     }
 
     public async show() : Promise<void> {
-        // Make sure we're loaded first
-        await this.loadPromise;
+        if (!this.disposed) {
+            // Make sure we're loaded first
+            await this.loadPromise;
 
-        // Then show our web panel.
-        if (this.webPanel) {
-            await this.webPanel.show();
+            // Then show our web panel.
+            if (this.webPanel) {
+                await this.webPanel.show();
+            }
         }
+    }
+
+    public get closed() : Event<IHistory> {
+        return this.closedEvent.event;
     }
 
     public async addCode(code: string, file: string, line: number, editor?: TextEditor) : Promise<void> {
@@ -131,13 +146,14 @@ export class History implements IWebPanelMessageListener, IHistory {
         }
     }
 
-    public onDisposed() {
-        this.settingsChangedDisposable.dispose();
-        if (this.jupyterServer) {
-            this.jupyterServer.dispose();
-        }
-        if (History.activeHistory === this) {
-            delete History.activeHistory;
+    public dispose() {
+        if (!this.disposed) {
+            this.disposed = true;
+            this.settingsChangedDisposable.dispose();
+            if (this.jupyterServer) {
+                this.jupyterServer.dispose();
+            }
+            this.closedEvent.fire(this);
         }
     }
 
