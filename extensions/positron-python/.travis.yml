@@ -5,6 +5,9 @@ matrix:
     include:
         - os: linux
           python: "2.7"
+          env: UNIT_TEST=true
+        - os: linux
+          python: "2.7"
           env: DEBUGGER_TEST=true
         - os: linux
           python: "2.7"
@@ -71,6 +74,13 @@ install:
   - python -m pip install -t ./pythonFiles/experimental/ptvsd git+https://github.com/Microsoft/ptvsd/
 
 script:
+  - if [ $UNIT_TEST == "true" ]; then
+        npm run cover:enable;
+        npm run test:unittests;
+    fi
+  - if [ $TRAVIS_UPLOAD_COVERAGE == "true" ]; then
+        bash <(curl -s https://codecov.io/bash);
+    fi
   - if [ $DEBUGGER_TEST == "true" ]; then
         npm run cover:enable;
         npm run testDebugger --silent;
