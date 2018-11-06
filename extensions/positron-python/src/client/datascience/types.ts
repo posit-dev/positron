@@ -7,7 +7,7 @@ import { Observable } from 'rxjs/Observable';
 import { CodeLens, CodeLensProvider, Disposable, Event, Range, TextDocument, TextEditor } from 'vscode';
 
 import { ICommandManager } from '../common/application/types';
-import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../common/process/types';
+import { ExecutionResult, ObservableExecutionResult, PythonVersionInfo, SpawnOptions } from '../common/process/types';
 import { IConnectionInfo } from './jupyterProcess';
 
 // Main interface
@@ -41,6 +41,8 @@ export interface INotebookProcess extends Disposable {
     shutdown() : Promise<void>;
     waitForConnectionInformation() : Promise<IConnectionInfo>;
     waitForPythonVersionString() : Promise<string>;
+    waitForPythonPath() : Promise<string | undefined>;
+    waitForPythonVersion() : Promise<PythonVersionInfo | undefined>;
     spawn(notebookFile: string) : Promise<ExecutionResult<string>>;
 }
 export const IJupyterExecution = Symbol('IJupyterAvailablity');

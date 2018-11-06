@@ -6,7 +6,7 @@ import { inject, injectable } from 'inversify';
 import * as tk from 'tree-kill';
 import { URL } from 'url';
 
-import { ExecutionResult, IPythonExecutionFactory, ObservableExecutionResult, Output } from '../common/process/types';
+import { ExecutionResult, IPythonExecutionFactory, ObservableExecutionResult, Output, PythonVersionInfo } from '../common/process/types';
 import { ILogger } from '../common/types';
 import { createDeferred, Deferred } from '../common/utils/async';
 import { IJupyterExecution, INotebookProcess } from './types';
@@ -20,6 +20,7 @@ export interface IConnectionInfo {
 @injectable()
 export class JupyterProcess implements INotebookProcess {
     private static urlPattern = /http:\/\/localhost:[0-9]+\/\?token=[a-z0-9]+/g;
+    private static forbiddenPattern = /Forbidden/g;
     public isDisposed: boolean = false;
     private startPromise: Deferred<IConnectionInfo> | undefined;
     private startObservable: ObservableExecutionResult<string> | undefined;
@@ -75,6 +76,18 @@ export class JupyterProcess implements INotebookProcess {
         return info ? info.version : '3';
     }
 
+    public async waitForPythonVersion() : Promise<PythonVersionInfo | undefined> {
+        const pythonService = await this.executionFactory.create({});
+        const info = await pythonService.getInterpreterInformation();
+        return info ? info.version_info : undefined;
+    }
+
+    public async waitForPythonPath() : Promise<string | undefined> {
+        const pythonService = await this.executionFactory.create({});
+        const info = await pythonService.getInterpreterInformation();
+        return info ? info.path : undefined;
+    }
+
     // Returns the information necessary to talk to this instance
     public waitForConnectionInformation() : Promise<IConnectionInfo> {
         if (this.startPromise) {
@@ -111,6 +124,12 @@ export class JupyterProcess implements INotebookProcess {
         }
 
         // Do we need to worry about this not working? Timeout?
+
+        // Look for 'Forbidden' in the result
+        const forbiddenMatch = JupyterProcess.forbiddenPattern.exec(data);
+        if (forbiddenMatch && this.startPromise && !this.startPromise.resolved) {
+            this.startPromise.reject(new Error(data.toString('utf8')));
+        }
 
     }
 }
