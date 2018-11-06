@@ -9,9 +9,9 @@ import * as path from 'path';
 import * as TypeMoq from 'typemoq';
 import { DebugConfiguration, Uri } from 'vscode';
 import { DebugClient } from 'vscode-debugadapter-testsupport';
-
 import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { IPlatformService } from '../../client/common/platform/types';
+import { IS_WINDOWS } from '../../client/common/util';
 import { DebuggerTypeName, PTVSD_PATH } from '../../client/debugger/constants';
 import { PythonV2DebugConfigurationProvider } from '../../client/debugger/extension/configProviders/pythonV2Provider';
 import { AttachRequestArguments, DebugOptions } from '../../client/debugger/types';
@@ -20,14 +20,14 @@ import { PYTHON_PATH, sleep } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 import { continueDebugging, createDebugAdapter } from './utils';
 
-// tslint:disable:no-invalid-this max-func-body-length no-empty no-increment-decrement no-unused-variable
+// tslint:disable:no-invalid-this max-func-body-length no-empty no-increment-decrement no-unused-variable no-console
 const fileToDebug = path.join(EXTENSION_ROOT_DIR, 'src', 'testMultiRootWkspc', 'workspace5', 'remoteDebugger-start-with-ptvsd.py');
 
 suite('Attach Debugger', () => {
     let debugClient: DebugClient;
     let proc: ChildProcess;
 
-    setup(async function() {
+    setup(async function () {
         if (!IS_MULTI_ROOT_TEST || !TEST_DEBUGGER) {
             this.skip();
         }
@@ -57,6 +57,7 @@ suite('Attach Debugger', () => {
         env['PYTHONPATH'] = PTVSD_PATH;
         const pythonArgs = ['-m', 'ptvsd', '--host', 'localhost', '--wait', '--port', `${port}`, '--file', fileToDebug.fileToCommandArgument()];
         proc = spawn(PYTHON_PATH, pythonArgs, { env: env, cwd: path.dirname(fileToDebug) });
+        const exited = new Promise(resolve => proc.once('close', resolve));
         await sleep(3000);
 
         // Send initialize, attach
@@ -108,6 +109,7 @@ suite('Attach Debugger', () => {
         });
         const exceptionBreakpointPromise = debugClient.setExceptionBreakpointsRequest({ filters: [] });
         const breakpointStoppedPromise = debugClient.assertStoppedLocation('breakpoint', breakpointLocation);
+
         await Promise.all([
             breakpointPromise, exceptionBreakpointPromise,
             debugClient.configurationDoneRequest(), debugClient.threadsRequest(),
@@ -115,15 +117,10 @@ suite('Attach Debugger', () => {
             breakpointStoppedPromise
         ]);
 
-        await Promise.all([
-            continueDebugging(debugClient),
-            debugClient.assertOutput('stdout', 'this is print'),
-            debugClient.waitForEvent('exited'),
-            debugClient.waitForEvent('terminated')
-        ]);
+        await continueDebugging(debugClient);
+        await exited;
     }
     test('Confirm we are able to attach to a running program', async () => {
-        // Test disabled until debugger can fix attach - issue # 3181
-        // await testAttachingToRemoteProcess(path.dirname(fileToDebug), path.dirname(fileToDebug), IS_WINDOWS);
+        await testAttachingToRemoteProcess(path.dirname(fileToDebug), path.dirname(fileToDebug), IS_WINDOWS);
     });
 });
