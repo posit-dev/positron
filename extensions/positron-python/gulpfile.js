@@ -436,6 +436,7 @@ const hygiene = (options, done) => {
     const tsl = es.through(function (file) {
         const contents = file.contents.toString('utf8');
         // Don't print anything to the console, we'll do that.
+        console.log('.');
         // Yes this is a hack, but tslinter doesn't provide an option to prevent this.
         const oldWarn = console.warn;
         console.warn = () => { };

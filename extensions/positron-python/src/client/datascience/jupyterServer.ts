@@ -4,7 +4,7 @@
 import '../common/extensions';
 
 import { nbformat } from '@jupyterlab/coreutils';
-import { Kernel, KernelMessage, ServerConnection, Session } from '@jupyterlab/services';
+import { Kernel, KernelMessage, ServerConnection, Session, SessionManager } from '@jupyterlab/services';
 import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
@@ -26,6 +26,7 @@ import { CellState, ICell, IJupyterExecution, INotebookProcess, INotebookServer 
 export class JupyterServer implements INotebookServer {
     public isDisposed: boolean = false;
     private session: Session.ISession | undefined;
+    private sessionManager : SessionManager | undefined;
     private sessionStartTime: number | undefined;
     private tempFile: string | undefined;
     private onStatusChangedEvent : vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
@@ -51,23 +52,31 @@ export class JupyterServer implements INotebookServer {
             // Wait for connection information. We'll stick that into the options
             const connInfo = await this.process.waitForConnectionInformation();
 
+            // First connect to the sesssion manager and find a kernel that matches our
+            // python we're using
+            const serverSettings = ServerConnection.makeSettings(
+                {
+                    baseUrl: connInfo.baseUrl,
+                    token: connInfo.token,
+                    pageUrl: '',
+                    // A web socket is required to allow token authentication
+                    wsUrl: connInfo.baseUrl.replace('http', 'ws'),
+                    init: { cache: 'no-store', credentials: 'same-origin' }
+                });
+            this.sessionManager = new SessionManager({ serverSettings: serverSettings });
+
+            // Ask Jupyter for its list of kernel specs.
+            const kernelName = await this.findKernelName(this.sessionManager);
+
             // Create our session options using this temporary notebook and our connection info
             const options: Session.IOptions = {
                 path: this.tempFile,
-                kernelName: 'python',
-                serverSettings: ServerConnection.makeSettings(
-                    {
-                        baseUrl: connInfo.baseUrl,
-                        token: connInfo.token,
-                        pageUrl: '',
-                        // A web socket is required to allow token authentication
-                        wsUrl: connInfo.baseUrl.replace('http', 'ws'),
-                        init: { cache: 'no-store', credentials: 'same-origin' }
-                    })
+                kernelName: kernelName,
+                serverSettings: serverSettings
             };
 
             // Start a new session
-            this.session = await Session.startNew(options);
+            this.session = await this.sessionManager.startNew(options);
 
             // Setup our start time. We reject anything that comes in before this time during execute
             this.sessionStartTime = Date.now();
@@ -86,9 +95,11 @@ export class JupyterServer implements INotebookServer {
 
     public shutdown = async () : Promise<void> => {
         if (this.session) {
-            await this.session.shutdown();
+            await this.sessionManager.shutdownAll();
             this.session.dispose();
+            this.sessionManager.dispose();
             this.session = undefined;
+            this.sessionManager = undefined;
         }
         if (this.process) {
             this.process.dispose();
@@ -163,16 +174,8 @@ export class JupyterServer implements INotebookServer {
     public executeSilently = (code: string) : Promise<void> => {
         // If we have a session, execute the code now.
         if (this.session) {
-            const request = this.session.kernel.requestExecute(
-                {
-                    // Replace windows line endings with unix line endings.
-                    code: code.replace('\r\n', '\n'),
-                    stop_on_error: false,
-                    allow_stdin: false,
-                    silent: true
-                },
-                true
-            );
+            // Generate a new request and wrap it in a promise as we wait for it to finish
+            const request = this.generateRequest(code, true);
 
             return new Promise((resolve, reject) => {
                 // Just wait for our observable to finish
@@ -261,6 +264,73 @@ export class JupyterServer implements INotebookServer {
             return true;
         }
         return false;
+    }
+
+    private generateRequest = (code: string, silent: boolean) : Kernel.IFuture => {
+        return this.session.kernel.requestExecute(
+            {
+                // Replace windows line endings with unix line endings.
+                code: code.replace('\r\n', '\n'),
+                stop_on_error: false,
+                allow_stdin: false,
+                silent: silent
+            },
+            true
+        );
+    }
+
+    private findKernelName = async (manager: SessionManager) : Promise<string> => {
+        // Ask the session manager to refresh its list of kernel specs. We're going to
+        // iterate through them finding the best match
+        await manager.refreshSpecs();
+
+        // Extract our current python information that the user has picked.
+        // We'll match against this.
+        const pythonVersion = await this.process.waitForPythonVersion();
+        const pythonPath = await this.process.waitForPythonPath();
+        let bestScore = 0;
+        let bestSpec;
+
+        // Enumerate all of the kernel specs, scoring each as follows
+        // - Path match = 10 Points. Very likely this is the right one
+        // - Language match = 1 point. Might be a match
+        // - Version match = 4 points for major version match
+        const keys = Object.keys(manager.specs.kernelspecs);
+        for (let i = 0; i < keys.length; i += 1) {
+            const spec = manager.specs.kernelspecs[keys[i]];
+            let score = 0;
+
+            if (spec.argv.length > 0 && spec.argv[0] === pythonPath) {
+                // Path match
+                score += 10;
+            }
+            if (spec.language.toLocaleLowerCase() === 'python') {
+                // Language match
+                score += 1;
+
+                // See if the version is the same
+                if (pythonVersion) {
+                    const digits = spec.name.match(/\d+/g);
+                    if (digits.length > 0 && parseInt(digits[0], 10) === pythonVersion[0]) {
+                        // Major version match
+                        score += 4;
+                    }
+                }
+            }
+
+            // Update high score
+            if (score > bestScore) {
+                bestScore = score;
+                bestSpec = spec.name;
+            }
+        }
+
+        // If still not set, at least pick the first one
+        if (!bestSpec && keys.length > 0) {
+            bestSpec = manager.specs.kernelspecs[keys[0]].name;
+        }
+
+        return bestSpec;
     }
 
     private pruneCell(cell : ICell) : nbformat.IBaseCell {
@@ -375,14 +445,7 @@ export class JupyterServer implements INotebookServer {
     private executeCodeObservableInternal = (code: string, file: string, line: number) : Observable<ICell> => {
         // Send an execute request with this code
         const id = uuid();
-        const request = this.session ? this.session.kernel.requestExecute(
-            {
-                code: code,
-                stop_on_error: false,
-                allow_stdin: false
-            },
-            true
-        ) : undefined;
+        const request = this.session ? this.generateRequest(code, false) : undefined;
 
         return this.generateExecuteObservable(code, file, line, id, request);
     }
@@ -446,42 +509,42 @@ export class JupyterServer implements INotebookServer {
             // Listen to the reponse messages and update state as we go
             if (request) {
                 request.onIOPub = (msg: KernelMessage.IIOPubMessage) => {
-                    if (KernelMessage.isExecuteResultMsg(msg)) {
-                        this.handleExecuteResult(msg as KernelMessage.IExecuteResultMsg, cell);
-                    } else if (KernelMessage.isExecuteInputMsg(msg)) {
-                        this.handleExecuteInput(msg as KernelMessage.IExecuteInputMsg, cell);
-                    } else if (KernelMessage.isStatusMsg(msg)) {
-                        this.handleStatusMessage(msg as KernelMessage.IStatusMsg);
-                    } else if (KernelMessage.isStreamMsg(msg)) {
-                        this.handleStreamMesssage(msg as KernelMessage.IStreamMsg, cell);
-                    } else if (KernelMessage.isDisplayDataMsg(msg)) {
-                        this.handleDisplayData(msg as KernelMessage.IDisplayDataMsg, cell);
-                    } else if (KernelMessage.isErrorMsg(msg)) {
-                        this.handleError(msg as KernelMessage.IErrorMsg, cell);
-                    } else {
-                        this.logger.logWarning(`Unknown message ${msg.header.msg_type} : hasData=${'data' in msg.content}`);
-                    }
+                    try {
+                        if (KernelMessage.isExecuteResultMsg(msg)) {
+                            this.handleExecuteResult(msg as KernelMessage.IExecuteResultMsg, cell);
+                        } else if (KernelMessage.isExecuteInputMsg(msg)) {
+                            this.handleExecuteInput(msg as KernelMessage.IExecuteInputMsg, cell);
+                        } else if (KernelMessage.isStatusMsg(msg)) {
+                            this.handleStatusMessage(msg as KernelMessage.IStatusMsg);
+                        } else if (KernelMessage.isStreamMsg(msg)) {
+                            this.handleStreamMesssage(msg as KernelMessage.IStreamMsg, cell);
+                        } else if (KernelMessage.isDisplayDataMsg(msg)) {
+                            this.handleDisplayData(msg as KernelMessage.IDisplayDataMsg, cell);
+                        } else if (KernelMessage.isErrorMsg(msg)) {
+                            this.handleError(msg as KernelMessage.IErrorMsg, cell);
+                        } else {
+                            this.logger.logWarning(`Unknown message ${msg.header.msg_type} : hasData=${'data' in msg.content}`);
+                        }
 
-                    // Set execution count, all messages should have it
-                    if (msg.content.execution_count) {
-                        cell.data.execution_count = msg.content.execution_count as number;
-                    }
+                        // Set execution count, all messages should have it
+                        if (msg.content.execution_count) {
+                            cell.data.execution_count = msg.content.execution_count as number;
+                        }
 
-                    // Show our update if any new output
-                    subscriber.next(cell);
+                        // Show our update if any new output
+                        subscriber.next(cell);
+                    } catch (err) {
+                        // If not a restart error, then tell the subscriber
+                        if (startTime > this.sessionStartTime) {
+                            this.logger.logError(`Error during message ${msg.header.msg_type}`);
+                            subscriber.error(err);
+                        }
+                    }
                 };
 
                 // Create completion and error functions so we can bind our cell object
-                const completion = () => {
-                    cell.state = CellState.finished;
-                    // Only do this if start time is still valid
-                    if (startTime > this.sessionStartTime) {
-                        subscriber.next(cell);
-                    }
-                    subscriber.complete();
-                };
-                const error = () => {
-                    cell.state = CellState.error;
+                const completion = (error : boolean) => {
+                    cell.state = error ? CellState.error : CellState.finished;
                     // Only do this if start time is still valid
                     if (startTime > this.sessionStartTime) {
                         subscriber.next(cell);
@@ -490,7 +553,7 @@ export class JupyterServer implements INotebookServer {
                 };
 
                 // When the request finishes we are done
-                request.done.then(completion, error);
+                request.done.then(() => completion(false), () => completion(true));
             } else {
                 subscriber.error(localize.DataScience.sessionDisposed());
             }
