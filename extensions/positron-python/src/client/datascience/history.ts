@@ -33,6 +33,7 @@ export class History implements IWebPanelMessageListener, IHistory {
     private settingsChangedDisposable : Disposable;
     private closedEvent : EventEmitter<IHistory>;
     private unfinishedCells: ICell[] = [];
+    private restartingKernel: boolean = false;
 
     constructor(
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
@@ -235,16 +236,30 @@ export class History implements IWebPanelMessageListener, IHistory {
 
     @captureTelemetry(Telemetry.RestartKernel)
     private restartKernel() {
-        if (this.jupyterServer) {
-            // First we need to finish all outstanding cells.
-            this.unfinishedCells.forEach(c => {
-                c.state = CellState.error;
-                this.webPanel.postMessage({ type: HistoryMessages.FinishCell, payload: c });
-            });
-            this.unfinishedCells = [];
+        if (this.jupyterServer && !this.restartingKernel) {
+            this.restartingKernel = true;
 
-            // Then restart the kernel
-            this.jupyterServer.restartKernel().ignoreErrors();
+            // Ask the user if they want us to restart or not.
+            const message = localize.DataScience.restartKernelMessage();
+            const yes = localize.DataScience.restartKernelMessageYes();
+            const no = localize.DataScience.restartKernelMessageNo();
+
+            this.applicationShell.showInformationMessage(message, yes, no).then(v => {
+                if (v === yes) {
+                    // First we need to finish all outstanding cells.
+                    this.unfinishedCells.forEach(c => {
+                        c.state = CellState.error;
+                        this.webPanel.postMessage({ type: HistoryMessages.FinishCell, payload: c });
+                    });
+                    this.unfinishedCells = [];
+
+                    // Then restart the kernel
+                    this.jupyterServer.restartKernel().ignoreErrors();
+                    this.restartingKernel = false;
+                } else {
+                    this.restartingKernel = false;
+                }
+            });
         }
     }
 
