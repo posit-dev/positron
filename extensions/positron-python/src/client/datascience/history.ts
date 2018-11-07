@@ -22,7 +22,7 @@ import * as localize from '../common/utils/localize';
 import { IInterpreterService } from '../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../telemetry';
 import { HistoryMessages, Telemetry } from './constants';
-import { CellState, ICell, ICodeCssGenerator, IHistory, INotebookServer } from './types';
+import { CellState, ICell, ICodeCssGenerator, IHistory, INotebookServer, IStatusProvider } from './types';
 
 @injectable()
 export class History implements IWebPanelMessageListener, IHistory {
@@ -34,6 +34,7 @@ export class History implements IWebPanelMessageListener, IHistory {
     private closedEvent : EventEmitter<IHistory>;
     private unfinishedCells: ICell[] = [];
     private restartingKernel: boolean = false;
+    private potentiallyUnfinishedStatus: Disposable[] = [];
 
     constructor(
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
@@ -42,7 +43,8 @@ export class History implements IWebPanelMessageListener, IHistory {
         @inject(INotebookServer) private jupyterServer: INotebookServer,
         @inject(IWebPanelProvider) private provider: IWebPanelProvider,
         @inject(IDisposableRegistry) private disposables: IDisposableRegistry,
-        @inject(ICodeCssGenerator) private cssGenerator : ICodeCssGenerator) {
+        @inject(ICodeCssGenerator) private cssGenerator : ICodeCssGenerator,
+        @inject(IStatusProvider) private statusProvider : IStatusProvider) {
 
         // Sign up for configuration changes
         this.settingsChangedDisposable = this.interpreterService.onDidChangeInterpreter(this.onSettingsChanged);
@@ -72,6 +74,9 @@ export class History implements IWebPanelMessageListener, IHistory {
     }
 
     public async addCode(code: string, file: string, line: number, editor?: TextEditor) : Promise<void> {
+        // Start a status item
+        const status = this.setStatus(localize.DataScience.executingCode());
+
         // Make sure we're loaded first.
         await this.loadPromise;
 
@@ -88,8 +93,20 @@ export class History implements IWebPanelMessageListener, IHistory {
                     this.onAddCodeEvent(cells, editor);
                 },
                 (error) => {
+                    status.dispose();
                     this.applicationShell.showErrorMessage(error);
+                },
+                () => {
+                    // Indicate executing until this cell is done.
+                    status.dispose();
                 });
+        }
+    }
+
+    // tslint:disable-next-line: no-any no-empty
+    public postMessage(type: string, payload?: any) {
+        if (this.webPanel) {
+            this.webPanel.postMessage({type: type, payload: payload});
         }
     }
 
@@ -146,6 +163,12 @@ export class History implements IWebPanelMessageListener, IHistory {
             }
             this.closedEvent.fire(this);
         }
+    }
+
+    private setStatus = (message: string) : Disposable => {
+        const result = this.statusProvider.set(message, this);
+        this.potentiallyUnfinishedStatus.push(result);
+        return result;
     }
 
     private logTelemetry = (event : string) => {
@@ -252,6 +275,11 @@ export class History implements IWebPanelMessageListener, IHistory {
                         this.webPanel.postMessage({ type: HistoryMessages.FinishCell, payload: c });
                     });
                     this.unfinishedCells = [];
+                    this.potentiallyUnfinishedStatus.forEach(s => s.dispose());
+                    this.potentiallyUnfinishedStatus = [];
+
+                    // Set our status for the next 2 seconds.
+                    this.statusProvider.set(localize.DataScience.restartingKernelStatus(), this, 2000);
 
                     // Then restart the kernel
                     this.jupyterServer.restartKernel().ignoreErrors();
@@ -312,8 +340,7 @@ export class History implements IWebPanelMessageListener, IHistory {
 
     private loadJupyterServer = async () : Promise<void> => {
         // Startup our jupyter server
-        const status = this.applicationShell ? this.applicationShell.setStatusBarMessage(localize.DataScience.startingJupyter()) :
-            undefined;
+        const status = this.setStatus(localize.DataScience.startingJupyter());
         try {
             await this.jupyterServer.start();
         } catch (err) {
