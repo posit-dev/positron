@@ -16,7 +16,6 @@
 
 # Release candidate (Monday before release)
 
-- [ ] Announce feature freeze
 - [ ] Ensure all new feature usages are tracked via telemetry
 - [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
 - [ ] Run `npm install` to make sure [`package-lock.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json) is up-to-date
@@ -37,7 +36,7 @@
 # Final (near a VS Code release)
 
 ## Preparation
-[Final PR should be against the `release` branch and then cherrypicked into `master`]
+[Final PR should be against the `release` branch]
 
 - [ ] Make sure the [appropriate pull requests](https://github.com/microsoft/vscode-docs/pulls) for the [documentation](https://code.visualstudio.com/docs/python/python-tutorial) -- including the [WOW](https://code.visualstudio.com/docs/languages/python) page -- are ready
 - [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
@@ -61,10 +60,10 @@
 - [ ] Publish the [blog](http://aka.ms/pythonblog) post
 - [ ] Create a [release](https://github.com/Microsoft/vscode-python/releases) on GitHub (which creates an appropriate git tag)
 - [ ] Determine if a hotfix is needed
+- [ ] Merge `release` back into `master`
 
 ## Prep for the _next_ release
 - [ ] Bump the [version](https://github.com/Microsoft/vscode-python/blob/master/package.json) number to the next `alpha`
-- [ ] Lift the feature freeze
 - [ ] Create a new [release plan](https://github.com/Microsoft/vscode-python/edit/master/.github/release_plan.md)
 
 ## Clean up after _this_ release
