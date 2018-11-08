@@ -23,6 +23,9 @@ matrix:
           env: DEBUGGER_TEST=true
         - os: linux
           python: "3.6-dev"
+          env: FUNCTIONAL_TEST=true
+        - os: linux
+          python: "3.6-dev"
           env: DEBUGGER_TEST_RELEASE=true
         - os: linux
           python: "3.6-dev"
@@ -36,6 +39,9 @@ matrix:
         - os: linux
           python: "3.7-dev"
           env: DEBUGGER_TEST=true
+        - os: linux
+          python: "3.7-dev"
+          env: FUNCTIONAL_TEST=true
         - os: linux
           python: "3.7-dev"
           env: DEBUGGER_TEST_RELEASE=true
@@ -63,7 +69,7 @@ before_install: |
   npm install -g azure-cli
   export CI_PYTHON_PATH=`which python`
 install:
-  - npm ci
+  - travis_wait 5 npm ci
   - npm run clean
   - npm run vscode:prepublish
   - npx gulp hygiene-modified
