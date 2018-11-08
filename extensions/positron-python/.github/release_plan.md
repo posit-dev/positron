@@ -39,7 +39,6 @@
 ## Preparation
 [Final PR should be against the `release` branch and then cherrypicked into `master`]
 
-- [ ] Make sure no extraneous files are being included in the `.vsix` file (make sure to check for hidden files)
 - [ ] Make sure the [appropriate pull requests](https://github.com/microsoft/vscode-docs/pulls) for the [documentation](https://code.visualstudio.com/docs/python/python-tutorial) -- including the [WOW](https://code.visualstudio.com/docs/languages/python) page -- are ready
 - [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
 - [ ] Run `npm install` to make sure [`package-lock.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json) is up-to-date (the only update should be the version number if `package-lock.json` has been kept up-to-date)
@@ -56,6 +55,7 @@
 
 - [ ] Make sure [CI](https://github.com/Microsoft/vscode-python/blob/master/CONTRIBUTING.md) is passing
 - [ ] Generate the final `.vsix` file
+- [ ] Make sure no extraneous files are being included in the `.vsix` file (make sure to check for hidden files)
 - [ ] Upload the final `.vsix` file to the [marketplace](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
 - [ ] Publish [documentation](https://code.visualstudio.com/docs/python/python-tutorial) [changes](https://github.com/microsoft/vscode-docs/pulls)
 - [ ] Publish the [blog](http://aka.ms/pythonblog) post
