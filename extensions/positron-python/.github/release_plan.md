@@ -8,7 +8,7 @@
    - [ ] Touch up news entries (and corresponding news entry files)
    - [ ] Copy over the "Thanks" section from the previous release
 - [ ] Update [`ThirdPartyNotices-Distribution.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Distribution.txt)
-   - [ ] Run [`tpn`](https://github.com/Microsoft/vscode-python/tree/master/tpn) (typically `python tpn --npm package-lock.json --config tpn/distribution.toml ThirdPartyNotices-Distribution.txt`)
+   - [ ] Run [`tpn`](https://github.com/Microsoft/vscode-python/tree/master/tpn) (typically `python tpn --npm package-lock.json --npm-overrides package.datascience-ui.dependencies.json --config tpn/distribution.toml ThirdPartyNotices-Distribution.txt`)
    - [ ] Register any Python changes with [OSPO](https://opensource.microsoft.com/)
 - [ ] Update [`ThirdPartyNotices-Repository.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Repository.txt) and register any changes with OSPO
 - [ ] Open appropriate [documentation issues](https://github.com/microsoft/vscode-docs/issues?q=is%3Aissue+is%3Aopen+label%3Apython)
@@ -25,7 +25,7 @@
    - [ ] Touch up news entries (and corresponding news entry files)
    - [ ] Check that the "Thanks" section is up-to-date
 - [ ] Update [`ThirdPartyNotices-Distribution.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Distribution.txt)
-   - [ ] Run [`tpn`](https://github.com/Microsoft/vscode-python/tree/master/tpn) (typically `python tpn --npm package-lock.json --config tpn/distribution.toml ThirdPartyNotices-Distribution.txt`)
+   - [ ] Run [`tpn`](https://github.com/Microsoft/vscode-python/tree/master/tpn) (typically `python tpn --npm package-lock.json --npm-overrides package.datascience-ui.dependencies.json --config tpn/distribution.toml ThirdPartyNotices-Distribution.txt`)
    - [ ] Register any Python changes with [OSPO](https://opensource.microsoft.com/)
 - [ ] Update [`ThirdPartyNotices-Repository.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Repository.txt) and register any changes with OSPO
 - [ ] Merge into the [`release` branch](https://github.com/microsoft/vscode-python/tree/release)
@@ -46,7 +46,7 @@
    - [ ] Run [`news`](https://github.com/Microsoft/vscode-python/tree/master/news) (typically `python news --final | code-insiders -`)
    - Check that the "Thanks" section is up-to-date
 - [ ] Update [`ThirdPartyNotices-Distribution.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Distribution.txt)
-   - [ ] Run [`tpn`](https://github.com/Microsoft/vscode-python/tree/master/tpn) (typically `python tpn --npm package-lock.json --config tpn/distribution.toml ThirdPartyNotices-Distribution.txt`)
+   - [ ] Run [`tpn`](https://github.com/Microsoft/vscode-python/tree/master/tpn) (typically `python tpn --npm package-lock.json --npm-overrides package.datascience-ui.dependencies.json --config tpn/distribution.toml ThirdPartyNotices-Distribution.txt`)
    - [ ] Register any Python changes with [OSPO](https://opensource.microsoft.com/)
 - [ ] Update [`ThirdPartyNotices-Repository.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Repository.txt) and register any changes with OSPO
 
