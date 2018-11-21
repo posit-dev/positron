@@ -6,7 +6,7 @@
 import * as glob from 'glob';
 import * as path from 'path';
 import { TsconfigPathsPlugin } from 'tsconfig-paths-webpack-plugin';
-import * as webpack from 'webpack';
+import { Configuration, ContextReplacementPlugin } from 'webpack';
 import { ExtensionRootDir } from '../constants';
 import { getDefaultPlugins } from './common';
 
@@ -22,7 +22,7 @@ function getListOfExistingModulesInOutDir() {
     return files.map(filePath => `./${filePath.slice(0, -3)}`);
 }
 
-const config: webpack.Configuration = {
+const config: Configuration = {
     mode: 'production',
     target: 'node',
     entry: {
@@ -37,10 +37,19 @@ const config: webpack.Configuration = {
         rules: [
             {
                 // JupyterServices imports node-fetch using `eval`.
-                test: /@jupyterlab\/services\/.*js$/,
+                test: /@jupyterlab[\\\/]services[\\\/].*js$/,
                 use: [
                     {
                         loader: path.join(__dirname, 'loaders', 'fixEvalRequire.js')
+                    }
+                ]
+            },
+            {
+                // Do not use __dirname in getos when using require.
+                test: /getos[\\\/]index.js$/,
+                use: [
+                    {
+                        loader: path.join(__dirname, 'loaders', 'fixGetosRequire.js')
                     }
                 ]
             },
@@ -69,7 +78,8 @@ const config: webpack.Configuration = {
         ...existingModulesInOutDir
     ],
     plugins: [
-        ...getDefaultPlugins('extension')
+        ...getDefaultPlugins('extension'),
+        new ContextReplacementPlugin(/getos/, /logic\/.*.js/)
     ],
     resolve: {
         extensions: ['.ts', '.js'],
