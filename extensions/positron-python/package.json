@@ -1818,7 +1818,7 @@
         "download": "^7.0.0",
         "enzyme": "^3.7.0",
         "enzyme-adapter-react-16": "^1.6.0",
-        "event-stream": "^3.3.4",
+        "event-stream": "3.3.4",  // Pinned due to security vulnerability.
         "file-loader": "^2.0.0",
         "flat": "^4.0.0",
         "gulp": "^4.0.0",
