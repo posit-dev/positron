@@ -19,6 +19,8 @@
 [Branch should be against `master`]
 
 - [ ] Ensure all new feature usages are tracked via telemetry
+- [ ] Delete the `release` branch in the repo
+- [ ] Create local branch called `release`
 - [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
 - [ ] Run `npm install` to make sure [`package-lock.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json) is up-to-date
 - [ ] Update [`CHANGELOG.md`](https://github.com/Microsoft/vscode-python/blob/master/CHANGELOG.md)
@@ -31,7 +33,7 @@
    - [ ] Register any Python changes with [OSPO](https://opensource.microsoft.com/)
 - [ ] Update [`ThirdPartyNotices-Repository.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Repository.txt) and register any changes with OSPO
 - [ ] Merge into the [`release` branch](https://github.com/microsoft/vscode-python/tree/release)
-- [ ] Open pull request
+- [ ] Push `release` branch to `origin` (so we end up with a `release` branch in the repo)
 - [ ] Open appropriate [documentation issues](https://github.com/microsoft/vscode-docs/issues?q=is%3Aissue+is%3Aopen+label%3Apython)
 - [ ] Begin drafting a [blog](http://aka.ms/pythonblog) post
 
