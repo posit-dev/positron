@@ -15,7 +15,8 @@
 
 
 # Release candidate (Monday before release)
-[Work should be done against the `release` branch]
+[Branch should be against `master`]
+
 - [ ] Ensure all new feature usages are tracked via telemetry
 - [ ] Merge in `master`
 - [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
@@ -37,7 +38,7 @@
 # Final (near a VS Code release)
 
 ## Preparation
-[Work should be against the `release` branch]
+[Branch should be against `release`]
 
 - [ ] Make sure the [appropriate pull requests](https://github.com/microsoft/vscode-docs/pulls) for the [documentation](https://code.visualstudio.com/docs/python/python-tutorial) -- including the [WOW](https://code.visualstudio.com/docs/languages/python) page -- are ready
 - [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
