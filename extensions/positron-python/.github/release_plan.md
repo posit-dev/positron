@@ -76,5 +76,5 @@
 - [ ] Create a new [release plan](https://github.com/Microsoft/vscode-python/edit/master/.github/release_plan.md)
 
 ## Clean up after _this_ release
-- [ ] Clean up any straggling [fixed issues needing validation](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22+is%3Aclosed)
+- [ ] Clean up any straggling [fixed issues needing validation](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22)
 - [ ] Go through [`needs more info` issues](https://github.com/Microsoft/vscode-python/issues?q=is%3Aopen+label%3A%22needs+more+info%22+sort%3Aupdated-asc) and close any that have no activity for over a month
