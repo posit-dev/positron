@@ -59,8 +59,8 @@ install:
   - npx gulp prePublishNonBundle
   - npx gulp hygiene-modified
   - python -m pip install --upgrade pip
-  - python -m pip install --upgrade -r requirements.txt
-  - python -m pip install -t ./pythonFiles/experimental/ptvsd --no-cache-dir --implementation py --no-deps ptvsd
+  - python -m pip install --upgrade -r ./build/test-requirements.txt
+  - npx gulp installPythonLibs
 
 script:
   - if [ $UNIT_TEST == "true" ]; then
@@ -73,7 +73,7 @@ script:
     fi
   - npm run debugger-coverage
   - if [ $FUNCTIONAL_TEST == "true" ]; then
-        python -m pip install --upgrade -r functionalTestRequirements.txt;
+        python -m pip install --upgrade -r ./build/functional-test-requirements.txt;
         npm run test:functional;
     fi
   - if [ $SINGLE_WORKSPACE_TEST == "true" ]; then
