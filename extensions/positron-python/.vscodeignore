@@ -15,7 +15,6 @@ CODING_STANDARDS.md
 CONTRIBUTING.md
 CONTRIBUTING - LANGUAGE SERVER.md
 coverconfig.json
-functionalTestRequirements.txt
 gulpfile.js
 package.datascience-ui.dependencies.json
 package-lock.json
@@ -56,6 +55,9 @@ out/test/**
 out/testMultiRootWkspc/**
 precommit.hook
 pythonFiles/**/*.pyc
+pythonFiles/lib/**/*.dist-info/**
+pythonFiles/lib/**/*.egg-info/**
+pythonFiles/lib/python/bin/**
 requirements.txt
 scripts/**
 src/**
