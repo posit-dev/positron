@@ -16,7 +16,6 @@
 
 
 # Release candidate (Monday before release)
-[Branch should be against `master`]
 
 - [ ] Ensure all new features are tracked via telemetry
 - [ ] Create a branch against `master` for a pull request
