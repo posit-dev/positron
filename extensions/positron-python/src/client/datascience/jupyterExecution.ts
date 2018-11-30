@@ -106,7 +106,7 @@ class JupyterCommand {
      */
     // Base Node.js SpawnOptions uses any for environment, so use that here as well
     // tslint:disable-next-line:no-any
-    private fixupCondaEnv = async (inputEnv: any | undefined): Promise<any> => {
+    private fixupCondaEnv = async (inputEnv?: NodeJS.ProcessEnv): Promise<any> => {
         if (!inputEnv) {
             inputEnv = process.env;
         }
@@ -324,6 +324,7 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
 
         return undefined;
     }
+
     private getJupyterServerInfo = async () : Promise<JupyterServerInfo[] | undefined> => {
         // We have a small python file here that we will execute to get the server info from all running Jupyter instances
         const bestInterpreter = await this.getUsableJupyterPython();
@@ -469,7 +470,7 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
      */
     // Base Node.js SpawnOptions uses any for environment, so use that here as well
     // tslint:disable-next-line:no-any
-    private fixupCondaEnv = async (inputEnv: any | undefined, interpreter: PythonInterpreter): Promise<any> => {
+    private fixupCondaEnv = async (inputEnv: NodeJS.ProcessEnv, interpreter: PythonInterpreter): Promise<any> => {
         if (!inputEnv) {
             inputEnv = process.env;
         }
