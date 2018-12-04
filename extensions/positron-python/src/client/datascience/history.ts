@@ -20,11 +20,11 @@ import {
 } from '../common/application/types';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { IFileSystem } from '../common/platform/types';
-import { IDisposableRegistry, ILogger } from '../common/types';
+import { IConfigurationService, IDisposableRegistry, ILogger } from '../common/types';
 import * as localize from '../common/utils/localize';
 import { IInterpreterService } from '../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../telemetry';
-import { HistoryMessages, Telemetry } from './constants';
+import { HistoryMessages, Settings, Telemetry } from './constants';
 import { JupyterInstallError } from './jupyterInstallError';
 import { CellState, ICell, ICodeCssGenerator, IHistory, IJupyterExecution, INotebookServer, IStatusProvider } from './types';
 
@@ -52,6 +52,7 @@ export class History implements IWebPanelMessageListener, IHistory {
         @inject(ILogger) private logger : ILogger,
         @inject(IStatusProvider) private statusProvider : IStatusProvider,
         @inject(IJupyterExecution) private jupyterExecution: IJupyterExecution,
+        @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(IFileSystem) private fileSystem: IFileSystem) {
 
         // Sign up for configuration changes
@@ -402,9 +403,16 @@ export class History implements IWebPanelMessageListener, IHistory {
 
     private loadJupyterServer = async (restart?: boolean) : Promise<void> => {
         // Startup our jupyter server
-        const status = this.setStatus(localize.DataScience.startingJupyter());
+        const settings = this.configuration.getSettings();
+        let serverURI: string | undefined = settings.datascience.jupyterServerURI;
+
+        const status = this.setStatus(localize.DataScience.connectingToJupyter());
         try {
-            this.jupyterServer = await this.jupyterExecution.startNotebookServer();
+            // For the local case pass in our URI as undefined, that way connect doesn't have to check the setting
+            if (serverURI === Settings.JupyterServerLocalLaunch) {
+                serverURI = undefined;
+            }
+            this.jupyterServer = await this.jupyterExecution.connectToNotebookServer(serverURI);
 
             // If this is a restart, show our restart info
             if (restart) {

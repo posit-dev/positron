@@ -55,9 +55,13 @@ suite('DataScience Code Watcher Unit Tests', () => {
         // Verify code lenses
         const codeLenses = codeWatcher.getCodeLenses();
         expect(codeLenses.length).to.be.equal(2, 'Incorrect count of code lenses');
-        expect(codeLenses[0].command.command).to.be.equal(Commands.RunCell, 'Run Cell code lens command incorrect');
+        if (codeLenses[0].command) {
+            expect(codeLenses[0].command.command).to.be.equal(Commands.RunCell, 'Run Cell code lens command incorrect');
+        }
         expect(codeLenses[0].range).to.be.deep.equal(new Range(0, 0, 0, 3), 'Run Cell code lens range incorrect');
-        expect(codeLenses[1].command.command).to.be.equal(Commands.RunAllCells, 'Run All Cells code lens command incorrect');
+        if (codeLenses[1].command) {
+            expect(codeLenses[1].command.command).to.be.equal(Commands.RunAllCells, 'Run All Cells code lens command incorrect');
+        }
         expect(codeLenses[1].range).to.be.deep.equal(new Range(0, 0, 0, 3), 'Run All Cells code lens range incorrect');
 
         // Verify function calls
@@ -107,13 +111,21 @@ fourth line`;
         // Verify code lenses
         const codeLenses = codeWatcher.getCodeLenses();
         expect(codeLenses.length).to.be.equal(4, 'Incorrect count of code lenses');
-        expect(codeLenses[0].command.command).to.be.equal(Commands.RunCell, 'Run Cell code lens command incorrect');
+        if (codeLenses[0].command) {
+            expect(codeLenses[0].command.command).to.be.equal(Commands.RunCell, 'Run Cell code lens command incorrect');
+        }
         expect(codeLenses[0].range).to.be.deep.equal(new Range(3, 0, 5, 8), 'Run Cell code lens range incorrect');
-        expect(codeLenses[1].command.command).to.be.equal(Commands.RunAllCells, 'Run All Cells code lens command incorrect');
+        if (codeLenses[1].command) {
+            expect(codeLenses[1].command.command).to.be.equal(Commands.RunAllCells, 'Run All Cells code lens command incorrect');
+        }
         expect(codeLenses[1].range).to.be.deep.equal(new Range(3, 0, 5, 8), 'Run All Cells code lens range incorrect');
-        expect(codeLenses[2].command.command).to.be.equal(Commands.RunCell, 'Run Cell code lens command incorrect');
+        if (codeLenses[2].command) {
+            expect(codeLenses[2].command.command).to.be.equal(Commands.RunCell, 'Run Cell code lens command incorrect');
+        }
         expect(codeLenses[2].range).to.be.deep.equal(new Range(6, 0, 7, 11), 'Run Cell code lens range incorrect');
-        expect(codeLenses[3].command.command).to.be.equal(Commands.RunAllCells, 'Run All Cells code lens command incorrect');
+        if (codeLenses[3].command) {
+            expect(codeLenses[3].command.command).to.be.equal(Commands.RunAllCells, 'Run All Cells code lens command incorrect');
+        }
         expect(codeLenses[3].range).to.be.deep.equal(new Range(6, 0, 7, 11), 'Run All Cells code lens range incorrect');
 
         // Verify function calls
@@ -277,7 +289,7 @@ testing2`; // Command tests override getText, so just need the ranges here
         
         //textEditor.setup(te => te.selection = TypeMoq.It.isAny()).verifiable(TypeMoq.Times.once());
         //textEditor.setup(te => te.selection = TypeMoq.It.isAnyObject<Selection>(Selection));
-        // IANHU: Would be good to check that selection was set, but TypeMoq doesn't seem to like
+        // Would be good to check that selection was set, but TypeMoq doesn't seem to like
         // both getting and setting an object property. isAnyObject is not valid for this class
         // and is or isAny overwrite the previous property getter if used. Will verify selection set
         // in functional test

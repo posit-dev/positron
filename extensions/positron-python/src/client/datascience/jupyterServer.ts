@@ -4,7 +4,7 @@
 import '../common/extensions';
 
 import { nbformat } from '@jupyterlab/coreutils';
-import { Kernel, KernelMessage, ServerConnection, Session, SessionManager } from '@jupyterlab/services';
+import { Contents, ContentsManager, Kernel, KernelMessage, ServerConnection, Session, SessionManager } from '@jupyterlab/services';
 import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
@@ -14,13 +14,15 @@ import * as uuid from 'uuid/v4';
 import * as vscode from 'vscode';
 
 import { IWorkspaceService } from '../common/application/types';
-import { TemporaryFile } from '../common/platform/types';
 import { IAsyncDisposableRegistry, IDisposable, IDisposableRegistry, ILogger } from '../common/types';
 import { createDeferred } from '../common/utils/async';
 import * as localize from '../common/utils/localize';
 import { noop } from '../common/utils/misc';
+import {
+    IInterpreterService
+} from '../interpreter/contracts';
 import { RegExpValues } from './constants';
-import { CellState, ICell, IConnection, IJupyterKernelSpec, INotebookServer } from './types';
+import { CellState, ICell, IConnection, IJupyterKernelSpec, INotebookServer, ISysInfo } from './types';
 
 // This code is based on the examples here:
 // https://www.npmjs.com/package/@jupyterlab/services
@@ -31,27 +33,27 @@ export class JupyterServer implements INotebookServer, IDisposable {
     private kernelSpec: IJupyterKernelSpec | undefined;
     private session: Session.ISession | undefined;
     private sessionManager : SessionManager | undefined;
+    private contentsManager: ContentsManager | undefined;
+    private notebookFile: Contents.IModel | undefined;
     private sessionStartTime: number | undefined;
     private onStatusChangedEvent : vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
-    private notebookFile : TemporaryFile | undefined;
 
     constructor(
         @inject(ILogger) private logger: ILogger,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry,
-        @inject(IAsyncDisposableRegistry) private asyncRegistry: IAsyncDisposableRegistry) {
+        @inject(IAsyncDisposableRegistry) private asyncRegistry: IAsyncDisposableRegistry,
+        @inject(IInterpreterService) private interpreterService: IInterpreterService) {
         this.disposableRegistry.push(this);
         this.asyncRegistry.push(this);
     }
 
-    public connect = async (connInfo: IConnection, kernelSpec: IJupyterKernelSpec, notebookFile: TemporaryFile) : Promise<void> => {
+    public connect = async (connInfo: IConnection, kernelSpec: IJupyterKernelSpec) : Promise<void> => {
         // Save connection information so we can use it later during shutdown
         this.connInfo = connInfo;
         this.kernelSpec = kernelSpec;
-        this.notebookFile = notebookFile;
 
-        // First connect to the sesssion manager and find a kernel that matches our
-        // python we're using
+        // First connect to the sesssion manager
         const serverSettings = ServerConnection.makeSettings(
             {
                 baseUrl: connInfo.baseUrl,
@@ -63,9 +65,13 @@ export class JupyterServer implements INotebookServer, IDisposable {
             });
         this.sessionManager = new SessionManager({ serverSettings: serverSettings });
 
+        // Create a temporary .ipynb file to use
+        this.contentsManager = new ContentsManager({ serverSettings: serverSettings });
+        this.notebookFile = await this.contentsManager.newUntitled({type: 'notebook'});
+
         // Create our session options using this temporary notebook and our connection info
         const options: Session.IOptions = {
-            path: notebookFile.filePath,
+            path: this.notebookFile.path,
             kernelName: kernelSpec ? kernelSpec.name : '',
             serverSettings: serverSettings
         };
@@ -85,26 +91,16 @@ export class JupyterServer implements INotebookServer, IDisposable {
     }
 
     public shutdown = () => {
-        this.destroyKernelSpec(); // This is the most important part. We HAVE to get rid of this or it messes up other jupyter notebooks on the same machine.
-        if (this.session && this.sessionManager) {
-            try {
-                this.session.shutdown().ignoreErrors();
-                this.session.dispose();
-                this.sessionManager.dispose();
-            } catch {
-                noop();
-            }
-            this.session = undefined;
-            this.sessionManager = undefined;
-        }
-        this.onStatusChangedEvent.dispose();
-        if (this.connInfo) {
-            this.connInfo.dispose(); // This should kill the process that's running
-            this.connInfo = undefined;
-        }
-        if (this.notebookFile) {
-            this.notebookFile.dispose(); // This should cleanup the temporary notebook we are using
-            this.notebookFile = undefined;
+        this.destroyKernelSpec();
+
+        if (this.notebookFile && this.contentsManager) {
+            this.contentsManager.delete(this.notebookFile.path).then(() => {
+                this.shutdownSessionAndConnection();
+            }).catch(() => {
+                this.shutdownSessionAndConnection();
+            }); // Sadly looks like node.js version doesn't have .finally yet
+        } else {
+            this.shutdownSessionAndConnection();
         }
     }
 
@@ -253,34 +249,80 @@ export class JupyterServer implements INotebookServer, IDisposable {
     }
 
     public translateToNotebook = async (cells: ICell[]) : Promise<nbformat.INotebookContent | undefined> => {
+        const pythonVersion = await this.extractPythonMainVersion(cells);
 
-        if (this.connInfo && this.connInfo.pythonMainVersion) {
-
-            // Use this to build our metadata object
-            const metadata : nbformat.INotebookMetadata = {
-                language_info: {
-                    name: 'python',
-                    codemirror_mode: {
-                        name: 'ipython',
-                        version: this.connInfo.pythonMainVersion
-                    }
-                },
-                orig_nbformat : 2,
-                file_extension: '.py',
-                mimetype: 'text/x-python',
+        // Use this to build our metadata object
+        const metadata : nbformat.INotebookMetadata = {
+            language_info: {
                 name: 'python',
-                npconvert_exporter: 'python',
-                pygments_lexer: `ipython${this.connInfo.pythonMainVersion}`,
-                version: this.connInfo.pythonMainVersion
-            };
+                codemirror_mode: {
+                    name: 'ipython',
+                    version: pythonVersion
+                }
+            },
+            orig_nbformat : 2,
+            file_extension: '.py',
+            mimetype: 'text/x-python',
+            name: 'python',
+            npconvert_exporter: 'python',
+            pygments_lexer: `ipython${pythonVersion}`,
+            version: pythonVersion
+        };
 
-            // Combine this into a JSON object
-            return {
-                cells: this.pruneCells(cells),
-                nbformat: 4,
-                nbformat_minor: 2,
-                metadata: metadata
-            };
+        // Combine this into a JSON object
+        return {
+            cells: this.pruneCells(cells),
+            nbformat: 4,
+            nbformat_minor: 2,
+            metadata: metadata
+        };
+    }
+
+    private extractPythonMainVersion = async (cells: ICell[]): Promise<number> => {
+        let pythonVersion;
+        const sysInfoCells = cells.filter((targetCell: ICell) => {
+           return targetCell.data.cell_type === 'sys_info';
+        });
+
+        if (sysInfoCells.length > 0) {
+            const sysInfo = sysInfoCells[0].data as ISysInfo;
+            const fullVersionString = sysInfo.version;
+            if (fullVersionString) {
+                pythonVersion = fullVersionString.substr(0, fullVersionString.indexOf('.'));
+                return Number(pythonVersion);
+            }
+        }
+
+        this.logger.logInformation('Failed to find python main version from sys_info cell');
+        // In this case, let's check the version on the active interpreter
+        const interpreter = await this.interpreterService.getActiveInterpreter();
+        if (interpreter && interpreter.version_info) {
+            return interpreter.version_info[0];
+        } else {
+            return 0;
+        }
+    }
+
+    private shutdownSessionAndConnection = () => {
+        if (this.contentsManager) {
+            this.contentsManager.dispose();
+            this.contentsManager = undefined;
+        }
+        if (this.session && this.sessionManager) {
+            try {
+                this.session.shutdown().ignoreErrors();
+                this.session.dispose();
+                this.sessionManager.dispose();
+            } catch {
+                noop();
+            }
+            this.session = undefined;
+            this.sessionManager = undefined;
+        }
+        this.onStatusChangedEvent.dispose();
+        if (this.connInfo) {
+            this.connInfo.dispose(); // This should kill the process that's running
+            this.connInfo = undefined;
         }
     }
 
