@@ -134,7 +134,7 @@ suite('Jupyter notebook tests', () => {
         runTest('MimeTypes', async () => {
             // Test all mime types together so we don't have to startup and shutdown between
             // each
-            const server = await jupyterExecution.startNotebookServer();
+            const server = await jupyterExecution.connectToNotebookServer();
             if (!server) {
                 assert.fail('Server not created');
             }
@@ -164,7 +164,7 @@ suite('Jupyter notebook tests', () => {
     }
 
     runTest('Creation', async () => {
-        const server = await jupyterExecution.startNotebookServer();
+        const server = await jupyterExecution.connectToNotebookServer();
         if (!server) {
             assert.fail('Server not created');
         }
@@ -180,7 +180,7 @@ suite('Jupyter notebook tests', () => {
         ioc.serviceManager.rebind<IJupyterExecution>(IJupyterExecution, FailedProcess);
         jupyterExecution = ioc.serviceManager.get<IJupyterExecution>(IJupyterExecution);
         return assertThrows(async () => {
-            await jupyterExecution.startNotebookServer();
+            await jupyterExecution.connectToNotebookServer();
         }, 'Server start is not throwing');
     });
 
@@ -225,12 +225,12 @@ suite('Jupyter notebook tests', () => {
         jupyterExecution = ioc.serviceManager.get<IJupyterExecution>(IJupyterExecution);
 
         return assertThrows(async () => {
-            await jupyterExecution.startNotebookServer();
+            await jupyterExecution.connectToNotebookServer();
         }, 'Server start is not throwing');
     });
 
     runTest('Export/Import', async () => {
-        const server = await jupyterExecution.startNotebookServer();
+        const server = await jupyterExecution.connectToNotebookServer();
         if (!server) {
             assert.fail('Server not created');
         }
@@ -261,7 +261,7 @@ suite('Jupyter notebook tests', () => {
     });
 
     runTest('Restart kernel', async () => {
-        const server = await jupyterExecution.startNotebookServer();
+        const server = await jupyterExecution.connectToNotebookServer();
         if (!server) {
             assert.fail('Server not created');
         }
@@ -289,7 +289,7 @@ suite('Jupyter notebook tests', () => {
     });
 
     runTest('Interrupt kernel', async () => {
-        const server = await jupyterExecution.startNotebookServer();
+        const server = await jupyterExecution.connectToNotebookServer();
         if (!server) {
             assert.fail('Server not created');
         }

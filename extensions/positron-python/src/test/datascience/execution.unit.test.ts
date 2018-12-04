@@ -45,10 +45,9 @@ class MockJupyterServer implements INotebookServer {
     private conninfo : IConnection | undefined;
     private kernelSpec : IJupyterKernelSpec  | undefined;
     private notebookFile : TemporaryFile | undefined;
-    public connect(conninfo: IConnection, kernelSpec: IJupyterKernelSpec, notebookFile: TemporaryFile): Promise<void> {
+    public connect(conninfo: IConnection, kernelSpec: IJupyterKernelSpec): Promise<void> {
         this.conninfo = conninfo;
         this.kernelSpec = kernelSpec;
-        this.notebookFile = notebookFile;
 
         // Validate connection info and kernel spec
         if (conninfo.baseUrl && /[a-z,A-Z,0-9,-,.,_]+/.test(kernelSpec.name)) {
@@ -419,7 +418,8 @@ suite('Jupyter Execution', async () => {
         pythonSettings.datascience = {
             allowImportFromNotebook: true,
             jupyterLaunchTimeout: 10,
-            enabled: true
+            enabled: true,
+            jupyterServerURI: 'local'
         };
 
         // Service container also needs to generate jupyter servers. However we can't use a mock as that messes up returning
@@ -458,24 +458,24 @@ suite('Jupyter Execution', async () => {
         await assert.eventually.equal(execution.isKernelCreateSupported(), true, 'Kernel Create not supported');
         const usableInterpreter = await execution.getUsableJupyterPython();
         assert.isOk(usableInterpreter, 'Usable intepreter not found');
-        await assert.isFulfilled(execution.startNotebookServer(), 'Should be able to start a server');
+        await assert.isFulfilled(execution.connectToNotebookServer(), 'Should be able to start a server');
     }).timeout(10000);
 
     test('Failing notebook throws exception', async () => {
         const execution = createExecution(missingNotebookPython);
         when(interpreterService.getInterpreters()).thenResolve([missingNotebookPython]);
-        await assert.isRejected(execution.startNotebookServer(), 'Running cells requires Jupyter notebooks to be installed.');
+        await assert.isRejected(execution.connectToNotebookServer(), 'Running cells requires Jupyter notebooks to be installed.');
     }).timeout(10000);
 
     test('Failing others throws exception', async () => {
         const execution = createExecution(missingNotebookPython);
         when(interpreterService.getInterpreters()).thenResolve([missingNotebookPython, missingNotebookPython2]);
-        await assert.isRejected(execution.startNotebookServer(), 'Running cells requires Jupyter notebooks to be installed.');
+        await assert.isRejected(execution.connectToNotebookServer(), 'Running cells requires Jupyter notebooks to be installed.');
     }).timeout(10000);
 
     test('Slow notebook startups throws exception', async () => {
         const execution = createExecution(workingPython, ['Failure']);
-        await assert.isRejected(execution.startNotebookServer(), 'Jupyter notebook failed to launch. \r\nError: The Jupyter notebook server failed to launch in time');
+        await assert.isRejected(execution.connectToNotebookServer(), 'Jupyter notebook failed to launch. \r\nError: The Jupyter notebook server failed to launch in time');
     }).timeout(10000);
 
     test('Other than active works', async () => {
@@ -506,7 +506,7 @@ suite('Jupyter Execution', async () => {
 
     test('Kernelspec is deleted on exit', async () => {
         const execution = createExecution(missingKernelPython);
-        await assert.isFulfilled(execution.startNotebookServer(), 'Should be able to start a server');
+        await assert.isFulfilled(execution.connectToNotebookServer(), 'Should be able to start a server');
         cleanupDisposables();
         const exists = fs.existsSync(workingKernelSpec);
         assert.notOk(exists, 'Temp kernel spec still exists');
@@ -518,6 +518,6 @@ suite('Jupyter Execution', async () => {
         const execution = createExecution(missingNotebookPython);
         when(interpreterService.getInterpreters()).thenResolve([missingNotebookPython]);
         when(fileSystem.getFiles(anyString())).thenResolve([jupyterOnPath]);
-        await assert.isFulfilled(execution.startNotebookServer(), 'Should be able to start a server');
+        await assert.isFulfilled(execution.connectToNotebookServer(), 'Should be able to start a server');
     }).timeout(10000);
 });

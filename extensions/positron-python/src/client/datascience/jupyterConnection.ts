@@ -16,7 +16,17 @@ const UrlPatternRegEx = /(https?:\/\/[^\s]+)/ ;
 const ForbiddenPatternRegEx = /Forbidden/;
 const HttpPattern = /https?:\/\//;
 
-export type JupyterServerInfo = [string, string, string, boolean, number, number, boolean, string, string];
+export type JupyterServerInfo = {
+    base_url: string;
+    notebook_dir: string;
+    hostname: string;
+    password: boolean;
+    pid: number;
+    port: number;
+    secure: boolean;
+    token: string;
+    url: string;
+};
 
 class JupyterConnectionWaiter {
     private startPromise: Deferred<IConnection>;
@@ -82,10 +92,10 @@ class JupyterConnectionWaiter {
     // tslint:disable-next-line:no-any
     private getJupyterURL(serverInfos: JupyterServerInfo[] | undefined, data: any) {
         if (serverInfos && !this.startPromise.completed) {
-            const matchInfo = serverInfos.find(info => this.fileSystem.arePathsSame(this.notebook_dir, info['notebook_dir']));
+            const matchInfo = serverInfos.find(info => this.fileSystem.arePathsSame(this.notebook_dir, info.notebook_dir));
             if (matchInfo) {
-                const url = matchInfo['url'];
-                const token = matchInfo['token'];
+                const url = matchInfo.url;
+                const token = matchInfo.token;
                 this.resolveStartPromise(url, token);
             }
         }
@@ -161,20 +171,17 @@ class JupyterConnectionWaiter {
 export class JupyterConnection implements IConnection {
     public baseUrl: string;
     public token: string;
-    public pythonMainVersion: number;
     private disposable: Disposable | undefined;
-    constructor(baseUrl: string, token: string, pythonMainVersion: number, disposable: Disposable) {
+    constructor(baseUrl: string, token: string, disposable: Disposable) {
         this.baseUrl = baseUrl;
         this.token = token;
         this.disposable = disposable;
-        this.pythonMainVersion = pythonMainVersion;
     }
 
     public static waitForConnection(
         notebookFile: string,
         getServerInfo: () => Promise<JupyterServerInfo[] | undefined>,
         notebookExecution : ObservableExecutionResult<string>,
-        pythonVersion: number,
         serviceContainer: IServiceContainer) {
 
         // Create our waiter. It will sit here and wait for the connection information from the jupyter process starting up.
@@ -182,7 +189,7 @@ export class JupyterConnection implements IConnection {
             notebookExecution,
             notebookFile,
             getServerInfo,
-            (baseUrl: string, token: string, processDisposable: Disposable) => new JupyterConnection(baseUrl, token, pythonVersion, processDisposable),
+            (baseUrl: string, token: string, processDisposable: Disposable) => new JupyterConnection(baseUrl, token, processDisposable),
             serviceContainer);
 
         return waiter.waitForConnection();
