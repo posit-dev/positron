@@ -20,7 +20,7 @@ import {
     ObservableExecutionResult,
     SpawnOptions
 } from '../common/process/types';
-import { IDisposableRegistry, ILogger } from '../common/types';
+import { IAsyncDisposableRegistry, IDisposableRegistry, ILogger } from '../common/types';
 import { IS_WINDOWS } from '../common/util';
 import * as localize from '../common/utils/localize';
 import { noop } from '../common/utils/misc';
@@ -33,6 +33,8 @@ import {
     PythonInterpreter
 } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
+import { captureTelemetry } from '../telemetry';
+import { Telemetry } from './constants';
 import { JupyterConnection, JupyterServerInfo } from './jupyterConnection';
 import { IConnection, IJupyterExecution, IJupyterKernelSpec, INotebookServer } from './types';
 
@@ -152,6 +154,7 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
                 @inject(IKnownSearchPathsForInterpreters) private knownSearchPaths: IKnownSearchPathsForInterpreters,
                 @inject(ILogger) private logger: ILogger,
                 @inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry,
+                @inject(IAsyncDisposableRegistry) private asyncRegistry: IAsyncDisposableRegistry,
                 @inject(IFileSystem) private fileSystem: IFileSystem,
                 @inject(IServiceContainer) private serviceContainer: IServiceContainer) {
         this.processServicePromise = this.processServiceFactory.create();
@@ -192,7 +195,7 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
         return Cancellation.race(() => this.isCommandSupported(KernelSpecCommand), cancelToken);
     }
 
-    public connectToNotebookServer = (uri?: string, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined> => {
+    public connectToNotebookServer = (uri: string | undefined, useDefaultConfig: boolean, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined> => {
         // Return nothing if we cancel
         return Cancellation.race(async () => {
             let connection: IConnection;
@@ -200,7 +203,7 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
 
             // If our uri is undefined or if it's set to local launch we need to launch a server locally
             if (!uri) {
-                const launchResults = await this.startNotebookServer(cancelToken);
+                const launchResults = await this.startNotebookServer(useDefaultConfig, cancelToken);
                 if (launchResults) {
                     connection = launchResults.connection;
                     kernelSpec = launchResults.kernelSpec;
@@ -306,7 +309,8 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
         };
     }
 
-    private startNotebookServer = async (cancelToken?: CancellationToken): Promise<{connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined}> => {
+    @captureTelemetry(Telemetry.StartJupyter)
+    private async startNotebookServer(useDefaultConfig: boolean, cancelToken?: CancellationToken): Promise<{connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined}> {
         // First we find a way to start a notebook server
         const notebookCommand = await this.findBestCommand(NotebookCommand, cancelToken);
         if (!notebookCommand) {
@@ -319,14 +323,28 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
             const tempDir = await this.generateTempDir();
             this.disposableRegistry.push(tempDir);
 
-            // Use this temp file to generate a list of args for our command
-            const args: string [] = ['--no-browser', `--notebook-dir=${tempDir.path}`];
+            // In the temp dir, create an empty config python file. This is the same
+            // as starting jupyter with all of the defaults.
+            const configFile = useDefaultConfig ? path.join(tempDir.path, 'jupyter_notebook_config.py') : undefined;
+            if (configFile) {
+                await this.fileSystem.writeFile(configFile, {});
+            }
+
+            // Use this temp file and config file to generate a list of args for our command
+            const args: string [] = useDefaultConfig ?
+                ['--no-browser', `--notebook-dir=${tempDir.path}`, `--config=${configFile}`] :
+                ['--no-browser', `--notebook-dir=${tempDir.path}`];
 
             // Before starting the notebook process, make sure we generate a kernel spec
             const kernelSpec = await this.getMatchingKernelSpec();
 
             // Then use this to launch our notebook process.
             const launchResult = await notebookCommand.execObservable(args, { throwOnStdErr: false, encoding: 'utf8', token: cancelToken});
+
+            // Make sure this process gets cleaned up. We might be canceled before the connection finishes.
+            if (launchResult) {
+                this.asyncRegistry.push({ dispose : () => Promise.resolve(launchResult.dispose()) });
+            }
 
             // Wait for the connection information on this result
             const connection = await JupyterConnection.waitForConnection(

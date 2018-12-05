@@ -154,7 +154,7 @@ export class CodeWatcher implements ICodeWatcher {
 
     // tslint:disable-next-line:no-any
     private handleError = (err : any) => {
-        if ((<JupyterInstallError>err).actionTitle !== undefined) {
+        if (err instanceof JupyterInstallError) {
             const jupyterError = err as JupyterInstallError;
 
             // This is a special error that shows a link to open for more help
