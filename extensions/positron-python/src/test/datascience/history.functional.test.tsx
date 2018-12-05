@@ -68,7 +68,7 @@ suite('History output tests', () => {
                         webPanelListener.onMessage(msg.type, msg.payload);
                     }
                     if (waitingForInfo && msg && msg.type === HistoryMessages.SendInfo) {
-                        waitingForInfo.resolve(true);
+                        sleep(10).then(waitingForInfo.resolve(true)).ignoreErrors();
                     }
                 },
                 // tslint:disable-next-line:no-any no-empty
@@ -177,7 +177,14 @@ suite('History output tests', () => {
             history.postMessage(HistoryMessages.Undo);
             await Promise.race([waitingForInfo.promise, sleep(2000)]);
             assert.ok(waitingForInfo.resolved, 'Never got update to state');
-            assert.equal(ioc.getContext(EditorContexts.HaveInteractiveCells), false, 'Should not have interactive cells after undo');
+            assert.equal(ioc.getContext(EditorContexts.HaveInteractiveCells), true, 'Should have interactive cells after undo as there are two cells');
+            assert.equal(ioc.getContext(EditorContexts.HaveRedoableCells), true, 'Should have redoable after starting');
+
+            waitingForInfo = createDeferred<boolean>();
+            history.postMessage(HistoryMessages.Undo);
+            await Promise.race([waitingForInfo.promise, sleep(2000)]);
+            assert.ok(waitingForInfo.resolved, 'Never got update to state');
+            assert.equal(ioc.getContext(EditorContexts.HaveInteractiveCells), false, 'Should not have interactive cells after second undo');
             assert.equal(ioc.getContext(EditorContexts.HaveRedoableCells), true, 'Should have redoable after starting');
 
             waitingForInfo = createDeferred<boolean>();
@@ -185,7 +192,7 @@ suite('History output tests', () => {
             await Promise.race([waitingForInfo.promise, sleep(2000)]);
             assert.ok(waitingForInfo.resolved, 'Never got update to state');
             assert.equal(ioc.getContext(EditorContexts.HaveInteractiveCells), true, 'Should have interactive cells after undo');
-            assert.equal(ioc.getContext(EditorContexts.HaveRedoableCells), false, 'Should not have redoable after starting');
+            assert.equal(ioc.getContext(EditorContexts.HaveRedoableCells), true, 'Should have redoable after redo');
 
             waitingForInfo = createDeferred<boolean>();
             history.postMessage(HistoryMessages.DeleteAllCells);
