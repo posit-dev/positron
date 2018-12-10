@@ -31,7 +31,7 @@ import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry, I
 import { Architecture } from '../../client/common/utils/platform';
 import { EXTENSION_ROOT_DIR } from '../../client/constants';
 import { JupyterExecution } from '../../client/datascience/jupyterExecution';
-import { ICell, IConnection, IJupyterKernelSpec, INotebookServer } from '../../client/datascience/types';
+import { ICell, IConnection, IJupyterKernelSpec, INotebookServer, InterruptResult } from '../../client/datascience/types';
 import { InterpreterType, PythonInterpreter } from '../../client/interpreter/contracts';
 import { InterpreterService } from '../../client/interpreter/interpreterService';
 import { CondaService } from '../../client/interpreter/locators/services/condaService';
@@ -80,21 +80,21 @@ class MockJupyterServer implements INotebookServer {
     public setInitialDirectory(directory: string): Promise<void> {
         throw new Error('Method not implemented');
     }
-    public shutdown() {
-        noop();
+    public async shutdown() {
+        return Promise.resolve();
     }
 
-    public interruptKernel() : Promise<void> {
+    public interruptKernel(timeout: number) : Promise<InterruptResult> {
         throw new Error('Method not implemented');
     }
 
-    public dispose() {
+    public async dispose() : Promise<void> {
         if (this.conninfo) {
             this.conninfo.dispose(); // This should kill the process that's running
             this.conninfo = undefined;
         }
         if (this.kernelSpec) {
-            this.kernelSpec.dispose(); // This destroy any unwanted kernel specs if necessary
+            await this.kernelSpec.dispose(); // This destroy any unwanted kernel specs if necessary
             this.kernelSpec = undefined;
         }
         if (this.notebookFile) {
@@ -112,16 +112,18 @@ class DisposableRegistry implements IDisposableRegistry, IAsyncDisposableRegistr
         this.disposables.push(disposable);
     }
 
-    public dispose = () : Promise<void> => {
+    public dispose = async () : Promise<void> => {
         for (let i = 0; i < this.disposables.length; i += 1) {
             const disposable = this.disposables[i];
             if (disposable) {
-                disposable.dispose();
+                const val = disposable.dispose();
+                if (val instanceof Promise) {
+                    const promise = val as Promise<void>;
+                    await promise;
+                }
             }
         }
         this.disposables = [];
-
-        return Promise.resolve();
     }
 
 }
@@ -198,11 +200,11 @@ suite('Jupyter Execution', async () => {
     });
 
     teardown(() => {
-        cleanupDisposables();
+        return cleanupDisposables();
     });
 
-    function cleanupDisposables() {
-        disposableRegistry.dispose().ignoreErrors();
+    function cleanupDisposables() : Promise<void> {
+        return disposableRegistry.dispose();
     }
 
     class FunctionMatcher extends Matcher {
@@ -424,7 +426,8 @@ suite('Jupyter Execution', async () => {
             jupyterServerURI: 'local',
             notebookFileRoot: 'WORKSPACE',
             changeDirOnImportExport: true,
-            useDefaultConfigForJupyter: true
+            useDefaultConfigForJupyter: true,
+            jupyterInterruptTimeout: 10000
         };
 
         // Service container also needs to generate jupyter servers. However we can't use a mock as that messes up returning
@@ -514,7 +517,7 @@ suite('Jupyter Execution', async () => {
     test('Kernelspec is deleted on exit', async () => {
         const execution = createExecution(missingKernelPython);
         await assert.isFulfilled(execution.connectToNotebookServer(undefined, true), 'Should be able to start a server');
-        cleanupDisposables();
+        await cleanupDisposables();
         const exists = fs.existsSync(workingKernelSpec);
         assert.notOk(exists, 'Temp kernel spec still exists');
     }).timeout(10000);
