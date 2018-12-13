@@ -114,7 +114,8 @@ part of!
    ([#3649](https://github.com/Microsoft/vscode-python/issues/3649))
 1. Enable code coverage for unit tests and functional tests.
    ([#3650](https://github.com/Microsoft/vscode-python/issues/3650))
-
+1. Add logging for improved diagnostics.
+   ([#3460](https://github.com/Microsoft/vscode-python/issues/3460))
 
 ## 2018.11.0 (29 Nov 2018)
 
