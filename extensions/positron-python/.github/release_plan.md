@@ -70,7 +70,7 @@
 - [ ] Publish the [blog](http://aka.ms/pythonblog) post
 - [ ] Create a [release](https://github.com/Microsoft/vscode-python/releases) on GitHub (which creates an appropriate git tag)
 - [ ] Determine if a hotfix is needed
-- [ ] Merge `release` back into `master` (if necessary; no cherry-picks in `release` means no need to merge)
+- [ ] Merge `release` back into `master`
 
 ## Prep for the _next_ release
 - [ ] Bump the [version](https://github.com/Microsoft/vscode-python/blob/master/package.json) number to the next `alpha`
