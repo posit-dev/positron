@@ -18,6 +18,7 @@
 # Release candidate (Monday before release)
 
 - [ ] Ensure all new features are tracked via telemetry
+- [ ] Announce a code freeze
 - [ ] Create a branch against `master` for a pull request
 - [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
 - [ ] Run `npm install` to make sure [`package-lock.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json) is up-to-date
@@ -36,6 +37,7 @@
 - [ ] Bump the version number to the next release in the `master` branch
   - [ ] `package.json`
   - [ ] `package-lock.json`
+- [ ] Announce the code freeze is over
 - [ ] Open appropriate [documentation issues](https://github.com/microsoft/vscode-docs/issues?q=is%3Aissue+is%3Aopen+label%3Apython)
 - [ ] Begin drafting a [blog](http://aka.ms/pythonblog) post
 
