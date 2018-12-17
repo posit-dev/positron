@@ -3,11 +3,14 @@
 
 'use strict';
 
-import { expect } from 'chai';
+import { expect, use } from 'chai';
+import * as chaiAsPromised from 'chai-as-promised';
 import * as os from 'os';
 import { parse } from 'semver';
 import { PlatformService } from '../../../client/common/platform/platformService';
 import { OSType } from '../../../client/common/utils/platform';
+
+use(chaiAsPromised);
 
 // tslint:disable-next-line:max-func-body-length
 suite('PlatformService', () => {
