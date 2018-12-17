@@ -167,15 +167,13 @@ export class ProcessService implements IProcessService {
         });
     }
 
-    private getDefaultOptions<T extends (ShellOptions | SpawnOptions)>(options: T) : T {
+    private getDefaultOptions<T extends (ShellOptions | SpawnOptions)>(options: T): T {
         const defaultOptions = { ...options };
         const execOptions = defaultOptions as SpawnOptions;
-        if (execOptions)
-        {
+        if (execOptions) {
             const encoding = execOptions.encoding = typeof execOptions.encoding === 'string' && execOptions.encoding.length > 0 ? execOptions.encoding : DEFAULT_ENCODING;
             delete execOptions.encoding;
             execOptions.encoding = encoding;
-            execOptions.token = execOptions.token;
         }
         if (!defaultOptions.env || Object.keys(defaultOptions.env).length === 0) {
             const env = this.env ? this.env : process.env;
