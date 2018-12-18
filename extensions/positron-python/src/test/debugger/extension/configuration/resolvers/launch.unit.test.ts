@@ -9,22 +9,22 @@ import { expect } from 'chai';
 import * as path from 'path';
 import * as TypeMoq from 'typemoq';
 import { DebugConfiguration, DebugConfigurationProvider, TextDocument, TextEditor, Uri, WorkspaceFolder } from 'vscode';
-import { InvalidPythonPathInDebuggerServiceId } from '../../../../client/application/diagnostics/checks/invalidPythonPathInDebugger';
-import { IDiagnosticsService, IInvalidPythonPathInDebuggerService } from '../../../../client/application/diagnostics/types';
-import { IApplicationShell, IDocumentManager, IWorkspaceService } from '../../../../client/common/application/types';
-import { PYTHON_LANGUAGE } from '../../../../client/common/constants';
-import { IFileSystem, IPlatformService } from '../../../../client/common/platform/types';
-import { IPythonExecutionFactory, IPythonExecutionService } from '../../../../client/common/process/types';
-import { IConfigurationService, ILogger, IPythonSettings } from '../../../../client/common/types';
-import { DebuggerTypeName } from '../../../../client/debugger/constants';
-import { ConfigurationProviderUtils } from '../../../../client/debugger/extension/configProviders/configurationProviderUtils';
-import { PythonV2DebugConfigurationProvider } from '../../../../client/debugger/extension/configProviders/pythonV2Provider';
-import { IConfigurationProviderUtils } from '../../../../client/debugger/extension/configProviders/types';
-import { DebugOptions, LaunchRequestArguments } from '../../../../client/debugger/types';
-import { IInterpreterHelper } from '../../../../client/interpreter/contracts';
-import { IServiceContainer } from '../../../../client/ioc/types';
+import { InvalidPythonPathInDebuggerServiceId } from '../../../../../client/application/diagnostics/checks/invalidPythonPathInDebugger';
+import { IDiagnosticsService, IInvalidPythonPathInDebuggerService } from '../../../../../client/application/diagnostics/types';
+import { IApplicationShell, IDocumentManager, IWorkspaceService } from '../../../../../client/common/application/types';
+import { PYTHON_LANGUAGE } from '../../../../../client/common/constants';
+import { IFileSystem, IPlatformService } from '../../../../../client/common/platform/types';
+import { IPythonExecutionFactory, IPythonExecutionService } from '../../../../../client/common/process/types';
+import { IConfigurationService, ILogger, IPythonSettings } from '../../../../../client/common/types';
+import { DebuggerTypeName } from '../../../../../client/debugger/constants';
+import { ConfigurationProviderUtils } from '../../../../../client/debugger/extension/configuration/configurationProviderUtils';
+import { LaunchConfigurationResolver } from '../../../../../client/debugger/extension/configuration/resolvers/launch';
+import { IConfigurationProviderUtils } from '../../../../../client/debugger/extension/configuration/types';
+import { DebugOptions, LaunchRequestArguments } from '../../../../../client/debugger/types';
+import { IInterpreterHelper } from '../../../../../client/interpreter/contracts';
+import { IServiceContainer } from '../../../../../client/ioc/types';
 
-suite('Debugging - Config Provider', () => {
+suite('Debugging - Config Resolver Launch', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
     let debugProvider: DebugConfigurationProvider;
     let platformService: TypeMoq.IMock<IPlatformService>;
@@ -33,11 +33,9 @@ suite('Debugging - Config Provider', () => {
     let pythonExecutionService: TypeMoq.IMock<IPythonExecutionService>;
     let logger: TypeMoq.IMock<ILogger>;
     let helper: TypeMoq.IMock<IInterpreterHelper>;
+    let workspaceService: TypeMoq.IMock<IWorkspaceService>;
+    let documentManager: TypeMoq.IMock<IDocumentManager>;
     let diagnosticsService: TypeMoq.IMock<IInvalidPythonPathInDebuggerService>;
-    setup(() => {
-        serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
-        debugProvider = new PythonV2DebugConfigurationProvider(serviceContainer.object);
-    });
     function createMoqWorkspaceFolder(folderPath: string) {
         const folder = TypeMoq.Mock.ofType<WorkspaceFolder>();
         folder.setup(f => f.uri).returns(() => Uri.file(folderPath));
@@ -45,6 +43,10 @@ suite('Debugging - Config Provider', () => {
     }
     function setupIoc(pythonPath: string, isWindows: boolean = false, isMac: boolean = false, isLinux: boolean = false) {
         const confgService = TypeMoq.Mock.ofType<IConfigurationService>();
+        workspaceService = TypeMoq.Mock.ofType<IWorkspaceService>();
+        documentManager = TypeMoq.Mock.ofType<IDocumentManager>();
+        serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
+
         platformService = TypeMoq.Mock.ofType<IPlatformService>();
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
         appShell = TypeMoq.Mock.ofType<IApplicationShell>();
@@ -61,12 +63,14 @@ suite('Debugging - Config Provider', () => {
             .setup(h => h.validatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(true));
 
+        const configProviderUtils = new ConfigurationProviderUtils(factory.object, fileSystem.object, appShell.object);
+
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IPythonExecutionFactory))).returns(() => factory.object);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IConfigurationService))).returns(() => confgService.object);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IPlatformService))).returns(() => platformService.object);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IFileSystem))).returns(() => fileSystem.object);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IApplicationShell))).returns(() => appShell.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IConfigurationProviderUtils))).returns(() => new ConfigurationProviderUtils(serviceContainer.object));
+        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IConfigurationProviderUtils))).returns(() => configProviderUtils);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(ILogger))).returns(() => logger.object);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IInterpreterHelper))).returns(() => helper.object);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IDiagnosticsService), TypeMoq.It.isValue(InvalidPythonPathInDebuggerServiceId))).returns(() => diagnosticsService.object);
@@ -75,9 +79,10 @@ suite('Debugging - Config Provider', () => {
         settings.setup(s => s.pythonPath).returns(() => pythonPath);
         confgService.setup(c => c.getSettings(TypeMoq.It.isAny())).returns(() => settings.object);
         setupOs(isWindows, isMac, isLinux);
+
+        debugProvider = new LaunchConfigurationResolver(workspaceService.object, documentManager.object, configProviderUtils, diagnosticsService.object, platformService.object, confgService.object);
     }
     function setupActiveEditor(fileName: string | undefined, languageId: string) {
-        const documentManager = TypeMoq.Mock.ofType<IDocumentManager>();
         if (fileName) {
             const textEditor = TypeMoq.Mock.ofType<TextEditor>();
             const document = TypeMoq.Mock.ofType<TextDocument>();
@@ -91,7 +96,6 @@ suite('Debugging - Config Provider', () => {
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IDocumentManager))).returns(() => documentManager.object);
     }
     function setupWorkspaces(folders: string[]) {
-        const workspaceService = TypeMoq.Mock.ofType<IWorkspaceService>();
         const workspaceFolders = folders.map(createMoqWorkspaceFolder);
         workspaceService.setup(w => w.workspaceFolders).returns(() => workspaceFolders);
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IWorkspaceService))).returns(() => workspaceService.object);
@@ -354,8 +358,7 @@ suite('Debugging - Config Provider', () => {
             .returns(() => Promise.resolve(pyramidExists))
             .verifiable(TypeMoq.Times.exactly(pyramidExists && addPyramidDebugOption ? 1 : 0));
         appShell.setup(a => a.showErrorMessage(TypeMoq.It.isAny()))
-            .verifiable(TypeMoq.Times.exactly(pyramidExists || !addPyramidDebugOption ? 0 : 1));
-        logger.setup(a => a.logError(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve(undefined))
             .verifiable(TypeMoq.Times.exactly(pyramidExists || !addPyramidDebugOption ? 0 : 1));
         const options = addPyramidDebugOption ? { debugOptions: [DebugOptions.Pyramid], pyramid: true } : {};
 

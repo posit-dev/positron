@@ -7,23 +7,19 @@ import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { Uri } from 'vscode';
 import { IApplicationShell } from '../../../common/application/types';
+import { traceError } from '../../../common/logger';
 import { IFileSystem } from '../../../common/platform/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
-import { ILogger } from '../../../common/types';
-import { IServiceContainer } from '../../../ioc/types';
+import { noop } from '../../../common/utils/misc';
 import { IConfigurationProviderUtils } from './types';
 
 const PSERVE_SCRIPT_FILE_NAME = 'pserve.py';
 
 @injectable()
 export class ConfigurationProviderUtils implements IConfigurationProviderUtils {
-    private readonly executionFactory: IPythonExecutionFactory;
-    private readonly fs: IFileSystem;
-    private readonly logger: ILogger;
-    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
-        this.executionFactory = this.serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
-        this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
-        this.logger = this.serviceContainer.get<ILogger>(ILogger);
+    constructor(@inject(IPythonExecutionFactory) private readonly executionFactory: IPythonExecutionFactory,
+        @inject(IFileSystem) private readonly fs: IFileSystem,
+        @inject(IApplicationShell) private readonly shell: IApplicationShell) {
     }
     public async getPyramidStartupScriptFilePath(resource?: Uri): Promise<string | undefined> {
         try {
@@ -33,9 +29,8 @@ export class ConfigurationProviderUtils implements IConfigurationProviderUtils {
             return await this.fs.fileExists(pserveFilePath) ? pserveFilePath : undefined;
         } catch (ex) {
             const message = 'Unable to locate \'pserve.py\' required for debugging of Pyramid applications.';
-            this.logger.logError(message, ex);
-            const app = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
-            app.showErrorMessage(message);
+            traceError(message, ex);
+            this.shell.showErrorMessage(message).then(noop, noop);
             return;
         }
     }
