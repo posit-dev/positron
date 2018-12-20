@@ -14,10 +14,11 @@ import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { IS_WINDOWS } from '../../client/common/platform/constants';
 import { IPlatformService } from '../../client/common/platform/types';
 import { IConfigurationService } from '../../client/common/types';
+import { IMultiStepInputFactory } from '../../client/common/utils/multiStepInput';
 import { DebuggerTypeName, PTVSD_PATH } from '../../client/debugger/constants';
-import { PythonDebugConfigurationProvider } from '../../client/debugger/extension/configuration/debugConfigurationProvider';
+import { PythonDebugConfigurationService } from '../../client/debugger/extension/configuration/debugConfigurationService';
 import { AttachConfigurationResolver } from '../../client/debugger/extension/configuration/resolvers/attach';
-import { IDebugConfigurationResolver } from '../../client/debugger/extension/configuration/types';
+import { IDebugConfigurationProviderFactory, IDebugConfigurationResolver } from '../../client/debugger/extension/configuration/types';
 import { AttachRequestArguments, DebugOptions, LaunchRequestArguments } from '../../client/debugger/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PYTHON_PATH, sleep } from '../common';
@@ -27,7 +28,7 @@ import { continueDebugging, createDebugAdapter } from './utils';
 // tslint:disable:no-invalid-this max-func-body-length no-empty no-increment-decrement no-unused-variable no-console
 const fileToDebug = path.join(EXTENSION_ROOT_DIR, 'src', 'testMultiRootWkspc', 'workspace5', 'remoteDebugger-start-with-ptvsd.py');
 
-suite('Attach Debugger', () => {
+suite('Debugging - Attach Debugger', () => {
     let debugClient: DebugClient;
     let proc: ChildProcess;
 
@@ -96,7 +97,9 @@ suite('Attach Debugger', () => {
 
         const launchResolver = TypeMoq.Mock.ofType<IDebugConfigurationResolver<LaunchRequestArguments>>();
         const attachResolver = new AttachConfigurationResolver(workspaceService.object, documentManager.object, platformService.object, configurationService.object);
-        const configProvider = new PythonDebugConfigurationProvider(attachResolver, launchResolver.object);
+        const providerFactory = TypeMoq.Mock.ofType<IDebugConfigurationProviderFactory>().object;
+        const multiStepIput = TypeMoq.Mock.ofType<IMultiStepInputFactory>().object;
+        const configProvider = new PythonDebugConfigurationService(attachResolver, launchResolver.object, providerFactory, multiStepIput);
 
         await configProvider.resolveDebugConfiguration({ index: 0, name: 'root', uri: Uri.file(localRoot) }, options);
         const attachPromise = debugClient.attachRequest(options);

@@ -12,7 +12,7 @@ import { PythonDebugConfigurationProvider } from '../../../../client/debugger/ex
 import { IDebugConfigurationResolver } from '../../../../client/debugger/extension/configuration/types';
 import { AttachRequestArguments, LaunchRequestArguments } from '../../../../client/debugger/types';
 
-suite('xDebugging - Configuration Provider', () => {
+suite('Debugging - Configuration Provider', () => {
     let attachResolver: typemoq.IMock<IDebugConfigurationResolver<AttachRequestArguments>>;
     let launchResolver: typemoq.IMock<IDebugConfigurationResolver<LaunchRequestArguments>>;
     let provider: PythonDebugConfigurationProvider;

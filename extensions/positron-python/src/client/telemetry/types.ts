@@ -3,6 +3,7 @@
 'use strict';
 
 import { TerminalShellType } from '../common/terminal/types';
+import { DebugConfigurationType } from '../debugger/extension/types';
 import { InterpreterType } from '../interpreter/contracts';
 import { LinterId } from '../linters/types';
 import { PlatformErrors } from './constants';
@@ -63,6 +64,10 @@ export type DebuggerTelemetry = {
     showReturnValue: boolean;
     pyramid: boolean;
     subProcess: boolean;
+    watson: boolean;
+    pyspark: boolean;
+    gevent: boolean;
+    scrapy: boolean;
 };
 export type DebuggerPerformanceTelemetry = {
     duration: number;
@@ -91,6 +96,13 @@ export type TerminalTelemetry = {
     triggeredBy?: 'commandpalette';
     pythonVersion?: string;
     interpreterType?: InterpreterType;
+};
+export type DebuggerConfigurationPromtpsTelemetry = {
+    configurationType: DebugConfigurationType;
+    autoDetectedDjangoManagePyPath?: boolean;
+    autoDetectedPyramidIniPath?: boolean;
+    autoDetectedFlaskAppPyPath?: boolean;
+    manuallyEnteredAValue?: boolean;
 };
 export type DiagnosticsAction = {
     /**
@@ -147,4 +159,5 @@ export type TelemetryProperties = FormatTelemetry
     | DiagnosticsMessages
     | ImportNotebook
     | Platform
-    | LanguageServePlatformSupported;
+    | LanguageServePlatformSupported
+    | DebuggerConfigurationPromtpsTelemetry;
