@@ -9,7 +9,7 @@ import { Uri, WorkspaceFolder } from 'vscode';
 import { IWorkspaceService } from '../../../../common/application/types';
 import { IFileSystem } from '../../../../common/platform/types';
 import { IPathUtils } from '../../../../common/types';
-import { Debug, localize } from '../../../../common/utils/localize';
+import { DebugConfigurationPrompts, localize } from '../../../../common/utils/localize';
 import { MultiStepInput } from '../../../../common/utils/multiStepInput';
 import { SystemVariables } from '../../../../common/variables/systemVariables';
 import { sendTelemetryEvent } from '../../../../telemetry';
@@ -44,9 +44,9 @@ export class PyramidLaunchDebugConfigurationProvider implements IDebugConfigurat
 
         if (!iniPath) {
             const selectedIniPath = await input.showInputBox({
-                title: Debug.pyramidEnterDevelopmentIniPathTitle(),
+                title: DebugConfigurationPrompts.pyramidEnterDevelopmentIniPathTitle(),
                 value: defaultIni,
-                prompt: Debug.pyramidEnterDevelopmentIniPathPrompt(),
+                prompt: DebugConfigurationPrompts.pyramidEnterDevelopmentIniPathPrompt(),
                 validate: value => this.validateIniPath(state ? state.folder : undefined, defaultIni, value)
             });
             if (selectedIniPath) {
@@ -62,7 +62,7 @@ export class PyramidLaunchDebugConfigurationProvider implements IDebugConfigurat
         if (!folder) {
             return;
         }
-        const error = Debug.pyramidEnterDevelopmentIniPathInvalidFilePathError();
+        const error = DebugConfigurationPrompts.pyramidEnterDevelopmentIniPathInvalidFilePathError();
         if (!selected || selected.trim().length === 0) {
             return error;
         }

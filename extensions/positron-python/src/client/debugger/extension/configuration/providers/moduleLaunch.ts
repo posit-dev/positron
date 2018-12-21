@@ -4,7 +4,7 @@
 'use strict';
 
 import { injectable } from 'inversify';
-import { Debug, localize } from '../../../../common/utils/localize';
+import { DebugConfigurationPrompts, localize } from '../../../../common/utils/localize';
 import { MultiStepInput } from '../../../../common/utils/multiStepInput';
 import { sendTelemetryEvent } from '../../../../telemetry';
 import { DEBUGGER_CONFIGURATION_PROMPTS } from '../../../../telemetry/constants';
@@ -23,10 +23,10 @@ export class ModuleLaunchDebugConfigurationProvider implements IDebugConfigurati
             module: 'enter-your-module-name-here'
         };
         const selectedModule = await input.showInputBox({
-            title: Debug.moduleEnterModuleTitle(),
+            title: DebugConfigurationPrompts.moduleEnterModuleTitle(),
             value: config.module || 'enter-your-module-name-here',
-            prompt: Debug.moduleEnterModulePrompt(),
-            validate: value => Promise.resolve((value && value.trim().length > 0) ? undefined : Debug.moduleEnterModuleInvalidNameError())
+            prompt: DebugConfigurationPrompts.moduleEnterModulePrompt(),
+            validate: value => Promise.resolve((value && value.trim().length > 0) ? undefined : DebugConfigurationPrompts.moduleEnterModuleInvalidNameError())
         });
         if (selectedModule) {
             manuallyEnteredAValue = true;
