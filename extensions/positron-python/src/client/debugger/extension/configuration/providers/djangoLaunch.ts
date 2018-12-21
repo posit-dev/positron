@@ -9,7 +9,7 @@ import { Uri, WorkspaceFolder } from 'vscode';
 import { IWorkspaceService } from '../../../../common/application/types';
 import { IFileSystem } from '../../../../common/platform/types';
 import { IPathUtils } from '../../../../common/types';
-import { Debug, localize } from '../../../../common/utils/localize';
+import { DebugConfigurationPrompts, localize } from '../../../../common/utils/localize';
 import { MultiStepInput } from '../../../../common/utils/multiStepInput';
 import { SystemVariables } from '../../../../common/variables/systemVariables';
 import { sendTelemetryEvent } from '../../../../telemetry';
@@ -44,9 +44,9 @@ export class DjangoLaunchDebugConfigurationProvider implements IDebugConfigurati
         };
         if (!program) {
             const selectedProgram = await input.showInputBox({
-                title: Debug.djangoEnterManagePyPathTitle(),
+                title: DebugConfigurationPrompts.djangoEnterManagePyPathTitle(),
                 value: defaultProgram,
-                prompt: Debug.djangoEnterManagePyPathPrompt(),
+                prompt: DebugConfigurationPrompts.djangoEnterManagePyPathPrompt(),
                 validate: value => this.validateManagePy(state.folder, defaultProgram, value)
             });
             if (selectedProgram) {
@@ -59,7 +59,7 @@ export class DjangoLaunchDebugConfigurationProvider implements IDebugConfigurati
         Object.assign(state.config, config);
     }
     public async validateManagePy(folder: WorkspaceFolder | undefined, defaultValue: string, selected?: string): Promise<string | undefined> {
-        const error = Debug.djangoEnterManagePyPathInvalidFilePathError();
+        const error = DebugConfigurationPrompts.djangoEnterManagePyPathInvalidFilePathError();
         if (!selected || selected.trim().length === 0) {
             return error;
         }

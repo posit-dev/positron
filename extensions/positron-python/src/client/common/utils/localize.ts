@@ -105,15 +105,15 @@ export namespace DataScience {
     export const sysInfoURILabel = localize('DataScience.sysInfoURILabel', 'Jupyter Server URI: ');
 }
 
-export namespace Debug {
+export namespace DebugConfigurationPrompts {
     export const selectConfigurationTitle = localize('debug.selectConfigurationTitle', 'Select a debug configuration');
     export const selectConfigurationPlaceholder = localize('debug.selectConfigurationPlaceholder', 'Debug Configuration');
     export const debugFileConfigurationLabel = localize('debug.debugFileConfigurationLabel', 'Python File');
-    export const debugFileConfigurationDescription = localize('debug.debugFileConfigurationDescription', 'Debug python file');
+    export const debugFileConfigurationDescription = localize('debug.debugFileConfigurationDescription', 'Debug Python file');
     export const debugModuleConfigurationLabel = localize('debug.debugModuleConfigurationLabel', 'Module');
     export const debugModuleConfigurationDescription = localize('debug.debugModuleConfigurationDescription', 'Debug Python module/package');
     export const remoteAttachConfigurationLabel = localize('debug.remoteAttachConfigurationLabel', 'Remote Attach');
-    export const remoteAttachConfigurationDescription = localize('debug.remoteAttachConfigurationDescription', 'Debug a remote python program');
+    export const remoteAttachConfigurationDescription = localize('debug.remoteAttachConfigurationDescription', 'Debug a remote Python program');
     export const debugDjangoConfigurationLabel = localize('debug.debugDjangoConfigurationLabel', 'Django');
     export const debugDjangoConfigurationDescription = localize('debug.debugDjangoConfigurationDescription', 'Web Application');
     export const debugFlaskConfigurationLabel = localize('debug.debugFlaskConfigurationLabel', 'Flask');
@@ -121,10 +121,11 @@ export namespace Debug {
     export const debugPyramidConfigurationLabel = localize('debug.debugPyramidConfigurationLabel', 'Pyramid');
     export const debugPyramidConfigurationDescription = localize('debug.debugPyramidConfigurationDescription', 'Web Application');
     export const djangoEnterManagePyPathTitle = localize('debug.djangoEnterManagePyPathTitle', 'Debug Django');
-    export const djangoEnterManagePyPathPrompt = localize('debug.djangoEnterManagePyPathPrompt', 'Enter path to manage.py');
-    export const djangoEnterManagePyPathInvalidFilePathError = localize('debug.djangoEnterManagePyPathInvalidFilePathError', 'Enter a valid python file path');
+    // tslint:disable-next-line:no-invalid-template-strings
+    export const djangoEnterManagePyPathPrompt = localize('debug.djangoEnterManagePyPathPrompt', 'Enter path to manage.py (\'${workspaceFolderToken}\' points to the root of the current workspace folder)');
+    export const djangoEnterManagePyPathInvalidFilePathError = localize('debug.djangoEnterManagePyPathInvalidFilePathError', 'Enter a valid Python file path');
     export const flaskEnterAppPathOrNamePathTitle = localize('debug.flaskEnterAppPathOrNamePathTitle', 'Debug Flask');
-    export const flaskEnterAppPathOrNamePathPrompt = localize('debug.flaskEnterAppPathOrNamePathPrompt', 'Enter path to Application, e.g. \'app.py\' or \'app\'');
+    export const flaskEnterAppPathOrNamePathPrompt = localize('debug.flaskEnterAppPathOrNamePathPrompt', 'Enter path to application, e.g. \'app.py\' or \'app\'');
     export const flaskEnterAppPathOrNamePathInvalidNameError = localize('debug.flaskEnterAppPathOrNamePathInvalidNameError', 'Enter a valid name');
 
     export const moduleEnterModuleTitle = localize('debug.moduleEnterModuleTitle', 'Debug Module');
@@ -135,11 +136,11 @@ export namespace Debug {
     export const pyramidEnterDevelopmentIniPathPrompt = localize('debug.pyramidEnterDevelopmentIniPathPrompt', '`Enter path to development.ini (\'${workspaceFolderToken}\' points to the root of the current workspace folder)`');
     export const pyramidEnterDevelopmentIniPathInvalidFilePathError = localize('debug.pyramidEnterDevelopmentIniPathInvalidFilePathError', 'Enter a valid file path');
     export const attachRemotePortTitle = localize('debug.attachRemotePortTitle', 'Remote Debugging');
-    export const attachRemotePortPrompt = localize('debug.attachRemotePortPrompt', 'Enter Port Number');
-    export const attachRemotePortValidationError = localize('debug.attachRemotePortValidationError', 'Enter a valid Port Number');
+    export const attachRemotePortPrompt = localize('debug.attachRemotePortPrompt', 'Enter port number');
+    export const attachRemotePortValidationError = localize('debug.attachRemotePortValidationError', 'Enter a valid port number');
     export const attachRemoteHostTitle = localize('debug.attachRemoteHostTitle', 'Remote Debugging');
-    export const attachRemoteHostPrompt = localize('debug.attachRemoteHostPrompt', 'Enter Host Name');
-    export const attachRemoteHostValidationError = localize('debug.attachRemoteHostValidationError', 'Enter a Host Name or IP Address');
+    export const attachRemoteHostPrompt = localize('debug.attachRemoteHostPrompt', 'Enter a host name or IP address');
+    export const attachRemoteHostValidationError = localize('debug.attachRemoteHostValidationError', 'Enter a valid host name or IP address');
 }
 
 // Skip using vscode-nls and instead just compute our strings based on key values. Key values

@@ -7,7 +7,7 @@ import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { WorkspaceFolder } from 'vscode';
 import { IFileSystem } from '../../../../common/platform/types';
-import { Debug, localize } from '../../../../common/utils/localize';
+import { DebugConfigurationPrompts, localize } from '../../../../common/utils/localize';
 import { MultiStepInput } from '../../../../common/utils/multiStepInput';
 import { sendTelemetryEvent } from '../../../../telemetry';
 import { DEBUGGER_CONFIGURATION_PROMPTS } from '../../../../telemetry/constants';
@@ -44,10 +44,10 @@ export class FlaskLaunchDebugConfigurationProvider implements IDebugConfiguratio
 
         if (!application) {
             const selectedApp = await input.showInputBox({
-                title: Debug.flaskEnterAppPathOrNamePathTitle(),
+                title: DebugConfigurationPrompts.flaskEnterAppPathOrNamePathTitle(),
                 value: 'app.py',
-                prompt: Debug.debugFlaskConfigurationDescription(),
-                validate: value => Promise.resolve((value && value.trim().length > 0) ? undefined : Debug.flaskEnterAppPathOrNamePathInvalidNameError())
+                prompt: DebugConfigurationPrompts.debugFlaskConfigurationDescription(),
+                validate: value => Promise.resolve((value && value.trim().length > 0) ? undefined : DebugConfigurationPrompts.flaskEnterAppPathOrNamePathInvalidNameError())
             });
             if (selectedApp) {
                 manuallyEnteredAValue = true;
