@@ -1,9 +1,8 @@
 import { inject, injectable } from 'inversify';
 import { ConfigurationTarget, Disposable, QuickPickItem, QuickPickOptions, Uri } from 'vscode';
 import { IApplicationShell, ICommandManager, IDocumentManager, IWorkspaceService } from '../../common/application/types';
-import * as settings from '../../common/configSettings';
 import { Commands } from '../../common/constants';
-import { IPathUtils } from '../../common/types';
+import { IConfigurationService, IPathUtils } from '../../common/types';
 import { IInterpreterService, IShebangCodeLensProvider, PythonInterpreter, WorkspacePythonPath } from '../contracts';
 import { IInterpreterComparer, IInterpreterSelector, IPythonPathUpdaterServiceManager } from './types';
 
@@ -23,6 +22,7 @@ export class InterpreterSelector implements IInterpreterSelector {
         @inject(IInterpreterComparer) private readonly interpreterComparer: IInterpreterComparer,
         @inject(IPythonPathUpdaterServiceManager) private readonly pythonPathUpdaterService: IPythonPathUpdaterServiceManager,
         @inject(IShebangCodeLensProvider) private readonly shebangCodeLensProvider: IShebangCodeLensProvider,
+        @inject(IConfigurationService) private readonly configurationService: IConfigurationService,
         @inject(ICommandManager) private readonly commandManager: ICommandManager) {
     }
     public dispose() {
@@ -64,7 +64,7 @@ export class InterpreterSelector implements IInterpreterSelector {
         }
 
         const suggestions = await this.getSuggestions(wkspace);
-        const currentPythonPath = this.pathUtils.getDisplayName(settings.PythonSettings.getInstance().pythonPath, wkspace ? wkspace.fsPath : undefined);
+        const currentPythonPath = this.pathUtils.getDisplayName(this.configurationService.getSettings(wkspace).pythonPath, wkspace ? wkspace.fsPath : undefined);
         const quickPickOptions: QuickPickOptions = {
             matchOnDetail: true,
             matchOnDescription: true,
