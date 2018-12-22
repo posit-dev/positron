@@ -7,6 +7,7 @@ import { ConfigurationTarget, Uri } from 'vscode';
 import { IApplicationShell, ICommandManager, IDocumentManager, IWorkspaceService } from '../../client/common/application/types';
 import { PathUtils } from '../../client/common/platform/pathUtils';
 import { IFileSystem } from '../../client/common/platform/types';
+import { IConfigurationService, IPythonSettings } from '../../client/common/types';
 import { Architecture } from '../../client/common/utils/platform';
 import { IInterpreterQuickPickItem, InterpreterSelector } from '../../client/interpreter/configuration/interpreterSelector';
 import { IInterpreterComparer, IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
@@ -47,6 +48,8 @@ suite('Interpreters - selector', () => {
     let comparer: TypeMoq.IMock<IInterpreterComparer>;
     let pythonPathUpdater: TypeMoq.IMock<IPythonPathUpdaterServiceManager>;
     let shebangProvider: TypeMoq.IMock<IShebangCodeLensProvider>;
+    let configurationService: TypeMoq.IMock<IConfigurationService>;
+    let pythonSettings: TypeMoq.IMock<IPythonSettings>;
 
     class TestInterpreterSelector extends InterpreterSelector {
         // tslint:disable-next-line:no-unnecessary-override
@@ -70,6 +73,8 @@ suite('Interpreters - selector', () => {
         documentManager = TypeMoq.Mock.ofType<IDocumentManager>();
         pythonPathUpdater = TypeMoq.Mock.ofType<IPythonPathUpdaterServiceManager>();
         shebangProvider = TypeMoq.Mock.ofType<IShebangCodeLensProvider>();
+        configurationService = TypeMoq.Mock.ofType<IConfigurationService>();
+        pythonSettings = TypeMoq.Mock.ofType<IPythonSettings>();
 
         workspace = TypeMoq.Mock.ofType<IWorkspaceService>();
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
@@ -79,6 +84,9 @@ suite('Interpreters - selector', () => {
         fileSystem
             .setup(x => x.getRealPath(TypeMoq.It.isAnyString()))
             .returns((a: string) => new Promise(resolve => resolve(a)));
+        configurationService
+            .setup(x => x.getSettings(TypeMoq.It.isAny()))
+            .returns(() => pythonSettings.object);
 
         comparer.setup(c => c.compare(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => 0);
     });
@@ -87,7 +95,8 @@ suite('Interpreters - selector', () => {
         test(`Suggestions (${isWindows ? 'Windows' : 'Non-Windows'})`, async () => {
             const selector = new InterpreterSelector(interpreterService.object, workspace.object,
                 appShell.object, documentManager.object, new PathUtils(isWindows),
-                comparer.object, pythonPathUpdater.object, shebangProvider.object, commandManager.object);
+                comparer.object, pythonPathUpdater.object, shebangProvider.object,
+                configurationService.object, commandManager.object);
 
             const initial: PythonInterpreter[] = [
                 { displayName: '1', path: 'c:/path1/path1', type: InterpreterType.Unknown },
@@ -125,8 +134,9 @@ suite('Interpreters - selector', () => {
     test('Update Global settings when there are no workspaces', async () => {
         const selector = new TestInterpreterSelector(interpreterService.object, workspace.object,
             appShell.object, documentManager.object, new PathUtils(false),
-            comparer.object, pythonPathUpdater.object, shebangProvider.object, commandManager.object);
-
+            comparer.object, pythonPathUpdater.object, shebangProvider.object,
+            configurationService.object, commandManager.object);
+        pythonSettings.setup(p => p.pythonPath).returns(() => 'python');
         const selectedItem: IInterpreterQuickPickItem = {
             description: '', detail: '', label: '',
             path: 'This is the selected Python path'
@@ -154,8 +164,9 @@ suite('Interpreters - selector', () => {
     test('Update workspace folder settings when there is one workspace folder', async () => {
         const selector = new TestInterpreterSelector(interpreterService.object, workspace.object,
             appShell.object, documentManager.object, new PathUtils(false),
-            comparer.object, pythonPathUpdater.object, shebangProvider.object, commandManager.object);
-
+            comparer.object, pythonPathUpdater.object, shebangProvider.object,
+            configurationService.object, commandManager.object);
+        pythonSettings.setup(p => p.pythonPath).returns(() => 'python');
         const selectedItem: IInterpreterQuickPickItem = {
             description: '', detail: '', label: '',
             path: 'This is the selected Python path'
@@ -184,8 +195,9 @@ suite('Interpreters - selector', () => {
     test('Update seleted workspace folder settings when there is more than one workspace folder', async () => {
         const selector = new TestInterpreterSelector(interpreterService.object, workspace.object,
             appShell.object, documentManager.object, new PathUtils(false),
-            comparer.object, pythonPathUpdater.object, shebangProvider.object, commandManager.object);
-
+            comparer.object, pythonPathUpdater.object, shebangProvider.object,
+            configurationService.object, commandManager.object);
+        pythonSettings.setup(p => p.pythonPath).returns(() => 'python');
         const selectedItem: IInterpreterQuickPickItem = {
             description: '', detail: '', label: '',
             path: 'This is the selected Python path'
@@ -218,7 +230,8 @@ suite('Interpreters - selector', () => {
     test('Do not update anything when user does not select a workspace folder and there is more than one workspace folder', async () => {
         const selector = new TestInterpreterSelector(interpreterService.object, workspace.object,
             appShell.object, documentManager.object, new PathUtils(false),
-            comparer.object, pythonPathUpdater.object, shebangProvider.object, commandManager.object);
+            comparer.object, pythonPathUpdater.object, shebangProvider.object,
+            configurationService.object, commandManager.object);
 
         const selectedItem: IInterpreterQuickPickItem = {
             description: '', detail: '', label: '',
