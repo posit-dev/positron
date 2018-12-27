@@ -125,6 +125,7 @@ export class WindowsRegistryService extends CacheableLocatorService {
                     return;
                 }
                 const version = interpreterInfo.version ? this.pathUtils.basename(interpreterInfo.version) : this.pathUtils.basename(tagKey);
+                this._hasInterpreters.resolve(true);
                 // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
                 return {
                     ...(details as PythonInterpreter),

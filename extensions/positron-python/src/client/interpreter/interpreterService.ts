@@ -36,6 +36,9 @@ export class InterpreterService implements Disposable, IInterpreterService {
         this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
         this.persistentStateFactory = this.serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
     }
+    public get hasInterpreters(): Promise<boolean> {
+        return this.locator.hasInterpreters;
+    }
 
     public async refresh(resource?: Uri) {
         const interpreterDisplay = this.serviceContainer.get<IInterpreterDisplay>(IInterpreterDisplay);
