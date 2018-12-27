@@ -6,6 +6,7 @@ import { Uri } from 'vscode';
 import { IPlatformService, IRegistry, RegistryHive } from '../../../common/platform/types';
 import { IPathUtils } from '../../../common/types';
 import { Architecture } from '../../../common/utils/platform';
+import { convertPythonVersionToSemver } from '../../../common/utils/version';
 import { IServiceContainer } from '../../../ioc/types';
 import { IInterpreterHelper, InterpreterType, PythonInterpreter } from '../../contracts';
 import { CacheableLocatorService } from './cacheableLocatorService';
@@ -130,7 +131,7 @@ export class WindowsRegistryService extends CacheableLocatorService {
                 return {
                     ...(details as PythonInterpreter),
                     path: executablePath,
-                    version,
+                    version: convertPythonVersionToSemver(version),
                     companyDisplayName: interpreterInfo.companyDisplayName,
                     type: InterpreterType.Unknown
                 } as PythonInterpreter;
