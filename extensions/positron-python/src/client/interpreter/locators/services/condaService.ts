@@ -1,13 +1,11 @@
 import { inject, injectable, named, optional } from 'inversify';
 import * as path from 'path';
 import { parse, SemVer } from 'semver';
-
 import { Logger } from '../../../common/logger';
 import { IFileSystem, IPlatformService } from '../../../common/platform/types';
 import { ExecutionResult, IProcessServiceFactory } from '../../../common/process/types';
 import { ITerminalActivationCommandProvider, TerminalShellType } from '../../../common/terminal/types';
 import { IConfigurationService, IDisposableRegistry, ILogger, IPersistentStateFactory } from '../../../common/types';
-import { compareVersion } from '../../../common/utils/version';
 import { IServiceContainer } from '../../../ioc/types';
 import {
     CondaInfo,
@@ -52,9 +50,9 @@ export class CondaService implements ICondaService {
     private condaFile!: Promise<string | undefined>;
     private isAvailable: boolean | undefined;
     private readonly condaHelper = new CondaHelper();
-    private activatedEnvironmentCache : { [key: string] : NodeJS.ProcessEnv } = {};
-    private activationProvider : ITerminalActivationCommandProvider;
-    private shellType : TerminalShellType;
+    private activatedEnvironmentCache: { [key: string]: NodeJS.ProcessEnv } = {};
+    private activationProvider: ITerminalActivationCommandProvider;
+    private shellType: TerminalShellType;
 
     constructor(
         @inject(IProcessServiceFactory) private processServiceFactory: IProcessServiceFactory,
@@ -280,10 +278,10 @@ export class CondaService implements ICondaService {
         const activateCommands = this.activationProvider.getActivationCommandsForInterpreter ?
             await this.activationProvider.getActivationCommandsForInterpreter(condaPath, this.shellType) :
             this.platform.isWindows ?
-            [`"${path.join(path.dirname(condaPath), 'activate')}"`] :
-            [`. "${path.join(path.dirname(condaPath), 'activate')}"`];
+                [`"${path.join(path.dirname(condaPath), 'activate')}"`] :
+                [`. "${path.join(path.dirname(condaPath), 'activate')}"`];
 
-        const result = {...input};
+        const result = { ...input };
         const processService = await this.processServiceFactory.create();
 
         // Run the activate command collect the environment from it.
@@ -333,7 +331,7 @@ export class CondaService implements ICondaService {
     }
 
     private parseEnvironmentOutput(output: string, result: NodeJS.ProcessEnv) {
-        const lines = output.splitLines({trim: true, removeEmptyEntries: true});
+        const lines = output.splitLines({ trim: true, removeEmptyEntries: true });
         let foundDummyOutput = false;
         for (let i = 0; i < lines.length; i += 1) {
             if (foundDummyOutput) {
@@ -387,15 +385,15 @@ export class CondaService implements ICondaService {
      * Return the highest Python version from the given list.
      */
     private getLatestVersion(interpreters: PythonInterpreter[]) {
-        const sortedInterpreters = interpreters.filter(interpreter => interpreter.version && interpreter.version.length > 0);
+        const sortedInterpreters = interpreters.slice();
         // tslint:disable-next-line:no-non-null-assertion
-        sortedInterpreters.sort((a, b) => compareVersion(a.version!, b.version!));
+        sortedInterpreters.sort((a, b) => (a.version && b.version) ? a.version.compare(b.version) : 0);
         if (sortedInterpreters.length > 0) {
             return sortedInterpreters[sortedInterpreters.length - 1];
         }
     }
 
-    private async getCondaFileFromInterpreter(interpreter: PythonInterpreter | undefined) : Promise<string | undefined> {
+    private async getCondaFileFromInterpreter(interpreter: PythonInterpreter | undefined): Promise<string | undefined> {
         const condaExe = this.platform.isWindows ? 'conda.exe' : 'conda';
         const scriptsDir = this.platform.isWindows ? 'Scripts' : 'bin';
         const interpreterDir = interpreter ? path.dirname(interpreter.path) : '';
@@ -479,7 +477,7 @@ export class CondaService implements ICondaService {
     /**
      * Called when the user changes the current interpreter.
      */
-    private onInterpreterChanged() : void {
+    private onInterpreterChanged(): void {
         // Clear our activated environment cache as it can't match the current one anymore
         this.activatedEnvironmentCache = {};
     }

@@ -6,6 +6,7 @@
 // tslint:disable:max-func-body-length
 
 import { expect } from 'chai';
+import { SemVer } from 'semver';
 import * as TypeMoq from 'typemoq';
 import { Uri } from 'vscode';
 import { IPlatformService } from '../../../client/common/platform/types';
@@ -63,8 +64,7 @@ suite('Interpreters - Locators Index', () => {
                         sysPrefix: typeName,
                         sysVersion: typeName,
                         type: InterpreterType.Unknown,
-                        version: typeName,
-                        version_info: [0, 0, 0, 'alpha']
+                        version: new SemVer('0.0.0-alpha')
                     };
 
                     const typeLocator = TypeMoq.Mock.ofType<IInterpreterLocatorService>();
@@ -124,8 +124,7 @@ suite('Interpreters - Locators Index', () => {
                         sysPrefix: typeName,
                         sysVersion: typeName,
                         type: InterpreterType.Unknown,
-                        version: typeName,
-                        version_info: [0, 0, 0, 'alpha']
+                        version: new SemVer('0.0.0-alpha')
                     };
 
                     const typeLocator = TypeMoq.Mock.ofType<IInterpreterLocatorService>();

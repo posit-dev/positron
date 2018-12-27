@@ -86,7 +86,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
             return;
         }
         // Always pick the highest version by default.
-        interpretersInWorkspace.sort((a, b) => a.version! > b.version! ? 1 : -1);
+        interpretersInWorkspace.sort((a, b) => (a.version && b.version) ? a.version.compare(b.version) : 0);
         const pythonPath = interpretersInWorkspace[0].path;
         // Ensure this new environment is at the same level as the current workspace.
         // In windows the interpreter is under scripts/python.exe on linux it is under bin/python.
@@ -196,8 +196,8 @@ export class InterpreterService implements Disposable, IInterpreterService {
         const displayNameParts: string[] = ['Python'];
         const envSuffixParts: string[] = [];
 
-        if (info.version_info && info.version_info.length > 0) {
-            displayNameParts.push(info.version_info.slice(0, 3).join('.'));
+        if (info.version) {
+            displayNameParts.push(`${info.version.major}.${info.version.minor}.${info.version.patch}`);
         }
         if (info.architecture) {
             displayNameParts.push(getArchitectureDisplayName(info.architecture));
