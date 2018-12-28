@@ -7,6 +7,7 @@ import { parse, SemVer } from 'semver';
 import * as TypeMoq from 'typemoq';
 import { Disposable, EventEmitter } from 'vscode';
 
+import { IWorkspaceService } from '../../client/common/application/types';
 import { FileSystem } from '../../client/common/platform/fileSystem';
 import { IFileSystem, IPlatformService } from '../../client/common/platform/types';
 import { IProcessService, IProcessServiceFactory } from '../../client/common/process/types';
@@ -53,6 +54,7 @@ suite('Interpreters Conda Service', () => {
     let condaPathSetting: string;
     let disposableRegistry: Disposable[];
     let interpreterService: TypeMoq.IMock<IInterpreterService>;
+    let workspaceService : TypeMoq.IMock<IWorkspaceService>;
     let mockState: MockState;
     let terminalProvider: TypeMoq.IMock<ITerminalActivationCommandProvider>;
     setup(async () => {
@@ -64,6 +66,7 @@ suite('Interpreters Conda Service', () => {
         interpreterService = TypeMoq.Mock.ofType<IInterpreterService>();
         registryInterpreterLocatorService = TypeMoq.Mock.ofType<IInterpreterLocatorService>();
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
+        workspaceService = TypeMoq.Mock.ofType<IWorkspaceService>();
         config = TypeMoq.Mock.ofType<IConfigurationService>();
         settings = TypeMoq.Mock.ofType<IPythonSettings>();
         procServiceFactory = TypeMoq.Mock.ofType<IProcessServiceFactory>();
@@ -104,6 +107,7 @@ suite('Interpreters Conda Service', () => {
             interpreterService.object,
             disposableRegistry,
             serviceContainer.object,
+            workspaceService.object,
             registryInterpreterLocatorService.object);
 
     });
@@ -394,7 +398,8 @@ suite('Interpreters Conda Service', () => {
             logger.object,
             interpreterService.object,
             disposableRegistry,
-            serviceContainer.object);
+            serviceContainer.object,
+            workspaceService.object);
 
         const result = await condaSrv.getCondaFile();
         expect(result).is.equal(expected);

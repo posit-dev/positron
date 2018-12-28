@@ -1,0 +1,191 @@
+jobs:
+- job: ${{ parameters.name }}
+  dependsOn: 'PR_Validate_Windows_py37'
+  pool:
+    name: ${{ parameters.PoolName }}
+
+  variables:
+    nodeVersion: ${{ parameters.NodeVersion }}
+    npmVersion: ${{ parameters.NpmVersion }}
+    pythonVersion: ${{ parameters.PythonVersion }}
+    platform: ${{ parameters.Platform }}
+    azureStorageAcctName: ${{ parameters.AzureStorageAccountName }}
+    azureStorageContainerName: ${{ parameters.AzureStorageContainerName }}
+    environmentExecutableFolder: ${{ parameters.EnvironmentExecutableFolder }}
+    PYTHON_VIRTUAL_ENVS_LOCATION: ${{ parameters.PYTHON_VIRTUAL_ENVS_LOCATION }}
+    TEST_FILES_SUFFIX: ${{ parameters.TEST_FILES_SUFFIX }}
+    TestSuiteName: ${{ parameters.TestSuiteName }}
+
+  steps:
+    - bash: echo REQUESTED VARIABLE VALUES
+
+        echo Node Version = $(nodeVersion)
+
+        echo Python Version = $(pythonVersion)
+
+        echo NPM Version = $(npmVersion)
+
+        echo Mocha reportfile = '$(mochaReportFile)'
+
+        echo MOCHA_CI_REPORTFILE = $MOCHA_CI_REPORTFILE
+
+        echo MOCHA_CI_REPORTER_ID = $MOCHA_CI_REPORTER_ID
+
+        echo MOCHA_REPORTER_JUNIT = $MOCHA_REPORTER_JUNIT
+
+        echo COV_UUID = $COV_UUID
+
+        echo Run Hygiene = $(runHygiene)
+
+      displayName: 'Show build vars'
+      name: 'show_bld_vars'
+
+
+    - powershell: |
+        New-Item -ItemType directory -Path "$(System.ArtifactsDirectory)/bin-artifacts"
+
+        $buildArtifactUri = "https://$(azureStorageAcctName).blob.core.windows.net/$(azureStorageContainerName)/$(Build.BuildNumber)/bin-artifacts.zip"
+        Write-Verbose "Downloading from $buildArtifactUri"
+
+        $destination = "$(System.ArtifactsDirectory)/bin-artifacts/bin-artifacts.zip"
+        Write-Verbose "Destination file: $destination"
+
+        Invoke-WebRequest -Uri $buildArtifactUri -OutFile $destination -Verbose
+
+      displayName: 'Download bin-artifacts from cloud-storage'
+
+
+    - task: ExtractFiles@1
+      displayName: 'Splat bin-artifacts'
+      inputs:
+        archiveFilePatterns: '$(System.ArtifactsDirectory)/bin-artifacts/bin-artifacts.zip'
+
+        destinationFolder: '$(Build.SourcesDirectory)'
+
+        cleanDestinationFolder: false
+
+
+    - task: NodeTool@0
+      displayName: 'Use Node $(nodeVersion)'
+      inputs:
+        versionSpec: '$(nodeVersion)'
+
+
+    - task: UsePythonVersion@0
+      displayName: 'Use Python $(pythonVersion)'
+      inputs:
+        versionSpec: '$(pythonVersion)'
+
+
+    - task: CmdLine@1
+      displayName: 'pip install pipenv'
+      inputs:
+        filename: python
+
+        arguments: '-m pip install pipenv'
+
+
+    - bash: |
+       pipenv run python ./build/ci/addEnvPath.py $(PYTHON_VIRTUAL_ENVS_LOCATION) pipenvPath
+
+      displayName: 'Create and save pipenv environment'
+
+
+    - task: CmdLine@1
+      displayName: 'Create venv environment'
+      inputs:
+        filename: python
+
+        arguments: '-m venv .venv'
+
+
+    - bash: |
+       .venv/$(environmentExecutableFolder)/python ./build/ci/addEnvPath.py $(PYTHON_VIRTUAL_ENVS_LOCATION) venvPath
+
+      displayName: 'Save venv environment executable'
+
+
+    - task: CmdLine@1
+      displayName: 'pip install virtualenv'
+      inputs:
+        filename: python
+
+        arguments: '-m pip install virtualenv'
+
+
+    - task: CmdLine@1
+      displayName: 'Create virtualenv environment'
+      inputs:
+        filename: python
+
+        arguments: '-m virtualenv .virtualenv'
+
+
+    - bash: |
+       .virtualenv/$(environmentExecutableFolder)/python ./build/ci/addEnvPath.py $(PYTHON_VIRTUAL_ENVS_LOCATION) virtualEnvPath
+
+      displayName: 'Save virtualenv environment executable'
+
+    - powershell: |
+       Write-Host $Env:CONDA
+       Write-Host $Env:PYTHON_VIRTUAL_ENVS_LOCATION
+
+       if( '$(platform)' -eq 'Windows' ){
+           $condaPythonPath = Join-Path -Path $Env:CONDA -ChildPath python
+           $condaExecPath = Join-Path -Path $Env:CONDA -ChildPath conda
+
+       } else{
+           $condaPythonPath = Join-Path -Path $Env:CONDA -ChildPath $(environmentExecutableFolder) | Join-Path -ChildPath python
+           $condaExecPath = Join-Path -Path $Env:CONDA -ChildPath $(environmentExecutableFolder) | Join-Path -ChildPath conda
+
+       }
+
+       & $condaPythonPath ./build/ci/addEnvPath.py $(PYTHON_VIRTUAL_ENVS_LOCATION) condaPath
+
+       & $condaPythonPath ./build/ci/addEnvPath.py $(PYTHON_VIRTUAL_ENVS_LOCATION) condaExecPath $condaExecPath
+
+       Get-Content $Env:PYTHON_VIRTUAL_ENVS_LOCATION
+
+      displayName: 'Save conda environment executable'
+
+
+    - task: Npm@1
+      displayName: 'update npm'
+      inputs:
+        command: custom
+
+        verbose: true
+
+        customCommand: 'install -g npm@$(NpmVersion)'
+
+
+    - task: Npm@1
+      displayName: 'npm ci'
+      inputs:
+        command: custom
+
+        verbose: true
+
+        customCommand: ci
+
+
+    - script: |
+        set -e
+        /usr/bin/Xvfb :10 -ac >> /tmp/Xvfb.out 2>&1 &
+        disown -ar
+      displayName: 'Start xvfb'
+      condition: and(succeeded(), eq(variables['Platform'], 'Linux'))
+
+
+    - task: Npm@1
+      displayName: 'run $(TestSuiteName)'
+      inputs:
+        command: custom
+
+        verbose: true
+
+        customCommand: 'run $(TestSuiteName)'
+      env:
+        DISPLAY: :10
+
+
