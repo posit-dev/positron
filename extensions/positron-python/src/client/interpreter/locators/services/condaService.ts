@@ -1,6 +1,9 @@
 import { inject, injectable, named, optional } from 'inversify';
 import * as path from 'path';
 import { parse, SemVer } from 'semver';
+
+import { ConfigurationChangeEvent, Uri } from 'vscode';
+import { IWorkspaceService } from '../../../common/application/types';
 import { Logger } from '../../../common/logger';
 import { IFileSystem, IPlatformService } from '../../../common/platform/types';
 import { ExecutionResult, IProcessServiceFactory } from '../../../common/process/types';
@@ -23,7 +26,13 @@ const untildify: (value: string) => string = require('untildify');
 
 // This glob pattern will match all of the following:
 // ~/anaconda/bin/conda, ~/anaconda3/bin/conda, ~/miniconda/bin/conda, ~/miniconda3/bin/conda
-export const CondaLocationsGlob = untildify('~/*conda*/bin/conda');
+// /usr/share/anaconda/bin/conda, /usr/share/anaconda3/bin/conda, /usr/share/miniconda/bin/conda, /usr/share/miniconda3/bin/conda
+
+const condaGlobPathsForLinux = [
+    '/usr/share/*conda*/bin/conda',
+    untildify('~/*conda*/bin/conda')];
+
+export const CondaLocationsGlob = `{${condaGlobPathsForLinux.join(',')}}`;
 
 // ...and for windows, the known default install locations:
 const condaGlobPathsForWindows = [
@@ -64,12 +73,14 @@ export class CondaService implements ICondaService {
         @inject(IInterpreterService) private interpreterService: IInterpreterService,
         @inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry,
         @inject(IServiceContainer) serviceContainer: IServiceContainer,
+        @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
         @inject(IInterpreterLocatorService) @named(WINDOWS_REGISTRY_SERVICE) @optional() private registryLookupForConda?: IInterpreterLocatorService
     ) {
         this.disposableRegistry.push(this.interpreterService.onDidChangeInterpreter(this.onInterpreterChanged.bind(this)));
         this.activationProvider = serviceContainer.get<ITerminalActivationCommandProvider>(ITerminalActivationCommandProvider,
             this.platform.isWindows ? 'commandPromptAndPowerShell' : 'bashCShellFish');
         this.shellType = this.platform.isWindows ? TerminalShellType.commandPrompt : TerminalShellType.bash; // Defaults for Child_Process.exec
+        this.addCondaPathChangedHandler();
     }
 
     public get condaEnvironmentsFile(): string | undefined {
@@ -427,6 +438,18 @@ export class CondaService implements ICondaService {
                 return condaPath;
             }
         }
+    }
+
+    private addCondaPathChangedHandler() {
+        const disposable = this.workspaceService.onDidChangeConfiguration(this.onDidChangeConfiguration.bind(this));
+        this.disposableRegistry.push(disposable);
+    }
+    private async onDidChangeConfiguration(event: ConfigurationChangeEvent) {
+        const workspacesUris: (Uri | undefined)[] = this.workspaceService.hasWorkspaceFolders ? this.workspaceService.workspaceFolders!.map(workspace => workspace.uri) : [undefined];
+        if (workspacesUris.findIndex(uri => event.affectsConfiguration('python.condaPath', uri)) === -1) {
+            return;
+        }
+        this.condaFile = undefined;
     }
 
     /**
