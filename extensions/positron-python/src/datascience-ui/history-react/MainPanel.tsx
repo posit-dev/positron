@@ -47,7 +47,6 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     }
 
     public componentDidUpdate(prevProps, prevState) {
-        this.sendInfo();
         this.scrollToBottom();
     }
 
@@ -303,6 +302,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             skipNextScroll: true,
             busy: false // No more progress on delete all
         });
+
+        // Tell other side, we changed our number of cells
+        this.sendInfo();
     }
 
     private redo = () => {
@@ -317,6 +319,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             redoStack: redoStack,
             skipNextScroll: true
         });
+
+        // Tell other side, we changed our number of cells
+        this.sendInfo();
     }
 
     private undo = () => {
@@ -331,6 +336,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             redoStack : redoStack,
             skipNextScroll : true
         });
+
+        // Tell other side, we changed our number of cells
+        this.sendInfo();
     }
 
     private restartKernel = () => {
@@ -379,6 +387,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                     redoStack: this.state.redoStack,
                     skipNextScroll: false
                 });
+
+                // Tell other side, we changed our number of cells
+                this.sendInfo();
             }
         }
     }
