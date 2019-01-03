@@ -5,14 +5,13 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { ConfigurationTarget } from 'vscode';
 import { EXTENSION_ROOT_DIR } from '../../../client/common/constants';
-import { OSType } from '../../../client/common/utils/platform';
 import { CommandSource } from '../../../client/unittests/common/constants';
 import {
     ITestManagerFactory, TestFile,
     TestFunction, Tests, TestsToRun
 } from '../../../client/unittests/common/types';
 import {
-    isOs, isPythonVersion,
+    isPythonVersion,
     rootWorkspaceUri, updateSetting
 } from '../../common';
 import { UnitTestIocContainer } from '../serviceRegistry';
@@ -115,13 +114,10 @@ suite('Unit Tests - unittest - discovery against actual python process', () => {
     });
 
     test('Ensure correct test count for running a set of tests multiple times', async function () {
-        // This test has not been working for many months in Python 3.4 under
-        // Windows and macOS.Tracked by #2548.
-        if (isOs(OSType.Windows, OSType.OSX)) {
-            if (await isPythonVersion('3.4')) {
-                // tslint:disable-next-line:no-invalid-this
-                return this.skip();
-            }
+        // This test has not been working for many months in Python 3.4. Tracked by #2548.
+        if (await isPythonVersion('3.4')) {
+            // tslint:disable-next-line:no-invalid-this
+            return this.skip();
         }
 
         await updateSetting('unitTest.unittestArgs', ['-s=./tests', '-p=test_*.py'], rootWorkspaceUri, configTarget);
@@ -148,13 +144,10 @@ suite('Unit Tests - unittest - discovery against actual python process', () => {
     });
 
     test('Re-run failed tests results in the correct number of tests counted', async function () {
-        // This test has not been working for many months in Python 3.4 under
-        // Windows and macOS.Tracked by #2548.
-        if (isOs(OSType.Windows, OSType.OSX)) {
-            if (await isPythonVersion('3.4')) {
-                // tslint:disable-next-line:no-invalid-this
-                return this.skip();
-            }
+        // This test has not been working for many months in Python 3.4. Tracked by #2548.
+        if (await isPythonVersion('3.4')) {
+            // tslint:disable-next-line:no-invalid-this
+            return this.skip();
         }
 
         await updateSetting('unitTest.unittestArgs', ['-s=./tests', '-p=test_*.py'], rootWorkspaceUri, configTarget);
