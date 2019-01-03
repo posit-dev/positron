@@ -41,6 +41,7 @@ import { ServiceContainer } from '../../client/ioc/container';
 import { ServiceManager } from '../../client/ioc/serviceManager';
 import { getOSType, OSType } from '../common';
 import { noop } from '../core';
+import { MockAutoSelectionService } from '../mocks/autoSelector';
 import { MockJupyterManager } from './mockJupyterManager';
 
 // tslint:disable:no-any no-http-string no-multiline-string max-func-body-length
@@ -147,7 +148,7 @@ suite('Jupyter Execution', async () => {
     const serviceContainer = mock(ServiceContainer);
     const disposableRegistry = new DisposableRegistry();
     const dummyEvent = new EventEmitter<void>();
-    const pythonSettings = new PythonSettings();
+    const pythonSettings = new PythonSettings(undefined, new MockAutoSelectionService());
     const jupyterOnPath = getOSType() === OSType.Windows ? '/foo/bar/jupyter.exe' : '/foo/bar/jupyter';
     let ipykernelInstallCount = 0;
 

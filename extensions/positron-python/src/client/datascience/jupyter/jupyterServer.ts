@@ -33,7 +33,7 @@ import {
 } from '../types';
 
 class CellSubscriber {
-    private deferred : Deferred<CellState> = createDeferred<CellState>();
+    private deferred: Deferred<CellState> = createDeferred<CellState>();
     private cellRef: ICell;
     private subscriber: Subscriber<ICell>;
     private promiseComplete: (self: CellSubscriber) => void;
@@ -50,7 +50,7 @@ class CellSubscriber {
         return sessionStartTime && this.startTime > sessionStartTime;
     }
 
-    public next(sessionStartTime:  number | undefined) {
+    public next(sessionStartTime: number | undefined) {
         // Tell the subscriber first
         if (this.isValid(sessionStartTime)) {
             this.subscriber.next(this.cellRef);
@@ -87,11 +87,11 @@ class CellSubscriber {
         }
     }
 
-    public get promise() : Promise<CellState> {
+    public get promise(): Promise<CellState> {
         return this.deferred.promise;
     }
 
-    public get cell() : ICell {
+    public get cell(): ICell {
         return this.cellRef;
     }
 
@@ -113,7 +113,7 @@ export class JupyterServer implements INotebookServer, IDisposable {
     private connInfo: IConnection | undefined;
     private workingDir: string | undefined;
     private sessionStartTime: number | undefined;
-    private onStatusChangedEvent : vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
+    private onStatusChangedEvent: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
     private pendingCellSubscriptions: CellSubscriber[] = [];
     private ranInitialSetup = false;
 
@@ -126,7 +126,7 @@ export class JupyterServer implements INotebookServer, IDisposable {
         this.asyncRegistry.push(this);
     }
 
-    public connect = async (connInfo: IConnection, kernelSpec: IJupyterKernelSpec, cancelToken?: CancellationToken, workingDir?: string) : Promise<void> => {
+    public connect = async (connInfo: IConnection, kernelSpec: IJupyterKernelSpec, cancelToken?: CancellationToken, workingDir?: string): Promise<void> => {
         // Save connection info. Determines if we need to change directory or not
         this.connInfo = connInfo;
         this.workingDir = workingDir;
@@ -144,20 +144,21 @@ export class JupyterServer implements INotebookServer, IDisposable {
         this.initialNotebookSetup(cancelToken);
     }
 
-    public shutdown() : Promise<void> {
-        return this.session ? this.session.dispose() : Promise.resolve();
+    public shutdown(): Promise<void> {
+        const dispose = this.session ? this.session.dispose() : undefined;
+        return dispose ? dispose : Promise.resolve();
     }
 
-    public dispose() : Promise<void> {
+    public dispose(): Promise<void> {
         this.onStatusChangedEvent.dispose();
         return this.shutdown();
     }
 
-    public waitForIdle() : Promise<void> {
+    public waitForIdle(): Promise<void> {
         return this.session ? this.session.waitForIdle() : Promise.resolve();
     }
 
-    public execute(code : string, file: string, line: number, cancelToken?: CancellationToken) : Promise<ICell[]> {
+    public execute(code: string, file: string, line: number, cancelToken?: CancellationToken): Promise<ICell[]> {
         // Do initial setup if necessary
         this.initialNotebookSetup();
 
@@ -195,7 +196,7 @@ export class JupyterServer implements INotebookServer, IDisposable {
         }
     }
 
-    public executeObservable = (code: string, file: string, line: number) : Observable<ICell[]> => {
+    public executeObservable = (code: string, file: string, line: number): Observable<ICell[]> => {
         // Do initial setup if necessary
         this.initialNotebookSetup();
 
@@ -224,7 +225,7 @@ export class JupyterServer implements INotebookServer, IDisposable {
         });
     }
 
-    public executeSilently = (code: string, cancelToken?: CancellationToken) : Promise<void> => {
+    public executeSilently = (code: string, cancelToken?: CancellationToken): Promise<void> => {
         return new Promise((resolve, reject) => {
 
             // If we cancel, reject our promise
@@ -263,11 +264,11 @@ export class JupyterServer implements INotebookServer, IDisposable {
         });
     }
 
-    public get onStatusChanged() : vscode.Event<boolean> {
+    public get onStatusChanged(): vscode.Event<boolean> {
         return this.onStatusChangedEvent.event.bind(this.onStatusChangedEvent);
     }
 
-    public restartKernel = async () : Promise<void> => {
+    public restartKernel = async (): Promise<void> => {
         if (this.session) {
             // Update our start time so we don't keep sending responses
             this.sessionStartTime = Date.now();
@@ -289,7 +290,7 @@ export class JupyterServer implements INotebookServer, IDisposable {
         throw new Error(localize.DataScience.sessionDisposed());
     }
 
-    public interruptKernel = async (timeoutMs: number) : Promise<InterruptResult> => {
+    public interruptKernel = async (timeoutMs: number): Promise<InterruptResult> => {
         if (this.session) {
             // Keep track of our current time. If our start time gets reset, we
             // restarted the kernel.
@@ -377,10 +378,11 @@ export class JupyterServer implements INotebookServer, IDisposable {
         // Return a copy with a no-op for dispose
         return {
             ...this.connInfo,
-            dispose: noop };
+            dispose: noop
+        };
     }
 
-    private generateRequest = (code: string, silent: boolean) : Kernel.IFuture | undefined => {
+    private generateRequest = (code: string, silent: boolean): Kernel.IFuture | undefined => {
         //this.logger.logInformation(`Executing code in jupyter : ${code}`)
         try {
             return this.session ? this.session.requestExecute(
@@ -429,17 +431,17 @@ export class JupyterServer implements INotebookServer, IDisposable {
         ).ignoreErrors();
     }
 
-    private combineObservables = (...args : Observable<ICell>[]) : Observable<ICell[]> => {
+    private combineObservables = (...args: Observable<ICell>[]): Observable<ICell[]> => {
         return new Observable<ICell[]>(subscriber => {
             // When all complete, we have our results
-            const results : { [id : string] : ICell } = {};
+            const results: { [id: string]: ICell } = {};
 
             args.forEach(o => {
                 o.subscribe(c => {
                     results[c.id] = c;
 
                     // Convert to an array
-                    const array = Object.keys(results).map((k : string) => {
+                    const array = Object.keys(results).map((k: string) => {
                         return results[k];
                     });
 
@@ -453,14 +455,14 @@ export class JupyterServer implements INotebookServer, IDisposable {
                         }
                     }
                 },
-                e => {
-                    subscriber.error(e);
-                });
+                    e => {
+                        subscriber.error(e);
+                    });
             });
         });
     }
 
-    private executeMarkdownObservable = (cell: ICell) : Observable<ICell> => {
+    private executeMarkdownObservable = (cell: ICell): Observable<ICell> => {
         // Markdown doesn't need any execution
         return new Observable<ICell>(subscriber => {
             subscriber.next(cell);
@@ -468,7 +470,7 @@ export class JupyterServer implements INotebookServer, IDisposable {
         });
     }
 
-    private changeDirectoryIfPossible = async (directory: string) : Promise<void> => {
+    private changeDirectoryIfPossible = async (directory: string): Promise<void> => {
         if (this.connInfo && this.connInfo.localLaunch && await fs.pathExists(directory)) {
             await this.executeSilently(`%cd "${directory}"`);
         }
@@ -533,7 +535,7 @@ export class JupyterServer implements INotebookServer, IDisposable {
 
     }
 
-    private executeCodeObservable(cell: ICell) : Observable<ICell> {
+    private executeCodeObservable(cell: ICell): Observable<ICell> {
         return new Observable<ICell>(subscriber => {
             // Tell our listener. NOTE: have to do this asap so that markdown cells don't get
             // run before our cells.
@@ -551,14 +553,14 @@ export class JupyterServer implements INotebookServer, IDisposable {
         });
     }
 
-    private addToCellData = (cell: ICell, output : nbformat.IUnrecognizedOutput | nbformat.IExecuteResult | nbformat.IDisplayData | nbformat.IStream | nbformat.IError) => {
-        const data : nbformat.ICodeCell = cell.data as nbformat.ICodeCell;
+    private addToCellData = (cell: ICell, output: nbformat.IUnrecognizedOutput | nbformat.IExecuteResult | nbformat.IDisplayData | nbformat.IStream | nbformat.IError) => {
+        const data: nbformat.ICodeCell = cell.data as nbformat.ICodeCell;
         data.outputs = [...data.outputs, output];
         cell.data = data;
     }
 
     private handleExecuteResult(msg: KernelMessage.IExecuteResultMsg, cell: ICell) {
-        this.addToCellData(cell, { output_type : 'execute_result', data: msg.content.data, metadata : msg.content.metadata, execution_count : msg.content.execution_count });
+        this.addToCellData(cell, { output_type: 'execute_result', data: msg.content.data, metadata: msg.content.metadata, execution_count: msg.content.execution_count });
     }
 
     private handleExecuteInput(msg: KernelMessage.IExecuteInputMsg, cell: ICell) {
@@ -580,24 +582,24 @@ export class JupyterServer implements INotebookServer, IDisposable {
     }
 
     private handleStreamMesssage(msg: KernelMessage.IStreamMsg, cell: ICell) {
-        const output : nbformat.IStream = {
-            output_type : 'stream',
-            name : msg.content.name,
-            text : msg.content.text
+        const output: nbformat.IStream = {
+            output_type: 'stream',
+            name: msg.content.name,
+            text: msg.content.text
         };
         this.addToCellData(cell, output);
     }
 
     private handleDisplayData(msg: KernelMessage.IDisplayDataMsg, cell: ICell) {
-        const output : nbformat.IDisplayData = {
-            output_type : 'display_data',
+        const output: nbformat.IDisplayData = {
+            output_type: 'display_data',
             data: msg.content.data,
-            metadata : msg.content.metadata
+            metadata: msg.content.metadata
         };
         this.addToCellData(cell, output);
     }
 
-    private handleInterrupted(cell : ICell) {
+    private handleInterrupted(cell: ICell) {
         this.handleError({
             channel: 'iopub',
             parent_header: {},
@@ -616,11 +618,11 @@ export class JupyterServer implements INotebookServer, IDisposable {
     }
 
     private handleError(msg: KernelMessage.IErrorMsg, cell: ICell) {
-        const output : nbformat.IError = {
-            output_type : 'error',
-            ename : msg.content.ename,
-            evalue : msg.content.evalue,
-            traceback : msg.content.traceback
+        const output: nbformat.IError = {
+            output_type: 'error',
+            ename: msg.content.ename,
+            evalue: msg.content.evalue,
+            traceback: msg.content.traceback
         };
         this.addToCellData(cell, output);
         cell.state = CellState.error;
