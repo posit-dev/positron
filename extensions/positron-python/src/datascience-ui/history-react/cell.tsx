@@ -6,22 +6,21 @@ import './cell.css';
 import { nbformat } from '@jupyterlab/coreutils';
 import ansiToHtml from 'ansi-to-html';
 import * as React from 'react';
-
-// tslint:disable-next-line:match-default-export-name import-name
 import JSONTree from 'react-json-tree';
 
 import { concatMultilineString } from '../../client/datascience/common';
 import { CellState, ICell } from '../../client/datascience/types';
 import { getLocString } from '../react-common/locReactSide';
-import { RelativeImage } from '../react-common/relativeImage';
 import { CellButton } from './cellButton';
 import { Code } from './code';
 import { CollapseButton } from './collapseButton';
 import { ExecutionCount } from './executionCount';
+import { Image, ImageName } from './image';
 import { MenuBar } from './menuBar';
 import { SysInfo } from './sysInfo';
 import { displayOrder, richestMimetype, transforms } from './transforms';
 
+// tslint:disable-next-line:match-default-export-name import-name
 interface ICellProps {
     cellVM: ICellViewModel;
     theme: string;
@@ -89,19 +88,15 @@ export class Cell extends React.Component<ICellProps> {
     }
 
     private renderNormalCell() {
-        const clearButtonImage = this.props.theme !== 'vscode-dark' ? './images/Cancel/Cancel_16xMD_vscode.svg' :
-            './images/Cancel/Cancel_16xMD_vscode_dark.svg';
-        const gotoSourceImage = this.props.theme !== 'vscode-dark' ? './images/GoToSourceCode/GoToSourceCode_16x_vscode.svg' :
-            './images/GoToSourceCode/GoToSourceCode_16x_vscode_dark.svg';
 
         return (
             <div className='cell-wrapper'>
                 <MenuBar theme={this.props.theme}>
                     <CellButton theme={this.props.theme} onClick={this.props.delete} tooltip={this.getDeleteString()}>
-                        <RelativeImage class='cell-button-image' path={clearButtonImage} />
+                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.Cancel}/>
                     </CellButton>
                     <CellButton theme={this.props.theme} onClick={this.props.gotoCode} tooltip={this.getGoToCodeString()}>
-                        <RelativeImage class='cell-button-image' path={gotoSourceImage} />
+                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.GoToSourceCode}/>
                     </CellButton>
                 </MenuBar>
                 <div className='cell-outer'>
