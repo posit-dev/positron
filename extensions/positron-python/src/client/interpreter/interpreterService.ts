@@ -27,7 +27,9 @@ export class InterpreterService implements Disposable, IInterpreterService {
     private readonly fs: IFileSystem;
     private readonly persistentStateFactory: IPersistentStateFactory;
     private readonly helper: IInterpreterHelper;
+    private readonly configService: IConfigurationService;
     private readonly didChangeInterpreterEmitter = new EventEmitter<void>();
+    private pythonPathSetting: string = '';
 
     constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
         this.locator = serviceContainer.get<IInterpreterLocatorService>(IInterpreterLocatorService, INTERPRETER_LOCATOR_SERVICE);
@@ -35,6 +37,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
         this.pythonPathUpdaterService = this.serviceContainer.get<IPythonPathUpdaterServiceManager>(IPythonPathUpdaterServiceManager);
         this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
         this.persistentStateFactory = this.serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
+        this.configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
     }
     public get hasInterpreters(): Promise<boolean> {
         return this.locator.hasInterpreters;
@@ -49,8 +52,9 @@ export class InterpreterService implements Disposable, IInterpreterService {
         const disposables = this.serviceContainer.get<Disposable[]>(IDisposableRegistry);
         const documentManager = this.serviceContainer.get<IDocumentManager>(IDocumentManager);
         disposables.push(documentManager.onDidChangeActiveTextEditor((e) => e ? this.refresh(e.document.uri) : undefined));
-        const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
-        (configService.getSettings() as PythonSettings).addListener('change', this.onConfigChanged);
+        const pySettings = this.configService.getSettings() as PythonSettings;
+        this.pythonPathSetting = pySettings.pythonPath;
+        pySettings.addListener('change', this.onConfigChanged);
     }
 
     public async getInterpreters(resource?: Uri): Promise<PythonInterpreter[]> {
@@ -253,10 +257,15 @@ export class InterpreterService implements Disposable, IInterpreterService {
     }
 
     private onConfigChanged = () => {
-        this.didChangeInterpreterEmitter.fire();
-        const interpreterDisplay = this.serviceContainer.get<IInterpreterDisplay>(IInterpreterDisplay);
-        interpreterDisplay.refresh()
-            .catch(ex => console.error('Python Extension: display.refresh', ex));
+        // Check if we actually changed our python path
+        const pySettings = this.configService.getSettings() as PythonSettings;
+        if (this.pythonPathSetting !== pySettings.pythonPath) {
+            this.pythonPathSetting = pySettings.pythonPath;
+            this.didChangeInterpreterEmitter.fire();
+            const interpreterDisplay = this.serviceContainer.get<IInterpreterDisplay>(IInterpreterDisplay);
+            interpreterDisplay.refresh()
+                .catch(ex => console.error('Python Extension: display.refresh', ex));
+        }
     }
     private async collectInterpreterDetails(pythonPath: string, resource: Uri | undefined) {
         const interpreterHelper = this.serviceContainer.get<IInterpreterHelper>(IInterpreterHelper);
