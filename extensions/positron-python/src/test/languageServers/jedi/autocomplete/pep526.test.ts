@@ -34,7 +34,7 @@ suite('Autocomplete PEP 526', () => {
     suiteTeardown(closeActiveWindows);
     teardown(async () => {
         await closeActiveWindows();
-        ioc.dispose();
+        await ioc.dispose();
     });
     function initializeDI() {
         ioc = new UnitTestIocContainer();

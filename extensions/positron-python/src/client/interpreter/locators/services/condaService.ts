@@ -1,7 +1,6 @@
 import { inject, injectable, named, optional } from 'inversify';
 import * as path from 'path';
-import { parse, SemVer } from 'semver';
-
+import { compare, parse, SemVer } from 'semver';
 import { ConfigurationChangeEvent, Uri } from 'vscode';
 import { IWorkspaceService } from '../../../common/application/types';
 import { Logger } from '../../../common/logger';
@@ -57,7 +56,7 @@ export const CondaGetEnvironmentPrefix = 'Outputting Environment Now...';
  */
 @injectable()
 export class CondaService implements ICondaService {
-    private condaFile!: Promise<string | undefined>;
+    private condaFile?: Promise<string | undefined>;
     private isAvailable: boolean | undefined;
     private readonly condaHelper = new CondaHelper();
     private activatedEnvironmentCache: { [key: string]: NodeJS.ProcessEnv } = {};
@@ -399,7 +398,7 @@ export class CondaService implements ICondaService {
     private getLatestVersion(interpreters: PythonInterpreter[]) {
         const sortedInterpreters = interpreters.slice();
         // tslint:disable-next-line:no-non-null-assertion
-        sortedInterpreters.sort((a, b) => (a.version && b.version) ? a.version.compare(b.version) : 0);
+        sortedInterpreters.sort((a, b) => (a.version && b.version) ? compare(a.version.raw, b.version.raw) : 0);
         if (sortedInterpreters.length > 0) {
             return sortedInterpreters[sortedInterpreters.length - 1];
         }

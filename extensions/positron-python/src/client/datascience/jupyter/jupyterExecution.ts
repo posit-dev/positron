@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { Kernel, ServerConnection, SessionManager } from '@jupyterlab/services';
+import { Kernel } from '@jupyterlab/services';
 import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
 import * as os from 'os';
@@ -35,8 +35,8 @@ import {
 import { IServiceContainer } from '../../ioc/types';
 import { captureTelemetry } from '../../telemetry';
 import { Telemetry } from '../constants';
+import { IConnection, IJupyterExecution, IJupyterKernelSpec, IJupyterSessionManager, INotebookServer } from '../types';
 import { JupyterConnection, JupyterServerInfo } from './jupyterConnection';
-import { IConnection, IJupyterExecution, IJupyterKernelSpec, INotebookServer, IJupyterSessionManager } from '../types';
 import { JupyterKernelSpec } from './jupyterKernelSpec';
 
 const CheckJupyterRegEx = IS_WINDOWS ? /^jupyter?\.exe$/ : /^jupyter?$/;

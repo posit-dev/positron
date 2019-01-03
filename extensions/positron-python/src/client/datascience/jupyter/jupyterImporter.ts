@@ -5,14 +5,10 @@ import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
 import * as os from 'os';
 import * as path from 'path';
-import { Disposable } from 'vscode-jsonrpc';
 import { IWorkspaceService } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
-import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { IConfigurationService, IDisposableRegistry } from '../../common/types';
-import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
-import { IInterpreterService } from '../../interpreter/contracts';
 import { CodeSnippits } from '../constants';
 import { IJupyterExecution, INotebookImporter } from '../types';
 
@@ -33,8 +29,8 @@ export class JupyterImporter implements INotebookImporter {
 {{ cell.source | comment_lines }}
 {% endblock markdowncell %}`;
 
-    private templatePromise : Promise<string>;
-    
+    private templatePromise: Promise<string>;
+
     constructor(
         @inject(IFileSystem) private fileSystem: IFileSystem,
         @inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry,

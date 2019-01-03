@@ -39,7 +39,7 @@ import {
     ILogger,
     IPathUtils,
     IPersistentStateFactory,
-    IsWindows,
+    IsWindows
 } from '../../client/common/types';
 import { noop } from '../../client/common/utils/misc';
 import { EnvironmentVariablesService } from '../../client/common/variables/environment';
@@ -128,16 +128,17 @@ import {
 import { IPythonInPathCommandProvider } from '../../client/interpreter/locators/types';
 import { VirtualEnvironmentManager } from '../../client/interpreter/virtualEnvs';
 import { IVirtualEnvironmentManager } from '../../client/interpreter/virtualEnvs/types';
+import { MockAutoSelectionService } from '../mocks/autoSelector';
 import { UnitTestIocContainer } from '../unittests/serviceRegistry';
 import { MockCommandManager } from './mockCommandManager';
 import { MockJupyterManager } from './mockJupyterManager';
 
 export class DataScienceIocContainer extends UnitTestIocContainer {
 
-    private pythonSettings: PythonSettings = new PythonSettings();
-    private commandManager : MockCommandManager = new MockCommandManager();
-    private setContexts : { [name: string] : boolean } = {};
-    private contextSetEvent : EventEmitter<{name: string; value: boolean}> = new EventEmitter<{name: string; value: boolean}>();
+    private pythonSettings: PythonSettings = new PythonSettings(undefined, new MockAutoSelectionService());
+    private commandManager: MockCommandManager = new MockCommandManager();
+    private setContexts: { [name: string]: boolean } = {};
+    private contextSetEvent: EventEmitter<{ name: string; value: boolean }> = new EventEmitter<{ name: string; value: boolean }>();
     private jupyterMock: MockJupyterManager | undefined;
     private shouldMockJupyter: boolean;
     private asyncRegistry: AsyncDisposableRegistry;
@@ -149,11 +150,11 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         this.asyncRegistry = new AsyncDisposableRegistry();
     }
 
-    public get onContextSet() : Event<{name: string; value: boolean}> {
+    public get onContextSet(): Event<{ name: string; value: boolean }> {
         return this.contextSetEvent.event;
     }
 
-    public async dispose() : Promise<void> {
+    public async dispose(): Promise<void> {
         await this.asyncRegistry.dispose();
         await super.dispose();
     }
@@ -176,7 +177,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         // Setup our command list
         this.commandManager.registerCommand('setContext', (name: string, value: boolean) => {
             this.setContexts[name] = value;
-            this.contextSetEvent.fire({name: name, value: value});
+            this.contextSetEvent.fire({ name: name, value: value });
         });
         this.serviceManager.addSingletonInstance<ICommandManager>(ICommandManager, this.commandManager);
 
@@ -238,17 +239,17 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             return new MockFileSystemWatcher();
         });
         workspaceService
-        .setup(w => w.hasWorkspaceFolders)
-        .returns(() => true);
+            .setup(w => w.hasWorkspaceFolders)
+            .returns(() => true);
         const testWorkspaceFolder = path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'datascience');
         const workspaceFolder = this.createMoqWorkspaceFolder(testWorkspaceFolder);
         workspaceService
-        .setup(w => w.workspaceFolders)
-        .returns(() => [workspaceFolder]);
+            .setup(w => w.workspaceFolders)
+            .returns(() => [workspaceFolder]);
         workspaceService.setup(w => w.rootPath).returns(() => '~');
 
         const systemVariables: SystemVariables = new SystemVariables(undefined);
-        const env = {...systemVariables};
+        const env = { ...systemVariables };
 
         // Look on the path for python
         const pythonPath = this.findPythonPath();
@@ -291,11 +292,8 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         this.serviceManager.addSingleton<IInterpreterLocatorService>(IInterpreterLocatorService, WorkspaceVirtualEnvService, WORKSPACE_VIRTUAL_ENV_SERVICE);
         this.serviceManager.addSingleton<IInterpreterLocatorService>(IInterpreterLocatorService, PipEnvService, PIPENV_SERVICE);
         this.serviceManager.addSingleton<IInterpreterLocatorService>(IPipEnvService, PipEnvService);
+        this.serviceManager.addSingleton<IInterpreterLocatorService>(IInterpreterLocatorService, WindowsRegistryService, WINDOWS_REGISTRY_SERVICE);
 
-        const isWindows = this.serviceManager.get<boolean>(IsWindows);
-        if (isWindows) {
-            this.serviceManager.addSingleton<IInterpreterLocatorService>(IInterpreterLocatorService, WindowsRegistryService, WINDOWS_REGISTRY_SERVICE);
-        }
         this.serviceManager.addSingleton<IInterpreterLocatorService>(IInterpreterLocatorService, KnownPathsService, KNOWN_PATH_SERVICE);
 
         this.serviceManager.addSingleton<IInterpreterHelper>(IInterpreterHelper, InterpreterHelper);
@@ -307,6 +305,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
 
         this.serviceManager.addSingleton<IPythonPathUpdaterServiceFactory>(IPythonPathUpdaterServiceFactory, PythonPathUpdaterServiceFactory);
         this.serviceManager.addSingleton<IPythonPathUpdaterServiceManager>(IPythonPathUpdaterServiceManager, PythonPathUpdaterService);
+        this.serviceManager.addSingleton<IRegistry>(IRegistry, RegistryImplementation);
 
         const currentProcess = new CurrentProcess();
         this.serviceManager.addSingletonInstance<ICurrentProcess>(ICurrentProcess, currentProcess);
@@ -326,9 +325,9 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         }
         this.serviceManager.addSingleton<ITerminalActivationCommandProvider>(
             ITerminalActivationCommandProvider, Bash, 'bashCShellFish');
-            this.serviceManager.addSingleton<ITerminalActivationCommandProvider>(
+        this.serviceManager.addSingleton<ITerminalActivationCommandProvider>(
             ITerminalActivationCommandProvider, CommandPromptAndPowerShell, 'commandPromptAndPowerShell');
-            this.serviceManager.addSingleton<ITerminalActivationCommandProvider>(
+        this.serviceManager.addSingleton<ITerminalActivationCommandProvider>(
             ITerminalActivationCommandProvider, PyEnvActivationCommandProvider, 'pyenv');
 
         const dummyDisposable = {
@@ -353,7 +352,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         return folder.object;
     }
 
-    public getContext(name: string) : boolean {
+    public getContext(name: string): boolean {
         if (this.setContexts.hasOwnProperty(name)) {
             return this.setContexts[name];
         }
@@ -365,7 +364,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         this.pythonSettings.emit('change');
     }
 
-    public get mockJupyter() : MockJupyterManager | undefined {
+    public get mockJupyter(): MockJupyterManager | undefined {
         return this.jupyterMock;
     }
 

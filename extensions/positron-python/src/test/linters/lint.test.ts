@@ -114,7 +114,7 @@ suite('Linting - General Tests', () => {
     });
     suiteTeardown(closeActiveWindows);
     teardown(async () => {
-        ioc.dispose();
+        await ioc.dispose();
         await closeActiveWindows();
         await resetSettings();
         await deleteFile(path.join(workspaceUri.fsPath, '.pylintrc'));
