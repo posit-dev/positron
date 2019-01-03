@@ -30,7 +30,7 @@ suite('Unit Tests - pytest - run with mocked process output', () => {
         initializeDI();
     });
     teardown(async () => {
-        ioc.dispose();
+        await ioc.dispose();
         await updateSetting('unitTest.pyTestArgs', [], rootWorkspaceUri, configTarget);
     });
 
@@ -78,7 +78,7 @@ suite('Unit Tests - pytest - run with mocked process output', () => {
         await injectTestRunOutput('one.xml');
         await updateSetting('unitTest.pyTestArgs', ['-k=test_'], rootWorkspaceUri, configTarget);
         const factory = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory);
-        const testManager = factory('pytest', rootWorkspaceUri, UNITTEST_TEST_FILES_PATH);
+        const testManager = factory('pytest', rootWorkspaceUri!, UNITTEST_TEST_FILES_PATH);
         const results = await testManager.runTest(CommandSource.ui);
         assert.equal(results.summary.errors, 0, 'Errors');
         assert.equal(results.summary.failures, 9, 'Failures');
@@ -92,7 +92,7 @@ suite('Unit Tests - pytest - run with mocked process output', () => {
         await injectTestRunOutput('two.again.xml', true);
         await updateSetting('unitTest.pyTestArgs', ['-k=test_'], rootWorkspaceUri, configTarget);
         const factory = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory);
-        const testManager = factory('pytest', rootWorkspaceUri, UNITTEST_TEST_FILES_PATH);
+        const testManager = factory('pytest', rootWorkspaceUri!, UNITTEST_TEST_FILES_PATH);
         let results = await testManager.runTest(CommandSource.ui);
         assert.equal(results.summary.errors, 0, 'Errors');
         assert.equal(results.summary.failures, 9, 'Failures');
@@ -111,7 +111,7 @@ suite('Unit Tests - pytest - run with mocked process output', () => {
         await injectTestRunOutput('three.xml');
         await updateSetting('unitTest.pyTestArgs', ['-k=test_'], rootWorkspaceUri, configTarget);
         const factory = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory);
-        const testManager = factory('pytest', rootWorkspaceUri, UNITTEST_TEST_FILES_PATH);
+        const testManager = factory('pytest', rootWorkspaceUri!, UNITTEST_TEST_FILES_PATH);
         await testManager.discoverTests(CommandSource.ui, true, true);
         const testFile: TestFile = {
             fullPath: path.join(UNITTEST_TEST_FILES_PATH, 'tests', 'test_another_pytest.py'),
@@ -135,7 +135,7 @@ suite('Unit Tests - pytest - run with mocked process output', () => {
         await injectTestRunOutput('four.xml');
         await updateSetting('unitTest.pyTestArgs', ['-k=test_'], rootWorkspaceUri, configTarget);
         const factory = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory);
-        const testManager = factory('pytest', rootWorkspaceUri, UNITTEST_TEST_FILES_PATH);
+        const testManager = factory('pytest', rootWorkspaceUri!, UNITTEST_TEST_FILES_PATH);
         const tests = await testManager.discoverTests(CommandSource.ui, true, true);
         const testSuite: TestsToRun = { testFile: [], testFolder: [], testFunction: [], testSuite: [tests.testSuites[0].testSuite] };
         const results = await testManager.runTest(CommandSource.ui, testSuite);
@@ -150,7 +150,7 @@ suite('Unit Tests - pytest - run with mocked process output', () => {
         await injectTestRunOutput('five.xml');
         await updateSetting('unitTest.pyTestArgs', ['-k=test_'], rootWorkspaceUri, configTarget);
         const factory = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory);
-        const testManager = factory('pytest', rootWorkspaceUri, UNITTEST_TEST_FILES_PATH);
+        const testManager = factory('pytest', rootWorkspaceUri!, UNITTEST_TEST_FILES_PATH);
         const tests = await testManager.discoverTests(CommandSource.ui, true, true);
         const testFn: TestsToRun = { testFile: [], testFolder: [], testFunction: [tests.testFunctions[0].testFunction], testSuite: [] };
         const results = await testManager.runTest(CommandSource.ui, testFn);
