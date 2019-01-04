@@ -6,10 +6,12 @@ import './cell.css';
 import { nbformat } from '@jupyterlab/coreutils';
 import ansiToHtml from 'ansi-to-html';
 import * as React from 'react';
+// tslint:disable-next-line:match-default-export-name import-name
 import JSONTree from 'react-json-tree';
 
-import { concatMultilineString } from '../../client/datascience/common';
+import { concatMultilineString, formatStreamText } from '../../client/datascience/common';
 import { CellState, ICell } from '../../client/datascience/types';
+import { noop } from '../../test/core';
 import { getLocString } from '../react-common/locReactSide';
 import { CellButton } from './cellButton';
 import { Code } from './code';
@@ -20,7 +22,6 @@ import { MenuBar } from './menuBar';
 import { SysInfo } from './sysInfo';
 import { displayOrder, richestMimetype, transforms } from './transforms';
 
-// tslint:disable-next-line:match-default-export-name import-name
 interface ICellProps {
     cellVM: ICellViewModel;
     theme: string;
@@ -210,11 +211,29 @@ export class Cell extends React.Component<ICellProps> {
 
         // Stream and error output need to be converted
         if (copy.output_type === 'stream') {
+            // Stream output needs to be wrapped in xmp so it
+            // show literally. Otherwise < chars start a new html element.
             const stream = copy as nbformat.IStream;
-            const text = concatMultilineString(stream.text);
+            const multiline = concatMultilineString(stream.text);
+            const formatted = formatStreamText(multiline);
             copy.data = {
-                'text/html' : text
+                'text/html' : `<xmp>${formatted}</xmp>`
             };
+
+            // Output may have goofy ascii colorization chars in it. Try
+            // colorizing if we don't have html that needs <xmp> around it (ex. <type ='string'>)
+            try {
+                if (formatted.includes('<')) {
+                    const converter = new ansiToHtml();
+                    const html = converter.toHtml(formatted);
+                    copy.data = {
+                        'text/html': html
+                    };
+                }
+            } catch {
+                noop();
+            }
+
         } else if (copy.output_type === 'error') {
             const error = copy as nbformat.IError;
             try {
