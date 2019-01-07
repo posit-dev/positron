@@ -68,6 +68,7 @@ suite('Unit Tests - unittest - run with mocked process output', () => {
 
         // Standard unit test stypes.
         ioc.registerTestDiscoveryServices();
+        ioc.registerTestDiagnosticServices();
         ioc.registerTestManagers();
         ioc.registerTestManagerService();
         ioc.registerTestParsers();
