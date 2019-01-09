@@ -5,9 +5,11 @@
 
 import { inject, injectable } from 'inversify';
 import {
-    ConfigurationChangeEvent, Disposable,
-    OutputChannel, Uri
+    ConfigurationChangeEvent,
+    Disposable, OutputChannel, Uri
 } from 'vscode';
+import { LSNotSupportedDiagnosticServiceId } from '../application/diagnostics/checks/lsNotSupported';
+import { IDiagnosticsService } from '../application/diagnostics/types';
 import {
     IApplicationShell, ICommandManager,
     IWorkspaceService
@@ -23,8 +25,7 @@ import { sendTelemetryEvent } from '../telemetry';
 import { PYTHON_LANGUAGE_SERVER_PLATFORM_NOT_SUPPORTED } from '../telemetry/constants';
 import {
     ExtensionActivators, IExtensionActivationService,
-    IExtensionActivator,
-    ILanguageServerCompatibilityService
+    IExtensionActivator
 } from './types';
 
 const jediEnabledSetting: keyof IPythonSettings = 'jediEnabled';
@@ -36,13 +37,13 @@ export class ExtensionActivationService implements IExtensionActivationService, 
     private readonly workspaceService: IWorkspaceService;
     private readonly output: OutputChannel;
     private readonly appShell: IApplicationShell;
+    private readonly lsNotSupportedDiagnosticService: IDiagnosticsService;
 
-    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer,
-        @inject(ILanguageServerCompatibilityService) private readonly lsCompatibility: ILanguageServerCompatibilityService) {
+    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
         this.workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         this.output = this.serviceContainer.get<OutputChannel>(IOutputChannel, STANDARD_OUTPUT_CHANNEL);
         this.appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
-
+        this.lsNotSupportedDiagnosticService = this.serviceContainer.get<IDiagnosticsService>(IDiagnosticsService, LSNotSupportedDiagnosticServiceId);
         const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         disposables.push(this);
         disposables.push(this.workspaceService.onDidChangeConfiguration(this.onDidChangeConfiguration.bind(this)));
@@ -54,10 +55,13 @@ export class ExtensionActivationService implements IExtensionActivationService, 
         }
 
         let jedi = this.useJedi();
-        if (!jedi && !await this.lsCompatibility.isSupported()) {
-            this.appShell.showWarningMessage('The Python Language Server is not supported on your platform.');
-            sendTelemetryEvent(PYTHON_LANGUAGE_SERVER_PLATFORM_NOT_SUPPORTED);
-            jedi = true;
+        if (!jedi) {
+            const diagnostic = await this.lsNotSupportedDiagnosticService.diagnose();
+            this.lsNotSupportedDiagnosticService.handle(diagnostic).ignoreErrors();
+            if (diagnostic.length){
+                sendTelemetryEvent(PYTHON_LANGUAGE_SERVER_PLATFORM_NOT_SUPPORTED);
+                jedi = true;
+            }
         }
 
         await this.logStartup(jedi);
