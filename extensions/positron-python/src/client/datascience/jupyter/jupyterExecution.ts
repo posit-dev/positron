@@ -243,7 +243,7 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
                 return result;
             } catch (err) {
                 // Something else went wrong
-                throw new Error(localize.DataScience.jupyterNotebookConnectFailed().format(connection.baseUrl));
+                throw new Error(localize.DataScience.jupyterNotebookConnectFailed().format(connection.baseUrl, err));
             }
         }, cancelToken);
     }

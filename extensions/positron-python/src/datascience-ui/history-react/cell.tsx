@@ -51,8 +51,8 @@ export class Cell extends React.Component<ICellProps> {
     }
 
     // Public for testing
-    public getUnknownMimeTypeString = () => {
-        return getLocString('DataScience.unknownMimeType', 'Unknown Mime Type');
+    public getUnknownMimeTypeFormatString = () => {
+        return getLocString('DataScience.unknownMimeTypeFormat', 'Unknown Mime Type');
     }
 
     private toggleInputBlock = () => {
@@ -169,7 +169,7 @@ export class Cell extends React.Component<ICellProps> {
             const Transform = transforms[mimetype];
 
             if (typeof mimetype !== 'string') {
-                return <div key={index}>{this.getUnknownMimeTypeString()}</div>;
+                return <div key={index}>{this.getUnknownMimeTypeFormatString().format(mimetype)}</div>;
             }
 
             try {
@@ -261,7 +261,7 @@ export class Cell extends React.Component<ICellProps> {
             return this.renderWithTransform(mimetype, copy, index);
         }
 
-        const str : string = this.getUnknownMimeTypeString();
+        const str : string = this.getUnknownMimeTypeFormatString().format(mimetype);
         return <div key={index}>${str}</div>;
     }
 }

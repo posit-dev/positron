@@ -47,7 +47,7 @@ export namespace DataScience {
     export const historyTitle = localize('DataScience.historyTitle', 'Python Interactive');
     export const badWebPanelFormatString = localize('DataScience.badWebPanelFormatString', '<html><body><h1>{0} is not a valid file name</h1></body></html>');
     export const sessionDisposed = localize('DataScience.sessionDisposed', 'Cannot execute code, session has been disposed.');
-    export const unknownMimeType = localize('DataScience.unknownMimeType', 'Unknown mime type for data');
+    export const unknownMimeTypeFormat = localize('DataScience.unknownMimeTypeFormat', 'Mime type {0} is not currently supported');
     export const exportDialogTitle = localize('DataScience.exportDialogTitle', 'Export to Jupyter Notebook');
     export const exportDialogFilter = localize('DataScience.exportDialogFilter', 'Jupyter Notebooks');
     export const exportDialogComplete = localize('DataScience.exportDialogComplete', 'Notebook written to {0}');
@@ -94,7 +94,7 @@ export namespace DataScience {
     export const jupyterSelectURIPrompt = localize('DataScience.jupyterSelectURIPrompt', 'Enter the URI of a Jupyter server');
     export const jupyterSelectURIInvalidURI = localize('DataScience.jupyterSelectURIInvalidURI', 'Invalid URI specified');
     export const jupyterNotebookFailure = localize('DataScience.jupyterNotebookFailure', 'Jupyter notebook failed to launch. \r\n{0}');
-    export const jupyterNotebookConnectFailed = localize('DataScience.jupyterNotebookConnectFailed', 'Failed to connect to Jupyter notebook. \r\n{0}');
+    export const jupyterNotebookConnectFailed = localize('DataScience.jupyterNotebookConnectFailed', 'Failed to connect to Jupyter notebook. \r\n{0}\r\n{1}');
     export const notebookVersionFormat = localize('DataScience.notebookVersionFormat', 'Jupyter Notebook Version: {0}');
     //tslint:disable-next-line:no-multiline-string
     export const jupyterKernelNotSupportedOnActive = localize('DataScience.jupyterKernelNotSupportedOnActive', `iPython kernel cannot be started from '{0}'. Using closest match {1} instead.`);
