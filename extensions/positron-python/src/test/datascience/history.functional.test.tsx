@@ -454,7 +454,7 @@ for _ in range(50):
         // Our cell should have been rendered. It should have a method to get a loc string
         const cellFound = wrapper.find('Cell');
         const cell = cellFound.at(0).instance() as Cell;
-        assert.equal(cell.getUnknownMimeTypeString(), 'Unknown mime type from helper', 'Unknown mime type did not come from script');
+        assert.equal(cell.getUnknownMimeTypeFormatString(), 'Mime type {0} is not currently supported', 'Unknown mime type did not come from script');
     });
 
     test('Dispose test', async () => {
