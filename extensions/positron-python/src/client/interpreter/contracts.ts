@@ -62,7 +62,7 @@ export enum InterpreterType {
     Unknown = 'Unknown',
     Conda = 'Conda',
     VirtualEnv = 'VirtualEnv',
-    PipEnv = 'PipEnv',
+    Pipenv = 'PipEnv',
     Pyenv = 'Pyenv',
     Venv = 'Venv'
 }

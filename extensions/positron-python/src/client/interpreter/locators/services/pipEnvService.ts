@@ -67,7 +67,7 @@ export class PipEnvService extends CacheableLocatorService implements IPipEnvSer
         return {
             ...(details as PythonInterpreter),
             path: interpreterPath,
-            type: InterpreterType.PipEnv
+            type: InterpreterType.Pipenv
         };
     }
 
