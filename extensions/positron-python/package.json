@@ -989,6 +989,11 @@
                     "description": "Amount of time (in ms) to wait for an interrupt before asking to restart the Jupyter kernel.",
                     "scope": "resource"
                 },
+                "python.dataScience.allowInput": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Allow the inputting of python code directly into the Python Interactive window (currently under development)"
+                },
                 "python.dataScience.showCellInputCode": {
                     "type": "boolean",
                     "default": true,
@@ -1841,6 +1846,7 @@
     },
     "dependencies": {
         "@jupyterlab/services": "^3.1.4",
+        "@types/strip-json-comments": "0.0.30",
         "arch": "^2.1.0",
         "azure-storage": "^2.10.1",
         "diff-match-patch": "^1.0.0",
@@ -1866,6 +1872,7 @@
         "rxjs": "^5.5.9",
         "semver": "^5.5.0",
         "stack-trace": "0.0.10",
+        "strip-json-comments": "^2.0.1",
         "sudo-prompt": "^8.2.0",
         "tmp": "^0.0.29",
         "tree-kill": "^1.2.0",
@@ -1913,9 +1920,9 @@
         "@types/md5": "^2.1.32",
         "@types/mocha": "^2.2.48",
         "@types/node": "9.4.7",
-        "@types/prismjs": "^1.9.0",
         "@types/promisify-node": "^0.4.0",
         "@types/react": "^16.4.14",
+        "@types/react-codemirror": "^1.0.2",
         "@types/react-dom": "^16.0.8",
         "@types/react-json-tree": "^0.6.8",
         "@types/request": "^2.47.0",
@@ -1934,7 +1941,6 @@
         "awesome-typescript-loader": "^5.2.1",
         "babel-loader": "^8.0.3",
         "babel-plugin-inline-json-import": "^0.3.1",
-        "babel-plugin-prismjs": "^1.0.2",
         "babel-plugin-transform-runtime": "^6.23.0",
         "babel-polyfill": "^6.26.0",
         "chai": "^4.1.2",
@@ -1972,9 +1978,9 @@
         "mocha-junit-reporter": "^1.17.0",
         "node-has-native-dependencies": "^1.0.2",
         "nyc": "^13.1.0",
-        "prismjs": "^1.15.0",
         "raw-loader": "^0.5.1",
         "react": "^16.5.2",
+        "react-codemirror": "^1.0.0",
         "react-dev-utils": "^5.0.2",
         "react-dom": "^16.5.2",
         "react-json-tree": "^0.11.0",

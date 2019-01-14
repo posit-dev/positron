@@ -27,7 +27,6 @@ import { Architecture } from '../../client/common/utils/platform';
 import { EditorContexts, HistoryMessages } from '../../client/datascience/constants';
 import { IHistoryProvider, IJupyterExecution } from '../../client/datascience/types';
 import { InterpreterType, PythonInterpreter } from '../../client/interpreter/contracts';
-import { Cell } from '../../datascience-ui/history-react/cell';
 import { CellButton } from '../../datascience-ui/history-react/cellButton';
 import { MainPanel } from '../../datascience-ui/history-react/MainPanel';
 import { IVsCodeApi } from '../../datascience-ui/react-common/postOffice';
@@ -156,7 +155,7 @@ suite('History output tests', () => {
             addMockData('a=1\na', 1);
             if (await jupyterExecution.isNotebookSupported()) {
                 // Create our main panel and tie it into the JSDOM. Ignore progress so we only get a single render
-                const wrapper = mount(<MainPanel theme='vscode-light' ignoreProgress={true} skipDefault={true} ignoreSysInfo={true} ignoreScrolling={true} />);
+                const wrapper = mount(<MainPanel baseTheme='vscode-light' codeTheme='light_vs' testMode={true} skipDefault={true} />);
                 try {
                     await testFunc(wrapper);
                 } finally {

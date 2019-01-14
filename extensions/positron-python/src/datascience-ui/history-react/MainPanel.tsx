@@ -17,15 +17,15 @@ import { getSettings, updateSettings } from '../react-common/settingsReactSide';
 import { Cell, ICellViewModel } from './cell';
 import { CellButton } from './cellButton';
 import { Image, ImageName } from './image';
+import { InputCell } from './inputCell';
 import { createCellVM, generateTestState, IMainPanelState } from './mainPanelState';
 import { MenuBar } from './menuBar';
 
 export interface IMainPanelProps {
     skipDefault?: boolean;
-    ignoreProgress? : boolean;
-    ignoreSysInfo? : boolean;
-    ignoreScrolling? : boolean;
-    theme: string;
+    testMode?: boolean;
+    baseTheme: string;
+    codeTheme: string;
 }
 
 export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState> implements IMessageHandler {
@@ -55,41 +55,42 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
 
     public render() {
 
-        const progressBar = this.state.busy && !this.props.ignoreProgress ? <Progress /> : undefined;
+        const progressBar = this.state.busy && !this.props.testMode ? <Progress /> : undefined;
 
         return (
             <div className='main-panel'>
                 <PostOffice messageHandlers={[this]} />
-                <MenuBar theme={this.props.theme} stylePosition='top-fixed'>
+                <MenuBar baseTheme={this.props.baseTheme} stylePosition='top-fixed'>
                     {this.renderExtraButtons()}
-                    <CellButton theme={this.props.theme} onClick={this.collapseAll} disabled={!this.canCollapseAll()} tooltip={getLocString('DataScience.collapseAll', 'Collapse all cell inputs')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.CollapseAll}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.collapseAll} disabled={!this.canCollapseAll()} tooltip={getLocString('DataScience.collapseAll', 'Collapse all cell inputs')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.CollapseAll}/>
                     </CellButton>
-                    <CellButton theme={this.props.theme} onClick={this.expandAll} disabled={!this.canExpandAll()} tooltip={getLocString('DataScience.expandAll', 'Expand all cell inputs')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.ExpandAll}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.expandAll} disabled={!this.canExpandAll()} tooltip={getLocString('DataScience.expandAll', 'Expand all cell inputs')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.ExpandAll}/>
                     </CellButton>
-                    <CellButton theme={this.props.theme} onClick={this.export} disabled={!this.canExport()} tooltip={getLocString('DataScience.export', 'Export as Jupyter Notebook')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.SaveAs}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.export} disabled={!this.canExport()} tooltip={getLocString('DataScience.export', 'Export as Jupyter Notebook')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.SaveAs}/>
                     </CellButton>
-                    <CellButton theme={this.props.theme} onClick={this.restartKernel} tooltip={getLocString('DataScience.restartServer', 'Restart iPython Kernel')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.Restart}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.restartKernel} tooltip={getLocString('DataScience.restartServer', 'Restart iPython Kernel')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.Restart}/>
                     </CellButton>
-                    <CellButton theme={this.props.theme} onClick={this.interruptKernel} tooltip={getLocString('DataScience.interruptKernel', 'Interrupt iPython Kernel')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.Interrupt}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.interruptKernel} tooltip={getLocString('DataScience.interruptKernel', 'Interrupt iPython Kernel')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.Interrupt}/>
                     </CellButton>
-                    <CellButton theme={this.props.theme} onClick={this.undo} disabled={!this.canUndo()} tooltip={getLocString('DataScience.undo', 'Undo')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.Undo}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.undo} disabled={!this.canUndo()} tooltip={getLocString('DataScience.undo', 'Undo')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.Undo}/>
                     </CellButton>
-                    <CellButton theme={this.props.theme} onClick={this.redo} disabled={!this.canRedo()} tooltip={getLocString('DataScience.redo', 'Redo')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.Redo}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.redo} disabled={!this.canRedo()} tooltip={getLocString('DataScience.redo', 'Redo')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.Redo}/>
                     </CellButton>
-                    <CellButton theme={this.props.theme} onClick={this.clearAll} tooltip={getLocString('DataScience.clearAll', 'Remove All Cells')}>
-                        <Image theme={this.props.theme} class='cell-button-image' image={ImageName.Cancel}/>
+                    <CellButton baseTheme={this.props.baseTheme} onClick={this.clearAll} tooltip={getLocString('DataScience.clearAll', 'Remove All Cells')}>
+                        <Image baseTheme={this.props.baseTheme} class='cell-button-image' image={ImageName.Cancel}/>
                     </CellButton>
                 </MenuBar>
                 <div className='top-spacing'/>
                 {progressBar}
                 {this.renderCells()}
+                {this.renderInput()}
                 <div ref={this.updateBottom}/>
             </div>
         );
@@ -135,13 +136,13 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                 return true;
 
             case HistoryMessages.StartProgress:
-                if (!this.props.ignoreProgress) {
+                if (!this.props.testMode) {
                     this.setState({busy: true});
                 }
                 break;
 
             case HistoryMessages.StopProgress:
-                if (!this.props.ignoreProgress) {
+                if (!this.props.testMode) {
                     this.setState({busy: false});
                 }
                 break;
@@ -183,7 +184,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
 
     private renderExtraButtons = () => {
         if (!this.props.skipDefault) {
-            return <CellButton theme={this.props.theme} onClick={this.addMarkdown} tooltip='Add Markdown Test'>M</CellButton>;
+            return <CellButton baseTheme={this.props.baseTheme} onClick={this.addMarkdown} tooltip='Add Markdown Test'>M</CellButton>;
         }
 
         return null;
@@ -193,12 +194,28 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
         return this.state.cellVMs.map((cellVM: ICellViewModel, index: number) =>
             <ErrorBoundary key={index}>
                 <Cell
+                    testMode={this.props.testMode}
                     cellVM={cellVM}
-                    theme={this.props.theme}
+                    baseTheme={this.props.baseTheme}
+                    codeTheme={this.props.codeTheme}
                     gotoCode={() => this.gotoCellCode(index)}
                     delete={() => this.deleteCell(index)}/>
             </ErrorBoundary>
         );
+    }
+
+    private renderInput = () => {
+        if (getSettings && getSettings().allowInput) {
+            const realCells = this.state.cellVMs.filter(c => c.cell.data.cell_type !== 'sys_info');
+            const inputExecutionCount = realCells && realCells.length > 0 ? parseInt(realCells[realCells.length - 1].cell.data.execution_count.toString(), 10) + 1 : 1;
+            return (
+                <ErrorBoundary>
+                    <InputCell baseTheme={this.props.baseTheme} testMode={this.props.testMode} codeTheme={this.props.codeTheme} onSubmit={this.submitInput} count={inputExecutionCount.toString()} />
+                </ErrorBoundary>
+            );
+        } else {
+            return null;
+        }
     }
 
     private addMarkdown = () => {
@@ -348,7 +365,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     }
 
     private scrollToBottom = () => {
-        if (this.bottom && this.bottom.scrollIntoView && !this.state.skipNextScroll && !this.props.ignoreScrolling) {
+        if (this.bottom && this.bottom.scrollIntoView && !this.state.skipNextScroll && !this.props.testMode) {
             // Delay this until we are about to render. React hasn't setup the size of the bottom element
             // yet so we need to delay. 10ms looks good from a user point of view
             setTimeout(() => {
@@ -513,7 +530,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     }
 
     private isCellSupported(cell: ICell) : boolean {
-        return !this.props.ignoreSysInfo || cell.data.cell_type !== 'sys_info';
+        return !this.props.testMode || cell.data.cell_type !== 'sys_info';
     }
 
     // tslint:disable-next-line:no-any
@@ -534,5 +551,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                 this.updateOrAdd(cell, false);
             }
         }
+    }
+
+    private submitInput = (code: string) => {
+        PostOffice.sendMessage({ type: HistoryMessages.SubmitNewCell, payload: code });
     }
 }
