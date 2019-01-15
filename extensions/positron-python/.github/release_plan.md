@@ -19,7 +19,7 @@
   - [ ] `package.json`
   - [ ] `package-lock.json`
 - [ ] Announce the code freeze is over
-- Update [Component Governance](https://vscode-python.visualstudio.com/VSCode-Python/)
+- [ ] Update [Component Governance](https://vscode-python.visualstudio.com/VSCode-Python/)
   - [ ] Provide details for any automatically detected npm dependencies
   - [ ] Manually add any PyPI or repository dependencies
 - [ ] Open appropriate [documentation issues](https://github.com/microsoft/vscode-docs/issues?q=is%3Aissue+is%3Aopen+label%3Apython)
@@ -55,7 +55,7 @@
 - [ ] Merge `release` back into `master`
 
 ## Prep for the _next_ release
-- [ ] Bump the [version](https://github.com/Microsoft/vscode-python/blob/master/package.json) number to the next `alpha`
+- [ ] Bump the [version](https://github.com/Microsoft/vscode-python/blob/master/package.json) number to the next `dev`
 - [ ] Create a new [release plan](https://github.com/Microsoft/vscode-python/edit/master/.github/release_plan.md)
 
 ## Clean up after _this_ release
