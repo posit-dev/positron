@@ -1542,7 +1542,7 @@
                     "type": "string",
                     "default": "pipenv",
                     "description": "Path to the pipenv executable to use for activation.",
-                    "scope": "window"
+                    "scope": "resource"
                 },
                 "python.sortImports.args": {
                     "type": "array",
@@ -1929,6 +1929,7 @@
         "@types/semver": "^5.5.0",
         "@types/shortid": "^0.0.29",
         "@types/sinon": "^4.3.0",
+        "@types/stack-trace": "0.0.29",
         "@types/temp": "^0.8.32",
         "@types/tmp": "0.0.33",
         "@types/untildify": "^3.0.0",
@@ -1987,6 +1988,7 @@
         "relative": "^3.0.2",
         "remap-istanbul": "^0.10.1",
         "retyped-diff-match-patch-tsd-ambient": "^1.0.0-0",
+        "rewiremock": "^3.13.0",
         "shortid": "^2.2.8",
         "source-map-support": "^0.5.9",
         "style-loader": "^0.23.1",
