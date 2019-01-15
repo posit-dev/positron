@@ -8,7 +8,7 @@ import { Observable } from 'rxjs/Observable';
 import { CancellationToken, CodeLens, CodeLensProvider, Disposable, Event, Range, TextDocument, TextEditor } from 'vscode';
 
 import { ICommandManager } from '../common/application/types';
-import { IDisposable } from '../common/types';
+import { IAsyncDisposable, IDisposable } from '../common/types';
 import { PythonInterpreter } from '../interpreter/contracts';
 
 // Main interface
@@ -62,7 +62,7 @@ export interface IJupyterExecution {
 }
 
 export const IJupyterSession = Symbol('IJupyterSession');
-export interface IJupyterSession extends IDisposable {
+export interface IJupyterSession extends IAsyncDisposable {
     onRestarted: Event<void>;
     restart() : Promise<void>;
     interrupt() : Promise<void>;

@@ -7,12 +7,13 @@ import * as path from 'path';
 import * as TypeMoq from 'typemoq';
 import { Disposable, Event, EventEmitter, FileSystemWatcher, Uri, WorkspaceConfiguration, WorkspaceFolder } from 'vscode';
 
+import { TerminalManager } from '../../client/common/application/terminalManager';
 import {
     IApplicationShell,
     ICommandManager,
     IDocumentManager,
-    IWorkspaceService,
     ITerminalManager,
+    IWorkspaceService,
 } from '../../client/common/application/types';
 import { AsyncDisposableRegistry } from '../../client/common/asyncDisposableRegistry';
 import { PythonSettings } from '../../client/common/configSettings';
@@ -146,7 +147,6 @@ import { MockAutoSelectionService } from '../mocks/autoSelector';
 import { UnitTestIocContainer } from '../unittests/serviceRegistry';
 import { MockCommandManager } from './mockCommandManager';
 import { MockJupyterManager } from './mockJupyterManager';
-import { TerminalManager } from '../../client/common/application/terminalManager';
 
 export class DataScienceIocContainer extends UnitTestIocContainer {
 
