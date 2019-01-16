@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+
 // tslint:disable:no-any no-multiline-string max-func-body-length no-console max-classes-per-file trailing-comma
 import { nbformat } from '@jupyterlab/coreutils';
 import { assert } from 'chai';
@@ -39,6 +40,8 @@ import {
 } from '../../client/interpreter/contracts';
 import { ICellViewModel } from '../../datascience-ui/history-react/cell';
 import { generateTestState } from '../../datascience-ui/history-react/mainPanelState';
+import { IS_VSTS } from '../ciConstants';
+import { isOs, OSType } from '../common';
 import { sleep } from '../core';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
 import { SupportedCommands } from './mockJupyterManager';
@@ -50,6 +53,7 @@ suite('Jupyter notebook tests', () => {
     let processFactory: IProcessServiceFactory;
     let ioc: DataScienceIocContainer;
     let modifiedConfig = false;
+    const isRollingBuild = process.env ? process.env.VSCODE_PYTHON_ROLLING !== undefined : false;
 
     const workingPython: PythonInterpreter = {
         path: '/foo/bar/python.exe',
@@ -98,7 +102,7 @@ suite('Jupyter notebook tests', () => {
         return path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'datascience');
     }
 
-    async function verifySimple(jupyterServer: INotebookServer | undefined, code: string, expectedValue: any) : Promise<void> {
+    async function verifySimple(jupyterServer: INotebookServer | undefined, code: string, expectedValue: any): Promise<void> {
         const cells = await jupyterServer!.execute(code, path.join(srcDirectory(), 'foo.py'), 2);
         assert.equal(cells.length, 1, `Wrong number of cells returned`);
         assert.equal(cells[0].data.cell_type, 'code', `Wrong type of cell returned`);
@@ -163,7 +167,7 @@ suite('Jupyter notebook tests', () => {
         }
     }
 
-    function testMimeTypes(types : {code: string; mimeType: string; result: any; cellType: string; verifyValue(data: any): void}[]) {
+    function testMimeTypes(types: { code: string; mimeType: string; result: any; cellType: string; verifyValue(data: any): void }[]) {
         runTest('MimeTypes', async () => {
             // Prefill with the output (This is only necessary for mocking)
             types.forEach(t => {
@@ -201,7 +205,7 @@ suite('Jupyter notebook tests', () => {
         });
     }
 
-    async function createNotebookServer(useDefaultConfig: boolean, expectFailure?: boolean) : Promise<INotebookServer | undefined> {
+    async function createNotebookServer(useDefaultConfig: boolean, expectFailure?: boolean): Promise<INotebookServer | undefined> {
         // Catch exceptions. Throw a specific assertion if the promise fails
         try {
             const testDir = path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'datascience');
@@ -227,7 +231,7 @@ suite('Jupyter notebook tests', () => {
         }
     }
 
-    function addInterruptableMockData(code: string, resultGenerator: (c: CancellationToken) => Promise<{result: string; haveMore: boolean}>) {
+    function addInterruptableMockData(code: string, resultGenerator: (c: CancellationToken) => Promise<{ result: string; haveMore: boolean }>) {
         if (ioc.mockJupyter) {
             ioc.mockJupyter.addContinuousOutputCell(code, resultGenerator);
         }
@@ -375,7 +379,13 @@ suite('Jupyter notebook tests', () => {
         }
     });
 
-    runTest('Restart kernel', async () => {
+    runTest('Restart kernel', async function () {
+        // This test is failing on Ubuntu under AzDO, but works on Travis. See issue #3973.
+        if (IS_VSTS && isRollingBuild && isOs(OSType.Linux)) {
+            // tslint:disable-next-line:no-invalid-this
+            return this.skip();
+        }
+
         addMockData(`a=1${os.EOL}a`, 1);
         addMockData(`a+=1${os.EOL}a`, 2);
         addMockData(`a+=4${os.EOL}a`, 6);
@@ -443,7 +453,13 @@ suite('Jupyter notebook tests', () => {
         return true;
     }
 
-    runTest('Cancel execution', async () => {
+    runTest('Cancel execution', async function () {
+        // This test is failing on Ubuntu under AzDO, but works on Travis. See issue #3973.
+        if (IS_VSTS && isRollingBuild && isOs(OSType.Linux)) {
+            // tslint:disable-next-line:no-invalid-this
+            return this.skip();
+        }
+
         if (ioc.mockJupyter) {
             ioc.mockJupyter.setProcessDelay(2000);
             addMockData(`a=1${os.EOL}a`, 1);
@@ -477,7 +493,7 @@ suite('Jupyter notebook tests', () => {
         assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.isImportSupported(t), 'Cancel did not cancel isImport after {0}ms', true));
     });
 
-    async function interruptExecute(server: INotebookServer | undefined, code: string, interruptMs: number, sleepMs: number) : Promise<InterruptResult> {
+    async function interruptExecute(server: INotebookServer | undefined, code: string, interruptMs: number, sleepMs: number): Promise<InterruptResult> {
         let interrupted = false;
         let finishedBefore = false;
         const finishedPromise = createDeferred();
@@ -512,9 +528,15 @@ suite('Jupyter notebook tests', () => {
         return result;
     }
 
-    runTest('Interrupt kernel', async () => {
+    runTest('Interrupt kernel', async function () {
+        // This test is failing on Ubuntu under AzDO, but works on Travis. See issue #3973.
+        if (IS_VSTS && isRollingBuild && isOs(OSType.Linux)) {
+            // tslint:disable-next-line:no-invalid-this
+            return this.skip();
+        }
+
         const returnable =
-`import signal
+            `import signal
 import _thread
 import time
 
@@ -531,7 +553,7 @@ while keep_going:
   time.sleep(.1)`;
         const fourSecondSleep = `import time${os.EOL}time.sleep(4)${os.EOL}print("foo")`;
         const kill =
-`import signal
+            `import signal
 import time
 import os
 
