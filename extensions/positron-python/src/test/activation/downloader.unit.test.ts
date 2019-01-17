@@ -13,7 +13,7 @@ import { ILanguageServerFolderService, IPlatformData } from '../../client/activa
 import { IApplicationShell } from '../../client/common/application/types';
 import { IFileSystem } from '../../client/common/platform/types';
 import { IOutputChannel } from '../../client/common/types';
-import { LanguageService } from '../../client/common/utils/localize';
+import { Common, LanguageService } from '../../client/common/utils/localize';
 
 // tslint:disable-next-line:max-func-body-length
 suite('Activation - Downloader', () => {
@@ -84,7 +84,7 @@ suite('Activation - Downloader', () => {
                 .setup(f => f.getLatestLanguageServerVersion())
                 .returns(() => Promise.resolve(pkg))
                 .verifiable(TypeMoq.Times.once());
-            appShell.setup(a => a.showErrorMessage(LanguageService.lsFailedToDownload()))
+            appShell.setup(a => a.showErrorMessage(LanguageService.lsFailedToDownload(), Common.openOutputPanel()))
                 .returns(() => Promise.resolve(undefined))
                 .verifiable(TypeMoq.Times.once());
             try {
@@ -100,7 +100,7 @@ suite('Activation - Downloader', () => {
                 .setup(f => f.getLatestLanguageServerVersion())
                 .returns(() => Promise.resolve(pkg))
                 .verifiable(TypeMoq.Times.once());
-            appShell.setup(a => a.showErrorMessage(LanguageService.lsFailedToExtract()))
+            appShell.setup(a => a.showErrorMessage(LanguageService.lsFailedToExtract(), Common.openOutputPanel()))
                 .returns(() => Promise.resolve(undefined))
                 .verifiable(TypeMoq.Times.once());
             try {
