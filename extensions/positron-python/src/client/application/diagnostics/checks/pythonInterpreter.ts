@@ -4,12 +4,10 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { ConfigurationChangeEvent, DiagnosticSeverity, Uri } from 'vscode';
-import { IWorkspaceService } from '../../../common/application/types';
+import { DiagnosticSeverity } from 'vscode';
 import '../../../common/extensions';
-import { IPlatformService } from '../../../common/platform/types';
-import { IConfigurationService, IDisposableRegistry } from '../../../common/types';
-import { IInterpreterHelper, IInterpreterService, InterpreterType } from '../../../interpreter/contracts';
+import { IConfigurationService } from '../../../common/types';
+import { IInterpreterService } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
 import { IDiagnosticsCommandFactory } from '../commands/types';
@@ -19,8 +17,6 @@ import { DiagnosticScope, IDiagnostic, IDiagnosticCommand, IDiagnosticHandlerSer
 
 const messages = {
     [DiagnosticCodes.NoPythonInterpretersDiagnostic]: 'Python is not installed. Please download and install Python before using the extension.',
-    [DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic]: 'You have selected the macOS system install of Python, which is not recommended for use with the Python extension. Some functionality will be limited, please select a different interpreter.',
-    [DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic]: 'The macOS system install of Python is not recommended, some functionality in the extension will be limited. Install another version of Python for the best experience.',
     [DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic]: 'No Python interpreter is selected. You need to select a Python interpreter to enable features such as IntelliSense, linting, and debugging.'
 };
 
@@ -34,17 +30,12 @@ export const InvalidPythonInterpreterServiceId = 'InvalidPythonInterpreterServic
 
 @injectable()
 export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
-    protected changeThrottleTimeout = 1000;
-    private timeOut?: NodeJS.Timer;
     constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer) {
         super(
             [
                 DiagnosticCodes.NoPythonInterpretersDiagnostic,
-                DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic,
-                DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic,
                 DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic
             ], serviceContainer);
-        this.addPythonPathChangedHandler();
     }
     public async diagnose(): Promise<IDiagnostic[]> {
         const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -65,24 +56,7 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
             return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic)];
         }
 
-        const platform = this.serviceContainer.get<IPlatformService>(IPlatformService);
-        if (!platform.isMac) {
-            return [];
-        }
-
-        const helper = this.serviceContainer.get<IInterpreterHelper>(IInterpreterHelper);
-        if (!helper.isMacDefaultPythonPath(settings.pythonPath)) {
-            return [];
-        }
-        if (!currentInterpreter || currentInterpreter.type !== InterpreterType.Unknown) {
-            return [];
-        }
-        const interpreters = await interpreterService.getInterpreters();
-        if (interpreters.filter(i => !helper.isMacDefaultPythonPath(i.path)).length === 0) {
-            return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic)];
-        }
-
-        return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic)];
+        return [];
     }
     public async handle(diagnostics: IDiagnostic[]): Promise<void> {
         if (diagnostics.length === 0) {
@@ -97,27 +71,6 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
             return messageService.handle(diagnostic, { commandPrompts, message: diagnostic.message });
         }));
     }
-    protected addPythonPathChangedHandler() {
-        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-        const disposables = this.serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
-        disposables.push(workspaceService.onDidChangeConfiguration(this.onDidChangeConfiguration.bind(this)));
-    }
-    protected async onDidChangeConfiguration(event: ConfigurationChangeEvent) {
-        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-        const workspacesUris: (Uri | undefined)[] = workspaceService.hasWorkspaceFolders ? workspaceService.workspaceFolders!.map(workspace => workspace.uri) : [undefined];
-        if (workspacesUris.findIndex(uri => event.affectsConfiguration('python.pythonPath', uri)) === -1) {
-            return;
-        }
-        // Lets wait, for more changes, dirty simple throttling.
-        if (this.timeOut) {
-            clearTimeout(this.timeOut);
-            this.timeOut = undefined;
-        }
-        this.timeOut = setTimeout(() => {
-            this.timeOut = undefined;
-            this.diagnose().then(dianostics => this.handle(dianostics)).ignoreErrors();
-        }, this.changeThrottleTimeout);
-    }
     private getCommandPrompts(diagnostic: IDiagnostic): { prompt: string; command?: IDiagnosticCommand }[] {
         const commandFactory = this.serviceContainer.get<IDiagnosticsCommandFactory>(IDiagnosticsCommandFactory);
         switch (diagnostic.code) {
@@ -127,21 +80,10 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
                     command: commandFactory.createCommand(diagnostic, { type: 'launch', options: 'https://www.python.org/downloads' })
                 }];
             }
-            case DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic:
             case DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic: {
                 return [{
                     prompt: 'Select Python Interpreter',
                     command: commandFactory.createCommand(diagnostic, { type: 'executeVSCCommand', options: 'python.setInterpreter' })
-                }];
-            }
-            case DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic: {
-                return [{
-                    prompt: 'Learn more',
-                    command: commandFactory.createCommand(diagnostic, { type: 'launch', options: 'https://code.visualstudio.com/docs/python/python-tutorial#_prerequisites' })
-                },
-                {
-                    prompt: 'Download',
-                    command: commandFactory.createCommand(diagnostic, { type: 'launch', options: 'https://www.python.org/downloads' })
                 }];
             }
             default: {

@@ -8,6 +8,7 @@
 import * as typemoq from 'typemoq';
 import { DiagnosticSeverity } from 'vscode';
 import { ApplicationDiagnostics } from '../../../client/application/diagnostics/applicationDiagnostics';
+import { InvalidMacPythonInterpreterServiceId } from '../../../client/application/diagnostics/checks/macPythonInterpreter';
 import { DiagnosticScope, IDiagnostic, IDiagnosticsService, ISourceMapSupportService } from '../../../client/application/diagnostics/types';
 import { IApplicationDiagnostics } from '../../../client/application/types';
 import { STANDARD_OUTPUT_CHANNEL } from '../../../client/common/constants';
@@ -19,6 +20,7 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
     let serviceContainer: typemoq.IMock<IServiceContainer>;
     let envHealthCheck: typemoq.IMock<IDiagnosticsService>;
     let debuggerTypeCheck: typemoq.IMock<IDiagnosticsService>;
+    let macInterperterCheck: typemoq.IMock<IDiagnosticsService>;
     let outputChannel: typemoq.IMock<IOutputChannel>;
     let logger: typemoq.IMock<ILogger>;
     let appDiagnostics: IApplicationDiagnostics;
@@ -27,6 +29,7 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
         serviceContainer = typemoq.Mock.ofType<IServiceContainer>();
         envHealthCheck = typemoq.Mock.ofType<IDiagnosticsService>();
         debuggerTypeCheck = typemoq.Mock.ofType<IDiagnosticsService>();
+        macInterperterCheck = typemoq.Mock.ofType<IDiagnosticsService>();
         outputChannel = typemoq.Mock.ofType<IOutputChannel>();
         logger = typemoq.Mock.ofType<ILogger>();
 
@@ -36,6 +39,9 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
             .returns(() => outputChannel.object);
         serviceContainer.setup(d => d.get(typemoq.It.isValue(ILogger)))
             .returns(() => logger.object);
+        serviceContainer.setup(d => d.get(typemoq.It.isValue(IDiagnosticsService),
+            typemoq.It.isValue(InvalidMacPythonInterpreterServiceId)))
+            .returns(() => macInterperterCheck.object);
 
         appDiagnostics = new ApplicationDiagnostics(serviceContainer.object, outputChannel.object);
     });
@@ -52,21 +58,32 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
         sourceMapService.verifyAll();
     });
 
-    test('Performing Pre Startup Health Check must check Path environment variable and Debugger Type', async () => {
+    test('Performing Pre Startup Health Check must check Path environment variable and Debugger Type along with Mac Interpreter', async () => {
         envHealthCheck.setup(e => e.diagnose())
             .returns(() => Promise.resolve([]))
             .verifiable(typemoq.Times.once());
         debuggerTypeCheck.setup(e => e.diagnose())
             .returns(() => Promise.resolve([]))
             .verifiable(typemoq.Times.once());
+        macInterperterCheck.setup(p => p.diagnose())
+            .returns(() => Promise.resolve([]))
+            .verifiable(typemoq.Times.once());
+        macInterperterCheck.setup(p => p.handle(typemoq.It.isValue([])))
+            .returns(() => Promise.resolve())
+            .verifiable(typemoq.Times.once());
 
         await appDiagnostics.performPreStartupHealthCheck();
 
         envHealthCheck.verifyAll();
         debuggerTypeCheck.verifyAll();
+        macInterperterCheck.verifyAll();
     });
 
     test('Diagnostics Returned by Per Startup Health Checks must be logged', async () => {
+        macInterperterCheck.setup(p => p.diagnose())
+            .returns(() => Promise.resolve([]))
+            .verifiable(typemoq.Times.once());
+
         const diagnostics: IDiagnostic[] = [];
         for (let i = 0; i <= (Math.random() * 10); i += 1) {
             const diagnostic: IDiagnostic = {

@@ -9,6 +9,7 @@ import { STANDARD_OUTPUT_CHANNEL } from '../../common/constants';
 import { ILogger, IOutputChannel } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
 import { IApplicationDiagnostics } from '../types';
+import { InvalidMacPythonInterpreterServiceId } from './checks/macPythonInterpreter';
 import { IDiagnostic, IDiagnosticsService, ISourceMapSupportService } from './types';
 
 @injectable()
@@ -27,6 +28,12 @@ export class ApplicationDiagnostics implements IApplicationDiagnostics {
                 await diagnosticsService.handle(diagnostics);
             }
         }));
+
+        // Validate the Mac interperter in the background.
+        const maccInterpreterService = this.serviceContainer.get<IDiagnosticsService>(IDiagnosticsService, InvalidMacPythonInterpreterServiceId);
+        maccInterpreterService.diagnose()
+            .then(diagnostics => maccInterpreterService.handle(diagnostics))
+            .ignoreErrors();
     }
     private log(diagnostics: IDiagnostic[]): void {
         const logger = this.serviceContainer.get<ILogger>(ILogger);
