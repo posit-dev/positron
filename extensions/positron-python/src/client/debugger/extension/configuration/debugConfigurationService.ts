@@ -11,7 +11,7 @@ import { DebugConfigurationPrompts } from '../../../common/utils/localize';
 import { IMultiStepInput, IMultiStepInputFactory, InputStep, IQuickPickParameters } from '../../../common/utils/multiStepInput';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import { sendTelemetryEvent } from '../../../telemetry';
-import { DEBUGGER_CONFIGURATION_PROMPTS } from '../../../telemetry/constants';
+import { EventName } from '../../../telemetry/constants';
 import { AttachRequestArguments, DebugConfigurationArguments, LaunchRequestArguments } from '../../types';
 import { DebugConfigurationState, DebugConfigurationType, IDebugConfigurationService } from '../types';
 import { IDebugConfigurationProviderFactory, IDebugConfigurationResolver } from './types';
@@ -47,7 +47,7 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
         }
     }
     protected async getDefaultDebugConfig(): Promise<DebugConfiguration[]> {
-        sendTelemetryEvent(DEBUGGER_CONFIGURATION_PROMPTS, undefined, { configurationType: DebugConfigurationType.default });
+        sendTelemetryEvent(EventName.DEBUGGER_CONFIGURATION_PROMPTS, undefined, { configurationType: DebugConfigurationType.default });
         const jsFilePath = path.join(EXTENSION_ROOT_DIR, 'resources', 'default.launch.json');
         const jsonStr = await this.fs.readFile(jsFilePath);
         return JSON.parse(jsonStr) as DebugConfiguration[];

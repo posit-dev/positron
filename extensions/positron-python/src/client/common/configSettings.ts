@@ -7,7 +7,7 @@ import { ConfigurationChangeEvent, ConfigurationTarget, DiagnosticSeverity, Disp
 import '../common/extensions';
 import { IInterpreterAutoSeletionProxyService } from '../interpreter/autoSelection/types';
 import { sendTelemetryEvent } from '../telemetry';
-import { COMPLETION_ADD_BRACKETS, FORMAT_ON_TYPE } from '../telemetry/constants';
+import { EventName } from '../telemetry/constants';
 import { IWorkspaceService } from './application/types';
 import { WorkspaceService } from './application/workspace';
 import { isTestExecution } from './constants';
@@ -82,8 +82,8 @@ export class PythonSettings extends EventEmitter implements IPythonSettings {
             // tslint:disable-next-line:no-any
             const config = workspace.getConfiguration('editor', resource ? resource : null as any);
             const formatOnType = config ? config.get('formatOnType', false) : false;
-            sendTelemetryEvent(COMPLETION_ADD_BRACKETS, undefined, { enabled: settings.autoComplete ? settings.autoComplete.addBrackets : false });
-            sendTelemetryEvent(FORMAT_ON_TYPE, undefined, { enabled: formatOnType });
+            sendTelemetryEvent(EventName.COMPLETION_ADD_BRACKETS, undefined, { enabled: settings.autoComplete ? settings.autoComplete.addBrackets : false });
+            sendTelemetryEvent(EventName.FORMAT_ON_TYPE, undefined, { enabled: formatOnType });
         }
         // tslint:disable-next-line:no-non-null-assertion
         return PythonSettings.pythonSettings.get(workspaceFolderKey)!;

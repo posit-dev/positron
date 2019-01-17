@@ -5,7 +5,7 @@ import { inject, injectable } from 'inversify';
 import { IEnvironmentActivationService } from '../../interpreter/activation/types';
 import { IServiceContainer } from '../../ioc/types';
 import { sendTelemetryEvent } from '../../telemetry';
-import { PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES } from '../../telemetry/constants';
+import { EventName } from '../../telemetry/constants';
 import { IConfigurationService } from '../types';
 import { ProcessService } from './proc';
 import { PythonExecutionService } from './pythonProcess';
@@ -34,7 +34,7 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
     public async createActivatedEnvironment(options: ExecutionFactoryCreateWithEnvironmentOptions): Promise<IPythonExecutionService> {
         const envVars = await this.activationHelper.getActivatedEnvironmentVariables(options.resource, options.interpreter);
         const hasEnvVars = envVars && Object.keys(envVars).length > 0;
-        sendTelemetryEvent(PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES, undefined, { hasEnvVars });
+        sendTelemetryEvent(EventName.PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES, undefined, { hasEnvVars });
         if (!hasEnvVars) {
             return this.create({ resource: options.resource, pythonPath: options.interpreter ? options.interpreter.path : undefined });
         }

@@ -11,7 +11,7 @@ import { useCommandPromptAsDefaultShell } from '../../../common/terminal/command
 import { IConfigurationService, ICurrentProcess } from '../../../common/types';
 import { IServiceContainer } from '../../../ioc/types';
 import { sendTelemetryEvent } from '../../../telemetry';
-import { DIAGNOSTICS_ACTION } from '../../../telemetry/constants';
+import { EventName } from '../../../telemetry/constants';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
 import { IDiagnosticsCommandFactory } from '../commands/types';
 import { DiagnosticCodes } from '../constants';
@@ -58,7 +58,7 @@ export class PowerShellActivationHackDiagnosticsService extends BaseDiagnosticsS
                 // tslint:disable-next-line:no-object-literal-type-assertion
                 command: {
                     diagnostic, invoke: async (): Promise<void> => {
-                        sendTelemetryEvent(DIAGNOSTICS_ACTION, undefined, { action: 'switchToCommandPrompt' });
+                        sendTelemetryEvent(EventName.DIAGNOSTICS_ACTION, undefined, { action: 'switchToCommandPrompt' });
                         useCommandPromptAsDefaultShell(currentProcess, configurationService)
                             .catch(ex => Logger.error('Use Command Prompt as default shell', ex));
                     }

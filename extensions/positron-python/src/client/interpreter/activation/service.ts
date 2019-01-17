@@ -20,7 +20,7 @@ import { OSType } from '../../common/utils/platform';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
 import { EXTENSION_ROOT_DIR } from '../../constants';
 import { captureTelemetry } from '../../telemetry';
-import { PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES } from '../../telemetry/constants';
+import { EventName } from '../../telemetry/constants';
 import { PythonInterpreter } from '../contracts';
 import { IEnvironmentActivationService } from './types';
 
@@ -47,12 +47,12 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
         this.envVarsService.onDidEnvironmentVariablesChange(this.onDidEnvironmentVariablesChange, this, this.disposables);
     }
 
-    public dispose(): void | undefined {
+    public dispose(): void {
         this.disposables.forEach(d => d.dispose());
     }
     @traceDecorators.verbose('getActivatedEnvironmentVariables', LogOptions.Arguments)
     @swallowExceptions('getActivatedEnvironmentVariables')
-    @captureTelemetry(PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES, { failed: false }, true)
+    @captureTelemetry(EventName.PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES, { failed: false }, true)
     @cacheResourceSpecificInterpreterData('ActivatedEnvironmentVariables', cacheDuration)
     public async getActivatedEnvironmentVariables(resource: Resource, interpreter?: PythonInterpreter): Promise<NodeJS.ProcessEnv | undefined> {
         const shell = defaultShells[this.platform.osType];

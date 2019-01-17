@@ -15,7 +15,7 @@ import { StopWatch } from '../common/utils/stopWatch';
 import { IServiceContainer } from '../ioc/types';
 import { JupyterProvider } from '../jupyter/provider';
 import { sendTelemetryWhenDone } from '../telemetry';
-import { LINTING } from '../telemetry/constants';
+import { EventName } from '../telemetry/constants';
 import { LinterTrigger, LintingTelemetry } from '../telemetry/types';
 import { ILinterInfo, ILinterManager, ILintingEngine, ILintMessage, LintMessageSeverity } from './types';
 
@@ -164,7 +164,7 @@ export class LintingEngine implements ILintingEngine {
             trigger,
             executableSpecified: linterExecutablePathName.length > 0
         };
-        sendTelemetryWhenDone(LINTING, promise, stopWatch, properties);
+        sendTelemetryWhenDone(EventName.LINTING, promise, stopWatch, properties);
     }
 
     private isDocumentOpen(uri: vscode.Uri): boolean {

@@ -11,7 +11,7 @@ import '../../common/extensions';
 import { IFileSystem } from '../../common/platform/types';
 import { IPersistentState, IPersistentStateFactory, Resource } from '../../common/types';
 import { captureTelemetry } from '../../telemetry';
-import { PYTHON_INTERPRETER_AUTO_SELECTION } from '../../telemetry/constants';
+import { EventName } from '../../telemetry/constants';
 import { IInterpreterHelper, PythonInterpreter } from '../contracts';
 import { AutoSelectionRule, IInterpreterAutoSelectionRule, IInterpreterAutoSelectionService, IInterpreterAutoSeletionProxyService } from './types';
 
@@ -63,7 +63,7 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
         currentPathInterpreter.setNextRule(winRegInterpreter);
         winRegInterpreter.setNextRule(systemInterpreter);
     }
-    @captureTelemetry(PYTHON_INTERPRETER_AUTO_SELECTION, { rule: AutoSelectionRule.all }, true)
+    @captureTelemetry(EventName.PYTHON_INTERPRETER_AUTO_SELECTION, { rule: AutoSelectionRule.all }, true)
     public async autoSelectInterpreter(resource: Resource): Promise<void> {
         await this.initializeStore();
         await this.userDefinedInterpreter.autoSelectInterpreter(resource, this);
