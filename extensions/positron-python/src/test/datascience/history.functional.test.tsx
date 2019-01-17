@@ -12,7 +12,6 @@ import * as React from 'react';
 import { SemVer } from 'semver';
 import * as TypeMoq from 'typemoq';
 import { CancellationToken, Disposable, TextDocument, TextEditor } from 'vscode';
-
 import {
     IApplicationShell,
     IDocumentManager,

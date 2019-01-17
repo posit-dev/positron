@@ -77,7 +77,7 @@ suite('Telemetry', () => {
 
         expect(Reporter.eventName).to.equal(eventName);
         expect(Reporter.measures).to.deep.equal(measuers);
-        expect(Reporter.properties).to.deep.equal(properties);
+        expect(Reporter.properties).to.deep.equal({ ...properties, originalEventName: eventName });
         expect(stackTrace).to.be.length.greaterThan(1);
     });
     test('Send Error Telemetry', () => {
@@ -115,7 +115,7 @@ at processImmediate [as _immediateCallback] (timers.js:722:5)`;
 
         expect(Reporter.eventName).to.equal(eventName);
         expect(Reporter.measures).to.deep.equal(measuers);
-        expect(Reporter.properties).to.deep.equal(properties);
+        expect(Reporter.properties).to.deep.equal({ ...properties, originalEventName: eventName });
         expect(stackTrace).to.be.length.greaterThan(1);
 
         // tslint:disable-next-line:no-multiline-string
@@ -162,7 +162,7 @@ at Immediate.<anonymous> (${EXTENSION_ROOT_DIR}/node_modules/mocha/lib/runner.js
 
         expect(Reporter.eventName).to.equal(eventName);
         expect(Reporter.measures).to.deep.equal(measuers);
-        expect(Reporter.properties).to.deep.equal(properties);
+        expect(Reporter.properties).to.deep.equal({ ...properties, originalEventName: eventName });
         expect(stackTrace).to.be.length.greaterThan(1);
 
         // tslint:disable-next-line:no-multiline-string
@@ -197,7 +197,7 @@ at Immediate.<anonymous> (${EXTENSION_ROOT_DIR}/node_modules/mocha/lib/runner.js
 
         expect(Reporter.eventName).to.equal(eventName);
         expect(Reporter.measures).to.deep.equal(measuers);
-        expect(Reporter.properties).to.deep.equal(properties);
+        expect(Reporter.properties).to.deep.equal({ ...properties, originalEventName: eventName });
         expect(stackTrace).to.be.length.greaterThan(1);
 
         // tslint:disable-next-line:no-multiline-string
