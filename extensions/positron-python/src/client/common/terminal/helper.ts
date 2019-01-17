@@ -5,7 +5,7 @@ import { inject, injectable, named } from 'inversify';
 import { Terminal, Uri } from 'vscode';
 import { ICondaService, IInterpreterService, InterpreterType, PythonInterpreter } from '../../interpreter/contracts';
 import { sendTelemetryEvent } from '../../telemetry';
-import { PYTHON_INTERPRETER_ACTIVATION_FOR_RUNNING_CODE, PYTHON_INTERPRETER_ACTIVATION_FOR_TERMINAL } from '../../telemetry/constants';
+import { EventName } from '../../telemetry/constants';
 import { ITerminalManager, IWorkspaceService } from '../application/types';
 import '../extensions';
 import { traceDecorators, traceError } from '../logger';
@@ -106,7 +106,7 @@ export class TerminalHelper implements ITerminalHelper {
     public async getEnvironmentActivationCommands(terminalShellType: TerminalShellType, resource?: Uri): Promise<string[] | undefined> {
         const providers = [this.pipenv, this.pyenv, this.bashCShellFish, this.commandPromptAndPowerShell];
         const promise = this.getActivationCommands(resource || undefined, undefined, terminalShellType, providers);
-        this.sendTelemetry(resource, terminalShellType, PYTHON_INTERPRETER_ACTIVATION_FOR_TERMINAL, promise).ignoreErrors();
+        this.sendTelemetry(resource, terminalShellType, EventName.PYTHON_INTERPRETER_ACTIVATION_FOR_TERMINAL, promise).ignoreErrors();
         return promise;
     }
     public async getEnvironmentActivationShellCommands(resource: Resource, interpreter?: PythonInterpreter): Promise<string[] | undefined> {
@@ -116,7 +116,7 @@ export class TerminalHelper implements ITerminalHelper {
         }
         const providers = [this.bashCShellFish, this.commandPromptAndPowerShell];
         const promise = this.getActivationCommands(resource, interpreter, shell, providers);
-        this.sendTelemetry(resource, shell, PYTHON_INTERPRETER_ACTIVATION_FOR_RUNNING_CODE, promise).ignoreErrors();
+        this.sendTelemetry(resource, shell, EventName.PYTHON_INTERPRETER_ACTIVATION_FOR_RUNNING_CODE, promise).ignoreErrors();
         return promise;
     }
     @traceDecorators.error('Failed to capture telemetry')

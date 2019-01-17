@@ -14,12 +14,11 @@ import { createDeferred } from '../common/utils/async';
 import { Common, LanguageService } from '../common/utils/localize';
 import { StopWatch } from '../common/utils/stopWatch';
 import { sendTelemetryEvent } from '../telemetry';
+import { EventName } from '../telemetry/constants';
 import {
-    PYTHON_LANGUAGE_SERVER_DOWNLOADED,
-    PYTHON_LANGUAGE_SERVER_ERROR,
-    PYTHON_LANGUAGE_SERVER_EXTRACTED
-} from '../telemetry/constants';
-import { IHttpClient, ILanguageServerDownloader, ILanguageServerFolderService, IPlatformData } from './types';
+    IHttpClient, ILanguageServerDownloader, ILanguageServerFolderService,
+    IPlatformData
+} from './types';
 
 const downloadFileExtension = '.nupkg';
 
@@ -53,11 +52,11 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
             this.output.appendLine(err);
             success = false;
             this.showMessageAndOptionallyShowOutput(LanguageService.lsFailedToDownload()).ignoreErrors();
-            sendTelemetryEvent(PYTHON_LANGUAGE_SERVER_ERROR, undefined, { error: 'Failed to download (platform)' }, err);
+            sendTelemetryEvent(EventName.PYTHON_LANGUAGE_SERVER_ERROR, undefined, { error: 'Failed to download (platform)' }, err);
             throw new Error(err);
         } finally {
             sendTelemetryEvent(
-                PYTHON_LANGUAGE_SERVER_DOWNLOADED,
+                EventName.PYTHON_LANGUAGE_SERVER_DOWNLOADED,
                 timer.elapsedTime,
                 { success, lsVersion }
             );
@@ -71,11 +70,11 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
             this.output.appendLine(err);
             success = false;
             this.showMessageAndOptionallyShowOutput(LanguageService.lsFailedToExtract()).ignoreErrors();
-            sendTelemetryEvent(PYTHON_LANGUAGE_SERVER_ERROR, undefined, { error: 'Failed to extract (platform)' }, err);
+            sendTelemetryEvent(EventName.PYTHON_LANGUAGE_SERVER_ERROR, undefined, { error: 'Failed to extract (platform)' }, err);
             throw new Error(err);
         } finally {
             sendTelemetryEvent(
-                PYTHON_LANGUAGE_SERVER_EXTRACTED,
+                EventName.PYTHON_LANGUAGE_SERVER_EXTRACTED,
                 timer.elapsedTime,
                 { success, lsVersion }
             );

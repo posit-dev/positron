@@ -10,7 +10,7 @@ import { IDisposable, Resource } from '../../common/types';
 import { debounce } from '../../common/utils/decorators';
 import { IServiceContainer } from '../../ioc/types';
 import { captureTelemetry } from '../../telemetry';
-import { PYTHON_LANGUAGE_SERVER_STARTUP } from '../../telemetry/constants';
+import { EventName } from '../../telemetry/constants';
 import { ILanaguageServer, ILanguageServerAnalysisOptions, ILanguageServerManager } from '../types';
 
 const loadExtensionCommand = 'python._loadLanguageServerExtension';
@@ -64,7 +64,7 @@ export class LanguageServerManager implements ILanguageServerManager {
         }
         await this.startLanguageServer();
     }
-    @captureTelemetry(PYTHON_LANGUAGE_SERVER_STARTUP, undefined, true)
+    @captureTelemetry(EventName.PYTHON_LANGUAGE_SERVER_STARTUP, undefined, true)
     @traceDecorators.verbose('Starting Language Server')
     protected async startLanguageServer(): Promise<void> {
         this.languageServer = this.serviceContainer.get<ILanaguageServer>(ILanaguageServer);

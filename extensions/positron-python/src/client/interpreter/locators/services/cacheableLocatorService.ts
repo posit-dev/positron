@@ -13,7 +13,7 @@ import { IDisposableRegistry, IPersistentStateFactory } from '../../../common/ty
 import { createDeferred, Deferred } from '../../../common/utils/async';
 import { IServiceContainer } from '../../../ioc/types';
 import { sendTelemetryWhenDone } from '../../../telemetry';
-import { PYTHON_INTERPRETER_DISCOVERY } from '../../../telemetry/constants';
+import { EventName } from '../../../telemetry/constants';
 import { IInterpreterLocatorService, IInterpreterWatcher, PythonInterpreter } from '../../contracts';
 
 @injectable()
@@ -55,7 +55,7 @@ export abstract class CacheableLocatorService implements IInterpreterLocatorServ
                 })
                 .catch(ex => deferred!.reject(ex));
 
-            sendTelemetryWhenDone(PYTHON_INTERPRETER_DISCOVERY, promise, undefined, { locator: this.name });
+            sendTelemetryWhenDone(EventName.PYTHON_INTERPRETER_DISCOVERY, promise, undefined, { locator: this.name });
             this.locating.fire(deferred.promise);
         }
         deferred.promise

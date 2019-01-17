@@ -11,7 +11,7 @@ import { IFileSystem } from '../../../common/platform/types';
 import { IPersistentState, IPersistentStateFactory, Resource } from '../../../common/types';
 import { StopWatch } from '../../../common/utils/stopWatch';
 import { sendTelemetryEvent } from '../../../telemetry';
-import { PYTHON_INTERPRETER_AUTO_SELECTION } from '../../../telemetry/constants';
+import { EventName } from '../../../telemetry/constants';
 import { PythonInterpreter } from '../../contracts';
 import { AutoSelectionRule, IInterpreterAutoSelectionRule, IInterpreterAutoSelectionService } from '../types';
 
@@ -39,7 +39,7 @@ export abstract class BaseRuleService implements IInterpreterAutoSelectionRule {
         const action = await this.onAutoSelectInterpreter(resource, manager);
         traceVerbose(`Rule = ${this.ruleName}, result = ${action}`);
         const identified = action === NextAction.runNextRule;
-        sendTelemetryEvent(PYTHON_INTERPRETER_AUTO_SELECTION, { elapsedTime: stopWatch.elapsedTime }, { rule: this.ruleName, identified });
+        sendTelemetryEvent(EventName.PYTHON_INTERPRETER_AUTO_SELECTION, { elapsedTime: stopWatch.elapsedTime }, { rule: this.ruleName, identified });
         if (action === NextAction.runNextRule) {
             await this.next(resource, manager);
         }
@@ -72,14 +72,14 @@ export abstract class BaseRuleService implements IInterpreterAutoSelectionRule {
         if (!this.stateStore.value || await this.fs.fileExists(this.stateStore.value.path)) {
             return;
         }
-        sendTelemetryEvent(PYTHON_INTERPRETER_AUTO_SELECTION, {}, { rule: this.ruleName, interpreterMissing: true });
+        sendTelemetryEvent(EventName.PYTHON_INTERPRETER_AUTO_SELECTION, {}, { rule: this.ruleName, interpreterMissing: true });
         await this.cacheSelectedInterpreter(resource, undefined);
     }
     protected async cacheSelectedInterpreter(_resource: Resource, interpreter: PythonInterpreter | undefined) {
         const interpreterPath = interpreter ? interpreter.path : '';
         const interpreterPathInCache = this.stateStore.value ? this.stateStore.value.path : '';
         const updated = interpreterPath === interpreterPathInCache;
-        sendTelemetryEvent(PYTHON_INTERPRETER_AUTO_SELECTION, {}, { rule: this.ruleName, updated });
+        sendTelemetryEvent(EventName.PYTHON_INTERPRETER_AUTO_SELECTION, {}, { rule: this.ruleName, updated });
         await this.stateStore.updateValue(interpreter);
     }
     protected async next(resource: Resource, manager?: IInterpreterAutoSelectionService): Promise<void> {
