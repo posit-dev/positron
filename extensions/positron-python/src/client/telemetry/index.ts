@@ -71,6 +71,7 @@ export function sendTelemetryEvent(eventName: string, durationMs?: { [key: strin
         customProperties.stackTrace = getStackTrace(ex);
     }
     if (ex && eventName !== 'ERROR') {
+        customProperties.originalEventName = eventName;
         reporter.sendTelemetryEvent('ERROR', customProperties, measures);
     }
     reporter.sendTelemetryEvent(eventName, customProperties, measures);
