@@ -152,7 +152,11 @@ import { MockJupyterManager } from './mockJupyterManager';
 
 export class DataScienceIocContainer extends UnitTestIocContainer {
 
-    private pythonSettings: PythonSettings = new PythonSettings(undefined, new MockAutoSelectionService());
+    private pythonSettings = new class extends PythonSettings {
+        public fireChangeEvent() {
+            this.changed.fire();
+        }
+    }(undefined, new MockAutoSelectionService());
     private commandManager: MockCommandManager = new MockCommandManager();
     private setContexts: { [name: string]: boolean } = {};
     private contextSetEvent: EventEmitter<{ name: string; value: boolean }> = new EventEmitter<{ name: string; value: boolean }>();
@@ -394,7 +398,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
     }
 
     public forceSettingsChanged() {
-        this.pythonSettings.emit('change');
+        this.pythonSettings.fireChangeEvent();
     }
 
     public get mockJupyter(): MockJupyterManager | undefined {

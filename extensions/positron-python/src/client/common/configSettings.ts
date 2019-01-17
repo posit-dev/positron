@@ -1,9 +1,8 @@
 'use strict';
 
 import * as child_process from 'child_process';
-import { EventEmitter } from 'events';
 import * as path from 'path';
-import { ConfigurationChangeEvent, ConfigurationTarget, DiagnosticSeverity, Disposable, Uri, WorkspaceConfiguration } from 'vscode';
+import { ConfigurationChangeEvent, ConfigurationTarget, DiagnosticSeverity, Disposable, Event, EventEmitter, Uri, WorkspaceConfiguration } from 'vscode';
 import '../common/extensions';
 import { IInterpreterAutoSeletionProxyService } from '../interpreter/autoSelection/types';
 import { sendTelemetryEvent } from '../telemetry';
@@ -30,7 +29,8 @@ import { SystemVariables } from './variables/systemVariables';
 // tslint:disable:no-require-imports no-var-requires
 const untildify = require('untildify');
 
-export class PythonSettings extends EventEmitter implements IPythonSettings {
+// tslint:disable-next-line:completed-docs
+export class PythonSettings implements IPythonSettings {
     private static pythonSettings: Map<string, PythonSettings> = new Map<string, PythonSettings>();
     public downloadLanguageServer = true;
     public jediEnabled = true;
@@ -55,15 +55,18 @@ export class PythonSettings extends EventEmitter implements IPythonSettings {
     public autoUpdateLanguageServer: boolean = true;
     public datascience!: IDataScienceSettings;
 
+    protected readonly changed = new EventEmitter<void>();
     private workspaceRoot: Uri;
     private disposables: Disposable[] = [];
     // tslint:disable-next-line:variable-name
     private _pythonPath = '';
     private readonly workspace: IWorkspaceService;
+    public get onDidChange(): Event<void> {
+        return this.changed.event;
+    }
 
     constructor(workspaceFolder: Uri | undefined, private readonly InterpreterAutoSelectionService: IInterpreterAutoSeletionProxyService,
         workspace?: IWorkspaceService) {
-        super();
         this.workspace = workspace || new WorkspaceService();
         this.workspaceRoot = workspaceFolder ? workspaceFolder : Uri.file(__dirname);
         this.initialize();
@@ -393,7 +396,7 @@ export class PythonSettings extends EventEmitter implements IPythonSettings {
     }
     @debounce(1)
     protected debounceChangeNotification() {
-        this.emit('change');
+        this.changed.fire();
     }
 }
 

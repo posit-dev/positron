@@ -12,7 +12,6 @@ import { EventEmitter } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 
 import { Cancellation } from '../../client/common/cancellation';
-import { PythonSettings } from '../../client/common/configSettings';
 import { ExecutionResult, IProcessServiceFactory, IPythonExecutionFactory, Output } from '../../client/common/process/types';
 import { IAsyncDisposableRegistry, IConfigurationService } from '../../client/common/types';
 import { EXTENSION_ROOT_DIR } from '../../client/constants';
@@ -77,7 +76,7 @@ export class MockJupyterManager implements IJupyterSessionManager {
         // Listen to configuration changes like the real interpreter service does so that we fire our settings changed event
         const configService = serviceManager.get<IConfigurationService>(IConfigurationService);
         if (configService && configService !== null) {
-            (configService.getSettings() as PythonSettings).addListener('change', this.onConfigChanged);
+            configService.getSettings().onDidChange(this.onConfigChanged.bind(this));
         }
 
         // Stick our services into the service manager

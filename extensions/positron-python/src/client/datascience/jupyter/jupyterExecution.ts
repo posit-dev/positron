@@ -386,7 +386,9 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
     private findSpecPath = async (specName: string, cancelToken?: CancellationToken): Promise<string | undefined> => {
         // Enumerate all specs and get path for the match
         const specs = await this.enumerateSpecs(cancelToken);
-        const match = specs.find(s => {
+        const match = specs!
+            .filter(s => s !== undefined)
+            .find(s => {
             const js = s as JupyterKernelSpec;
             return js && js.name === specName;
         }) as JupyterKernelSpec;
@@ -557,7 +559,7 @@ export class JupyterExecution implements IJupyterExecution, Disposable {
 
                     // Then let them run concurrently (they are file io)
                     const specs = await Promise.all(promises);
-                    return specs.filter(s => s);
+                    return specs!.filter(s => s);
                 } catch {
                     // This is failing for some folks. In that case return nothing
                     return [];
