@@ -3,7 +3,7 @@
 
 'use strict';
 
-// tslint:disable:insecure-random
+// tslint:disable:insecure-random no-any
 
 import * as typemoq from 'typemoq';
 import { DiagnosticSeverity } from 'vscode';
@@ -87,7 +87,7 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
         const diagnostics: IDiagnostic[] = [];
         for (let i = 0; i <= (Math.random() * 10); i += 1) {
             const diagnostic: IDiagnostic = {
-                code: `Error${i}`,
+                code: `Error${i}` as any,
                 message: `Error${i}`,
                 scope: i % 2 === 0 ? DiagnosticScope.Global : DiagnosticScope.WorkspaceFolder,
                 severity: DiagnosticSeverity.Error
@@ -96,7 +96,7 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
         }
         for (let i = 0; i <= (Math.random() * 10); i += 1) {
             const diagnostic: IDiagnostic = {
-                code: `Warning${i}`,
+                code: `Warning${i}` as any,
                 message: `Warning${i}`,
                 scope: i % 2 === 0 ? DiagnosticScope.Global : DiagnosticScope.WorkspaceFolder,
                 severity: DiagnosticSeverity.Warning
@@ -105,7 +105,7 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
         }
         for (let i = 0; i <= (Math.random() * 10); i += 1) {
             const diagnostic: IDiagnostic = {
-                code: `Info${i}`,
+                code: `Info${i}` as any,
                 message: `Info${i}`,
                 scope: i % 2 === 0 ? DiagnosticScope.Global : DiagnosticScope.WorkspaceFolder,
                 severity: DiagnosticSeverity.Information

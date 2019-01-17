@@ -3,7 +3,7 @@
 
 'use strict';
 
-// tslint:disable:no-invalid-template-strings max-func-body-length
+// tslint:disable:no-invalid-template-strings max-func-body-length no-any
 
 import { expect } from 'chai';
 import * as path from 'path';
@@ -65,7 +65,7 @@ suite('Application Diagnostics - Checks Python Path in debugger', () => {
     test('Can not handle non-InvalidPythonPathInDebugger diagnostics', async () => {
         const diagnostic = typemoq.Mock.ofType<IDiagnostic>();
         diagnostic.setup(d => d.code)
-            .returns(() => 'Something Else')
+            .returns(() => 'Something Else' as any)
             .verifiable(typemoq.Times.atLeastOnce());
 
         const canHandle = await diagnosticService.canHandle(diagnostic.object);

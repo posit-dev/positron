@@ -88,7 +88,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
         test('Can not handle non-InvalidPythonPathInterpreter diagnostics', async () => {
             const diagnostic = typemoq.Mock.ofType<IDiagnostic>();
             diagnostic.setup(d => d.code)
-                .returns(() => 'Something Else')
+                .returns(() => 'Something Else' as any)
                 .verifiable(typemoq.Times.atLeastOnce());
 
             const canHandle = await diagnosticService.canHandle(diagnostic.object);

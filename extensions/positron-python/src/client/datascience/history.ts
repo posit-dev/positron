@@ -405,7 +405,7 @@ export class History implements IWebPanelMessageListener, IHistory {
         }
     }
 
-    @captureTelemetry(Telemetry.SubmitCellThroughInput, {}, false)
+    @captureTelemetry(Telemetry.SubmitCellThroughInput, undefined, false)
     // tslint:disable-next-line:no-any
     private submitNewCell(payload?: any) {
         // If there's any payload, it's the code
@@ -422,7 +422,7 @@ export class History implements IWebPanelMessageListener, IHistory {
         return result;
     }
 
-    private logTelemetry = (event : string) => {
+    private logTelemetry = (event : Telemetry) => {
         sendTelemetryEvent(event);
     }
 
@@ -503,7 +503,7 @@ export class History implements IWebPanelMessageListener, IHistory {
         this.loadPromise = this.loadJupyterServer(true);
     }
 
-    @captureTelemetry(Telemetry.GotoSourceCode, {}, false)
+    @captureTelemetry(Telemetry.GotoSourceCode, undefined, false)
     private gotoCode(file: string, line: number) {
         this.gotoCodeInternal(file, line).catch(err => {
             this.applicationShell.showErrorMessage(err);
@@ -530,7 +530,7 @@ export class History implements IWebPanelMessageListener, IHistory {
         }
     }
 
-    @captureTelemetry(Telemetry.ExportNotebook, {}, false)
+    @captureTelemetry(Telemetry.ExportNotebook, undefined, false)
     // tslint:disable-next-line: no-any no-empty
     private export (payload: any) {
         if (payload.contents) {

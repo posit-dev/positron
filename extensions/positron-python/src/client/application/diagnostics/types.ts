@@ -4,6 +4,7 @@
 'use strict';
 
 import { DiagnosticSeverity, Uri } from 'vscode';
+import { DiagnosticCodes } from './constants';
 
 export enum DiagnosticScope {
     Global = 'Global',
@@ -11,7 +12,7 @@ export enum DiagnosticScope {
 }
 
 export interface IDiagnostic {
-    readonly code: string;
+    readonly code: DiagnosticCodes;
     readonly message: string;
     readonly severity: DiagnosticSeverity;
     readonly scope: DiagnosticScope;

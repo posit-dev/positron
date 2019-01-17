@@ -8,11 +8,12 @@ import { DiagnosticSeverity } from 'vscode';
 import { IServiceContainer } from '../../ioc/types';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
+import { DiagnosticCodes } from './constants';
 import { DiagnosticScope, IDiagnostic, IDiagnosticFilterService, IDiagnosticsService } from './types';
 
 @injectable()
 export abstract class BaseDiagnostic implements IDiagnostic {
-    constructor(public readonly code: string, public readonly message: string,
+    constructor(public readonly code: DiagnosticCodes, public readonly message: string,
         public readonly severity: DiagnosticSeverity, public readonly scope: DiagnosticScope) { }
 }
 
