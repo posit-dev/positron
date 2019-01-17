@@ -3,7 +3,7 @@
 'use strict';
 
 import { Socket } from 'net';
-import { ConfigurationTarget, DiagnosticSeverity, Disposable, Extension, ExtensionContext, OutputChannel, Uri, WorkspaceEdit } from 'vscode';
+import { ConfigurationTarget, DiagnosticSeverity, Disposable, Event, Extension, ExtensionContext, OutputChannel, Uri, WorkspaceEdit } from 'vscode';
 import { EnvironmentVariables } from './variables/types';
 export const IOutputChannel = Symbol('IOutputChannel');
 export interface IOutputChannel extends OutputChannel { }
@@ -160,6 +160,7 @@ export interface IPythonSettings {
     readonly analysis: IAnalysisSettings;
     readonly autoUpdateLanguageServer: boolean;
     readonly datascience: IDataScienceSettings;
+    readonly onDidChange: Event<void>;
 }
 export interface ISortImportSettings {
     readonly path: string;
