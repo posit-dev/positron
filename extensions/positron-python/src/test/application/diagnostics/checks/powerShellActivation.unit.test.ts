@@ -16,7 +16,7 @@ import { ICurrentProcess, IPathUtils } from '../../../../client/common/types';
 import { EnvironmentVariables } from '../../../../client/common/variables/types';
 import { IServiceContainer } from '../../../../client/ioc/types';
 
-// tslint:disable-next-line:max-func-body-length
+// tslint:disable:max-func-body-length no-any
 suite('Application Diagnostics - PowerShell Activation', () => {
     let diagnosticService: IDiagnosticsService;
     let platformService: typemoq.IMock<IPlatformService>;
@@ -79,7 +79,7 @@ suite('Application Diagnostics - PowerShell Activation', () => {
     test('Can not handle non-EnvPathVariable diagnostics', async () => {
         const diagnostic = typemoq.Mock.ofType<IDiagnostic>();
         diagnostic.setup(d => d.code)
-            .returns(() => 'Something Else')
+            .returns(() => 'Something Else' as any)
             .verifiable(typemoq.Times.atLeastOnce());
 
         const canHandle = await diagnosticService.canHandle(diagnostic.object);

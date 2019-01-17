@@ -120,7 +120,7 @@ export class TerminalHelper implements ITerminalHelper {
         return promise;
     }
     @traceDecorators.error('Failed to capture telemetry')
-    protected async sendTelemetry(resource: Resource, terminalShellType: TerminalShellType, eventName: string, promise: Promise<string[] | undefined>): Promise<void> {
+    protected async sendTelemetry(resource: Resource, terminalShellType: TerminalShellType, eventName: EventName, promise: Promise<string[] | undefined>): Promise<void> {
         let hasCommands = false;
         const interpreter = await this.interpreterService.getActiveInterpreter(resource);
         let failed = false;

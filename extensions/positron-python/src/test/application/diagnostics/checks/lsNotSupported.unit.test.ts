@@ -13,6 +13,7 @@ import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '.
 import { DiagnosticScope, IDiagnostic, IDiagnosticCommand, IDiagnosticFilterService, IDiagnosticHandlerService, IDiagnosticsService } from '../../../../client/application/diagnostics/types';
 import { IServiceContainer } from '../../../../client/ioc/types';
 
+// tslint:disable:max-func-body-length no-any
 suite('Application Diagnostics - Checks LS not supported', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
     let diagnosticService: IDiagnosticsService;
@@ -95,7 +96,7 @@ suite('Application Diagnostics - Checks LS not supported', () => {
     test('LSNotSupportedDiagnosticService can not handle non-LSNotSupported diagnostics', async () => {
         const diagnostic = TypeMoq.Mock.ofType<IDiagnostic>();
         diagnostic.setup(d => d.code)
-            .returns(() => 'Something Else')
+            .returns(() => 'Something Else' as any)
             .verifiable(TypeMoq.Times.atLeastOnce());
         const canHandle = await diagnosticService.canHandle(diagnostic.object);
         expect(canHandle).to.be.equal(false, 'Invalid value');
