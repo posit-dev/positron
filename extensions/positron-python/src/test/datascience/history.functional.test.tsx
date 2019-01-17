@@ -18,7 +18,7 @@ import {
     IWebPanel,
     IWebPanelMessageListener,
     IWebPanelProvider,
-    WebPanelMessage,
+    WebPanelMessage
 } from '../../client/common/application/types';
 import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { IDataScienceSettings } from '../../client/common/types';
