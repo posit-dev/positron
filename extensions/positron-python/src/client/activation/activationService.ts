@@ -56,7 +56,7 @@ export class ExtensionActivationService implements IExtensionActivationService, 
 
         let jedi = this.useJedi();
         if (!jedi) {
-            const diagnostic = await this.lsNotSupportedDiagnosticService.diagnose();
+            const diagnostic = await this.lsNotSupportedDiagnosticService.diagnose(undefined);
             this.lsNotSupportedDiagnosticService.handle(diagnostic).ignoreErrors();
             if (diagnostic.length){
                 sendTelemetryEvent(EventName.PYTHON_LANGUAGE_SERVER_PLATFORM_NOT_SUPPORTED);

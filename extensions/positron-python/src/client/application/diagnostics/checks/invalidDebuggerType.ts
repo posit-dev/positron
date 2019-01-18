@@ -9,6 +9,7 @@ import { DiagnosticSeverity, WorkspaceFolder } from 'vscode';
 import { ICommandManager, IWorkspaceService } from '../../../common/application/types';
 import '../../../common/extensions';
 import { IFileSystem } from '../../../common/platform/types';
+import { Resource } from '../../../common/types';
 import { IServiceContainer } from '../../../ioc/types';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
 import { IDiagnosticsCommandFactory } from '../commands/types';
@@ -21,9 +22,10 @@ const InvalidDebuggerTypeMessage = 'Your launch.json file needs to be updated to
     'not work. Would you like to automatically update your launch.json file now?';
 
 export class InvalidDebuggerTypeDiagnostic extends BaseDiagnostic {
-    constructor(message: string) {
+    constructor(message: string, resource: Resource) {
         super(DiagnosticCodes.InvalidDebuggerTypeDiagnostic,
-            message, DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder);
+            message, DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder,
+            resource);
     }
 }
 
@@ -42,9 +44,9 @@ export class InvalidDebuggerTypeDiagnosticsService extends BaseDiagnosticsServic
         this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
         cmdManager.registerCommand(CommandName, this.fixLaunchJson, this);
     }
-    public async diagnose(): Promise<IDiagnostic[]> {
+    public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
         if (await this.isExperimentalDebuggerUsed()) {
-            return [new InvalidDebuggerTypeDiagnostic(InvalidDebuggerTypeMessage)];
+            return [new InvalidDebuggerTypeDiagnostic(InvalidDebuggerTypeMessage, resource)];
         } else {
             return [];
         }

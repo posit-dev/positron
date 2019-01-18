@@ -8,7 +8,7 @@ import { DiagnosticSeverity } from 'vscode';
 import { IApplicationEnvironment } from '../../../common/application/types';
 import '../../../common/extensions';
 import { IPlatformService } from '../../../common/platform/types';
-import { ICurrentProcess, IPathUtils } from '../../../common/types';
+import { ICurrentProcess, IPathUtils, Resource } from '../../../common/types';
 import { IServiceContainer } from '../../../ioc/types';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
 import { IDiagnosticsCommandFactory } from '../commands/types';
@@ -20,9 +20,9 @@ const InvalidEnvPathVariableMessage = 'The environment variable \'{0}\' seems to
     ' The existence of such a character is known to have caused the {1} extension to not load. If the extension fails to load please modify your paths to remove this \'"\' character.';
 
 export class InvalidEnvironmentPathVariableDiagnostic extends BaseDiagnostic {
-    constructor(message: string) {
+    constructor(message: string, resource: Resource) {
         super(DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic,
-            message, DiagnosticSeverity.Warning, DiagnosticScope.Global);
+            message, DiagnosticSeverity.Warning, DiagnosticScope.Global, resource);
     }
 }
 
@@ -37,13 +37,13 @@ export class EnvironmentPathVariableDiagnosticsService extends BaseDiagnosticsSe
         this.platform = this.serviceContainer.get<IPlatformService>(IPlatformService);
         this.messageService = serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(IDiagnosticHandlerService, DiagnosticCommandPromptHandlerServiceId);
     }
-    public async diagnose(): Promise<IDiagnostic[]> {
+    public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
         if (this.platform.isWindows &&
             this.doesPathVariableHaveInvalidEntries()) {
             const env = this.serviceContainer.get<IApplicationEnvironment>(IApplicationEnvironment);
             const message = InvalidEnvPathVariableMessage
                 .format(this.platform.pathVariableName, env.extensionName);
-            return [new InvalidEnvironmentPathVariableDiagnostic(message)];
+            return [new InvalidEnvironmentPathVariableDiagnostic(message, resource)];
         } else {
             return [];
         }

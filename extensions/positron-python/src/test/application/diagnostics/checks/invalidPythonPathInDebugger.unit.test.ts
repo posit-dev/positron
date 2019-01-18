@@ -73,7 +73,7 @@ suite('Application Diagnostics - Checks Python Path in debugger', () => {
         diagnostic.verifyAll();
     });
     test('Should return empty diagnostics', async () => {
-        const diagnostics = await diagnosticService.diagnose();
+        const diagnostics = await diagnosticService.diagnose(undefined);
         expect(diagnostics).to.be.deep.equal([]);
     });
     test('InvalidPythonPathInDebuggerSettings diagnostic should display one option to with a command', async () => {

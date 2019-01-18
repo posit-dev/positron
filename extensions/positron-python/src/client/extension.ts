@@ -132,7 +132,7 @@ async function activateUnsafe(context: ExtensionContext): Promise<IExtensionApi>
     // When testing, do not perform health checks, as modal dialogs can be displayed.
     if (!isTestExecution()) {
         const appDiagnostics = serviceContainer.get<IApplicationDiagnostics>(IApplicationDiagnostics);
-        await appDiagnostics.performPreStartupHealthCheck();
+        await appDiagnostics.performPreStartupHealthCheck(undefined);
     }
 
     serviceManager.get<ITerminalAutoActivation>(ITerminalAutoActivation).register();
