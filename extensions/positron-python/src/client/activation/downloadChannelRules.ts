@@ -13,7 +13,7 @@ const frequencyForBetalLSDownloadCheck = 1000 * 60 * 60 * 24; // One day.
 
 @injectable()
 export class DownloadDailyChannelRule implements IDownloadChannelRule {
-    public async shouldLookForNewLanguageServer(currentFolder?: FolderVersionPair): Promise<boolean> {
+    public async shouldLookForNewLanguageServer(_currentFolder?: FolderVersionPair): Promise<boolean> {
         return true;
     }
 }

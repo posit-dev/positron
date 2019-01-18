@@ -52,9 +52,9 @@ export enum LogLevel {
 export const ILogger = Symbol('ILogger');
 
 export interface ILogger {
-    logError(message: string, error?: Error);
-    logWarning(message: string, error?: Error);
-    logInformation(message: string, error?: Error);
+    logError(message: string, error?: Error): void;
+    logWarning(message: string, error?: Error): void;
+    logInformation(message: string, error?: Error): void;
 }
 
 export enum InstallerResponse {
@@ -385,5 +385,5 @@ export interface IAsyncDisposable {
 
 export const IAsyncDisposableRegistry = Symbol('IAsyncDisposableRegistry');
 export interface IAsyncDisposableRegistry extends IAsyncDisposable {
-    push(disposable: IDisposable | IAsyncDisposable);
+    push(disposable: IDisposable | IAsyncDisposable): void;
 }

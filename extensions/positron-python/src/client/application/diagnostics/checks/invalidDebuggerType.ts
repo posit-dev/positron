@@ -21,7 +21,7 @@ const InvalidDebuggerTypeMessage = 'Your launch.json file needs to be updated to
     'not work. Would you like to automatically update your launch.json file now?';
 
 export class InvalidDebuggerTypeDiagnostic extends BaseDiagnostic {
-    constructor(message) {
+    constructor(message: string) {
         super(DiagnosticCodes.InvalidDebuggerTypeDiagnostic,
             message, DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder);
     }

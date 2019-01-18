@@ -134,8 +134,8 @@ export class CondaActivationCommandProvider implements ITerminalActivationComman
     }
 
     public async getPowershellCommands(
-        envName: string,
-        targetShell: TerminalShellType
+        _envName: string,
+        _targetShell: TerminalShellType
     ): Promise<string[] | undefined> {
         return;
     }

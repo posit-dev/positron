@@ -20,6 +20,8 @@ import {
     IPlatformData
 } from './types';
 
+// tslint:disable:no-require-imports no-any
+
 const downloadFileExtension = '.nupkg';
 
 @injectable()
@@ -113,9 +115,9 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
                     throw error;
                 }
             });
-            const requestProgress = await import('request-progress');
+            const requestProgress = require('request-progress');
             requestProgress(req)
-                .on('progress', (state) => {
+                .on('progress', (state: any) => {
                     // https://www.npmjs.com/package/request-progress
                     const received = Math.round(state.size.transferred / 1024);
                     const total = Math.round(state.size.total / 1024);
@@ -124,7 +126,7 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
                         message: `${title}${received} of ${total} KB (${percentage}%)`
                     });
                 })
-                .on('error', (err) => {
+                .on('error', (err: any) => {
                     deferred.reject(err);
                 })
                 .on('end', () => {
@@ -161,7 +163,7 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
                 if (!await this.fs.directoryExists(destinationFolder)) {
                     await this.fs.createDirectory(destinationFolder);
                 }
-                zip.extract(null, destinationFolder, (err) => {
+                zip.extract(null, destinationFolder, (err: any) => {
                     if (err) {
                         deferred.reject(err);
                     } else {
@@ -172,7 +174,7 @@ export class LanguageServerDownloader implements ILanguageServerDownloader {
             }).on('extract', () => {
                 extractedFiles += 1;
                 progress.report({ message: `${title}${Math.round(100 * extractedFiles / totalFiles)}%` });
-            }).on('error', e => {
+            }).on('error', (e: any) => {
                 deferred.reject(e);
             });
             return deferred.promise;

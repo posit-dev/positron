@@ -8,7 +8,7 @@ import * as path from 'path';
 import { CancellationToken, DebugConfiguration, QuickPickItem, WorkspaceFolder } from 'vscode';
 import { IFileSystem } from '../../../common/platform/types';
 import { DebugConfigurationPrompts } from '../../../common/utils/localize';
-import { IMultiStepInput, IMultiStepInputFactory, InputStep, IQuickPickParameters } from '../../../common/utils/multiStepInput';
+import { IMultiStepInput, InputStep, IQuickPickParameters } from '../../../common/utils/multiStepInput';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
@@ -22,7 +22,7 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
         @inject(IDebugConfigurationResolver) @named('launch') private readonly launchResolver: IDebugConfigurationResolver<LaunchRequestArguments>,
         @inject(IDebugConfigurationProviderFactory) private readonly providerFactory: IDebugConfigurationProviderFactory,
         // tslint:disable-next-line:no-unused-variable
-        @inject(IMultiStepInputFactory) private readonly multiStepFactory: IMultiStepInputFactory,
+        // @inject(IMultiStepInputFactory) private readonly _multiStepFactory: IMultiStepInputFactory,
         @inject(IFileSystem) private readonly fs: IFileSystem) {
     }
     public async provideDebugConfigurations(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<DebugConfiguration[] | undefined> {

@@ -41,7 +41,7 @@ suite('Debugging - Configuration Service', () => {
         multiStepFactory = typemoq.Mock.ofType<IMultiStepInputFactory>();
         providerFactory = mock(DebugConfigurationProviderFactory);
         fs = mock(FileSystem);
-        configService = new TestPythonDebugConfigurationService(attachResolver.object, launchResolver.object, instance(providerFactory), multiStepFactory.object,
+        configService = new TestPythonDebugConfigurationService(attachResolver.object, launchResolver.object, instance(providerFactory),
             instance(fs));
     });
     test('Should use attach resolver when passing attach config', async () => {
@@ -122,7 +122,7 @@ suite('Debugging - Configuration Service', () => {
 
         const expectedConfig = { yes: 'Updated' };
         const multiStepInput = {
-            run: (_, state) => {
+            run: (_: any, state: any) => {
                 Object.assign(state.config, expectedConfig);
                 return Promise.resolve();
             }

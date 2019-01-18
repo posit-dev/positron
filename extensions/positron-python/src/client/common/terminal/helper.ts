@@ -32,7 +32,8 @@ const IS_XONSH = /(xonsh$)/i;
 const defaultOSShells = {
     [OSType.Linux]: TerminalShellType.bash,
     [OSType.OSX]: TerminalShellType.bash,
-    [OSType.Windows]: TerminalShellType.commandPrompt
+    [OSType.Windows]: TerminalShellType.commandPrompt,
+    [OSType.Unknown]: undefined
 };
 
 @injectable()

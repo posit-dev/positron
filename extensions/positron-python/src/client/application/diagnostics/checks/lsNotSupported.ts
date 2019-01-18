@@ -15,7 +15,7 @@ import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '.
 import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../types';
 
 export class LSNotSupportedDiagnostic extends BaseDiagnostic {
-    constructor(message) {
+    constructor(message: string) {
         super(DiagnosticCodes.LSNotSupportedDiagnostic,
             message, DiagnosticSeverity.Warning, DiagnosticScope.Global);
     }
