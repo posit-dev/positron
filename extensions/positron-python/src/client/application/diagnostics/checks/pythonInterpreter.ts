@@ -6,7 +6,7 @@
 import { inject, injectable } from 'inversify';
 import { DiagnosticSeverity } from 'vscode';
 import '../../../common/extensions';
-import { IConfigurationService } from '../../../common/types';
+import { IConfigurationService, Resource } from '../../../common/types';
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
@@ -21,8 +21,8 @@ const messages = {
 };
 
 export class InvalidPythonInterpreterDiagnostic extends BaseDiagnostic {
-    constructor(code: DiagnosticCodes.NoPythonInterpretersDiagnostic | DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic) {
-        super(code, messages[code], DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder);
+    constructor(code: DiagnosticCodes.NoPythonInterpretersDiagnostic | DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic, resource: Resource) {
+        super(code, messages[code], DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder, resource);
     }
 }
 
@@ -37,9 +37,9 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
                 DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic
             ], serviceContainer);
     }
-    public async diagnose(): Promise<IDiagnostic[]> {
+    public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
         const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
-        const settings = configurationService.getSettings();
+        const settings = configurationService.getSettings(resource);
         if (settings.disableInstallationChecks === true) {
             return [];
         }
@@ -48,12 +48,12 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
         const hasInterpreters = await interpreterService.hasInterpreters;
 
         if (!hasInterpreters) {
-            return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoPythonInterpretersDiagnostic)];
+            return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoPythonInterpretersDiagnostic, resource)];
         }
 
-        const currentInterpreter = await interpreterService.getActiveInterpreter();
+        const currentInterpreter = await interpreterService.getActiveInterpreter(resource);
         if (!currentInterpreter) {
-            return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic)];
+            return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic, resource)];
         }
 
         return [];

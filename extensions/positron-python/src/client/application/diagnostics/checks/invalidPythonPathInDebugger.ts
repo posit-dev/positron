@@ -10,7 +10,7 @@ import { openFile } from '../../../../test/common';
 import { IWorkspaceService } from '../../../common/application/types';
 import '../../../common/extensions';
 import { traceError } from '../../../common/logger';
-import { IConfigurationService } from '../../../common/types';
+import { IConfigurationService, Resource } from '../../../common/types';
 import { Diagnostics } from '../../../common/utils/localize';
 import { SystemVariables } from '../../../common/variables/systemVariables';
 import { IInterpreterHelper } from '../../../interpreter/contracts';
@@ -22,16 +22,18 @@ import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '.
 import { DiagnosticScope, IDiagnostic, IDiagnosticCommand, IDiagnosticHandlerService, IInvalidPythonPathInDebuggerService } from '../types';
 
 export class InvalidPythonPathInDebuggerSettingsDiagnostic extends BaseDiagnostic {
-    constructor() {
+    constructor(resource: Resource) {
         super(DiagnosticCodes.InvalidPythonPathInDebuggerSettingsDiagnostic,
-            Diagnostics.invalidPythonPathInDebuggerSettings(), DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder);
+            Diagnostics.invalidPythonPathInDebuggerSettings(), DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder,
+            resource);
     }
 }
 
 export class InvalidPythonPathInDebuggerLaunchDiagnostic extends BaseDiagnostic {
-    constructor() {
+    constructor(resource: Resource) {
         super(DiagnosticCodes.InvalidPythonPathInDebuggerLaunchDiagnostic,
-            Diagnostics.invalidPythonPathInDebuggerLaunch(), DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder);
+            Diagnostics.invalidPythonPathInDebuggerLaunch(), DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder,
+            resource);
     }
 }
 
@@ -47,7 +49,7 @@ export class InvalidPythonPathInDebuggerService extends BaseDiagnosticsService i
         @inject(IDiagnosticHandlerService) @named(DiagnosticCommandPromptHandlerServiceId) protected readonly messageService: IDiagnosticHandlerService<MessageCommandPrompt>) {
         super([DiagnosticCodes.InvalidPythonPathInDebuggerSettingsDiagnostic, DiagnosticCodes.InvalidPythonPathInDebuggerLaunchDiagnostic], serviceContainer);
     }
-    public async diagnose(): Promise<IDiagnostic[]> {
+    public async diagnose(_resource: Resource): Promise<IDiagnostic[]> {
         return [];
     }
     public async handle(diagnostics: IDiagnostic[]): Promise<void> {
@@ -73,11 +75,11 @@ export class InvalidPythonPathInDebuggerService extends BaseDiagnosticsService i
         }
         traceError(`Invalid Python Path '${pythonPath}'`);
         if (pathInLaunchJson) {
-            this.handle([new InvalidPythonPathInDebuggerLaunchDiagnostic()])
+            this.handle([new InvalidPythonPathInDebuggerLaunchDiagnostic(resource)])
                 .catch(ex => traceError('Failed to handle invalid python path in launch.json debugger', ex))
                 .ignoreErrors();
         } else {
-            this.handle([new InvalidPythonPathInDebuggerSettingsDiagnostic()])
+            this.handle([new InvalidPythonPathInDebuggerSettingsDiagnostic(resource)])
                 .catch(ex => traceError('Failed to handle invalid python path in settings.json debugger', ex))
                 .ignoreErrors();
         }

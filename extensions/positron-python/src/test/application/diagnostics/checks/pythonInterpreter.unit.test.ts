@@ -93,7 +93,7 @@ suite('xApplication Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => true)
                 .verifiable(typemoq.Times.once());
 
-            const diagnostics = await diagnosticService.diagnose();
+            const diagnostics = await diagnosticService.diagnose(undefined);
             expect(diagnostics).to.be.deep.equal([]);
             settings.verifyAll();
         });
@@ -107,13 +107,13 @@ suite('xApplication Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => Promise.resolve(false))
                 .verifiable(typemoq.Times.once());
 
-            const diagnostics = await diagnosticService.diagnose();
-            expect(diagnostics).to.be.deep.equal([new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoPythonInterpretersDiagnostic)]);
+            const diagnostics = await diagnosticService.diagnose(undefined);
+            expect(diagnostics).to.be.deep.equal([new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoPythonInterpretersDiagnostic, undefined)], 'not the same');
             settings.verifyAll();
             interpreterService.verifyAll();
         });
         test('Handling no interpreters diagnostic should return download link', async () => {
-            const diagnostic = new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoPythonInterpretersDiagnostic);
+            const diagnostic = new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoPythonInterpretersDiagnostic, undefined);
             const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
@@ -135,7 +135,7 @@ suite('xApplication Diagnostics - Checks Python Interpreter', () => {
         });
         test('Handling no currently selected interpreter diagnostic should show select interpreter message', async () => {
             const diagnostic = new InvalidPythonInterpreterDiagnostic(
-                DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic
+                DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic, undefined
             );
             const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
@@ -157,7 +157,7 @@ suite('xApplication Diagnostics - Checks Python Interpreter', () => {
             expect(messagePrompt!.commandPrompts).to.be.deep.equal([{ prompt: 'Select Python Interpreter', command: cmd }]);
         });
         test('Handling no interpreters diagnostic should return select interpreter cmd', async () => {
-            const diagnostic = new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic);
+            const diagnostic = new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic, undefined);
             const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler

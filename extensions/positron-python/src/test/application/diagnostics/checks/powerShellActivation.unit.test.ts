@@ -87,7 +87,7 @@ suite('Application Diagnostics - PowerShell Activation', () => {
         diagnostic.verifyAll();
     });
     test('Must return empty diagnostics', async () => {
-        const diagnostics = await diagnosticService.diagnose();
+        const diagnostics = await diagnosticService.diagnose(undefined);
         expect(diagnostics).to.be.deep.equal([]);
     });
     test('Should display three options in message displayed with 4 commands', async () => {

@@ -4,6 +4,7 @@
 'use strict';
 
 import { DiagnosticSeverity, Uri } from 'vscode';
+import { Resource } from '../../common/types';
 import { DiagnosticCodes } from './constants';
 
 export enum DiagnosticScope {
@@ -16,12 +17,13 @@ export interface IDiagnostic {
     readonly message: string;
     readonly severity: DiagnosticSeverity;
     readonly scope: DiagnosticScope;
+    readonly resource: Resource;
 }
 
 export const IDiagnosticsService = Symbol('IDiagnosticsService');
 
 export interface IDiagnosticsService {
-    diagnose(): Promise<IDiagnostic[]>;
+    diagnose(resource: Resource): Promise<IDiagnostic[]>;
     canHandle(diagnostic: IDiagnostic): Promise<boolean>;
     handle(diagnostics: IDiagnostic[]): Promise<void>;
 }

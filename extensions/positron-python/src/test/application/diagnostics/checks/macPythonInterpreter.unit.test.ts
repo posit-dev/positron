@@ -102,7 +102,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => true)
                 .verifiable(typemoq.Times.once());
 
-            const diagnostics = await diagnosticService.diagnose();
+            const diagnostics = await diagnosticService.diagnose(undefined);
             expect(diagnostics).to.be.deep.equal([]);
             platformService.verifyAll();
         });
@@ -112,7 +112,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => true)
                 .verifiable(typemoq.Times.once());
 
-            const diagnostics = await diagnosticService.diagnose();
+            const diagnostics = await diagnosticService.diagnose(undefined);
             expect(diagnostics).to.be.deep.equal([]);
             settings.verifyAll();
             platformService.verifyAll();
@@ -139,7 +139,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => false)
                 .verifiable(typemoq.Times.once());
 
-            const diagnostics = await diagnosticService.diagnose();
+            const diagnostics = await diagnosticService.diagnose(undefined);
             expect(diagnostics).to.be.deep.equal([]);
             settings.verifyAll();
             interpreterService.verifyAll();
@@ -171,7 +171,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => false)
                 .verifiable(typemoq.Times.once());
 
-            const diagnostics = await diagnosticService.diagnose();
+            const diagnostics = await diagnosticService.diagnose(undefined);
             expect(diagnostics).to.be.deep.equal([]);
             settings.verifyAll();
             interpreterService.verifyAll();
@@ -203,8 +203,8 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => true)
                 .verifiable(typemoq.Times.atLeastOnce());
 
-            const diagnostics = await diagnosticService.diagnose();
-            expect(diagnostics).to.be.deep.equal([new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic)]);
+            const diagnostics = await diagnosticService.diagnose(undefined);
+            expect(diagnostics).to.be.deep.equal([new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic, undefined)], 'not the same');
             settings.verifyAll();
             interpreterService.verifyAll();
             platformService.verifyAll();
@@ -241,15 +241,15 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => { return Promise.resolve({ type: InterpreterType.Unknown } as any); })
                 .verifiable(typemoq.Times.once());
 
-            const diagnostics = await diagnosticService.diagnose();
-            expect(diagnostics).to.be.deep.equal([new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic)]);
+            const diagnostics = await diagnosticService.diagnose(undefined);
+            expect(diagnostics).to.be.deep.equal([new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic, undefined)], 'not the same');
             settings.verifyAll();
             interpreterService.verifyAll();
             platformService.verifyAll();
             helper.verifyAll();
         });
         test('Handling no interpreters diagnostic should return select interpreter cmd', async () => {
-            const diagnostic = new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic);
+            const diagnostic = new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic, undefined);
             const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
@@ -270,7 +270,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             expect(messagePrompt!.commandPrompts).to.be.deep.equal([{ prompt: 'Select Python Interpreter', command: cmd }]);
         });
         test('Handling no interpreters diagnostisc should return download and learn links', async () => {
-            const diagnostic = new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic);
+            const diagnostic = new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic, undefined);
             const cmdDownload = {} as any as IDiagnosticCommand;
             const cmdLearn = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;

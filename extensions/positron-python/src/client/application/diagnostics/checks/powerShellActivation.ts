@@ -8,7 +8,7 @@ import { DiagnosticSeverity } from 'vscode';
 import '../../../common/extensions';
 import { Logger } from '../../../common/logger';
 import { useCommandPromptAsDefaultShell } from '../../../common/terminal/commandPrompt';
-import { IConfigurationService, ICurrentProcess } from '../../../common/types';
+import { IConfigurationService, ICurrentProcess, Resource } from '../../../common/types';
 import { IServiceContainer } from '../../../ioc/types';
 import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
@@ -21,10 +21,10 @@ import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../type
 const PowershellActivationNotSupportedWithBatchFilesMessage = 'Activation of the selected Python environment is not supported in PowerShell. Consider changing your shell to Command Prompt.';
 
 export class PowershellActivationNotAvailableDiagnostic extends BaseDiagnostic {
-    constructor() {
+    constructor(resource: Resource) {
         super(DiagnosticCodes.EnvironmentActivationInPowerShellWithBatchFilesNotSupportedDiagnostic,
             PowershellActivationNotSupportedWithBatchFilesMessage,
-            DiagnosticSeverity.Warning, DiagnosticScope.Global);
+            DiagnosticSeverity.Warning, DiagnosticScope.Global, resource);
     }
 }
 
@@ -37,7 +37,7 @@ export class PowerShellActivationHackDiagnosticsService extends BaseDiagnosticsS
         super([DiagnosticCodes.EnvironmentActivationInPowerShellWithBatchFilesNotSupportedDiagnostic], serviceContainer);
         this.messageService = serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(IDiagnosticHandlerService, DiagnosticCommandPromptHandlerServiceId);
     }
-    public async diagnose(): Promise<IDiagnostic[]> {
+    public async diagnose(_resource: Resource): Promise<IDiagnostic[]> {
         return [];
     }
     public async handle(diagnostics: IDiagnostic[]): Promise<void> {

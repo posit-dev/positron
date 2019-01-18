@@ -59,20 +59,20 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
     });
 
     test('Performing Pre Startup Health Check must check Path environment variable and Debugger Type along with Mac Interpreter', async () => {
-        envHealthCheck.setup(e => e.diagnose())
+        envHealthCheck.setup(e => e.diagnose(typemoq.It.isAny()))
             .returns(() => Promise.resolve([]))
             .verifiable(typemoq.Times.once());
-        debuggerTypeCheck.setup(e => e.diagnose())
+        debuggerTypeCheck.setup(e => e.diagnose(typemoq.It.isAny()))
             .returns(() => Promise.resolve([]))
             .verifiable(typemoq.Times.once());
-        macInterperterCheck.setup(p => p.diagnose())
+        macInterperterCheck.setup(p => p.diagnose(typemoq.It.isAny()))
             .returns(() => Promise.resolve([]))
             .verifiable(typemoq.Times.once());
         macInterperterCheck.setup(p => p.handle(typemoq.It.isValue([])))
             .returns(() => Promise.resolve())
             .verifiable(typemoq.Times.once());
 
-        await appDiagnostics.performPreStartupHealthCheck();
+        await appDiagnostics.performPreStartupHealthCheck(undefined);
 
         envHealthCheck.verifyAll();
         debuggerTypeCheck.verifyAll();
@@ -80,7 +80,7 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
     });
 
     test('Diagnostics Returned by Per Startup Health Checks must be logged', async () => {
-        macInterperterCheck.setup(p => p.diagnose())
+        macInterperterCheck.setup(p => p.diagnose(typemoq.It.isAny()))
             .returns(() => Promise.resolve([]))
             .verifiable(typemoq.Times.once());
 
@@ -90,7 +90,8 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
                 code: `Error${i}` as any,
                 message: `Error${i}`,
                 scope: i % 2 === 0 ? DiagnosticScope.Global : DiagnosticScope.WorkspaceFolder,
-                severity: DiagnosticSeverity.Error
+                severity: DiagnosticSeverity.Error,
+                resource: undefined
             };
             diagnostics.push(diagnostic);
         }
@@ -99,7 +100,8 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
                 code: `Warning${i}` as any,
                 message: `Warning${i}`,
                 scope: i % 2 === 0 ? DiagnosticScope.Global : DiagnosticScope.WorkspaceFolder,
-                severity: DiagnosticSeverity.Warning
+                severity: DiagnosticSeverity.Warning,
+                resource: undefined
             };
             diagnostics.push(diagnostic);
         }
@@ -108,7 +110,8 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
                 code: `Info${i}` as any,
                 message: `Info${i}`,
                 scope: i % 2 === 0 ? DiagnosticScope.Global : DiagnosticScope.WorkspaceFolder,
-                severity: DiagnosticSeverity.Information
+                severity: DiagnosticSeverity.Information,
+                resource: undefined
             };
             diagnostics.push(diagnostic);
         }
@@ -138,14 +141,14 @@ suite('Application Diagnostics - ApplicationDiagnostics', () => {
             }
         }
 
-        envHealthCheck.setup(e => e.diagnose())
+        envHealthCheck.setup(e => e.diagnose(typemoq.It.isAny()))
             .returns(() => Promise.resolve(diagnostics))
             .verifiable(typemoq.Times.once());
-        debuggerTypeCheck.setup(e => e.diagnose())
+        debuggerTypeCheck.setup(e => e.diagnose(typemoq.It.isAny()))
             .returns(() => Promise.resolve([]))
             .verifiable(typemoq.Times.once());
 
-        await appDiagnostics.performPreStartupHealthCheck();
+        await appDiagnostics.performPreStartupHealthCheck(undefined);
 
         envHealthCheck.verifyAll();
         debuggerTypeCheck.verifyAll();

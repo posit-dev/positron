@@ -92,14 +92,14 @@ suite('Application Diagnostics - Checks Env Path Variable', () => {
         platformService.setup(p => p.isMac).returns(() => true);
         platformService.setup(p => p.isLinux).returns(() => false);
         platformService.setup(p => p.isWindows).returns(() => false);
-        const diagnostics = await diagnosticService.diagnose();
+        const diagnostics = await diagnosticService.diagnose(undefined);
         expect(diagnostics).to.be.deep.equal([]);
     });
     test('Should return empty diagnostics for Linux', async () => {
         platformService.setup(p => p.isMac).returns(() => false);
         platformService.setup(p => p.isLinux).returns(() => true);
         platformService.setup(p => p.isWindows).returns(() => false);
-        const diagnostics = await diagnosticService.diagnose();
+        const diagnostics = await diagnosticService.diagnose(undefined);
         expect(diagnostics).to.be.deep.equal([]);
     });
     test('Should return empty diagnostics for Windows if path variable is valid', async () => {
@@ -110,7 +110,7 @@ suite('Application Diagnostics - Checks Env Path Variable', () => {
         ].join(pathDelimiter);
         procEnv.setup(env => env[pathVariableName]).returns(() => paths);
 
-        const diagnostics = await diagnosticService.diagnose();
+        const diagnostics = await diagnosticService.diagnose(undefined);
 
         expect(diagnostics).to.be.deep.equal([]);
     });
@@ -123,7 +123,7 @@ suite('Application Diagnostics - Checks Env Path Variable', () => {
         ].join(pathDelimiter);
         procEnv.setup(env => env[pathVariableName]).returns(() => paths);
 
-        const diagnostics = await diagnosticService.diagnose();
+        const diagnostics = await diagnosticService.diagnose(undefined);
 
         expect(diagnostics).to.be.lengthOf(1);
         expect(diagnostics[0].code).to.be.equal(DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic);
@@ -140,7 +140,7 @@ suite('Application Diagnostics - Checks Env Path Variable', () => {
         platformService.setup(p => p.isWindows).returns(() => true);
         procEnv.setup(env => env[pathVariableName]).returns(() => paths);
 
-        const diagnostics = await diagnosticService.diagnose();
+        const diagnostics = await diagnosticService.diagnose(undefined);
 
         expect(diagnostics).to.be.lengthOf(0);
     });
