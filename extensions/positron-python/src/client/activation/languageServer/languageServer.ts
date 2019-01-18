@@ -12,8 +12,8 @@ import { createDeferred, Deferred, sleep } from '../../common/utils/async';
 import { noop } from '../../common/utils/misc';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
-import { ProgressReporting } from '../progress';
-import { ILanaguageServer as ILanguageServer, ILanguageClientFactory, LanguageClientFactory } from '../types';
+import { ILanguageClientFactory, ILanguageServer, LanguageClientFactory } from '../types';
+import { ProgressReporting } from './progress';
 
 @injectable()
 export class LanguageServer implements ILanguageServer {

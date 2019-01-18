@@ -31,6 +31,12 @@ export namespace LanguageService {
     export const lsFailedToStart = localize('LanguageService.lsFailedToStart', 'We encountered an issue starting the Language Server. Reverting to the alternative, Jedi. Check the Python output panel for details.');
     export const lsFailedToDownload = localize('LanguageService.lsFailedToDownload', 'We encountered an issue downloading the Language Server. Reverting to the alternative, Jedi. Check the Python output panel for details.');
     export const lsFailedToExtract = localize('LanguageService.lsFailedToExtract', 'We encountered an issue extracting the Language Server. Reverting to the alternative, Jedi. Check the Python output panel for details.');
+    export const downloadFailedOutputMessage = localize('LanguageService.downloadFailedOutputMessage', 'download failed.');
+    export const extractionFailedOutputMessage = localize('LanguageService.extractionFailedOutputMessage', 'extraction failed.');
+    export const extractionCompletedOutputMessage = localize('LanguageService.extractionCompletedOutputMessage', 'complete.');
+    export const extractionDoneOutputMessage = localize('LanguageService.extractionDoneOutputMessage', 'done.');
+    export const reloadVSCodeIfSeachPathHasChanged = localize('LanguageService.reloadVSCodeIfSeachPathHasChanged', 'Search paths have changed for this Python interpreter. Please reload the extension to ensure that the IntelliSense works correctly.');
+
 }
 
 export namespace Interpreters {

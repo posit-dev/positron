@@ -8,12 +8,12 @@
 import { expect } from 'chai';
 import { SemVer } from 'semver';
 import * as TypeMoq from 'typemoq';
-import { LanguageServerDownloader } from '../../client/activation/downloader';
-import { ILanguageServerFolderService, IPlatformData } from '../../client/activation/types';
-import { IApplicationShell } from '../../client/common/application/types';
-import { IFileSystem } from '../../client/common/platform/types';
-import { IOutputChannel } from '../../client/common/types';
-import { Common, LanguageService } from '../../client/common/utils/localize';
+import { LanguageServerDownloader } from '../../../client/activation/languageServer/downloader';
+import { ILanguageServerFolderService, IPlatformData } from '../../../client/activation/types';
+import { IApplicationShell } from '../../../client/common/application/types';
+import { IFileSystem } from '../../../client/common/platform/types';
+import { IOutputChannel } from '../../../client/common/types';
+import { Common, LanguageService } from '../../../client/common/utils/localize';
 
 // tslint:disable-next-line:max-func-body-length
 suite('Activation - Downloader', () => {
