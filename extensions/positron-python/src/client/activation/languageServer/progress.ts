@@ -1,12 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+'use strict';
+
 import { Progress, ProgressLocation, window } from 'vscode';
 import { Disposable, LanguageClient } from 'vscode-languageclient';
-import { createDeferred, Deferred } from '../common/utils/async';
-import { StopWatch } from '../common/utils/stopWatch';
-import { sendTelemetryEvent } from '../telemetry';
-import { EventName } from '../telemetry/constants';
+import { createDeferred, Deferred } from '../../common/utils/async';
+import { StopWatch } from '../../common/utils/stopWatch';
+import { sendTelemetryEvent } from '../../telemetry';
+import { EventName } from '../../telemetry/constants';
 
 // Draw the line at Language Server analysis 'timing out'
 // and becoming a failure-case at 1 minute:

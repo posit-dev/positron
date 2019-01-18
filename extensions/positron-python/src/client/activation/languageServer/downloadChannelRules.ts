@@ -4,9 +4,9 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { IPersistentStateFactory } from '../common/types';
-import { IServiceContainer } from '../ioc/types';
-import { FolderVersionPair, IDownloadChannelRule } from './types';
+import { IPersistentStateFactory } from '../../common/types';
+import { IServiceContainer } from '../../ioc/types';
+import { FolderVersionPair, IDownloadChannelRule } from '../types';
 
 const lastCheckedForLSDateTimeCacheKey = 'LS.LAST.CHECK.TIME';
 const frequencyForBetalLSDownloadCheck = 1000 * 60 * 60 * 24; // One day.
