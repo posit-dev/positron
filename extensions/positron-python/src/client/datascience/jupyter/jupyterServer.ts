@@ -434,7 +434,7 @@ export class JupyterServer implements INotebookServer, IAsyncDisposable {
     private combineObservables = (...args: Observable<ICell>[]): Observable<ICell[]> => {
         return new Observable<ICell[]>(subscriber => {
             // When all complete, we have our results
-            const results: { [id: string]: ICell } = {};
+            const results: Record<string, ICell> = {};
 
             args.forEach(o => {
                 o.subscribe(c => {

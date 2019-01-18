@@ -25,7 +25,7 @@ suite('Telemetry', () => {
 
     class Reporter {
         public static eventName: string;
-        public static properties: { [key: string]: string };
+        public static properties: Record<string, string>;
         public static measures: {};
         public sendTelemetryEvent(eventName: string, properties?: {}, measures?: {}) {
             Reporter.eventName = eventName;

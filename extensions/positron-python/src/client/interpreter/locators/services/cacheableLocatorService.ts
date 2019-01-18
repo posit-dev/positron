@@ -35,7 +35,7 @@ export abstract class CacheableLocatorService implements IInterpreterLocatorServ
     public get hasInterpreters(): Promise<boolean> {
         return this._hasInterpreters.promise;
     }
-    public abstract dispose();
+    public abstract dispose(): void;
     public async getInterpreters(resource?: Uri, ignoreCache?: boolean): Promise<PythonInterpreter[]> {
         const cacheKey = this.getCacheKey(resource);
         let deferred = this.promisesPerResource.get(cacheKey);
