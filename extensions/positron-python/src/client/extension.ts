@@ -311,7 +311,14 @@ async function sendStartupTelemetry(activatedPromise: Promise<any>, serviceConta
         traceError('sendStartupTelemetry() failed.', ex);
     }
 }
-
+function isUsingGlobalInterpreterInWorkspace(currentPythonPath: string, serviceContainer: IServiceContainer): boolean {
+    const service = serviceContainer.get<IInterpreterAutoSelectionService>(IInterpreterAutoSelectionService);
+    const globalInterpreter = service.getAutoSelectedInterpreter(undefined);
+    if (!globalInterpreter) {
+        return false;
+    }
+    return currentPythonPath === globalInterpreter.path;
+}
 function hasUserDefinedPythonPath(resource: Resource, serviceContainer: IServiceContainer) {
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const settings = workspaceService.getConfiguration('python', resource)!.inspect<string>('pyhontPath')!;
@@ -355,6 +362,7 @@ async function getActivationTelemetryProps(serviceContainer: IServiceContainer):
     const interpreterType = interpreter ? interpreter.type : undefined;
     const hasUserDefinedInterpreter = hasUserDefinedPythonPath(mainWorkspaceUri, serviceContainer);
     const preferredWorkspaceInterpreter = getPreferredWorkspaceInterpreter(mainWorkspaceUri, serviceContainer);
+    const isUsingGlobalInterpreter = isUsingGlobalInterpreterInWorkspace(settings.pythonPath, serviceContainer);
     const isAutoSelectedWorkspaceInterpreterUsed = preferredWorkspaceInterpreter ? settings.pythonPath === getPreferredWorkspaceInterpreter(mainWorkspaceUri, serviceContainer) : undefined;
     const hasPython3 = interpreters
         .filter(item => item && item.version ? item.version.major === 3 : false)
@@ -368,7 +376,8 @@ async function getActivationTelemetryProps(serviceContainer: IServiceContainer):
         workspaceFolderCount,
         hasPython3,
         hasUserDefinedInterpreter,
-        isAutoSelectedWorkspaceInterpreterUsed
+        isAutoSelectedWorkspaceInterpreterUsed,
+        isUsingGlobalInterpreter
     };
 }
 
