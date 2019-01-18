@@ -16,13 +16,19 @@ import { DiagnosticCodes } from '../constants';
 import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '../promptHandler';
 import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../types';
 
-const InvalidEnvPathVariableMessage = 'The environment variable \'{0}\' seems to have some paths containing the \'"\' character.' +
+const InvalidEnvPathVariableMessage =
+    'The environment variable \'{0}\' seems to have some paths containing the \'"\' character.' +
     ' The existence of such a character is known to have caused the {1} extension to not load. If the extension fails to load please modify your paths to remove this \'"\' character.';
 
 export class InvalidEnvironmentPathVariableDiagnostic extends BaseDiagnostic {
     constructor(message: string, resource: Resource) {
-        super(DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic,
-            message, DiagnosticSeverity.Warning, DiagnosticScope.Global, resource);
+        super(
+            DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic,
+            message,
+            DiagnosticSeverity.Warning,
+            DiagnosticScope.Global,
+            resource
+        );
     }
 }
 
@@ -35,20 +41,21 @@ export class EnvironmentPathVariableDiagnosticsService extends BaseDiagnosticsSe
     constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer) {
         super([DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic], serviceContainer);
         this.platform = this.serviceContainer.get<IPlatformService>(IPlatformService);
-        this.messageService = serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(IDiagnosticHandlerService, DiagnosticCommandPromptHandlerServiceId);
+        this.messageService = serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(
+            IDiagnosticHandlerService,
+            DiagnosticCommandPromptHandlerServiceId
+        );
     }
     public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
-        if (this.platform.isWindows &&
-            this.doesPathVariableHaveInvalidEntries()) {
+        if (this.platform.isWindows && this.doesPathVariableHaveInvalidEntries()) {
             const env = this.serviceContainer.get<IApplicationEnvironment>(IApplicationEnvironment);
-            const message = InvalidEnvPathVariableMessage
-                .format(this.platform.pathVariableName, env.extensionName);
+            const message = InvalidEnvPathVariableMessage.format(this.platform.pathVariableName, env.extensionName);
             return [new InvalidEnvironmentPathVariableDiagnostic(message, resource)];
         } else {
             return [];
         }
     }
-    public async handle(diagnostics: IDiagnostic[]): Promise<void> {
+    protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
         // This class can only handle one type of diagnostic, hence just use first item in list.
         if (diagnostics.length === 0 || !this.canHandle(diagnostics[0])) {
             return;

@@ -16,8 +16,10 @@ import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '.
 import { DiagnosticScope, IDiagnostic, IDiagnosticCommand, IDiagnosticHandlerService } from '../types';
 
 const messages = {
-    [DiagnosticCodes.NoPythonInterpretersDiagnostic]: 'Python is not installed. Please download and install Python before using the extension.',
-    [DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic]: 'No Python interpreter is selected. You need to select a Python interpreter to enable features such as IntelliSense, linting, and debugging.'
+    [DiagnosticCodes.NoPythonInterpretersDiagnostic]:
+        'Python is not installed. Please download and install Python before using the extension.',
+    [DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic]:
+        'No Python interpreter is selected. You need to select a Python interpreter to enable features such as IntelliSense, linting, and debugging.'
 };
 
 export class InvalidPythonInterpreterDiagnostic extends BaseDiagnostic {
@@ -35,7 +37,9 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
             [
                 DiagnosticCodes.NoPythonInterpretersDiagnostic,
                 DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic
-            ], serviceContainer);
+            ],
+            serviceContainer
+        );
     }
     public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
         const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -53,38 +57,58 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
 
         const currentInterpreter = await interpreterService.getActiveInterpreter(resource);
         if (!currentInterpreter) {
-            return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic, resource)];
+            return [
+                new InvalidPythonInterpreterDiagnostic(
+                    DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic,
+                    resource
+                )
+            ];
         }
 
         return [];
     }
-    public async handle(diagnostics: IDiagnostic[]): Promise<void> {
+    protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
         if (diagnostics.length === 0) {
             return;
         }
-        const messageService = this.serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(IDiagnosticHandlerService, DiagnosticCommandPromptHandlerServiceId);
-        await Promise.all(diagnostics.map(async diagnostic => {
-            if (!this.canHandle(diagnostic)) {
-                return;
-            }
-            const commandPrompts = this.getCommandPrompts(diagnostic);
-            return messageService.handle(diagnostic, { commandPrompts, message: diagnostic.message });
-        }));
+        const messageService = this.serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(
+            IDiagnosticHandlerService,
+            DiagnosticCommandPromptHandlerServiceId
+        );
+        await Promise.all(
+            diagnostics.map(async diagnostic => {
+                if (!this.canHandle(diagnostic)) {
+                    return;
+                }
+                const commandPrompts = this.getCommandPrompts(diagnostic);
+                return messageService.handle(diagnostic, { commandPrompts, message: diagnostic.message });
+            })
+        );
     }
     private getCommandPrompts(diagnostic: IDiagnostic): { prompt: string; command?: IDiagnosticCommand }[] {
         const commandFactory = this.serviceContainer.get<IDiagnosticsCommandFactory>(IDiagnosticsCommandFactory);
         switch (diagnostic.code) {
             case DiagnosticCodes.NoPythonInterpretersDiagnostic: {
-                return [{
-                    prompt: 'Download',
-                    command: commandFactory.createCommand(diagnostic, { type: 'launch', options: 'https://www.python.org/downloads' })
-                }];
+                return [
+                    {
+                        prompt: 'Download',
+                        command: commandFactory.createCommand(diagnostic, {
+                            type: 'launch',
+                            options: 'https://www.python.org/downloads'
+                        })
+                    }
+                ];
             }
             case DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic: {
-                return [{
-                    prompt: 'Select Python Interpreter',
-                    command: commandFactory.createCommand(diagnostic, { type: 'executeVSCCommand', options: 'python.setInterpreter' })
-                }];
+                return [
+                    {
+                        prompt: 'Select Python Interpreter',
+                        command: commandFactory.createCommand(diagnostic, {
+                            type: 'executeVSCCommand',
+                            options: 'python.setInterpreter'
+                        })
+                    }
+                ];
             }
             default: {
                 throw new Error('Invalid diagnostic for \'InvalidPythonInterpreterService\'');

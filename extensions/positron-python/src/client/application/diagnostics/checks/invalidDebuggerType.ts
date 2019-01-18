@@ -17,15 +17,20 @@ import { DiagnosticCodes } from '../constants';
 import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '../promptHandler';
 import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../types';
 
-const InvalidDebuggerTypeMessage = 'Your launch.json file needs to be updated to change the "pythonExperimental" debug ' +
+const InvalidDebuggerTypeMessage =
+    'Your launch.json file needs to be updated to change the "pythonExperimental" debug ' +
     'configurations to use the "python" debugger type, otherwise Python debugging may ' +
     'not work. Would you like to automatically update your launch.json file now?';
 
 export class InvalidDebuggerTypeDiagnostic extends BaseDiagnostic {
     constructor(message: string, resource: Resource) {
-        super(DiagnosticCodes.InvalidDebuggerTypeDiagnostic,
-            message, DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder,
-            resource);
+        super(
+            DiagnosticCodes.InvalidDebuggerTypeDiagnostic,
+            message,
+            DiagnosticSeverity.Error,
+            DiagnosticScope.WorkspaceFolder,
+            resource
+        );
     }
 }
 
@@ -39,7 +44,10 @@ export class InvalidDebuggerTypeDiagnosticsService extends BaseDiagnosticsServic
     protected readonly fs: IFileSystem;
     constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer) {
         super([DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic], serviceContainer);
-        this.messageService = serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(IDiagnosticHandlerService, DiagnosticCommandPromptHandlerServiceId);
+        this.messageService = serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(
+            IDiagnosticHandlerService,
+            DiagnosticCommandPromptHandlerServiceId
+        );
         const cmdManager = serviceContainer.get<ICommandManager>(ICommandManager);
         this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
         cmdManager.registerCommand(CommandName, this.fixLaunchJson, this);
@@ -51,7 +59,7 @@ export class InvalidDebuggerTypeDiagnosticsService extends BaseDiagnosticsServic
             return [];
         }
     }
-    public async handle(diagnostics: IDiagnostic[]): Promise<void> {
+    protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
         // This class can only handle one type of diagnostic, hence just use first item in list.
         if (diagnostics.length === 0 || !this.canHandle(diagnostics[0])) {
             return;
@@ -61,7 +69,10 @@ export class InvalidDebuggerTypeDiagnosticsService extends BaseDiagnosticsServic
         const options = [
             {
                 prompt: 'Yes, update launch.json',
-                command: commandFactory.createCommand(diagnostic, { type: 'executeVSCCommand', options: 'python.debugger.replaceExperimental' })
+                command: commandFactory.createCommand(diagnostic, {
+                    type: 'executeVSCCommand',
+                    options: 'python.debugger.replaceExperimental'
+                })
             },
             {
                 prompt: 'No, I will do it later'
@@ -76,7 +87,11 @@ export class InvalidDebuggerTypeDiagnosticsService extends BaseDiagnosticsServic
             return false;
         }
 
-        const results = await Promise.all(workspaceService.workspaceFolders!.map(workspaceFolder => this.isExperimentalDebuggerUsedInWorkspace(workspaceFolder)));
+        const results = await Promise.all(
+            workspaceService.workspaceFolders!.map(workspaceFolder =>
+                this.isExperimentalDebuggerUsedInWorkspace(workspaceFolder)
+            )
+        );
         return results.filter(used => used === true).length > 0;
     }
     private getLaunchJsonFile(workspaceFolder: WorkspaceFolder) {
@@ -84,7 +99,7 @@ export class InvalidDebuggerTypeDiagnosticsService extends BaseDiagnosticsServic
     }
     private async isExperimentalDebuggerUsedInWorkspace(workspaceFolder: WorkspaceFolder) {
         const launchJson = this.getLaunchJsonFile(workspaceFolder);
-        if (!await this.fs.fileExists(launchJson)) {
+        if (!(await this.fs.fileExists(launchJson))) {
             return false;
         }
 
@@ -97,10 +112,12 @@ export class InvalidDebuggerTypeDiagnosticsService extends BaseDiagnosticsServic
             return false;
         }
 
-        await Promise.all(workspaceService.workspaceFolders!.map(workspaceFolder => this.fixLaunchJsonInWorkspace(workspaceFolder)));
+        await Promise.all(
+            workspaceService.workspaceFolders!.map(workspaceFolder => this.fixLaunchJsonInWorkspace(workspaceFolder))
+        );
     }
     private async fixLaunchJsonInWorkspace(workspaceFolder: WorkspaceFolder) {
-        if (!await this.isExperimentalDebuggerUsedInWorkspace(workspaceFolder)) {
+        if (!(await this.isExperimentalDebuggerUsedInWorkspace(workspaceFolder))) {
             return;
         }
 

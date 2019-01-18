@@ -17,27 +17,37 @@ import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../type
 
 export class LSNotSupportedDiagnostic extends BaseDiagnostic {
     constructor(message: string, resource: Resource) {
-        super(DiagnosticCodes.LSNotSupportedDiagnostic,
-            message, DiagnosticSeverity.Warning, DiagnosticScope.Global, resource);
+        super(
+            DiagnosticCodes.LSNotSupportedDiagnostic,
+            message,
+            DiagnosticSeverity.Warning,
+            DiagnosticScope.Global,
+            resource
+        );
     }
 }
 
 export const LSNotSupportedDiagnosticServiceId = 'LSNotSupportedDiagnosticServiceId';
 
 export class LSNotSupportedDiagnosticService extends BaseDiagnosticsService {
-    constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer,
-    @inject(ILanguageServerCompatibilityService) private readonly lsCompatibility: ILanguageServerCompatibilityService,
-    @inject(IDiagnosticHandlerService) @named(DiagnosticCommandPromptHandlerServiceId) protected readonly messageService: IDiagnosticHandlerService<MessageCommandPrompt>) {
+    constructor(
+        @inject(IServiceContainer) serviceContainer: IServiceContainer,
+        @inject(ILanguageServerCompatibilityService)
+        private readonly lsCompatibility: ILanguageServerCompatibilityService,
+        @inject(IDiagnosticHandlerService)
+        @named(DiagnosticCommandPromptHandlerServiceId)
+        protected readonly messageService: IDiagnosticHandlerService<MessageCommandPrompt>
+    ) {
         super([DiagnosticCodes.LSNotSupportedDiagnostic], serviceContainer);
     }
-    public async diagnose(resource: Resource): Promise<IDiagnostic[]>{
+    public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
         if (await this.lsCompatibility.isSupported()) {
             return [];
-        } else{
+        } else {
             return [new LSNotSupportedDiagnostic(Diagnostics.lsNotSupported(), resource)];
         }
     }
-    public async handle(diagnostics: IDiagnostic[]): Promise<void>{
+    protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
         if (diagnostics.length === 0 || !this.canHandle(diagnostics[0])) {
             return;
         }
