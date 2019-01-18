@@ -1,10 +1,16 @@
 'use strict';
+// tslint:disable:no-var-requires no-require-imports
+
 // This line should always be right on top.
 // tslint:disable:no-any
 if ((Reflect as any).metadata === undefined) {
-    // tslint:disable-next-line:no-require-imports no-var-requires
     require('reflect-metadata');
 }
+
+// Initialize source maps (this must never be moved up nor further down).
+import {initialize } from './sourceMapSupport';
+initialize(require('vscode'));
+
 const durations: { [key: string]: number } = {};
 import { StopWatch } from './common/utils/stopWatch';
 // Do not move this line of code (used to measure extension load times).
