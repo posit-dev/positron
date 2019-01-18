@@ -158,7 +158,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         }
     }(undefined, new MockAutoSelectionService());
     private commandManager: MockCommandManager = new MockCommandManager();
-    private setContexts: { [name: string]: boolean } = {};
+    private setContexts: Record<string, boolean> = {};
     private contextSetEvent: EventEmitter<{ name: string; value: boolean }> = new EventEmitter<{ name: string; value: boolean }>();
     private jupyterMock: MockJupyterManager | undefined;
     private shouldMockJupyter: boolean;

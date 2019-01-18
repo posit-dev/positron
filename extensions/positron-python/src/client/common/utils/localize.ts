@@ -159,9 +159,9 @@ export namespace UnitTests {
 
 // Skip using vscode-nls and instead just compute our strings based on key values. Key values
 // can be loaded out of the nls.<locale>.json files
-let loadedCollection: { [index: string]: string } | undefined;
-let defaultCollection: { [index: string]: string } | undefined;
-const askedForCollection: { [index: string]: string } = {};
+let loadedCollection: Record<string, string> | undefined;
+let defaultCollection: Record<string, string> | undefined;
+const askedForCollection: Record<string, string> = {};
 let loadedLocale: string;
 
 export function localize(key: string, defValue: string) {

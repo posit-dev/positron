@@ -77,7 +77,7 @@ suite('Resolving Environment Variables when Debugging', () => {
         const prop1 = shortid.generate();
         const prop2 = shortid.generate();
         const prop3 = shortid.generate();
-        const env: {[key: string]: string} = {};
+        const env: Record<string, string> = {};
         env[prop1] = prop1;
         env[prop2] = prop2;
         mockProcess.env[prop3] = prop3;
@@ -133,7 +133,7 @@ suite('Resolving Environment Variables when Debugging', () => {
         const prop2 = shortid.generate();
         const prop3 = shortid.generate();
 
-        const env : {[key: string]: string} = {};
+        const env : Record<string, string> = {};
         env[pathVariableName] = customPathToAppend;
         env['PYTHONPATH'] = customPythonPathToAppend;
         env[prop1] = prop1;

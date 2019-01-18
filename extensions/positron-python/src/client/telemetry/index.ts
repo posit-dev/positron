@@ -74,7 +74,7 @@ function getTelemetryReporter() {
 
 export function sendTelemetryEvent<P extends IEventNamePropertyMapping, E extends keyof P>(
     eventName: E,
-    durationMs?: { [key: string]: number } | number,
+    durationMs?: Record<string, number> | number,
     properties?: P[E],
     ex?: Error
 ) {
@@ -85,7 +85,7 @@ export function sendTelemetryEvent<P extends IEventNamePropertyMapping, E extend
     const measures = typeof durationMs === 'number' ? { duration: durationMs } : durationMs ? durationMs : undefined;
 
     // tslint:disable-next-line:no-any
-    const customProperties: { [key: string]: string } = {};
+    const customProperties: Record<string, string> = {};
     if (properties) {
         // tslint:disable-next-line:prefer-type-cast no-any
         const data = properties as any;

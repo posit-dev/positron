@@ -47,7 +47,7 @@ const KernelSpecOutputRegEx = /^\s*(\S+)\s+(\S+)$/;
 export class JupyterExecution implements IJupyterExecution, Disposable {
 
     private processServicePromise: Promise<IProcessService>;
-    private commands: { [command: string]: IJupyterCommand } = {};
+    private commands: Record<string, IJupyterCommand> = {};
     private jupyterPath: string | undefined;
     private usablePythonInterpreter: PythonInterpreter | undefined;
 

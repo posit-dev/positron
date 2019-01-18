@@ -542,7 +542,7 @@ export class History implements IWebPanelMessageListener, IHistory {
             if (cells && this.applicationShell) {
 
                 const filtersKey = localize.DataScience.exportDialogFilter();
-                const filtersObject: { [key: string]: string[] } = {};
+                const filtersObject: Record<string, string[]> = {};
                 filtersObject[filtersKey] = ['ipynb'];
 
                 // Bring up the open file dialog box

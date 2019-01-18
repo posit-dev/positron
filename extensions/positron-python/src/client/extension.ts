@@ -11,7 +11,7 @@ if ((Reflect as any).metadata === undefined) {
 import {initialize } from './sourceMapSupport';
 initialize(require('vscode'));
 
-const durations: { [key: string]: number } = {};
+const durations: Record<string, number> = {};
 import { StopWatch } from './common/utils/stopWatch';
 // Do not move this line of code (used to measure extension load times).
 const stopWatch = new StopWatch();
