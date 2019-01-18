@@ -542,7 +542,7 @@ export class History implements IWebPanelMessageListener, IHistory {
             if (cells && this.applicationShell) {
 
                 const filtersKey = localize.DataScience.exportDialogFilter();
-                const filtersObject = {};
+                const filtersObject: { [key: string]: string[] } = {};
                 filtersObject[filtersKey] = ['ipynb'];
 
                 // Bring up the open file dialog box
@@ -659,7 +659,8 @@ export class History implements IWebPanelMessageListener, IHistory {
                     } else {
                         const data = o.data;
                         if (data && data.hasOwnProperty('text/plain')) {
-                            result = result.concat(data['text/plain']);
+                            // tslint:disable-next-line:no-any
+                            result = result.concat((data as any)['text/plain']);
                         }
                     }
                 });

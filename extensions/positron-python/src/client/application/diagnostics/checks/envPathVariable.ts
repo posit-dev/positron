@@ -20,7 +20,7 @@ const InvalidEnvPathVariableMessage = 'The environment variable \'{0}\' seems to
     ' The existence of such a character is known to have caused the {1} extension to not load. If the extension fails to load please modify your paths to remove this \'"\' character.';
 
 export class InvalidEnvironmentPathVariableDiagnostic extends BaseDiagnostic {
-    constructor(message) {
+    constructor(message: string) {
         super(DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic,
             message, DiagnosticSeverity.Warning, DiagnosticScope.Global);
     }
@@ -78,7 +78,7 @@ export class EnvironmentPathVariableDiagnosticsService extends BaseDiagnosticsSe
         const currentProc = this.serviceContainer.get<ICurrentProcess>(ICurrentProcess);
         const pathValue = currentProc.env[this.platform.pathVariableName];
         const pathSeparator = this.serviceContainer.get<IPathUtils>(IPathUtils).delimiter;
-        const paths = pathValue.split(pathSeparator);
+        const paths = (pathValue || '').split(pathSeparator);
         return paths.filter(item => item.indexOf('"') >= 0).length > 0;
     }
 }

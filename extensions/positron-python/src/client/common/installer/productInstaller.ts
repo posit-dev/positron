@@ -112,7 +112,7 @@ export class CTagsInstaller extends BaseInstaller {
         super(serviceContainer, outputChannel);
     }
 
-    public async install(product: Product, resource?: Uri): Promise<InstallerResponse> {
+    public async install(_product: Product, resource?: Uri): Promise<InstallerResponse> {
         if (this.serviceContainer.get<IPlatformService>(IPlatformService).isWindows) {
             this.outputChannel.appendLine('Install Universal Ctags Win32 to enable support for Workspace Symbols');
             this.outputChannel.appendLine('Download the CTags binary from the Universal CTags site.');

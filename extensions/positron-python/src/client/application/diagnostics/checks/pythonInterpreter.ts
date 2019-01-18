@@ -21,7 +21,7 @@ const messages = {
 };
 
 export class InvalidPythonInterpreterDiagnostic extends BaseDiagnostic {
-    constructor(code: DiagnosticCodes) {
+    constructor(code: DiagnosticCodes.NoPythonInterpretersDiagnostic | DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic) {
         super(code, messages[code], DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder);
     }
 }

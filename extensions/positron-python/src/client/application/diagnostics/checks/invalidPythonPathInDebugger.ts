@@ -102,7 +102,7 @@ export class InvalidPythonPathInDebuggerService extends BaseDiagnosticsService i
                     // tslint:disable-next-line:no-object-literal-type-assertion
                     command: {
                         diagnostic, invoke: async (): Promise<void> => {
-                            const launchJson = this.getLaunchJsonFile(workspc.workspaceFolders[0]);
+                            const launchJson = this.getLaunchJsonFile(workspc.workspaceFolders![0]);
                             await openFile(launchJson);
                         }
                     }

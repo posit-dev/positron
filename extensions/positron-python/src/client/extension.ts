@@ -1,6 +1,6 @@
 'use strict';
 // This line should always be right on top.
-// tslint:disable-next-line:no-any
+// tslint:disable:no-any
 if ((Reflect as any).metadata === undefined) {
     // tslint:disable-next-line:no-require-imports no-var-requires
     require('reflect-metadata');
@@ -392,14 +392,16 @@ function handleError(ex: Error) {
 }
 
 interface IAppShell {
-    showErrorMessage(string);
+    showErrorMessage(string: string): Promise<void>;
 }
 
 function notifyUser(msg: string) {
     try {
-        let appShell = (window as IAppShell);
+        // tslint:disable-next-line:no-any
+        let appShell: IAppShell = (window as any as IAppShell);
         if (activatedServiceContainer) {
-            appShell = activatedServiceContainer.get<IApplicationShell>(IApplicationShell);
+            // tslint:disable-next-line:no-any
+            appShell = activatedServiceContainer.get<IApplicationShell>(IApplicationShell) as any as IAppShell;
         }
         appShell.showErrorMessage(msg)
             .ignoreErrors();

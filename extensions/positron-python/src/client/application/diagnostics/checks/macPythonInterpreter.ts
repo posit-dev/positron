@@ -23,7 +23,7 @@ const messages = {
 };
 
 export class InvalidMacPythonInterpreterDiagnostic extends BaseDiagnostic {
-    constructor(code: DiagnosticCodes) {
+    constructor(code: DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic | DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic) {
         super(code, messages[code], DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder);
     }
 }
