@@ -7,12 +7,13 @@ import { expect } from 'chai';
 import * as path from 'path';
 import * as typemoq from 'typemoq';
 import { DiagnosticSeverity } from 'vscode';
+import { BaseDiagnosticsService } from '../../../../client/application/diagnostics/base';
 import { EnvironmentPathVariableDiagnosticsService } from '../../../../client/application/diagnostics/checks/envPathVariable';
 import { CommandOption, IDiagnosticsCommandFactory } from '../../../../client/application/diagnostics/commands/types';
 import { DiagnosticCodes } from '../../../../client/application/diagnostics/constants';
 import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '../../../../client/application/diagnostics/promptHandler';
 import { DiagnosticScope, IDiagnostic, IDiagnosticCommand, IDiagnosticFilterService, IDiagnosticHandlerService, IDiagnosticsService } from '../../../../client/application/diagnostics/types';
-import { IApplicationEnvironment } from '../../../../client/common/application/types';
+import { IApplicationEnvironment, IWorkspaceService } from '../../../../client/common/application/types';
 import { IPlatformService } from '../../../../client/common/platform/types';
 import { ICurrentProcess, IPathUtils } from '../../../../client/common/types';
 import { EnvironmentVariables } from '../../../../client/common/variables/types';
@@ -64,8 +65,20 @@ suite('Application Diagnostics - Checks Env Path Variable', () => {
         pathUtils.setup(p => p.delimiter).returns(() => pathDelimiter);
         serviceContainer.setup(s => s.get(typemoq.It.isValue(IPathUtils)))
             .returns(() => pathUtils.object);
+        const workspaceService = typemoq.Mock.ofType<IWorkspaceService>();
+        serviceContainer.setup(s => s.get(typemoq.It.isValue(IWorkspaceService)))
+            .returns(() => workspaceService.object);
+        workspaceService.setup(w => w.getWorkspaceFolder(typemoq.It.isAny()))
+            .returns(() => undefined);
 
-        diagnosticService = new EnvironmentPathVariableDiagnosticsService(serviceContainer.object);
+        diagnosticService = new class extends EnvironmentPathVariableDiagnosticsService {
+            public _clear() {
+                while (BaseDiagnosticsService.handledDiagnosticCodeKeys.length > 0) {
+                    BaseDiagnosticsService.handledDiagnosticCodeKeys.shift();
+                }
+            }
+        }(serviceContainer.object);
+        (diagnosticService as any)._clear();
     });
 
     test('Can handle EnvPathVariable diagnostics', async () => {

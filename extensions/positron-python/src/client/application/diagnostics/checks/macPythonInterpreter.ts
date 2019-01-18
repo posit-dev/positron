@@ -80,22 +80,12 @@ export class InvalidMacPythonInterpreterService extends BaseDiagnosticsService {
 
         const interpreters = await this.interpreterService.getInterpreters(resource);
         if (interpreters.filter(i => !this.helper.isMacDefaultPythonPath(i.path)).length === 0) {
-            return [
-                new InvalidMacPythonInterpreterDiagnostic(
-                    DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic,
-                    resource
-                )
-            ];
+            return [new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndNoOtherInterpretersDiagnostic, resource)];
         }
 
-        return [
-            new InvalidMacPythonInterpreterDiagnostic(
-                DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic,
-                resource
-            )
-        ];
+        return [new InvalidMacPythonInterpreterDiagnostic(DiagnosticCodes.MacInterpreterSelectedAndHaveOtherInterpretersDiagnostic, resource)];
     }
-    public async handle(diagnostics: IDiagnostic[]): Promise<void> {
+    protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
         if (diagnostics.length === 0) {
             return;
         }
