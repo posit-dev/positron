@@ -82,6 +82,7 @@ suite('Jupyter notebook tests', () => {
                 await procService.exec(python.path, ['-m', 'jupyter', 'notebook', '--generate-config', '-y'], { env: process.env });
             }
         }
+        // tslint:disable-next-line:prefer-for-of
         for (let i = 0; i < disposables.length; i += 1) {
             const disposable = disposables[i];
             if (disposable) {
@@ -301,6 +302,9 @@ suite('Jupyter notebook tests', () => {
             public onDidChangeInterpreter(_listener: (e: void) => any, _thisArgs?: any, _disposables?: Disposable[]): Disposable {
                 return { dispose: noop };
             }
+            public onDidChangeInterpreterInformation(_listener: (e: PythonInterpreter) => any, _thisArgs?: any, _disposables?: Disposable[]): Disposable {
+                return { dispose: noop };
+            }
             public getInterpreters(resource?: Uri): Promise<PythonInterpreter[]> {
                 return Promise.resolve([]);
             }
@@ -351,8 +355,10 @@ suite('Jupyter notebook tests', () => {
 
         // Make sure we added in our chdir
         if (notebook) {
+            // tslint:disable-next-line:no-string-literal
             const nbcells = notebook['cells'];
             if (nbcells) {
+                // tslint:disable-next-line:no-string-literal
                 const firstCellText: string = nbcells[0]['source'] as string;
                 assert.ok(firstCellText.includes('os.chdir'));
             }
@@ -430,6 +436,7 @@ suite('Jupyter notebook tests', () => {
         }, timeout, tokenSource.tag);
 
         try {
+            // tslint:disable-next-line:no-string-literal
             tokenSource.token['tag'] = messageFormat.format(timeout.toString());
             await method(tokenSource.token);
             assert.ok(false, messageFormat.format(timeout.toString()));
@@ -446,6 +453,7 @@ suite('Jupyter notebook tests', () => {
 
     async function testCancelableMethod<T>(method: (t: CancellationToken) => Promise<T>, messageFormat: string, short?: boolean): Promise<boolean> {
         const timeouts = short ? [10, 20, 30, 100] : [100, 200, 300, 1000];
+        // tslint:disable-next-line:prefer-for-of
         for (let i = 0; i < timeouts.length; i += 1) {
             await testCancelableCall(method, messageFormat, timeouts[i]);
         }
@@ -692,6 +700,7 @@ plt.show()`,
         const list = await is.getInterpreters();
         const procService = await processFactory.create();
         if (procService) {
+            // tslint:disable-next-line:prefer-for-of
             for (let i = 0; i < list.length; i += 1) {
                 const result = await procService.exec(list[i].path, ['-m', 'jupyter', 'notebook', '--version'], { env: process.env });
                 if (!result.stderr) {
