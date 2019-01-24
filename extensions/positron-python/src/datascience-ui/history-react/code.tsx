@@ -21,7 +21,7 @@ export interface ICodeProps {
     codeTheme: string;
     testMode: boolean;
     readOnly: boolean;
-    history: string[];
+    history: InputHistory | undefined;
     cursorType: string;
     showWatermark: boolean;
     onSubmit(code: string): void;
@@ -41,13 +41,11 @@ interface ICodeState {
 export class Code extends React.Component<ICodeProps, ICodeState> {
 
     private codeMirror: CodeMirror.Editor | undefined;
-    private history : InputHistory;
     private baseIndentation : number | undefined;
 
     constructor(prop: ICodeProps) {
         super(prop);
         this.state = {focused: false, cursorLeft: 0, cursorTop: 0, cursorBottom: 0, charUnderCursor: '', allowWatermark: true};
-        this.history = new InputHistory(this.props.history);
     }
 
     public componentDidUpdate(prevProps: Readonly<ICodeProps>, prevState: Readonly<ICodeState>, snapshot?: {}) {
@@ -204,6 +202,11 @@ export class Code extends React.Component<ICodeProps, ICodeState> {
                 code = code.slice(0, code.length - 1);
             }
 
+            // Send to the input history too if necessary
+            if (this.props.history) {
+                this.props.history.add(code);
+            }
+
             this.props.onSubmit(code);
             return;
         }
@@ -237,23 +240,36 @@ export class Code extends React.Component<ICodeProps, ICodeState> {
     }
 
     private arrowUp = (instance: CodeMirror.Editor) => {
-        if (instance.getDoc().getCursor().line === 0 && instance.getDoc().getCursor().ch === 0) {
-            instance.getDoc().setValue(this.history.completeUp());
+        const doc = instance.getDoc();
+        const cursor = doc ? doc.getCursor() : undefined;
+        if (cursor && cursor.line === 0 && this.props.history) {
+            const currentValue = doc.getValue();
+            const newValue = this.props.history.completeUp(currentValue);
+            if (newValue !== currentValue) {
+                doc.setValue(newValue);
+                doc.setCursor(0, doc.getLine(0).length);
+            }
             return;
         }
         return CodeMirror.Pass;
     }
 
     private arrowDown = (instance: CodeMirror.Editor) => {
-        if (instance.getDoc().getCursor().line === 0 && instance.getDoc().getCursor().ch === 0) {
-            instance.getDoc().setValue(this.history.completeDown());
+        const doc = instance.getDoc();
+        const cursor = doc ? doc.getCursor() : undefined;
+        if (cursor && cursor.line === doc.lastLine() && this.props.history) {
+            const currentValue = doc.getValue();
+            const newValue = this.props.history.completeDown(currentValue);
+            if (newValue !== currentValue) {
+                doc.setValue(newValue);
+                doc.setCursor(doc.lastLine(), doc.getLine(doc.lastLine()).length);
+            }
             return;
         }
         return CodeMirror.Pass;
     }
 
     private onChange = (newValue: string, change: CodeMirror.EditorChange) => {
-        this.history.onChange();
         this.setState({allowWatermark: false});
     }
 }
