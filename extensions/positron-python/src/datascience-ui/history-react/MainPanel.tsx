@@ -305,9 +305,12 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     }
 
     private clearAllSilent = () => {
+        // Make sure the edit cell doesn't go away
+        const editCell = this.getEditCell();
+
         // Update our state
         this.setState({
-            cellVMs: [],
+            cellVMs: editCell ? [editCell] : [],
             undoStack : this.pushStack(this.state.undoStack, this.state.cellVMs),
             skipNextScroll: true,
             busy: false // No more progress on delete all
