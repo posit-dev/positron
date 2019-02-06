@@ -33,7 +33,7 @@ export function initialize() {
     generateMock('scm');
 
     // When upgrading to npm 9-10, this might have to change, as we could have explicit imports (named imports).
-    Module._load = function (request: any, _parent: any) {
+    Module._load = function(request: any, _parent: any) {
         if (request === 'vscode') {
             return mockedVSCode;
         }
@@ -70,6 +70,7 @@ mockedVSCode.WorkspaceEdit = vscodeMocks.vscMockExtHostedTypes.WorkspaceEdit;
 mockedVSCode.RelativePattern = vscodeMocks.vscMockExtHostedTypes.RelativePattern;
 mockedVSCode.ProgressLocation = vscodeMocks.vscMockExtHostedTypes.ProgressLocation;
 mockedVSCode.ViewColumn = vscodeMocks.vscMockExtHostedTypes.ViewColumn;
+mockedVSCode.TextEditorRevealType = vscodeMocks.vscMockExtHostedTypes.TextEditorRevealType;
 
 // This API is used in src/client/telemetry/telemetry.ts
 const extensions = TypeMoq.Mock.ofType<typeof vscode.extensions>();

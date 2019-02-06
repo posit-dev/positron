@@ -237,9 +237,9 @@ function onItemSelected(cmdSource: CommandSource, wkspace: Uri, selection: TestI
             break;
         }
         case Type.RunMethod: {
-            cmd = constants.Commands.Tests_Run;
+            cmd = constants.Commands.navigateToTestFunction;
             // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
-            args.push({ testFunction: [selection.fn!.testFunction] } as TestsToRun);
+            args.push(selection.fn!.testFunction);
             break;
         }
         case Type.DebugMethod: {

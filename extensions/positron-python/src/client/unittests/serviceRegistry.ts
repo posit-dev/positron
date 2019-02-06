@@ -27,6 +27,7 @@ import { TestConfigurationManagerFactory } from './configurationFactory';
 import { TestResultDisplay } from './display/main';
 import { TestDisplay } from './display/picker';
 import { UnitTestManagementService } from './main';
+import { registerTypes as registerNavigationTypes } from './navigation/serviceRegistry';
 import { TestManager as NoseTestManager } from './nosetest/main';
 import { TestManagerRunner as NoseTestManagerRunner } from './nosetest/runner';
 import { ArgumentsService as NoseTestArgumentsService } from './nosetest/services/argsService';
@@ -48,6 +49,7 @@ import { TestsParser as UnitTestTestsParser } from './unittest/services/parserSe
 import { UnitTestSocketServer } from './unittest/socketServer';
 
 export function registerTypes(serviceManager: IServiceManager) {
+    registerNavigationTypes(serviceManager);
     serviceManager.addSingleton<ITestDebugLauncher>(ITestDebugLauncher, DebugLauncher);
     serviceManager.addSingleton<ITestCollectionStorageService>(ITestCollectionStorageService, TestCollectionStorageService);
     serviceManager.addSingleton<IWorkspaceTestManagerService>(IWorkspaceTestManagerService, WorkspaceTestManagerService);
