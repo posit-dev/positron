@@ -41,6 +41,9 @@ export namespace Commands {
     export const Enable_Linter = 'python.enableLinting';
     export const Run_Linter = 'python.runLinting';
     export const Enable_SourceMap_Support = 'python.enableSourceMapSupport';
+    export const navigateToTestFunction = 'navigateToTestFunction';
+    export const navigateToTestSuite = 'navigateToTestSuite';
+    export const navigateToTestFile = 'navigateToTestFile';
 }
 export namespace Octicons {
     export const Test_Pass = '$(check)';

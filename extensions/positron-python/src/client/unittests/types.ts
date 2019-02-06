@@ -35,8 +35,7 @@ export interface ITestDisplay {
 
 export const IUnitTestManagementService = Symbol('IUnitTestManagementService');
 export interface IUnitTestManagementService {
-    activate(): Promise<void>;
-    activateCodeLenses(symboldProvider: DocumentSymbolProvider): Promise<void>;
+    activate(symbolProvider: DocumentSymbolProvider): Promise<void>;
     getTestManager(displayTestNotConfiguredMessage: boolean, resource?: Uri): Promise<ITestManager | undefined | void>;
     discoverTestsForDocument(doc: TextDocument): Promise<void>;
     autoDiscoverTests(): Promise<void>;

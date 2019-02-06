@@ -7,6 +7,7 @@ import { ConfigurationChangeEvent, Disposable, OutputChannel, TextDocument, Uri 
 import * as vscode from 'vscode';
 import { ICommandManager, IDocumentManager, IWorkspaceService } from '../common/application/types';
 import * as constants from '../common/constants';
+import '../common/extensions';
 import { IConfigurationService, IDisposableRegistry, ILogger, IOutputChannel } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { EventName } from '../telemetry/constants';
@@ -42,17 +43,14 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
             this.workspaceTestManagerService.dispose();
         }
     }
-    public async activate(): Promise<void> {
+    public async activate(symboldProvider: vscode.DocumentSymbolProvider): Promise<void> {
         this.workspaceTestManagerService = this.serviceContainer.get<IWorkspaceTestManagerService>(IWorkspaceTestManagerService);
 
         this.registerHandlers();
         this.registerCommands();
         this.autoDiscoverTests()
             .catch(ex => this.serviceContainer.get<ILogger>(ILogger).logError('Failed to auto discover tests upon activation', ex));
-    }
-    public async activateCodeLenses(symboldProvider: vscode.DocumentSymbolProvider): Promise<void> {
-        const testCollectionStorage = this.serviceContainer.get<ITestCollectionStorageService>(ITestCollectionStorageService);
-        this.disposableRegistry.push(activateCodeLenses(this.onDidChange, symboldProvider, testCollectionStorage));
+        await this.registerSymbolProvider(symboldProvider);
     }
     public async getTestManager(displayTestNotConfiguredMessage: boolean, resource?: Uri): Promise<ITestManager | undefined | void> {
         let wkspace: Uri | undefined;
@@ -279,6 +277,10 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
 
         this.testResultDisplay.displayProgressStatus(promise, debug);
         await promise;
+    }
+    private async registerSymbolProvider(symboldProvider: vscode.DocumentSymbolProvider): Promise<void> {
+        const testCollectionStorage = this.serviceContainer.get<ITestCollectionStorageService>(ITestCollectionStorageService);
+        this.disposableRegistry.push(activateCodeLenses(this.onDidChange, symboldProvider, testCollectionStorage));
     }
     private registerCommands(): void {
         const disposablesRegistry = this.serviceContainer.get<Disposable[]>(IDisposableRegistry);

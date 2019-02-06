@@ -324,4 +324,7 @@ interface IEventNamePropertyMapping {
     [Telemetry.StartJupyter]: never | undefined;
     [Telemetry.SubmitCellThroughInput]: never | undefined;
     [Telemetry.Undo]: never | undefined;
+    [EventName.UNITTEST_NAVIGATE_TEST_FILE]: never | undefined;
+    [EventName.UNITTEST_NAVIGATE_TEST_FUNCTION]: never | undefined;
+    [EventName.UNITTEST_NAVIGATE_TEST_SUITE]: never | undefined;
 }
