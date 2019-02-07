@@ -1,7 +1,4 @@
-import {
-    CancellationToken, DiagnosticCollection, Disposable,
-    Event, OutputChannel, Uri
-} from 'vscode';
+import { CancellationToken, DiagnosticCollection, Disposable, Event, OutputChannel, Uri } from 'vscode';
 import { IUnitTestSettings, Product } from '../../common/types';
 import { IPythonUnitTestMessage } from '../types';
 import { CommandSource } from './constants';
@@ -37,7 +34,12 @@ export type TestFolder = TestResult & {
     status?: TestStatus;
     folders: TestFolder[];
 };
-
+export enum TestType {
+    testFile = 'testFile',
+    testFolder = 'testFolder',
+    testSuite = 'testSuite',
+    testFunction = 'testFunction'
+}
 export type TestFile = TestResult & {
     name: string;
     fullPath: string;
@@ -184,7 +186,6 @@ export interface ITestVisitor {
 export const ITestCollectionStorageService = Symbol('ITestCollectionStorageService');
 
 export interface ITestCollectionStorageService extends Disposable {
-    onUpdated: Event<Uri>;
     getTests(wkspace: Uri): Tests | undefined;
     storeTests(wkspace: Uri, tests: Tests | null | undefined): void;
     findFlattendTestFunction(resource: Uri, func: TestFunction): FlattenedTestFunction | undefined;
@@ -232,6 +233,7 @@ export interface ITestManager extends Disposable {
     readonly workingDirectory: string;
     readonly workspaceFolder: Uri;
     diagnosticCollection: DiagnosticCollection;
+    readonly onDidStatusChange: Event<TestStatus>;
     stop(): void;
     resetTestResults(): void;
     discoverTests(cmdSource: CommandSource, ignoreCache?: boolean, quietMode?: boolean, userInitiated?: boolean): Promise<Tests>;

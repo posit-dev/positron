@@ -1,21 +1,15 @@
 import { inject, injectable } from 'inversify';
-import {
-    Disposable, Event, EventEmitter,
-    Uri, workspace
-} from 'vscode';
+import { Disposable, Uri, workspace } from 'vscode';
 import { IDisposableRegistry } from '../../../common/types';
 import { FlattenedTestFunction, FlattenedTestSuite, ITestCollectionStorageService, TestFunction, Tests, TestSuite } from './../types';
 
 @injectable()
 export class TestCollectionStorageService implements ITestCollectionStorageService {
-    public readonly onUpdated: Event<Uri>;
 
     private testsIndexedByWorkspaceUri = new Map<string, Tests | undefined>();
-    private _onTestStoreUpdated: EventEmitter<Uri> = new EventEmitter<Uri>();
 
     constructor(@inject(IDisposableRegistry) disposables: Disposable[]) {
         disposables.push(this);
-        this.onUpdated = this._onTestStoreUpdated.event;
     }
     public getTests(wkspace: Uri): Tests | undefined {
         const workspaceFolder = this.getWorkspaceFolderPath(wkspace) || '';
@@ -24,7 +18,6 @@ export class TestCollectionStorageService implements ITestCollectionStorageServi
     public storeTests(wkspace: Uri, tests: Tests | undefined): void {
         const workspaceFolder = this.getWorkspaceFolderPath(wkspace) || '';
         this.testsIndexedByWorkspaceUri.set(workspaceFolder, tests);
-        this._onTestStoreUpdated.fire(wkspace);
     }
     public findFlattendTestFunction(resource: Uri, func: TestFunction): FlattenedTestFunction | undefined {
         const tests = this.getTests(resource);
@@ -42,7 +35,6 @@ export class TestCollectionStorageService implements ITestCollectionStorageServi
     }
     public dispose() {
         this.testsIndexedByWorkspaceUri.clear();
-        this._onTestStoreUpdated.dispose();
     }
     private getWorkspaceFolderPath(resource: Uri): string | undefined {
         const folder = workspace.getWorkspaceFolder(resource);

@@ -5,8 +5,8 @@
 import { inject, injectable } from 'inversify';
 import {
     ConfigurationChangeEvent, Disposable,
-    DocumentSymbolProvider, EventEmitter,
-    OutputChannel, TextDocument, Uri, window
+    DocumentSymbolProvider, Event,
+    EventEmitter, OutputChannel, TextDocument, Uri, window
 } from 'vscode';
 import {
     IApplicationShell, ICommandManager, IDocumentManager, IWorkspaceService
@@ -26,15 +26,8 @@ import {
     CANCELLATION_REASON, CommandSource, TEST_OUTPUT_CHANNEL
 } from './common/constants';
 import { selectTestWorkspace } from './common/testUtils';
-import {
-    ITestCollectionStorageService, ITestManager,
-    IWorkspaceTestManagerService, TestFile,
-    TestFunction, TestStatus, TestsToRun
-} from './common/types';
-import {
-    ITestDisplay, ITestResultDisplay,
-    IUnitTestConfigurationService, IUnitTestManagementService
-} from './types';
+import { ITestCollectionStorageService, ITestManager, IWorkspaceTestManagerService, TestFile, TestFunction, TestStatus, TestsToRun } from './common/types';
+import { ITestDisplay, ITestResultDisplay, IUnitTestConfigurationService, IUnitTestManagementService, WorkspaceTestStatus } from './types';
 
 @injectable()
 export class UnitTestManagementService implements IUnitTestManagementService, Disposable {
@@ -46,7 +39,8 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
     private testResultDisplay?: ITestResultDisplay;
     private autoDiscoverTimer?: NodeJS.Timer;
     private configChangedTimer?: NodeJS.Timer;
-    private readonly onDidChange: EventEmitter<void> = new EventEmitter<void>();
+    private testManagers = new Set<ITestManager>();
+    private readonly _onDidStatusChange: EventEmitter<WorkspaceTestStatus> = new EventEmitter<WorkspaceTestStatus>();
 
     constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
         this.disposableRegistry = serviceContainer.get<Disposable[]>(IDisposableRegistry);
@@ -60,6 +54,9 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         if (this.workspaceTestManagerService) {
             this.workspaceTestManagerService.dispose();
         }
+    }
+    public get onDidStatusChange(): Event<WorkspaceTestStatus> {
+        return this._onDidStatusChange.event;
     }
     public async activate(symbolProvider: DocumentSymbolProvider): Promise<void> {
         this.workspaceTestManagerService = this.serviceContainer.get<IWorkspaceTestManagerService>(IWorkspaceTestManagerService);
@@ -78,11 +75,6 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         await this.registerSymbolProvider(symbolProvider);
     }
 
-    public async activateCodeLenses(symbolProvider: DocumentSymbolProvider): Promise<void> {
-        const testCollectionStorage = this.serviceContainer.get<ITestCollectionStorageService>(ITestCollectionStorageService);
-        this.disposableRegistry.push(activateCodeLenses(this.onDidChange, symbolProvider, testCollectionStorage));
-    }
-
     public async getTestManager(displayTestNotConfiguredMessage: boolean, resource?: Uri): Promise<ITestManager | undefined | void> {
         let wkspace: Uri | undefined;
         if (resource) {
@@ -97,6 +89,13 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         }
         const testManager = this.workspaceTestManagerService!.getTestManager(wkspace);
         if (testManager) {
+            if (!this.testManagers.has(testManager)) {
+                this.testManagers.add(testManager);
+                const handler = testManager.onDidStatusChange(e => {
+                    this._onDidStatusChange.fire({ workspace: testManager.workspaceFolder, status: e });
+                });
+                this.disposableRegistry.push(handler);
+            }
             return testManager;
         }
         if (displayTestNotConfiguredMessage) {
@@ -178,7 +177,6 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
 
         if (!this.testResultDisplay) {
             this.testResultDisplay = this.serviceContainer.get<ITestResultDisplay>(ITestResultDisplay);
-            this.testResultDisplay.onDidChange(() => this.onDidChange.fire());
         }
         const discoveryPromise = testManager.discoverTests(cmdSource, ignoreCache, quietMode, userInitiated);
         this.testResultDisplay.displayDiscoverStatus(discoveryPromise, quietMode)
@@ -296,7 +294,6 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
 
         if (!this.testResultDisplay) {
             this.testResultDisplay = this.serviceContainer.get<ITestResultDisplay>(ITestResultDisplay);
-            this.testResultDisplay.onDidChange(() => this.onDidChange.fire());
         }
 
         const promise = testManager.runTest(cmdSource, testsToRun, runFailedTests, debug)
@@ -313,7 +310,15 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
 
     private async registerSymbolProvider(symbolProvider: DocumentSymbolProvider): Promise<void> {
         const testCollectionStorage = this.serviceContainer.get<ITestCollectionStorageService>(ITestCollectionStorageService);
-        this.disposableRegistry.push(activateCodeLenses(this.onDidChange, symbolProvider, testCollectionStorage));
+        const event = new EventEmitter<void>();
+        this.disposableRegistry.push(event);
+        const handler = this._onDidStatusChange.event(e => {
+            if (e.status !== TestStatus.Discovering && e.status !== TestStatus.Running) {
+                event.fire();
+            }
+        });
+        this.disposableRegistry.push(handler);
+        this.disposableRegistry.push(activateCodeLenses(event, symbolProvider, testCollectionStorage));
     }
 
     @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
@@ -341,13 +346,13 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
                 // Ignore the exceptions returned.
                 // This command will be invoked from other places of the extension.
                 this.discoverTests(cmdSource, resource, true, true)
-                   .ignoreErrors();
+                    .ignoreErrors();
             }),
             commandManager.registerCommand(constants.Commands.Tests_Configure, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource?: Uri) => {
                 // Ignore the exceptions returned.
                 // This command will be invoked from other places of the extension.
                 this.configureTests(resource)
-                   .ignoreErrors();
+                    .ignoreErrors();
             }),
             commandManager.registerCommand(constants.Commands.Tests_Run_Failed, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => this.runTestsImpl(cmdSource, resource, undefined, true)),
             commandManager.registerCommand(constants.Commands.Tests_Run, (_, cmdSource: CommandSource = CommandSource.commandPalette, file: Uri, testToRun?: TestsToRun) => this.runTestsImpl(cmdSource, file, testToRun)),
