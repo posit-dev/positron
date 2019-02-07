@@ -36,6 +36,7 @@ export interface ITestDisplay {
 
 export const IUnitTestManagementService = Symbol('IUnitTestManagementService');
 export interface IUnitTestManagementService {
+    readonly onDidStatusChange: Event<WorkspaceTestStatus>;
     activate(symbolProvider: DocumentSymbolProvider): Promise<void>;
     getTestManager(displayTestNotConfiguredMessage: boolean, resource?: Uri): Promise<ITestManager | undefined | void>;
     discoverTestsForDocument(doc: TextDocument): Promise<void>;
@@ -136,3 +137,5 @@ export interface ILocationStackFrameDetails {
     location: Location;
     lineText: string;
 }
+
+export type WorkspaceTestStatus = { workspace: Uri; status: TestStatus };

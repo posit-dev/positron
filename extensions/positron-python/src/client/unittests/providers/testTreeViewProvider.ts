@@ -16,6 +16,7 @@ import { ITestTreeViewProvider } from '../../providers/types';
 import {
     ITestCollectionStorageService, TestFolder, Tests, TestStatus
 } from '../common/types';
+import { IUnitTestManagementService, WorkspaceTestStatus } from '../types';
 import {
     TestTreeItem, TestTreeItemType
 } from './testTreeViewItem';
@@ -27,6 +28,7 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, IDisposable 
      * To signal that root has changed, do not pass any argument or pass `undefined` or `null`.
      */
     public readonly onDidChangeTreeData: Event<TestTreeItem | undefined>;
+    private testsAreBeingDiscovered: boolean = false;
 
     private _onDidChangeTreeData: EventEmitter<TestTreeItem | undefined> = new EventEmitter<TestTreeItem | undefined>();
     private root: TestTreeItem[];
@@ -34,14 +36,17 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, IDisposable 
 
     constructor(
         @inject(ITestCollectionStorageService) private testStore: ITestCollectionStorageService,
+        @inject(IUnitTestManagementService) private testService: IUnitTestManagementService,
         @inject(IWorkspaceService) private workspace: IWorkspaceService,
         @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry
     ) {
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this.root = [new TestTreeItem(TestTreeItemType.Root, undefined, undefined, '*', 'no tests discovered yet', TestStatus.Unknown, undefined)];
-        this.refresh(this.workspace.workspaceFolders[0].uri);
+        if (this.workspace.workspaceFolders.length > 0) {
+            this.refresh(this.workspace.workspaceFolders[0].uri);
+        }
         disposableRegistry.push(this);
-        this.disposables.push(this.testStore.onUpdated(this.onTestStoreUpdated, this));
+        this.disposables.push(this.testService.onDidStatusChange(this.onTestStatusChanged, this));
     }
 
     // tslint:disable-next-line:no-empty
@@ -108,5 +113,16 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, IDisposable 
     @traceDecorators.verbose('>>>  DEREK >>> Test store is being updated...')
     private onTestStoreUpdated(workspace: Uri): void {
         this.refresh(workspace);
+    }
+
+    private onTestStatusChanged(e: WorkspaceTestStatus) {
+        if (e.status === TestStatus.Discovering) {
+            this.testsAreBeingDiscovered = true;
+            return;
+        }
+        if (this.testsAreBeingDiscovered) {
+            this.testsAreBeingDiscovered = false;
+            this.onTestStoreUpdated(e.workspace);
+        }
     }
 }
