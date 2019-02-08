@@ -29,3 +29,8 @@ export interface ITestNavigatorHelper {
     findSymbol(doc: TextDocument, predicate: SymbolSearch, token: CancellationToken): Promise<SymbolInformation | undefined>;
 }
 export type SymbolSearch = (item: SymbolInformation) => boolean;
+
+export const ITestExplorerCommandHandler = Symbol('ITestExplorerCommandHandler');
+export interface ITestExplorerCommandHandler extends IDisposable {
+    register(): void;
+}

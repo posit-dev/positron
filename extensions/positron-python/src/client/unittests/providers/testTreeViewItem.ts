@@ -4,11 +4,12 @@
 'use strict';
 
 import {
-    TreeItem, TreeItemCollapsibleState
+    TreeItem, TreeItemCollapsibleState, Uri
 } from 'vscode';
+import { TestsHelper } from '../common/testUtils';
 import {
     TestFile, TestFolder, TestFunction,
-    TestStatus, TestSuite
+    TestStatus, TestSuite, TestType
 } from '../common/types';
 
 export enum TestTreeItemType {
@@ -20,34 +21,38 @@ export enum TestTreeItemType {
 }
 
 export class TestTreeItem extends TreeItem {
-
+    public readonly testType: TestType;
     constructor(
+        public readonly resource: Uri,
         kind: TestTreeItemType,
-        private readonly myParent: TestTreeItem,
+        private readonly myParent: TestTreeItem | undefined,
         private readonly myChildren: TestTreeItem[],
         runId: string,
-        name: string,
+        label: string,
         testStatus: TestStatus = TestStatus.Unknown,
-        // tslint:disable-next-line:no-unused-variable
-        private readonly data: TestFolder | TestFile | TestSuite | TestFunction
+        public readonly data: Readonly<TestFile> | Readonly<TestFolder> | Readonly<TestSuite> | Readonly<TestFunction>
     ) {
 
         super(
-            `[${kind}] ${name}`,
+            `[${kind}] ${label}`,
             kind === TestTreeItemType.Function ? TreeItemCollapsibleState.None : TreeItemCollapsibleState.Collapsed
         );
 
         this.contextValue = kind;
         this.id = runId;
         this.tooltip = `Status: ${testStatus}`;
+        this.testType = TestsHelper.getTestType(this.data);
+        this.contextValue = TestsHelper.getTestType(this.data);
     }
 
     public static createFromFolder(
+        resource: Uri,
         folder: TestFolder,
         parent?: TestTreeItem
     ): TestTreeItem {
 
         const folderItem = new TestTreeItem(
+            resource,
             TestTreeItemType.Package,
             parent,
             [],
@@ -58,18 +63,20 @@ export class TestTreeItem extends TreeItem {
         );
 
         folder.testFiles.forEach((testFile: TestFile) => {
-            folderItem.children.push(TestTreeItem.createFromFile(testFile, folderItem));
+            folderItem.children.push(TestTreeItem.createFromFile(resource, testFile, folderItem));
         });
 
         return folderItem;
     }
 
     public static createFromFile(
+        resource: Uri,
         testFile: TestFile,
         parent?: TestTreeItem
     ): TestTreeItem {
 
         const fileItem = new TestTreeItem(
+            resource,
             TestTreeItemType.File,
             parent,
             [],
@@ -80,21 +87,23 @@ export class TestTreeItem extends TreeItem {
         );
 
         testFile.functions.forEach((fn: TestFunction) => {
-            fileItem.children.push(TestTreeItem.createFromFunction(fn, fileItem));
+            fileItem.children.push(TestTreeItem.createFromFunction(resource, fn, fileItem));
         });
         testFile.suites.forEach((suite: TestSuite) => {
-            fileItem.children.push(TestTreeItem.createFromSuite(suite, fileItem));
+            fileItem.children.push(TestTreeItem.createFromSuite(resource, suite, fileItem));
         });
 
         return fileItem;
     }
 
     public static createFromSuite(
+        resource: Uri,
         suite: TestSuite,
         parent: TestTreeItem
     ): TestTreeItem {
 
         const suiteItem = new TestTreeItem(
+            resource,
             TestTreeItemType.Suite,
             parent,
             [],
@@ -105,25 +114,27 @@ export class TestTreeItem extends TreeItem {
         );
 
         suite.suites.forEach((subSuite: TestSuite) => {
-            suiteItem.children.push(TestTreeItem.createFromSuite(subSuite, suiteItem));
+            suiteItem.children.push(TestTreeItem.createFromSuite(resource, subSuite, suiteItem));
         });
         suite.functions.forEach((fn: TestFunction) => {
-            suiteItem.children.push(TestTreeItem.createFromFunction(fn, suiteItem));
+            suiteItem.children.push(TestTreeItem.createFromFunction(resource, fn, suiteItem));
         });
 
         return suiteItem;
     }
 
     public static createFromFunction(
+        resource: Uri,
         fn: TestFunction,
         parent: TestTreeItem
     ): TestTreeItem {
 
         // tslint:disable-next-line:no-unnecessary-local-variable
         const funcItem = new TestTreeItem(
+            resource,
             TestTreeItemType.Function,
             parent,
-            undefined,
+            [],
             fn.nameToRun,
             fn.name,
             fn.status,
@@ -137,7 +148,7 @@ export class TestTreeItem extends TreeItem {
         return this.myChildren;
     }
 
-    public get parent(): TestTreeItem {
+    public get parent(): TestTreeItem | undefined {
         return this.myParent;
     }
 }

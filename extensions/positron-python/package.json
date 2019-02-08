@@ -144,6 +144,30 @@
                 "category": "Python"
             },
             {
+                "command": "python.openTestNodeInEditor",
+                "title": "Open",
+                "icon": {
+                    "light": "resources/light/open-file.svg",
+                    "dark": "resources/dark/open-file.svg"
+                }
+            },
+            {
+                "command": "python.runTestNode",
+                "title": "Run",
+                "icon": {
+                    "light": "resources/light/start.svg",
+                    "dark": "resources/dark/start.svg"
+                }
+            },
+            {
+                "command": "python.debugTestNode",
+                "title": "Debug",
+                "icon": {
+                    "light": "resources/light/debug.svg",
+                    "dark": "resources/dark/debug.svg"
+                }
+            },
+            {
                 "command": "python.runtests",
                 "title": "%python.command.python.runtests.title%",
                 "category": "Python"
@@ -440,6 +464,24 @@
             ],
             "commandPalette": [
                 {
+                    "command": "python.runTestNode",
+                    "title": "Run",
+                    "category": "Python",
+                    "when": "config.noExists"
+                },
+                {
+                    "command": "python.debugTestNode",
+                    "title": "Debug",
+                    "category": "Python",
+                    "when": "config.noExists"
+                },
+                {
+                    "command": "python.openTestNodeInEditor",
+                    "title": "Open",
+                    "category": "Python",
+                    "when": "config.noExists"
+                },
+                {
                     "command": "python.datascience.runcurrentcell",
                     "title": "%python.command.python.datascience.runcurrentcell.title%",
                     "category": "Python",
@@ -539,6 +581,53 @@
                 {
                     "command": "python.runtests",
                     "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "python.openTestNodeInEditor",
+                    "when": "view == python_tests && viewItem == testFunction",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.debugTestNode",
+                    "when": "view == python_tests && viewItem == testFunction",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.runTestNode",
+                    "when": "view == python_tests && viewItem == testFunction",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.openTestNodeInEditor",
+                    "when": "view == python_tests && viewItem == testFile",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.debugTestNode",
+                    "when": "view == python_tests && viewItem == testFile",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.runTestNode",
+                    "when": "view == python_tests && viewItem == testFile",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.openTestNodeInEditor",
+                    "when": "view == python_tests && viewItem == testSuite",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.debugTestNode",
+                    "when": "view == python_tests && viewItem == testSuite",
+                    "group": "inline"
+                },
+                {
+                    "command": "python.runTestNode",
+                    "when": "view == python_tests && viewItem == testSuite",
+                    "group": "inline"
                 }
             ]
         },
