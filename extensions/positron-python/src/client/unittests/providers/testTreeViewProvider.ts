@@ -5,12 +5,12 @@
 
 import { inject, injectable } from 'inversify';
 import {
-    Event, EventEmitter, ProviderResult, Uri
+    Event, EventEmitter, ProviderResult, TreeItem, Uri
 } from 'vscode';
 import { IWorkspaceService } from '../../common/application/types';
 import { traceDecorators } from '../../common/logger';
 import {
-    IDisposable, IDisposableRegistry, Resource
+    IDisposable, IDisposableRegistry
 } from '../../common/types';
 import { ITestTreeViewProvider } from '../../providers/types';
 import {
@@ -18,7 +18,7 @@ import {
 } from '../common/types';
 import { IUnitTestManagementService, WorkspaceTestStatus } from '../types';
 import {
-    TestTreeItem, TestTreeItemType
+    TestTreeItem
 } from './testTreeViewItem';
 
 @injectable()
@@ -41,8 +41,9 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, IDisposable 
         @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry
     ) {
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-        this.root = [new TestTreeItem(TestTreeItemType.Root, undefined, undefined, '*', 'no tests discovered yet', TestStatus.Unknown, undefined)];
-        if (this.workspace.workspaceFolders.length > 0) {
+        // tslint:disable-next-line:no-any
+        this.root = [new TreeItem('no tests discovered yet') as any];
+        if (Array.isArray(this.workspace.workspaceFolders) && this.workspace.workspaceFolders.length > 0) {
             this.refresh(this.workspace.workspaceFolders[0].uri);
         }
         disposableRegistry.push(this);
@@ -95,7 +96,7 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, IDisposable 
      * Refresh the view by rebuilding the model and signalling the tree view to update itself.
      *
      */
-    public refresh(resource: Resource, tests?: Tests): void {
+    public refresh(resource: Uri, tests?: Tests): void {
 
         if (tests === undefined) {
             tests = this.testStore.getTests(resource);
@@ -103,7 +104,7 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, IDisposable 
         if (tests && tests.testFolders) {
             const newRoot: TestTreeItem[] = [];
             tests.testFolders.forEach((tf: TestFolder) => {
-                newRoot.push(TestTreeItem.createFromFolder(tf));
+                newRoot.push(TestTreeItem.createFromFolder(resource, tf));
             });
             this.root = newRoot;
             this._onDidChangeTreeData.fire();

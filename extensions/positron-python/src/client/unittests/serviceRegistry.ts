@@ -32,11 +32,13 @@ import { TestResultDisplay } from './display/main';
 import { TestDisplay } from './display/picker';
 import { UnitTestManagementService } from './main';
 import { registerTypes as registerNavigationTypes } from './navigation/serviceRegistry';
+import { ITestExplorerCommandHandler } from './navigation/types';
 import { TestManager as NoseTestManager } from './nosetest/main';
 import { TestManagerRunner as NoseTestManagerRunner } from './nosetest/runner';
 import { ArgumentsService as NoseTestArgumentsService } from './nosetest/services/argsService';
 import { TestDiscoveryService as NoseTestDiscoveryService } from './nosetest/services/discoveryService';
 import { TestsParser as NoseTestTestsParser } from './nosetest/services/parserService';
+import { TestExplorerCommandHandler } from './providers/commandHandlers';
 import { TestTreeViewProvider } from './providers/testTreeViewProvider';
 import { TestManager as PyTestTestManager } from './pytest/main';
 import { TestManagerRunner as PytestManagerRunner } from './pytest/runner';
@@ -103,6 +105,7 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<IUnitTestDiagnosticService>(IUnitTestDiagnosticService, UnitTestDiagnosticService);
     serviceManager.addSingleton<ITestMessageService>(ITestMessageService, TestMessageService, PYTEST_PROVIDER);
     serviceManager.addSingleton<ITestTreeViewProvider>(ITestTreeViewProvider, TestTreeViewProvider);
+    serviceManager.addSingleton<ITestExplorerCommandHandler>(ITestExplorerCommandHandler, TestExplorerCommandHandler);
 
     serviceManager.addFactory<ITestManager>(ITestManagerFactory, (context) => {
         return (testProvider: TestProvider, workspaceFolder: Uri, rootDirectory: string) => {

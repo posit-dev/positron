@@ -47,7 +47,7 @@ class Visitor(ast.NodeVisitor):
             "name": node.name,
             "range": {
                 "start": {
-                    "line": node.lineno,
+                    "line": node.lineno - 1,
                     "character": node.col_offset
                 },
                 "end": {
@@ -59,7 +59,7 @@ class Visitor(ast.NodeVisitor):
 
     def getEndPosition(self, node):
         if not hasattr(node, 'body') or len(node.body) == 0:
-            return (node.lineno, node.col_offset)
+            return (node.lineno - 1, node.col_offset)
         return self.getEndPosition(node.body[-1])
 
 

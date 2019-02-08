@@ -45,6 +45,9 @@ export namespace Commands {
     export const navigateToTestFunction = 'navigateToTestFunction';
     export const navigateToTestSuite = 'navigateToTestSuite';
     export const navigateToTestFile = 'navigateToTestFile';
+    export const openTestNodeInEditor = 'python.openTestNodeInEditor';
+    export const runTestNode = 'python.runTestNode';
+    export const debugTestNode = 'python.debugTestNode';
 }
 export namespace Octicons {
     export const Test_Pass = '$(check)';

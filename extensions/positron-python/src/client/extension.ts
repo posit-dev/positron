@@ -101,7 +101,7 @@ import { EditorLoadTelemetry } from './telemetry/types';
 import { registerTypes as commonRegisterTerminalTypes } from './terminals/serviceRegistry';
 import { ICodeExecutionManager, ITerminalAutoActivation } from './terminals/types';
 import { TEST_OUTPUT_CHANNEL } from './unittests/common/constants';
-import { ITestCodeNavigatorCommandHandler } from './unittests/navigation/types';
+import { ITestCodeNavigatorCommandHandler, ITestExplorerCommandHandler } from './unittests/navigation/types';
 import { registerTypes as unitTestsRegisterTypes } from './unittests/serviceRegistry';
 
 durations.codeLoadingTime = stopWatch.elapsedTime;
@@ -293,6 +293,7 @@ function initializeServices(context: ExtensionContext, serviceManager: ServiceMa
     serviceContainer.get<IInterpreterLocatorProgressService>(IInterpreterLocatorProgressService).register();
     serviceContainer.get<IApplicationDiagnostics>(IApplicationDiagnostics).register();
     serviceContainer.get<ITestCodeNavigatorCommandHandler>(ITestCodeNavigatorCommandHandler).register();
+    serviceContainer.get<ITestExplorerCommandHandler>(ITestExplorerCommandHandler).register();
 }
 
 // tslint:disable-next-line:no-any
