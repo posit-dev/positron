@@ -115,10 +115,10 @@ export function captureTelemetry<P extends IEventNamePropertyMapping, E extends 
     failureEventName?: E
 ) {
     // tslint:disable-next-line:no-function-expression no-any
-    return function(target: Object, propertyKey: string, descriptor: TypedPropertyDescriptor<any>) {
+    return function (target: Object, propertyKey: string, descriptor: TypedPropertyDescriptor<any>) {
         const originalMethod = descriptor.value;
         // tslint:disable-next-line:no-function-expression no-any
-        descriptor.value = function(...args: any[]) {
+        descriptor.value = function (...args: any[]) {
             if (!captureDuration) {
                 sendTelemetryEvent(eventName, undefined, properties);
                 // tslint:disable-next-line:no-invalid-this
@@ -327,6 +327,6 @@ interface IEventNamePropertyMapping {
     [Telemetry.SubmitCellThroughInput]: never | undefined;
     [Telemetry.Undo]: never | undefined;
     [EventName.UNITTEST_NAVIGATE_TEST_FILE]: never | undefined;
-    [EventName.UNITTEST_NAVIGATE_TEST_FUNCTION]: never | undefined;
-    [EventName.UNITTEST_NAVIGATE_TEST_SUITE]: never | undefined;
+    [EventName.UNITTEST_NAVIGATE_TEST_FUNCTION]: { focus: boolean };
+    [EventName.UNITTEST_NAVIGATE_TEST_SUITE]: { focus: boolean };
 }
