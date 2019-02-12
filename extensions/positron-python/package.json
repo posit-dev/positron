@@ -69,6 +69,7 @@
         "onCommand:python.setShebangInterpreter",
         "onCommand:python.viewTestUI",
         "onCommand:python.viewTestOutput",
+        "onCommand:python.viewOutput",
         "onCommand:python.selectAndRunTestMethod",
         "onCommand:python.selectAndDebugTestMethod",
         "onCommand:python.selectAndRunTestFile",
@@ -213,6 +214,15 @@
             {
                 "command": "python.viewTestOutput",
                 "title": "%python.command.python.viewTestOutput.title%",
+                "category": "Python",
+				"icon": {
+					"light": "resources/light/repl.svg",
+					"dark": "resources/dark/repl.svg"
+				}
+            },
+            {
+                "command": "python.viewOutput",
+                "title": "%python.command.python.viewOutput.title%",
                 "category": "Python",
 				"icon": {
 					"light": "resources/light/repl.svg",
@@ -483,6 +493,11 @@
                 }
             ],
             "commandPalette": [
+                {
+                    "command": "python.viewOutput",
+                    "title": "%python.command.python.viewOutput.title%",
+                    "category": "Python"
+                },
                 {
                     "command": "python.runTestNode",
                     "title": "Run",
