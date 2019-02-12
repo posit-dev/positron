@@ -158,7 +158,7 @@ export class JupyterServerBase implements INotebookServer {
         return this.session ? this.session.waitForIdle() : Promise.resolve();
     }
 
-    public execute(code: string, file: string, line: number, cancelToken?: CancellationToken): Promise<ICell[]> {
+    public execute(code: string, file: string, line: number, id: string, cancelToken?: CancellationToken): Promise<ICell[]> {
         // Do initial setup if necessary
         this.initialNotebookSetup();
 
@@ -166,7 +166,7 @@ export class JupyterServerBase implements INotebookServer {
         const deferred = createDeferred<ICell[]>();
 
         // Attempt to evaluate this cell in the jupyter notebook
-        const observable = this.executeObservable(code, file, line);
+        const observable = this.executeObservable(code, file, line, id);
         let output: ICell[];
 
         observable.subscribe(
@@ -196,7 +196,7 @@ export class JupyterServerBase implements INotebookServer {
         }
     }
 
-    public executeObservable(code: string, file: string, line: number, id?: string): Observable<ICell[]> {
+    public executeObservable(code: string, file: string, line: number, id: string): Observable<ICell[]> {
         return this.executeObservableImpl(code, file, line, id, false);
     }
 
@@ -406,7 +406,7 @@ export class JupyterServerBase implements INotebookServer {
         return result;
     }
 
-    private executeObservableImpl(code: string, file: string, line: number, id: string | undefined, silent?: boolean) : Observable<ICell[]> {
+    private executeObservableImpl(code: string, file: string, line: number, id: string, silent?: boolean) : Observable<ICell[]> {
         // Do initial setup if necessary
         this.initialNotebookSetup();
 
