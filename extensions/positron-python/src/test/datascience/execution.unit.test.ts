@@ -36,7 +36,7 @@ import { Architecture } from '../../client/common/utils/platform';
 import { EXTENSION_ROOT_DIR } from '../../client/constants';
 import { JupyterCommandFactory } from '../../client/datascience/jupyter/jupyterCommand';
 import { JupyterExecution } from '../../client/datascience/jupyter/jupyterExecutionFactory';
-import { ICell, IConnection, IJupyterKernelSpec, INotebookServer, InterruptResult } from '../../client/datascience/types';
+import { ICell, IConnection, IJupyterKernelSpec, INotebookServer, INotebookServerLaunchInfo, InterruptResult } from '../../client/datascience/types';
 import { EnvironmentActivationService } from '../../client/interpreter/activation/service';
 import { InterpreterType, PythonInterpreter } from '../../client/interpreter/contracts';
 import { InterpreterService } from '../../client/interpreter/interpreterService';
@@ -51,16 +51,18 @@ import { MockJupyterManager } from './mockJupyterManager';
 // tslint:disable:no-any no-http-string no-multiline-string max-func-body-length
 class MockJupyterServer implements INotebookServer {
 
-    private conninfo: IConnection | undefined;
+    private launchInfo: INotebookServerLaunchInfo | undefined;
     private kernelSpec: IJupyterKernelSpec | undefined;
     private notebookFile: TemporaryFile | undefined;
-    public connect(conninfo: IConnection, kernelSpec: IJupyterKernelSpec): Promise<void> {
-        this.conninfo = conninfo;
-        this.kernelSpec = kernelSpec;
+    public connect(launchInfo: INotebookServerLaunchInfo): Promise<void> {
+        if (launchInfo && launchInfo.connectionInfo && launchInfo.kernelSpec) {
+            this.launchInfo = launchInfo;
+            this.kernelSpec = launchInfo.kernelSpec;
 
-        // Validate connection info and kernel spec
-        if (conninfo.baseUrl && kernelSpec.name && /[a-z,A-Z,0-9,-,.,_]+/.test(kernelSpec.name)) {
-            return Promise.resolve();
+            // Validate connection info and kernel spec
+            if (launchInfo.connectionInfo.baseUrl && launchInfo.kernelSpec.name && /[a-z,A-Z,0-9,-,.,_]+/.test(launchInfo.kernelSpec.name)) {
+                return Promise.resolve();
+            }
         }
         return Promise.reject('invalid server startup');
     }
@@ -88,6 +90,9 @@ class MockJupyterServer implements INotebookServer {
     public getConnectionInfo(): IConnection | undefined {
         throw new Error('Method not implemented');
     }
+    public getLaunchInfo(): INotebookServerLaunchInfo | undefined {
+        throw new Error('Method not implemented');
+    }
     public async shutdown() {
         return Promise.resolve();
     }
@@ -101,9 +106,9 @@ class MockJupyterServer implements INotebookServer {
     }
 
     public async dispose() : Promise<void> {
-        if (this.conninfo) {
-            this.conninfo.dispose(); // This should kill the process that's running
-            this.conninfo = undefined;
+        if (this.launchInfo) {
+            this.launchInfo.connectionInfo.dispose(); // This should kill the process that's running
+            this.launchInfo = undefined;
         }
         if (this.kernelSpec) {
             await this.kernelSpec.dispose(); // This destroy any unwanted kernel specs if necessary

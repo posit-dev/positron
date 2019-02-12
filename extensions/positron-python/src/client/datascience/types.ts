@@ -37,10 +37,27 @@ export enum InterruptResult {
     Restarted = 2
 }
 
+// Information used to launch a notebook server
+export interface INotebookServerLaunchInfo
+{
+    connectionInfo: IConnection;
+    currentInterpreter: PythonInterpreter | undefined;
+    uri: string | undefined; // Different from the connectionInfo as this is the setting used, not the result
+    kernelSpec: IJupyterKernelSpec | undefined;
+    usingDarkTheme: boolean;
+    workingDir: string | undefined;
+}
+
+// Manage our running notebook server instances
+export const INotebookServerManager = Symbol('INotebookServerManager');
+export interface INotebookServerManager {
+    getOrCreateServer(): Promise<INotebookServer | undefined>;
+}
+
 // Talks to a jupyter ipython kernel to retrieve data for cells
 export const INotebookServer = Symbol('INotebookServer');
 export interface INotebookServer extends IAsyncDisposable {
-    connect(conninfo: IConnection, kernelSpec: IJupyterKernelSpec | undefined, usingDarkTheme: boolean, cancelToken?: CancellationToken, workingDir?: string) : Promise<void>;
+    connect(launchInfo: INotebookServerLaunchInfo, cancelToken?: CancellationToken) : Promise<void>;
     executeObservable(code: string, file: string, line: number, id?: string) : Observable<ICell[]>;
     execute(code: string, file: string, line: number, cancelToken?: CancellationToken) : Promise<ICell[]>;
     restartKernel() : Promise<void>;
@@ -48,6 +65,7 @@ export interface INotebookServer extends IAsyncDisposable {
     shutdown() : Promise<void>;
     interruptKernel(timeoutInMs: number) : Promise<InterruptResult>;
     setInitialDirectory(directory: string): Promise<void>;
+    getLaunchInfo(): INotebookServerLaunchInfo | undefined;
     getConnectionInfo(): IConnection | undefined;
     getSysInfo() : Promise<ICell | undefined>;
 }

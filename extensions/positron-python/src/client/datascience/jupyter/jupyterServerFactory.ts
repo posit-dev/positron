@@ -13,9 +13,9 @@ import {
     ICell,
     IConnection,
     IDataScience,
-    IJupyterKernelSpec,
     IJupyterSessionManager,
     INotebookServer,
+    INotebookServerLaunchInfo,
     InterruptResult
 } from '../types';
 import { JupyterServerBase } from './jupyterServer';
@@ -37,7 +37,7 @@ type JupyterServerClassType = {
 export class JupyterServer implements INotebookServer {
     private serverFactory: RoleBasedFactory<INotebookServer, JupyterServerClassType>;
 
-    private connInfo : IConnection | undefined;
+    private launchInfo: INotebookServerLaunchInfo | undefined;
 
     constructor(
         @inject(ILiveShareApi) liveShare: ILiveShareApi,
@@ -62,10 +62,10 @@ export class JupyterServer implements INotebookServer {
         );
     }
 
-    public async connect(connInfo: IConnection, kernelSpec: IJupyterKernelSpec | undefined, usingDarkTheme: boolean, cancelToken?: CancellationToken, workingDir?: string): Promise<void> {
-        this.connInfo = connInfo;
+    public async connect(launchInfo: INotebookServerLaunchInfo, cancelToken?: CancellationToken): Promise<void> {
+        this.launchInfo = launchInfo;
         const server = await this.serverFactory.get();
-        return server.connect(connInfo, kernelSpec, usingDarkTheme, cancelToken, workingDir);
+        return server.connect(launchInfo, cancelToken);
     }
 
     public async shutdown(): Promise<void> {
@@ -126,7 +126,15 @@ export class JupyterServer implements INotebookServer {
 
     // Return a copy of the connection information that this server used to connect with
     public getConnectionInfo(): IConnection | undefined {
-        return this.connInfo;
+        if (this.launchInfo) {
+            return this.launchInfo.connectionInfo;
+        }
+
+        return undefined;
+    }
+
+    public getLaunchInfo(): INotebookServerLaunchInfo | undefined {
+        return this.launchInfo;
     }
 
     public async getSysInfo() : Promise<ICell | undefined> {

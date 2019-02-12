@@ -15,6 +15,7 @@ import { JupyterExecution } from './jupyter/jupyterExecutionFactory';
 import { JupyterExporter } from './jupyter/jupyterExporter';
 import { JupyterImporter } from './jupyter/jupyterImporter';
 import { JupyterServer } from './jupyter/jupyterServerFactory';
+import { JupyterServerManager } from './jupyter/jupyterServerManager';
 import { JupyterSessionManager } from './jupyter/jupyterSessionManager';
 import { StatusProvider } from './statusProvider';
 import {
@@ -32,6 +33,7 @@ import {
     INotebookExporter,
     INotebookImporter,
     INotebookServer,
+    INotebookServerManager,
     IStatusProvider
 } from './types';
 
@@ -46,6 +48,7 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.add<INotebookExporter>(INotebookExporter, JupyterExporter);
     serviceManager.add<INotebookImporter>(INotebookImporter, JupyterImporter);
     serviceManager.addSingleton<INotebookServer>(INotebookServer, JupyterServer);
+    serviceManager.addSingleton<INotebookServerManager>(INotebookServerManager, JupyterServerManager);
     serviceManager.addSingleton<ICodeCssGenerator>(ICodeCssGenerator, CodeCssGenerator);
     serviceManager.addSingleton<IStatusProvider>(IStatusProvider, StatusProvider);
     serviceManager.addSingleton<IJupyterSessionManager>(IJupyterSessionManager, JupyterSessionManager);
