@@ -7,7 +7,7 @@
  * Test utilities for testing the TestViewTreeProvider class.
  */
 
-import { parse as path_parse } from 'path';
+import { join, parse as path_parse } from 'path';
 import * as typemoq from 'typemoq';
 import { Uri, WorkspaceFolder } from 'vscode';
 import {
@@ -61,7 +61,7 @@ export function getMockTestFile(filePath: string, testSuites: TestSuite[] = [], 
         name: (path_parse(filePath)).base,
         nameToRun: filePath,
         time: 0,
-        fullPath: filePath,
+        fullPath: join(__dirname, filePath),
         functions: testFunctions,
         suites: testSuites,
         xmlName: filePath.replace(/\//g, '.')
@@ -171,7 +171,7 @@ export function createMockTestsData(testData?: TestFile[]): Tests {
     }
 
     const testHelper = getTestHelperInstance();
-    return testHelper.flattenTestFiles(testData);
+    return testHelper.flattenTestFiles(testData, __dirname);
 }
 
 export function createMockTestStorageService(testData?: Tests): typemoq.IMock<ITestCollectionStorageService> {

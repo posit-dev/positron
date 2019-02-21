@@ -7,20 +7,12 @@ import { expect } from 'chai';
 import * as typemoq from 'typemoq';
 import { Uri } from 'vscode';
 import { IDisposable } from '../../../client/common/types';
-import { TestsHelper } from '../../../client/unittests/common/testUtils';
-import {
-    ITestCollectionStorageService, TestStatus, TestType
-} from '../../../client/unittests/common/types';
-import {
-    TestTreeViewProvider
-} from '../../../client/unittests/explorer/testTreeViewProvider';
+import { getTestType } from '../../../client/unittests/common/testUtils';
+import { ITestCollectionStorageService, TestStatus, TestType } from '../../../client/unittests/common/types';
+import { TestTreeViewProvider } from '../../../client/unittests/explorer/testTreeViewProvider';
 import { TestDataItem } from '../../../client/unittests/types';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../constants';
-import {
-    createMockTestExplorer, createMockTestsData,
-    getMockTestFile, getMockTestFunction,
-    getMockTestSuite
-} from './explorerTestData';
+import { createMockTestExplorer, createMockTestsData, getMockTestFile, getMockTestFunction, getMockTestSuite } from './explorerTestData';
 
 /**
  * Class that is useful to track any Tree View update requests made by the view provider.
@@ -30,13 +22,8 @@ class TestExplorerCaptureRefresh implements IDisposable {
 
     private disposable: IDisposable;
 
-    constructor(
-        private testViewProvider: TestTreeViewProvider,
-        disposableContainer: IDisposable[]
-    ) {
-        this.disposable = this.testViewProvider.onDidChangeTreeData(
-            this.onRefreshOccured.bind(this)
-        );
+    constructor(private testViewProvider: TestTreeViewProvider, disposableContainer: IDisposable[]) {
+        this.disposable = this.testViewProvider.onDidChangeTreeData(this.onRefreshOcured.bind(this));
         disposableContainer.push(this);
     }
 
@@ -44,7 +31,7 @@ class TestExplorerCaptureRefresh implements IDisposable {
         this.disposable.dispose();
     }
 
-    private onRefreshOccured(testDataItem: TestDataItem) {
+    private onRefreshOcured(_testDataItem?: TestDataItem): void {
         this.refreshCount = this.refreshCount + 1;
     }
 }
@@ -63,18 +50,14 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
     test('Create the initial view and ensure it provides a default view', async () => {
         const testExplorer = createMockTestExplorer();
-        expect(testExplorer).is.not.equal(
-            undefined, 'Could not create a mock test explorer, check the parameters of the test setup.'
-        );
+        expect(testExplorer).is.not.equal(undefined, 'Could not create a mock test explorer, check the parameters of the test setup.');
         const treeRoot = testExplorer.getChildren();
-        expect(treeRoot.length).to.be.greaterThan(
-            0, 'No children returned from default view of the TreeViewProvider.'
-        );
+        expect(treeRoot.length).to.be.greaterThan(0, 'No children returned from default view of the TreeViewProvider.');
     });
 
     test('Ensure that updates from the test manager propagate to the TestExplorer', async () => {
         const testsData = createMockTestsData();
-        const changeItem = testsData.testFolders[0].testFiles[0].functions[0];
+        const changeItem = testsData.testFolders[1].testFiles[0].functions[0];
         const testExplorer = createMockTestExplorer(undefined, testsData);
         const refreshCap = new TestExplorerCaptureRefresh(testExplorer, disposables);
 
@@ -100,7 +83,6 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
     });
 
     test('A test file is added/removed/renamed', async () => {
-
         // create an inital test tree with a single file.
         const fn = getMockTestFunction('test/test_fl.py::test_fn1');
         const fl1 = getMockTestFile('test/test_fl.py', [], [fn]);
@@ -122,15 +104,12 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
         let unchangedItem = await testExplorer.getTreeItem(fl1);
         expect(unchangedItem).to.not.be.equal(undefined, 'The file that will always be present, is not present.');
 
-        let addedTreeItem = await testExplorer.getTreeItem(fl2);
-        expect(addedTreeItem).to.be.equal(undefined, 'The file to be added has not been added yet!');
-
         testData = updatedTestData;
         testExplorer.refresh(testResource);
 
         unchangedItem = await testExplorer.getTreeItem(fl1);
         expect(unchangedItem).to.not.be.equal(undefined, 'The file that will always be present, is not present.');
-        addedTreeItem = await testExplorer.getTreeItem(fl2);
+        let addedTreeItem = await testExplorer.getTreeItem(fl2);
         expect(addedTreeItem).to.not.be.equal(undefined, 'The file has been added to the tests tree but not found?');
         expect(addedTreeItem.data.name).to.be.equal(`${origName}.py`);
 
@@ -153,7 +132,6 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
     });
 
     test('A test suite is added/removed/renamed', async () => {
-
         // create an inital test tree with a single file containing a single suite.
         const sfn = getMockTestFunction('test/test_fl.py::suite1::test_fn');
         const suite = getMockTestSuite('test/test_fl.py::suite1', [sfn]);
@@ -177,15 +155,12 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
         let unchangedItem = await testExplorer.getTreeItem(suite);
         expect(unchangedItem).to.not.be.equal(undefined, 'The suite that will always be present, is not present.');
 
-        let addedTreeItem = await testExplorer.getTreeItem(suite2);
-        expect(addedTreeItem).to.be.equal(undefined, 'The file to be added has not been added yet!');
-
         testData = updatedTestData;
         testExplorer.refresh(testResource);
 
         unchangedItem = await testExplorer.getTreeItem(suite);
         expect(unchangedItem).to.not.be.equal(undefined, 'The suite that will always be present, is not present.');
-        addedTreeItem = await testExplorer.getTreeItem(suite2);
+        let addedTreeItem = await testExplorer.getTreeItem(suite2);
         expect(addedTreeItem).to.not.be.equal(undefined, 'The suite has been added to the tests tree but not found?');
 
         const newName = 'suite_two';
@@ -203,7 +178,6 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
     });
 
     test('A test function is added/removed/renamed', async () => {
-
         // create an inital test tree with a single file containing a single suite.
         const fn = getMockTestFunction('test/test_fl.py::test_fn');
         const fl1 = getMockTestFile('test/test_fl.py', [], [fn]);
@@ -225,15 +199,12 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
         let unchangedItem = await testExplorer.getTreeItem(fn);
         expect(unchangedItem).to.not.be.equal(undefined, 'The function that will always be present, is not present.');
 
-        let addedTreeItem = await testExplorer.getTreeItem(fn2);
-        expect(addedTreeItem).to.be.equal(undefined, 'The function to be added has not been added yet!');
-
         testData = updatedTestData;
         testExplorer.refresh(testResource);
 
         unchangedItem = await testExplorer.getTreeItem(fn);
         expect(unchangedItem).to.not.be.equal(undefined, 'The function that will always be present, is not present.');
-        addedTreeItem = await testExplorer.getTreeItem(fn2);
+        let addedTreeItem = await testExplorer.getTreeItem(fn2);
         expect(addedTreeItem).to.not.be.equal(undefined, 'The function has been added to the tests tree but not found?');
         expect(addedTreeItem.data.name).to.be.equal('test_fn2');
 
@@ -290,23 +261,23 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
         // build up the view item tree
         testExplorer.refresh(testResource);
 
-        let parent = await testExplorer.getParent(testFunction);
+        let parent = await testExplorer.getParent!(testFunction)!;
         expect(parent.name).to.be.equal(testSuite.name, 'Function within a test suite not returning the suite as parent.');
-        let parentType = TestsHelper.getTestType(parent);
+        let parentType = getTestType(parent);
         expect(parentType).to.be.equal(TestType.testSuite);
 
-        parent = await testExplorer.getParent(testSuite);
+        parent = await testExplorer.getParent!(testSuite)!;
         expect(parent.name).to.be.equal(testFile.name, 'Suite within a test file not returning the test file as parent.');
-        parentType = TestsHelper.getTestType(parent);
+        parentType = getTestType(parent);
         expect(parentType).to.be.equal(TestType.testFile);
 
-        parent = await testExplorer.getParent(outerTestFunction);
+        parent = await testExplorer.getParent!(outerTestFunction)!;
         expect(parent.name).to.be.equal(testFile.name, 'Function within a test file not returning the test file as parent.');
-        parentType = TestsHelper.getTestType(parent);
+        parentType = getTestType(parent);
         expect(parentType).to.be.equal(TestType.testFile);
 
-        parent = await testExplorer.getParent(testFile);
-        parentType = TestsHelper.getTestType(parent);
+        parent = await testExplorer.getParent!(testFile)!;
+        parentType = getTestType(parent);
         expect(parentType).to.be.equal(TestType.testFolder);
     });
 
@@ -330,7 +301,7 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
         expect(children.length).to.be.equal(1, 'Suite a single function should only return one child.');
         children.forEach((child: TestDataItem) => {
             expect(child.name).oneOf(['test_fn']);
-            expect(TestsHelper.getTestType(child)).to.be.equal(TestType.testFunction);
+            expect(getTestType(child)).to.be.equal(TestType.testFunction);
         });
 
         children = testExplorer.getChildren(outerTestFunction);

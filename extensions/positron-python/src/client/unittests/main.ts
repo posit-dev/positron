@@ -17,6 +17,7 @@ import {
     IConfigurationService, IDisposableRegistry,
     ILogger, IOutputChannel
 } from '../common/types';
+import { noop } from '../common/utils/misc';
 import { IServiceContainer } from '../ioc/types';
 import { EventName } from '../telemetry/constants';
 import { captureTelemetry, sendTelemetryEvent } from '../telemetry/index';
@@ -105,9 +106,7 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         if (testManager) {
             if (!this.testManagers.has(testManager)) {
                 this.testManagers.add(testManager);
-                const handler = testManager.onDidStatusChange(e => {
-                    this._onDidStatusChange.fire({ workspace: testManager.workspaceFolder, status: e });
-                });
+                const handler = testManager.onDidStatusChange(e => this._onDidStatusChange.fire(e));
                 this.disposableRegistry.push(handler);
             }
             return testManager;
@@ -383,7 +382,8 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
             commandManager.registerCommand(constants.Commands.Tests_Select_And_Run_Method, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => this.selectAndRunTestMethod(cmdSource, resource)),
             commandManager.registerCommand(constants.Commands.Tests_Select_And_Debug_Method, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource: Uri) => this.selectAndRunTestMethod(cmdSource, resource, true)),
             commandManager.registerCommand(constants.Commands.Tests_Select_And_Run_File, (_, cmdSource: CommandSource = CommandSource.commandPalette) => this.selectAndRunTestFile(cmdSource)),
-            commandManager.registerCommand(constants.Commands.Tests_Run_Current_File, (_, cmdSource: CommandSource = CommandSource.commandPalette) => this.runCurrentTestFile(cmdSource))
+            commandManager.registerCommand(constants.Commands.Tests_Run_Current_File, (_, cmdSource: CommandSource = CommandSource.commandPalette) => this.runCurrentTestFile(cmdSource)),
+            commandManager.registerCommand(constants.Commands.Tests_Discovering, noop)
         ];
 
         disposablesRegistry.push(...disposables);

@@ -15,7 +15,7 @@ export class TestsParser implements ITestsParser {
 
     public parse(content: string, options: ParserOptions): Tests {
         const testFiles = this.getTestFiles(content, options);
-        return this.testsHelper.flattenTestFiles(testFiles);
+        return this.testsHelper.flattenTestFiles(testFiles, options.cwd);
     }
 
     private getTestFiles(content: string, options: ParserOptions) {
