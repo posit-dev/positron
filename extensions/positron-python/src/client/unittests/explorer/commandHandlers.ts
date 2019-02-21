@@ -10,7 +10,7 @@ import { traceDecorators } from '../../common/logger';
 import { IDisposable } from '../../common/types';
 import { swallowExceptions } from '../../common/utils/decorators';
 import { CommandSource } from '../common/constants';
-import { TestsHelper } from '../common/testUtils';
+import { getTestType } from '../common/testUtils';
 import {
     TestFile, TestFolder, TestFunction,
     TestsToRun, TestSuite, TestType
@@ -52,7 +52,7 @@ export class TestExplorerCommandHandler implements ITestExplorerCommandHandler {
     @swallowExceptions('Open test node in Editor')
     @traceDecorators.error('Open test node in editor failed')
     protected async onOpenTestNodeInEditor(item: TestDataItem): Promise<void> {
-        const testType = TestsHelper.getTestType(item);
+        const testType = getTestType(item);
         const command = testNavigationCommandMapping[testType];
         const testUri = this.testResource.getResource(item);
         if (!command) {
@@ -64,7 +64,7 @@ export class TestExplorerCommandHandler implements ITestExplorerCommandHandler {
     protected async runDebugTestNode(item: TestDataItem, runType: 'run' | 'debug'): Promise<void> {
         let testToRun: TestsToRun;
 
-        switch (TestsHelper.getTestType(item)) {
+        switch (getTestType(item)) {
             case TestType.testFile: {
                 testToRun = { testFile: [item as TestFile] };
                 break;

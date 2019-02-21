@@ -5,7 +5,7 @@ import {
 import { IUnitTestSettings, Product } from '../../common/types';
 import { DebuggerTypeName } from '../../debugger/constants';
 import { ConsoleType } from '../../debugger/types';
-import { IPythonUnitTestMessage } from '../types';
+import { IPythonUnitTestMessage, TestDataItem, WorkspaceTestStatus } from '../types';
 import { CommandSource } from './constants';
 
 export type TestProvider = 'nosetest' | 'pytest' | 'unittest';
@@ -36,7 +36,6 @@ export type TestFolder = TestResult & {
     name: string;
     testFiles: TestFile[];
     nameToRun: string;
-    status?: TestStatus;
     folders: TestFolder[];
 };
 export enum TestType {
@@ -52,7 +51,6 @@ export type TestFile = TestResult & {
     suites: TestSuite[];
     nameToRun: string;
     xmlName: string;
-    status?: TestStatus;
     errorsWhenDiscovering?: string;
 };
 
@@ -64,16 +62,15 @@ export type TestSuite = TestResult & {
     isInstance: Boolean;
     nameToRun: string;
     xmlName: string;
-    status?: TestStatus;
 };
 
 export type TestFunction = TestResult & {
     name: string;
     nameToRun: string;
-    status?: TestStatus;
 };
 
 export type TestResult = Node & {
+    status?: TestStatus;
     passed?: boolean;
     time: number;
     line?: number;
@@ -98,7 +95,6 @@ export type FlattenedTestFunction = {
 
 export type FlattenedTestSuite = {
     testSuite: TestSuite;
-    parentTestSuite?: TestSuite;
     parentTestFile: TestFile;
     xmlClassName: string;
 };
@@ -165,8 +161,8 @@ export interface ITestsHelper {
     parseProviderName(product: UnitTestProduct): TestProvider;
     parseProduct(provider: TestProvider): UnitTestProduct;
     getSettingsPropertyNames(product: Product): TestSettingsPropertyNames;
-    flattenTestFiles(testFiles: TestFile[]): Tests;
-    placeTestFilesIntoFolders(tests: Tests): void;
+    flattenTestFiles(testFiles: TestFile[], workspaceFolder: string): Tests;
+    placeTestFilesIntoFolders(tests: Tests, workspaceFolder: string): void;
     displayTestErrorMessage(message: string): void;
     shouldRunAllTests(testsToRun?: TestsToRun): boolean;
     mergeTests(items: Tests[]): Tests;
@@ -184,10 +180,12 @@ export interface ITestVisitor {
 export const ITestCollectionStorageService = Symbol('ITestCollectionStorageService');
 
 export interface ITestCollectionStorageService extends Disposable {
+    onDidChange: Event<{ uri: Uri; data?: TestDataItem }>;
     getTests(wkspace: Uri): Tests | undefined;
     storeTests(wkspace: Uri, tests: Tests | null | undefined): void;
     findFlattendTestFunction(resource: Uri, func: TestFunction): FlattenedTestFunction | undefined;
-    findFlattendTestSuite(resource: Uri, func: TestSuite): FlattenedTestSuite | undefined;
+    findFlattendTestSuite(resource: Uri, suite: TestSuite): FlattenedTestSuite | undefined;
+    update(resource: Uri, item: TestDataItem): void;
 }
 
 export const ITestResultsService = Symbol('ITestResultsService');
@@ -231,7 +229,7 @@ export interface ITestManager extends Disposable {
     readonly workingDirectory: string;
     readonly workspaceFolder: Uri;
     diagnosticCollection: DiagnosticCollection;
-    readonly onDidStatusChange: Event<TestStatus>;
+    readonly onDidStatusChange: Event<WorkspaceTestStatus>;
     stop(): void;
     resetTestResults(): void;
     discoverTests(cmdSource: CommandSource, ignoreCache?: boolean, quietMode?: boolean, userInitiated?: boolean): Promise<Tests>;
@@ -300,7 +298,7 @@ export interface ITestDebugConfig extends DebugConfiguration {
     pythonPath?: string;
     console?: ConsoleType;
     cwd?: string;
-    env?:  Record<string, string | undefined>;
+    env?: Record<string, string | undefined>;
     envFile?: string;
 
     // converted to DebugOptions:
@@ -308,4 +306,19 @@ export interface ITestDebugConfig extends DebugConfiguration {
     showReturnValue?: boolean;
     redirectOutput?: boolean;  // default: true
     debugStdLib?: boolean;
+}
+export const ITestContextService = Symbol('ITestContextService');
+export interface ITestContextService extends Disposable {
+    register(): void;
+}
+
+export const ITestsStatusUpdaterService = Symbol('ITestsStatusUpdaterService');
+export interface ITestsStatusUpdaterService {
+    updateStatusAsDiscovering(resource: Uri, tests?: Tests): void;
+    updateStatusAsUnknown(resource: Uri, tests?: Tests): void;
+    updateStatusAsRunning(resource: Uri, tests?: Tests): void;
+    updateStatusAsRunningFailedTests(resource: Uri, tests?: Tests): void;
+    updateStatusAsRunningSpecificTests(resource: Uri, testsToRun: TestsToRun, tests?: Tests): void;
+    updateStatusOfRunningTestsAsIdle(resource: Uri, tests?: Tests): void;
+    triggerUpdatesToTests(resource: Uri, tests?: Tests): void;
 }

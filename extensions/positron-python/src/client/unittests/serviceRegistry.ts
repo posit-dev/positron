@@ -8,21 +8,22 @@ import { NOSETEST_PROVIDER, PYTEST_PROVIDER, UNITTEST_PROVIDER } from './common/
 import { DebugLauncher } from './common/debugLauncher';
 import { TestRunner } from './common/runner';
 import { TestConfigSettingsService } from './common/services/configSettingService';
+import { TestContextService } from './common/services/contextService';
 import { TestCollectionStorageService } from './common/services/storageService';
 import { TestManagerService } from './common/services/testManagerService';
 import { TestResultsService } from './common/services/testResultsService';
+import { TestsStatusUpdaterService } from './common/services/testsStatusService';
 import { UnitTestDiagnosticService } from './common/services/unitTestDiagnosticService';
 import { WorkspaceTestManagerService } from './common/services/workspaceTestManagerService';
 import { TestsHelper } from './common/testUtils';
 import { TestFlatteningVisitor } from './common/testVisitors/flatteningVisitor';
-import { TestFolderGenerationVisitor } from './common/testVisitors/folderGenerationVisitor';
 import { TestResultResetVisitor } from './common/testVisitors/resultResetVisitor';
 import {
-    ITestCollectionStorageService, ITestDebugLauncher,
-    ITestDiscoveryService, ITestManager, ITestManagerFactory, ITestManagerService,
-    ITestManagerServiceFactory, ITestMessageService, ITestResultsService, ITestRunner,
-    ITestsHelper, ITestsParser, ITestVisitor, IUnitTestSocketServer, IWorkspaceTestManagerService,
-    IXUnitParser, TestProvider
+    ITestCollectionStorageService, ITestContextService,
+    ITestDebugLauncher, ITestDiscoveryService, ITestManager, ITestManagerFactory,
+    ITestManagerService, ITestManagerServiceFactory, ITestMessageService, ITestResultsService,
+    ITestRunner, ITestsHelper, ITestsParser, ITestsStatusUpdaterService, ITestVisitor,
+    IUnitTestSocketServer, IWorkspaceTestManagerService, IXUnitParser, TestProvider
 } from './common/types';
 import { XUnitParser } from './common/xUnitParser';
 import { UnitTestConfigurationService } from './configuration';
@@ -68,11 +69,12 @@ export function registerTypes(serviceManager: IServiceManager) {
 
     serviceManager.add<ITestsHelper>(ITestsHelper, TestsHelper);
     serviceManager.add<IUnitTestSocketServer>(IUnitTestSocketServer, UnitTestSocketServer);
+    serviceManager.addSingleton<ITestContextService>(ITestContextService, TestContextService);
+    serviceManager.addSingleton<ITestsStatusUpdaterService>(ITestsStatusUpdaterService, TestsStatusUpdaterService);
 
     serviceManager.add<ITestResultsService>(ITestResultsService, TestResultsService);
 
     serviceManager.add<ITestVisitor>(ITestVisitor, TestFlatteningVisitor, 'TestFlatteningVisitor');
-    serviceManager.add<ITestVisitor>(ITestVisitor, TestFolderGenerationVisitor, 'TestFolderGenerationVisitor');
     serviceManager.add<ITestVisitor>(ITestVisitor, TestResultResetVisitor, 'TestResultResetVisitor');
 
     serviceManager.add<ITestsParser>(ITestsParser, UnitTestTestsParser, UNITTEST_PROVIDER);
