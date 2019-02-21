@@ -23,7 +23,7 @@
 - [ ] Announce the code freeze is over
 - [ ] Update [Component Governance](https://vscode-python.visualstudio.com/VSCode-Python/)
   - [ ] Provide details for any automatically detected npm dependencies
-  - [ ] Manually add any PyPI or repository dependencies
+  - [ ] Manually add any repository dependencies
 - [ ] Open appropriate [documentation issues](https://github.com/microsoft/vscode-docs/issues?q=is%3Aissue+is%3Aopen+label%3Apython)
 - [ ] Begin drafting a [blog](http://aka.ms/pythonblog) post
 
