@@ -178,15 +178,6 @@
                 }
             },
             {
-                "command": "python.runningtests",
-                "title": "%python.command.python.runtests.title%",
-                "category": "Python",
-                "icon": {
-                    "light": "resources/light/starting.svg",
-                    "dark": "resources/dark/starting.svg"
-                }
-            },
-            {
                 "command": "python.debugtests",
                 "title": "%python.command.python.debugtests.title%",
                 "category": "Python",
@@ -281,8 +272,17 @@
                 "title": "%python.command.python.discoverTests.title%",
                 "category": "Python",
                 "icon": {
-                    "light": "resources/dark/discovering-tests.svg",
+                    "light": "resources/light/discovering-tests.svg",
                     "dark": "resources/dark/discovering-tests.svg"
+                }
+            },
+            {
+                "command": "python.stopUnitTests",
+                "title": "%python.command.python.stopUnitTests.title%",
+                "category": "Python",
+                "icon": {
+                    "light": "resources/light/stop.svg",
+                    "dark": "resources/dark/stop.svg"
                 }
             },
             {
@@ -528,14 +528,13 @@
                     "when": "config.noExists"
                 },
                 {
-                    "command": "python.debugTestNode",
-                    "title": "Debug",
+                    "command": "python.stopUnitTests",
                     "category": "Python",
                     "when": "config.noExists"
                 },
                 {
-                    "command": "python.runningtests",
-                    "title": "Run",
+                    "command": "python.debugTestNode",
+                    "title": "Debug",
                     "category": "Python",
                     "when": "config.noExists"
                 },
@@ -653,8 +652,8 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "python.runningtests",
-                    "when": "view == python_tests && runningTests",
+                    "command": "python.stopUnitTests",
+                    "when": "view == python_tests && busyTests",
                     "group": "navigation@1"
                 },
                 {
