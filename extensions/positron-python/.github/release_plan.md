@@ -57,7 +57,6 @@
 - [ ] Merge `release` back into `master`
 
 ## Prep for the _next_ release
-- [ ] Bump the [version](https://github.com/Microsoft/vscode-python/blob/master/package.json) number to the next `dev`
 - [ ] Create a new [release plan](https://github.com/Microsoft/vscode-python/edit/master/.github/release_plan.md)
 
 ## Clean up after _this_ release
