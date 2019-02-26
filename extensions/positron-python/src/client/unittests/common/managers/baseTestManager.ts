@@ -60,7 +60,7 @@ export abstract class BaseTestManager implements ITestManager {
     private _testResultsService: ITestResultsService;
     private workspaceService: IWorkspaceService;
     private _outputChannel: OutputChannel;
-    private tests?: Tests;
+    protected tests?: Tests;
     private _status: TestStatus = TestStatus.Unknown;
     private testDiscoveryCancellationTokenSource?: CancellationTokenSource;
     private testRunnerCancellationTokenSource?: CancellationTokenSource;
