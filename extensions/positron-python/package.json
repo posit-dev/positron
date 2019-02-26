@@ -644,7 +644,7 @@
                 {
                     "command": "python.debugtests",
                     "when": "view == python_tests && !busyTests",
-                    "group": "navigation@4"
+                    "group": "navigation@3"
                 },
                 {
                     "command": "python.runtests",
@@ -659,12 +659,12 @@
                 {
                     "command": "python.discoverTests",
                     "when": "view == python_tests && !busyTests",
-                    "group": "navigation@3"
+                    "group": "navigation@4"
                 },
                 {
                     "command": "python.discoveringTests",
                     "when": "view == python_tests && discoveringTests",
-                    "group": "navigation@3"
+                    "group": "navigation@4"
                 },
                 {
                     "command": "python.runFailedTests",
