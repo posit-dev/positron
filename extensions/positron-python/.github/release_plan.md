@@ -59,6 +59,7 @@
 
 ## Prep for the _next_ release
 - [ ] Create a new [release plan](https://github.com/Microsoft/vscode-python/edit/master/.github/release_plan.md)
+- [ ] (Un-)pin release plan issues
 
 ## Clean up after _this_ release
 - [ ] Clean up any straggling [fixed issues needing validation](https://github.com/Microsoft/vscode-python/issues?q=label%3A%22validate+fix%22)
