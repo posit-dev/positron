@@ -1315,8 +1315,8 @@
                 },
                 "python.dataScience.allowLiveShare": {
                     "type": "boolean",
-                    "default": false,
-                    "description": "Allow the Python Interactive window to be shared during a Live Share session (experimental)",
+                    "default": true,
+                    "description": "Allow the Python Interactive window to be shared during a Live Share session",
                     "scope": "resource"
                 },
                 "python.disableInstallationCheck": {
@@ -2205,7 +2205,7 @@
         "vscode-languageclient": "^4.4.0",
         "vscode-languageserver": "^4.4.0",
         "vscode-languageserver-protocol": "^3.10.3",
-        "vsls": "^0.3.967",
+        "vsls": "^0.3.1291",
         "winreg": "^1.2.4",
         "xml2js": "^0.4.19"
     },
