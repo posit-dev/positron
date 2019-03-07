@@ -174,7 +174,7 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
 
         this.discoverTests(CommandSource.auto, this.workspaceService.workspaceFolders![0].uri, true).ignoreErrors();
     }
-    public async discoverTests(cmdSource: CommandSource, resource?: Uri, ignoreCache?: boolean, userInitiated?: boolean, quietMode?: boolean) {
+    public async discoverTests(cmdSource: CommandSource, resource?: Uri, ignoreCache?: boolean, userInitiated?: boolean, quietMode?: boolean, clearTestStatus?: boolean) {
         const testManager = await this.getTestManager(true, resource);
         if (!testManager) {
             return;
@@ -187,7 +187,7 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         if (!this.testResultDisplay) {
             this.testResultDisplay = this.serviceContainer.get<ITestResultDisplay>(ITestResultDisplay);
         }
-        const discoveryPromise = testManager.discoverTests(cmdSource, ignoreCache, quietMode, userInitiated);
+        const discoveryPromise = testManager.discoverTests(cmdSource, ignoreCache, quietMode, userInitiated, clearTestStatus);
         this.testResultDisplay.displayDiscoverStatus(discoveryPromise, quietMode)
             .catch(ex => console.error('Python Extension: displayDiscoverStatus', ex));
         await discoveryPromise;
@@ -354,7 +354,7 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
             commandManager.registerCommand(constants.Commands.Tests_Discover, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource?: Uri) => {
                 // Ignore the exceptions returned.
                 // This command will be invoked from other places of the extension.
-                this.discoverTests(cmdSource, resource, true, true)
+                this.discoverTests(cmdSource, resource, true, true, false, true)
                     .ignoreErrors();
             }),
             commandManager.registerCommand(constants.Commands.Tests_Configure, (_, cmdSource: CommandSource = CommandSource.commandPalette, resource?: Uri) => {
