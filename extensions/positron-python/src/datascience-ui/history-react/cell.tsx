@@ -37,6 +37,7 @@ interface ICellProps {
     maxTextSize?: number;
     history: InputHistory | undefined;
     showWatermark: boolean;
+    errorBackgroundColor: string;
     gotoCode(): void;
     delete(): void;
     submitNewCode(code: string): void;
@@ -267,7 +268,7 @@ export class Cell extends React.Component<ICellProps> {
         return [<Transform data={source}/>];
     }
 
-    private renderWithTransform = (mimetype: string, output : nbformat.IOutput, index : number, renderWithScrollbars: boolean) => {
+    private renderWithTransform = (mimetype: string, output : nbformat.IOutput, index : number, renderWithScrollbars: boolean, forceLightTheme: boolean) => {
 
         // If we found a mimetype, use the transform
         if (mimetype) {
@@ -289,19 +290,23 @@ export class Cell extends React.Component<ICellProps> {
                         renderWithScrollbars = true;
                     }
 
+                    // Create a default set of properties
+                    const style: React.CSSProperties = {
+                    };
+
                     // Create a scrollbar style if necessary
                     if (renderWithScrollbars && this.props.maxTextSize) {
-                        const style: React.CSSProperties = {
-                            maxHeight : `${this.props.maxTextSize}px`,
-                            overflowY : 'auto',
-                            overflowX : 'auto'
-                        };
-
-                        return <div id='stylewrapper' key={index} style={style}><Transform data={data} /></div>;
-                    } else {
-                        return <Transform key={index} data={data} />;
+                        style.overflowX = 'auto';
+                        style.overflowY = 'auto';
+                        style.maxHeight = `${this.props.maxTextSize}px`;
                     }
 
+                    // Change the background if necessary
+                    if (forceLightTheme) {
+                        style.backgroundColor = this.props.errorBackgroundColor;
+                    }
+
+                    return <div id='stylewrapper' key={index} style={style}><Transform data={data} /></div>;
                 }
             } catch (ex) {
                 window.console.log('Error in rendering');
@@ -331,6 +336,7 @@ export class Cell extends React.Component<ICellProps> {
 
         // Only for text and error ouptut do we add scrollbars
         let addScrollbars = false;
+        let forceLightTheme = false;
 
         // Stream and error output need to be converted
         if (copy.output_type === 'stream') {
@@ -360,6 +366,7 @@ export class Cell extends React.Component<ICellProps> {
 
         } else if (copy.output_type === 'error') {
             addScrollbars = true;
+            forceLightTheme = true;
             const error = copy as nbformat.IError;
             try {
                 const converter = new ansiToHtml();
@@ -383,7 +390,7 @@ export class Cell extends React.Component<ICellProps> {
 
         // If that worked, use the transform
         if (mimetype) {
-            return this.renderWithTransform(mimetype, copy, index, addScrollbars);
+            return this.renderWithTransform(mimetype, copy, index, addScrollbars, forceLightTheme);
         }
 
         if (copy.data) {
