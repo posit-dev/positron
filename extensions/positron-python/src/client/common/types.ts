@@ -299,6 +299,7 @@ export interface IDataScienceSettings {
     markdownRegularExpression: string;
     codeRegularExpression: string;
     allowLiveShare? : boolean;
+    errorBackgroundColor: string;
 }
 
 export const IConfigurationService = Symbol('IConfigurationService');

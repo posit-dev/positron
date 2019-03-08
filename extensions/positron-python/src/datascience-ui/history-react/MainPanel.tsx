@@ -222,6 +222,8 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
 
     private renderCells = () => {
         const maxOutputSize = getSettings().maxOutputSize;
+        const errorBackgroundColor = getSettings().errorBackgroundColor;
+        const actualErrorBackgroundColor = errorBackgroundColor ? errorBackgroundColor : '#FFFFFF';
         const maxTextSize = maxOutputSize && maxOutputSize < 10000 && maxOutputSize > 0 ? maxOutputSize : undefined;
         return this.state.cellVMs.map((cellVM: ICellViewModel, index: number) =>
             <ErrorBoundary key={index}>
@@ -235,6 +237,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                     baseTheme={this.props.baseTheme}
                     codeTheme={this.props.codeTheme}
                     showWatermark={!this.state.submittedText}
+                    errorBackgroundColor={actualErrorBackgroundColor}
                     gotoCode={() => this.gotoCellCode(index)}
                     delete={() => this.deleteCell(index)}/>
             </ErrorBoundary>

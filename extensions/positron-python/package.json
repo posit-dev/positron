@@ -1295,6 +1295,12 @@
                     "description": "Maximum size (in pixels) of text output in the Python Interactive window before a scrollbar appears. Set to -1 for infinity.",
                     "scope": "resource"
                 },
+                "python.dataScience.errorBackgroundColor": {
+                    "type": "string",
+                    "default": "#FFFFFF",
+                    "description": "Background color (in hex) for exception messages in the Python Interactive window.",
+                    "scope": "resource"
+                },
                 "python.dataScience.sendSelectionToInteractiveWindow": {
                     "type": "boolean",
                     "default": false,
