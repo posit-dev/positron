@@ -173,6 +173,10 @@ export interface ICodeWatcher {
     runCurrentCell(): Promise<void>;
     runCurrentCellAndAdvance(): Promise<void>;
     runSelectionOrLine(activeEditor: TextEditor | undefined): Promise<void>;
+    runToLine(targetLine: number): Promise<void>;
+    runFromLine(targetLine: number): Promise<void>;
+    runAllCellsAbove(stopLine: number, stopCharacter: number): Promise<void>;
+    runCellAndAllBelow(startLine: number, startCharacter: number): Promise<void>;
 }
 
 export enum CellState {
