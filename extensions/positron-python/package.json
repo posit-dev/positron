@@ -346,8 +346,28 @@
                 "category": "Python"
             },
             {
+                "command": "python.datascience.runallcellsabove",
+                "title": "%python.command.python.datascience.runallcellsabove.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.datascience.runcellandallbelow",
+                "title": "%python.command.python.datascience.runcellandallbelow.title%",
+                "category": "Python"
+            },
+            {
                 "command": "python.datascience.runcell",
                 "title": "%python.command.python.datascience.runcell.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.datascience.runtoline",
+                "title": "%python.command.python.datascience.runtoline.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.datascience.runfromline",
+                "title": "%python.command.python.datascience.runfromline.title%",
                 "category": "Python"
             },
             {
@@ -465,7 +485,17 @@
                 {
                     "command": "python.datascience.runallcells",
                     "group": "Python",
-                    "when": "editorFocus && editorLangId == python &&  python.datascience.featureenabled && python.datascience.ownsSelection"
+                    "when": "editorFocus && editorLangId == python && python.datascience.hascodecells && python.datascience.featureenabled"
+                },
+                {
+                    "command": "python.datascience.runfromline",
+                    "group": "Python",
+                    "when": "editorFocus && editorLangId == python && python.datascience.ownsSelection && python.datascience.featureenabled"
+                },
+                {
+                    "command": "python.datascience.runtoline",
+                    "group": "Python",
+                    "when": "editorFocus && editorLangId == python && python.datascience.ownsSelection && python.datascience.featureenabled"
                 },
                 {
                     "command": "python.datascience.execSelectionInteractive",
