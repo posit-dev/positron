@@ -15,7 +15,7 @@ import * as constants from '../common/constants';
 import '../common/extensions';
 import {
     IConfigurationService, IDisposableRegistry,
-    ILogger, IOutputChannel
+    ILogger, IOutputChannel, Resource
 } from '../common/types';
 import { noop } from '../common/utils/misc';
 import { IServiceContainer } from '../ioc/types';
@@ -83,7 +83,7 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         const disposable = window.registerTreeDataProvider('python_tests', testViewProvider);
         disposablesRegistry.push(disposable);
 
-        this.autoDiscoverTests()
+        this.autoDiscoverTests(undefined)
             .catch(ex => this.serviceContainer.get<ILogger>(ILogger).logError('Failed to auto discover tests upon activation', ex));
         await this.registerSymbolProvider(symbolProvider);
     }
@@ -120,11 +120,14 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         if (!this.workspaceService.hasWorkspaceFolders || this.workspaceService.workspaceFolders!.length > 1) {
             return;
         }
-
-        const workspaceUri = this.workspaceService.workspaceFolders![0].uri;
-        if (!e.affectsConfiguration('python.unitTest', workspaceUri)) {
+        if (!Array.isArray(this.workspaceService.workspaceFolders)) {
             return;
         }
+        const workspaceFolderUri = this.workspaceService.workspaceFolders.find(w => e.affectsConfiguration('python.unitTest', w.uri));
+        if (!workspaceFolderUri) {
+            return;
+        }
+        const workspaceUri = workspaceFolderUri.uri;
         const settings = this.serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(workspaceUri);
         if (!settings.unitTest.nosetestsEnabled && !settings.unitTest.pyTestEnabled && !settings.unitTest.unittestEnabled) {
             if (this.testResultDisplay) {
@@ -140,7 +143,7 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         if (this.testResultDisplay) {
             this.testResultDisplay.enabled = true;
         }
-        this.autoDiscoverTests()
+        this.autoDiscoverTests(workspaceUri)
             .catch(ex => this.serviceContainer.get<ILogger>(ILogger).logError('Failed to auto discover tests upon activation', ex));
     }
 
@@ -162,17 +165,17 @@ export class UnitTestManagementService implements IUnitTestManagementService, Di
         }
         this.autoDiscoverTimer = setTimeout(() => this.discoverTests(CommandSource.auto, doc.uri, true, false, true), 1000);
     }
-    public async autoDiscoverTests() {
+    public async autoDiscoverTests(resource: Resource) {
         if (!this.workspaceService.hasWorkspaceFolders) {
             return;
         }
         const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
-        const settings = configurationService.getSettings();
+        const settings = configurationService.getSettings(resource);
         if (!settings.unitTest.nosetestsEnabled && !settings.unitTest.pyTestEnabled && !settings.unitTest.unittestEnabled) {
             return;
         }
 
-        this.discoverTests(CommandSource.auto, this.workspaceService.workspaceFolders![0].uri, true).ignoreErrors();
+        this.discoverTests(CommandSource.auto, resource, true).ignoreErrors();
     }
     public async discoverTests(cmdSource: CommandSource, resource?: Uri, ignoreCache?: boolean, userInitiated?: boolean, quietMode?: boolean, clearTestStatus?: boolean) {
         const testManager = await this.getTestManager(true, resource);
