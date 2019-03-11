@@ -9,7 +9,7 @@ import {
     Event, Location, ProviderResult, TextDocument,
     TreeDataProvider, Uri
 } from 'vscode';
-import { Product } from '../common/types';
+import { Product, Resource } from '../common/types';
 import { CommandSource } from './common/constants';
 import {
     FlattenedTestFunction, ITestManager, ITestResultsService,
@@ -50,7 +50,7 @@ export interface IUnitTestManagementService {
     activate(symbolProvider: DocumentSymbolProvider): Promise<void>;
     getTestManager(displayTestNotConfiguredMessage: boolean, resource?: Uri): Promise<ITestManager | undefined | void>;
     discoverTestsForDocument(doc: TextDocument): Promise<void>;
-    autoDiscoverTests(): Promise<void>;
+    autoDiscoverTests(resource: Resource): Promise<void>;
     discoverTests(cmdSource: CommandSource, resource?: Uri, ignoreCache?: boolean, userInitiated?: boolean, quietMode?: boolean): Promise<void>;
     stopTests(resource: Uri): Promise<void>;
     displayStopUI(message: string): Promise<void>;
