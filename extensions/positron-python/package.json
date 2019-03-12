@@ -709,6 +709,21 @@
             ],
             "view/item/context": [
                 {
+                    "command": "python.runtests",
+                    "when": "view == python_tests && viewItem == testWorkspaceFolder && !busyTests",
+                    "group": "inline@0"
+                },
+                {
+                    "command": "python.debugtests",
+                    "when": "view == python_tests && viewItem == testWorkspaceFolder && !busyTests",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "python.discoverTests",
+                    "when": "view == python_tests && viewItem == testWorkspaceFolder && !busyTests",
+                    "group": "inline@2"
+                },
+                    {
                     "command": "python.openTestNodeInEditor",
                     "when": "view == python_tests && viewItem == testFunction",
                     "group": "inline@2"
