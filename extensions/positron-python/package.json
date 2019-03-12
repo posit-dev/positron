@@ -2216,7 +2216,8 @@
         "cover:enable": "gulp cover:enable",
         "debugger-coverage": "gulp debugger-coverage",
         "cover:inlinesource": "gulp inlinesource",
-        "updateBuildNumber": "gulp updateBuildNumber"
+        "updateBuildNumber": "gulp updateBuildNumber",
+        "verifyBundle": "gulp verifyBundle"
     },
     "dependencies": {
         "@jupyterlab/services": "^3.2.1",
