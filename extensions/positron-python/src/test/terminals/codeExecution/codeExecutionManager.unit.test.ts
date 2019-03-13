@@ -1,17 +1,18 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
-// tslint:disable:no-multiline-string no-trailing-whitespace
-
 import { expect } from 'chai';
 import * as TypeMoq from 'typemoq';
 import { Disposable, TextDocument, TextEditor, Uri } from 'vscode';
+
 import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../../client/common/application/types';
 import { Commands } from '../../../client/common/constants';
+import { IFileSystem } from '../../../client/common/platform/types';
 import { IPythonExtensionBanner } from '../../../client/common/types';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { CodeExecutionManager } from '../../../client/terminals/codeExecution/codeExecutionManager';
 import { ICodeExecutionHelper, ICodeExecutionManager, ICodeExecutionService } from '../../../client/terminals/types';
+
+// tslint:disable:no-multiline-string no-trailing-whitespace
 
 // tslint:disable-next-line:max-func-body-length
 suite('Terminal - Code Execution Manager', () => {
@@ -22,7 +23,10 @@ suite('Terminal - Code Execution Manager', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
     let documentManager: TypeMoq.IMock<IDocumentManager>;
     let shiftEnterBanner: TypeMoq.IMock<IPythonExtensionBanner>;
+    let fileSystem: TypeMoq.IMock<IFileSystem>;
     setup(() => {
+        fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
+        fileSystem.setup(f => f.readFile(TypeMoq.It.isAny())).returns(() => Promise.resolve(''));
         workspace = TypeMoq.Mock.ofType<IWorkspaceService>();
         shiftEnterBanner = TypeMoq.Mock.ofType<IPythonExtensionBanner>();
         shiftEnterBanner.setup(b => b.showBanner()).returns(() => {
@@ -36,7 +40,7 @@ suite('Terminal - Code Execution Manager', () => {
         documentManager = TypeMoq.Mock.ofType<IDocumentManager>();
         commandManager = TypeMoq.Mock.ofType<ICommandManager>();
         serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
-        executionManager = new CodeExecutionManager(commandManager.object, documentManager.object, disposables, shiftEnterBanner.object, serviceContainer.object);
+        executionManager = new CodeExecutionManager(commandManager.object, documentManager.object, disposables, fileSystem.object, shiftEnterBanner.object, serviceContainer.object);
     });
     teardown(() => {
         disposables.forEach(disposable => {

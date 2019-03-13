@@ -66,10 +66,44 @@ export enum EventName {
 
     SELECT_LINTER = 'LINTING.SELECT',
 
-    LINTER_NOT_INSTALLED_PROMPT = 'LINTER_NOT_INSTALLED_PROMPT'
+    LINTER_NOT_INSTALLED_PROMPT = 'LINTER_NOT_INSTALLED_PROMPT',
+    KNOWN_IMPORT_FROM_FILE = 'KNOWN_IMPORT_FROM_FILE',
+    KNOWN_IMPORT_FROM_EXECUTION = 'KNOWN_IMPORT_FROM_EXECUTION'
 }
 
 export enum PlatformErrors {
     FailedToParseVersion = 'FailedToParseVersion',
     FailedToDetermineOS = 'FailedToDetermineOS'
+}
+
+export enum KnownImports {
+    // Don't change the order of these as they are the value returned in telemetry and changing
+    // the order will break old telemetry data.
+    //
+    // This list was generated from here: https://activewizards.com/blog/top-20-python-libraries-for-data-science-in-2018/
+    pandas,
+    numpy,
+    matlplotlib,
+    scipy,
+    sklearn,
+    statsmodels,
+    seaborn,
+    plotly,
+    bokeh,
+    pydot,
+    xgboost,
+    lightgbm,
+    catboost,
+    eli5,
+    tensorflow,
+    pytorch,
+    keras,
+    distkeras,
+    elephas,
+    pyspark,
+    nltk,
+    spacy,
+    gensim,
+    scrapy,
+    sparkdl
 }
