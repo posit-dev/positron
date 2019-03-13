@@ -1,11 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
 // tslint:disable:no-reference no-any import-name no-any function-name
 /// <reference path="./vscode-extension-telemetry.d.ts" />
 import { basename as pathBasename, sep as pathSep } from 'path';
 import * as stackTrace from 'stack-trace';
 import TelemetryReporter from 'vscode-extension-telemetry';
+
 import { EXTENSION_ROOT_DIR, isTestExecution, PVSC_EXTENSION_ID } from '../common/constants';
 import { StopWatch } from '../common/utils/stopWatch';
 import { Telemetry } from '../datascience/constants';
@@ -53,7 +53,7 @@ function isTelemetrySupported(): boolean {
         return false;
     }
 }
-let telemetryReporter: TelemetryReporter;
+let telemetryReporter: TelemetryReporter | undefined;
 function getTelemetryReporter() {
     if (!isTestExecution() && telemetryReporter) {
         return telemetryReporter;
@@ -71,6 +71,10 @@ function getTelemetryReporter() {
     // tslint:disable-next-line:no-require-imports
     const reporter = require('vscode-extension-telemetry').default as typeof TelemetryReporter;
     return (telemetryReporter = new reporter(extensionId, extensionVersion, aiKey));
+}
+
+export function clearTelemetryReporter() {
+    telemetryReporter = undefined;
 }
 
 export function sendTelemetryEvent<P extends IEventNamePropertyMapping, E extends keyof P>(
@@ -106,6 +110,13 @@ export function sendTelemetryEvent<P extends IEventNamePropertyMapping, E extend
         reporter.sendTelemetryEvent('ERROR', customProperties, measures);
     }
     reporter.sendTelemetryEvent((eventName as any) as string, customProperties, measures);
+
+    // Enable this to debug telemetry. To be discussed whether or not we want this all of the time.
+    // try {
+    //     traceInfo(`Telemetry: ${eventName} : ${JSON.stringify(customProperties)}`);
+    // } catch {
+    //     noop();
+    // }
 }
 
 // tslint:disable-next-line:no-any function-name
@@ -243,7 +254,7 @@ function getCallsite(frame: stackTrace.StackFrame) {
 }
 
 // Map all events to their properties
-interface IEventNamePropertyMapping {
+export interface IEventNamePropertyMapping {
     [EventName.COMPLETION]: never | undefined;
     [EventName.COMPLETION_ADD_BRACKETS]: { enabled: boolean };
     [EventName.DEBUGGER]: DebuggerTelemetry;
@@ -262,6 +273,8 @@ interface IEventNamePropertyMapping {
     [EventName.FORMAT_SORT_IMPORTS]: never | undefined;
     [EventName.GO_TO_OBJECT_DEFINITION]: never | undefined;
     [EventName.HOVER_DEFINITION]: never | undefined;
+    [EventName.KNOWN_IMPORT_FROM_FILE] : { import: string };
+    [EventName.KNOWN_IMPORT_FROM_EXECUTION] : { import: string };
     [EventName.LINTER_NOT_INSTALLED_PROMPT]: LinterInstallPromptTelemetry;
     [EventName.LINTING]: LintingTelemetry;
     [EventName.PLATFORM_INFO]: Platform;

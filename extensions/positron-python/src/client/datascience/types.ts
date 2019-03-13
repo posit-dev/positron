@@ -122,6 +122,7 @@ export interface INotebookExporter extends Disposable {
 
 export const IHistoryProvider = Symbol('IHistoryProvider');
 export interface IHistoryProvider {
+    onExecutedCode: Event<string>;
     getActive() : IHistory | undefined;
     getOrCreateActive(): Promise<IHistory>;
     getNotebookOptions() : Promise<INotebookServerOptions>;
@@ -131,6 +132,7 @@ export const IHistory = Symbol('IHistory');
 export interface IHistory extends Disposable {
     closed: Event<IHistory>;
     ready: Promise<void>;
+    onExecutedCode: Event<string>;
     show() : Promise<void>;
     addCode(code: string, file: string, line: number, editor?: TextEditor) : Promise<void>;
     // tslint:disable-next-line:no-any

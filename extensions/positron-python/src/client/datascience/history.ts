@@ -73,6 +73,7 @@ export class History implements IHistory {
     private changeHandler: IDisposable | undefined;
     private messageListener : HistoryMessageListener;
     private id : string;
+    private executeEvent: EventEmitter<string> = new EventEmitter<string>();
 
     constructor(
         @inject(ILiveShareApi) private liveShare : ILiveShareApi,
@@ -140,6 +141,10 @@ export class History implements IHistory {
 
     public get closed(): Event<IHistory> {
         return this.closedEvent.event;
+    }
+
+    public get onExecutedCode() : Event<string> {
+        return this.executeEvent.event;
     }
 
     public addCode(code: string, file: string, line: number, editor?: TextEditor) : Promise<void> {
@@ -489,6 +494,9 @@ export class History implements IHistory {
 
                 // Attempt to evaluate this cell in the jupyter notebook
                 const observable = this.jupyterServer.executeObservable(code, file, line, id, false);
+
+                // Indicate we executed some code
+                this.executeEvent.fire(code);
 
                 // Sign up for cell changes
                 observable.subscribe(
