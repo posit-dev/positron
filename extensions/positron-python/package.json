@@ -1908,6 +1908,12 @@
                     "description": "Path to the pipenv executable to use for activation.",
                     "scope": "resource"
                 },
+                "python.poetryPath": {
+                    "type": "string",
+                    "default": "poetry",
+                    "description": "Path to the poetry executable.",
+                    "scope": "resource"
+                },
                 "python.sortImports.args": {
                     "type": "array",
                     "description": "Arguments passed in. Each argument is a separate item in the array.",
