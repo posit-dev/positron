@@ -72,19 +72,19 @@ export class TestTreeItem extends TreeItem {
             return '';
         }
         const result = this.data as TestResult;
-        if (!result.status || result.status === TestStatus.Idle || result.status === TestStatus.Unknown || result.status === TestStatus.Skipped){
+        if (!result.status || result.status === TestStatus.Idle || result.status === TestStatus.Unknown || result.status === TestStatus.Skipped) {
             return '';
         }
         if (this.testType !== TestType.testFunction) {
-            return `${result.functionsFailed} failed, ${result.functionsPassed} passed in ${result.time} seconds`;
+            return `${result.functionsFailed} failed, ${result.functionsPassed} passed in ${+result.time.toFixed(3)} seconds`;
         }
         switch (this.data.status) {
             case TestStatus.Error:
             case TestStatus.Fail: {
-                return `Failed in ${result.time} seconds`;
+                return `Failed in ${+result.time.toFixed(3)} seconds`;
             }
             case TestStatus.Pass: {
-                return `Passed in ${result.time} seconds`;
+                return `Passed in ${+result.time.toFixed(3)} seconds`;
             }
             case TestStatus.Discovering:
             case TestStatus.Running: {
