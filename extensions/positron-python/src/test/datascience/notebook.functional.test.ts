@@ -862,7 +862,7 @@ plt.show()`,
         public kill(signal?: string): void {
             throw new Error('Method not implemented.');
         }
-        public send(message: any, sendHandle?: any, options?: any, callback?: any) : any {
+        public send(message: any, sendHandle?: any, options?: any, callback?: any): any {
             throw new Error('Method not implemented.');
         }
         public disconnect(): void {
@@ -874,25 +874,25 @@ plt.show()`,
         public ref(): void {
             throw new Error('Method not implemented.');
         }
-        public addListener(event: any, listener: any) : this {
+        public addListener(event: any, listener: any): this {
             throw new Error('Method not implemented.');
         }
-        public emit(event: any, message?: any, sendHandle?: any, ...rest: any[]) : any {
+        public emit(event: any, message?: any, sendHandle?: any, ...rest: any[]): any {
             throw new Error('Method not implemented.');
         }
-        public on(event: any, listener: any) : this {
+        public on(event: any, listener: any): this {
             if (event === 'exit') {
                 setTimeout(() => listener(2), this.timeout);
             }
             return this;
         }
-        public once(event: any, listener: any) : this {
+        public once(event: any, listener: any): this {
             throw new Error('Method not implemented.');
         }
-        public prependListener(event: any, listener: any) : this {
+        public prependListener(event: any, listener: any): this {
             throw new Error('Method not implemented.');
         }
-        public prependOnceListener(event: any, listener: any) : this {
+        public prependOnceListener(event: any, listener: any): this {
             throw new Error('Method not implemented.');
         }
         public removeListener(event: string | symbol, listener: (...args: any[]) => void): this {
