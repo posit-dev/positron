@@ -21,7 +21,7 @@
   - [ ] `package.json`
   - [ ] `package-lock.json`
 - [ ] Announce the code freeze is over
-- [ ] Update Component Governance
+- [ ] Update [Component Governance](https://dev.azure.com/ms/vscode-python/)
   - [ ] Provide details for any automatically detected npm dependencies
   - [ ] Manually add any repository dependencies
 - [ ] GDPR bookkeeping
