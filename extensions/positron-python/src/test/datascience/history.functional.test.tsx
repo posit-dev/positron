@@ -98,7 +98,7 @@ suite('History output tests', () => {
         webPanel.setup(p => p.postMessage(TypeMoq.It.isAny())).callback((m: WebPanelMessage) => {
             window.postMessage(m, '*');
         }); // See JSDOM valid target origins
-        webPanel.setup(p => p.show());
+        webPanel.setup(p => p.show(true));
 
         jupyterExecution = ioc.serviceManager.get<IJupyterExecution>(IJupyterExecution);
         historyProvider = ioc.serviceManager.get<IHistoryProvider>(IHistoryProvider);
