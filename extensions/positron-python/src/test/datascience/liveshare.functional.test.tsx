@@ -132,7 +132,7 @@ suite('LiveShare tests', () => {
                 throw new Error('postMessage callback not defined');
             }
         });
-        webPanel.setup(p => p.show());
+        webPanel.setup(p => p.show(true));
 
         // We need to mount the react control before we even create a history object. Otherwise the mount will miss rendering some parts
         mountReactControl(result);
