@@ -10,7 +10,7 @@ import { CancellationToken } from 'vscode';
 
 import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { IDataScienceSettings } from '../../client/common/types';
-import { HistoryMessages } from '../../client/datascience/historyTypes';
+import { HistoryMessages } from '../../client/datascience/history/historyTypes';
 import { IHistory } from '../../client/datascience/types';
 import { CellButton } from '../../datascience-ui/history-react/cellButton';
 import { MainPanel } from '../../datascience-ui/history-react/MainPanel';

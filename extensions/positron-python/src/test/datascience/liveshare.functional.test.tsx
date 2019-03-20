@@ -6,7 +6,7 @@ import { mount, ReactWrapper } from 'enzyme';
 import * as React from 'react';
 import { SemVer } from 'semver';
 import * as TypeMoq from 'typemoq';
-import { Disposable, Uri } from 'vscode';
+import { Disposable, Uri, ViewColumn } from 'vscode';
 import * as vsls from 'vsls/vscode';
 
 import {
@@ -23,8 +23,8 @@ import { IFileSystem } from '../../client/common/platform/types';
 import { createDeferred, Deferred } from '../../client/common/utils/async';
 import { Architecture } from '../../client/common/utils/platform';
 import { Commands } from '../../client/datascience/constants';
-import { HistoryMessageListener } from '../../client/datascience/historyMessageListener';
-import { HistoryMessages } from '../../client/datascience/historyTypes';
+import { HistoryMessageListener } from '../../client/datascience/history/historyMessageListener';
+import { HistoryMessages } from '../../client/datascience/history/historyTypes';
 import {
     ICodeWatcher,
     IDataScienceCommandListener,
@@ -117,7 +117,8 @@ suite('LiveShare tests', () => {
         result.ioc.serviceManager.addSingletonInstance<IWebPanelProvider>(IWebPanelProvider, webPanelProvider.object);
 
         // Setup the webpanel provider so that it returns our dummy web panel. It will have to talk to our global JSDOM window so that the react components can link into it
-        webPanelProvider.setup(p => p.create(TypeMoq.It.isAny(), TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString(), TypeMoq.It.isAny())).returns((listener: IWebPanelMessageListener, title: string, script: string, css: string) => {
+        webPanelProvider.setup(p => p.create(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString(), TypeMoq.It.isAny())).returns(
+            (viewColumn: ViewColumn, listener: IWebPanelMessageListener, title: string, script: string, css: string) => {
             // Keep track of the current listener. It listens to messages through the vscode api
             result.webPanelListener = listener;
 

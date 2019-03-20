@@ -6,13 +6,13 @@ import * as uuid from 'uuid/v4';
 import { Disposable, Event, EventEmitter } from 'vscode';
 import * as vsls from 'vsls/vscode';
 
-import { ILiveShareApi, IWorkspaceService } from '../common/application/types';
-import { IAsyncDisposable, IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../common/types';
-import { createDeferred, Deferred } from '../common/utils/async';
-import { IServiceContainer } from '../ioc/types';
-import { Identifiers, LiveShare, LiveShareCommands, Settings } from './constants';
-import { PostOffice } from './liveshare/postOffice';
-import { IHistory, IHistoryProvider, INotebookServerOptions, IThemeFinder } from './types';
+import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
+import { IAsyncDisposable, IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../common/types';
+import { createDeferred, Deferred } from '../../common/utils/async';
+import { IServiceContainer } from '../../ioc/types';
+import { Identifiers, LiveShare, LiveShareCommands, Settings } from '../constants';
+import { PostOffice } from '../liveshare/postOffice';
+import { IHistory, IHistoryProvider, INotebookServerOptions, IThemeFinder } from '../types';
 
 interface ISyncData {
     count: number;
