@@ -13,7 +13,7 @@ import { ILiveShareApi } from '../../../common/application/types';
 import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry, ILogger } from '../../../common/types';
 import * as localize from '../../../common/utils/localize';
 import { Identifiers, LiveShare, LiveShareCommands, RegExpValues } from '../../constants';
-import { IExecuteInfo } from '../../historyTypes';
+import { IExecuteInfo } from '../../history/historyTypes';
 import {
     ICell,
     IDataScience,

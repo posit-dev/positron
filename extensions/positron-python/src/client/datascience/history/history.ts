@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import '../common/extensions';
+import '../../common/extensions';
 
 import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
@@ -19,20 +19,20 @@ import {
     IWebPanel,
     IWebPanelProvider,
     IWorkspaceService
-} from '../common/application/types';
-import { CancellationError } from '../common/cancellation';
-import { EXTENSION_ROOT_DIR } from '../common/constants';
-import { ContextKey } from '../common/contextKey';
-import { IFileSystem } from '../common/platform/types';
-import { IConfigurationService, IDisposable, IDisposableRegistry, ILogger } from '../common/types';
-import { createDeferred, Deferred } from '../common/utils/async';
-import * as localize from '../common/utils/localize';
-import { IInterpreterService, PythonInterpreter } from '../interpreter/contracts';
-import { captureTelemetry, sendTelemetryEvent } from '../telemetry';
-import { EditorContexts, Identifiers, Telemetry } from './constants';
+} from '../../common/application/types';
+import { CancellationError } from '../../common/cancellation';
+import { EXTENSION_ROOT_DIR } from '../../common/constants';
+import { ContextKey } from '../../common/contextKey';
+import { IFileSystem } from '../../common/platform/types';
+import { IConfigurationService, IDisposable, IDisposableRegistry, ILogger } from '../../common/types';
+import { createDeferred, Deferred } from '../../common/utils/async';
+import * as localize from '../../common/utils/localize';
+import { IInterpreterService, PythonInterpreter } from '../../interpreter/contracts';
+import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
+import { EditorContexts, Identifiers, Telemetry } from '../constants';
 import { HistoryMessageListener } from './historyMessageListener';
 import { HistoryMessages, IAddedSysInfo, IGotoCode, IHistoryMapping, IRemoteAddCode, ISubmitNewCell } from './historyTypes';
-import { JupyterInstallError } from './jupyter/jupyterInstallError';
+import { JupyterInstallError } from '../jupyter/jupyterInstallError';
 import {
     CellState,
     ICell,
@@ -46,8 +46,9 @@ import {
     INotebookExporter,
     INotebookServer,
     InterruptResult,
-    IStatusProvider
-} from './types';
+    IStatusProvider,
+    IDataExplorerProvider
+} from '../types';
 
 export enum SysInfoReason {
     Start,
@@ -92,7 +93,8 @@ export class History implements IHistory {
         @inject(ICommandManager) private commandManager: ICommandManager,
         @inject(INotebookExporter) private jupyterExporter: INotebookExporter,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
-        @inject(IHistoryProvider) private historyProvider: IHistoryProvider
+        @inject(IHistoryProvider) private historyProvider: IHistoryProvider,
+        @inject(IDataExplorerProvider) private dataExplorerProvider: IDataExplorerProvider
         ) {
 
         // Create our unique id. We use this to skip messages we send to other history windows
@@ -235,6 +237,10 @@ export class History implements IHistory {
                 this.dispatchMessage(message, payload, this.onRemoteAddedCode);
                 break;
 
+            case HistoryMessages.ShowDataExplorer:
+                this.showDataExplorer();
+                break;
+
             default:
                 break;
         }
@@ -347,6 +353,14 @@ export class History implements IHistory {
                     this.logger.logError(err);
                     this.applicationShell.showErrorMessage(err);
                 });
+        }
+    }
+
+    private async showDataExplorer() {
+        try {
+            return this.dataExplorerProvider.create([]);
+        } catch (e) {
+            this.applicationShell.showErrorMessage(e);
         }
     }
 
@@ -881,7 +895,7 @@ export class History implements IHistory {
             this.logger.logInformation('Loading web view...');
             // Use this script to create our web view panel. It should contain all of the necessary
             // script to communicate with this class.
-            this.webPanel = this.provider.create(this.messageListener, localize.DataScience.historyTitle(), mainScriptPath, css, settings);
+            this.webPanel = this.provider.create(ViewColumn.Two, this.messageListener, localize.DataScience.historyTitle(), mainScriptPath, css, settings);
 
             this.logger.logInformation('Web view created.');
         }
