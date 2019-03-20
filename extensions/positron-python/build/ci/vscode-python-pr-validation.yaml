@@ -50,7 +50,7 @@ jobs:
       'Mac-Py3.7 Unit+Single':
         PythonVersion: '3.7'
         VMImageName: 'macos-10.13'
-        TestsToRun: 'testUnitTests, pythonUnitTests, testSingleWorkspace'
+        TestsToRun: 'testUnitTests, pythonUnitTests, testSingleWorkspace, testSmoke'
         NeedsPythonTestReqs: true
       'Mac-Py2.7 Unit+Single':
         PythonVersion: '2.7'
@@ -60,7 +60,7 @@ jobs:
       'Linux-Py3.7 Unit+Single':
         PythonVersion: '3.7'
         VMImageName: 'ubuntu-16.04'
-        TestsToRun: 'testUnitTests, pythonUnitTests, testSingleWorkspace'
+        TestsToRun: 'testUnitTests, pythonUnitTests, testSingleWorkspace, testSmoke'
         NeedsPythonTestReqs: true
       'Linux-Py2.7 Unit+Single':
         PythonVersion: '2.7'
