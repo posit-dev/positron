@@ -1,19 +1,18 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
 'use strict';
+import '../common/extensions';
 
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { TextDocument } from 'vscode';
 
 import { sendTelemetryEvent } from '.';
-import { sleep } from '../../test/core';
+import { noop, sleep } from '../../test/core';
 import { IDocumentManager } from '../common/application/types';
-import '../common/extensions';
 import { IHistoryProvider } from '../datascience/types';
 import { ICodeExecutionManager } from '../terminals/types';
-import { EventName, KnownImports } from './constants';
+import { EventName } from './constants';
 import { IImportTracker } from './types';
 
 const ImportRegEx = /^(?!['"#]).*from\s+([a-zA-Z0-9_\.]+)\s+import.*(?!['"])|^(?!['"#]).*import\s+([a-zA-Z0-9_\., ]+).*(?!['"])/;
@@ -22,24 +21,15 @@ const MAX_DOCUMENT_LINES = 1000;
 @injectable()
 export class ImportTracker implements IImportTracker {
 
-    private knownImportsMatch: RegExp;
     private sentMatches: Set<string> = new Set<string>();
+    // tslint:disable-next-line:no-require-imports
+    private hashFn = require('hash.js').sha256;
 
     constructor(
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IHistoryProvider) private historyProvider: IHistoryProvider,
         @inject(ICodeExecutionManager) private executionManager: ICodeExecutionManager
     ) {
-        // Construct a regex that will match known imports
-        let matchString = '';
-        Object.keys(KnownImports).forEach(k => {
-            const val = KnownImports[k];
-            if (typeof val === 'string') {
-                matchString += `${val}|`;
-            }
-        });
-        this.knownImportsMatch = new RegExp(matchString.slice(0, matchString.length - 1), 'g');
-
         // Sign up for document open/save events so we can track known imports
         this.documentManager.onDidOpenTextDocument((t) => this.onOpenedOrSavedDocument(t));
         this.documentManager.onDidSaveTextDocument((t) => this.onOpenedOrSavedDocument(t));
@@ -53,7 +43,7 @@ export class ImportTracker implements IImportTracker {
         this.executionManager.onExecutedCode(c => this.onExecutedCode(c));
     }
 
-    public async activate() : Promise<void> {
+    public async activate(): Promise<void> {
         // Act like all of our open documents just opened. Don't do this now though. We don't want
         // to hold up the activate.
         await sleep(1000);
@@ -62,8 +52,7 @@ export class ImportTracker implements IImportTracker {
 
     private onOpenedOrSavedDocument(document: TextDocument) {
         // Make sure this is a python file.
-        if (path.extname(document.fileName) === '.py')
-        {
+        if (path.extname(document.fileName) === '.py') {
             // Parse the contents of the document, looking for import matches on each line
             const lines = document.getText().splitLines({ trim: true, removeEmptyEntries: true });
             this.lookForImports(lines.slice(0, Math.min(lines.length, MAX_DOCUMENT_LINES)), EventName.KNOWN_IMPORT_FROM_FILE);
@@ -76,38 +65,40 @@ export class ImportTracker implements IImportTracker {
     }
 
     private lookForImports(lines: string[], eventName: string) {
-        // Use a regex to parse each line, looking for imports
-        const matches: Set<string> = new Set<string>();
-        for (const s of lines) {
-            const match = ImportRegEx.exec(s);
-            if (match && match.length > 2) {
-                // Could be a from or a straight import. from is the first entry.
-                const actual = match[1] ? match[1] : match[2];
+        try {
+            // Use a regex to parse each line, looking for imports
+            const matches: Set<string> = new Set<string>();
+            for (const s of lines) {
+                const match = ImportRegEx.exec(s);
+                if (match && match.length > 2) {
+                    // Could be a from or a straight import. from is the first entry.
+                    const actual = match[1] ? match[1] : match[2];
 
-                // See if this matches any known imports
-                let knownMatch = this.knownImportsMatch.exec(actual);
-                while (knownMatch) {
-                    knownMatch.forEach(val => {
-                        // Skip if already sent this telemetry
-                        if (!this.sentMatches.has(val)) {
-                            matches.add(val);
+                    // Use just the bits to the left of ' as '
+                    const left = actual.split(' as ')[0];
+
+                    // Now split this based on, and chop off all .
+                    const baseNames = left.split(',').map(l => l.split('.')[0].trim());
+                    baseNames.forEach(l => {
+                        // Hash this value and save this in our import
+                        const hash = this.hashFn().update(l).digest('hex');
+                        if (!this.sentMatches.has(hash)) {
+                            matches.add(hash);
                         }
                     });
-                    knownMatch = this.knownImportsMatch.exec(actual);
                 }
-
-                // Reset search.
-                this.knownImportsMatch.lastIndex = 0;
             }
-        }
 
-        // For each unique match, emit a new telemetry event.
-        matches.forEach(s => {
-            sendTelemetryEvent(
-                eventName === EventName.KNOWN_IMPORT_FROM_FILE ? EventName.KNOWN_IMPORT_FROM_FILE : EventName.KNOWN_IMPORT_FROM_EXECUTION,
-                0,
-                { import: s });
-            this.sentMatches.add(s);
-        });
+            // For each unique match, emit a new telemetry event.
+            matches.forEach(s => {
+                sendTelemetryEvent(
+                    eventName === EventName.KNOWN_IMPORT_FROM_FILE ? EventName.KNOWN_IMPORT_FROM_FILE : EventName.KNOWN_IMPORT_FROM_EXECUTION,
+                    0,
+                    { import: s });
+                this.sentMatches.add(s);
+            });
+        } catch {
+            noop();
+        }
     }
 }
