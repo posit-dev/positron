@@ -34,6 +34,7 @@ import {
 } from '../types';
 import { JupyterConnection, JupyterServerInfo } from './jupyterConnection';
 import { JupyterKernelSpec } from './jupyterKernelSpec';
+import { traceInfo, traceWarning } from '../../common/logger';
 
 enum ModuleExistsResult {
     NotFound,
@@ -705,9 +706,17 @@ export class JupyterExecutionBase implements IJupyterExecution {
             // First we look in the current interpreter
             const current = await this.interpreterService.getActiveInterpreter();
             let found = current ? await this.findInterpreterCommand(command, current, cancelToken) : undefined;
+            if (!found) {
+                traceInfo(`Active interpreter does not support ${command}. Interpreter is ${current ? current.displayName : 'undefined'}.`);
+            }
             if (!found && this.supportsSearchingForCommands()) {
                 // Look through all of our interpreters (minus the active one at the same time)
                 const all = await this.interpreterService.getInterpreters();
+
+                if (!all || all.length === 0) {
+                    traceWarning(`No interpreters found. Jupyter cannot run.`);
+                }
+
                 const promises = all.filter(i => i !== current).map(i => this.findInterpreterCommand(command, i, cancelToken));
                 const foundList = await Promise.all(promises);
 
@@ -792,6 +801,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
                 return ModuleExistsResult.NotFound;
             }
         } else {
+            this.logger.logWarning(`Interpreter not found. ${moduleName} cannot be loaded.`);
             return ModuleExistsResult.NotFound;
         }
     }
