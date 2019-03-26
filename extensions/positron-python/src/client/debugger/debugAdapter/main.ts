@@ -264,6 +264,7 @@ class DebugManager implements Disposable {
     }
     public async start() {
         const debugStreamProvider = this.serviceContainer.get<IDebugStreamProvider>(IDebugStreamProvider);
+        this.disposables.push(debugStreamProvider);
         const { input, output } = await debugStreamProvider.getInputAndOutputStreams();
         this.isServerMode = debugStreamProvider.useDebugSocketStream;
         this.inputStream = input;
