@@ -26,7 +26,7 @@ import {
     IPythonToolExecutionService
 } from '../../client/common/process/types';
 import {
-    IConfigurationService
+    IConfigurationService, IDisposableRegistry
 } from '../../client/common/types';
 import {
     IEnvironmentVariablesProvider
@@ -233,6 +233,8 @@ class TestFixture extends BaseTestFixture {
             .returns(() => Promise.resolve({}));
         serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IEnvironmentVariablesProvider), TypeMoq.It.isAny()))
             .returns(() => envVarsService.object);
+        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IDisposableRegistry), TypeMoq.It.isAny()))
+            .returns(() => []);
 
         const envActivationService = TypeMoq.Mock.ofType<IEnvironmentActivationService>(undefined, TypeMoq.MockBehavior.Strict);
 
@@ -271,7 +273,6 @@ class TestFixture extends BaseTestFixture {
 suite('Linting Functional Tests', () => {
     // These are integration tests that mock out everything except
     // the filesystem and process execution.
-
     // tslint:disable-next-line:no-any
     async function testLinterMessages(
         fixture: TestFixture,
