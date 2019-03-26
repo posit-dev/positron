@@ -304,11 +304,9 @@ suite('Linting Functional Tests', () => {
     }
     for (const product of LINTERID_BY_PRODUCT.keys()) {
         test(getProductName(product), async function () {
-            // tslint:disable-next-line:no-suspicious-comment
-            // TODO: Add coverage for these linters.
             if ([Product.bandit, Product.mypy, Product.pylama, Product.prospector].some(p => p === product)) {
                 // tslint:disable-next-line:no-invalid-this
-                this.skip();
+                return this.skip();
             }
 
             const fixture = new TestFixture();
@@ -319,11 +317,9 @@ suite('Linting Functional Tests', () => {
     for (const product of LINTERID_BY_PRODUCT.keys()) {
         // tslint:disable-next-line:max-func-body-length
         test(`${getProductName(product)} with config in root`, async function () {
-            // tslint:disable-next-line:no-suspicious-comment
-            // TODO: Add coverage for these linters.
             if ([Product.bandit, Product.mypy, Product.pylama, Product.prospector].some(p => p === product)) {
                 // tslint:disable-next-line:no-invalid-this
-                this.skip();
+                return this.skip();
             }
 
             const fixture = new TestFixture();
