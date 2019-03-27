@@ -574,8 +574,7 @@ export class JupyterServerBase implements INotebookServer {
                 if (this.launchInfo && this.launchInfo.connectionInfo) {
                     // If the server crashes, cancel the current observable
                     exitHandlerDisposable = this.launchInfo.connectionInfo.disconnected((c) => {
-                        const str = c ? c.toString() : '';
-                        subscriber.error(this.sessionStartTime, new Error(localize.DataScience.jupyterServerCrashed().format(str)));
+                        subscriber.error(this.sessionStartTime, new Error(localize.DataScience.jupyterServerCrashed().format(c.toString())));
                         subscriber.complete(this.sessionStartTime);
                     });
                 }
