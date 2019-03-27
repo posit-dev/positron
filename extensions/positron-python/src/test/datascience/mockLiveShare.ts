@@ -126,10 +126,7 @@ class Emitter<T> {
                         if (typeof item.listener === 'function') {
                             result = item.listener.call(undefined, item.event);
                         } else {
-                            const func = item.listener[0];
-                            if (func) {
-                                result = item.listener[0].call(item.listener[1], item.event);
-                            }
+                            result = item.listener[0].call(item.listener[1], item.event);
                         }
                     }
                 } catch (e) {
