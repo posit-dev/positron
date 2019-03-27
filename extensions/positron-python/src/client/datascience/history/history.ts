@@ -42,6 +42,8 @@ import {
     IHistoryInfo,
     IHistoryProvider,
     IJupyterExecution,
+    IJupyterVariable,
+    IJupyterVariables,
     INotebookExporter,
     INotebookServer,
     InterruptResult,
@@ -94,7 +96,8 @@ export class History implements IHistory {
         @inject(INotebookExporter) private jupyterExporter: INotebookExporter,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IHistoryProvider) private historyProvider: IHistoryProvider,
-        @inject(IDataExplorerProvider) private dataExplorerProvider: IDataExplorerProvider
+        @inject(IDataExplorerProvider) private dataExplorerProvider: IDataExplorerProvider,
+        @inject(IJupyterVariables) private jupyterVariables: IJupyterVariables
         ) {
 
         // Create our unique id. We use this to skip messages we send to other history windows
@@ -240,6 +243,14 @@ export class History implements IHistory {
             case HistoryMessages.ShowDataExplorer:
                 this.showDataExplorer()
                     .ignoreErrors();
+                break;
+
+            case HistoryMessages.GetVariablesRequest:
+                this.requestVariables();
+                break;
+
+            case HistoryMessages.GetVariableValueRequest:
+                this.requestVariableValue(payload);
                 break;
 
             default:
@@ -967,6 +978,22 @@ export class History implements IHistory {
 
         } finally {
             status.dispose();
+        }
+    }
+
+    private requestVariables = async (): Promise<void> => {
+        // Request our new list of variables
+        const vars: IJupyterVariable[] = await this.jupyterVariables.getVariables();
+        this.postMessage(HistoryMessages.GetVariablesResponse, vars).ignoreErrors();
+    }
+
+    // tslint:disable-next-line: no-any
+    private requestVariableValue = async (payload?: any): Promise<void> => {
+        if (payload) {
+            const targetVar = payload as IJupyterVariable;
+            // Request our variable value
+            const varValue: IJupyterVariable = await this.jupyterVariables.getValue(targetVar);
+            this.postMessage(HistoryMessages.GetVariableValueResponse, varValue).ignoreErrors();
         }
     }
 }
