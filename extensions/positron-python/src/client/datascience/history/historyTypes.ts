@@ -95,7 +95,7 @@ export class IHistoryMapping {
     public [HistoryMessages.AddedSysInfo]: IAddedSysInfo;
     public [HistoryMessages.RemoteAddCode]: IRemoteAddCode;
     public [HistoryMessages.Activate] : never | undefined;
-    public [HistoryMessages.ShowDataExplorer] : never | undefined; // This is where we'd specify the data for viewing (or perhaps not, just an id?)
+    public [HistoryMessages.ShowDataExplorer]: string;
     public [HistoryMessages.GetVariablesRequest]: never | undefined;
     public [HistoryMessages.GetVariablesResponse]: IJupyterVariable[];
     public [HistoryMessages.GetVariableValueRequest]: IJupyterVariable;

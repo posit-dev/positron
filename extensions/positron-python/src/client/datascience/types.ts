@@ -266,24 +266,25 @@ export interface IJupyterVariable {
     count: number;
     truncated: boolean;
     expensive: boolean;
+    columns?: { key: string; type: string }[];
+    rowCount?: number;
 }
 
 export const IJupyterVariables = Symbol('IJupyterVariables');
 export interface IJupyterVariables {
     getVariables(): Promise<IJupyterVariable[]>;
     getValue(targetVariable: IJupyterVariable): Promise<IJupyterVariable>;
-}
-
-export interface IDataExplorerRow {
-    [column: string] : string | number | {};
+    getDataFrameInfo(targetVariable: IJupyterVariable) : Promise<IJupyterVariable>;
+    getDataFrameRows(targetVariable: IJupyterVariable, start: number, end: number) : Promise<JSONObject>;
 }
 
 export const IDataExplorerProvider = Symbol('IDataExplorerProvider');
 export interface IDataExplorerProvider {
-    create(rows: IDataExplorerRow[]) : Promise<IDataExplorer>;
+    create(variable: string) : Promise<IDataExplorer>;
+    getPandasVersion() : Promise<{major: number; minor: number; build: number} | undefined>;
 }
 export const IDataExplorer = Symbol('IDataExplorer');
 
 export interface IDataExplorer extends IAsyncDisposable {
-    show(rows: IDataExplorerRow[]) : Promise<void>;
+    show(variable: IJupyterVariable) : Promise<void>;
 }

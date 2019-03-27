@@ -328,6 +328,8 @@ export interface IEventNamePropertyMapping {
     [Telemetry.GotoSourceCode]: never | undefined;
     [Telemetry.ImportNotebook]: { scope: 'command' | 'file' };
     [Telemetry.Interrupt]: never | undefined;
+    [Telemetry.PandasNotInstalled]: never | undefined;
+    [Telemetry.PandasTooOld]: never | undefined;
     [Telemetry.Redo]: never | undefined;
     [Telemetry.RemoteAddCode]: never | undefined;
     [Telemetry.RestartKernel]: never | undefined;
@@ -345,7 +347,7 @@ export interface IEventNamePropertyMapping {
     [Telemetry.SetJupyterURIToLocal]: never | undefined;
     [Telemetry.SetJupyterURIToUserSpecified]: never | undefined;
     [Telemetry.ShiftEnterBannerShown]: never | undefined;
-    [Telemetry.ShowDataExplorer]: never | undefined;
+    [Telemetry.ShowDataExplorer]: {rows: number | undefined};
     [Telemetry.ShowHistoryPane]: never | undefined;
     [Telemetry.StartJupyter]: never | undefined;
     [Telemetry.SubmitCellThroughInput]: never | undefined;

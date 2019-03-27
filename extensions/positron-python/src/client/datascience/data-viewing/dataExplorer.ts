@@ -12,11 +12,12 @@ import { EXTENSION_ROOT_DIR } from '../../common/constants';
 import { IAsyncDisposable, IConfigurationService, IDisposable, ILogger } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
+import { noop } from '../../common/utils/misc';
 import { sendTelemetryEvent } from '../../telemetry';
 import { Telemetry } from '../constants';
-import { ICodeCssGenerator, IDataExplorer, IDataExplorerRow, IDataScienceExtraSettings } from '../types';
+import { ICodeCssGenerator, IDataExplorer, IDataScienceExtraSettings, IJupyterVariable, IJupyterVariables } from '../types';
 import { DataExplorerMessageListener } from './dataExplorerMessageListener';
-import { DataExplorerMessages, IDataExplorerMapping } from './types';
+import { DataExplorerMessages, IDataExplorerMapping, IGetRowsRequest } from './types';
 
 @injectable()
 export class DataExplorer implements IDataExplorer, IAsyncDisposable {
@@ -27,12 +28,14 @@ export class DataExplorer implements IDataExplorer, IAsyncDisposable {
     private messageListener : DataExplorerMessageListener;
     private changeHandler: IDisposable | undefined;
     private viewState : { visible: boolean; active: boolean } = { visible: false, active: false };
+    private variable : IJupyterVariable | undefined;
 
     constructor(
         @inject(IWebPanelProvider) private provider: IWebPanelProvider,
         @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(ICodeCssGenerator) private cssGenerator: ICodeCssGenerator,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
+        @inject(IJupyterVariables) private variableManager: IJupyterVariables,
         @inject(ILogger) private logger: ILogger
         ) {
         this.changeHandler = this.configuration.getSettings().onDidChange(this.onSettingsChanged.bind(this));
@@ -53,17 +56,20 @@ export class DataExplorer implements IDataExplorer, IAsyncDisposable {
         return this.loadPromise;
     }
 
-    public async show(_rows: IDataExplorerRow[]): Promise<void> {
+    public async show(variable: IJupyterVariable): Promise<void> {
         if (!this.disposed) {
             // Make sure we're loaded first
             await this.loadPromise;
+
+            // Fill in our variable's beginning data
+            this.variable = await this.prepVariable(variable);
 
             // Then show our web panel. Eventually we need to consume the data
             if (this.webPanel) {
                 await this.webPanel.show(true);
 
-                // Send telemetry when it works.
-                sendTelemetryEvent(Telemetry.ShowDataExplorer);
+                // Send a message with our data
+                this.postMessage(DataExplorerMessages.InitializeData, this.variable).ignoreErrors();
             }
         }
     }
@@ -82,6 +88,19 @@ export class DataExplorer implements IDataExplorer, IAsyncDisposable {
         }
     }
 
+    private async prepVariable(variable: IJupyterVariable) : Promise<IJupyterVariable> {
+        const output = await this.variableManager.getDataFrameInfo(variable);
+
+        // Log telemetry about number of rows
+        try {
+            sendTelemetryEvent(Telemetry.ShowDataExplorer, {rows: output.rowCount ? output.rowCount : 0 });
+        } catch {
+            noop();
+        }
+
+        return output;
+    }
+
     private async postMessage<M extends IDataExplorerMapping, T extends keyof M>(type: T, payload?: M[T]) : Promise<void> {
         if (this.webPanel) {
             // Make sure the webpanel is up before we send it anything.
@@ -92,11 +111,19 @@ export class DataExplorer implements IDataExplorer, IAsyncDisposable {
         }
     }
 
-    // tslint:disable-next-line: no-any no-empty
-    private onMessage = (message: string, _payload: any) => {
+    //tslint:disable-next-line:no-any
+    private onMessage = (message: string, payload: any) => {
         switch (message) {
             case DataExplorerMessages.Started:
                 this.webPanelRendered();
+                break;
+
+            case DataExplorerMessages.GetAllRowsRequest:
+                this.getAllRows().ignoreErrors();
+                break;
+
+            case DataExplorerMessages.GetRowsRequest:
+                this.getRowChunk(payload as IGetRowsRequest).ignoreErrors();
                 break;
 
             default:
@@ -132,6 +159,20 @@ export class DataExplorer implements IDataExplorer, IAsyncDisposable {
                 terminalCursor: terminalCursor
             }
         };
+    }
+
+    private async getAllRows() {
+        if (this.variable && this.variable.rowCount) {
+            const allRows = await this.variableManager.getDataFrameRows(this.variable, 0, this.variable.rowCount);
+            return this.postMessage(DataExplorerMessages.GetAllRowsResponse, allRows);
+        }
+    }
+
+    private async getRowChunk(request: IGetRowsRequest) {
+        if (this.variable && this.variable.rowCount) {
+            const rows = await this.variableManager.getDataFrameRows(this.variable, request.start, Math.min(request.end, this.variable.rowCount));
+            return this.postMessage(DataExplorerMessages.GetRowsResponse, { rows, start: request.start, end: request.end});
+        }
     }
 
     private loadWebPanel = async (): Promise<void> => {
