@@ -117,6 +117,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                     <CellButton baseTheme={baseTheme} onClick={this.clearAll} tooltip={getLocString('DataScience.clearAll', 'Remove All Cells')}>
                         <Image baseTheme={baseTheme} class='cell-button-image' image={ImageName.Cancel}/>
                     </CellButton>
+                    {this.renderDataFrameTestButton()}
                 </MenuBar>
                 <VariableExplorer baseTheme={baseTheme} refreshVariables={this.refreshVariables} ref={this.variableExplorerRef} />
                 <div className='top-spacing'/>
@@ -226,6 +227,18 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     //     this.addCell(cell);
     // }
 
+    private renderDataFrameTestButton() {
+        if (getSettings && getSettings().showJupyterVariableExplorer) {
+            return (
+                <CellButton baseTheme={'vscode-light'} onClick={this.showDataExplorer} tooltip={'Show data explorer for \'df\' variable'}>
+                    D
+                </CellButton>
+            );
+        }
+
+        return null;
+    }
+
     private activate() {
         // Make sure the input cell gets focus
         if (getSettings && getSettings().allowInput) {
@@ -256,6 +269,10 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                 this.toggleCellInputVisibility(showInputs, getSettings().collapseCellInputCodeByDefault);
             }
         }
+    }
+
+    private showDataExplorer = () => {
+        this.sendMessage(HistoryMessages.ShowDataExplorer, 'df');
     }
 
     private sendMessage<M extends IHistoryMapping, T extends keyof M>(type: T, payload?: M[T]) {
