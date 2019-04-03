@@ -37,8 +37,8 @@ import {
     ICell,
     ICodeCssGenerator,
     IConnection,
-    IDataExplorerProvider,
     IDataScienceExtraSettings,
+    IDataViewerProvider,
     IHistory,
     IHistoryInfo,
     IHistoryProvider,
@@ -97,7 +97,7 @@ export class History implements IHistory {
         @inject(INotebookExporter) private jupyterExporter: INotebookExporter,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IHistoryProvider) private historyProvider: IHistoryProvider,
-        @inject(IDataExplorerProvider) private dataExplorerProvider: IDataExplorerProvider,
+        @inject(IDataViewerProvider) private dataExplorerProvider: IDataViewerProvider,
         @inject(IJupyterVariables) private jupyterVariables: IJupyterVariables
         ) {
 
@@ -241,8 +241,8 @@ export class History implements IHistory {
                 this.dispatchMessage(message, payload, this.onRemoteAddedCode);
                 break;
 
-            case HistoryMessages.ShowDataExplorer:
-                this.dispatchMessage(message, payload, this.showDataExplorer);
+            case HistoryMessages.ShowDataViewer:
+                this.dispatchMessage(message, payload, this.showDataViewer);
                 break;
 
             case HistoryMessages.GetVariablesRequest:
@@ -368,7 +368,7 @@ export class History implements IHistory {
         }
     }
 
-    private async showDataExplorer(variable: string) : Promise<void> {
+    private async showDataViewer(variable: string) : Promise<void> {
         try {
             const pandasVersion = await this.dataExplorerProvider.getPandasVersion();
             if (!pandasVersion) {
