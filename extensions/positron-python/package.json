@@ -2270,6 +2270,7 @@
         "hash.js": "^1.1.7",
         "iconv-lite": "^0.4.21",
         "inversify": "^4.11.1",
+        "jsonc-parser": "^2.0.3",
         "line-by-line": "^0.1.6",
         "lodash": "^4.17.11",
         "md5": "^2.2.1",

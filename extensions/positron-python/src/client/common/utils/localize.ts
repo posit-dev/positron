@@ -189,6 +189,8 @@ export namespace DebugConfigurationPrompts {
     export const attachRemoteHostTitle = localize('debug.attachRemoteHostTitle', 'Remote Debugging');
     export const attachRemoteHostPrompt = localize('debug.attachRemoteHostPrompt', 'Enter host name');
     export const attachRemoteHostValidationError = localize('debug.attachRemoteHostValidationError', 'Enter a host name or IP address');
+    export const launchJsonConfigurationsCompletionLabel = localize('debug.launchJsonConfigurationsCompletionLabel', 'Python');
+    export const launchJsonConfigurationsCompletionDescription = localize('debug.launchJsonConfigurationsCompletionDescription', 'Select a debug configuration');
 }
 
 export namespace UnitTests {
