@@ -10,10 +10,11 @@ import { IJupyterVariable } from '../../client/datascience/types';
 import { getLocString } from '../react-common/locReactSide';
 import { getSettings } from '../react-common/settingsReactSide';
 import { CollapseButton } from './collapseButton';
+import { CellStyle, VariableExplorerCellFormatter } from './variableExplorerCellFormatter';
 
 import * as AdazzleReactDataGrid from 'react-data-grid';
 
-//import 'bootstrap/dist/css/bootstrap.css'
+import './variableExplorerGrid.scss';
 
 interface IVariableExplorerProps {
     baseTheme: string;
@@ -27,12 +28,13 @@ interface IVariableExplorerState {
     gridRows: IGridRow[];
     gridHeight: number;
     height: number;
+    fontSize: number;
 }
 
 const defaultColumnProperties = {
     filterable: false,
     sortable: false,
-    resizable: false
+    resizable: true
 };
 
 interface IGridRow {
@@ -41,38 +43,53 @@ interface IGridRow {
 }
 
 export class VariableExplorer extends React.Component<IVariableExplorerProps, IVariableExplorerState> {
+    private divRef: React.RefObject<HTMLDivElement>;
+
     constructor(prop: IVariableExplorerProps) {
         super(prop);
         const columns = [
-            {key: 'name', name: 'Name', type: 'string', width: 120},
-            {key: 'type', name: 'Type', type: 'string', width: 120},
-            {key: 'value', name: 'Value', type: 'string', width: 300}
+            {key: 'name', name: getLocString('DataScience.variableExplorerNameColumn', 'Name'), type: 'string', width: 120, formatter: <VariableExplorerCellFormatter cellStyle={CellStyle.variable} />},
+            {key: 'type', name: getLocString('DataScience.variableExplorerTypeColumn', 'Type'), type: 'string', width: 120, formatter: <VariableExplorerCellFormatter cellStyle={CellStyle.type} />},
+            {key: 'size', name: getLocString('DataScience.variableExplorerSizeColumn', 'Size'), type: 'number', width: 120, formatter: <VariableExplorerCellFormatter cellStyle={CellStyle.numeric} />},
+            {key: 'value', name: getLocString('DataScience.variableExplorerValueColumn', 'Value'), type: 'string', width: 300, formatter: <VariableExplorerCellFormatter cellStyle={CellStyle.string} />}
         ];
         this.state = { open: false,
                         gridColumns: columns,
                         gridRows: [],
                         gridHeight: 200,
-                        height: 0};
+                        height: 0,
+                        fontSize: 14};
+
+        this.divRef = React.createRef<HTMLDivElement>();
     }
 
     public render() {
         if (getSettings && getSettings().showJupyterVariableExplorer) {
             const contentClassName = `variable-explorer-content ${this.state.open ? '' : ' hide'}`;
+
+            const fontSizeStyle: React.CSSProperties = {
+                fontSize: `${this.state.fontSize.toString()}px`
+            };
+
             return(
-                <div className='variable-explorer'>
+                <div className='variable-explorer' ref={this.divRef} style={fontSizeStyle}>
                     <CollapseButton theme={this.props.baseTheme}
                         visible={true}
                         open={this.state.open}
                         onClick={this.toggleInputBlock}
                         tooltip={getLocString('DataScience.collapseVariableExplorerTooltip', 'Collapse variable explorer')}
-                        label={getLocString('DataScience.collapseVariableExplorerLabel', 'Variable Explorer')} />
+                        label={getLocString('DataScience.collapseVariableExplorerLabel', 'Variables')} />
                     <div className={contentClassName}>
-                        <AdazzleReactDataGrid
-                            columns = {this.state.gridColumns.map(c => { return {...c, ...defaultColumnProperties}; })}
-                            rowGetter = {this.getRow}
-                            rowsCount = {this.state.gridRows.length}
-                            minHeight = {this.state.gridHeight}
-                        />
+                        <div id='variable-explorer-data-grid'>
+                            <AdazzleReactDataGrid
+                                columns = {this.state.gridColumns.map(c => { return {...c, ...defaultColumnProperties}; })}
+                                rowGetter = {this.getRow}
+                                rowsCount = {this.state.gridRows.length}
+                                minHeight = {this.state.gridHeight}
+                                headerRowHeight = {this.state.fontSize + 9}
+                                rowHeight = {this.state.fontSize + 9}
+                            />
+                        </div>
                     </div>
                 </div>
             );
@@ -82,6 +99,16 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
     }
 
     public componentDidMount = () => {
+        // After mounting, check our computed style to see if the font size is changed
+        if (this.divRef.current) {
+            const newFontSize = parseInt(getComputedStyle(this.divRef.current).getPropertyValue('--code-font-size'), 10);
+
+            // Make sure to check for update here so we don't update loop
+            if (this.state.fontSize !== newFontSize) {
+                this.setState({fontSize: newFontSize});
+            }
+        }
+
         this.updateHeight();
     }
 
@@ -93,7 +120,7 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
     // Help to keep us independent of main history window state if we choose to break out the variable explorer
     public newVariablesData(newVariables: IJupyterVariable[]) {
         const newGridRows = newVariables.map(newVar => {
-            return {name: newVar.name, type: newVar.type, value: getLocString('DataScience.variableLoadingValue', 'Loading...')};
+            return {name: newVar.name, type: newVar.type, size: newVar.size, value: getLocString('DataScience.variableLoadingValue', 'Loading...')};
         });
 
         this.setState({ gridRows: newGridRows});
@@ -132,7 +159,7 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
         if (index >= 0 && index < this.state.gridRows.length) {
             return this.state.gridRows[index];
         }
-        return {name: '', type: '', value: ''};
+        return {name: '', type: '', size: '', value: ''};
     }
 
     private toggleInputBlock = () => {
