@@ -36,6 +36,7 @@ import {
 import { JupyterConnection, JupyterServerInfo } from './jupyterConnection';
 import { JupyterKernelSpec } from './jupyterKernelSpec';
 import { JupyterWaitForIdleError } from './jupyterWaitForIdleError';
+import { execSync } from 'child_process';
 
 enum ModuleExistsResult {
     NotFound,
@@ -349,6 +350,26 @@ export class JupyterExecutionBase implements IJupyterExecution {
             // under the covers and can be used to investigate problems with Jupyter.
             if (process.env && process.env.VSCODE_PYTHON_DEBUG_JUPYTER) {
                 extraArgs.push('--debug');
+            }
+
+            // Check for a docker situation.
+            try {
+                if (await this.fileSystem.fileExists('/proc/self/cgroup')) {
+                    const cgroup = await this.fileSystem.readFile('/proc/self/cgroup');
+                    if (cgroup.includes('docker')) {
+                        // We definitely need an ip address.
+                        extraArgs.push('--ip');
+                        extraArgs.push('127.0.0.1');
+    
+                        // Now see if we need --allow-root.
+                        const idResults = execSync('id', {encoding: 'utf-8'});
+                        if (idResults.includes('(root)')) {
+                            extraArgs.push('--allow-root');
+                        }
+                    }
+                }
+            } catch {
+                noop();
             }
 
             // Use this temp file and config file to generate a list of args for our command
