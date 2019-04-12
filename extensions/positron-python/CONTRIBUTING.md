@@ -67,7 +67,7 @@ Use the `Launch Extension` launch option.
 
 1. Ensure you have disabled breaking into 'Uncaught Exceptions' when running the Unit Tests
 1. For the linters and formatters tests to pass successfully, you will need to have those corresponding Python libraries installed locally
-1. Run the Tests via the `Debug Unit Tests`  launch options.
+1. Run the Tests via the `Unit Tests`  launch option.
 
 You can also run them from the command-line (after compiling):
 
@@ -82,7 +82,7 @@ Alter the `launch.json` file in the `"Debug Unit Tests"` section by setting the 
 ```js
     "args": [
         "--timeout=60000",
-        "--grep=[The suite name of your unit test file]"
+        "--grep", "<suite name>"
     ],
 ```
 ...this will only run the suite with the tests you care about during a test run (be sure to set the debugger to run the `Debug Unit Tests` launcher).
