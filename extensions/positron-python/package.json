@@ -1453,6 +1453,12 @@
                     "description": "Draw a highlight behind the currently active cell.",
                     "scope": "resource"
                 },
+                "python.dataScience.enableCellCodeLens": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enables code lens for 'cells' in a python file.",
+                    "scope": "resource"
+                },
                 "python.disableInstallationCheck": {
                     "type": "boolean",
                     "default": false,

@@ -306,6 +306,7 @@ export interface IDataScienceSettings {
     variableExplorerExclude?: string;
     liveShareConnectionTimeout?: number;
     decorateCells?: boolean;
+    enableCellCodeLens?: boolean;
 }
 
 export const IConfigurationService = Symbol('IConfigurationService');
