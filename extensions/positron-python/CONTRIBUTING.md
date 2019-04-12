@@ -20,10 +20,10 @@
 ### Prerequisites
 
 1. [Node.js](https://nodejs.org/) 10.x
-1. Python 2.7 or later (required only for testing the extension and running unit tests)
+1. [Python](https://www.python.org/) 2.7 or later (required only for testing the extension and running unit tests)
 1. Windows, macOS, or Linux
-1. Visual Studio Code
-1. Following VS Code extensions:
+1. [Visual Studio Code](https://code.visualstudio.com/)
+1. The following VS Code extensions:
     * [TSLint](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-typescript-tslint-plugin)
     * [EditorConfig for VS Code](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
 1. Have an issue which has been accepted with a "needs PR" label (feel free to indicate you would be happy to provide a PR for the issue)
