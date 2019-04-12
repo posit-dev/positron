@@ -24,7 +24,7 @@
 1. Windows, macOS, or Linux
 1. Visual Studio Code
 1. Following VS Code extensions:
-    * [TSLint](https://marketplace.visualstudio.com/items?itemName=eg2.tslint)
+    * [TSLint](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-typescript-tslint-plugin)
     * [EditorConfig for VS Code](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
 1. Have an issue which has been accepted with a "needs PR" label (feel free to indicate you would be happy to provide a PR for the issue)
 
