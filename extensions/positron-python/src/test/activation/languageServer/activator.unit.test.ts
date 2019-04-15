@@ -80,8 +80,8 @@ suite('Language Server - Activator', () => {
 
         verify(manager.start(undefined)).once();
         verify(workspaceService.hasWorkspaceFolders).once();
-        verify(lsFolderService.getLanguageServerFolderName()).never();
-        verify(lsDownloader.downloadLanguageServer(anything())).never();
+        verify(lsFolderService.getLanguageServerFolderName(anything())).never();
+        verify(lsDownloader.downloadLanguageServer(anything(), anything())).never();
     });
     test('Do not download LS if not required', async () => {
         const languageServerFolder = 'Some folder name';
@@ -91,15 +91,16 @@ suite('Language Server - Activator', () => {
         when(workspaceService.hasWorkspaceFolders).thenReturn(false);
         when(manager.start(undefined)).thenResolve();
         when(settings.downloadLanguageServer).thenReturn(true);
-        when(lsFolderService.getLanguageServerFolderName()).thenResolve(languageServerFolder);
+        when(lsFolderService.getLanguageServerFolderName(anything()))
+            .thenResolve(languageServerFolder);
         when(fs.fileExists(mscorlib)).thenResolve(true);
 
         await activator.activate(undefined);
 
         verify(manager.start(undefined)).once();
         verify(workspaceService.hasWorkspaceFolders).once();
-        verify(lsFolderService.getLanguageServerFolderName()).once();
-        verify(lsDownloader.downloadLanguageServer(anything())).never();
+        verify(lsFolderService.getLanguageServerFolderName(anything())).once();
+        verify(lsDownloader.downloadLanguageServer(anything(), anything())).never();
     });
     test('Start language server after downloading', async () => {
         const deferred = createDeferred<void>();
@@ -110,15 +111,17 @@ suite('Language Server - Activator', () => {
         when(workspaceService.hasWorkspaceFolders).thenReturn(false);
         when(manager.start(undefined)).thenResolve();
         when(settings.downloadLanguageServer).thenReturn(true);
-        when(lsFolderService.getLanguageServerFolderName()).thenResolve(languageServerFolder);
+        when(lsFolderService.getLanguageServerFolderName(anything()))
+            .thenResolve(languageServerFolder);
         when(fs.fileExists(mscorlib)).thenResolve(false);
-        when(lsDownloader.downloadLanguageServer(languageServerFolderPath)).thenReturn(deferred.promise);
+        when(lsDownloader.downloadLanguageServer(languageServerFolderPath, undefined))
+            .thenReturn(deferred.promise);
 
         const promise = activator.activate(undefined);
         await sleep(1);
         verify(workspaceService.hasWorkspaceFolders).once();
-        verify(lsFolderService.getLanguageServerFolderName()).once();
-        verify(lsDownloader.downloadLanguageServer(anything())).once();
+        verify(lsFolderService.getLanguageServerFolderName(anything())).once();
+        verify(lsDownloader.downloadLanguageServer(anything(), undefined)).once();
 
         verify(manager.start(undefined)).never();
 
