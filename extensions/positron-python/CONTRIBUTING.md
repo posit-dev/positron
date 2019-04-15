@@ -43,7 +43,7 @@ You may see warnings that ```The engine "vscode" appears to be invalid.```, you 
 
 ### Incremental Build
 
-Run the `Compile` and `Hygiene` build Tasks from the [Command Palette](https://code.visualstudio.com/docs/editor/tasks) (short cut `CTRL+SHIFT+B` or `⇧⌘B`)
+Run the `Compile` and `Hygiene` build Tasks from the [Run Build Task...](https://code.visualstudio.com/docs/editor/tasks) command picker (short cut `CTRL+SHIFT+B` or `⇧⌘B`). This will leave build and hygiene tasks running in the background and which will re-run as files are edited and saved. You can see the output from either task in the Terminal panel (use the selector to choose which output to look at).
 
 You can also compile from the command-line. For a full compile you can use `npx gulp prePublishNonBundle`. For incremental builds you can use the following commands depending on your needs:
 ```shell
