@@ -3,7 +3,7 @@ import json as _VSCODE_json
 import pandas as _VSCODE_pd
 
 # _VSCode_sub_supportsDataExplorer will contain our list of data explorer supported types
-_VSCode_supportsDataExplorer = _VSCode_sub_supportsDataExplorer
+_VSCode_supportsDataExplorer = "['list', 'Series', 'dict', 'ndarray', 'DataFrame']"
 
 # In IJupyterVariables.getValue this '_VSCode_JupyterTestValue' will be replaced with the json stringified value of the target variable
 # Indexes off of _VSCODE_targetVariable need to index types that are part of IJupyterVariable
@@ -58,6 +58,8 @@ else:
         _VSCODE_colobj['name'] = _VSCODE_column_name
         _VSCODE_colobj['type'] = str(_VSCODE_column_type)
         _VSCODE_columns.append(_VSCODE_colobj)
+        del _VSCODE_column_name
+        del _VSCODE_column_type
 
     del _VSCODE_columnNames
     del _VSCODE_columnTypes

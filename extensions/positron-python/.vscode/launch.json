@@ -3,6 +3,21 @@
     "version": "0.1.0",
     "configurations": [
         {
+            "name": "Python: Current File with iPython",
+            "type": "python",
+            "request": "launch",
+            "module": "IPython",
+            "console": "integratedTerminal",
+            "args": ["${file}"] // Additional args should be prefixed with a '--' first.
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Extension",
             "type": "extensionHost",
             "request": "launch",
