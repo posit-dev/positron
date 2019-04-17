@@ -271,6 +271,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
         canUndo: this.canUndo(),
         canRedo: this.canRedo(),
         refreshVariables: this.refreshVariables,
+        variableExplorerToggled: this.variableExplorerToggled,
         onHeightChange: this.onHeaderHeightChange,
         baseTheme: baseTheme
        };
@@ -760,6 +761,10 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                 this.sendMessage(HistoryMessages.SubmitNewCell, { code, id: editCell.cell.id });
             }
         }
+    }
+
+    private variableExplorerToggled = (open: boolean) => {
+        this.sendMessage(HistoryMessages.VariableExplorerToggle, open);
     }
 
     // When the variable explorer wants to refresh state (say if it was expanded)
