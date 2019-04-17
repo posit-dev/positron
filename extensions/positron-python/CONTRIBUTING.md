@@ -5,7 +5,7 @@
 
 ---
 
-| macOS/Linux/Windows CI | Linux CI | Nightly CI (macOS/Linux/Windows) | Code Coverage |
+| `master` branch | `master` branch (Linux, insiders upload) | Nightly CI | Code Coverage (broken?) |
 |-|-|-|-|
 | [![Build Status](https://dev.azure.com/ms/vscode-python/_apis/build/status/PR%20Validation?branchName=master)](https://dev.azure.com/ms/vscode-python/_build/latest?definitionId=84&branchName=master) | [![Build Status (Travis)](https://travis-ci.org/Microsoft/vscode-python.svg?branch=master)](https://travis-ci.org/Microsoft/vscode-python/branches) | [![Build Status](https://dev.azure.com/ms/vscode-python/_apis/build/status/Nightly%20Build?branchName=master)](https://dev.azure.com/ms/vscode-python/_build/latest?definitionId=85&branchName=master) | [![codecov](https://codecov.io/gh/Microsoft/vscode-python/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/vscode-python)|
 
