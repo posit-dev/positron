@@ -21,7 +21,6 @@ import { noop } from '../../client/common/utils/misc';
 import { concatMultilineString } from '../../client/datascience/common';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { JupyterKernelPromiseFailedError } from '../../client/datascience/jupyter/jupyterKernelPromiseFailedError';
-import { IRoleBasedObject, RoleBasedFactory } from '../../client/datascience/jupyter/liveshare/roleBasedFactory';
 import {
     CellState,
     IConnection,
@@ -37,19 +36,13 @@ import {
     IKnownSearchPathsForInterpreters,
     PythonInterpreter
 } from '../../client/interpreter/contracts';
-import { ClassType } from '../../client/ioc/types';
 import { ICellViewModel } from '../../datascience-ui/history-react/cell';
 import { generateTestState } from '../../datascience-ui/history-react/mainPanelState';
 import { sleep } from '../core';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
-import { MockJupyterSession } from './mockJupyterSession';
-
-interface IJupyterServerInterface extends IRoleBasedObject, INotebookServer {
-
-}
 
 // tslint:disable:no-any no-multiline-string max-func-body-length no-console max-classes-per-file trailing-comma
-suite('Jupyter notebook tests', () => {
+suite('DataScience notebook tests', () => {
     const disposables: Disposable[] = [];
     let jupyterExecution: IJupyterExecution;
     let processFactory: IProcessServiceFactory;
@@ -763,36 +756,6 @@ plt.show()`,
             assert.ok(server, 'Never connected to a default server with a bad default config');
 
             await verifySimple(server, `a=1${os.EOL}a`, 1);
-        }
-    });
-
-    async function getNotebookSession(server: INotebookServer | undefined): Promise<MockJupyterSession | undefined> {
-        if (server) {
-            // This is kinda fragile. It reliese on impl details to get to the session. Might
-            // just expose it?
-            const innerServerFactory = (server as any).serverFactory as RoleBasedFactory<IJupyterServerInterface, ClassType<IJupyterServerInterface>>;
-            const innerServer = await innerServerFactory.get();
-            assert.ok(innerServer, 'Cannot find the inner server');
-            return (innerServer as any).session as MockJupyterSession;
-        }
-    }
-
-    runTest('Theme modifies execution', async () => {
-        if (ioc.mockJupyter) {
-            let server = await createNotebookServer(true, false, false);
-            let session = await getNotebookSession(server);
-            const light = '%matplotlib inline\nimport matplotlib.pyplot as plt';
-            const dark = '%matplotlib inline\nimport matplotlib.pyplot as plt\nfrom matplotlib import style\nstyle.use(\'dark_background\')';
-
-            assert.ok(session!.getExecutes().indexOf(light) >= 0, 'light not found');
-            assert.ok(session!.getExecutes().indexOf(dark) < 0, 'dark found when not allowed');
-            await server!.dispose();
-
-            server = await createNotebookServer(true, false, true);
-            session = await getNotebookSession(server);
-            assert.ok(session!.getExecutes().indexOf(dark) >= 0, 'dark not found');
-            assert.ok(session!.getExecutes().indexOf(light) < 0, 'light found when not allowed');
-            await server!.dispose();
         }
     });
 
