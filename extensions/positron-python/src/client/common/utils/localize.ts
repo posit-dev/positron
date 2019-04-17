@@ -30,6 +30,7 @@ export namespace Common {
     export const loadingExtension = localize('Common.loadingPythonExtension', 'Python extension loading...');
     export const openOutputPanel = localize('Common.openOutputPanel', 'Show output');
     export const noIWillDoItLater = localize('Common.noIWillDoItLater', 'No, I will do it later');
+    export const notNow = localize('Common.notNow', 'Not now');
     export const doNotShowAgain = localize('Common.doNotShowAgain', 'Do not show again');
 }
 
@@ -56,7 +57,8 @@ export namespace Interpreters {
 }
 
 export namespace Linters {
-    export const installedButNotEnabled = localize('Linter.InstalledButNotEnabled', 'Linter {0} is installed but not enabled.');
+    export const enableLinter = localize('Linter.enableLinter', 'Enable {0}');
+    export const enablePylint = localize('Linter.enablePylint', 'You have a pylintrc file in your workspace. Do you want to enable pylint?');
     export const replaceWithSelectedLinter = localize('Linter.replaceWithSelectedLinter', 'Multiple linters are enabled in settings. Replace with \'{0}\'?');
 }
 

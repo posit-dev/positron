@@ -10,6 +10,7 @@ import TelemetryReporter from 'vscode-extension-telemetry';
 import { EXTENSION_ROOT_DIR, isTestExecution, PVSC_EXTENSION_ID } from '../common/constants';
 import { StopWatch } from '../common/utils/stopWatch';
 import { Telemetry } from '../datascience/constants';
+import { LinterId } from '../linters/types';
 import { EventName } from './constants';
 import {
     CodeExecutionTelemetry,
@@ -304,6 +305,7 @@ export interface IEventNamePropertyMapping {
     [EventName.REFERENCE]: never | undefined;
     [EventName.REPL]: never | undefined;
     [EventName.SELECT_LINTER]: LinterSelectionTelemetry;
+    [EventName.CONFIGURE_AVAILABLE_LINTER_PROMPT]: { tool: LinterId; action: 'enable' | 'ignore' | 'disablePrompt' | undefined };
     [EventName.SIGNATURE]: never | undefined;
     [EventName.SYMBOL]: never | undefined;
     [EventName.UNITTEST_CONFIGURE]: never | undefined;
