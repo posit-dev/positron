@@ -18,23 +18,6 @@
         "url": "https://github.com/Microsoft/vscode-python/issues"
     },
     "qna": "https://stackoverflow.com/questions/tagged/visual-studio-code+python",
-    "badges": [
-        {
-            "url": "https://vscode-python.visualstudio.com/VSCode-Python/_apis/build/status/VSCode-Python-Rolling-CI?branchName=master",
-            "href": "https://vscode-python.visualstudio.com/VSCode-Python/VSCode-Python%20Team/_build/index?context=allDefinitions&path=&definitionId=9",
-            "description": "Continuous integration (VSTS)"
-        },
-        {
-            "url": "https://travis-ci.org/Microsoft/vscode-python.svg?branch=master",
-            "href": "https://travis-ci.org/Microsoft/vscode-python",
-            "description": "Continuous integration (Travis)"
-        },
-        {
-            "url": "https://codecov.io/gh/Microsoft/vscode-python/branch/master/graph/badge.svg",
-            "href": "https://codecov.io/gh/Microsoft/vscode-python",
-            "description": "Test coverage"
-        }
-    ],
     "icon": "icon.png",
     "galleryBanner": {
         "color": "#1e415e",
