@@ -1,6 +1,6 @@
 import { inject, injectable, named } from 'inversify';
+import { parse } from 'jsonc-parser';
 import * as path from 'path';
-import * as stripJsonComments from 'strip-json-comments';
 import { DebugConfiguration, Uri, WorkspaceFolder } from 'vscode';
 import { IApplicationShell, IDebugService, IWorkspaceService } from '../../common/application/types';
 import { EXTENSION_ROOT_DIR } from '../../common/constants';
@@ -12,9 +12,7 @@ import { DebuggerTypeName } from '../../debugger/constants';
 import { IDebugConfigurationResolver } from '../../debugger/extension/configuration/types';
 import { LaunchRequestArguments } from '../../debugger/types';
 import { IServiceContainer } from '../../ioc/types';
-import {
-    ITestDebugConfig, ITestDebugLauncher, LaunchOptions, TestProvider
-} from './types';
+import { ITestDebugConfig, ITestDebugLauncher, LaunchOptions, TestProvider } from './types';
 
 @injectable()
 export class DebugLauncher implements ITestDebugLauncher {
@@ -45,7 +43,26 @@ export class DebugLauncher implements ITestDebugLauncher {
         return debugManager.startDebugging(workspaceFolder, launchArgs)
             .then(noop, ex => traceError('Failed to start debugging tests', ex));
     }
-
+    public async readAllDebugConfigs(workspaceFolder: WorkspaceFolder): Promise<DebugConfiguration[]> {
+        const filename = path.join(workspaceFolder.uri.fsPath, '.vscode', 'launch.json');
+        if (!(await this.fs.fileExists(filename))) {
+            return [];
+        }
+        try {
+            const text = await this.fs.readFile(filename);
+            const parsed = parse(text, [], { allowTrailingComma: true, disallowComments: false });
+            if (!parsed.version || !parsed.configurations || !Array.isArray(parsed.configurations)) {
+                throw Error('malformed launch.json');
+            }
+            // We do not bother ensuring each item is a DebugConfiguration...
+            return parsed.configurations;
+        } catch (exc) {
+            traceError('could not get debug config', exc);
+            const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
+            await appShell.showErrorMessage('Could not load unit test config from launch.json');
+            return [];
+        }
+    }
     private resolveWorkspaceFolder(cwd: string): WorkspaceFolder {
         if (!this.workspaceService.hasWorkspaceFolders) {
             throw new Error('Please open a workspace');
@@ -95,30 +112,6 @@ export class DebugLauncher implements ITestDebugLauncher {
         }
         return undefined;
     }
-
-    private async readAllDebugConfigs(workspaceFolder: WorkspaceFolder): Promise<DebugConfiguration[]> {
-        const filename = path.join(workspaceFolder.uri.fsPath, '.vscode', 'launch.json');
-        let configs: DebugConfiguration[] = [];
-        if (!(await this.fs.fileExists(filename))) {
-            return [];
-        }
-        try {
-            let text = await this.fs.readFile(filename);
-            text = stripJsonComments(text);
-            const parsed = JSON.parse(text);
-            if (!parsed.version || !parsed.configurations || !Array.isArray(parsed.configurations)) {
-                throw Error('malformed launch.json');
-            }
-            // We do not bother ensuring each item is a DebugConfiguration...
-            configs = parsed.configurations;
-        } catch (exc) {
-            traceError('could not get debug config', exc);
-            const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
-            await appShell.showErrorMessage('Could not load unit test config from launch.json');
-        }
-        return configs;
-    }
-
     private applyDefaults(
         cfg: ITestDebugConfig,
         workspaceFolder: WorkspaceFolder,
