@@ -233,7 +233,7 @@ It is also very important to make the title accurate. People often write very br
 
 Once an issue has been appropriately classified, there are two keys ways to help out. One is to go through open issues that [`needs verification`](https://github.com/Microsoft/vscode-python/labels/needs%20verification). Issues with this label have not been verified to be an actual problem (e.g. making sure the reported issue is not caused by the user's configuration or machine).
 
-The other way to help is to go through issues that are labeled as [`validate fix`](https://github.com/Microsoft/vscode-python/labels/validate%20fix). These issues are believed to be fixed, but having an independent validation is always appreciated.
+The other way to help is to go through issues that are labeled as [`validate`](https://github.com/Microsoft/vscode-python/labels/validate). These issues are believed to be fixed, but having an independent validation is always appreciated.
 
 ### Pull requests
 
@@ -285,19 +285,3 @@ The development build of the extension:
   test a newer development build, uninstall the old version of the
   extension and then install the new version)
 * Is built everytime a PR is commited into the [`master` branch](https://github.com/Microsoft/vscode-python).
-
-### Installing the extension from a git clone
-
-If you would like to have a copy of the extension installed from a git clone so it can be refreshed regularly, the [`pvsc-dev-ext.py` script](https://github.com/Microsoft/vscode-python/blob/master/pvsc-dev-ext.py) will help facilitate that. The script provides two commands.
-
-To create the git clone and do the initial build, use the `setup` command:
-```
-$ python3 pvsc-dev-ext.py setup stable
-```
-You may choose to have the script set up either a stable or insiders install of VS Code.
-
-Once the extension is set up with a dev install, you can update it at any time to match what is in the `master` branch by using the `update` command:
-```
-$ python3 pvsc-dev-ext.py update
-```
-This will update stable and/or insiders installs of the extension. You can run this command at e.g. startup of your computer to make sure you are always using the latest version of the extension in VS Code.
