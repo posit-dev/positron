@@ -220,6 +220,8 @@ myTuple = 1,2,3,4,5,6,7,8,9
             {name: 'myDataframe', value: '                  0\n0           0.00000\n1           2.00004\n2           4.00008\n3           6.00012\n4           8.00016\n5          10.00020\n6          12.00024\n7          14.00028\n8          16.00032\n', supportsDataExplorer: true, type: 'DataFrame', size: 54, shape: '', count: 0, truncated: false},
             {name: 'myFloat', value: '9999.9999', supportsDataExplorer: false, type: 'float', size: 58, shape: '', count: 0, truncated: false},
             {name: 'myInt', value: '99999999', supportsDataExplorer: false, type: 'int', size: 56, shape: '', count: 0, truncated: false},
+            {name: 'mynpArray', value: `[0.00000000e+00 2.00004000e+00 4.00008000e+00 ... 9.99959999e+04
+ 9.99980000e+04 1.00000000e+05]`, supportsDataExplorer: true, type: 'ndarray', size: 54, shape: '', count: 0, truncated: false},
             {name: 'mySeries', value: `0             0.00000
 1             2.00004
 2             4.00008
@@ -230,9 +232,44 @@ myTuple = 1,2,3,4,5,6,7,8,9
 7            14.00028
 8            16.00032
 9 `, supportsDataExplorer: true, type: 'Series', size: 54, shape: '', count: 0, truncated: false},
-            {name: 'myTuple', value: '(1, 2, 3, 4, 5, 6, 7, 8, 9)', supportsDataExplorer: false, type: 'tuple', size: 54, shape: '', count: 0, truncated: false},
-            {name: 'mynpArray', value: `[0.00000000e+00 2.00004000e+00 4.00008000e+00 ... 9.99959999e+04
- 9.99980000e+04 1.00000000e+05]`, supportsDataExplorer: true, type: 'ndarray', size: 54, shape: '', count: 0, truncated: false}
+            {name: 'myTuple', value: '(1, 2, 3, 4, 5, 6, 7, 8, 9)', supportsDataExplorer: false, type: 'tuple', size: 54, shape: '', count: 0, truncated: false}
+        ];
+        verifyVariables(wrapper, targetVariables);
+    }, () => { return ioc; });
+
+    runMountedTest('Variable explorer - Sorting', async (wrapper) => {
+        const basicCode: string = `b = 2
+c = 3
+stra = 'a'
+strb = 'b'
+strc = 'c'`;
+
+        openVariableExplorer(wrapper);
+
+        await addCode(getOrCreateHistory, wrapper, 'a=1\na');
+        await addCode(getOrCreateHistory, wrapper, basicCode, 4);
+
+        await waitForUpdate(wrapper, VariableExplorer, 7);
+
+        let targetVariables: IJupyterVariable[] = [
+            {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'b', value: '2', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'c', value: '3', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'stra', value: 'a', supportsDataExplorer: false, type: 'str', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'strb', value: 'b', supportsDataExplorer: false, type: 'str', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'strc', value: 'c', supportsDataExplorer: false, type: 'str', size: 54, shape: '', count: 0, truncated: false},
+        ];
+        verifyVariables(wrapper, targetVariables);
+
+        sortVariableExplorer(wrapper, 'value', 'DESC');
+
+        targetVariables = [
+            {name: 'strc', value: 'c', supportsDataExplorer: false, type: 'str', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'strb', value: 'b', supportsDataExplorer: false, type: 'str', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'stra', value: 'a', supportsDataExplorer: false, type: 'str', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'c', value: '3', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'b', value: '2', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
         ];
         verifyVariables(wrapper, targetVariables);
     }, () => { return ioc; });
@@ -246,6 +283,16 @@ function openVariableExplorer(wrapper: ReactWrapper<any, Readonly<{}>, React.Com
 
     if (varExp) {
         varExp.setState({open: true});
+    }
+}
+
+function sortVariableExplorer(wrapper: ReactWrapper<any, Readonly<{}>, React.Component>, sortColumn: string, sortDirection: string) {
+    const varExp: VariableExplorer = wrapper.find('VariableExplorer').instance() as VariableExplorer;
+
+    assert(varExp);
+
+    if (varExp) {
+        varExp.sortRows(sortColumn, sortDirection);
     }
 }
 
