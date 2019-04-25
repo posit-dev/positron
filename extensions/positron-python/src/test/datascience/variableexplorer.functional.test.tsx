@@ -166,13 +166,9 @@ value = 'hello world'`;
 
     // Test our display of basic types. We render 8 rows by default so only 8 values per test
     runMountedTest('Variable explorer - Types A', async (wrapper) => {
-        const basicCode: string = `import numpy as np
-import pandas as pd
-myList = [x ** 2 for x in range(0,100000)]
+        const basicCode: string = `myList = [1, 2, 3]
 mySet = set([42])
-myDict = {}
-for value in myList:
-    myDict[value] = value / 2`;
+myDict = {'a': 1}`;
 
         openVariableExplorer(wrapper);
 
@@ -181,14 +177,14 @@ for value in myList:
 
         // Verify that we actually update the variable explorer
         // Count here is our main render + a render for each variable row as they come in
-        await waitForUpdate(wrapper, VariableExplorer, 6);
+        await waitForUpdate(wrapper, VariableExplorer, 5);
 
         const targetVariables: IJupyterVariable[] = [
             {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
-            {name: 'myDict', value: '{0: 0.0, 1: 0.5, 4: 2.0, 9: 4.5, 16: 8.0, 25: 12.5, 36: 18.0, 49: 24.5, 64: 32.0, 81: 40.5, 100: 50.0, 121: 60.5, 144: 72.0, 169: 84.5, 196: 98.0, 225: 112.5, 256: 128.0, 289: 144.5, 324: 162.0, 361: ', supportsDataExplorer: true, type: 'dict', size: 54, shape: '', count: 0, truncated: false},
-            {name: 'myList', value: '[0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625, 676, 729, 784, 841, 900, 961, 1024, 1089, 1156, 1225, 1296, 1369, 1444, 1521, 1600,', supportsDataExplorer: true, type: 'list', size: 54, shape: '', count: 0, truncated: false},
-            {name: 'mySet', value: '{42}', supportsDataExplorer: true, type: 'set', size: 54, shape: '', count: 0, truncated: false},
-            {name: 'value', value: '9999800001', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
+            // tslint:disable-next-line:quotemark
+            {name: 'myDict', value: "{'a': 1}", supportsDataExplorer: true, type: 'dict', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'myList', value: '[1, 2, 3]', supportsDataExplorer: true, type: 'list', size: 54, shape: '', count: 0, truncated: false},
+            {name: 'mySet', value: '{42}', supportsDataExplorer: true, type: 'set', size: 54, shape: '', count: 0, truncated: false}
         ];
         verifyVariables(wrapper, targetVariables);
     }, () => { return ioc; });
