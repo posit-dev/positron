@@ -5,7 +5,16 @@ import { nbformat } from '@jupyterlab/coreutils';
 import { Kernel, KernelMessage } from '@jupyterlab/services/lib/kernel';
 import { JSONObject } from '@phosphor/coreutils';
 import { Observable } from 'rxjs/Observable';
-import { CancellationToken, CodeLens, CodeLensProvider, Disposable, Event, Range, TextDocument, TextEditor } from 'vscode';
+import {
+    CancellationToken,
+    CodeLens,
+    CodeLensProvider,
+    Disposable,
+    Event,
+    Range,
+    TextDocument,
+    TextEditor
+} from 'vscode';
 
 import { ICommandManager } from '../common/application/types';
 import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../common/process/types';
@@ -148,6 +157,26 @@ export interface IHistory extends Disposable {
     exportCells(): void;
 }
 
+export const IHistoryListener = Symbol('IHistoryListener');
+
+/**
+ * Listens to history messages to provide extra functionality
+ */
+export interface IHistoryListener extends IDisposable {
+    /**
+     * Fires this event when posting a response message
+     */
+    // tslint:disable-next-line: no-any
+    postMessage: Event<{message: string; payload: any}>;
+    /**
+     * Handles messages that the history window receives
+     * @param message message type
+     * @param payload message payload
+     */
+    // tslint:disable-next-line: no-any
+    onMessage(message: string, payload?: any): void;
+}
+
 // Wraps the vscode API in order to send messages back and forth from a webview
 export const IPostOffice = Symbol('IPostOffice');
 export interface IPostOffice {
@@ -218,11 +247,13 @@ export interface ISysInfo extends nbformat.IBaseCell {
 export const ICodeCssGenerator = Symbol('ICodeCssGenerator');
 export interface ICodeCssGenerator {
     generateThemeCss(isDark: boolean, theme: string) : Promise<string>;
+    generateMonacoTheme(isDark: boolean, theme: string) : Promise<JSONObject>;
 }
 
 export const IThemeFinder = Symbol('IThemeFinder');
 export interface IThemeFinder {
     findThemeRootJson(themeName: string) : Promise<string | undefined>;
+    findTmLanguage(language: string) : Promise<string | undefined>;
     isThemeDark(themeName: string) : Promise<boolean | undefined>;
 }
 
