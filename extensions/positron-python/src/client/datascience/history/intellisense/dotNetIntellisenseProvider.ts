@@ -14,7 +14,7 @@ import { IFileSystem } from '../../../common/platform/types';
 import { IConfigurationService } from '../../../common/types';
 import { createDeferred, Deferred } from '../../../common/utils/async';
 import { Identifiers } from '../../constants';
-import { IHistoryListener } from '../../types';
+import { IHistoryListener, IHistoryProvider, IJupyterExecution } from '../../types';
 import { BaseIntellisenseProvider } from './baseIntellisenseProvider';
 import { convertToMonacoCompletionList, convertToMonacoHover, convertToMonacoSignatureHelp } from './conversion';
 import { IntellisenseDocument } from './intellisenseDocument';
@@ -32,9 +32,11 @@ export class DotNetIntellisenseProvider extends BaseIntellisenseProvider impleme
         @inject(ILanguageServerAnalysisOptions) private readonly analysisOptions: ILanguageServerAnalysisOptions,
         @inject(IWorkspaceService) workspaceService: IWorkspaceService,
         @inject(IConfigurationService) private configService: IConfigurationService,
-        @inject(IFileSystem) fileSystem: IFileSystem
+        @inject(IFileSystem) fileSystem: IFileSystem,
+        @inject(IJupyterExecution) jupyterExecution: IJupyterExecution,
+        @inject(IHistoryProvider) historyProvider: IHistoryProvider
     ) {
-        super(workspaceService, fileSystem);
+        super(workspaceService, fileSystem, jupyterExecution, historyProvider);
 
         // Make sure we're active. We still listen to messages for adding and editing cells,
         // but we don't actually return any data.
@@ -63,7 +65,7 @@ export class DotNetIntellisenseProvider extends BaseIntellisenseProvider impleme
 
         return {
             suggestions: [],
-            incomplete: true
+            incomplete: false
         };
     }
     protected async provideHover(position: monacoEditor.Position, cellId: string, token: CancellationToken) : Promise<monacoEditor.languages.Hover> {
@@ -105,14 +107,19 @@ export class DotNetIntellisenseProvider extends BaseIntellisenseProvider impleme
         // Then see if we can talk to our language client
         if (this.active && document) {
 
+            // Cache our document state as it may change after we get our language client. Async call may allow a change to
+            // come in before we send the first doc open.
+            const docItem = document.textDocumentItem;
+            const docItemId = document.textDocumentId;
+
             // Broadcast an update to the language server
             const languageClient = await this.getLanguageClient(originalFile === Identifiers.EmptyFileName || originalFile === undefined ? undefined : Uri.file(originalFile));
 
             if (!this.sentOpenDocument) {
                 this.sentOpenDocument = true;
-                return languageClient.sendNotification(vscodeLanguageClient.DidOpenTextDocumentNotification.type, { textDocument: document.textDocumentItem });
+                return languageClient.sendNotification(vscodeLanguageClient.DidOpenTextDocumentNotification.type, { textDocument: docItem });
             } else {
-                return languageClient.sendNotification(vscodeLanguageClient.DidChangeTextDocumentNotification.type, { textDocument: document.textDocumentId, contentChanges: changes });
+                return languageClient.sendNotification(vscodeLanguageClient.DidChangeTextDocumentNotification.type, { textDocument: docItemId, contentChanges: changes });
             }
         }
     }
