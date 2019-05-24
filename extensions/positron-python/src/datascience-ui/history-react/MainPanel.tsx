@@ -19,12 +19,13 @@ import { getSettings, updateSettings } from '../react-common/settingsReactSide';
 import { StyleInjector } from '../react-common/styleInjector';
 import { Cell, ICellViewModel } from './cell';
 import { ContentPanel, IContentPanelProps } from './contentPanel';
-import { HeaderPanel, IHeaderPanelProps } from './headerPanel';
 import { InputHistory } from './inputHistory';
 import { IntellisenseProvider } from './intellisenseProvider';
 import { createCellVM, createEditableCellVM, extractInputText, generateTestState, IMainPanelState } from './mainPanelState';
 import { initializeTokenizer, registerMonacoLanguage } from './tokenizer';
+import { IToolbarPanelProps, ToolbarPanel } from './toolbarPanel';
 import { VariableExplorer } from './variableExplorer';
+import { IVariablePanelProps, VariablePanel } from './variablePanel';
 
 import './mainPanel.css';
 
@@ -62,7 +63,6 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             redoStack : [],
             submittedText: false,
             history: new InputHistory(),
-            contentTop: 24,
             editCellVM: getSettings && getSettings().allowInput ? createEditableCellVM(1) : undefined,
             editorOptions: this.computeEditorOptions()
         };
@@ -138,22 +138,17 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                     darkChanged={this.darkChanged}
                     monacoThemeChanged={this.monacoThemeChanged}
                     ref={this.styleInjectorRef} />
-                <div className='main-panel-header'>
-                    <div className='main-panel-inner'>
-                        {this.renderHeaderPanel(baseTheme)}
-                    </div>
+                <div id='main-panel-toolbar'>
+                    {this.renderToolbarPanel(baseTheme)}
                 </div>
-                <div className='main-panel-content'>
-                    <div className='main-panel-inner'>
-                        <div className='main-panel-scrollable'>
-                            {this.renderContentPanel(baseTheme)}
-                        </div>
-                    </div>
+                <div id='main-panel-variable'>
+                    {this.renderVariablePanel(baseTheme)}
                 </div>
-                <div className='main-panel-footer'>
-                    <div className='main-panel-inner'>
-                        {this.renderFooterPanel(baseTheme)}
-                    </div>
+                <div id='main-panel-content'>
+                    {this.renderContentPanel(baseTheme)}
+                </div>
+                <div id='main-panel-footer'>
+                    {this.renderFooterPanel(baseTheme)}
                 </div>
             </div>
         );
@@ -262,9 +257,14 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     //     this.addCell(cell);
     // }
 
-    private renderHeaderPanel(baseTheme: string) {
-        const headerProps = this.getHeaderProps(baseTheme);
-        return <HeaderPanel {...headerProps} />;
+    private renderToolbarPanel(baseTheme: string) {
+        const toolbarProps = this.getToolbarProps(baseTheme);
+        return <ToolbarPanel {...toolbarProps} />;
+    }
+
+    private renderVariablePanel(baseTheme: string) {
+        const variableProps = this.getVariableProps(baseTheme);
+        return <VariablePanel {...variableProps} />;
     }
 
     private renderContentPanel(baseTheme: string) {
@@ -347,11 +347,6 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
         return {};
     }
 
-    // Called by the header control when size changes (such as expanding variables)
-    private onHeaderHeightChange = (newHeight: number) => {
-        this.setState({contentTop: newHeight});
-    }
-
     private darkChanged = (newDark: boolean) => {
         // update our base theme if allowed. Don't do this
         // during testing as it will mess up the expected render count.
@@ -395,7 +390,6 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
         return {
             editorOptions: this.state.editorOptions,
             baseTheme: baseTheme,
-            contentTop: this.state.contentTop,
             cellVMs: this.state.cellVMs,
             history: this.state.history,
             testMode: this.props.testMode,
@@ -409,10 +403,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             onCodeChange: this.codeChange
         };
     }
-    private getHeaderProps = (baseTheme: string): IHeaderPanelProps => {
+    private getToolbarProps = (baseTheme: string): IToolbarPanelProps => {
        return {
         addMarkdown: this.addMarkdown,
-        busy: this.state.busy,
         collapseAll: this.collapseAll,
         expandAll: this.expandAll,
         export: this.export,
@@ -422,17 +415,23 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
         redo: this.redo,
         clearAll: this.clearAll,
         skipDefault: this.props.skipDefault,
-        showDataExplorer: this.showDataViewer,
-        testMode: this.props.testMode,
-        variableExplorerRef: this.variableExplorerRef,
         canCollapseAll: this.canCollapseAll(),
         canExpandAll: this.canExpandAll(),
         canExport: this.canExport(),
         canUndo: this.canUndo(),
         canRedo: this.canRedo(),
+        baseTheme: baseTheme
+       };
+    }
+
+    private getVariableProps = (baseTheme: string): IVariablePanelProps => {
+       return {
+        busy: this.state.busy,
+        showDataExplorer: this.showDataViewer,
+        testMode: this.props.testMode,
+        variableExplorerRef: this.variableExplorerRef,
         refreshVariables: this.refreshVariables,
         variableExplorerToggled: this.variableExplorerToggled,
-        onHeightChange: this.onHeaderHeightChange,
         baseTheme: baseTheme
        };
     }
