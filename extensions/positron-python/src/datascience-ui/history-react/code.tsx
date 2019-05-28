@@ -18,7 +18,6 @@ export interface ICodeProps {
     testMode: boolean;
     readOnly: boolean;
     history: InputHistory | undefined;
-    cursorType: string;
     showWatermark: boolean;
     monacoTheme: string | undefined;
     outermostParentClass: string;

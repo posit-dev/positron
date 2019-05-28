@@ -295,6 +295,7 @@ export interface IJupyterCommandFactory {
 export interface IDataScienceExtraSettings extends IDataScienceSettings {
     extraSettings: {
         terminalCursor: string;
+        terminalCursorBlink: string;
         theme: string;
     };
     intellisenseOptions: {

@@ -215,7 +215,6 @@ export class Cell extends React.Component<ICellProps> {
                 <div className='cell-input'>
                     <Code
                         editorOptions={this.props.editorOptions}
-                        cursorType={this.getCursorType()}
                         history={this.props.history}
                         autoFocus={this.props.autoFocus}
                         code={this.getRenderableInputCode()}
@@ -244,14 +243,6 @@ export class Cell extends React.Component<ICellProps> {
 
     private onCodeCreated = (code: string, modelId: string) => {
         this.props.onCodeCreated(code, this.props.cellVM.cell.file, this.props.cellVM.cell.id, modelId);
-    }
-
-    private getCursorType = () : string => {
-        if (getSettings && getSettings().extraSettings) {
-            return getSettings().extraSettings.terminalCursor;
-        }
-
-        return 'block';
     }
 
     private renderResultsDiv = (results: JSX.Element[]) => {
