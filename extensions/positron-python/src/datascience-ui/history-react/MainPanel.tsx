@@ -323,7 +323,8 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
 
     private computeEditorOptions() : monacoEditor.editor.IEditorOptions {
         const intellisenseOptions = getSettings().intellisenseOptions;
-        if (intellisenseOptions) {
+        const extraSettings = getSettings().extraSettings;
+        if (intellisenseOptions && extraSettings) {
             return {
                 quickSuggestions: {
                     other: intellisenseOptions.quickSuggestions.other,
@@ -341,7 +342,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                 wordBasedSuggestions: intellisenseOptions.wordBasedSuggestions,
                 parameterHints: {
                     enabled: intellisenseOptions.parameterHintsEnabled
-                }
+                },
+                cursorStyle: extraSettings.terminalCursor,
+                cursorBlinking: extraSettings.terminalCursorBlink
             };
         }
 
