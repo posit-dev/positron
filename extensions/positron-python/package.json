@@ -1947,7 +1947,7 @@
                     "description": "Prompt to configure a test framework if potential tests directories are discovered.",
                     "scope": "resource"
                 },
-                "python.testing.pyTestArgs": {
+                "python.testing.pytestArgs": {
                     "type": "array",
                     "description": "Arguments passed in. Each argument is a separate item in the array.",
                     "default": [],
@@ -1956,13 +1956,13 @@
                     },
                     "scope": "resource"
                 },
-                "python.testing.pyTestEnabled": {
+                "python.testing.pytestEnabled": {
                     "type": "boolean",
                     "default": false,
                     "description": "Enable testing using pytest.",
                     "scope": "resource"
                 },
-                "python.testing.pyTestPath": {
+                "python.testing.pytestPath": {
                     "type": "string",
                     "default": "pytest",
                     "description": "Path to pytest (pytest), you can use a custom version of pytest by modifying this setting to include the full path.",
