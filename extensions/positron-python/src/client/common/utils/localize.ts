@@ -119,6 +119,8 @@ export namespace DataScience {
     export const executingCode = localize('DataScience.executingCode', 'Executing Cell');
     export const collapseAll = localize('DataScience.collapseAll', 'Collapse all cell inputs');
     export const expandAll = localize('DataScience.expandAll', 'Expand all cell inputs');
+    export const collapseSingle = localize('DataScience.collapseSingle', 'Collapse');
+    export const expandSingle = localize('DataScience.expandSingle', 'Expand');
     export const exportKey = localize('DataScience.export', 'Export as Jupyter Notebook');
     export const restartServer = localize('DataScience.restartServer', 'Restart iPython Kernel');
     export const undo = localize('DataScience.undo', 'Undo');
@@ -189,6 +191,7 @@ export namespace DataScience {
     export const zoomOutPlot = localize('DataScience.zoomOutPlot', 'Zoom out');
     export const exportPlot = localize('DataScience.exportPlot', 'Export to different formats');
     export const deletePlot = localize('DataScience.deletePlot', 'Remove');
+    export const editSection = localize('DataScience.editSection', 'Input new cells here.');
 
 }
 
