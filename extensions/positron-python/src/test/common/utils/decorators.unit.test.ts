@@ -14,16 +14,23 @@ import { sleep } from '../../core';
 
 // tslint:disable:no-any max-func-body-length no-unnecessary-class
 suite('Common Utils - Decorators', () => {
-
-    setup(function () {
-        // This test is flakey. 
-        // tslint:disable-next-line:no-invalid-this
-        this.skip();
-    })
-
     teardown(() => {
         clearCache();
     });
+    /*
+     * Time in milliseconds (from some arbitrary point in time for current process).
+     * Don't use new Date().getTime() to calculate differences in times.
+     * This has an accuracy of around 2-20ms.
+     * However we're dealing with tests that need accuracy of 1ms.
+     * Use API that'll give us better accuracy when dealing with elapsed times.
+     *
+    * @returns {number}
+    */
+    function getHighPrecisionTime(): number {
+        const currentTime = process.hrtime();
+        // Convert seconds to ms and nanoseconds to ms.
+        return (currentTime[0] * 1000) + (currentTime[1] / 1000_000);
+    }
     function createMockVSC(pythonPath: string): typeof import('vscode') {
         return {
             workspace: {
@@ -109,18 +116,19 @@ suite('Common Utils - Decorators', () => {
     });
 
     // debounce()
+    // tslint:disable-next-line: max-classes-per-file
     class Base {
         public created: number;
         public calls: string[];
         public timestamps: number[];
         constructor() {
-            this.created = Date.now();
+            this.created = getHighPrecisionTime();
             this.calls = [];
             this.timestamps = [];
         }
         protected _addCall(funcname: string, timestamp?: number): void {
             if (!timestamp) {
-                timestamp = Date.now();
+                timestamp = getHighPrecisionTime();
             }
             this.calls.push(funcname);
             this.timestamps.push(timestamp);
@@ -149,7 +157,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         one.run();
         await waitForCalls(one.timestamps, 1);
         const delay = one.timestamps[0] - start;
@@ -169,7 +177,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         let errored = false;
         one.run().catch(() => errored = true);
         await waitForCalls(one.timestamps, 1);
@@ -191,7 +199,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         await one.run();
         await waitForCalls(one.timestamps, 1);
         const delay = one.timestamps[0] - start;
@@ -212,7 +220,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         let capturedEx: Error | undefined;
         await one.run().catch(ex => capturedEx = ex);
         await waitForCalls(one.timestamps, 1);
@@ -234,7 +242,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         let errored = false;
         one.run().catch(() => errored = true);
         one.run().catch(() => errored = true);
@@ -260,7 +268,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         await Promise.all([one.run(), one.run(), one.run(), one.run()]);
         await waitForCalls(one.timestamps, 1);
         const delay = one.timestamps[0] - start;
@@ -280,7 +288,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         let errored = false;
         one.run().catch(() => errored = true);
         await one.run();
@@ -305,7 +313,7 @@ suite('Common Utils - Decorators', () => {
         }
         const one = new One();
 
-        const start = Date.now();
+        const start = getHighPrecisionTime();
         one.run();
         one.run();
         one.run();
@@ -316,12 +324,7 @@ suite('Common Utils - Decorators', () => {
         expect(one.calls).to.deep.equal(['run']);
         expect(one.timestamps).to.have.lengthOf(one.calls.length);
     });
-    test('Debounce: multiple calls spread', async function () {
-
-        // This test is flakey.
-        // tslint:disable-next-line:no-invalid-this
-        this.skip();
-
+    test('Debounce: multiple calls spread', async () => {
         const wait = 100;
         // tslint:disable-next-line:max-classes-per-file
         class One extends Base {
