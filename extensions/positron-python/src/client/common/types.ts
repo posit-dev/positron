@@ -316,6 +316,7 @@ export interface IDataScienceSettings {
     enableAutoMoveToNextCell?: boolean;
     autoPreviewNotebooksInInteractivePane?: boolean;
     allowUnauthorizedRemoteConnection?: boolean;
+    askForKernelRestart?: boolean;
 }
 
 export const IConfigurationService = Symbol('IConfigurationService');

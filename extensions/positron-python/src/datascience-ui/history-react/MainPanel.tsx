@@ -233,6 +233,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             case HistoryMessages.RestartKernel:
                 // this should be the response from a restart.
                 this.setState({currentExecutionCount: 0});
+                if (this.variableExplorerRef.current && this.variableExplorerRef.current.state.open) {
+                    this.refreshVariables();
+                }
                 break;
 
             default:
