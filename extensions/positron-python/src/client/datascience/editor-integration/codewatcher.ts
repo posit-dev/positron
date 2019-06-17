@@ -10,6 +10,7 @@ import { IConfigurationService, IDataScienceSettings, ILogger } from '../../comm
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
 import { captureTelemetry } from '../../telemetry';
+import { ICodeExecutionHelper } from '../../terminals/types';
 import { generateCellRanges } from '../cellFactory';
 import { Commands, Telemetry } from '../constants';
 import { JupyterInstallError } from '../jupyter/jupyterInstallError';
@@ -29,7 +30,10 @@ export class CodeWatcher implements ICodeWatcher {
                 @inject(IHistoryProvider) private historyProvider : IHistoryProvider,
                 @inject(IFileSystem) private fileSystem: IFileSystem,
                 @inject(IConfigurationService) private configService: IConfigurationService,
-                @inject(IDocumentManager) private documentManager : IDocumentManager) {}
+                @inject(IDocumentManager) private documentManager : IDocumentManager,
+                @inject(ICodeExecutionHelper) private executionHelper: ICodeExecutionHelper
+        ) {
+    }
 
     public setDocument(document: TextDocument) {
         this.document = document;
@@ -165,19 +169,17 @@ export class CodeWatcher implements ICodeWatcher {
             this.fileSystem.arePathsSame(activeEditor.document.fileName, this.document.fileName)) {
 
             // Get just the text of the selection or the current line if none
-            let code: string;
-            if (activeEditor.selection.start.line === activeEditor.selection.end.line &&
-                activeEditor.selection.start.character === activeEditor.selection.end.character) {
-                const line = this.document.lineAt(activeEditor.selection.start.line);
-                code = line.text;
-            } else {
-                code = this.document.getText(new Range(activeEditor.selection.start, activeEditor.selection.end));
+            const codeToExecute = await this.executionHelper.getSelectedTextToExecute(activeEditor);
+            if (!codeToExecute) {
+                return ;
+            }
+            const normalizedCode = await this.executionHelper.normalizeLines(codeToExecute!);
+            if (!normalizedCode || normalizedCode.trim().length === 0) {
+                return;
             }
 
-            if (code && code.trim().length) {
-                const activeHistory = await this.historyProvider.getOrCreateActive();
-                await activeHistory.addCode(code, this.getFileName(), activeEditor.selection.start.line, activeEditor);
-            }
+            const activeHistory = await this.historyProvider.getOrCreateActive();
+            await activeHistory.addCode(normalizedCode, this.getFileName(), activeEditor.selection.start.line, activeEditor);
         }
     }
 
