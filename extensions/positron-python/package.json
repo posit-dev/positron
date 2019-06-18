@@ -2010,12 +2010,8 @@
                 },
                 "python.venvFolders": {
                     "type": "array",
-                    "default": [
-                        "envs",
-                        ".pyenv",
-                        ".direnv"
-                    ],
-                    "description": "Folders in your home directory to look into for virtual environments.",
+                    "default": [],
+                    "description": "Folders in your home directory to look into for virtual environments (supports pyenv, direnv and virtualenvwrapper by default).",
                     "scope": "resource",
                     "items": {
                         "type": "string"
