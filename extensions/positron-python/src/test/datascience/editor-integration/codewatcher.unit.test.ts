@@ -14,7 +14,7 @@ import { IConfigurationService, ILogger } from '../../../client/common/types';
 import { Commands, EditorContexts } from '../../../client/datascience/constants';
 import { DataScienceCodeLensProvider } from '../../../client/datascience/editor-integration/codelensprovider';
 import { CodeWatcher } from '../../../client/datascience/editor-integration/codewatcher';
-import { ICodeWatcher, IHistory, IHistoryProvider } from '../../../client/datascience/types';
+import { ICodeWatcher, IInteractiveWindow, IInteractiveWindowProvider } from '../../../client/datascience/types';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { ICodeExecutionHelper } from '../../../client/terminals/types';
 import { MockAutoSelectionService } from '../../mocks/autoSelector';
@@ -26,8 +26,8 @@ suite('DataScience Code Watcher Unit Tests', () => {
     let codeWatcher: CodeWatcher;
     let appShell: TypeMoq.IMock<IApplicationShell>;
     let logger: TypeMoq.IMock<ILogger>;
-    let historyProvider: TypeMoq.IMock<IHistoryProvider>;
-    let activeHistory: TypeMoq.IMock<IHistory>;
+    let interactiveWindowProvider: TypeMoq.IMock<IInteractiveWindowProvider>;
+    let activeInteractiveWindow: TypeMoq.IMock<IInteractiveWindow>;
     let documentManager: TypeMoq.IMock<IDocumentManager>;
     let commandManager: TypeMoq.IMock<ICommandManager>;
     let textEditor: TypeMoq.IMock<TextEditor>;
@@ -47,8 +47,8 @@ suite('DataScience Code Watcher Unit Tests', () => {
         tokenSource = new CancellationTokenSource();
         appShell = TypeMoq.Mock.ofType<IApplicationShell>();
         logger = TypeMoq.Mock.ofType<ILogger>();
-        historyProvider = TypeMoq.Mock.ofType<IHistoryProvider>();
-        activeHistory = createTypeMoq<IHistory>('history');
+        interactiveWindowProvider = TypeMoq.Mock.ofType<IInteractiveWindowProvider>();
+        activeInteractiveWindow = createTypeMoq<IInteractiveWindow>('history');
         documentManager = TypeMoq.Mock.ofType<IDocumentManager>();
         textEditor = TypeMoq.Mock.ofType<TextEditor>();
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
@@ -83,10 +83,10 @@ suite('DataScience Code Watcher Unit Tests', () => {
 
         // Setup the service container to return code watchers
         serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(ICodeWatcher))).returns(() => new CodeWatcher(appShell.object, logger.object, historyProvider.object, fileSystem.object, configService.object, documentManager.object, helper.object));
+        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(ICodeWatcher))).returns(() => new CodeWatcher(appShell.object, logger.object, interactiveWindowProvider.object, fileSystem.object, configService.object, documentManager.object, helper.object));
 
         // Setup our active history instance
-        historyProvider.setup(h => h.getOrCreateActive()).returns(() => Promise.resolve(activeHistory.object));
+        interactiveWindowProvider.setup(h => h.getOrCreateActive()).returns(() => Promise.resolve(activeInteractiveWindow.object));
 
         // Setup our active text editor
         documentManager.setup(dm => dm.activeTextEditor).returns(() => textEditor.object);
@@ -104,7 +104,7 @@ suite('DataScience Code Watcher Unit Tests', () => {
             return Promise.resolve();
         });
 
-        codeWatcher = new CodeWatcher(appShell.object, logger.object, historyProvider.object, fileSystem.object, configService.object, documentManager.object, helper.object);
+        codeWatcher = new CodeWatcher(appShell.object, logger.object, interactiveWindowProvider.object, fileSystem.object, configService.object, documentManager.object, helper.object);
     });
 
     function createTypeMoq<T>(tag: string): TypeMoq.IMock<T> {
@@ -294,7 +294,7 @@ fourth line
         codeWatcher.setDocument(document.object);
 
         // Set up our expected call to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(testString),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(testString),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(0),
                                 TypeMoq.It.is((ed: TextEditor) => {
@@ -305,7 +305,7 @@ fourth line
         await codeWatcher.runCell(testRange);
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -323,7 +323,7 @@ testing2`; // Command tests override getText, so just need the ranges here
 
         // Set up our expected calls to add code
         // RunFileInteractive should run the entire file in one block, not cell by cell like RunAllCells
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(inputText),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(inputText),
                                 TypeMoq.It.isValue('test.py'),
                                 TypeMoq.It.isValue(0),
                                 TypeMoq.It.isAny()
@@ -332,7 +332,7 @@ testing2`; // Command tests override getText, so just need the ranges here
         await codeWatcher.runFileInteractive();
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -357,13 +357,13 @@ testing2`; // Command tests override getText, so just need the ranges here
         codeWatcher.setDocument(document.object);
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(testString1),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(testString1),
                                 TypeMoq.It.isValue('test.py'),
                                 TypeMoq.It.isValue(0),
                                 TypeMoq.It.isAny()
                                 )).verifiable(TypeMoq.Times.once());
 
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(testString2),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(testString2),
                                 TypeMoq.It.isValue('test.py'),
                                 TypeMoq.It.isValue(2),
                                 TypeMoq.It.isAny()
@@ -372,7 +372,7 @@ testing2`; // Command tests override getText, so just need the ranges here
         await codeWatcher.runAllCells();
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -390,7 +390,7 @@ testing2`;
         codeWatcher.setDocument(document.object);
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue('testing2'),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue('testing2'),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(2),
                                 TypeMoq.It.is((ed: TextEditor) => {
@@ -403,7 +403,7 @@ testing2`;
         await codeWatcher.runCurrentCell();
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -430,18 +430,18 @@ testing3`;
         codeWatcher.setDocument(document.object);
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(targetText1),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(targetText1),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(2))).verifiable(TypeMoq.Times.once());
 
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(targetText2),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(targetText2),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(4))).verifiable(TypeMoq.Times.once());
 
         await codeWatcher.runCellAndAllBelow(2, 0);
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -468,18 +468,18 @@ testing2`;
         codeWatcher.setDocument(document.object);
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(targetText1),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(targetText1),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(0))).verifiable(TypeMoq.Times.once());
 
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(targetText2),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(targetText2),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(2))).verifiable(TypeMoq.Times.once());
 
         await codeWatcher.runAllCellsAbove(4, 0);
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -502,14 +502,14 @@ testing1`;
         codeWatcher.setDocument(document.object);
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(targetText),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(targetText),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(0))).verifiable(TypeMoq.Times.once());
 
         await codeWatcher.runToLine(2);
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -526,16 +526,16 @@ print('testing')`;
         codeWatcher.setDocument(document.object);
 
         // If adding empty lines nothing should be added and history should not be started
-        historyProvider.setup(h => h.getOrCreateActive()).returns(() => Promise.resolve(activeHistory.object)).verifiable(TypeMoq.Times.never());
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isAny(),
+        interactiveWindowProvider.setup(h => h.getOrCreateActive()).returns(() => Promise.resolve(activeInteractiveWindow.object)).verifiable(TypeMoq.Times.never());
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isAny(),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isAnyNumber())).verifiable(TypeMoq.Times.never());
 
         await codeWatcher.runToLine(2);
 
         // Verify function calls
-        historyProvider.verifyAll();
-        activeHistory.verifyAll();
+        interactiveWindowProvider.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -560,7 +560,7 @@ testing3`;
         codeWatcher.setDocument(document.object);
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(targetText),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(targetText),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(2))).verifiable(TypeMoq.Times.once());
 
@@ -568,7 +568,7 @@ testing3`;
         await codeWatcher.runFromLine(2);
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -589,7 +589,7 @@ testing2`;
         helper.setup(h => h.normalizeLines(TypeMoq.It.isAny())).returns(() => Promise.resolve('testing2'));
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue('testing2'),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue('testing2'),
                                 TypeMoq.It.isValue(fileName),
                                 TypeMoq.It.isValue(3),
                                 TypeMoq.It.is((ed: TextEditor) => {
@@ -604,7 +604,7 @@ testing2`;
         await codeWatcher.runSelectionOrLine(textEditor.object);
 
         // Verify function calls
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
@@ -624,7 +624,7 @@ testing2`; // Command tests override getText, so just need the ranges here
         codeWatcher.setDocument(document.object);
 
         // Set up our expected calls to add code
-        activeHistory.setup(h => h.addCode(TypeMoq.It.isValue(testString),
+        activeInteractiveWindow.setup(h => h.addCode(TypeMoq.It.isValue(testString),
                                 TypeMoq.It.isValue('test.py'),
                                 TypeMoq.It.isValue(0),
                                 TypeMoq.It.is((ed: TextEditor) => {
@@ -656,7 +656,7 @@ testing2`; // Command tests override getText, so just need the ranges here
 
         // Verify function calls
         textEditor.verifyAll();
-        activeHistory.verifyAll();
+        activeInteractiveWindow.verifyAll();
         document.verifyAll();
     });
 
