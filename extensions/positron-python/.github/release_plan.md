@@ -34,9 +34,11 @@
 - [ ] Merge pull request into `master`
 - [ ] Delete the `release` branch in the repo
 - [ ] Create a new `release` branch from `master`
-- [ ] Bump the version number to the next release in the `master` branch
+- [ ] Bump the version number to the next monthly ("YYYY.M.0-dev") release in the `master` branch
   - [ ] `package.json`
   - [ ] `package-lock.json`
+- [ ] Create a pull request against `master`
+- [ ] Merge pull request into `master`
 - [ ] Announce the code freeze is over
 - [ ] Update [Component Governance](https://dev.azure.com/ms/vscode-python/)
   - [ ] Provide details for any automatically detected npm dependencies
