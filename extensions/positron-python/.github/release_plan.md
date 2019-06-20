@@ -1,19 +1,34 @@
+# Prerequisites
+
+* Python 3.7 and higher
+* run `python3 -m pip install --user -r news/requirements.txt`
+* run `python3 -m pip install --user -r tpn/requirements.txt`
+
+
 # Release candidate (Tuesday, XXX XX)
 
 - [ ] Ensure all new features are tracked via telemetry
 - [ ] Announce the code freeze (not just to team but also to ptvsd and language server)
 - [ ] Create a branch against `master` for a pull request
-- [ ] Update the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json)
+- [ ] Change the version in [`package.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json) from a `-dev` suffix to `-rc`
 - [ ] Run `npm install` to make sure [`package-lock.json`](https://github.com/Microsoft/vscode-python/blob/master/package.json) is up-to-date
-- [ ] Update `requirements.txt` to point to latest release version of `ptvsd`.
-- [ ] Update `languageServerVersion` in `package.json` to point to the latest version of the Language Server.
+- [ ] Update `requirements.txt` to point to latest release version of [ptvsd](https://github.com/microsoft/ptvsd).
+- [ ] Update `languageServerVersion` in `package.json` to point to the latest version (???) of [the Language Server](https://github.com/Microsoft/python-language-server).
 - [ ] Update [`CHANGELOG.md`](https://github.com/Microsoft/vscode-python/blob/master/CHANGELOG.md)
-   - [ ] Create a new section for this release
-   - [ ] Copy over the "Thanks" section from the previous release and make sure it's up-to-date
    - [ ] Run [`news`](https://github.com/Microsoft/vscode-python/tree/master/news) (typically `python news --final --update CHANGELOG.md | code-insiders -`)
-   - [ ] Touch up news entries
+   - [ ] Copy over the "Thanks" section from the previous release
+   - [ ] Make sure the "Thanks" section is up-to-date (e.g. compare to versions in requirements.json)
+   - [ ] Touch up news entries (e.g. add missing periods)
    - [ ] Add any relevant news entries for ptvsd and the language server if they were updated
 - [ ] Update [`ThirdPartyNotices-Distribution.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Distribution.txt) by running [`tpn`](https://github.com/Microsoft/vscode-python/tree/master/tpn) (typically `python tpn --npm package-lock.json --npm-overrides package.datascience-ui.dependencies.json --config tpn/distribution.toml ThirdPartyNotices-Distribution.txt`)
+   * for each failure:
+      1. go to the repo (from link on NPM page) and look for the license there
+      1. copy the text from the failure into `tpn/distribution.toml`
+      1. fill in the license found in the package's repo
+   * if there is no license in a package's repo then do one of the following:
+      + check the NPM metadata and fill in the corresponding license from the OSI site
+      + ask the package maintainer (e.g. via github)
+      + ask CELA
 - [ ] Update [`ThirdPartyNotices-Repository.txt`](https://github.com/Microsoft/vscode-python/blob/master/ThirdPartyNotices-Repository.txt) as appropriate
 - [ ] Create a pull request against `master`
 - [ ] Merge pull request into `master`
