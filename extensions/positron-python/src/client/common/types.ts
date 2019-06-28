@@ -319,6 +319,7 @@ export interface IDataScienceSettings {
     autoPreviewNotebooksInInteractivePane?: boolean;
     allowUnauthorizedRemoteConnection?: boolean;
     askForKernelRestart?: boolean;
+    enablePlotViewer?: boolean;
     enableDebugging?: boolean;
 }
 
