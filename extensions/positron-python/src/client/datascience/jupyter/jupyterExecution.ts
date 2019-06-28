@@ -155,7 +155,8 @@ export class JupyterExecutionBase implements IJupyterExecution {
                         kernelSpec: startInfo.kernelSpec,
                         workingDir: options ? options.workingDir : undefined,
                         uri: options ? options.uri : undefined,
-                        purpose: options ? options.purpose : uuid()
+                        purpose: options ? options.purpose : uuid(),
+                        enableDebugging: options ? options.enableDebugging : false
                     };
 
                     traceInfo(`Connecting to process for ${options ? options.purpose : 'unknown type of'} server`);

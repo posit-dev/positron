@@ -33,6 +33,7 @@ export namespace Commands {
     export const ExecSelectionInInteractiveWindow = 'python.datascience.execSelectionInteractive';
     export const RunFileInInteractiveWindows = 'python.datascience.runFileInteractive';
     export const AddCellBelow = 'python.datascience.addcellbelow';
+    export const DebugCurrentCellPalette = 'python.datascience.debugcurrentcell.palette';
 }
 
 export namespace EditorContexts {
@@ -125,6 +126,7 @@ export enum Telemetry {
     GetPasswordFailure = 'DATASCIENCE.GET_PASSWORD_FAILURE',
     GetPasswordSuccess = 'DATASCIENCE.GET_PASSWORD_SUCCESS',
     OpenPlotViewer = 'DATASCIENCE.OPEN_PLOT_VIEWER',
+    DebugCurrentCell = 'DATASCIENCE.DEBUG_CURRENT_CELL',
     CodeLensAverageAcquisitionTime = 'DATASCIENCE.CODE_LENS_ACQ_TIME',
     ClassConstructionTime = 'DATASCIENCE.CLASS_CONSTRUCTION_TIME',
     FindJupyterCommand = 'DATASCIENCE.FIND_JUPYTER_COMMAND',
