@@ -48,6 +48,7 @@ import {
     IInteractiveWindowInfo,
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
+    IJupyterDebugger,
     IJupyterExecution,
     IJupyterVariable,
     IJupyterVariables,
@@ -113,7 +114,8 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         @inject(IInteractiveWindowProvider) private interactiveWindowProvider: IInteractiveWindowProvider,
         @inject(IDataViewerProvider) private dataExplorerProvider: IDataViewerProvider,
         @inject(IJupyterVariables) private jupyterVariables: IJupyterVariables,
-        @inject(INotebookImporter) private jupyterImporter: INotebookImporter
+        @inject(INotebookImporter) private jupyterImporter: INotebookImporter,
+        @inject(IJupyterDebugger) private jupyterDebugger: IJupyterDebugger
         ) {
         super(
             configuration,
@@ -178,7 +180,12 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
     public addCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch) : Promise<void> {
         // Call the internal method.
-        return this.submitCode(code, file, line, undefined, editor, runningStopWatch);
+        return this.submitCode(code, file, line, undefined, editor, runningStopWatch, false);
+    }
+
+    public debugCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch) : Promise<void> {
+        // Call the internal method.
+        return this.submitCode(code, file, line, undefined, editor, runningStopWatch, true);
     }
 
     // tslint:disable-next-line: no-any no-empty cyclomatic-complexity max-func-body-length
@@ -691,7 +698,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private async submitCode(code: string, file: string, line: number, id?: string, _editor?: TextEditor, runningStopWatch?: StopWatch) : Promise<void> {
+    private async submitCode(code: string, file: string, line: number, id?: string, _editor?: TextEditor, runningStopWatch?: StopWatch, debug?: boolean) : Promise<void> {
         this.logger.logInformation(`Submitting code for ${this.id}`);
 
         // Start a status item
@@ -740,6 +747,11 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                     await this.jupyterServer.setInitialDirectory(path.dirname(file));
                 }
 
+                if (debug) {
+                    // Attach our debugger
+                    await this.jupyterDebugger.startDebugging(this.jupyterServer);
+                }
+
                 // Attempt to evaluate this cell in the jupyter notebook
                 const observable = this.jupyterServer.executeObservable(code, file, line, id, false);
 
@@ -774,6 +786,12 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
             const message = localize.DataScience.executingCodeFailure().format(err);
             this.applicationShell.showErrorMessage(message);
+        } finally {
+            if (debug) {
+                if (this.jupyterServer) {
+                    await this.jupyterDebugger.stopDebugging(this.jupyterServer);
+                }
+            }
         }
     }
 
@@ -1012,6 +1030,11 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
         // Now try to create a notebook server
         this.jupyterServer = await this.jupyterExecution.connectToNotebookServer(options);
+
+        // Enable debugging support if set
+        if (options.enableDebugging && this.jupyterServer) {
+            await this.jupyterDebugger.enableAttach(this.jupyterServer);
+        }
 
         // Before we run any cells, update the dark setting
         if (this.jupyterServer) {

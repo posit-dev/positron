@@ -94,6 +94,16 @@ export class CodeWatcher implements ICodeWatcher {
         return this.codeLenses;
     }
 
+    @captureTelemetry(Telemetry.DebugCurrentCell)
+    public async debugCurrentCell() {
+        if (!this.documentManager.activeTextEditor || !this.documentManager.activeTextEditor.document) {
+            return Promise.resolve();
+        }
+
+        // Run the cell that matches the current cursor position.
+        return this.runMatchingCell(this.documentManager.activeTextEditor.selection, false, true);
+    }
+
     @captureTelemetry(Telemetry.RunAllCells)
     public async runAllCells() {
         // Run all of our code lenses, they should always be ordered in the file so we can just
@@ -245,17 +255,21 @@ export class CodeWatcher implements ICodeWatcher {
         }
     }
 
-    private async addCode(code: string, file: string, line: number, editor?: TextEditor) : Promise<void> {
+    private async addCode(code: string, file: string, line: number, editor?: TextEditor, debug?: boolean) : Promise<void> {
         try {
             const stopWatch = new StopWatch();
             const activeInteractiveWindow = await this.interactiveWindowProvider.getOrCreateActive();
-            await activeInteractiveWindow.addCode(code, file, line, editor, stopWatch);
+            if (debug) {
+                await activeInteractiveWindow.debugCode(code, file, line, editor, stopWatch);
+            } else {
+                await activeInteractiveWindow.addCode(code, file, line, editor, stopWatch);
+            }
         } catch (err) {
             this.handleError(err);
         }
     }
 
-    private async runMatchingCell(range: Range, advance?: boolean) {
+    private async runMatchingCell(range: Range, advance?: boolean, debug?: boolean) {
         const currentRunCellLens = this.getCurrentCellLens(range.start);
         const nextRunCellLens = this.getNextCellLens(range.start);
 
@@ -279,7 +293,7 @@ export class CodeWatcher implements ICodeWatcher {
             if (this.document) {
                 // Use that to get our code.
                 const code = this.document.getText(currentRunCellLens.range);
-                await this.addCode(code, this.getFileName(), range.start.line, this.documentManager.activeTextEditor);
+                await this.addCode(code, this.getFileName(), range.start.line, this.documentManager.activeTextEditor, debug);
             }
         }
     }

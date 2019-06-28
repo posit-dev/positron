@@ -345,6 +345,7 @@ export interface IEventNamePropertyMapping {
     [Telemetry.CopySourceCode]: never | undefined;
     [Telemetry.DataScienceSettings]: JSONObject;
     [Telemetry.DataViewerFetchTime]: never | undefined;
+    [Telemetry.DebugCurrentCell]: never | undefined;
     [Telemetry.DeleteAllCells]: never | undefined;
     [Telemetry.DeleteCell]: never | undefined;
     [Telemetry.FindJupyterCommand]: {command: string};
