@@ -56,6 +56,7 @@ import { TerminalHelper } from './terminal/helper';
 import { SettingsShellDetector } from './terminal/shellDetectors/settingsShellDetector';
 import { TerminalNameShellDetector } from './terminal/shellDetectors/terminalNameShellDetector';
 import { UserEnvironmentShellDetector } from './terminal/shellDetectors/userEnvironmentShellDetector';
+import { VSCEnvironmentShellDetector } from './terminal/shellDetectors/vscEnvironmentShellDetector';
 import {
     IShellDetector,
     ITerminalActivationCommandProvider,
@@ -136,4 +137,5 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<IShellDetector>(IShellDetector, TerminalNameShellDetector);
     serviceManager.addSingleton<IShellDetector>(IShellDetector, SettingsShellDetector);
     serviceManager.addSingleton<IShellDetector>(IShellDetector, UserEnvironmentShellDetector);
+    serviceManager.addSingleton<IShellDetector>(IShellDetector, VSCEnvironmentShellDetector);
 }
