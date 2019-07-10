@@ -74,7 +74,8 @@ export enum ProductType {
     Formatter = 'Formatter',
     TestFramework = 'TestFramework',
     RefactoringLibrary = 'RefactoringLibrary',
-    WorkspaceSymbols = 'WorkspaceSymbols'
+    WorkspaceSymbols = 'WorkspaceSymbols',
+    DataScience = 'DataScience'
 }
 
 export enum Product {
@@ -94,7 +95,8 @@ export enum Product {
     rope = 14,
     isort = 15,
     black = 16,
-    bandit = 17
+    bandit = 17,
+    jupyter = 18
 }
 
 export enum ModuleNamePurpose {

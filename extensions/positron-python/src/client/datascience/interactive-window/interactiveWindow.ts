@@ -791,11 +791,11 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 traceInfo(`Finished execution for ${id}`);
             }
         } catch (err) {
-            status.dispose();
-
             const message = localize.DataScience.executingCodeFailure().format(err);
             this.applicationShell.showErrorMessage(message);
         } finally {
+            status.dispose();
+
             if (debug) {
                 if (this.jupyterServer) {
                     await this.jupyterDebugger.stopDebugging(this.jupyterServer);
@@ -1207,14 +1207,13 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             if (!usable) {
                 // Not loading anymore
                 status.dispose();
+                this.dispose();
 
                 // Indicate failing.
                 throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
             }
-
             // Then load the jupyter server
             await this.loadJupyterServer();
-
         } catch (e) {
             if (e instanceof JupyterSelfCertsError) {
                 // On a self cert error, warn the user and ask if they want to change the setting
