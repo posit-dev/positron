@@ -134,7 +134,7 @@ suite('DataScience Code Watcher Unit Tests', () => {
         return result;
     }
 
-    function verifyCodeLensesAtPosition(codeLenses: CodeLens[], startLensIndex: number, targetRange: Range, firstCell: boolean = false) {
+    function verifyCodeLensesAtPosition(codeLenses: CodeLens[], startLensIndex: number, targetRange: Range, firstCell: boolean = false, markdownCell: boolean = false) {
         if (codeLenses[startLensIndex].command) {
             expect(codeLenses[startLensIndex].command!.command).to.be.equal(Commands.RunCell, 'Run Cell code lens command incorrect');
         }
@@ -147,11 +147,13 @@ suite('DataScience Code Watcher Unit Tests', () => {
             expect(codeLenses[startLensIndex + 1].range).to.be.deep.equal(targetRange, 'Run Above code lens range incorrect');
         }
 
-        const indexAdd = firstCell ? 1 : 2;
-        if (codeLenses[startLensIndex + indexAdd].command) {
-            expect(codeLenses[startLensIndex + indexAdd].command!.command).to.be.equal(Commands.DebugCell, 'Debug command incorrect');
+        if (!markdownCell) {
+            const indexAdd = firstCell ? 1 : 2;
+            if (codeLenses[startLensIndex + indexAdd].command) {
+                expect(codeLenses[startLensIndex + indexAdd].command!.command).to.be.equal(Commands.DebugCell, 'Debug command incorrect');
+            }
+            expect(codeLenses[startLensIndex + indexAdd].range).to.be.deep.equal(targetRange, 'Debug code lens range incorrect');
         }
-        expect(codeLenses[startLensIndex + indexAdd].range).to.be.deep.equal(targetRange, 'Debug code lens range incorrect');
     }
 
     test('Add a file with just a #%% mark to a code watcher', () => {
@@ -254,11 +256,11 @@ fourth line
 
         // Verify code lenses
         const codeLenses = codeWatcher.getCodeLenses();
-        expect(codeLenses.length).to.be.equal(8, 'Incorrect count of code lenses');
+        expect(codeLenses.length).to.be.equal(7, 'Incorrect count of code lenses');
 
         verifyCodeLensesAtPosition(codeLenses, 0, new Range(3, 0, 5, 0), true);
         verifyCodeLensesAtPosition(codeLenses, 2, new Range(6, 0, 8, 0));
-        verifyCodeLensesAtPosition(codeLenses, 5, new Range(9, 0, 10, 12));
+        verifyCodeLensesAtPosition(codeLenses, 5, new Range(9, 0, 10, 12), false, true);
 
         // Verify function calls
         document.verifyAll();
@@ -292,11 +294,11 @@ fourth line
 
         // Verify code lenses
         const codeLenses = codeWatcher.getCodeLenses();
-        expect(codeLenses.length).to.be.equal(8, 'Incorrect count of code lenses');
+        expect(codeLenses.length).to.be.equal(7, 'Incorrect count of code lenses');
 
         verifyCodeLensesAtPosition(codeLenses, 0, new Range(3, 0, 5, 0), true);
         verifyCodeLensesAtPosition(codeLenses, 2, new Range(6, 0, 8, 0));
-        verifyCodeLensesAtPosition(codeLenses, 5, new Range(9, 0, 10, 12));
+        verifyCodeLensesAtPosition(codeLenses, 5, new Range(9, 0, 10, 12), false, true);
 
         // Verify function calls
         document.verifyAll();

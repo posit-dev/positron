@@ -66,7 +66,7 @@ export class CodeLensFactory implements ICodeLensFactory, IInteractiveWindowList
 
         ranges.forEach(range => {
             commands.forEach(c => {
-                const codeLens = this.createCodeLens(document, range.range, c, firstCell);
+                const codeLens = this.createCodeLens(document, range, c, firstCell);
                 if (codeLens) {
                     codeLenses.push(codeLens);
                 }
@@ -86,10 +86,11 @@ export class CodeLensFactory implements ICodeLensFactory, IInteractiveWindowList
         return [Commands.RunCurrentCell, Commands.RunAllCellsAbove, Commands.DebugCell];
     }
 
-    private createCodeLens(document: TextDocument, range: Range, commandName: string, isFirst: boolean): CodeLens | undefined {
+    private createCodeLens(document: TextDocument, cellRange: { range: Range; cell_type: string }, commandName: string, isFirst: boolean): CodeLens | undefined {
         // We only support specific commands
         // Be careful here. These arguments will be serialized during liveshare sessions
         // and so shouldn't reference local objects.
+        const { range, cell_type } = cellRange;
         switch (commandName) {
             case Commands.RunCurrentCellAndAddBelow:
                 return this.generateCodeLens(
@@ -109,6 +110,8 @@ export class CodeLensFactory implements ICodeLensFactory, IInteractiveWindowList
                     localize.DataScience.debugCellCommandTitle());
 
             case Commands.DebugCell:
+                // If it's not a code cell (e.g. markdown), don't add the "Debug cell" action.
+                if (cell_type !== 'code') { break; }
                 return this.generateCodeLens(
                     range,
                     Commands.DebugCell,
@@ -147,6 +150,7 @@ export class CodeLensFactory implements ICodeLensFactory, IInteractiveWindowList
                     Commands.RunCellAndAllBelow,
                     localize.DataScience.runCellAndAllBelowLensCommandTitle(),
                     [document.fileName, range.start.line, range.start.character]);
+
             default:
                 traceWarning(`Invalid command for code lens ${commandName}`);
                 break;
