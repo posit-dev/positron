@@ -185,6 +185,24 @@
                 "category": "Python"
             },
             {
+                "command": "python.execInTerminal-icon1",
+                "title": "%python.command.python.execInTerminal.title%",
+                "category": "Python",
+                "icon": {
+                    "light": "resources/light/start.svg",
+                    "dark": "resources/dark/start.svg"
+                }
+            },
+            {
+                "command": "python.execInTerminal-icon2",
+                "title": "%python.command.python.execInTerminal.title%",
+                "category": "Python",
+                "icon": {
+                    "light": "resources/light/run-file.svg",
+                    "dark": "resources/dark/run-file.svg"
+                }
+            },
+            {
                 "command": "python.setInterpreter",
                 "title": "%python.command.python.setInterpreter.title%",
                 "category": "Python"
@@ -564,6 +582,20 @@
                     "when": "editorFocus && editorLangId == python && python.datascience.hascodecells && python.datascience.featureenabled",
                     "command": "python.datascience.exportfileandoutputasnotebook",
                     "group": "Python3@3"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "python.execInTerminal-icon1",
+                    "title": "%python.command.python.execInTerminal.title%",
+                    "group": "navigation",
+                    "when": "resourceLangId == python && python.showPlayIcon1"
+                },
+                {
+                    "command": "python.execInTerminal-icon2",
+                    "title": "%python.command.python.execInTerminal.title%",
+                    "group": "navigation",
+                    "when": "resourceLangId == python && python.showPlayIcon2"
                 }
             ],
             "explorer/context": [
