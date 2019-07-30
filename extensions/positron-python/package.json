@@ -352,11 +352,6 @@
                 "category": "Python"
             },
             {
-                "command": "python.datascience.debugcell",
-                "title": "%python.command.python.datascience.debugcell.title%",
-                "category": "Python"
-            },
-            {
                 "command": "python.datascience.runcurrentcelladvance",
                 "title": "%python.command.python.datascience.runcurrentcelladvance.title%",
                 "category": "Python"
@@ -389,6 +384,11 @@
             {
                 "command": "python.datascience.runFileInteractive",
                 "title": "%python.command.python.datascience.runFileInteractive.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.datascience.debugFileInteractive",
+                "title": "%python.command.python.datascience.debugFileInteractive.title%",
                 "category": "Python"
             },
             {
@@ -720,14 +720,14 @@
                     "when": "python.datascience.featureenabled"
                 },
                 {
-                    "command": "python.datascience.runcell",
-                    "title": "%python.command.python.datascience.runcell.title%",
+                    "command": "python.datascience.runFileInteractive",
+                    "title": "%python.command.python.datascience.runFileInteractive.title%",
                     "category": "Python",
                     "when": "python.datascience.featureenabled"
                 },
                 {
-                    "command": "python.datascience.runFileInteractive",
-                    "title": "%python.command.python.datascience.runFileInteractive.title%",
+                    "command": "python.datascience.debugFileInteractive",
+                    "title": "%python.command.python.datascience.debugFileInteractive.title%",
                     "category": "Python",
                     "when": "python.datascience.featureenabled"
                 },
@@ -1439,7 +1439,7 @@
                 "python.dataScience.stopOnFirstLineWhileDebugging": {
                     "type": "boolean",
                     "default": true,
-                    "description": "When debugging a cell, stop on the first line if no other breakpoints in the current cell.",
+                    "description": "When debugging a cell, stop on the first line.",
                     "scope": "resource"
                 },
                 "python.dataScience.remoteDebuggerPort": {
