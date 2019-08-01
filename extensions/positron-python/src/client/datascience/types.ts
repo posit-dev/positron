@@ -96,6 +96,12 @@ export interface INotebookExecutionLogger {
     postExecute(cell: ICell, silent: boolean): Promise<void>;
 }
 
+export const IGatherExecution = Symbol('IGatherExecution');
+export interface IGatherExecution {
+    enabled: boolean;
+    gatherCode(vscCell: ICell): string;
+}
+
 export const IJupyterExecution = Symbol('IJupyterExecution');
 export interface IJupyterExecution extends IAsyncDisposable {
     sessionChanged: Event<void>;
@@ -422,8 +428,8 @@ export interface ISourceMapRequest {
 }
 
 export interface ICellHash {
-    line: number;       // 1 based
-    endLine: number;    // 1 based and inclusive
+    line: number; // 1 based
+    endLine: number; // 1 based and inclusive
     runtimeLine: number; // Line in the jupyter source to start at
     hash: string;
     executionCount: number;
