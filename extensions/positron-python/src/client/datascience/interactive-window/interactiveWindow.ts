@@ -24,9 +24,9 @@ import {
 import { CancellationError } from '../../common/cancellation';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
 import { ContextKey } from '../../common/contextKey';
-import { traceInfo, traceWarning } from '../../common/logger';
+import { traceError, traceInfo, traceWarning } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
-import { IConfigurationService, IDisposableRegistry, ILogger } from '../../common/types';
+import { IConfigurationService, IDisposableRegistry } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { StopWatch } from '../../common/utils/stopWatch';
@@ -103,7 +103,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         @inject(IDisposableRegistry) private disposables: IDisposableRegistry,
         @inject(ICodeCssGenerator) cssGenerator: ICodeCssGenerator,
         @inject(IThemeFinder) themeFinder: IThemeFinder,
-        @inject(ILogger) private logger: ILogger,
         @inject(IStatusProvider) private statusProvider: IStatusProvider,
         @inject(IJupyterExecution) private jupyterExecution: IJupyterExecution,
         @inject(IFileSystem) private fileSystem: IFileSystem,
@@ -448,7 +447,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 }
             } catch (err) {
                 status.dispose();
-                this.logger.logError(err);
+                traceError(err);
                 this.applicationShell.showErrorMessage(err);
             }
         }
@@ -696,7 +695,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             } else {
                 // Show the error message
                 this.applicationShell.showErrorMessage(exc);
-                this.logger.logError(exc);
+                traceError(exc);
             }
         } finally {
             status.dispose();
@@ -745,9 +744,8 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     }
 
     private async submitCode(code: string, file: string, line: number, id?: string, _editor?: TextEditor, debug?: boolean): Promise<boolean> {
-        this.logger.logInformation(`Submitting code for ${this.id}`);
+        traceInfo(`Submitting code for ${this.id}`);
         let result = true;
-
         // Start a status item
         const status = this.setStatus(localize.DataScience.executingCode());
 
@@ -769,7 +767,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
             // Make sure we're loaded first.
             try {
-                this.logger.logInformation('Waiting for jupyter server and web panel ...');
+                traceInfo('Waiting for jupyter server and web panel ...');
                 await this.loadPromise;
             } catch (exc) {
                 // We should dispose ourselves if the load fails. Othewise the user
@@ -845,7 +843,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
         return result;
     }
-
     private setStatus = (message: string): Disposable => {
         const result = this.statusProvider.set(message);
         this.potentiallyUnfinishedStatus.push(result);
@@ -1065,14 +1062,14 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                     }
                 });
             } catch (exc) {
-                this.logger.logError('Error in exporting notebook file');
+                traceError('Error in exporting notebook file');
                 this.applicationShell.showInformationMessage(localize.DataScience.exportDialogFailed().format(exc));
             }
         }
     }
 
     private async loadJupyterServer(_restart?: boolean): Promise<void> {
-        this.logger.logInformation('Getting jupyter server options ...');
+        traceInfo('Getting jupyter server options ...');
 
         // Wait for the webpanel to pass back our current theme darkness
         const knownDark = await this.isDark();
@@ -1080,7 +1077,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         // Extract our options
         const options = await this.interactiveWindowProvider.getNotebookOptions();
 
-        this.logger.logInformation('Connecting to jupyter server ...');
+        traceInfo('Connecting to jupyter server ...');
 
         // Now try to create a notebook server
         this.jupyterServer = await this.jupyterExecution.connectToNotebookServer(options);
@@ -1090,7 +1087,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             await this.jupyterServer.setMatplotLibStyle(knownDark);
         }
 
-        this.logger.logInformation('Connected to jupyter server.');
+        traceInfo('Connected to jupyter server.');
     }
 
     private generateSysInfoCell = async (reason: SysInfoReason): Promise<ICell | undefined> => {
@@ -1141,7 +1138,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 return localize.DataScience.pythonNewHeader();
                 break;
             default:
-                this.logger.logError('Invalid SysInfoReason');
+                traceError('Invalid SysInfoReason');
                 return '';
                 break;
         }
@@ -1160,7 +1157,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
     private addSysInfo = async (reason: SysInfoReason): Promise<void> => {
         if (!this.addSysInfoPromise || reason !== SysInfoReason.Start) {
-            this.logger.logInformation(`Adding sys info for ${this.id} ${reason}`);
+            traceInfo(`Adding sys info for ${this.id} ${reason}`);
             const deferred = createDeferred<boolean>();
             this.addSysInfoPromise = deferred;
 
@@ -1183,10 +1180,10 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 }
             }
 
-            this.logger.logInformation(`Sys info for ${this.id} ${reason} complete`);
+            traceInfo(`Sys info for ${this.id} ${reason} complete`);
             deferred.resolve(true);
         } else if (this.addSysInfoPromise) {
-            this.logger.logInformation(`Wait for sys info for ${this.id} ${reason}`);
+            traceInfo(`Wait for sys info for ${this.id} ${reason}`);
             await this.addSysInfoPromise.promise;
         }
     }

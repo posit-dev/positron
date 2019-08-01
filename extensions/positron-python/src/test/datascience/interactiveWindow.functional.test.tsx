@@ -325,9 +325,10 @@ for _ in range(50):
 
         // find the buttons on the cell itself
         const ImageButtons = afterUndo.at(afterUndo.length - 2).find(ImageButton);
-        assert.equal(ImageButtons.length, 3, 'Cell buttons not found');
-        const goto = ImageButtons.at(0);
-        const deleteButton = ImageButtons.at(2);
+        assert.equal(ImageButtons.length, 4, 'Cell buttons not found');
+
+        const goto = ImageButtons.at(1);
+        const deleteButton = ImageButtons.at(3);
 
         // Make sure goto works
         await waitForMessageResponse(() => goto.simulate('click'));
@@ -486,8 +487,8 @@ for _ in range(50):
         await enterInput(wrapper, 'a=1\na');
         verifyHtmlOnCell(wrapper, '<span>1</span>', CellPosition.Last);
         const ImageButtons = getLastOutputCell(wrapper).find(ImageButton);
-        assert.equal(ImageButtons.length, 3, 'Cell buttons not found');
-        const copyToSource = ImageButtons.at(1);
+        assert.equal(ImageButtons.length, 4, 'Cell buttons not found');
+        const copyToSource = ImageButtons.at(2);
 
         // Then click the copy to source button
         await waitForMessageResponse(() => copyToSource.simulate('click'));
@@ -508,8 +509,8 @@ for _ in range(50):
         // Then delete the node
         const lastCell = getLastOutputCell(wrapper);
         const ImageButtons = lastCell.find(ImageButton);
-        assert.equal(ImageButtons.length, 3, 'Cell buttons not found');
-        const deleteButton = ImageButtons.at(2);
+        assert.equal(ImageButtons.length, 4, 'Cell buttons not found');
+        const deleteButton = ImageButtons.at(3);
 
         // Make sure delete works
         const afterDelete = await getCellResults(wrapper, 1, async () => {
@@ -604,6 +605,45 @@ for _ in range(50):
             assert.equal(png.length, 1, 'Wrong number of pngs');
         }
 
+    }, () => { return ioc; });
+
+    runMountedTest('Gather code run from text editor', async (wrapper) => {
+        // Enter some code.
+        const code = '#%%\na=1\na';
+        await addCode(getOrCreateInteractiveWindow, wrapper, code);
+        addMockData(ioc, code, undefined);
+        const ImageButtons = getLastOutputCell(wrapper).find(ImageButton); // This isn't rendering correctly
+        assert.equal(ImageButtons.length, 4, 'Cell buttons not found');
+        const gatherCode = ImageButtons.at(0);
+
+        // Then click the gather code button
+        await waitForMessageResponse(() => gatherCode.simulate('click'));
+        const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
+        assert.notEqual(docManager.activeTextEditor, undefined);
+        if (docManager.activeTextEditor) {
+            assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+        }
+    }, () => { return ioc; });
+
+    runMountedTest('Gather code run from input box', async (wrapper) => {
+        // Create an interactive window so that it listens to the results.
+        const interactiveWindow = await getOrCreateInteractiveWindow();
+        await interactiveWindow.show();
+
+        // Then enter some code.
+        await enterInput(wrapper, 'a=1\na');
+        verifyHtmlOnCell(wrapper, '<span>1</span>', CellPosition.Last);
+        const ImageButtons = getLastOutputCell(wrapper).find(ImageButton);
+        assert.equal(ImageButtons.length, 4, 'Cell buttons not found');
+        const gatherCode = ImageButtons.at(0);
+
+        // Then click the gather code button
+        await waitForMessageResponse(() => gatherCode.simulate('click'));
+        const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
+        assert.notEqual(docManager.activeTextEditor, undefined);
+        if (docManager.activeTextEditor) {
+            assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+        }
     }, () => { return ioc; });
 
     runMountedTest('Copy back to source', async (_wrapper) => {

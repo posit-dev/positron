@@ -58,6 +58,7 @@ export namespace InteractiveWindowMessages {
     export const ShowPlot = 'show_plot';
     export const StartDebugging = 'start_debugging';
     export const StopDebugging = 'stop_debugging';
+    export const GatherCode = 'gather_code';
     export const ScrollToCell = 'scroll_to_cell';
 }
 
@@ -231,5 +232,6 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.ShowPlot]: string | undefined;
     public [InteractiveWindowMessages.StartDebugging]: never | undefined;
     public [InteractiveWindowMessages.StopDebugging]: never | undefined;
+    public [InteractiveWindowMessages.GatherCode]: ICell;
     public [InteractiveWindowMessages.ScrollToCell]: IScrollToCell;
 }

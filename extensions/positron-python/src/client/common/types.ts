@@ -291,6 +291,12 @@ export interface IAnalysisSettings {
     readonly logLevel: LogLevel;
 }
 
+interface IGatherRule {
+    objectName?: string;
+    functionName: string;
+    doesNotModify: string[] | number[];
+}
+
 export interface IDataScienceSettings {
     allowImportFromNotebook: boolean;
     enabled: boolean;
@@ -306,6 +312,8 @@ export interface IDataScienceSettings {
     showCellInputCode: boolean;
     collapseCellInputCodeByDefault: boolean;
     maxOutputSize: number;
+    enableGather: boolean;
+    gatherRules?: IGatherRule[];
     sendSelectionToInteractiveWindow: boolean;
     markdownRegularExpression: string;
     codeRegularExpression: string;

@@ -43,9 +43,11 @@ interface ICellProps {
     monacoTheme: string | undefined;
     editorOptions: monacoEditor.editor.IEditorOptions;
     editExecutionCount: number;
+    enableGather: boolean;
     gotoCode(): void;
     copyCode(): void;
     delete(): void;
+    gatherCode(): void;
     submitNewCode(code: string): void;
     onCodeChange(changes: monacoEditor.editor.IModelContentChange[], cellId: string, modelId: string): void;
     onCodeCreated(code: string, file: string, cellId: string, modelId: string): void;
@@ -60,6 +62,7 @@ export interface ICellViewModel {
     inputBlockText: string;
     inputBlockCollapseNeeded: boolean;
     editable: boolean;
+    gathered: boolean;
     directInput?: boolean;
     inputBlockToggled(id: string): void;
 }
@@ -154,6 +157,10 @@ export class Cell extends React.Component<ICellProps> {
         return getLocString('DataScience.deleteButtonTooltip', 'Remove cell');
     }
 
+    private getGatherCodeString = () => {
+        return getLocString('DataScience.gatherCodeTooltip', 'Gather code');
+    }
+
     private getGoToCodeString = () => {
         return getLocString('DataScience.gotoCodeButtonTooltip', 'Go to code');
     }
@@ -198,6 +205,9 @@ export class Cell extends React.Component<ICellProps> {
             return (
                 <div className={cellWrapperClass} role={this.props.role} onClick={this.onMouseClick}>
                     <MenuBar baseTheme={this.props.baseTheme}>
+                        <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gatherCode} tooltip={this.getGatherCodeString()} hidden={!this.props.enableGather || this.props.cellVM.editable || !this.isCodeCell()}>
+                            <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.OpenInNewWindow} />
+                        </ImageButton>
                         <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gotoCode} tooltip={this.getGoToCodeString()} hidden={hasNoSource}>
                             <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GoToSourceCode} />
                         </ImageButton>

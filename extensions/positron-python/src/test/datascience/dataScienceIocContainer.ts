@@ -104,6 +104,8 @@ import { CodeLensFactory } from '../../client/datascience/editor-integration/cod
 import { DataScienceCodeLensProvider } from '../../client/datascience/editor-integration/codelensprovider';
 import { CodeWatcher } from '../../client/datascience/editor-integration/codewatcher';
 import { DataScienceErrorHandler } from '../../client/datascience/errorHandler/errorHandler';
+import { GatherExecution } from '../../client/datascience/gather/gather';
+import { GatherListener } from '../../client/datascience/gather/gatherListener';
 import {
     DotNetIntellisenseProvider
 } from '../../client/datascience/interactive-window/intellisense/dotNetIntellisenseProvider';
@@ -139,6 +141,7 @@ import {
     IDataViewerProvider,
     IDebugLocationTracker,
     IDebugLocationTrackerFactory,
+    IGatherExecution,
     IInteractiveWindow,
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
@@ -375,8 +378,11 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         this.serviceManager.addSingleton<IDebugService>(IDebugService, MockDebuggerService);
         this.serviceManager.addSingleton<ICellHashProvider>(ICellHashProvider, CellHashProvider);
         this.serviceManager.addBinding(ICellHashProvider, IInteractiveWindowListener);
+        this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, GatherListener);
         this.serviceManager.addBinding(ICellHashProvider, INotebookExecutionLogger);
         this.serviceManager.addBinding(IJupyterDebugger, ICellHashListener);
+        this.serviceManager.addSingleton<IGatherExecution>(IGatherExecution, GatherExecution);
+        this.serviceManager.addBinding(IGatherExecution, INotebookExecutionLogger);
         this.serviceManager.addSingleton<ICodeLensFactory>(ICodeLensFactory, CodeLensFactory);
         this.serviceManager.addSingleton<IShellDetector>(IShellDetector, TerminalNameShellDetector);
 
@@ -410,6 +416,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             showCellInputCode: true,
             collapseCellInputCodeByDefault: true,
             allowInput: true,
+            enableGather: true,
             maxOutputSize: 400,
             errorBackgroundColor: '#FFFFFF',
             sendSelectionToInteractiveWindow: false,

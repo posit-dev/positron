@@ -69,7 +69,8 @@ export class MockDocumentManager implements IDocumentManager {
     }
     public showTextDocument(_document: TextDocument, _column?: ViewColumn, _preserveFocus?: boolean): Thenable<TextEditor>;
     public showTextDocument(_document: TextDocument | Uri, _options?: TextDocumentShowOptions): Thenable<TextEditor>;
-    public showTextDocument(_document: any, _column?: any, _preserveFocus?: any): Thenable<TextEditor> {
+    public showTextDocument(document: any, _column?: any, _preserveFocus?: any): Thenable<TextEditor> {
+        this.visibleTextEditors.push(document);
         const mockEditor = new MockEditor(this, this.lastDocument as MockDocument);
         this.activeTextEditor = mockEditor;
         return Promise.resolve(mockEditor);
@@ -77,6 +78,10 @@ export class MockDocumentManager implements IDocumentManager {
     public openTextDocument(_fileName: string | Uri): Thenable<TextDocument>;
     public openTextDocument(_options?: { language?: string; content?: string }): Thenable<TextDocument>;
     public openTextDocument(_options?: any): Thenable<TextDocument> {
+        if (_options && _options.content) {
+            const doc = new MockDocument(_options.content, 'Untitled-1', this.saveDocument);
+            this.textDocuments.push(doc);
+        }
         return Promise.resolve(this.lastDocument);
     }
     public applyEdit(_edit: WorkspaceEdit): Thenable<boolean> {
