@@ -14,6 +14,7 @@ import { StopWatch } from '../common/utils/stopWatch';
 import { Telemetry } from '../datascience/constants';
 import { ConsoleType } from '../debugger/types';
 import { LinterId } from '../linters/types';
+import { TestProvider } from '../testing/common/types';
 import { EventName } from './constants';
 import {
     CodeExecutionTelemetry,
@@ -488,6 +489,17 @@ export interface IEventNamePropertyMapping {
     [EventName.UNITTEST_STOP]: never | undefined;
     [EventName.UNITTEST_DISABLE]: never | undefined;
     [EventName.UNITTEST_VIEW_OUTPUT]: never | undefined;
+    /**
+     * Tracks which testing framework has been enabled by the user.
+     * Telemetry is sent when settings have been modified by the user.
+     * Values sent includ:
+     * unittest -   If this value is `true`, then unittest has been enabled by the user.
+     * pytest   -   If this value is `true`, then pytest has been enabled by the user.
+     * nosetest -   If this value is `true`, then nose has been enabled by the user.
+     * @type {(never | undefined)}
+     * @memberof IEventNamePropertyMapping
+     */
+    [EventName.UNITTEST_ENABLED]: Partial<Record<TestProvider, undefined | boolean>>;
     [EventName.UPDATE_PYSPARK_LIBRARY]: never | undefined;
     [EventName.WORKSPACE_SYMBOLS_BUILD]: never | undefined;
     [EventName.WORKSPACE_SYMBOLS_GO_TO]: never | undefined;

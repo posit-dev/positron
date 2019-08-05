@@ -10,8 +10,30 @@ import { NugetPackage } from '../common/nuget/types';
 import { IDisposable, IOutputChannel, LanguageServerDownloadChannels, Resource } from '../common/types';
 
 export const IExtensionActivationManager = Symbol('IExtensionActivationManager');
+/**
+ * Responsible for activation of extension.
+ *
+ * @export
+ * @interface IExtensionActivationManager
+ * @extends {IDisposable}
+ */
 export interface IExtensionActivationManager extends IDisposable {
+    /**
+     * Method invoked when extension activates (invoked once).
+     *
+     * @returns {Promise<void>}
+     * @memberof IExtensionActivationManager
+     */
     activate(): Promise<void>;
+    /**
+     * Method invoked when a workspace is loaded.
+     * This is where we place initialization scripts for each workspace.
+     * (e.g. if we need to run code for each workspace, then this is where that happens).
+     *
+     * @param {Resource} resource
+     * @returns {Promise<void>}
+     * @memberof IExtensionActivationManager
+     */
     activateWorkspace(resource: Resource): Promise<void>;
 }
 
