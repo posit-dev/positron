@@ -75,6 +75,7 @@ import {
     ISubmitNewCell,
     SysInfoReason
 } from './interactiveWindowTypes';
+import { CellMatcher } from '../cellMatcher';
 
 @injectable()
 export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> implements IInteractiveWindow {
@@ -744,8 +745,15 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     }
 
     private async submitCode(code: string, file: string, line: number, id?: string, _editor?: TextEditor, debug?: boolean): Promise<boolean> {
-        traceInfo(`Submitting code for ${this.id}`);
         let result = true;
+
+        // Do not execute or render empty code cells
+        const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
+        if (cellMatcher.stripFirstMarker(code).length === 0) {
+            return result;
+        }
+
+        traceInfo(`Submitting code for ${this.id}`);
         // Start a status item
         const status = this.setStatus(localize.DataScience.executingCode());
 
