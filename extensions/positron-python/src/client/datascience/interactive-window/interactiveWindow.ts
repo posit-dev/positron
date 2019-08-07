@@ -570,23 +570,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         this.addMessageImpl(message, 'preview');
     }
 
-    private async checkPandas(): Promise<boolean> {
-        const pandasVersion = await this.dataExplorerProvider.getPandasVersion();
-        if (!pandasVersion) {
-            sendTelemetryEvent(Telemetry.PandasNotInstalled);
-            // Warn user that there is no pandas.
-            this.applicationShell.showErrorMessage(localize.DataScience.pandasRequiredForViewing());
-            return false;
-        } else if (pandasVersion.major < 1 && pandasVersion.minor < 20) {
-            sendTelemetryEvent(Telemetry.PandasTooOld);
-            // Warn user that we cannot start because pandas is too old.
-            const versionStr = `${pandasVersion.major}.${pandasVersion.minor}.${pandasVersion.build}`;
-            this.applicationShell.showErrorMessage(localize.DataScience.pandasTooOldForViewingFormat().format(versionStr));
-            return false;
-        }
-        return true;
-    }
-
     private shouldAskForLargeData(): boolean {
         const settings = this.configuration.getSettings();
         return settings && settings.datascience && settings.datascience.askForLargeDataFrames === true;
@@ -618,7 +601,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
     private async showDataViewer(request: IShowDataViewer): Promise<void> {
         try {
-            if (await this.checkPandas() && await this.checkColumnSize(request.columnSize)) {
+            if (await this.checkColumnSize(request.columnSize)) {
                 await this.dataExplorerProvider.create(request.variableName);
             }
         } catch (e) {
