@@ -17,7 +17,6 @@ import { LinterId } from '../linters/types';
 import { TestProvider } from '../testing/common/types';
 import { EventName } from './constants';
 import {
-    CodeExecutionTelemetry,
     DebuggerConfigurationPromtpsTelemetry,
     DiagnosticsAction,
     DiagnosticsMessages,
@@ -400,8 +399,39 @@ export interface IEventNamePropertyMapping {
     [EventName.DIAGNOSTICS_MESSAGE]: DiagnosticsMessages;
     [EventName.EDITOR_LOAD]: EditorLoadTelemetry;
     [EventName.ENVFILE_VARIABLE_SUBSTITUTION]: never | undefined;
-    [EventName.EXECUTION_CODE]: CodeExecutionTelemetry;
-    [EventName.EXECUTION_DJANGO]: CodeExecutionTelemetry;
+    /**
+     * Telemetry Event sent when user sends code to be executed in the terminal.
+     *
+     */
+    [EventName.EXECUTION_CODE]: {
+        /**
+         * Whether the user executed a file in the terminal or just the selected text.
+         *
+         * @type {('file' | 'selection')}
+         */
+        scope: 'file' | 'selection';
+        /**
+         * How was the code executed (through the command or by clicking the `Run File` icon).
+         *
+         * @type {('command' | 'icon')}
+         */
+        trigger?: 'command' | 'icon';
+    };
+    /**
+     * Telemetry Event sent when user executes code against Django Shell.
+     * Values sent:
+     * scope
+     *
+     */
+    [EventName.EXECUTION_DJANGO]: {
+        /**
+         * If `file`, then the file was executed in the django shell.
+         * If `selection`, then the selected text was sent to the django shell.
+         *
+         * @type {('file' | 'selection')}
+         */
+        scope: 'file' | 'selection';
+    };
     [EventName.FORMAT]: FormatTelemetry;
     [EventName.FORMAT_ON_TYPE]: { enabled: boolean };
     [EventName.FORMAT_SORT_IMPORTS]: never | undefined;
