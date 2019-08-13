@@ -25,7 +25,6 @@ import {
     InterpreterActivation,
     InterpreterActivationEnvironmentVariables,
     InterpreterAutoSelection,
-    InterpreterDiscovery,
     LanguageServePlatformSupported,
     LanguageServerErrorTelemetry,
     LanguageServerVersionTelemetry,
@@ -448,7 +447,19 @@ export interface IEventNamePropertyMapping {
     [EventName.PYTHON_INTERPRETER_ACTIVATION_FOR_RUNNING_CODE]: InterpreterActivation;
     [EventName.PYTHON_INTERPRETER_ACTIVATION_FOR_TERMINAL]: InterpreterActivation;
     [EventName.PYTHON_INTERPRETER_AUTO_SELECTION]: InterpreterAutoSelection;
-    [EventName.PYTHON_INTERPRETER_DISCOVERY]: InterpreterDiscovery;
+    /**
+     * Sends information regarding discovered python environments (virtualenv, conda, pipenv etc.)
+     */
+    [EventName.PYTHON_INTERPRETER_DISCOVERY]: {
+        /**
+         * Name of the locator
+         */
+        locator: string;
+        /**
+         * The number of the interpreters returned by locator
+         */
+        interpreters?: number;
+    };
     [EventName.PYTHON_INTERPRETER_ACTIVATE_ENVIRONMENT_PROMPT]: { selection: 'Yes' | 'No' | 'Ignore' | undefined };
     [EventName.INSIDERS_PROMPT]: {
         /**
