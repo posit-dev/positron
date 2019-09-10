@@ -8,7 +8,7 @@ import * as React from 'react';
 import { concatMultilineString } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
 import { CellState, ICell } from '../../client/datascience/types';
-import { Cell, ICellViewModel } from '../interactive-common/cell';
+import { ICellViewModel } from '../interactive-common/cell';
 import { ContentPanel, IContentPanelProps } from '../interactive-common/contentPanel';
 import { IMainState } from '../interactive-common/mainState';
 import { IVariablePanelProps, VariablePanel } from '../interactive-common/variablePanel';
@@ -36,7 +36,6 @@ interface INativeEditorProps {
 export class NativeEditor extends React.Component<INativeEditorProps, IMainState> {
     private mainPanelRef: React.RefObject<HTMLDivElement> = React.createRef<HTMLDivElement>();
     private contentPanelScrollRef: React.RefObject<HTMLElement> = React.createRef<HTMLElement>();
-    private editCellRef: React.RefObject<Cell> = React.createRef<Cell>();
     private contentPanelRef: React.RefObject<ContentPanel> = React.createRef<ContentPanel>();
     private stateController: NativeEditorStateController;
     private initialCellDivs: (HTMLDivElement | null)[] = [];
@@ -62,7 +61,12 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         this.state = this.stateController.getState();
     }
 
+    public componentDidMount() {
+        window.addEventListener('keydown', this.mainKeyDown);
+    }
+
     public componentWillUnmount() {
+        window.removeEventListener('keydown', this.mainKeyDown);
         // Dispose of our state controller so it stops listening
         this.stateController.dispose();
     }
@@ -99,10 +103,6 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
                 // First we have to give ourselves focus (so that focus actually ends up in the code cell)
                 if (this.mainPanelRef && this.mainPanelRef.current) {
                     this.mainPanelRef.current.focus({preventScroll: true});
-                }
-
-                if (this.editCellRef && this.editCellRef.current) {
-                    this.editCellRef.current.giveFocus(true);
                 }
             }, 100);
         }
@@ -295,6 +295,23 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             result = cellId === Identifiers.EditCellId ? this.state.editCellVM : undefined;
         }
         return result;
+    }
+
+    private mainKeyDown = (event: KeyboardEvent) => {
+        // Handler for key down presses in the main panel
+        switch (event.key) {
+            // tslint:disable-next-line: no-suspicious-comment
+            // TODO: How to have this work for when the keyboard shortcuts are changed?
+            case 's':
+                if (event.ctrlKey) {
+                    // This is save, save our cells
+                    this.stateController.save();
+                }
+                break;
+
+            default:
+                break;
+        }
     }
 
     // tslint:disable-next-line: cyclomatic-complexity
