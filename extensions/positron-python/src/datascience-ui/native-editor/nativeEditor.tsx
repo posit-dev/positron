@@ -40,6 +40,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
     private stateController: NativeEditorStateController;
     private initialCellDivs: (HTMLDivElement | null)[] = [];
     private debounceUpdateVisibleCells = debounce(this.updateVisibleCells.bind(this), 100);
+    private pressedDOnce = false;
 
     constructor(props: INativeEditorProps) {
         super(props);
@@ -281,68 +282,114 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         }
     }
 
-    // tslint:disable-next-line: cyclomatic-complexity
-    private keyDownCell = (cellId: string, e: IKeyboardEvent) => {
+    // tslint:disable-next-line: cyclomatic-complexity max-func-body-length
+    private keyDownCell = async (cellId: string, e: IKeyboardEvent) => {
         switch (e.code) {
             case 'ArrowUp':
+                this.pressedDOnce = false;
                 if (this.state.focusedCell === cellId && e.editorInfo && e.editorInfo.isFirstLine && !e.editorInfo.isSuggesting) {
                     this.arrowUpFromCell(cellId, e);
                 } else if (!this.state.focusedCell) {
                     this.arrowUpFromCell(cellId, e);
                 }
                 break;
-
             case 'ArrowDown':
+                this.pressedDOnce = false;
                 if (this.state.focusedCell === cellId && e.editorInfo && e.editorInfo.isLastLine && !e.editorInfo.isSuggesting) {
                     this.arrowDownFromCell(cellId, e);
                 } else if (!this.state.focusedCell) {
                     this.arrowDownFromCell(cellId, e);
                 }
                 break;
-
             case 'Escape':
+                this.pressedDOnce = false;
                 if (this.state.focusedCell && e.editorInfo && !e.editorInfo.isSuggesting) {
                     this.escapeCell(this.state.focusedCell, e);
                 }
                 break;
-
             case 'y':
+                this.pressedDOnce = false;
                 if (!this.state.focusedCell && this.state.selectedCell) {
                     e.stopPropagation();
                     this.stateController.changeCellType(this.state.selectedCell, 'code');
                 }
                 break;
-
             case 'm':
+                this.pressedDOnce = false;
                 if (!this.state.focusedCell && this.state.selectedCell) {
                     e.stopPropagation();
                     this.stateController.changeCellType(this.state.selectedCell, 'markdown');
                 }
                 break;
-
             case 'l':
+                this.pressedDOnce = false;
                 if (!this.state.focusedCell && this.state.selectedCell) {
                     e.stopPropagation();
                     this.stateController.toggleLineNumbers(this.state.selectedCell);
                 }
                 break;
-
             case 'o':
+                this.pressedDOnce = false;
                 if (!this.state.focusedCell && this.state.selectedCell) {
                     e.stopPropagation();
                     this.stateController.toggleOutput(this.state.selectedCell);
                 }
                 break;
-
             case 'Enter':
+                this.pressedDOnce = false;
                 if (e.shiftKey) {
-                    this.submitCell(cellId, e);
+                    this.submitCell(cellId, e, true);
+                } else if (e.ctrlKey) {
+                    this.submitCell(cellId, e, false);
+                } else if (e.altKey) {
+                    this.submitCell(cellId, e, false);
+                    this.stateController.insertBelow(cellId, true);
                 } else {
                     this.enterCell(cellId, e);
                 }
                 break;
-
+            case 'd':
+                if (this.pressedDOnce) {
+                    this.stateController.deleteCell(cellId);
+                    this.pressedDOnce = false;
+                } else {
+                    this.pressedDOnce = true;
+                }
+                break;
+            case 'a':
+                this.pressedDOnce = false;
+                if (this.state.focusedCell === cellId && e.editorInfo && e.editorInfo.isLastLine && !e.editorInfo.isSuggesting) {
+                    this.stateController.insertAbove(cellId, true);
+                } else if (!this.state.focusedCell) {
+                    this.stateController.insertAbove(cellId, true);
+                }
+                break;
+            case 'b':
+                this.pressedDOnce = false;
+                if (this.state.focusedCell === cellId && e.editorInfo && e.editorInfo.isLastLine && !e.editorInfo.isSuggesting) {
+                    this.stateController.insertBelow(cellId, true);
+                } else if (!this.state.focusedCell) {
+                    this.stateController.insertBelow(cellId, true);
+                }
+                break;
+            case 'j':
+                this.pressedDOnce = false;
+                if (this.state.focusedCell === cellId && e.editorInfo && e.editorInfo.isFirstLine && !e.editorInfo.isSuggesting) {
+                    this.arrowUpFromCell(cellId, e);
+                } else if (!this.state.focusedCell) {
+                    this.arrowUpFromCell(cellId, e);
+                }
+                break;
+            case 'k':
+                this.pressedDOnce = false;
+                if (this.state.focusedCell === cellId && e.editorInfo && e.editorInfo.isFirstLine && !e.editorInfo.isSuggesting) {
+                    this.arrowDownFromCell(cellId, e);
+                } else if (!this.state.focusedCell) {
+                    this.arrowDownFromCell(cellId, e);
+                }
+                break;
             default:
+                this.pressedDOnce = false;
                 break;
         }
     }
@@ -361,7 +408,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         }
     }
 
-    private submitCell = (cellId: string, e: IKeyboardEvent) => {
+    private submitCell = (cellId: string, e: IKeyboardEvent, moveToNextCell: boolean) => {
         let content: string | undefined ;
         const cellVM = this.findCellViewModel(cellId);
 
@@ -382,7 +429,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         }
 
         // If this is not the edit cell, move to our next cell
-        if (cellId !== Identifiers.EditCellId) {
+        if (cellId !== Identifiers.EditCellId && moveToNextCell) {
             const nextCell = this.getNextCellId(cellId);
             if (nextCell) {
                 this.stateController.selectCell(nextCell, undefined);
@@ -439,6 +486,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
     }
 
     private clickCell = (cellId: string) => {
+        this.pressedDOnce = false;
         const focusedCell = cellId === this.state.focusedCell ? cellId : undefined;
         this.stateController.selectCell(cellId, focusedCell);
     }
@@ -470,6 +518,24 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
     //         document.execCommand('Copy');
     //         textArea.remove();
     //     }
+    // }
+
+    // private pasteFromClipboard = (cellId: string) => {
+    //     const editedCells = this.state.cellVMs;
+    //     const index = editedCells.findIndex(x => x.cell.id === cellId) + 1;
+
+    //     if (index > -1) {
+    //         const textArea = document.createElement('textarea');
+    //         document.body.appendChild(textArea);
+    //         textArea.select();
+    //         document.execCommand('Paste');
+    //         editedCells[index].cell.data.source = textArea.value.split(/\r?\n/);
+    //         textArea.remove();
+    //     }
+
+    //     this.setState({
+    //         cellVMs: editedCells
+    //     });
     // }
 
     private moveCellUp = (cellId?: string) => {
