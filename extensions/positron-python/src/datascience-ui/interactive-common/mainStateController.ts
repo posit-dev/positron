@@ -953,7 +953,15 @@ export class MainStateController implements IMessageHandler {
             // we won't actually update.
             const newVMs = [...this.state.cellVMs];
             newVMs[index] = cloneDeep(newVMs[index]);
+
+            // Check to see if our code still matches for the cell (in liveshare it might be updated from the other side)
+            if (newVMs[index].cell.data.source !== cell.data.source) {
+                const newText = extractInputText(cell, getSettings());
+                newVMs[index].inputBlockText = newText;
+            }
+
             newVMs[index].cell = cell;
+
             this.setState({
                 cellVMs: newVMs,
                 currentExecutionCount: newExecutionCount
