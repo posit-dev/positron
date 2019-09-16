@@ -5,27 +5,31 @@ import './nativeEditor.less';
 
 import * as React from 'react';
 
+import { noop } from '../../client/common/utils/misc';
 import { concatMultilineString } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
 import { NativeCommandType } from '../../client/datascience/interactive-common/interactiveWindowTypes';
 import { CellState, ICell } from '../../client/datascience/types';
-import { ICellViewModel } from '../interactive-common/cell';
 import { ContentPanel, IContentPanelProps } from '../interactive-common/contentPanel';
-import { IMainState } from '../interactive-common/mainState';
+import { ICellViewModel, IMainState } from '../interactive-common/mainState';
 import { IVariablePanelProps, VariablePanel } from '../interactive-common/variablePanel';
 import { Button } from '../react-common/button';
+import { ErrorBoundary } from '../react-common/errorBoundary';
 import { IKeyboardEvent } from '../react-common/event';
 import { Flyout } from '../react-common/flyout';
 import { Image, ImageName } from '../react-common/image';
 import { ImageButton } from '../react-common/imageButton';
 import { getLocString } from '../react-common/locReactSide';
 import { getSettings } from '../react-common/settingsReactSide';
+import { NativeCell } from './nativeCell';
 import { NativeEditorStateController } from './nativeEditorStateController';
 
 // See the discussion here: https://github.com/Microsoft/tslint-microsoft-contrib/issues/676
 // tslint:disable: react-this-binding-issue
 // tslint:disable-next-line:no-require-imports no-var-requires
 const debounce = require('lodash/debounce') as typeof import('lodash/debounce');
+// tslint:disable-next-line: no-require-imports
+import cloneDeep = require('lodash/cloneDeep');
 
 interface INativeEditorProps {
     skipDefault: boolean;
@@ -39,9 +43,11 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
     private contentPanelScrollRef: React.RefObject<HTMLElement> = React.createRef<HTMLElement>();
     private contentPanelRef: React.RefObject<ContentPanel> = React.createRef<ContentPanel>();
     private stateController: NativeEditorStateController;
-    private initialCellDivs: (HTMLDivElement | null)[] = [];
     private debounceUpdateVisibleCells = debounce(this.updateVisibleCells.bind(this), 100);
     private lastKeyPressed: string | undefined;
+    private cellRefs: Map<string, React.RefObject<NativeCell>> = new Map<string, React.RefObject<NativeCell>>();
+    private cellContainerRefs: Map<string, React.RefObject<HTMLDivElement>> = new Map<string, React.RefObject<HTMLDivElement>>();
+    private initialVisibilityUpdate: boolean = false;
 
     constructor(props: INativeEditorProps) {
         super(props);
@@ -61,6 +67,10 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
 
         // Default our state.
         this.state = this.stateController.getState();
+    }
+
+    public shouldComponentUpdate(_nextProps: INativeEditorProps, nextState: IMainState): boolean {
+        return this.stateController.requiresUpdate(this.state, nextState);
     }
 
     public componentDidMount() {
@@ -112,10 +122,9 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         }
     }
 
-    private scrollToCell(id: string) {
-        if (this.contentPanelRef && this.contentPanelRef.current) {
-            this.contentPanelRef.current.scrollToCell(id);
-        }
+    private scrollToCell(_id: string) {
+        // Not used in the native editor
+        noop();
     }
 
     // tslint:disable: react-this-binding-issue
@@ -175,7 +184,6 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
 
     private getContentProps = (baseTheme: string): IContentPanelProps => {
         return {
-            editorOptions: this.state.editorOptions,
             baseTheme: baseTheme,
             cellVMs: this.state.cellVMs,
             history: this.state.history,
@@ -183,23 +191,8 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             codeTheme: this.props.codeTheme,
             submittedText: this.state.submittedText,
             skipNextScroll: this.state.skipNextScroll ? true : false,
-            monacoTheme: this.state.monacoTheme,
-            onCodeCreated: this.stateController.readOnlyCodeCreated,
-            onCodeChange: this.stateController.codeChange,
-            openLink: this.stateController.openLink,
-            expandImage: this.stateController.showPlot,
             editable: true,
-            editorMeasureClassName: 'measure-editor-div',
-            keyDownCell: this.keyDownCell,
-            selectedCell: this.state.selectedCell,
-            focusedCell: this.state.focusedCell,
-            clickCell: this.clickCell,
-            doubleClickCell: this.doubleClickCell,
-            focusCell: this.codeGotFocus,
-            unfocusCell: this.codeLostFocus,
-            allowsMarkdownEditing: true,
-            renderCellToolbar: this.renderCellToolbar,
-            onRenderCompleted: this.onContentFirstRender,
+            renderCell: this.renderCell,
             scrollToBottom: this.scrollDiv
         };
     }
@@ -222,15 +215,6 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         return this.state.cellVMs.map(cvm => cvm.cell).filter(c => c.data.cell_type !== 'messages');
     }
 
-    private onContentFirstRender = (cells: (HTMLDivElement | null)[]) => {
-        this.stateController.setState({busy: false});
-
-        if (this.initialCellDivs.length === 0) {
-            this.initialCellDivs = cells;
-            this.debounceUpdateVisibleCells();
-        }
-    }
-
     private onContentScroll = (_event: React.UIEvent<HTMLDivElement>) => {
         if (this.contentPanelScrollRef.current) {
             this.debounceUpdateVisibleCells();
@@ -238,31 +222,37 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
     }
 
     private updateVisibleCells()  {
-        if (this.contentPanelScrollRef.current && this.initialCellDivs.length !== 0) {
+        if (this.contentPanelScrollRef.current && this.cellContainerRefs.size !== 0) {
             const visibleTop = this.contentPanelScrollRef.current.offsetTop + this.contentPanelScrollRef.current.scrollTop;
             const visibleBottom = visibleTop + this.contentPanelScrollRef.current.clientHeight;
-            const cellVMs = this.state.cellVMs;
+            const cellVMs = [...this.state.cellVMs];
 
             // Go through the cell divs and find the ones that are suddenly visible
-            for (let index = 0; index < this.initialCellDivs.length; index += 1) {
-                if (index < cellVMs.length && cellVMs[index].useQuickEdit) {
-                    const div = this.initialCellDivs[index];
-                    if (div) {
-                        const top = div.offsetTop;
-                        const bottom = top + div.offsetHeight;
+            let makeChange = false;
+            for (let i = 0; i < cellVMs.length; i += 1) {
+                const cellVM = cellVMs[i];
+                if (cellVM.useQuickEdit && this.cellRefs.has(cellVM.cell.id)) {
+                    const ref = this.cellContainerRefs.get(cellVM.cell.id);
+                    if (ref && ref.current) {
+                        const top = ref.current.offsetTop;
+                        const bottom = top + ref.current.offsetHeight;
                         if (top > visibleBottom) {
                             break;
                         } else if (bottom < visibleTop) {
                             continue;
                         } else {
-                            cellVMs[index].useQuickEdit = false;
+                            cellVMs[i] = cloneDeep(cellVM);
+                            cellVMs[i].useQuickEdit = false;
+                            makeChange = true;
                         }
                     }
                 }
             }
 
             // update our state so that newly visible items appear
-            this.setState({cellVMs});
+            if (makeChange) {
+                this.setState({cellVMs});
+            }
         }
     }
 
@@ -391,7 +381,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         if (!this.state.focusedCell && !e.editorInfo && this.contentPanelRef && this.contentPanelRef.current) {
             e.stopPropagation();
             e.preventDefault();
-            this.contentPanelRef.current.focusCell(cellId, true);
+            this.focusCell(cellId, true);
         }
     }
 
@@ -460,7 +450,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         if (this.contentPanelRef && this.contentPanelRef.current) {
             const wasFocused = this.state.focusedCell;
             this.stateController.selectCell(cellId, wasFocused ? cellId : undefined);
-            this.contentPanelRef.current.focusCell(cellId, wasFocused ? true : false);
+            this.focusCell(cellId, wasFocused ? true : false);
         }
     }
 
@@ -556,16 +546,14 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
     }
 
     private doubleClickCell = (cellId: string) => {
-        if (this.contentPanelRef.current) {
-            this.contentPanelRef.current.focusCell(cellId, true);
-        }
+        this.focusCell(cellId, true);
     }
 
     private escapeCell = (cellId: string, e: IKeyboardEvent) => {
         // Unfocus the current cell by giving focus to the cell itself
         if (this.contentPanelRef && this.contentPanelRef.current) {
             e.stopPropagation();
-            this.contentPanelRef.current.focusCell(cellId, false);
+            this.focusCell(cellId, false);
             this.stateController.sendCommand(NativeCommandType.Unfocus, 'keyboard');
         }
     }
@@ -606,7 +594,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         if (this.contentPanelRef.current && cellId) {
             const wasFocused = this.state.focusedCell;
             this.stateController.moveCellUp(cellId);
-            setTimeout(() => this.contentPanelRef.current!.focusCell(cellId, wasFocused ? true : false), 1);
+            setTimeout(() => this.focusCell(cellId, wasFocused ? true : false), 1);
         }
     }
 
@@ -614,10 +602,63 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
         if (this.contentPanelRef.current && cellId) {
             const wasFocused = this.state.focusedCell;
             this.stateController.moveCellDown(cellId);
-            setTimeout(() => this.contentPanelRef.current!.focusCell(cellId, wasFocused ? true : false), 1);
+            setTimeout(() => this.focusCell(cellId, wasFocused ? true : false), 1);
         }
     }
 
+    private renderCell = (cellVM: ICellViewModel, index: number): JSX.Element | null => {
+        const cellRef : React.RefObject<NativeCell> = React.createRef<NativeCell>();
+        const containerRef = React.createRef<HTMLDivElement>();
+        this.cellRefs.set(cellVM.cell.id, cellRef);
+        this.cellContainerRefs.set(cellVM.cell.id, containerRef);
+
+        // Special case, see if our initial load is finally complete.
+        if (this.state.loadTotal && this.cellRefs.size >= this.state.loadTotal && !this.initialVisibilityUpdate) {
+            // We are finally at the point where we have rendered all visible cells. Try fixing up their visible state
+            this.initialVisibilityUpdate = true;
+            this.debounceUpdateVisibleCells();
+        }
+        return (
+            <div key={index} id={cellVM.cell.id} ref={containerRef}>
+                <ErrorBoundary key={index}>
+                    <NativeCell
+                        ref={cellRef}
+                        role='listitem'
+                        editorOptions={this.state.editorOptions}
+                        history={undefined}
+                        maxTextSize={getSettings().maxOutputSize}
+                        autoFocus={false}
+                        testMode={this.props.testMode}
+                        cellVM={cellVM}
+                        baseTheme={this.props.baseTheme}
+                        codeTheme={this.props.codeTheme}
+                        showWatermark={false}
+                        onCodeChange={this.stateController.codeChange}
+                        onCodeCreated={this.stateController.editableCodeCreated}
+                        monacoTheme={this.state.monacoTheme}
+                        openLink={this.stateController.openLink}
+                        expandImage={this.stateController.showPlot}
+                        renderCellToolbar={this.renderCellToolbar}
+                        keyDown={this.keyDownCell}
+                        onClick={this.clickCell}
+                        onDoubleClick={this.doubleClickCell}
+                        focusedCell={this.state.focusedCell}
+                        selectedCell={this.state.selectedCell}
+                        focused={this.codeGotFocus}
+                        unfocused={this.codeLostFocus}
+                        showLineNumbers={cellVM.showLineNumbers}
+                        hideOutput={cellVM.hideOutput}
+                    />
+                </ErrorBoundary>
+            </div>);
+    }
+
+    private focusCell = (cellId: string, focusCode: boolean): void => {
+        const ref = this.cellRefs.get(cellId);
+        if (ref && ref.current) {
+            ref.current.giveFocus(focusCode);
+        }
+    }
     // tslint:disable-next-line: max-func-body-length
     private renderNormalCellToolbar(cellId: string): JSX.Element[] | null {
         const cell = this.state.cellVMs.find(cvm => cvm.cell.id === cellId);
@@ -629,9 +670,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             const runCell = () => {
                 this.stateController.updateCellSource(cellId);
                 this.stateController.submitInput(concatMultilineString(cell.cell.data.source), cell);
-                if (this.contentPanelRef.current) {
-                    this.contentPanelRef.current.focusCell(cellId, false);
-                }
+                this.focusCell(cellId, false);
                 this.stateController.sendCommand(NativeCommandType.Run, 'mouse');
             };
             const moveUp = () => {
@@ -797,7 +836,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             // Bounce this so state has time to update.
             setTimeout(() => {
                 div.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
-                this.contentPanelRef.current!.focusCell(newCell, true);
+                this.focusCell(newCell, true);
             }, 10);
         }
     }
