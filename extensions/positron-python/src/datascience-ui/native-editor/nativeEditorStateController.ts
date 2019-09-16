@@ -7,13 +7,13 @@ import * as uuid from 'uuid/v4';
 import { concatMultilineString } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
 import { InteractiveWindowMessages, NativeCommandType } from '../../client/datascience/interactive-common/interactiveWindowTypes';
-import { ICellViewModel } from '../interactive-common/cell';
-import { createEmptyCell, extractInputText } from '../interactive-common/mainState';
+import { createEmptyCell, extractInputText, ICellViewModel } from '../interactive-common/mainState';
 import { IMainStateControllerProps, MainStateController } from '../interactive-common/mainStateController';
 import { getSettings } from '../react-common/settingsReactSide';
 
 export class NativeEditorStateController extends MainStateController {
     private finishedLoadAll: boolean = false;
+    private startedLoadAll: boolean = false;
 
     // tslint:disable-next-line:max-func-body-length
     constructor(props: IMainStateControllerProps) {
@@ -33,6 +33,10 @@ export class NativeEditorStateController extends MainStateController {
             case InteractiveWindowMessages.NotebookClean:
                 // Indicate dirty
                 this.setState({ dirty: false });
+                break;
+
+            case InteractiveWindowMessages.LoadAllCells:
+                this.startedLoadAll = true;
                 break;
 
             default:
@@ -133,7 +137,7 @@ export class NativeEditorStateController extends MainStateController {
     }
 
     public moveCellUp = (cellId?: string) => {
-        const cellVms = this.getState().cellVMs;
+        const cellVms = [...this.getState().cellVMs];
         const index = cellVms.findIndex(cvm => cvm.cell.id === cellId);
         if (index > 0) {
             [cellVms[index - 1], cellVms[index]] = [cellVms[index], cellVms[index - 1]];
@@ -144,7 +148,7 @@ export class NativeEditorStateController extends MainStateController {
     }
 
     public moveCellDown = (cellId?: string) => {
-        const cellVms = this.getState().cellVMs;
+        const cellVms = [...this.getState().cellVMs];
         const index = cellVms.findIndex(cvm => cvm.cell.id === cellId);
         if (index < cellVms.length - 1) {
             [cellVms[index + 1], cellVms[index]] = [cellVms[index], cellVms[index + 1]];
@@ -163,7 +167,8 @@ export class NativeEditorStateController extends MainStateController {
 
         super.renderUpdate(newState);
 
-        if (!this.getState().busy && oldIsBusy && !this.finishedLoadAll) {
+        if (!this.getState().busy && oldIsBusy && !this.finishedLoadAll && this.startedLoadAll) {
+            this.finishedLoadAll = true;
             // Indicate we finished loading
             this.sendMessage(InteractiveWindowMessages.LoadAllCells);
         }

@@ -11,8 +11,21 @@ import { concatMultilineString, splitMultilineString } from '../../client/datasc
 import { Identifiers } from '../../client/datascience/constants';
 import { CellState, ICell, IJupyterVariable, IMessageCell } from '../../client/datascience/types';
 import { noop } from '../../test/core';
-import { ICellViewModel } from './cell';
 import { InputHistory } from './inputHistory';
+
+export interface ICellViewModel {
+    cell: ICell;
+    inputBlockShow: boolean;
+    inputBlockOpen: boolean;
+    inputBlockText: string;
+    inputBlockCollapseNeeded: boolean;
+    editable: boolean;
+    directInput?: boolean;
+    showLineNumbers?: boolean;
+    hideOutput?: boolean;
+    useQuickEdit?: boolean;
+    inputBlockToggled(id: string): void;
+}
 
 export interface IMainState {
     cellVMs: ICellViewModel[];
@@ -42,6 +55,7 @@ export interface IMainState {
     enableGather: boolean;
     isAtBottom: boolean;
     newCell?: string;
+    loadTotal?: number;
 }
 
 // tslint:disable-next-line: no-multiline-string

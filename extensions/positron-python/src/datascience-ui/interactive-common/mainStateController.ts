@@ -29,10 +29,9 @@ import {
 import { IMessageHandler, PostOffice } from '../react-common/postOffice';
 import { getSettings, updateSettings } from '../react-common/settingsReactSide';
 import { detectBaseTheme } from '../react-common/themeDetector';
-import { ICellViewModel } from './cell';
 import { InputHistory } from './inputHistory';
 import { IntellisenseProvider } from './intellisenseProvider';
-import { createCellVM, createEditableCellVM, extractInputText, generateTestState, IMainState } from './mainState';
+import { createCellVM, createEditableCellVM, extractInputText, generateTestState, ICellViewModel, IMainState } from './mainState';
 import { initializeTokenizer, registerMonacoLanguage } from './tokenizer';
 
 export interface IMainStateControllerProps {
@@ -1106,6 +1105,9 @@ export class MainStateController implements IMessageHandler {
             // Update all of the vms
             const cells = payload.cells as ICell[];
             cells.forEach(c => this.finishCell(c));
+
+            // Set our state to not being busy anymore
+            this.setState({ busy: false, loadTotal: payload.cells.length });
 
             // Turn updates back on and resend the state.
             this.resumeUpdates();
