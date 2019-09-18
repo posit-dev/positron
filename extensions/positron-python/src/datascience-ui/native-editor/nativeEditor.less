@@ -136,6 +136,12 @@
 .navbar-div {
     grid-column: 1;
     visibility: hidden;
+    display: grid;
+    grid-template-rows: var(--button-size) var(--button-size) auto;
+}
+
+.navbar-add-button {
+    align-self: end;
 }
 
 .execution-count {
@@ -148,7 +154,8 @@
 }
 
 .native-editor-celltoolbar-inner {
-    justify-self: end;
+    justify-self: center;
+    grid-column: 1;
 }
 
 .native-editor-celltoolbar-middle {
@@ -156,6 +163,10 @@
     justify-items: left;
     visibility: collapse;
     margin-left: 50px;
+}
+
+.cell-wrapper:hover .navbar-div {
+    visibility: visible;
 }
 
 .cell-wrapper-selected .navbar-div {
@@ -246,9 +257,81 @@
     padding: 0px;
 }
 
+.add-cell-line {
+    display: flex;
+    justify-content: left;
+    margin-top: 5px;
+    margin-bottom: 0px;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.add-cell-line:focus-within {
+    outline: 1px solid black;
+}
+
+.add-cell-line-top {
+    margin-top: 2px;
+    margin-bottom: 0px;
+}
+
+.add-cell-line-top-force-visible {
+    margin-top: 2px;
+    margin-bottom: 0px;
+}
+
+.add-cell-line-top .add-cell-line-button {
+    visibility: hidden;
+}
+
+.add-cell-line-button {
+    border-width: 0px;
+    border-style: solid;
+    text-align: center;
+    line-height: 16px;
+    background-color: transparent;
+    cursor: hand;
+    height: var(--button-size);
+    padding: 0px;
+    display: flex;
+}
+
+.add-cell-line-button:focus {
+    outline: none;
+}
+
+.add-cell-line-top:hover .add-cell-line-button{
+    visibility: visible;
+}
+
+.add-cell-line-button .image-button-image{
+    height: var(--button-size)
+}
+
+.add-cell-line-button .image-button-image svg {
+    height: var(--button-size)
+}
+
+.add-cell-line-divider {
+    margin-top: 8px;
+    margin-left: 2px;
+    width: calc(100vw - 40px);
+    border-width: 0px;
+    border-top-color: var(--override-badge-background, var(--vscode-badge-background));
+    border-top-width: 1px;
+    border-style: solid;
+}
+
+.cell-wrapper-selected .add-cell-line {
+    visibility: visible;
+}
+
+.cell-wrapper-focused .add-cell-line {
+    visibility: visible;
+}
+
 .cell-row-container {
     display: flex;
-    margin-bottom: 10px;
 }
 
 .collapse-bar {
@@ -256,6 +339,10 @@
     background-color: transparent;
     max-width: 8px;
     min-width: 8px;
+}
+
+.cell-wrapper:hover .collapse-bar {
+    background-color: var(--override-widget-background, var(--vscode-notifications-background));
 }
 
 .collapse-bar-markdown {
@@ -278,4 +365,52 @@
         var(--vscode-editorGutter-addedBackground) 3px,
         var(--vscode-editorGutter-addedBackground) 6px
     );
+}
+
+.cell-wrapper:hover .collapse-bar-selected {
+    background-color: var(--vscode-peekView-border);
+}
+
+.cell-wrapper:hover .collapse-bar-focused {
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 3px,
+        var(--vscode-editorGutter-addedBackground) 3px,
+        var(--vscode-editorGutter-addedBackground) 6px
+    );
+}
+
+.add-divider {
+    visibility: hidden;
+    position: relative;
+    top: 12px;
+}
+
+.cell-wrapper:hover .add-divider {
+    visibility: visible;
+}
+
+.cell-wrapper-selected .add-divider {
+    visibility: hidden;
+    z-index: -100;
+    pointer-events: none;
+}
+
+.cell-wrapper-focused .add-divider {
+    visibility: hidden;
+    z-index: -100;
+    pointer-events: none;
+}
+
+.cell-wrapper-selected:hover .add-divider {
+    visibility: hidden;
+    z-index: -100;
+    pointer-events: none;
+}
+
+.cell-wrapper-focused:hover .add-divider {
+    visibility: hidden;
+    z-index: -100;
+    pointer-events: none;
 }
