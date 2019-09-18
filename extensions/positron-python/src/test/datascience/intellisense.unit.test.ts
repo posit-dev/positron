@@ -66,7 +66,8 @@ suite('DataScience Intellisense Unit Tests', () => {
             configService.object,
             fileSystem.object,
             jupyterExecution.object,
-            interactiveWindowProvider.object);
+            interactiveWindowProvider.object
+        );
     });
 
     function sendMessage<M extends IInteractiveWindowMapping, T extends keyof M>(type: T, payload?: M[T]): Promise<void> {
