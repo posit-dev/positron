@@ -32,7 +32,6 @@ import {
     Identifiers,
     NativeKeyboardCommandTelemetryLookup,
     NativeMouseCommandTelemetryLookup,
-    Settings,
     Telemetry
 } from '../constants';
 import { InteractiveBase } from '../interactive-common/interactiveBase';
@@ -243,13 +242,18 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                 this.dispatchMessage(message, payload, this.logNativeCommand);
                 break;
 
-            case InteractiveWindowMessages.LoadAllCells:
+            // call this to update the whole document for intellisense
+            case InteractiveWindowMessages.LoadAllCellsComplete:
                 this.dispatchMessage(message, payload, this.loadCellsComplete);
                 break;
 
             default:
                 break;
         }
+    }
+
+    public async getNotebookOptions(): Promise<INotebookServerOptions> {
+        return this.ipynbProvider.getNotebookOptions();
     }
 
     protected async reopen(cells: ICell[]): Promise<void> {
@@ -312,24 +316,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                 this.shareMessage(InteractiveWindowMessages.RemoteReexecuteCode, { code: info.code, file: Identifiers.EmptyFileName, line: 0, id: info.id, originator: this.id, debug: false });
             }).ignoreErrors();
         }
-    }
-
-    protected async getNotebookOptions(): Promise<INotebookServerOptions> {
-        const settings = this.configuration.getSettings();
-        let serverURI: string | undefined = settings.datascience.jupyterServerURI;
-        const useDefaultConfig: boolean | undefined = settings.datascience.useDefaultConfigForJupyter;
-
-        // For the local case pass in our URI as undefined, that way connect doesn't have to check the setting
-        if (serverURI === Settings.JupyterServerLocalLaunch) {
-            serverURI = undefined;
-        }
-
-        return {
-            enableDebugging: true,
-            uri: serverURI,
-            useDefaultConfig,
-            purpose: Identifiers.HistoryPurpose  // Share the same one as the interactive window. Just need a new session
-        };
     }
 
     protected async getNotebookIdentity(): Promise<Uri> {
