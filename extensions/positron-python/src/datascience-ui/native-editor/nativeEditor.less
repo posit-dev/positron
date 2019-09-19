@@ -57,7 +57,13 @@
     border-width: 3px;
     width: calc(100vw - 85px);
     overflow-x: scroll;
-    flex: 1;
+    grid-row: 1;
+    grid-column: 3;
+}
+
+.markdown-cell-output-container {
+    grid-row: 1;
+    grid-column: 3;
 }
 
 .markdown-cell-output {
@@ -117,7 +123,8 @@
     border-width: 1px;
     padding: 2px;
     background: var(--override-widget-background, var(--vscode-notifications-background));
-    flex: 1;
+    grid-column: 3;
+    grid-row: 1;
     min-width: calc(100% - 85px);
 }
 
@@ -129,8 +136,9 @@
     min-width: 34px;
     max-width: 34px;
     padding-left: 10px;
-    flex: 1;
     display: block;
+    grid-column: 2;
+    grid-row: 1;
 }
 
 .navbar-div {
@@ -160,9 +168,10 @@
 
 .native-editor-celltoolbar-middle {
     display: flex;
+    grid-column: 3;
+    grid-row: 2;
     justify-items: left;
     visibility: collapse;
-    margin: 0px 0px 0px 40px;
 }
 
 .cell-wrapper:hover .navbar-div {
@@ -330,12 +339,22 @@
     visibility: visible;
 }
 
+/* 
+Cell Row Container layout
+--------------------------
+collapse-bar        controls-div        [cell-input, cell-output, markdown-cell-output-container]
+(expanded c-bar)    celltoolbar-middle
+*/
 .cell-row-container {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    grid-template-rows: 1fr auto;
 }
 
 .collapse-bar {
-    flex: 1;
+    grid-column: 1;
+    grid-row-start: 1;
+    grid-row-end: 2;
     background-color: transparent;
     max-width: 8px;
     min-width: 8px;
@@ -343,10 +362,6 @@
 
 .cell-wrapper:hover .collapse-bar {
     background-color: var(--override-widget-background, var(--vscode-notifications-background));
-}
-
-.cell-wrapper:hover .collapse-bar-skip-hover {
-    background-color: transparent
 }
 
 .collapse-bar-markdown {
@@ -359,6 +374,8 @@
 
 .collapse-bar-selected {
     background-color: var(--vscode-peekView-border);
+    grid-row-start: 1;
+    grid-row-end: 3;
 }
 
 .collapse-bar-focused {
@@ -369,6 +386,8 @@
         var(--vscode-editorGutter-addedBackground) 3px,
         var(--vscode-editorGutter-addedBackground) 6px
     );
+    grid-row-start: 1;
+    grid-row-end: 3;
 }
 
 .cell-wrapper:hover .collapse-bar-selected {
