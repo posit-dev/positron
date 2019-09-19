@@ -151,22 +151,22 @@ export class NativeCell extends React.Component<INativeCellProps, INativeCellSta
         const content = this.isMarkdownCell() && !this.state.showingMarkdownEditor ?
             <div className='cell-result-container'>
                 <div className='cell-row-container'>
-                    {this.renderCollapseBar(false, false)}
+                    {this.renderCollapseBar(false)}
                     {this.renderOutput()}
+                    {this.renderMiddleToolbar()}
                 </div>
                 {this.renderAddDivider(false)}
-                {this.renderMiddleToolbar()}
             </div> :
             <div className='cell-result-container'>
                 <div className='cell-row-container'>
-                    {this.renderCollapseBar(true, false)}
+                    {this.renderCollapseBar(true)}
                     {this.renderControls()}
                     {this.renderInput()}
+                    {this.renderMiddleToolbar()}
                 </div>
                 {this.renderAddDivider(true)}
-                {this.renderMiddleToolbar()}
                 <div className='cell-row-container'>
-                    {this.renderCollapseBar(false, false)}
+                    {this.renderCollapseBar(false)}
                     {this.renderOutput()}
                 </div>
             </div>;
@@ -588,8 +588,6 @@ export class NativeCell extends React.Component<INativeCellProps, INativeCellSta
             </ImageButton>;
 
         return (
-            <div className='cell-row-container'>
-            {this.renderCollapseBar(true, true)}
             <div className='native-editor-celltoolbar-middle'>
                 <ImageButton baseTheme={this.props.baseTheme} onClick={runAbove} disabled={!canRunAbove} tooltip={getLocString('DataScience.runAbove', 'Run cells above')}>
                     <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.RunAbove} />
@@ -601,7 +599,6 @@ export class NativeCell extends React.Component<INativeCellProps, INativeCellSta
                 <ImageButton baseTheme={this.props.baseTheme} onClick={deleteCell} tooltip={getLocString('DataScience.deleteCell', 'Delete cell')}>
                     <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Delete} />
                 </ImageButton>
-            </div>
             </div>
         );
     }
@@ -719,12 +716,8 @@ export class NativeCell extends React.Component<INativeCellProps, INativeCellSta
         }
     }
 
-    private renderCollapseBar = (input: boolean, skipHover: boolean) => {
+    private renderCollapseBar = (input: boolean) => {
         let classes = 'collapse-bar';
-
-        if (skipHover) {
-            classes += ' collapse-bar-skip-hover';
-        }
 
         if (this.props.selectedCell === this.props.cellVM.cell.id && this.props.focusedCell !== this.props.cellVM.cell.id) {
             classes += ' collapse-bar-selected';
