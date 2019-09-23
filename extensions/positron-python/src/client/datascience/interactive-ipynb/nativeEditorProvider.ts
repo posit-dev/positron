@@ -39,6 +39,15 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         if (findFilesPromise && findFilesPromise.then) {
             findFilesPromise.then(r => this.notebookCount += r.length);
         }
+
+        // // Reopen our list of files that were open during shutdown. Actually not doing this for now. The files
+        // don't open until the extension loads and all they all steal focus.
+        // const uriList = this.workspaceStorage.get<Uri[]>(NotebookUriListStorageKey);
+        // if (uriList && uriList.length) {
+        //     uriList.forEach(u => {
+        //         this.fileSystem.readFile(u.fsPath).then(c => this.open(u, c).ignoreErrors()).ignoreErrors();
+        //     });
+        // }
     }
 
     public async dispose(): Promise<void> {
@@ -46,9 +55,6 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         sendTelemetryEvent(Telemetry.NotebookOpenCount, this.openedNotebookCount);
         sendTelemetryEvent(Telemetry.NotebookRunCount, this.executedEditors.size);
         sendTelemetryEvent(Telemetry.NotebookWorkspaceCount, this.notebookCount);
-
-        // Try to save all of the currently dirty editors
-        await Promise.all(this.editors.map(e => e.save()));
     }
 
     public get activeEditor(): INotebookEditor | undefined {
@@ -67,8 +73,9 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         let editor = this.activeEditors.get(file.fsPath);
         if (!editor) {
             editor = await this.create(file, contents);
-            this.activeEditors.set(file.fsPath, editor);
-            this.openedNotebookCount += 1;
+            this.onOpenedEditor(editor);
+        } else {
+            await editor.show();
         }
         return editor;
     }
@@ -123,6 +130,11 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
 
     private onExecutedEditor(e: INotebookEditor) {
         this.executedEditors.add(e.file.fsPath);
+    }
+
+    private onOpenedEditor(e: INotebookEditor) {
+        this.activeEditors.set(e.file.fsPath, e);
+        this.openedNotebookCount += 1;
     }
 
     private async getNextNewNotebookUri(): Promise<Uri> {
