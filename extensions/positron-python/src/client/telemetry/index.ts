@@ -1444,6 +1444,7 @@ export interface IEventNamePropertyMapping {
     [NativeKeyboardCommandTelemetry.ToggleLineNumbers]: never | undefined;
     [NativeKeyboardCommandTelemetry.ToggleOutput]: never | undefined;
     [NativeKeyboardCommandTelemetry.ToggleVariableExplorer]: never | undefined;
+    [NativeKeyboardCommandTelemetry.Undo]: never | undefined;
     [NativeKeyboardCommandTelemetry.Unfocus]: never | undefined;
     [NativeMouseCommandTelemetry.AddToEnd]: never | undefined;
     [NativeMouseCommandTelemetry.ArrowDown]: never | undefined;
@@ -1466,6 +1467,7 @@ export interface IEventNamePropertyMapping {
     [NativeMouseCommandTelemetry.ToggleLineNumbers]: never | undefined;
     [NativeMouseCommandTelemetry.ToggleOutput]: never | undefined;
     [NativeMouseCommandTelemetry.ToggleVariableExplorer]: never | undefined;
+    [NativeMouseCommandTelemetry.Undo]: never | undefined;
     [NativeMouseCommandTelemetry.Unfocus]: never | undefined;
     /*
     Telemetry event sent with details of Jedi Memory usage.
