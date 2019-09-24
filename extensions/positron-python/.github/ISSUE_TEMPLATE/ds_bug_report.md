@@ -1,9 +1,9 @@
 ---
-name: Notebook Editor, Interactive Window, or .py file Notebook cells
+name: Bug in Notebook Editor, Interactive Window, Python Editor cells
 about: Create a report to help us improve
 labels: type-bug, "data science"
 ---
-# Notebook Editor, Interactive Window, .py file Notebook cells Bug
+# Bug: Notebook Editor, Interactive Window, Python Editor cells
 
 <!-----------------------------------------------------------------------------------------------
                                                       ***PLEASE READ***
