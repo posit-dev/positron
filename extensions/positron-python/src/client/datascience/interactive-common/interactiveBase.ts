@@ -89,7 +89,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     private variableRequestStopWatch: StopWatch | undefined;
     private variableRequestPendingCount: number = 0;
     private loadPromise: Promise<void> | undefined;
-    private setDark: boolean = false;
+    private setDarkPromise: Deferred<boolean> | undefined;
 
     constructor(
         @unmanaged() private readonly listeners: IInteractiveWindowListener[],
@@ -1029,8 +1029,8 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     }
 
     private async ensureDarkSet(): Promise<void> {
-        if (!this.setDark) {
-            this.setDark = true;
+        if (!this.setDarkPromise) {
+            this.setDarkPromise = createDeferred<boolean>();
 
             // Wait for the web panel to get the isDark setting
             const knownDark = await this.isDark();
@@ -1039,6 +1039,10 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
             if (this.notebook) {
                 await this.notebook.setMatplotLibStyle(knownDark);
             }
+
+            this.setDarkPromise.resolve(true);
+        } else {
+            await this.setDarkPromise.promise;
         }
     }
 
