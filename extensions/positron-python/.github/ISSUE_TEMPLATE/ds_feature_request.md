@@ -1,9 +1,9 @@
 ---
-name: Jupyter Notebook, Interactive Window, or code-cell Feature Request
+name: Feature request for Notebook Editor, Interactive Window, Python Editor cells
 about: Suggest a new feature or behavior
 labels: type-enhancement, "data science"
 ---
-# Jupyter Notebook, Interactive Window, or code-cell Feature Request
+# Feature: Notebook Editor, Interactive Window, Python Editor cells
 
 <!-----------------------------------------------------------------------------------------------
                                                       ***PLEASE READ***
