@@ -1,5 +1,5 @@
 ---
-name: Bug in Notebook Editor, Interactive Window, Python Editor cells
+name: Bug report for Notebook Editor, Interactive Window, Python Editor cells
 about: Create a report to help us improve
 labels: type-bug, data science
 ---
