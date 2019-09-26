@@ -4,6 +4,7 @@
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as uuid from 'uuid/v4';
 
+import { noop } from '../../client/common/utils/misc';
 import { concatMultilineString } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
 import {
@@ -25,8 +26,8 @@ export class NativeEditorStateController extends MainStateController {
 
     // tslint:disable-next-line: no-any
     public handleMessage(msg: string, payload?: any) {
-        const result = super.handleMessage(msg, payload);
-
+        // Handle message before base class so we will
+        // have our state set before the next render.
         switch (msg) {
             case InteractiveWindowMessages.NotebookDirty:
                 // Indicate dirty
@@ -46,7 +47,7 @@ export class NativeEditorStateController extends MainStateController {
                 break;
         }
 
-        return result;
+        return super.handleMessage(msg, payload);
     }
 
     public canMoveUp = (cellId?: string) => {
@@ -98,6 +99,26 @@ export class NativeEditorStateController extends MainStateController {
         }
         this.resumeUpdates();
         return vm;
+    }
+
+    public possiblyDeleteCell = (cellId: string) => {
+        const cells = this.getState().cellVMs;
+        if (cells.length === 1 && cells[0].cell.id === cellId) {
+            // Special case, if this is the last cell, don't delete it, just clear it's output and input
+            const newVM: ICellViewModel = {
+                cell: createEmptyCell(cellId, null),
+                editable: true,
+                inputBlockOpen: true,
+                inputBlockShow: true,
+                inputBlockText: '',
+                inputBlockCollapseNeeded: false,
+                inputBlockToggled: noop
+            };
+            this.setState({ cellVMs: [newVM], undoStack: this.pushStack(this.getState().undoStack, cells) });
+        } else {
+            // Otherwise delete as normal
+            this.deleteCell(cellId);
+        }
     }
 
     public runAbove = (cellId?: string) => {

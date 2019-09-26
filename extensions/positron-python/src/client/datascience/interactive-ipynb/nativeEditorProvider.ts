@@ -3,16 +3,17 @@
 'use strict';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
-import { Uri } from 'vscode';
+import { TextDocument, Uri } from 'vscode';
 
-import { IWorkspaceService } from '../../common/application/types';
+import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../common/application/types';
+import { JUPYTER_LANGUAGE } from '../../common/constants';
 import { IFileSystem } from '../../common/platform/types';
 import { IAsyncDisposable, IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { IServiceContainer } from '../../ioc/types';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { Identifiers, Settings, Telemetry } from '../constants';
-import { INotebookEditor, INotebookEditorProvider, INotebookServerOptions } from '../types';
+import { IDataScienceErrorHandler, INotebookEditor, INotebookEditorProvider, INotebookServerOptions } from '../types';
 
 @injectable()
 export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisposable {
@@ -27,7 +28,11 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         @inject(IDisposableRegistry) private disposables: IDisposableRegistry,
         @inject(IWorkspaceService) private workspace: IWorkspaceService,
         @inject(IConfigurationService) private configuration: IConfigurationService,
-        @inject(IFileSystem) private fileSystem: IFileSystem
+        @inject(IFileSystem) private fileSystem: IFileSystem,
+        @inject(IDocumentManager) private documentManager: IDocumentManager,
+        @inject(ICommandManager) private readonly cmdManager: ICommandManager,
+        @inject(IDataScienceErrorHandler) private dataScienceErrorHandler: IDataScienceErrorHandler
+
     ) {
         asyncRegistry.push(this);
 
@@ -38,6 +43,15 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         const findFilesPromise = this.workspace.findFiles('**/*.ipynb');
         if (findFilesPromise && findFilesPromise.then) {
             findFilesPromise.then(r => this.notebookCount += r.length);
+        }
+
+        // Listen to document open commands. We use this to launch an ipynb editor
+        const disposable = this.documentManager.onDidOpenTextDocument(this.onOpenedDocument);
+        this.disposables.push(disposable);
+
+        // Since we may have activated after a document was opened, also run open document for all documents
+        if (this.documentManager.textDocuments && this.documentManager.textDocuments.forEach) {
+            this.documentManager.textDocuments.forEach(this.onOpenedDocument);
         }
 
         // // Reopen our list of files that were open during shutdown. Actually not doing this for now. The files
@@ -158,5 +172,30 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         }
 
         return Uri.file(`${localize.DataScience.untitledNotebookFileName()}-${number}`);
+    }
+
+    private onOpenedDocument = async (document: TextDocument) => {
+        // See if this is an ipynb file
+        if (this.isNotebook(document) && this.configuration.getSettings().datascience.useNotebookEditor) {
+            try {
+                const contents = document.getText();
+                const uri = document.uri;
+
+                // Open our own editor.
+                await this.open(uri, contents);
+
+                // Then switch back to the ipynb and close it.
+                // If we don't do it in this order, the close will switch to the wrong item
+                await this.documentManager.showTextDocument(document);
+                const command = 'workbench.action.closeActiveEditor';
+                await this.cmdManager.executeCommand(command);
+            } catch (e) {
+                this.dataScienceErrorHandler.handleError(e).ignoreErrors();
+            }
+        }
+    }
+
+    private isNotebook(document: TextDocument) {
+        return document.languageId === JUPYTER_LANGUAGE || path.extname(document.fileName).toLocaleLowerCase() === '.ipynb';
     }
 }
