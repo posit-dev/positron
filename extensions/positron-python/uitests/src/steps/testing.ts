@@ -8,6 +8,7 @@
 import { expect } from 'chai';
 import { Then, When } from 'cucumber';
 import { CucumberRetryMax5Seconds } from '../constants';
+import { noop, sleep } from '../helpers';
 import { IApplication, TestExplorerNodeStatus } from '../types';
 
 Then('the test explorer icon will be visible', async function() {
@@ -16,7 +17,22 @@ Then('the test explorer icon will be visible', async function() {
 
 // Surely tests can't take more than 30s to get discovered.
 When('I wait for test discovery to complete', async function() {
-    await this.app.testExplorer.waitUntilTestsStop(30_000);
+    // Wait for tests discovery to first start.
+    await Promise.race([
+        // Wait either for 3 seconds (we know tests would have stated discoverying by then).
+        sleep(3_000),
+        // Or until we can see the discovering icon.
+        this.app.testExplorer.waitUntilToolbarIconVisible('Stop', 3_000).catch(noop),
+        // Or until we can see the discovering message.
+        this.app.statusbar.waitUntilStatusBarItemWithText('Discovering Tests', 3_000).catch(noop)
+    ]);
+
+    await Promise.all([
+        // Ensure the `stop` icon is not visible in the explorer toolbar.
+        this.app.testExplorer.waitUntilTestsStop(30_000),
+        // Also ensure there is no statubar item with the text 'Discovering Tests'
+        this.app.statusbar.waitUntilNoStatusBarItemWithText('Discovering Tests', 30_000)
+    ]);
 });
 
 // Surely pythonn tests (in our UI Tests) can't take more than 30s to run.
@@ -27,6 +43,10 @@ When('I wait for tests to complete running', async function() {
 Then('there are {int} nodes in the test explorer', CucumberRetryMax5Seconds, async function(expectedCount: number) {
     const count = await this.app.testExplorer.getNodeCount();
     expect(count).to.equal(expectedCount);
+});
+Then('there are at least {int} nodes in the test explorer', CucumberRetryMax5Seconds, async function(expectedCount: number) {
+    const count = await this.app.testExplorer.getNodeCount();
+    expect(count).to.greaterThan(expectedCount - 1);
 });
 Then('all of the test tree nodes have a progress icon', CucumberRetryMax5Seconds, async function() {
     const elements = await this.app.testExplorer.getNodes();
