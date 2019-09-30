@@ -1,5 +1,5 @@
 ---
-name: Bug report
+name: General bug report
 about: Create a report to help us improve
 labels: classify, type-bug
 ---
