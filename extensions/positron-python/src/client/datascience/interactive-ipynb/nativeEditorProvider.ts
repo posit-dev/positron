@@ -49,10 +49,14 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         const disposable = this.documentManager.onDidOpenTextDocument(this.onOpenedDocument);
         this.disposables.push(disposable);
 
-        // Since we may have activated after a document was opened, also run open document for all documents
-        if (this.documentManager.textDocuments && this.documentManager.textDocuments.forEach) {
-            this.documentManager.textDocuments.forEach(this.onOpenedDocument);
-        }
+        // Since we may have activated after a document was opened, also run open document for all documents.
+        // This needs to be async though. Iterating over all of these in the .ctor is crashing the extension
+        // host, so postpone till after the ctor is finished.
+        setTimeout(() => {
+            if (this.documentManager.textDocuments && this.documentManager.textDocuments.forEach) {
+                this.documentManager.textDocuments.forEach(this.onOpenedDocument);
+            }
+        }, 0);
 
         // // Reopen our list of files that were open during shutdown. Actually not doing this for now. The files
         // don't open until the extension loads and all they all steal focus.
