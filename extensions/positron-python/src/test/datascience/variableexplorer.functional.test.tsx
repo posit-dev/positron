@@ -8,6 +8,7 @@ import { parse } from 'node-html-parser';
 import * as React from 'react';
 import { Disposable } from 'vscode';
 
+import { InteractiveWindowMessages } from '../../client/datascience/interactive-common/interactiveWindowTypes';
 import { IJupyterVariable } from '../../client/datascience/types';
 import { InteractivePanel } from '../../datascience-ui/history-react/interactivePanel';
 import { VariableExplorer } from '../../datascience-ui/interactive-common/variableExplorer';
@@ -16,7 +17,7 @@ import { DataScienceIocContainer } from './dataScienceIocContainer';
 import { addCode } from './interactiveWindowTestHelpers';
 import { addCell, createNewEditor } from './nativeEditorTestHelpers';
 import { waitForUpdate } from './reactHelpers';
-import { runDoubleTest } from './testHelpers';
+import { runDoubleTest, waitForMessage } from './testHelpers';
 
 // tslint:disable:max-func-body-length trailing-comma no-any no-multiline-string
 suite('DataScience Interactive Window variable explorer tests', () => {
@@ -60,10 +61,17 @@ suite('DataScience Interactive Window variable explorer tests', () => {
     //      asyncDump();
     //});
 
-    async function addCodeImpartial(wrapper: ReactWrapper<any, Readonly<{}>, React.Component>, code: string, expectedRenderCount: number = 4, expectError: boolean = false): Promise<ReactWrapper<any, Readonly<{}>, React.Component>> {
+    async function waitForVariablesUpdated(): Promise<void> {
+        return waitForMessage(ioc, InteractiveWindowMessages.VariablesComplete);
+    }
+
+    async function addCodeImpartial(wrapper: ReactWrapper<any, Readonly<{}>, React.Component>, code: string, waitForVariables: boolean = true, expectedRenderCount: number = 4, expectError: boolean = false): Promise<ReactWrapper<any, Readonly<{}>, React.Component>> {
+        const variablesUpdated = waitForVariables ? waitForVariablesUpdated() : Promise.resolve();
         const nodes = wrapper.find('InteractivePanel');
         if (nodes.length > 0) {
-            return addCode(ioc, wrapper, code, expectedRenderCount, expectError);
+            const result = await addCode(ioc, wrapper, code, expectedRenderCount, expectError);
+            await variablesUpdated;
+            return result;
         } else {
             // For the native editor case, we need to create an editor before hand.
             if (!createdNotebook) {
@@ -72,6 +80,7 @@ suite('DataScience Interactive Window variable explorer tests', () => {
                 expectedRenderCount += 1;
             }
             await addCell(wrapper, code, true, expectedRenderCount);
+            await variablesUpdated;
             return wrapper;
         }
     }
@@ -85,8 +94,7 @@ value = 'hello world'`;
         openVariableExplorer(wrapper);
 
         await addCodeImpartial(wrapper, 'a=1\na');
-        await addCodeImpartial(wrapper, basicCode, 4);
-        await waitForUpdate(wrapper, VariableExplorer, 3);
+        await addCodeImpartial(wrapper, basicCode, true, 4);
 
         // We should show a string and show an int, the modules should be hidden
         let targetVariables: IJupyterVariable[] = [
@@ -100,8 +108,7 @@ value = 'hello world'`;
         ioc.getSettings().datascience.variableExplorerExclude = `${ioc.getSettings().datascience.variableExplorerExclude};str`;
 
         // Add another string and check our vars, strings should be hidden
-        await addCodeImpartial(wrapper, basicCode2, 4);
-        await waitForUpdate(wrapper, VariableExplorer, 2);
+        await addCodeImpartial(wrapper, basicCode2, true, 4);
 
         targetVariables = [
             {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false}
@@ -116,7 +123,6 @@ value = 'hello world'`;
         openVariableExplorer(wrapper);
 
         await addCodeImpartial(wrapper, 'a=1\na');
-        await waitForUpdate(wrapper, VariableExplorer, 2);
 
         // Check that we have just the 'a' variable
         let targetVariables: IJupyterVariable[] = [
@@ -125,8 +131,7 @@ value = 'hello world'`;
         verifyVariables(wrapper, targetVariables);
 
         // Add another variable and check it
-        await addCodeImpartial(wrapper, basicCode, 4);
-        await waitForUpdate(wrapper, VariableExplorer, 3);
+        await addCodeImpartial(wrapper, basicCode, true, 4);
 
         targetVariables = [
             {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
@@ -136,8 +141,7 @@ value = 'hello world'`;
         verifyVariables(wrapper, targetVariables);
 
         // Add a second variable and check it
-        await addCodeImpartial(wrapper, basicCode2, 4);
-        await waitForUpdate(wrapper, VariableExplorer, 4);
+        await addCodeImpartial(wrapper, basicCode2, true, 4);
 
         targetVariables = [
             {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
@@ -155,7 +159,7 @@ value = 'hello world'`;
         openVariableExplorer(wrapper);
 
         await addCodeImpartial(wrapper, 'a=1\na');
-        await addCodeImpartial(wrapper, basicCode, 4);
+        await addCodeImpartial(wrapper, basicCode, false, 4);
 
         // Here we are only going to wait for two renders instead of the needed three
         // a should have the value updated, but value should still be loading
@@ -187,11 +191,7 @@ myDict = {'a': 1}`;
         openVariableExplorer(wrapper);
 
         await addCodeImpartial(wrapper, 'a=1\na');
-        await addCodeImpartial(wrapper, basicCode, 4);
-
-        // Verify that we actually update the variable explorer
-        // Count here is our main render + a render for each variable row as they come in
-        await waitForUpdate(wrapper, VariableExplorer, 5);
+        await addCodeImpartial(wrapper, basicCode, true, 4);
 
         const targetVariables: IJupyterVariable[] = [
             {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
@@ -219,11 +219,7 @@ myTuple = 1,2,3,4,5,6,7,8,9
         openVariableExplorer(wrapper);
 
         await addCodeImpartial(wrapper, 'a=1\na');
-        await addCodeImpartial(wrapper, basicCode, 4);
-
-        // Verify that we actually update the variable explorer
-        // Count here is our main render + a render for each variable row as they come in
-        await waitForUpdate(wrapper, VariableExplorer, 9);
+        await addCodeImpartial(wrapper, basicCode, true, 4);
 
         const targetVariables: IJupyterVariable[] = [
             {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
@@ -255,9 +251,7 @@ strc = 'c'`;
         openVariableExplorer(wrapper);
 
         await addCodeImpartial(wrapper, 'a=1\na');
-        await addCodeImpartial(wrapper, basicCode, 4);
-
-        await waitForUpdate(wrapper, VariableExplorer, 7);
+        await addCodeImpartial(wrapper, basicCode, true, 4);
 
         let targetVariables: IJupyterVariable[] = [
             {name: 'a', value: '1', supportsDataExplorer: false, type: 'int', size: 54, shape: '', count: 0, truncated: false},
@@ -318,6 +312,10 @@ function sortVariableExplorer(wrapper: ReactWrapper<any, Readonly<{}>, React.Com
 
 // Verify a set of rows versus a set of expected variables
 function verifyVariables(wrapper: ReactWrapper<any, Readonly<{}>, React.Component>, targetVariables: IJupyterVariable[]) {
+    // Force an update so we render whatever the current state is
+    wrapper.update();
+
+    // Then search for results.
     const foundRows = wrapper.find('div.react-grid-Row');
 
     expect(foundRows.length).to.be.equal(targetVariables.length, 'Different number of variable explorer rows and target variables');
