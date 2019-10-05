@@ -14,7 +14,7 @@ import { CellInput } from '../interactive-common/cellInput';
 import { CellOutput } from '../interactive-common/cellOutput';
 import { ExecutionCount } from '../interactive-common/executionCount';
 import { InformationMessages } from '../interactive-common/informationMessages';
-import { ICellViewModel } from '../interactive-common/mainState';
+import { ICellViewModel, IFont } from '../interactive-common/mainState';
 import { IKeyboardEvent } from '../react-common/event';
 import { Image, ImageName } from '../react-common/image';
 import { ImageButton } from '../react-common/imageButton';
@@ -36,6 +36,7 @@ interface INativeCellProps {
     showLineNumbers?: boolean;
     selectedCell?: string;
     focusedCell?: string;
+    font: IFont;
     focusCell(cellId: string, focusCode: boolean): void;
     selectCell(cellId: string): void;
 }
@@ -657,6 +658,7 @@ export class NativeCell extends React.Component<INativeCellProps, INativeCellSta
                     unfocused={this.isCodeCell() ? this.onCodeUnfocused : this.onMarkdownUnfocused}
                     keyDown={this.keyDownInput}
                     showLineNumbers={this.props.showLineNumbers}
+                    font={this.props.font}
                 />
             );
         }
