@@ -1080,7 +1080,8 @@ export class MainStateController implements IMessageHandler {
             visibleCells: this.getNonEditCellVMs().map(cvm => cvm.cell),
             cellCount: this.getNonEditCellVMs().length,
             undoCount: this.pendingState.undoStack.length,
-            redoCount: this.pendingState.redoStack.length
+            redoCount: this.pendingState.redoStack.length,
+            selectedCell: this.pendingState.selectedCellId
         };
         this.sendMessage(InteractiveWindowMessages.SendInfo, info);
     }

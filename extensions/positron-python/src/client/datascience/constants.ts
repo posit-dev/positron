@@ -35,6 +35,9 @@ export namespace Commands {
     export const NotebookEditorRemoveAllCells = 'python.datascience.notebookeditor.removeallcells';
     export const NotebookEditorInterruptKernel = 'python.datascience.notebookeditor.interruptkernel';
     export const NotebookEditorRestartKernel = 'python.datascience.notebookeditor.restartkernel';
+    export const NotebookEditorRunAllCells = 'python.datascience.notebookeditor.runallcells';
+    export const NotebookEditorRunSelectedCell = 'python.datascience.notebookeditor.runselectedcell';
+    export const NotebookEditorAddCellBelow = 'python.datascience.notebookeditor.addcellbelow';
     export const ExpandAllCells = 'python.datascience.expandallcells';
     export const CollapseAllCells = 'python.datascience.collapseallcells';
     export const ExportOutputAsNotebook = 'python.datascience.exportoutputasnotebook';
@@ -71,6 +74,7 @@ export namespace EditorContexts {
     export const HaveNativeCells = 'python.datascience.havenativecells';
     export const HaveNativeRedoableCells = 'python.datascience.havenativeredoablecells';
     export const HaveNative = 'python.datascience.havenative';
+    export const HaveCellSelected = 'python.datascience.havecellselected';
 }
 
 export namespace RegExpValues {
