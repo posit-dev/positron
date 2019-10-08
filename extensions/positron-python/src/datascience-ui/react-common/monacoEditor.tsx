@@ -33,7 +33,7 @@ export interface IMonacoEditorProps {
     lineCountChanged(newCount: number): void;
 }
 
-interface IMonacoEditorState {
+export interface IMonacoEditorState {
     editor?: monacoEditor.editor.IStandaloneCodeEditor;
     model: monacoEditor.editor.ITextModel | null;
     visibleLineCount: number;
