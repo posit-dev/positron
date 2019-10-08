@@ -517,11 +517,13 @@ export class MainStateController implements IMessageHandler {
         // Skip if already has focus
         if (cellId !== this.pendingState.focusedCellId) {
             const newVMs = [...this.pendingState.cellVMs];
-            // Switch the old vm
-            const oldSelect = this.findCellIndex(this.pendingState.selectedCellId);
-            if (oldSelect >= 0) {
-                newVMs[oldSelect] = { ...newVMs[oldSelect], selected: false, focused: false };
-            }
+            // Reset the old vms (nothing should be selected/focused)
+            // Change state only for cells that were selected/focused
+            newVMs.forEach((cellVM, index) => {
+                if (cellVM.selected || cellVM.focused){
+                    newVMs[index] = { ...cellVM, selected: false, focused: false };
+                }
+            });
             const newSelect = this.findCellIndex(cellId);
             if (newSelect >= 0) {
                 newVMs[newSelect] = { ...newVMs[newSelect], selected: true, focused: true };
@@ -536,11 +538,13 @@ export class MainStateController implements IMessageHandler {
         // Skip if already the same cell
         if (this.pendingState.selectedCellId !== cellId || this.pendingState.focusedCellId !== focusedCellId) {
             const newVMs = [...this.pendingState.cellVMs];
-            // Switch the old vm
-            const oldSelect = this.findCellIndex(this.pendingState.selectedCellId);
-            if (oldSelect >= 0) {
-                newVMs[oldSelect] = { ...newVMs[oldSelect], selected: false, focused: false };
-            }
+            // Reset the old vms (nothing should be selected/focused)
+            // Change state only for cells that were selected/focused
+            newVMs.forEach((cellVM, index) => {
+                if (cellVM.selected || cellVM.focused){
+                    newVMs[index] = { ...cellVM, selected: false, focused: false };
+                }
+            });
             const newSelect = this.findCellIndex(cellId);
             if (newSelect >= 0) {
                 newVMs[newSelect] = { ...newVMs[newSelect], selected: true, focused: focusedCellId === newVMs[newSelect].cell.id };
