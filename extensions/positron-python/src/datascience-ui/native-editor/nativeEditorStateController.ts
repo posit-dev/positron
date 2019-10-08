@@ -50,6 +50,12 @@ export class NativeEditorStateController extends MainStateController {
         return super.handleMessage(msg, payload);
     }
 
+    // This method is used by tests to prepare this react control for loading again.
+    public reset() {
+        this.waitingForLoadRender = false;
+        this.setState({ busy: true });
+    }
+
     public canMoveUp = (cellId?: string) => {
         const index = this.getState().cellVMs.findIndex(cvm => cvm.cell.id === cellId);
         return (index > 0);

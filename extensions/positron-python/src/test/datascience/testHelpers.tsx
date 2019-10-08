@@ -111,6 +111,8 @@ export function getLastOutputCell(wrapper: ReactWrapper<any, Readonly<{}>, React
 }
 
 export function verifyHtmlOnCell(wrapper: ReactWrapper<any, Readonly<{}>, React.Component>, cellType: string, html: string | undefined, cellIndex: number | CellPosition) {
+    wrapper.update();
+
     const foundResult = wrapper.find(cellType);
     assert.ok(foundResult.length >= 1, 'Didn\'t find any cells being rendered');
 
@@ -150,9 +152,9 @@ export function verifyHtmlOnCell(wrapper: ReactWrapper<any, Readonly<{}>, React.
         assert.ok(outHtml.includes(sliced), `${outHtml} does not contain ${sliced}`);
     } else {
         const output = targetCell!.find('div.cell-output');
-        const outputHtml = output.length > 0 ? output.html() : 'empty';
+        const outputHtml = output.length > 0 ? output.html() : undefined;
         // html not specified, look for an empty render
-        assert.ok(targetCell!.isEmptyRender(), `Target cell is not empty render, got this instead: ${outputHtml}`);
+        assert.ok(targetCell!.isEmptyRender() || outputHtml === undefined, `Target cell is not empty render, got this instead: ${outputHtml}`);
     }
 }
 
