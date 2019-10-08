@@ -659,5 +659,34 @@ suite('DataScience Native Editor', () => {
             assert.equal(wrapper.find(NativeCell).at(1).find(CellOutput).length, 0);
             assert.equal(wrapper.find(NativeCell).at(1).find(MonacoEditor).length, 1);
         });
+
+        test('Test undo using the key \'z\'', async () => {
+            clickCell(0);
+
+            // Add, then undo, keep doing at least 3 times and confirm it works as expected.
+            for (let i = 0; i < 3; i += 1){
+                // Add a new cell
+                let update = waitForUpdate(wrapper, NativeEditor, 1);
+                simulateKeyPressOnCell(0, { code: 'a' });
+                await update;
+
+                // There should be 4 cells and first cell is selected & nothing focused.
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 0), true);
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
+                assert.equal(isCellFocused(wrapper, 'NativeCell', 0), false);
+                assert.equal(isCellFocused(wrapper, 'NativeCell', 1), false);
+                assert.equal(wrapper.find('NativeCell').length, 4);
+
+                // Press 'z' to undo.
+                update = waitForUpdate(wrapper, NativeEditor, 1);
+                simulateKeyPressOnCell(0, { code: 'z' });
+                await update;
+
+                // There should be 3 cells and first cell is selected & nothing focused.
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 0), true);
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
+                assert.equal(wrapper.find('NativeCell').length, 3);
+            }
+        });
     });
 });
