@@ -9,7 +9,7 @@ import { URL } from 'url';
 import * as uuid from 'uuid/v4';
 import { CancellationToken, Event, EventEmitter } from 'vscode';
 
-import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
+import { IApplicationShell, ILiveShareApi, IWorkspaceService } from '../../common/application/types';
 import { Cancellation, CancellationError } from '../../common/cancellation';
 import { traceInfo } from '../../common/logger';
 import { IFileSystem, TemporaryDirectory } from '../../common/platform/types';
@@ -64,7 +64,11 @@ export class JupyterExecutionBase implements IJupyterExecution {
         commandFactory: IJupyterCommandFactory,
         private readonly serviceContainer: IServiceContainer
     ) {
-        this.commandFinder = new JupyterCommandFinder(interpreterService, executionFactory, configuration, knownSearchPaths, disposableRegistry, fileSystem, logger, processServiceFactory, commandFactory, workspace);
+        this.commandFinder = new JupyterCommandFinder(interpreterService, executionFactory,
+            configuration, knownSearchPaths, disposableRegistry,
+            fileSystem, logger, processServiceFactory,
+            commandFactory, workspace,
+            serviceContainer.get<IApplicationShell>(IApplicationShell));
         this.disposableRegistry.push(this.interpreterService.onDidChangeInterpreter(() => this.onSettingsChanged()));
         this.disposableRegistry.push(this);
 

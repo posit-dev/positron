@@ -374,6 +374,9 @@
     "DataScience.untitledNotebookMessage": "Your changes will be lost if you don't save them.",
     "DataScience.untitledNotebookYes": "Save",
     "DataScience.untitledNotebookNo": "Cancel",
-    "DataScience.noInterpreter": "No python selected",
-    "DataScience.notebookNotFound": "python -m jupyter notebook --version is not running"
+    "DataScience.noInterpreter" : "No python selected",
+    "DataScience.notebookNotFound" : "python -m jupyter notebook --version is not running",
+    "DataScience.findJupyterCommandProgress" : "Active interpreter does not support {0}. Searching for the best available interpreter.",
+    "DataScience.findJupyterCommandProgressCheckInterpreter": "Checking {0}.",
+    "DataScience.findJupyterCommandProgressSearchCurrentPath": "Searching current path."
 }
