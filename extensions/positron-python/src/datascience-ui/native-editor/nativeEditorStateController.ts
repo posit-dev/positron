@@ -23,7 +23,6 @@ export class NativeEditorStateController extends MainStateController {
     constructor(props: IMainStateControllerProps) {
         super(props);
     }
-
     // tslint:disable-next-line: no-any
     public handleMessage(msg: string, payload?: any) {
         // Handle message before base class so we will
@@ -53,6 +52,9 @@ export class NativeEditorStateController extends MainStateController {
 
             case InteractiveWindowMessages.NotebookAddCellBelow:
                 this.addNewCell();
+                break;
+            case  InteractiveWindowMessages.DoSave:
+                this.save();
                 break;
 
             default:
