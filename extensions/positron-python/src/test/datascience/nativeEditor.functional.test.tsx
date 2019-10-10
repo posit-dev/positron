@@ -3,16 +3,22 @@
 
 'use strict';
 
-import * as assert from 'assert';
+import { assert, expect, use } from 'chai';
+import * as chaiAsPromised from 'chai-as-promised';
 import { ReactWrapper } from 'enzyme';
-import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
+import { EventEmitter } from 'events';
+import * as fs from 'fs-extra';
 import * as path from 'path';
+import * as sinon from 'sinon';
+import { anything, when } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
-import { Disposable, TextDocument, TextEditor, Uri } from 'vscode';
+import { Disposable, TextDocument, TextEditor, Uri, WindowState } from 'vscode';
 import { IApplicationShell, IDocumentManager } from '../../client/common/application/types';
 import { createDeferred } from '../../client/common/utils/async';
+import { createTemporaryFile } from '../../client/common/utils/fs';
 import { noop } from '../../client/common/utils/misc';
 import { Identifiers } from '../../client/datascience/constants';
+import { InteractiveWindowMessages } from '../../client/datascience/interactive-common/interactiveWindowTypes';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { ICell, IJupyterExecution, INotebookEditorProvider, INotebookExporter } from '../../client/datascience/types';
 import { PythonInterpreter } from '../../client/interpreter/contracts';
@@ -21,16 +27,14 @@ import { CellOutput } from '../../datascience-ui/interactive-common/cellOutput';
 import { Editor } from '../../datascience-ui/interactive-common/editor';
 import { NativeCell } from '../../datascience-ui/native-editor/nativeCell';
 import { NativeEditor } from '../../datascience-ui/native-editor/nativeEditor';
+import { NativeEditorStateController } from '../../datascience-ui/native-editor/nativeEditorStateController';
 import { IKeyboardEvent } from '../../datascience-ui/react-common/event';
 import { ImageButton } from '../../datascience-ui/react-common/imageButton';
 import { IMonacoEditorState, MonacoEditor } from '../../datascience-ui/react-common/monacoEditor';
+import { waitForCondition } from '../common';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
-import {
-    addCell,
-    closeNotebook,
-    createNewEditor,
-    getNativeCellResults,
-    mountNativeWebView, openEditor, runMountedTest, setupWebview } from './nativeEditorTestHelpers';
+import { MockDocumentManager } from './mockDocumentManager';
+import { addCell, closeNotebook, createNewEditor, getNativeCellResults, mountNativeWebView, openEditor, runMountedTest, setupWebview } from './nativeEditorTestHelpers';
 import { waitForUpdate } from './reactHelpers';
 import {
     addContinuousMockData,
@@ -47,13 +51,13 @@ import {
     verifyHtmlOnCell,
     waitForMessageResponse
 } from './testHelpers';
+use(chaiAsPromised);
 
 //import { asyncDump } from '../common/asyncDump';
 // tslint:disable:max-func-body-length trailing-comma no-any no-multiline-string
 suite('DataScience Native Editor', () => {
-
     function createFileCell(cell: any, data: any): ICell {
-        const newCell = { type: 'preview', id: 'FakeID', file: Identifiers.EmptyFileName, line: 0, state: 2, ...cell};
+        const newCell = { type: 'preview', id: 'FakeID', file: Identifiers.EmptyFileName, line: 0, state: 2, ...cell };
         newCell.data = { cell_type: 'code', execution_count: null, metadata: {}, outputs: [], source: '', ...data };
 
         return newCell;
@@ -287,7 +291,13 @@ suite('DataScience Native Editor', () => {
             await waitForMessageResponse(ioc, () => runAllButton!.simulate('click'));
             await waitForUpdate(wrapper, NativeEditor, 15);
             verifyHtmlOnCell(wrapper, 'NativeCell', `1`, 0);
-        }, () => { return ioc; });
+        },
+        () => {
+                // Disable the warning displayed by nodejs when there are too many listeners.
+                EventEmitter.defaultMaxListeners = 15;
+                return ioc;
+            }
+        );
 
         test('Failure', async () => {
             // Make a dummy class that will fail during launch
@@ -308,7 +318,7 @@ suite('DataScience Native Editor', () => {
         });
     });
 
-    suite('Editor Keyboard tests', () => {
+    suite('Editor tests', () => {
         let wrapper: ReactWrapper<any, Readonly<{}>, React.Component>;
         const disposables: Disposable[] = [];
         let ioc: DataScienceIocContainer;
@@ -317,9 +327,15 @@ suite('DataScience Native Editor', () => {
             { id: 'NotebookImport#1', data: { source: 'b=2\nb' } },
             { id: 'NotebookImport#2', data: { source: 'c=3\nc' } }
         ];
-        setup(async function() {
+        let notebookFile: {
+            filePath: string;
+            cleanupCallback: Function;
+        };
+        function initIoc() {
             ioc = new DataScienceIocContainer();
             ioc.registerDataScienceTypes();
+        }
+        async function setupFunction(this: Mocha.Context) {
             const wrapperPossiblyUndefined = await setupWebview(ioc);
             if (wrapperPossiblyUndefined) {
                 wrapper = wrapperPossiblyUndefined;
@@ -330,13 +346,16 @@ suite('DataScience Native Editor', () => {
                 const runAllCells = baseFile.map(cell => {
                     return createFileCell(cell, cell.data);
                 });
+                // Use a real file so we can save notebook to a file.
+                // This is used in some tests (saving).
+                notebookFile = await createTemporaryFile('.ipynb');
                 const notebook = await ioc.get<INotebookExporter>(INotebookExporter).translateToNotebook(runAllCells, undefined);
-                await Promise.all([waitForUpdate(wrapper, NativeEditor, 1), openEditor(ioc, JSON.stringify(notebook))]);
+                await Promise.all([waitForUpdate(wrapper, NativeEditor, 1), openEditor(ioc, JSON.stringify(notebook), notebookFile.filePath)]);
             } else {
                 // tslint:disable-next-line: no-invalid-this
                 this.skip();
             }
-        });
+        }
 
         teardown(async () => {
             for (const disposable of disposables) {
@@ -350,6 +369,11 @@ suite('DataScience Native Editor', () => {
                 }
             }
             await ioc.dispose();
+            try {
+                notebookFile.cleanupCallback();
+            } catch {
+                noop();
+            }
         });
 
         function clickCell(cellIndex: number) {
@@ -359,6 +383,7 @@ suite('DataScience Native Editor', () => {
                 .simulate('click');
             wrapper.update();
         }
+
         function simulateKeyPressOnCell(cellIndex: number, keyboardEvent: Partial<IKeyboardEvent> & { code: string }) {
             const event = { ...createKeyboardEventForCell(keyboardEvent), ...keyboardEvent };
             wrapper
@@ -369,324 +394,595 @@ suite('DataScience Native Editor', () => {
             wrapper.update();
         }
 
-        test('None of the cells are selected by default', async () => {
-            assert.ok(!isCellSelected(wrapper, 'NativeCell', 0));
-            assert.ok(!isCellSelected(wrapper, 'NativeCell', 1));
-            assert.ok(!isCellSelected(wrapper, 'NativeCell', 2));
+        suite('Selection/Focus', () => {
+            setup(async function() {
+                initIoc();
+                // tslint:disable-next-line: no-invalid-this
+                await setupFunction.call(this);
+            });
+            test('None of the cells are selected by default', async () => {
+                assert.ok(!isCellSelected(wrapper, 'NativeCell', 0));
+                assert.ok(!isCellSelected(wrapper, 'NativeCell', 1));
+                assert.ok(!isCellSelected(wrapper, 'NativeCell', 2));
+            });
+
+            test('None of the cells are not focused by default', async () => {
+                assert.ok(!isCellFocused(wrapper, 'NativeCell', 0));
+                assert.ok(!isCellFocused(wrapper, 'NativeCell', 1));
+                assert.ok(!isCellFocused(wrapper, 'NativeCell', 2));
+            });
+
+            test('Select cells by clicking them', async () => {
+                // Click first cell, then second, then third.
+                clickCell(0);
+                assert.ok(isCellSelected(wrapper, 'NativeCell', 0));
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 2), false);
+
+                clickCell(1);
+                assert.ok(isCellSelected(wrapper, 'NativeCell', 1));
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 0), false);
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 2), false);
+
+                clickCell(2);
+                assert.ok(isCellSelected(wrapper, 'NativeCell', 2));
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 0), false);
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
+            });
         });
 
-        test('None of the cells are not focused by default', async () => {
-            assert.ok(!isCellFocused(wrapper, 'NativeCell', 0));
-            assert.ok(!isCellFocused(wrapper, 'NativeCell', 1));
-            assert.ok(!isCellFocused(wrapper, 'NativeCell', 2));
-        });
+        suite('Keyboard Shortcuts', () => {
+            setup(async function() {
+                initIoc();
+                // tslint:disable-next-line: no-invalid-this
+                await setupFunction.call(this);
+            });
 
-        test('Select cells by clicking them', async () => {
-            // Click first cell, then second, then third.
-            clickCell(0);
-            assert.ok(isCellSelected(wrapper, 'NativeCell', 0));
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 2), false);
+            test('Traverse cells by using ArrowUp and ArrowDown, k and j', async () => {
+                const keyCodesAndPositions = [
+                    // When we press arrow down in the first cell, then second cell gets selected.
+                    { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 0, expectedSelectedCell: 1 },
+                    { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 1, expectedSelectedCell: 2 },
+                    // Arrow down on last cell is a noop.
+                    { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 2, expectedSelectedCell: 2 },
+                    // When we press arrow up in the last cell, then second cell (from bottom) gets selected.
+                    { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 2, expectedSelectedCell: 1 },
+                    { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 1, expectedSelectedCell: 0 },
+                    // Arrow up on last cell is a noop.
+                    { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 0, expectedSelectedCell: 0 },
 
-            clickCell(1);
-            assert.ok(isCellSelected(wrapper, 'NativeCell', 1));
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 0), false);
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 2), false);
+                    // Same tests as above with k and j.
+                    { keyCode: 'j', cellIndexToPressKeysOn: 0, expectedSelectedCell: 1 },
+                    { keyCode: 'j', cellIndexToPressKeysOn: 1, expectedSelectedCell: 2 },
+                    // Arrow down on last cell is a noop.
+                    { keyCode: 'j', cellIndexToPressKeysOn: 2, expectedSelectedCell: 2 },
+                    { keyCode: 'k', cellIndexToPressKeysOn: 2, expectedSelectedCell: 1 },
+                    { keyCode: 'k', cellIndexToPressKeysOn: 1, expectedSelectedCell: 0 },
+                    // Arrow up on last cell is a noop.
+                    { keyCode: 'k', cellIndexToPressKeysOn: 0, expectedSelectedCell: 0 }
+                ];
 
-            clickCell(2);
-            assert.ok(isCellSelected(wrapper, 'NativeCell', 2));
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 0), false);
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
-        });
+                // keypress on first cell, then second, then third.
+                // Test navigation through all cells, by traversing up and down.
+                for (const testItem of keyCodesAndPositions) {
+                    simulateKeyPressOnCell(testItem.cellIndexToPressKeysOn, { code: testItem.keyCode });
 
-        test('Traverse cells by using ArrowUp and ArrowDown, k and j', async () => {
-            const keyCodesAndPositions = [
-                // When we press arrow down in the first cell, then second cell gets selected.
-                { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 0, expectedSelectedCell: 1 },
-                { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 1, expectedSelectedCell: 2 },
-                // Arrow down on last cell is a noop.
-                { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 2, expectedSelectedCell: 2 },
-                // When we press arrow up in the last cell, then second cell (from bottom) gets selected.
-                { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 2, expectedSelectedCell: 1 },
-                { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 1, expectedSelectedCell: 0 },
-                // Arrow up on last cell is a noop.
-                { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 0, expectedSelectedCell: 0 },
+                    // Check if it is selected.
+                    // Only the cell at the index should be selected, as that's what we click.
+                    assert.ok(isCellSelected(wrapper, 'NativeCell', testItem.expectedSelectedCell) === true);
+                }
+            });
 
-                // Same tests as above with k and j.
-                { keyCode: 'j', cellIndexToPressKeysOn: 0, expectedSelectedCell: 1 },
-                { keyCode: 'j', cellIndexToPressKeysOn: 1, expectedSelectedCell: 2 },
-                // Arrow down on last cell is a noop.
-                { keyCode: 'j', cellIndexToPressKeysOn: 2, expectedSelectedCell: 2 },
-                { keyCode: 'k', cellIndexToPressKeysOn: 2, expectedSelectedCell: 1 },
-                { keyCode: 'k', cellIndexToPressKeysOn: 1, expectedSelectedCell: 0 },
-                // Arrow up on last cell is a noop.
-                { keyCode: 'k', cellIndexToPressKeysOn: 0, expectedSelectedCell: 0 }
-            ];
+            test('Traverse cells by using ArrowUp and ArrowDown, k and j', async () => {
+                const keyCodesAndPositions = [
+                    // When we press arrow down in the first cell, then second cell gets selected.
+                    { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 0, expectedIndex: 1 },
+                    { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 1, expectedIndex: 2 },
+                    // Arrow down on last cell is a noop.
+                    { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 2, expectedIndex: 2 },
+                    // When we press arrow up in the last cell, then second cell (from bottom) gets selected.
+                    { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 2, expectedIndex: 1 },
+                    { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 1, expectedIndex: 0 },
+                    // Arrow up on last cell is a noop.
+                    { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 0, expectedIndex: 0 }
+                ];
 
-            // keypress on first cell, then second, then third.
-            // Test navigation through all cells, by traversing up and down.
-            for (const testItem of keyCodesAndPositions) {
-                simulateKeyPressOnCell(testItem.cellIndexToPressKeysOn, { code: testItem.keyCode });
+                // keypress on first cell, then second, then third.
+                // Test navigation through all cells, by traversing up and down.
+                for (const testItem of keyCodesAndPositions) {
+                    simulateKeyPressOnCell(testItem.cellIndexToPressKeysOn, { code: testItem.keyCode });
 
-                // Check if it is selected.
-                // Only the cell at the index should be selected, as that's what we click.
-                assert.ok(isCellSelected(wrapper, 'NativeCell', testItem.expectedSelectedCell) === true);
-            }
-        });
+                    // Check if it is selected.
+                    // Only the cell at the index should be selected, as that's what we click.
+                    assert.ok(isCellSelected(wrapper, 'NativeCell', testItem.expectedIndex) === true);
+                }
+            });
 
-        test('Traverse cells by using ArrowUp and ArrowDown, k and j', async () => {
-            const keyCodesAndPositions = [
-                // When we press arrow down in the first cell, then second cell gets selected.
-                { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 0, expectedIndex: 1 },
-                { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 1, expectedIndex: 2 },
-                // Arrow down on last cell is a noop.
-                { keyCode: 'ArrowDown', cellIndexToPressKeysOn: 2, expectedIndex: 2 },
-                // When we press arrow up in the last cell, then second cell (from bottom) gets selected.
-                { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 2, expectedIndex: 1 },
-                { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 1, expectedIndex: 0 },
-                // Arrow up on last cell is a noop.
-                { keyCode: 'ArrowUp', cellIndexToPressKeysOn: 0, expectedIndex: 0 }
-            ];
+            test('Pressing \'Enter\' on a selected cell, results in focus being set to the code', async () => {
+                // For some reason we cannot allow setting focus to monaco editor.
+                // Tests are known to fall over if allowed.
+                const editor = wrapper
+                    .find(NativeCell)
+                    .at(1)
+                    .find(Editor)
+                    .first();
+                (editor.instance() as Editor).giveFocus = () => editor.props().focused!();
 
-            // keypress on first cell, then second, then third.
-            // Test navigation through all cells, by traversing up and down.
-            for (const testItem of keyCodesAndPositions) {
-                simulateKeyPressOnCell(testItem.cellIndexToPressKeysOn, { code: testItem.keyCode });
+                const update = waitForUpdate(wrapper, NativeEditor, 1);
+                clickCell(1);
+                simulateKeyPressOnCell(1, { code: 'Enter', editorInfo: undefined });
+                await update;
 
-                // Check if it is selected.
-                // Only the cell at the index should be selected, as that's what we click.
-                assert.ok(isCellSelected(wrapper, 'NativeCell', testItem.expectedIndex) === true);
-            }
-        });
+                // The second cell should be selected.
+                assert.ok(isCellFocused(wrapper, 'NativeCell', 1));
+            });
 
-        test('Pressing \'Enter\' on a selected cell, results in focus being set to the code', async () => {
-            // For some reason we cannot allow setting focus to monaco editor.
-            // Tests are known to fall over if allowed.
-            const editor = wrapper
-                .find(NativeCell)
-                .at(1)
-                .find(Editor)
-                .first();
-            (editor.instance() as Editor).giveFocus = () => editor.props().focused!();
-
-            const update = waitForUpdate(wrapper, NativeEditor, 1);
-            clickCell(1);
-            simulateKeyPressOnCell(1, { code: 'Enter', editorInfo: undefined });
-            await update;
-
-            // The second cell should be selected.
-            assert.ok(isCellFocused(wrapper, 'NativeCell', 1));
-        });
-
-        test('Pressing \'Escape\' on a focused cell results in the cell being selected', async () => {
-            // First focus the cell.
-            let update = waitForUpdate(wrapper, NativeEditor, 1);
-            clickCell(1);
-            simulateKeyPressOnCell(1, { code: 'Enter', editorInfo: undefined });
-            await update;
-
-            // The second cell should be selected.
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
-            assert.equal(isCellFocused(wrapper, 'NativeCell', 1), true);
-
-            // Now hit escape.
-            update = waitForUpdate(wrapper, NativeEditor, 1);
-            simulateKeyPressOnCell(1, { code: 'Escape' });
-            await update;
-
-            // Confirm it is no longer focused, and it is selected.
-            assert.equal(isCellSelected(wrapper, 'NativeCell', 1), true);
-            assert.equal(isCellFocused(wrapper, 'NativeCell', 1), false);
-        });
-
-        test('Pressing \'Shift+Enter\' on a selected cell executes the cell and advances to the next cell', async () => {
-            clickCell(1);
-            const update = waitForUpdate(wrapper, NativeEditor, 7);
-            simulateKeyPressOnCell(1, { code: 'Enter', shiftKey: true, editorInfo: undefined });
-            await update;
-            wrapper.update();
-
-            // Ensure cell was executed.
-            verifyHtmlOnCell(wrapper, 'NativeCell', '<span>2</span>', 1);
-
-            // The third cell should be selected.
-            assert.ok(isCellSelected(wrapper, 'NativeCell', 2));
-        });
-
-        test('Pressing \'Ctrl+Enter\' on a selected cell executes the cell and cell selection is not changed', async () => {
-            const update = waitForUpdate(wrapper, NativeEditor, 7);
-            clickCell(1);
-            simulateKeyPressOnCell(1, { code: 'Enter', ctrlKey: true, editorInfo: undefined });
-            await update;
-
-            // Ensure cell was executed.
-            verifyHtmlOnCell(wrapper, 'NativeCell', '<span>2</span>', 1);
-
-            // The first cell should be selected.
-            assert.ok(isCellSelected(wrapper, 'NativeCell', 1));
-        });
-
-        test('Pressing \'Altr+Enter\' on a selected cell adds a new cell below it', async () => {
-            // Initially 3 cells.
-            assert.equal(wrapper.find('NativeCell').length, 3);
-
-            const update = waitForUpdate(wrapper, NativeEditor, 1);
-            clickCell(1);
-            simulateKeyPressOnCell(1, { code: 'Enter', altKey: true, editorInfo: undefined });
-            await update;
-
-            // The second cell should be selected.
-            assert.ok(isCellSelected(wrapper, 'NativeCell', 2));
-            // There should be 4 cells.
-            assert.equal(wrapper.find('NativeCell').length, 4);
-        });
-
-        test('Pressing \'d\' on a selected cell twice deletes the cell', async () => {
-            // Initially 3 cells.
-            assert.equal(wrapper.find('NativeCell').length, 3);
-
-            clickCell(2);
-            simulateKeyPressOnCell(2, { code: 'd' });
-            simulateKeyPressOnCell(2, { code: 'd' });
-
-            // There should be 2 cells.
-            assert.equal(wrapper.find('NativeCell').length, 2);
-        });
-
-        test('Pressing \'a\' on a selected cell adds a cell at the current position', async () => {
-            // Initially 3 cells.
-            assert.equal(wrapper.find('NativeCell').length, 3);
-
-            // const secondCell = wrapper.find('NativeCell').at(1);
-
-            clickCell(0);
-            const update = waitForUpdate(wrapper, NativeEditor, 1);
-            simulateKeyPressOnCell(0, { code: 'a' });
-            await update;
-
-            // There should be 4 cells.
-            assert.equal(wrapper.find('NativeCell').length, 4);
-
-            // Verify cell indexes of old items.
-            verifyCellIndex(wrapper, 'div[id="NotebookImport#0"]', 1);
-            verifyCellIndex(wrapper, 'div[id="NotebookImport#1"]', 2);
-            verifyCellIndex(wrapper, 'div[id="NotebookImport#2"]', 3);
-        });
-
-        test('Pressing \'b\' on a selected cell adds a cell after the current position', async () => {
-            // Initially 3 cells.
-            assert.equal(wrapper.find('NativeCell').length, 3);
-
-            clickCell(1);
-            const update = waitForUpdate(wrapper, NativeEditor, 1);
-            simulateKeyPressOnCell(1, { code: 'b' });
-            await update;
-
-            // There should be 4 cells.
-            assert.equal(wrapper.find('NativeCell').length, 4);
-
-            // Verify cell indexes of old items.
-            verifyCellIndex(wrapper, 'div[id="NotebookImport#0"]', 0);
-            verifyCellIndex(wrapper, 'div[id="NotebookImport#1"]', 1);
-            verifyCellIndex(wrapper, 'div[id="NotebookImport#2"]', 3);
-        });
-
-        test('Toggle visibility of output', async () => {
-            // First execute contents of last cell.
-            let update = waitForUpdate(wrapper, NativeEditor, 7);
-            clickCell(2);
-            simulateKeyPressOnCell(2, { code: 'Enter', ctrlKey: true, editorInfo: undefined });
-            await update;
-
-            // Ensure cell was executed.
-            verifyHtmlOnCell(wrapper, 'NativeCell', '<span>3</span>', 2);
-
-            // Hide the output
-            update = waitForUpdate(wrapper, NativeEditor, 1);
-            simulateKeyPressOnCell(2, { code: 'o' });
-            await update;
-
-            // Ensure cell output is hidden (looking for cell results will throw an exception).
-            assert.throws(() => verifyHtmlOnCell(wrapper, 'NativeCell', '<span>3</span>', 2));
-
-            // Display the output
-            update = waitForUpdate(wrapper, NativeEditor, 1);
-            simulateKeyPressOnCell(2, { code: 'o' });
-            await update;
-
-            // Ensure cell output is visible again.
-            verifyHtmlOnCell(wrapper, 'NativeCell', '<span>3</span>', 2);
-        });
-
-        test('Toggle line numbers using the \'l\' key', async () => {
-            clickCell(1);
-
-            const monacoEditorComponent = wrapper.find(NativeCell).at(1).find(MonacoEditor).first();
-            const editor = (monacoEditorComponent.instance().state as IMonacoEditorState).editor!;
-            const oldUpdateOptions = editor.updateOptions.bind(editor);
-
-            let lineNumberSetting: any = '';
-            editor.updateOptions = (options: monacoEditor.editor.IEditorConstructionOptions) => {
-                lineNumberSetting = options.lineNumbers;
-                oldUpdateOptions(options);
-            };
-
-            // Display line numbers.
-            simulateKeyPressOnCell(1, { code: 'l' });
-            assert.equal(lineNumberSetting, 'on');
-
-            // toggle the display of line numbers.
-            simulateKeyPressOnCell(1, { code: 'l' });
-            assert.equal(lineNumberSetting, 'off');
-        });
-
-        test('Toggle markdown and code modes using \'y\' and \'m\' keys', async () => {
-            clickCell(1);
-
-            // Switch to markdown
-            simulateKeyPressOnCell(1, { code: 'm' });
-
-            // Confirm output cell is rendered and monaco editor is not.
-            assert.equal(wrapper.find(NativeCell).at(1).find(CellOutput).length, 1);
-            assert.equal(wrapper.find(NativeCell).at(1).find(MonacoEditor).length, 0);
-
-            // Switch back to code mode.
-            // At this moment, there's no cell input element, hence send key strokes to the wrapper.
-            const wrapperElement = wrapper.find(NativeCell).at(1).find('.cell-wrapper').first();
-            wrapperElement.simulate('keyDown', {key: 'y'});
-
-            // Confirm output cell is not rendered (remember we don't have any output) and monaco editor is rendered.
-            assert.equal(wrapper.find(NativeCell).at(1).find(CellOutput).length, 0);
-            assert.equal(wrapper.find(NativeCell).at(1).find(MonacoEditor).length, 1);
-        });
-
-        test('Test undo using the key \'z\'', async () => {
-            clickCell(0);
-
-            // Add, then undo, keep doing at least 3 times and confirm it works as expected.
-            for (let i = 0; i < 3; i += 1){
-                // Add a new cell
+            test('Pressing \'Escape\' on a focused cell results in the cell being selected', async () => {
+                // First focus the cell.
                 let update = waitForUpdate(wrapper, NativeEditor, 1);
+                clickCell(1);
+                simulateKeyPressOnCell(1, { code: 'Enter', editorInfo: undefined });
+                await update;
+
+                // The second cell should be selected.
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
+                assert.equal(isCellFocused(wrapper, 'NativeCell', 1), true);
+
+                // Now hit escape.
+                update = waitForUpdate(wrapper, NativeEditor, 1);
+                simulateKeyPressOnCell(1, { code: 'Escape' });
+                await update;
+
+                // Confirm it is no longer focused, and it is selected.
+                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), true);
+                assert.equal(isCellFocused(wrapper, 'NativeCell', 1), false);
+            });
+
+            test('Pressing \'Shift+Enter\' on a selected cell executes the cell and advances to the next cell', async () => {
+                clickCell(1);
+                const update = waitForUpdate(wrapper, NativeEditor, 7);
+                simulateKeyPressOnCell(1, { code: 'Enter', shiftKey: true, editorInfo: undefined });
+                await update;
+                wrapper.update();
+
+                // Ensure cell was executed.
+                verifyHtmlOnCell(wrapper, 'NativeCell', '<span>2</span>', 1);
+
+                // The third cell should be selected.
+                assert.ok(isCellSelected(wrapper, 'NativeCell', 2));
+            });
+
+            test('Pressing \'Ctrl+Enter\' on a selected cell executes the cell and cell selection is not changed', async () => {
+                const update = waitForUpdate(wrapper, NativeEditor, 7);
+                clickCell(1);
+                simulateKeyPressOnCell(1, { code: 'Enter', ctrlKey: true, editorInfo: undefined });
+                await update;
+
+                // Ensure cell was executed.
+                verifyHtmlOnCell(wrapper, 'NativeCell', '<span>2</span>', 1);
+
+                // The first cell should be selected.
+                assert.ok(isCellSelected(wrapper, 'NativeCell', 1));
+            });
+
+            test('Pressing \'Altr+Enter\' on a selected cell adds a new cell below it', async () => {
+                // Initially 3 cells.
+                assert.equal(wrapper.find('NativeCell').length, 3);
+
+                const update = waitForUpdate(wrapper, NativeEditor, 1);
+                clickCell(1);
+                simulateKeyPressOnCell(1, { code: 'Enter', altKey: true, editorInfo: undefined });
+                await update;
+
+                // The second cell should be selected.
+                assert.ok(isCellSelected(wrapper, 'NativeCell', 2));
+                // There should be 4 cells.
+                assert.equal(wrapper.find('NativeCell').length, 4);
+            });
+
+            test('Pressing \'d\' on a selected cell twice deletes the cell', async () => {
+                // Initially 3 cells.
+                assert.equal(wrapper.find('NativeCell').length, 3);
+
+                clickCell(2);
+                simulateKeyPressOnCell(2, { code: 'd' });
+                simulateKeyPressOnCell(2, { code: 'd' });
+
+                // There should be 2 cells.
+                assert.equal(wrapper.find('NativeCell').length, 2);
+            });
+
+            test('Pressing \'a\' on a selected cell adds a cell at the current position', async () => {
+                // Initially 3 cells.
+                assert.equal(wrapper.find('NativeCell').length, 3);
+
+                // const secondCell = wrapper.find('NativeCell').at(1);
+
+                clickCell(0);
+                const update = waitForUpdate(wrapper, NativeEditor, 1);
                 simulateKeyPressOnCell(0, { code: 'a' });
                 await update;
 
-                // There should be 4 cells and first cell is selected & nothing focused.
-                assert.equal(isCellSelected(wrapper, 'NativeCell', 0), true);
-                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
-                assert.equal(isCellFocused(wrapper, 'NativeCell', 0), false);
-                assert.equal(isCellFocused(wrapper, 'NativeCell', 1), false);
+                // There should be 4 cells.
                 assert.equal(wrapper.find('NativeCell').length, 4);
 
-                // Press 'z' to undo.
-                update = waitForUpdate(wrapper, NativeEditor, 1);
-                simulateKeyPressOnCell(0, { code: 'z' });
+                // Verify cell indexes of old items.
+                verifyCellIndex(wrapper, 'div[id="NotebookImport#0"]', 1);
+                verifyCellIndex(wrapper, 'div[id="NotebookImport#1"]', 2);
+                verifyCellIndex(wrapper, 'div[id="NotebookImport#2"]', 3);
+            });
+
+            test('Pressing \'b\' on a selected cell adds a cell after the current position', async () => {
+                // Initially 3 cells.
+                assert.equal(wrapper.find('NativeCell').length, 3);
+
+                clickCell(1);
+                const update = waitForUpdate(wrapper, NativeEditor, 1);
+                simulateKeyPressOnCell(1, { code: 'b' });
                 await update;
 
-                // There should be 3 cells and first cell is selected & nothing focused.
-                assert.equal(isCellSelected(wrapper, 'NativeCell', 0), true);
-                assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
-                assert.equal(wrapper.find('NativeCell').length, 3);
+                // There should be 4 cells.
+                assert.equal(wrapper.find('NativeCell').length, 4);
+
+                // Verify cell indexes of old items.
+                verifyCellIndex(wrapper, 'div[id="NotebookImport#0"]', 0);
+                verifyCellIndex(wrapper, 'div[id="NotebookImport#1"]', 1);
+                verifyCellIndex(wrapper, 'div[id="NotebookImport#2"]', 3);
+            });
+
+            test('Toggle visibility of output', async () => {
+                // First execute contents of last cell.
+                let update = waitForUpdate(wrapper, NativeEditor, 7);
+                clickCell(2);
+                simulateKeyPressOnCell(2, { code: 'Enter', ctrlKey: true, editorInfo: undefined });
+                await update;
+
+                // Ensure cell was executed.
+                verifyHtmlOnCell(wrapper, 'NativeCell', '<span>3</span>', 2);
+
+                // Hide the output
+                update = waitForUpdate(wrapper, NativeEditor, 1);
+                simulateKeyPressOnCell(2, { code: 'o' });
+                await update;
+
+                // Ensure cell output is hidden (looking for cell results will throw an exception).
+                assert.throws(() => verifyHtmlOnCell(wrapper, 'NativeCell', '<span>3</span>', 2));
+
+                // Display the output
+                update = waitForUpdate(wrapper, NativeEditor, 1);
+                simulateKeyPressOnCell(2, { code: 'o' });
+                await update;
+
+                // Ensure cell output is visible again.
+                verifyHtmlOnCell(wrapper, 'NativeCell', '<span>3</span>', 2);
+            });
+
+            test('Toggle line numbers using the \'l\' key', async () => {
+                clickCell(1);
+
+                const monacoEditorComponent = wrapper
+                    .find(NativeCell)
+                    .at(1)
+                    .find(MonacoEditor)
+                    .first();
+                const editor = (monacoEditorComponent.instance().state as IMonacoEditorState).editor!;
+                const optionsUpdated = sinon.spy(editor, 'updateOptions');
+
+                // Display line numbers.
+                simulateKeyPressOnCell(1, { code: 'l' });
+                // Confirm monaco editor got updated with line numbers set to turned on.
+                assert.equal(optionsUpdated.lastCall.args[0].lineNumbers, 'on');
+
+                // toggle the display of line numbers.
+                simulateKeyPressOnCell(1, { code: 'l' });
+                // Confirm monaco editor got updated with line numbers set to turned ff.
+                assert.equal(optionsUpdated.lastCall.args[0].lineNumbers, 'off');
+            });
+
+            test('Toggle markdown and code modes using \'y\' and \'m\' keys', async () => {
+                clickCell(1);
+
+                // Switch to markdown
+                simulateKeyPressOnCell(1, { code: 'm' });
+
+                // Confirm output cell is rendered and monaco editor is not.
+                assert.equal(
+                    wrapper
+                        .find(NativeCell)
+                        .at(1)
+                        .find(CellOutput).length,
+                    1
+                );
+                assert.equal(
+                    wrapper
+                        .find(NativeCell)
+                        .at(1)
+                        .find(MonacoEditor).length,
+                    0
+                );
+
+                // Switch back to code mode.
+                // At this moment, there's no cell input element, hence send key strokes to the wrapper.
+                const wrapperElement = wrapper
+                    .find(NativeCell)
+                    .at(1)
+                    .find('.cell-wrapper')
+                    .first();
+                wrapperElement.simulate('keyDown', { key: 'y' });
+
+                // Confirm output cell is not rendered (remember we don't have any output) and monaco editor is rendered.
+                assert.equal(
+                    wrapper
+                        .find(NativeCell)
+                        .at(1)
+                        .find(CellOutput).length,
+                    0
+                );
+                assert.equal(
+                    wrapper
+                        .find(NativeCell)
+                        .at(1)
+                        .find(MonacoEditor).length,
+                    1
+                );
+            });
+
+            test('Test undo using the key \'z\'', async () => {
+                clickCell(0);
+
+                // Add, then undo, keep doing at least 3 times and confirm it works as expected.
+                for (let i = 0; i < 3; i += 1) {
+                    // Add a new cell
+                    let update = waitForUpdate(wrapper, NativeEditor, 1);
+                    simulateKeyPressOnCell(0, { code: 'a' });
+                    await update;
+
+                    // There should be 4 cells and first cell is selected & nothing focused.
+                    assert.equal(isCellSelected(wrapper, 'NativeCell', 0), true);
+                    assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
+                    assert.equal(isCellFocused(wrapper, 'NativeCell', 0), false);
+                    assert.equal(isCellFocused(wrapper, 'NativeCell', 1), false);
+                    assert.equal(wrapper.find('NativeCell').length, 4);
+
+                    // Press 'z' to undo.
+                    update = waitForUpdate(wrapper, NativeEditor, 1);
+                    simulateKeyPressOnCell(0, { code: 'z' });
+                    await update;
+
+                    // There should be 3 cells and first cell is selected & nothing focused.
+                    assert.equal(isCellSelected(wrapper, 'NativeCell', 0), true);
+                    assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
+                    assert.equal(wrapper.find('NativeCell').length, 3);
+                }
+            });
+        });
+
+        suite('Auto Save', () => {
+            let controller: NativeEditorStateController;
+            let windowStateChangeHandlers: ((e: WindowState) => any)[] = [];
+            let handleMessageSpy: sinon.SinonSpy<[string, any?], boolean>;
+            setup(async function() {
+                handleMessageSpy = sinon.spy(NativeEditorStateController.prototype, 'handleMessage');
+                initIoc();
+
+                windowStateChangeHandlers = [];
+                // Keep track of all handlers for the onDidChangeWindowState event.
+                ioc.applicationShell.setup(app => app.onDidChangeWindowState(TypeMoq.It.isAny())).callback(cb => windowStateChangeHandlers.push(cb));
+
+                // tslint:disable-next-line: no-invalid-this
+                await setupFunction.call(this);
+
+                controller = (wrapper
+                    .find(NativeEditor)
+                    .first()
+                    .instance() as NativeEditor).stateController;
+            });
+            teardown(() => sinon.restore());
+
+            /**
+             * Wait for a particular message to be received by the editor component.
+             * If message isn't reiceived within a time out, then reject with a timeout error message.
+             *
+             * @param {string} message
+             * @param {number} timeout
+             * @returns {Promise<void>}
+             */
+            async function waitForMessageReceivedEditorComponent(message: string, timeout: number = 5000): Promise<void> {
+                const errorMessage = `Timeout waiting for message ${message}`;
+                await waitForCondition(async () => handleMessageSpy.calledWith(message, sinon.match.any), timeout, errorMessage);
             }
+
+            /**
+             * Wait for notebook to be marked as dirty (within a timeout of 5s).
+             *
+             * @param {boolean} [dirty=true]
+             * @returns {Promise<void>}
+             */
+            async function waitForNotebookToBeDirty(): Promise<void> {
+                // Wait for the notebook to be marked as dirty (the NotebookDirty message will be sent).
+                await waitForMessageReceivedEditorComponent(InteractiveWindowMessages.NotebookDirty, 5_000);
+                // Wait for the state to get updated.
+                await waitForCondition(async () => controller.getState().dirty === true, 1_000, `Timeout waiting for dirty state to get updated to true`);
+            }
+
+            /**
+             * Wait for notebook to be marked as clean (within a timeout of 5s).
+             *
+             * @param {boolean} [dirty=true]
+             * @returns {Promise<void>}
+             */
+            async function waitForNotebookToBeClean(): Promise<void> {
+                // Wait for the notebook to be marked as dirty (the NotebookDirty message will be sent).
+                await waitForMessageReceivedEditorComponent(InteractiveWindowMessages.NotebookDirty, 5_000);
+
+                // Wait for the state to get updated.
+                await waitForCondition(async () => controller.getState().dirty === false, 1_000, `Timeout waiting for dirty state to get updated to false`);
+            }
+
+            /**
+             * Make some kind of a change to the notebook.
+             *
+             * @param {number} cellIndex
+             */
+            async function modifyNotebook() {
+                // (Add a cell into the UI and wait for it to render)
+                clickCell(0);
+                const update = waitForUpdate(wrapper, NativeEditor, 2);
+                simulateKeyPressOnCell(0, { code: 'a' });
+                await update;
+            }
+
+            test('Auto save notebook every 1s', async () => {
+                // Configure notebook to save automatically ever 1s.
+                when(ioc.mockedWorkspaceConfig.get('autoSave', 'off')).thenReturn('afterDelay');
+                when(ioc.mockedWorkspaceConfig.get<number>('autoSaveDelay', anything())).thenReturn(1_000);
+                ioc.forceSettingsChanged(ioc.getSettings().pythonPath);
+
+                /**
+                 * Make some changes to a cell of a notebook, then verify the notebook is auto saved.
+                 *
+                 * @param {number} cellIndex
+                 */
+                async function makeChangesAndConfirmFileIsUpdated() {
+                    const notebookFileContents = await fs.readFile(notebookFile.filePath, 'utf8');
+
+                    await modifyNotebook();
+                    await waitForNotebookToBeDirty();
+
+                    // At this point a message should be sent to extension asking it to save.
+                    // After the save, the extension should send a message to react letting it know that it was saved successfully.
+
+                    await waitForNotebookToBeClean();
+                    // Confirm file has been updated as well.
+                    const newFileContents = await fs.readFile(notebookFile.filePath, 'utf8');
+                    assert.notEqual(newFileContents, notebookFileContents);
+                }
+
+                // Make changes & validate (try a couple of times).
+                await makeChangesAndConfirmFileIsUpdated();
+                await makeChangesAndConfirmFileIsUpdated();
+                await makeChangesAndConfirmFileIsUpdated();
+            });
+
+            test('Should not auto save notebook, ever', async () => {
+                const notebookFileContents = await fs.readFile(notebookFile.filePath, 'utf8');
+
+                // Configure notebook to to never save.
+                when(ioc.mockedWorkspaceConfig.get('autoSave', 'off')).thenReturn('off');
+                when(ioc.mockedWorkspaceConfig.get<number>('autoSaveDelay', anything())).thenReturn(1000);
+                // Update the settings and wait for the component to receive it and process it.
+                const promise = waitForMessageReceivedEditorComponent(InteractiveWindowMessages.UpdateSettings, 1_000);
+                ioc.forceSettingsChanged(ioc.getSettings().pythonPath);
+                await promise;
+
+                await modifyNotebook();
+                await waitForNotebookToBeDirty();
+
+                // Now that the notebook is dirty, change the active editor.
+                const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
+                docManager.didChangeEmitter.fire();
+                // Also, send notification about changes to window state.
+                windowStateChangeHandlers.forEach(item => item({ focused: false }));
+                windowStateChangeHandlers.forEach(item => item({ focused: true }));
+
+                // Confirm the message is not clean, trying to wait for it to get saved will timeout (i.e. rejected).
+                await expect(waitForNotebookToBeClean()).to.eventually.be.rejected;
+                // Confirm file has not been updated as well.
+                assert.equal(await fs.readFile(notebookFile.filePath, 'utf8'), notebookFileContents);
+            });
+
+            async function testAutoSavingWhenEditorFocusChanges(newEditor: TextEditor | undefined) {
+                const notebookFileContents = await fs.readFile(notebookFile.filePath, 'utf8');
+
+                await modifyNotebook();
+                await waitForNotebookToBeDirty();
+
+                // Configure notebook to save when active editor changes.
+                when(ioc.mockedWorkspaceConfig.get('autoSave', 'off')).thenReturn('onFocusChange');
+                ioc.forceSettingsChanged(ioc.getSettings().pythonPath);
+
+                // Now that the notebook is dirty, change the active editor.
+                const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
+                docManager.didChangeEmitter.fire(newEditor);
+
+                // At this point a message should be sent to extension asking it to save.
+                // After the save, the extension should send a message to react letting it know that it was saved successfully.
+
+                await waitForNotebookToBeClean();
+                // Confirm file has been updated as well.
+                assert.notEqual(await fs.readFile(notebookFile.filePath, 'utf8'), notebookFileContents);
+            }
+
+            test('Auto save notebook when focus changes from active editor to none', () => testAutoSavingWhenEditorFocusChanges(undefined));
+
+            test('Auto save notebook when focus changes from active editor to something else', () =>
+                testAutoSavingWhenEditorFocusChanges(TypeMoq.Mock.ofType<TextEditor>().object));
+
+            test('Should not auto save notebook when active editor changes', async () => {
+                const notebookFileContents = await fs.readFile(notebookFile.filePath, 'utf8');
+
+                await modifyNotebook();
+                await waitForNotebookToBeDirty();
+
+                // Configure notebook to save when window state changes.
+                when(ioc.mockedWorkspaceConfig.get('autoSave', 'off')).thenReturn('onWindowChange');
+                ioc.forceSettingsChanged(ioc.getSettings().pythonPath);
+
+                // Now that the notebook is dirty, change the active editor.
+                // This should not trigger a save of notebook (as its configured to save only when window state changes).
+                const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
+                docManager.didChangeEmitter.fire();
+
+                // Confirm the message is not clean, trying to wait for it to get saved will timeout (i.e. rejected).
+                await expect(waitForNotebookToBeClean()).to.eventually.be.rejected;
+                // Confirm file has not been updated as well.
+                assert.equal(await fs.readFile(notebookFile.filePath, 'utf8'), notebookFileContents);
+            });
+
+            async function testAutoSavingWithChangesToWindowState(focused: boolean) {
+                const notebookFileContents = await fs.readFile(notebookFile.filePath, 'utf8');
+
+                await modifyNotebook();
+                await waitForNotebookToBeDirty();
+
+                // Configure notebook to save when active editor changes.
+                when(ioc.mockedWorkspaceConfig.get('autoSave', 'off')).thenReturn('onWindowChange');
+                ioc.forceSettingsChanged(ioc.getSettings().pythonPath);
+
+                // Now that the notebook is dirty, send notification about changes to window state.
+                windowStateChangeHandlers.forEach(item => item({ focused }));
+
+                // At this point a message should be sent to extension asking it to save.
+                // After the save, the extension should send a message to react letting it know that it was saved successfully.
+
+                await waitForNotebookToBeClean();
+                // Confirm file has been updated as well.
+                assert.notEqual(await fs.readFile(notebookFile.filePath, 'utf8'), notebookFileContents);
+            }
+
+            test('Auto save notebook when window state changes to being not focused', async () => testAutoSavingWithChangesToWindowState(false));
+            test('Auto save notebook when window state changes to being focused', async () => testAutoSavingWithChangesToWindowState(true));
+
+            test('Should not auto save notebook when window state changes', async () => {
+                const notebookFileContents = await fs.readFile(notebookFile.filePath, 'utf8');
+
+                await modifyNotebook();
+                await waitForNotebookToBeDirty();
+
+                // Configure notebook to save when active editor changes.
+                when(ioc.mockedWorkspaceConfig.get('autoSave', 'off')).thenReturn('onFocusChange');
+                ioc.forceSettingsChanged(ioc.getSettings().pythonPath);
+
+                // Now that the notebook is dirty, change window state.
+                // This should not trigger a save of notebook (as its configured to save only when focus is changed).
+                windowStateChangeHandlers.forEach(item => item({ focused: false }));
+                windowStateChangeHandlers.forEach(item => item({ focused: true }));
+
+                // Confirm the message is not clean, trying to wait for it to get saved will timeout (i.e. rejected).
+                await expect(waitForNotebookToBeClean()).to.eventually.be.rejected;
+                // Confirm file has not been updated as well.
+                assert.equal(await fs.readFile(notebookFile.filePath, 'utf8'), notebookFileContents);
+            });
         });
     });
 });
