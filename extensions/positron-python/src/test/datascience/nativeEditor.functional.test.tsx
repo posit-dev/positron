@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
 'use strict';
-
 import { assert, expect, use } from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import { ReactWrapper } from 'enzyme';
@@ -13,8 +11,9 @@ import * as sinon from 'sinon';
 import { anything, when } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
 import { Disposable, TextDocument, TextEditor, Uri, WindowState } from 'vscode';
+
 import { IApplicationShell, IDocumentManager } from '../../client/common/application/types';
-import { createDeferred } from '../../client/common/utils/async';
+import { createDeferred, waitForPromise } from '../../client/common/utils/async';
 import { createTemporaryFile } from '../../client/common/utils/fs';
 import { noop } from '../../client/common/utils/misc';
 import { Identifiers } from '../../client/datascience/constants';
@@ -34,7 +33,16 @@ import { IMonacoEditorState, MonacoEditor } from '../../datascience-ui/react-com
 import { waitForCondition } from '../common';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
 import { MockDocumentManager } from './mockDocumentManager';
-import { addCell, closeNotebook, createNewEditor, getNativeCellResults, mountNativeWebView, openEditor, runMountedTest, setupWebview } from './nativeEditorTestHelpers';
+import {
+    addCell,
+    closeNotebook,
+    createNewEditor,
+    getNativeCellResults,
+    mountNativeWebView,
+    openEditor,
+    runMountedTest,
+    setupWebview
+} from './nativeEditorTestHelpers';
 import { waitForUpdate } from './reactHelpers';
 import {
     addContinuousMockData,
@@ -51,6 +59,7 @@ import {
     verifyHtmlOnCell,
     waitForMessageResponse
 } from './testHelpers';
+
 use(chaiAsPromised);
 
 //import { asyncDump } from '../common/asyncDump';
@@ -754,6 +763,24 @@ suite('DataScience Native Editor', () => {
                     assert.equal(isCellSelected(wrapper, 'NativeCell', 1), false);
                     assert.equal(wrapper.find('NativeCell').length, 3);
                 }
+            });
+
+            test('Test save using the key \'s\'', async () => {
+                clickCell(0);
+
+                await addCell(wrapper, 'a=1\na', true);
+
+                const notebookProvider = ioc.get<INotebookEditorProvider>(INotebookEditorProvider);
+                const editor = notebookProvider.editors[0];
+                assert.ok(editor, 'No editor when saving');
+                const savedPromise = createDeferred();
+                editor.saved(() => savedPromise.resolve());
+
+                simulateKeyPressOnCell(1, { code: 's', ctrlKey: true });
+
+                await waitForPromise(savedPromise.promise, 1_000);
+
+                assert.ok(!editor!.isDirty, 'Editor should not be dirty after saving');
             });
         });
 
