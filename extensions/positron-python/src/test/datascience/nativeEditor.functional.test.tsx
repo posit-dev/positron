@@ -179,7 +179,7 @@ suite('DataScience Native Editor', () => {
             const docManager = TypeMoq.Mock.ofType<IDocumentManager>();
             const visibleEditor = TypeMoq.Mock.ofType<TextEditor>();
             const dummyDocument = TypeMoq.Mock.ofType<TextDocument>();
-            dummyDocument.setup(d => d.fileName).returns(() => 'foo.py');
+            dummyDocument.setup(d => d.fileName).returns(() => Uri.file('foo.py').fsPath);
             visibleEditor.setup(v => v.show()).returns(() => showedEditor.resolve());
             visibleEditor.setup(v => v.revealRange(TypeMoq.It.isAny())).returns(noop);
             visibleEditor.setup(v => v.document).returns(() => dummyDocument.object);

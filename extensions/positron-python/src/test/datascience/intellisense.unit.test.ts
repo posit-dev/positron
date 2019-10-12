@@ -5,6 +5,7 @@ import { expect } from 'chai';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as TypeMoq from 'typemoq';
 
+import { Uri } from 'vscode';
 import { ILanguageServer, ILanguageServerAnalysisOptions } from '../../client/activation/types';
 import { IWorkspaceService } from '../../client/common/application/types';
 import { PythonSettings } from '../../client/common/configSettings';
@@ -96,7 +97,7 @@ suite('DataScience Intellisense Unit Tests', () => {
     }
 
     function addCell(code: string, id: string): Promise<void> {
-        return sendMessage(InteractiveWindowMessages.AddCell, { fullText: code, currentText: code, file: 'foo.py', id });
+        return sendMessage(InteractiveWindowMessages.AddCell, { fullText: code, currentText: code, file: Uri.file('foo.py').fsPath, id });
     }
 
     function updateCell(newCode: string, oldCode: string, id: string): Promise<void> {

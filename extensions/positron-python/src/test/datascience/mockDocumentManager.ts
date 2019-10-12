@@ -94,7 +94,7 @@ export class MockDocumentManager implements IDocumentManager {
     }
 
     public changeDocument(file: string, changes: { range: Range; newText: string }[]) {
-        const doc = this.textDocuments.find(d => d.fileName === file) as MockDocument;
+        const doc = this.textDocuments.find(d => d.uri.fsPath === Uri.file(file).fsPath) as MockDocument;
         if (doc) {
             const contentChanges = changes.map(c => {
                 const startOffset = doc.offsetAt(c.range.start);
