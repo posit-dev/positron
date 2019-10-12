@@ -45,7 +45,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
     test('Ensure discovery is invoked when there are no test directories', async () => {
         const options: TestDiscoveryOptions = {
             args: ['some args'],
-            cwd: __dirname,
+            cwd: Uri.file(__dirname).fsPath,
             ignoreCache: true,
             outChannel: new MockOutputChannel('Tests'),
             token: new CancellationTokenSource().token,
@@ -64,7 +64,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
     test('Ensure discovery is invoked when there are multiple test directories', async () => {
         const options: TestDiscoveryOptions = {
             args: ['some args'],
-            cwd: __dirname,
+            cwd: Uri.file(__dirname).fsPath,
             ignoreCache: true,
             outChannel: new MockOutputChannel('Tests'),
             token: new CancellationTokenSource().token,
@@ -94,7 +94,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
     test('Build collection arguments', async () => {
         const options: TestDiscoveryOptions = {
             args: ['some args', 'and some more'],
-            cwd: __dirname,
+            cwd: Uri.file(__dirname).fsPath,
             ignoreCache: false,
             outChannel: new MockOutputChannel('Tests'),
             token: new CancellationTokenSource().token,
@@ -103,7 +103,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
 
         const filteredArgs = options.args;
         const expectedArgs = [
-            '--rootdir', __dirname,
+            '--rootdir', Uri.file(__dirname).fsPath,
             '-s',
             ...filteredArgs
         ];
@@ -117,7 +117,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
     test('Build collection arguments with ignore in args', async () => {
         const options: TestDiscoveryOptions = {
             args: ['some args', 'and some more', '--cache-clear'],
-            cwd: __dirname,
+            cwd: Uri.file(__dirname).fsPath,
             ignoreCache: true,
             outChannel: new MockOutputChannel('Tests'),
             token: new CancellationTokenSource().token,
@@ -126,7 +126,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
 
         const filteredArgs = options.args;
         const expectedArgs = [
-            '--rootdir', __dirname,
+            '--rootdir', Uri.file(__dirname).fsPath,
             '-s',
             ...filteredArgs
         ];
@@ -140,7 +140,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
     test('Build collection arguments (& ignore)', async () => {
         const options: TestDiscoveryOptions = {
             args: ['some args', 'and some more'],
-            cwd: __dirname,
+            cwd: Uri.file(__dirname).fsPath,
             ignoreCache: true,
             outChannel: new MockOutputChannel('Tests'),
             token: new CancellationTokenSource().token,
@@ -149,7 +149,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
 
         const filteredArgs = options.args;
         const expectedArgs = [
-            '--rootdir', __dirname,
+            '--rootdir', Uri.file(__dirname).fsPath,
             '-s',
             '--cache-clear',
             ...filteredArgs
@@ -164,7 +164,7 @@ suite('Unit Tests - PyTest - Discovery', () => {
     test('Discover using common discovery', async () => {
         const options: TestDiscoveryOptions = {
             args: ['some args', 'and some more'],
-            cwd: __dirname,
+            cwd: Uri.file(__dirname).fsPath,
             ignoreCache: true,
             outChannel: new MockOutputChannel('Tests'),
             token: new CancellationTokenSource().token,
