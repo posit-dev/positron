@@ -978,6 +978,9 @@ plt.show()`,
             }
             return this;
         }
+        public off(_event: string | symbol, _listener: (...args: any[]) => void): this {
+            throw new Error('Method not implemented.');
+        }
         public once(_event: any, _listener: any): this {
             throw new Error('Method not implemented.');
         }
