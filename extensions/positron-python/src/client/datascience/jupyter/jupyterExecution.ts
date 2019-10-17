@@ -357,7 +357,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         this.checkNotebookCommand(notebookCommand);
 
         // Now actually launch it
-        let exitCode = 0;
+        let exitCode: number | null = 0;
         try {
             // Generate a temp dir with a unique GUID, both to match up our started server and to easily clean up after
             const tempDir = await this.generateTempDir();

@@ -232,8 +232,10 @@ export class JupyterConnection implements IConnection {
         // If the local process exits, set our exit code and fire our event
         if (childProc) {
             childProc.on('exit', c => {
-                this.localProcExitCode = c;
-                this.eventEmitter.fire(c);
+                // Our code expects the exit code to be of type `number` or `undefined`.
+                const code = typeof c === 'number' ? c : undefined;
+                this.localProcExitCode = code;
+                this.eventEmitter.fire(code);
             });
         }
     }
