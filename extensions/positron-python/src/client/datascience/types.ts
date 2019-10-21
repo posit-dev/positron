@@ -357,7 +357,6 @@ export interface IInteractiveWindowInfo {
     cellCount: number;
     undoCount: number;
     redoCount: number;
-    visibleCells: ICell[];
     selectedCell: string | undefined;
 }
 
