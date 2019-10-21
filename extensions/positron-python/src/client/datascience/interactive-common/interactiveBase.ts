@@ -1186,7 +1186,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
     }
 
-    private requestVariables = async (requestExecutionCount: number): Promise<void> => {
+    private async requestVariables(requestExecutionCount: number): Promise<void> {
         this.variableRequestStopWatch = new StopWatch();
 
         // Request our new list of variables
