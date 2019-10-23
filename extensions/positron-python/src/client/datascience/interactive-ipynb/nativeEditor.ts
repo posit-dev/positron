@@ -157,9 +157,9 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         const baseName = path.basename(this.file.fsPath);
         return baseName.includes(localize.DataScience.untitledNotebookFileName());
     }
-    public dispose(): void {
+    public dispose(): Promise<void> {
         super.dispose();
-        this.close().ignoreErrors();
+        return this.close();
     }
 
     public get contents(): string {
@@ -589,7 +589,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                     await this.saveToDisk();
 
                     // Close it
-                    actuallyClose().ignoreErrors();
+                    await actuallyClose();
                     break;
 
                 case AskForSaveResult.No:
@@ -597,7 +597,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                     await this.setClean();
 
                     // Close it
-                    actuallyClose().ignoreErrors();
+                    await actuallyClose();
                     break;
 
                 default:
@@ -607,7 +607,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             }
         } else {
             // Not dirty, just close normally.
-            actuallyClose().ignoreErrors();
+            return actuallyClose();
         }
     }
 
