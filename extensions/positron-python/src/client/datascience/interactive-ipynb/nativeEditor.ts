@@ -767,7 +767,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             await this.fileSystem.writeFile(tempFile.filePath, this.generateNotebookContent(cells), { encoding: 'utf-8' });
 
             // Import this file and show it
-            const contents = await this.importer.importFromFile(tempFile.filePath);
+            const contents = await this.importer.importFromFile(tempFile.filePath, this.file.fsPath);
             if (contents) {
                 await this.viewDocument(contents);
             }
