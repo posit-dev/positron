@@ -914,7 +914,7 @@ export class MainStateController implements IMessageHandler {
     }
 
     // tslint:disable:no-any
-    private computeEditorOptions(): monacoEditor.editor.IEditorOptions {
+    protected computeEditorOptions(): monacoEditor.editor.IEditorOptions {
         const intellisenseOptions = getSettings().intellisenseOptions;
         const extraSettings = getSettings().extraSettings;
         if (intellisenseOptions && extraSettings) {
