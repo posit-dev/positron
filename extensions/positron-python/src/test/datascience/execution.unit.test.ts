@@ -573,7 +573,7 @@ suite('Jupyter Execution', async () => {
         when(workspaceService.onDidChangeConfiguration).thenReturn(configChangeEvent.event);
         when(application.withProgress(anything(), anything())).thenCall((_, cb: (_: any, token: any) => Promise<any>) => {
             return new Promise((resolve, reject) => {
-                cb({report: noop}, new CancellationTokenSource().token).then(resolve).catch(reject);
+                cb({ report: noop }, new CancellationTokenSource().token).then(resolve).catch(reject);
             });
         });
 
@@ -751,7 +751,7 @@ suite('Jupyter Execution', async () => {
         reset(application);
         when(application.withProgress(anything(), anything())).thenCall((_, cb: (_: any, token: any) => Promise<any>) => {
             return new Promise((resolve, reject) => {
-                cb({report: noop}, progressCancellation.token).then(resolve).catch(reject);
+                cb({ report: noop }, progressCancellation.token).then(resolve).catch(reject);
             });
         });
 
@@ -770,7 +770,7 @@ suite('Jupyter Execution', async () => {
         reset(application);
         when(application.withProgress(anything(), anything())).thenCall((_, cb: (_: any, token: any) => Promise<any>) => {
             return new Promise((resolve, reject) => {
-                cb({report: noop}, progressCancellation.token).then(resolve).catch(reject);
+                cb({ report: noop }, progressCancellation.token).then(resolve).catch(reject);
             });
         });
 
