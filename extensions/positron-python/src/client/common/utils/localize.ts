@@ -293,6 +293,8 @@ export namespace DataScience {
     export const findJupyterCommandProgress = localize('DataScience.findJupyterCommandProgress', 'Active interpreter does not support {0}. Searching for the best available interpreter.');
     export const findJupyterCommandProgressCheckInterpreter = localize('DataScience.findJupyterCommandProgressCheckInterpreter', 'Checking {0}.');
     export const findJupyterCommandProgressSearchCurrentPath = localize('DataScience.findJupyterCommandProgressSearchCurrentPath', 'Searching current path.');
+    export const gatheredScriptDescription = localize('DataScience.gatheredScriptDescription', '# This file contains the minimal amount of code required to produce the code cell gathered.\n');
+    export const gatheredNotebookDescriptionInMarkdown = localize('DataScience.gatheredNotebookDescriptionInMarkdown', '## This notebook was generated for a cell gathered from {0}.');
 }
 
 export namespace DebugConfigStrings {

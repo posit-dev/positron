@@ -44,6 +44,7 @@ import {
     IJupyterKernelSpec,
     INotebook,
     INotebookCompletion,
+    INotebookExecutionLogger,
     INotebookServer,
     INotebookServerLaunchInfo,
     InterruptResult
@@ -100,6 +101,10 @@ class MockJupyterNotebook implements INotebook {
     }
 
     public async setMatplotLibStyle(_useDark: boolean): Promise<void> {
+        noop();
+    }
+
+    public addLogger(_logger: INotebookExecutionLogger): void {
         noop();
     }
 
