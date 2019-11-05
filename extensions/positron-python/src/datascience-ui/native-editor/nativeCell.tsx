@@ -558,6 +558,9 @@ export class NativeCell extends React.Component<INativeCellProps> {
 
     private renderMiddleToolbar = () => {
         const cellId = this.props.cellVM.cell.id;
+        const gatherCell = () => {
+            this.props.stateController.gatherCell(this.props.cellVM);
+        };
         const deleteCell = () => {
             this.props.stateController.possiblyDeleteCell(cellId);
             this.props.stateController.sendCommand(NativeCommandType.DeleteCell, 'mouse');
@@ -570,6 +573,11 @@ export class NativeCell extends React.Component<INativeCellProps> {
             this.props.stateController.runBelow(cellId);
             this.props.stateController.sendCommand(NativeCommandType.RunBelow, 'mouse');
         };
+        const gatherDisabled =  this.props.cellVM.cell.data.execution_count === null ||
+                                this.props.cellVM.hasBeenRun === null ||
+                                this.props.cellVM.hasBeenRun === false ||
+                                this.isMarkdownCell() ||
+                                getSettings().enableGather === false;
         const canRunAbove = this.props.stateController.canRunAbove(cellId);
         const canRunBelow = this.props.cellVM.cell.state === CellState.finished || this.props.cellVM.cell.state === CellState.error;
         const switchTooltip = this.props.cellVM.cell.data.cell_type === 'code' ? getLocString('DataScience.switchToMarkdown', 'Change to markdown') :
@@ -595,6 +603,9 @@ export class NativeCell extends React.Component<INativeCellProps> {
                 </ImageButton>
                 <ImageButton baseTheme={this.props.baseTheme} onClick={deleteCell} tooltip={getLocString('DataScience.deleteCell', 'Delete cell')}>
                     <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Delete} />
+                </ImageButton>
+                <ImageButton baseTheme={this.props.baseTheme} onClick={gatherCell} tooltip={getLocString('DataScience.gatherCell', 'Gather the code required to generate this cell into a new notebook')} hidden={gatherDisabled}>
+                    <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GatherCode} />
                 </ImageButton>
             </div>
         );
