@@ -8,6 +8,7 @@ import { IConfigurationService } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
 import { generateCellsFromString } from '../cellFactory';
+import { Identifiers } from '../constants';
 import { IInteractiveWindowMapping, InteractiveWindowMessages } from '../interactive-common/interactiveWindowTypes';
 import { ICell, IGatherExecution, IInteractiveWindowListener, IInteractiveWindowProvider, IJupyterExecution, INotebook, INotebookEditorProvider, INotebookExporter } from '../types';
 import { GatherLogger } from './gatherLogger';
@@ -102,11 +103,11 @@ export class GatherListener implements IInteractiveWindowListener {
         if (this.configService.getSettings().datascience.gatherToScript) {
             await this.showFile(slicedProgram, cell.file);
         } else {
-            await this.showNotebook(slicedProgram);
+            await this.showNotebook(slicedProgram, cell);
         }
     }
 
-    private async showNotebook(slicedProgram: string) {
+    private async showNotebook(slicedProgram: string, cell: ICell) {
         if (slicedProgram) {
             let cells: ICell[] = [{
                 id: uuid(),
@@ -115,7 +116,7 @@ export class GatherListener implements IInteractiveWindowListener {
                 state: 0,
                 data: {
                     cell_type: 'markdown',
-                    source: localize.DataScience.gatheredNotebookDescriptionInMarkdown().format(this.notebookUri.fsPath),
+                    source: localize.DataScience.gatheredNotebookDescriptionInMarkdown().format(cell.file === Identifiers.EmptyFileName ? this.notebookUri.fsPath : cell.file),
                     metadata: {}
                 }
             }];
