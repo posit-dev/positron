@@ -1694,13 +1694,13 @@
                 },
                 "python.dataScience.enableGather": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "description": "Enable code gather for executed cells. For a gathered cell, that cell and only the code it depends on will be exported to a new notebook.",
                     "scope": "resource"
                 },
                 "python.dataScience.gatherToScript": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Gather code to a python script rather than a notebook.",
                     "scope": "resource"
                 },
@@ -2908,7 +2908,7 @@
         "vscode-test": "^1.0.2",
         "webpack": "^4.33.0",
         "webpack-bundle-analyzer": "^3.3.2",
-        "webpack-cli": "^3.1.2",
+        "webpack-cli": "^3.3.10",
         "webpack-fix-default-import-plugin": "^1.0.3",
         "webpack-merge": "^4.1.4",
         "webpack-node-externals": "^1.7.2",
