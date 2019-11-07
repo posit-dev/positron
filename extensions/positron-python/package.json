@@ -2908,7 +2908,7 @@
         "vscode-test": "^1.0.2",
         "webpack": "^4.33.0",
         "webpack-bundle-analyzer": "^3.3.2",
-        "webpack-cli": "^3.3.10",
+        "webpack-cli": "^3.1.2",
         "webpack-fix-default-import-plugin": "^1.0.3",
         "webpack-merge": "^4.1.4",
         "webpack-node-externals": "^1.7.2",
