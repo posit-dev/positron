@@ -392,6 +392,9 @@ export class NativeCell extends React.Component<INativeCellProps> {
         const prevCellId = this.getPrevCellId();
         if (prevCellId) {
             e.stopPropagation();
+            if (e.editorInfo) {
+                this.props.stateController.updateCode(this.getCell().id, e.editorInfo.contents);
+            }
             this.moveSelection(prevCellId, this.isFocused(), CursorPos.Bottom);
         }
 
@@ -403,6 +406,9 @@ export class NativeCell extends React.Component<INativeCellProps> {
 
         if (nextCellId) {
             e.stopPropagation();
+            if (e.editorInfo) {
+                this.props.stateController.updateCode(this.getCell().id, e.editorInfo.contents);
+            }
             this.moveSelection(nextCellId, this.isFocused(), CursorPos.Top);
         }
 
