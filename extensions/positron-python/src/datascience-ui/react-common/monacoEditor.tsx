@@ -6,6 +6,7 @@
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 import { IDisposable } from '../../client/common/types';
+import { logMessage } from './logger';
 
 // tslint:disable-next-line:no-require-imports no-var-requires
 const debounce = require('lodash/debounce') as typeof import('lodash/debounce');
@@ -353,7 +354,7 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
         // Scroll to the visible line that has our current line
         const visibleLineDivs = this.getVisibleLines();
         const current = this.getCurrentVisibleLine();
-        if (current !== undefined && current >= 0) {
+        if (current !== undefined && current >= 0 && visibleLineDivs[current].scrollIntoView) {
             visibleLineDivs[current].scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
         }
     }
@@ -723,7 +724,7 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
             } catch (e) {
                 // If something fails, then the hover will just work inside the main frame
                 if (!this.props.testMode) {
-                    window.console.warn(`Error moving editor widgets: ${e}`);
+                    logMessage(`Error moving editor widgets: ${e}`);
                 }
 
                 // Make sure we don't try moving it around.
