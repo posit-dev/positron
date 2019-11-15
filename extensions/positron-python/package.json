@@ -1599,6 +1599,7 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Show the variable explorer in the Python Interactive window.",
+                    "deprecationMessage": "This setting no longer applies. It is ignored.",
                     "scope": "resource"
                 },
                 "python.dataScience.variableExplorerExclude": {
@@ -2804,7 +2805,9 @@
         "@types/react": "^16.4.14",
         "@types/react-dom": "^16.0.8",
         "@types/react-json-tree": "^0.6.8",
+        "@types/react-redux": "^7.1.5",
         "@types/react-virtualized": "^9.21.2",
+        "@types/redux-logger": "^3.0.7",
         "@types/request": "^2.47.0",
         "@types/semver": "^5.5.0",
         "@types/shortid": "^0.0.29",
@@ -2886,6 +2889,9 @@
         "react-dev-utils": "^5.0.2",
         "react-dom": "^16.5.2",
         "react-json-tree": "^0.11.0",
+        "react-redux": "^7.1.1",
+        "redux": "^4.0.4",
+        "redux-logger": "^3.0.6",
         "relative": "^3.0.2",
         "retyped-diff-match-patch-tsd-ambient": "^1.0.0-0",
         "rewiremock": "^3.13.0",
