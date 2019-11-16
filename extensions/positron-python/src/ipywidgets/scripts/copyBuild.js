@@ -1,6 +1,9 @@
-// Copyright (c) Jupyter Development Team.
-// Distributed under the terms of the Modified BSD License.
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
-var fs = require('fs');
-// TODO: To be fixed when integrating ipywidgets with extension.
-// fs.copyFileSync('built/ipywidgets.js', '/Users/donjayamanne/.vscode-insiders/extensions/pythonVSCode/out/datascience-ui/native-editor/ipywidgets.js');
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+fs.copyFileSync(path.resolve(__dirname, '..', 'dist', 'ipywidgets', 'ipywidgets.js'), path.resolve(__dirname, '..', '..', '..', 'out', 'datascience-ui', 'native-editor', 'ipywidgets.js'));

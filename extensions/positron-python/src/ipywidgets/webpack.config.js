@@ -13,7 +13,7 @@ module.exports = {
     entry: './out/index.js',
     output: {
         filename: 'ipywidgets.js',
-        path: path.resolve(__dirname, '..', '..', 'out', 'ipywidgets'),
+        path: path.resolve(__dirname, 'dist', 'ipywidgets'),
         publicPath: 'built/',
 		library: "vscIPyWidgets",
 		libraryTarget: "window"
