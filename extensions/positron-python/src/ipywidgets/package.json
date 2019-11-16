@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "npm run clean && tsc",
-    "buildx": "npm run clean && tsc && node scripts/copyfiles.js && webpack && npm run copyFile",
-    "clean": "rimraf out && rimraf tsconfig.tsbuildinfo && rimraf built",
+    "build": "npm run clean && tsc && node scripts/copyfiles.js && webpack --mode='production' && npm run copyFile && npm run clean",
+    "build:dev": "npm run clean && tsc && node scripts/copyfiles.js && webpack --mode='development' && npm run copyFile && npm run clean",
+    "clean": "rimraf out && rimraf tsconfig.tsbuildinfo && rimraf dist",
     "lint": "tslint --project tsconfig.json",
     "copyFile": "node scripts/copyBuild.js"
   },

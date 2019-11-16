@@ -1,5 +1,7 @@
-// Copyright (c) Jupyter Development Team.
-// Distributed under the terms of the Modified BSD License.
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+'use strict';
 
 var fs = require('fs');
 fs.copyFileSync('src/widgets.css', 'out/widgets.css');
