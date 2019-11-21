@@ -175,13 +175,20 @@ export interface IJupyterSession extends IAsyncDisposable {
 
 export const IJupyterSessionManagerFactory = Symbol('IJupyterSessionManagerFactory');
 export interface IJupyterSessionManagerFactory {
-    create(connInfo: IConnection): Promise<IJupyterSessionManager>;
+    create(connInfo: IConnection, failOnPassword?: boolean): Promise<IJupyterSessionManager>;
 }
 
 export interface IJupyterSessionManager extends IAsyncDisposable {
     startNew(kernelSpec: IJupyterKernelSpec | undefined, cancelToken?: CancellationToken): Promise<IJupyterSession>;
     getActiveKernelSpecs(): Promise<IJupyterKernelSpec[]>;
     getConnInfo(): IConnection;
+    getRunningKernels(): Promise<IJupyterKernel[]>;
+}
+
+export interface IJupyterKernel {
+    name: string | undefined;
+    lastActivityTime: Date;
+    numberOfConnections: number;
 }
 
 export interface IJupyterKernelSpec extends IAsyncDisposable {
