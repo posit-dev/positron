@@ -22,6 +22,7 @@ import {
     IPythonDaemonExecutionService,
     IPythonExecutionService,
     ObservableExecutionResult,
+    PythonExecutionInfo,
     SpawnOptions
 } from './types';
 
@@ -70,6 +71,9 @@ export class PythonDaemonExecutionServicePool implements IPythonDaemonExecutionS
     public async getExecutablePath(): Promise<string> {
         this.logger.logProcess(`${this.pythonPath} (daemon)`, ['getExecutablePath']);
         return this.wrapCall(daemon => daemon.getExecutablePath());
+    }
+    public getExecutionInfo(args: string[]): PythonExecutionInfo {
+        return this.pythonExecutionService.getExecutionInfo(args);
     }
     public async isModuleInstalled(moduleName: string): Promise<boolean> {
         this.logger.logProcess(`${this.pythonPath} (daemon)`, ['-m', moduleName]);
