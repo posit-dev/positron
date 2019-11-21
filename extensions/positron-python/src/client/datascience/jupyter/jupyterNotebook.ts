@@ -377,10 +377,12 @@ export class JupyterNotebookBase implements INotebook {
             const restartHandlerToken = this.session.onRestarted(restartHandler);
 
             // Start our interrupt. If it fails, indicate a restart
-            this.session.interrupt(timeoutMs).catch(exc => {
-                traceWarning(`Error during interrupt: ${exc}`);
-                restarted.resolve([]);
-            });
+            this.session.interrupt(timeoutMs)
+                .then(() => restarted.resolve([]))
+                .catch(exc => {
+                    traceWarning(`Error during interrupt: ${exc}`);
+                    restarted.resolve([]);
+                });
 
             try {
                 // Wait for all of the pending cells to finish or the timeout to fire
@@ -727,12 +729,18 @@ export class JupyterNotebookBase implements INotebook {
                     request.onStdin = this.handleInputRequest.bind(this, subscriber);
 
                     // When the request finishes we are done
-                    request.done.then(() => {
-                        subscriber.complete(this.sessionStartTime);
-                        if (exitHandlerDisposable) {
-                            exitHandlerDisposable.dispose();
-                        }
-                    }).catch(e => subscriber.error(this.sessionStartTime, e));
+                    request.done
+                        .then(() => subscriber.complete(this.sessionStartTime))
+                        .catch(e => {
+                            // @jupyterlab/services throws a `Canceled` error when the kernel is interrupted.
+                            // Such an error must be ignored.
+                            if (e && e instanceof Error && e.message === 'Canceled'){
+                                subscriber.complete(this.sessionStartTime);
+                            } else {
+                                subscriber.error(this.sessionStartTime, e);
+                            }
+                        })
+                        .finally(() => exitHandlerDisposable?.dispose()).ignoreErrors();
                 } else {
                     subscriber.error(this.sessionStartTime, this.getDisposedError());
                 }
