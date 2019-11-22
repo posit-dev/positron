@@ -10,7 +10,7 @@ import TelemetryReporter from 'vscode-extension-telemetry';
 import { DiagnosticCodes } from '../application/diagnostics/constants';
 import { IWorkspaceService } from '../common/application/types';
 import { AppinsightsKey, EXTENSION_ROOT_DIR, isTestExecution, PVSC_EXTENSION_ID } from '../common/constants';
-import { traceInfo } from '../common/logger';
+import { traceError, traceInfo } from '../common/logger';
 import { TerminalShellType } from '../common/terminal/types';
 import { StopWatch } from '../common/utils/stopWatch';
 import { JupyterCommands, NativeKeyboardCommandTelemetry, NativeMouseCommandTelemetry, Telemetry } from '../datascience/constants';
@@ -103,8 +103,14 @@ export function sendTelemetryEvent<P extends IEventNamePropertyMapping, E extend
             if (data[prop] === undefined || data[prop] === null) {
                 return;
             }
-            // tslint:disable-next-line:prefer-type-cast no-any  no-unsafe-any
-            (customProperties as any)[prop] = typeof data[prop] === 'string' ? data[prop] : data[prop].toString();
+            try {
+                // If there are any errors in serializing one property, ignore that and move on.
+                // Else nothign will be sent.
+                // tslint:disable-next-line:prefer-type-cast no-any  no-unsafe-any
+                (customProperties as any)[prop] = typeof data[prop] === 'string' ? data[prop] : data[prop].toString();
+            } catch (ex){
+                traceError(`Failed to serialize ${prop} for ${eventName}`, ex);
+            }
         });
     }
     reporter.sendTelemetryEvent((eventName as any) as string, customProperties, measures);
