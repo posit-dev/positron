@@ -111,6 +111,7 @@ export interface INotebookServerOptions {
     workingDir?: string;
     interpreterPath?: string;
     purpose: string;
+    metadata?: nbformat.INotebookMetadata;
 }
 
 export const INotebookExecutionLogger = Symbol('INotebookExecutionLogger');
