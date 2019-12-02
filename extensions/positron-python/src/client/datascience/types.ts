@@ -101,6 +101,7 @@ export interface INotebook extends IAsyncDisposable {
     setMatplotLibStyle(useDark: boolean): Promise<void>;
     addLogger(logger: INotebookExecutionLogger): void;
     getMatchingInterpreter(): Promise<PythonInterpreter | undefined>;
+    getKernelSpec(): Promise<IJupyterKernelSpec | undefined>;
 }
 
 export interface INotebookServerOptions {
@@ -193,16 +194,16 @@ export interface IJupyterKernel {
 }
 
 export interface IJupyterKernelSpec extends IAsyncDisposable {
-    name: string | undefined;
-    language: string | undefined;
-    path: string | undefined;
+    name: string;
+    language: string;
+    path: string;
     /**
      * Kernel display name.
      *
      * @type {string}
      * @memberof IJupyterKernelSpec
      */
-    readonly display_name?: string;
+    readonly display_name: string;
     /**
      * A dictionary of additional attributes about this kernel; used by clients to aid in kernel selection.
      * Optionally storing the interpreter information in the metadata (helping extension search for kernels that match an interpereter).
