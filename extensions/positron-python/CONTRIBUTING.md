@@ -71,8 +71,9 @@ TypeScript errors and warnings will be displayed in the `Problems` window of Vis
 To test the changes you launch a development version of VS Code on the workspace vscode, which you are currently editing.
 Use the `Extension` launch option.
 
-### Debugging Unit Tests
+### Running Unit Tests
 
+1. Make sure you have compiled all code (done automatically when using incremental building)
 1. Ensure you have disabled breaking into 'Uncaught Exceptions' when running the Unit Tests
 1. For the linters and formatters tests to pass successfully, you will need to have those corresponding Python libraries installed locally
 1. Run the Tests via the `Unit Tests`  launch option.
@@ -95,8 +96,9 @@ Alter the `launch.json` file in the `"Debug Unit Tests"` section by setting the 
 ```
 ...this will only run the suite with the tests you care about during a test run (be sure to set the debugger to run the `Debug Unit Tests` launcher).
 
-### Debugging System Tests
+### Running System Tests
 
+1. Make sure you have compiled all code (done automatically when using incremental building)
 1. Ensure you have disabled breaking into 'Uncaught Exceptions' when running the Unit Tests
 1. For the linters and formatters tests to pass successfully, you will need to have those corresponding Python libraries installed locally by using the `./requirements.txt` and `build/test-requirements.txt` files
 1. Run the tests via `npm run` or the Debugger launch options (you can "Start Without Debugging").
