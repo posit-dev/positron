@@ -251,12 +251,11 @@ in the [pull request template](https://github.com/Microsoft/vscode-python/blob/m
 Starting in 2018, the extension switched to
 [calendar versioning](http://calver.org/) since the extension
 auto-updates and thus there is no need to track its version
-number for backwards-compatibility. As such, the major version
-is the current year, the minor version is the month when feature
-freeze was reached, and the build number is a number that increments for every build.
-For example the release made when we reach feature freeze in July 2018
-would be `2018.7.<some number>`, and if there is a second release in that month
-it would be `2018.7.<some larger number>`.
+number for backwards-compatibility. In 2020, the extension switched to
+having the the major version be the year of release, the minor version the
+release count for that year, and the build number is a number that increments
+for every build.
+For example the first release made in 2020 is `2020.1.<build number>`.
 
 ## Releasing
 
