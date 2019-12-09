@@ -140,6 +140,10 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         // Indicate we have our identity
         this.loadedPromise.resolve();
 
+        // Load the web panel using our file path so it can find
+        // relative files next to the notebook.
+        await super.loadWebPanel(path.dirname(file.fsPath));
+
         // Update our title to match
         this.setTitle(path.basename(file.fsPath));
 
@@ -265,7 +269,8 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
 
     protected async reopen(cells: ICell[]): Promise<void> {
         try {
-            super.reload();
+            // Reload the web panel too.
+            await super.loadWebPanel(path.basename(this._file.fsPath));
             await this.show();
 
             // Indicate we have our identity

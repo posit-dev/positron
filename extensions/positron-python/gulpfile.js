@@ -179,7 +179,7 @@ async function buildWebPack(webpackConfigName, args) {
         throw new Error(`Errors in ${webpackConfigName}, \n${warnings.join(', ')}\n\n${stdOut}`);
     }
     if (warnings.length > 0) {
-        throw new Error(`Warnings in ${webpackConfigName}, \n\n${stdOut}`);
+        throw new Error(`Warnings in ${webpackConfigName}, Check gulpfile.js to see if the warning should be allowed., \n\n${stdOut}`);
     }
 }
 function getAllowedWarningsForWebPack(buildConfig) {
@@ -196,7 +196,8 @@ function getAllowedWarningsForWebPack(buildConfig) {
                 'WARNING in ./node_modules/ws/lib/Validation.js',
                 'WARNING in ./node_modules/ws/lib/validation.js',
                 'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/buffer-util.js',
-                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/validation.js'
+                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/validation.js',
+                'WARNING in ./node_modules/any-promise/register.js'
             ];
         case 'extension':
             return [
@@ -204,7 +205,8 @@ function getAllowedWarningsForWebPack(buildConfig) {
                 'WARNING in ./node_modules/ws/lib/BufferUtil.js',
                 'WARNING in ./node_modules/ws/lib/buffer-util.js',
                 'WARNING in ./node_modules/ws/lib/Validation.js',
-                'WARNING in ./node_modules/ws/lib/validation.js'
+                'WARNING in ./node_modules/ws/lib/validation.js',
+                'WARNING in ./node_modules/any-promise/register.js'
             ];
         case 'debugAdapter':
             return ['WARNING in ./node_modules/vscode-uri/lib/index.js'];
