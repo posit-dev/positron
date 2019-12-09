@@ -5,6 +5,8 @@
 
 import { inject, injectable } from 'inversify';
 import { CancellationToken } from 'vscode';
+import { PYTHON_LANGUAGE } from '../../../common/constants';
+import { IFileSystem } from '../../../common/platform/types';
 import * as localize from '../../../common/utils/localize';
 import { IInterpreterSelector } from '../../../interpreter/configuration/types';
 import { IJupyterKernel, IJupyterKernelSpec, IJupyterSessionManager } from '../../types';
@@ -23,9 +25,7 @@ import { IKernelSelectionListProvider, IKernelSpecQuickPickItem } from './types'
 function getQuickPickItemForKernelSpec(kernelSpec: IJupyterKernelSpec): IKernelSpecQuickPickItem {
     return {
         label: kernelSpec.display_name,
-        // tslint:disable-next-line: no-suspicious-comment
-        // TODO: Localize & fix as per spec.
-        description: '(kernel)',
+        description: localize.DataScience.kernelDescriptionForKernelPicker(),
         selection: { kernelModel: undefined, kernelSpec: kernelSpec, interpreter: undefined }
     };
 }
@@ -62,7 +62,10 @@ export class ActiveJupyterSessionKernelSelectionListProvider implements IKernelS
                 ...matchingSpec
             };
         });
-        return items.filter(item => item.display_name || item.name).map(getQuickPickItemForActiveKernel);
+        return items
+            .filter(item => item.display_name || item.name)
+            .filter(item => (item.language || '').toLowerCase() === PYTHON_LANGUAGE.toLowerCase())
+            .map(getQuickPickItemForActiveKernel);
     }
 }
 
@@ -77,7 +80,9 @@ export class InstalledJupyterKernelSelectionListProvider implements IKernelSelec
     constructor(private readonly kernelService: KernelService, private readonly sessionManager?: IJupyterSessionManager) {}
     public async getKernelSelections(cancelToken?: CancellationToken | undefined): Promise<IKernelSpecQuickPickItem[]> {
         const items = await this.kernelService.getKernelSpecs(this.sessionManager, cancelToken);
-        return items.map(getQuickPickItemForKernelSpec);
+        return items
+            .filter(item => (item.language || '').toLowerCase() === PYTHON_LANGUAGE.toLowerCase())
+            .map(getQuickPickItemForKernelSpec);
     }
 }
 
@@ -96,9 +101,6 @@ export class InterpreterKernelSelectionListProvider implements IKernelSelectionL
         return items.map(item => {
             return {
                 ...item,
-        // tslint:disable-next-line: no-suspicious-comment
-                // TODO: Localize & fix as per spec.
-                description: '(register and use interpreter as kernel)',
                 selection: { kernelModel: undefined, interpreter: item.interpreter, kernelSpec: undefined }
             };
         });
@@ -113,7 +115,10 @@ export class InterpreterKernelSelectionListProvider implements IKernelSelectionL
  */
 @injectable()
 export class KernelSelectionProvider {
-    constructor(@inject(KernelService) private readonly kernelService: KernelService, @inject(IInterpreterSelector) private readonly interpreterSelector: IInterpreterSelector) {}
+    constructor(
+        @inject(KernelService) private readonly kernelService: KernelService,
+        @inject(IInterpreterSelector) private readonly interpreterSelector: IInterpreterSelector,
+        @inject(IFileSystem) private readonly fileSystem: IFileSystem) {}
     /**
      * Gets a selection of kernel specs from a remote session.
      *
@@ -134,10 +139,29 @@ export class KernelSelectionProvider {
      * @memberof KernelSelectionProvider
      */
     public async getKernelSelectionsForLocalSession(sessionManager?: IJupyterSessionManager, cancelToken?: CancellationToken): Promise<IKernelSpecQuickPickItem[]> {
-        const activeKernelsPromise = sessionManager ? new ActiveJupyterSessionKernelSelectionListProvider(sessionManager).getKernelSelections(cancelToken) : Promise.resolve([]);
-        const jupyterKernelsPromise = new InstalledJupyterKernelSelectionListProvider(this.kernelService).getKernelSelections(cancelToken);
+        const installedKernelsPromise = new InstalledJupyterKernelSelectionListProvider(this.kernelService, sessionManager).getKernelSelections(cancelToken);
         const interpretersPromise = new InterpreterKernelSelectionListProvider(this.interpreterSelector).getKernelSelections(cancelToken);
-        const [activeKernels, jupyterKernels, interprters] = await Promise.all([activeKernelsPromise, jupyterKernelsPromise, interpretersPromise]);
-        return [...jupyterKernels!, ...activeKernels!, ...interprters];
+
+        // tslint:disable-next-line: prefer-const
+        let [installedKernels, interpreters] = await Promise.all([installedKernelsPromise, interpretersPromise]);
+
+        interpreters = interpreters.filter(item => {
+            // If the interpreter is registered as a kernel then don't inlcude it.
+            if (installedKernels.find(installedKernel => installedKernel.selection.kernelSpec?.display_name === item.selection.interpreter?.displayName && (
+                this.fileSystem.arePathsSame((installedKernel.selection.kernelSpec?.argv || [])[0], item.selection.interpreter?.path || '') ||
+                this.fileSystem.arePathsSame(installedKernel.selection.kernelSpec?.metadata?.interpreter?.path || '', item.selection.interpreter?.path || '')))) {
+                return false;
+            }
+            return true;
+        }).map(item => {
+            // to indicate we're registering/adding these as kernels.
+            item.label = `$(plus) ${item.label}`;
+            return item;
+        });
+        // Sorty by name.
+        // Do not sort interpreter list, as that's pre-sorted (there's an algorithm for that).
+        installedKernels.sort((a, b) => a.label === b.label ? 0 : (a.label > b.label ? 1 : -1));
+
+        return [...installedKernels!, ...interpreters];
     }
 }
