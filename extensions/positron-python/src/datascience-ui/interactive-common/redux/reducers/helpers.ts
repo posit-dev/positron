@@ -39,7 +39,13 @@ export namespace Helpers {
         return undefined;
     }
 
-    export function updateOrAdd<T>(arg: CommonReducerArg<T, ICell>, generateVM: (cell: ICell, settings?: IDataScienceExtraSettings) => ICellViewModel): IMainState {
+    // This function is because the unit test typescript compiler can't handle ICell.metadata
+    // tslint:disable-next-line: no-any
+    export function asCellViewModel(cvm: any): ICellViewModel {
+        return cvm as ICellViewModel;
+    }
+
+    export function updateOrAdd<T>(arg: CommonReducerArg<T, ICell>, generateVM: (cell: ICell, mainState: IMainState) => ICellViewModel): IMainState {
         // First compute new execution count.
         const newExecutionCount = arg.payload.data.execution_count ?
             Math.max(arg.prevState.currentExecutionCount, parseInt(arg.payload.data.execution_count.toString(), 10)) :
@@ -69,7 +75,7 @@ export namespace Helpers {
 
             // Prevent updates to the source, as its possible we have recieved a response for a cell execution
             // and the user has updated the cell text since then.
-            newVMs[index] = {
+            const newVM = {
                 ...newVMs[index],
                 cell: {
                     ...newVMs[index].cell,
@@ -80,6 +86,7 @@ export namespace Helpers {
                     }
                 }
             };
+            newVMs[index] = asCellViewModel(newVM);
 
             return {
                 ...arg.prevState,
@@ -88,7 +95,7 @@ export namespace Helpers {
             };
         } else {
             // This is an entirely new cell (it may have started out as finished)
-            const newVM = generateVM(arg.payload, arg.prevState.settings);
+            const newVM = generateVM(arg.payload, arg.prevState);
             const newVMs = [
                 ...arg.prevState.cellVMs,
                 newVM];
