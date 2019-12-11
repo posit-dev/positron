@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 'use strict';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
-
+import { IServerState } from '../../../datascience-ui/interactive-common/mainState';
 import { CssMessages, IGetCssRequest, IGetCssResponse, IGetMonacoThemeRequest } from '../messages';
 import { IGetMonacoThemeResponse } from '../monacoMessages';
 import { ICell, IInteractiveWindowInfo, IJupyterVariable, IJupyterVariablesResponse } from '../types';
@@ -83,7 +83,10 @@ export enum InteractiveWindowMessages {
     ExecutionRendered = 'rendered_execution',
     FocusedCellEditor = 'focused_cell_editor',
     MonacoReady = 'monaco_ready',
-    ClearAllOutputs = 'clear_all_outputs'
+    ClearAllOutputs = 'clear_all_outputs',
+    SelectKernel = 'select_kernel',
+    UpdateKernel = 'update_kernel',
+    SelectJupyterServer = 'select_jupyter_server'
 }
 
 export enum NativeCommandType {
@@ -107,6 +110,8 @@ export enum NativeCommandType {
     RunAndAdd,
     RunAndMove,
     RunBelow,
+    SelectKernel,
+    SelectServer,
     ToggleLineNumbers,
     ToggleOutput,
     ToggleVariableExplorer,
@@ -283,6 +288,8 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.CopyCodeCell]: ICopyCode;
     public [InteractiveWindowMessages.NotebookExecutionActivated]: string;
     public [InteractiveWindowMessages.RestartKernel]: never | undefined;
+    public [InteractiveWindowMessages.SelectKernel]: IServerState | undefined;
+    public [InteractiveWindowMessages.SelectJupyterServer]: never | undefined;
     public [InteractiveWindowMessages.Export]: ICell[];
     public [InteractiveWindowMessages.GetAllCells]: ICell;
     public [InteractiveWindowMessages.ReturnAllCells]: ICell[];
@@ -354,4 +361,5 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.FocusedCellEditor]: IFocusedCellEditor;
     public [InteractiveWindowMessages.MonacoReady]: never | undefined;
     public [InteractiveWindowMessages.ClearAllOutputs]: never | undefined;
+    public [InteractiveWindowMessages.UpdateKernel]: IServerState | undefined;
 }

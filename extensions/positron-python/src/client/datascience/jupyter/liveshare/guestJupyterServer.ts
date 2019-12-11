@@ -5,21 +5,12 @@ import * as uuid from 'uuid/v4';
 import { Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 import * as vsls from 'vsls/vscode';
-
 import { ILiveShareApi, IWorkspaceService } from '../../../common/application/types';
 import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../../common/types';
 import { createDeferred, Deferred } from '../../../common/utils/async';
 import * as localize from '../../../common/utils/localize';
 import { LiveShare, LiveShareCommands } from '../../constants';
-import {
-    IConnection,
-    IDataScience,
-    IJupyterSessionManagerFactory,
-    INotebook,
-    INotebookExecutionLogger,
-    INotebookServer,
-    INotebookServerLaunchInfo
-} from '../../types';
+import { IConnection, IDataScience, IJupyterSessionManagerFactory, INotebook, INotebookExecutionLogger, INotebookServer, INotebookServerLaunchInfo } from '../../types';
 import { GuestJupyterNotebook } from './guestJupyterNotebook';
 import { LiveShareParticipantDefault, LiveShareParticipantGuest } from './liveShareParticipantMixin';
 import { ILiveShareParticipant } from './types';
@@ -31,6 +22,7 @@ export class GuestJupyterServer
     private connectPromise: Deferred<INotebookServerLaunchInfo> = createDeferred<INotebookServerLaunchInfo>();
     private _id = uuid();
     private notebooks: Map<string, INotebook> = new Map<string, INotebook>();
+
     constructor(
         private liveShare: ILiveShareApi,
         private dataScience: IDataScience,
@@ -70,6 +62,7 @@ export class GuestJupyterServer
             this.notebooks.delete(resource.toString());
             return oldDispose();
         };
+
         return result;
     }
 

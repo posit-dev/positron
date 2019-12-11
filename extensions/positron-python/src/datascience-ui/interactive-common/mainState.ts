@@ -73,11 +73,27 @@ export type IMainState = {
     activateCount: number;
     monacoReady: boolean;
     loaded: boolean;
+    kernel: IServerState;
 };
 
 export interface IFont {
     size: number;
     family: string;
+}
+
+export interface IServerState {
+    jupyterServerStatus: ServerStatus;
+    localizedUri: string;
+    displayName: string;
+}
+
+export enum ServerStatus {
+    NotStarted = 'Not Started',
+    Busy = 'Busy',
+    Idle = 'Idle',
+    Dead = 'Dead',
+    Starting = 'Starting',
+    Restarting = 'Restarting'
 }
 
 // tslint:disable-next-line: no-multiline-string
@@ -136,7 +152,12 @@ export function generateTestState(filePath: string = '', editable: boolean = fal
         activateCount: 0,
         monacoReady: true,
         loaded: false,
-        testMode: true
+        testMode: true,
+        kernel: {
+            localizedUri: 'No Kernel',
+            displayName: 'Python',
+            jupyterServerStatus: ServerStatus.NotStarted
+        }
     };
 }
 

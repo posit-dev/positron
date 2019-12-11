@@ -30,6 +30,7 @@ import { IFileSystem } from '../../../client/common/platform/types';
 import { IConfigurationService } from '../../../client/common/types';
 import { CodeCssGenerator } from '../../../client/datascience/codeCssGenerator';
 import { DataViewerProvider } from '../../../client/datascience/data-viewing/dataViewerProvider';
+import { DataScience } from '../../../client/datascience/datascience';
 import { DataScienceErrorHandler } from '../../../client/datascience/errorHandler/errorHandler';
 import { InteractiveWindowMessages } from '../../../client/datascience/interactive-common/interactiveWindowTypes';
 import { NativeEditor } from '../../../client/datascience/interactive-ipynb/nativeEditor';
@@ -40,18 +41,7 @@ import { JupyterExporter } from '../../../client/datascience/jupyter/jupyterExpo
 import { JupyterImporter } from '../../../client/datascience/jupyter/jupyterImporter';
 import { JupyterVariables } from '../../../client/datascience/jupyter/jupyterVariables';
 import { ThemeFinder } from '../../../client/datascience/themeFinder';
-import {
-    ICodeCssGenerator,
-    IDataScienceErrorHandler,
-    IDataViewerProvider,
-    IJupyterDebugger,
-    IJupyterExecution,
-    IJupyterVariables,
-    INotebookEditorProvider,
-    INotebookExporter,
-    INotebookImporter,
-    IThemeFinder
-} from '../../../client/datascience/types';
+import { ICodeCssGenerator, IDataScienceErrorHandler, IDataViewerProvider, IJupyterDebugger, IJupyterExecution, IJupyterVariables, INotebookEditorProvider, INotebookExporter, INotebookImporter, IThemeFinder } from '../../../client/datascience/types';
 import { IInterpreterService } from '../../../client/interpreter/contracts';
 import { InterpreterService } from '../../../client/interpreter/interpreterService';
 import { createEmptyCell } from '../../../datascience-ui/interactive-common/mainState';
@@ -68,6 +58,7 @@ suite('Data Science - Native Editor', () => {
     let fileSystem: IFileSystem;
     let docManager: IDocumentManager;
     let dsErrorHandler: IDataScienceErrorHandler;
+    let ds: DataScience;
     let cmdManager: ICommandManager;
     let liveShare: ILiveShareApi;
     let applicationShell: IApplicationShell;
@@ -192,6 +183,7 @@ suite('Data Science - Native Editor', () => {
         fileSystem = mock(FileSystem);
         docManager = mock(DocumentManager);
         dsErrorHandler = mock(DataScienceErrorHandler);
+        ds = mock(DataScience);
         cmdManager = mock(CommandManager);
         workspace = mock(WorkspaceService);
         liveShare = mock(LiveShareApi);
@@ -269,6 +261,7 @@ suite('Data Science - Native Editor', () => {
             instance(jupyterVariables),
             instance(jupyterDebugger),
             instance(importer),
+            instance(ds),
             instance(dsErrorHandler),
             storage,
             localStorage

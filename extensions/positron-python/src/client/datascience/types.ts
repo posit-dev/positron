@@ -5,31 +5,24 @@ import { nbformat } from '@jupyterlab/coreutils';
 import { Kernel, KernelMessage } from '@jupyterlab/services/lib/kernel';
 import { JSONObject } from '@phosphor/coreutils';
 import { Observable } from 'rxjs/Observable';
-import {
-    CancellationToken,
-    CodeLens,
-    CodeLensProvider,
-    DebugSession,
-    Disposable,
-    Event,
-    Range,
-    TextDocument,
-    TextEditor,
-    Uri
-} from 'vscode';
-
+import { CancellationToken, CodeLens, CodeLensProvider, DebugSession, Disposable, Event, Range, TextDocument, TextEditor, Uri } from 'vscode';
+import { ServerStatus } from '../../datascience-ui/interactive-common/mainState';
 import { ICommandManager } from '../common/application/types';
 import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../common/process/types';
 import { IAsyncDisposable, IDataScienceSettings, IDisposable } from '../common/types';
 import { StopWatch } from '../common/utils/stopWatch';
 import { PythonInterpreter } from '../interpreter/contracts';
 import { JupyterCommands } from './constants';
+import { KernelSpecInterpreter } from './jupyter/kernels/kernelSelector';
 
 // Main interface
 export const IDataScience = Symbol('IDataScience');
 export interface IDataScience extends Disposable {
     activationStartTime: number;
     activate(): Promise<void>;
+    selectJupyterURI(): Promise<void>;
+    selectLocalJupyterKernel(): Promise<KernelSpecInterpreter>;
+    selectRemoteJupyterKernel(connInfo: IConnection): Promise<KernelSpecInterpreter>;
 }
 
 export const IDataScienceCommandListener = Symbol('IDataScienceCommandListener');
@@ -95,6 +88,7 @@ export interface INotebookServer extends IAsyncDisposable {
 export interface INotebook extends IAsyncDisposable {
     readonly resource: Uri;
     readonly server: INotebookServer;
+    onSessionStatusChanged: Event<ServerStatus>;
     clear(id: string): void;
     executeObservable(code: string, file: string, line: number, id: string, silent: boolean): Observable<ICell[]>;
     execute(code: string, file: string, line: number, id: string, cancelToken?: CancellationToken, silent?: boolean): Promise<ICell[]>;
@@ -108,6 +102,7 @@ export interface INotebook extends IAsyncDisposable {
     addLogger(logger: INotebookExecutionLogger): void;
     getMatchingInterpreter(): PythonInterpreter | undefined;
     getKernelSpec(): IJupyterKernelSpec | undefined;
+    setKernelSpec(spec: IJupyterKernelSpec): Promise<void>;
 }
 
 export interface INotebookServerOptions {
@@ -170,13 +165,14 @@ export interface IJupyterPasswordConnect {
 
 export const IJupyterSession = Symbol('IJupyterSession');
 export interface IJupyterSession extends IAsyncDisposable {
-    onRestarted: Event<void>;
+    onSessionStatusChanged: Event<ServerStatus>;
     restart(timeout: number): Promise<void>;
     interrupt(timeout: number): Promise<void>;
     waitForIdle(timeout: number): Promise<void>;
     requestExecute(content: KernelMessage.IExecuteRequestMsg['content'], disposeOnDone?: boolean, metadata?: JSONObject): Kernel.IShellFuture<KernelMessage.IExecuteRequestMsg, KernelMessage.IExecuteReplyMsg> | undefined;
     requestComplete(content: KernelMessage.ICompleteRequestMsg['content']): Promise<KernelMessage.ICompleteReplyMsg | undefined>;
     sendInputReply(content: string): void;
+    changeKernel(kernel: IJupyterKernelSpec): Promise<void>;
 }
 
 export const IJupyterSessionManagerFactory = Symbol('IJupyterSessionManagerFactory');

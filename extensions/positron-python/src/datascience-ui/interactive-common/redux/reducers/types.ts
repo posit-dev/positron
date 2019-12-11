@@ -60,6 +60,8 @@ export enum CommonActionType {
     SAVE = 'action.save',
     SCROLL = 'action.scroll',
     SELECT_CELL = 'action.select_cell',
+    SELECT_KERNEL = 'action.select_kernel',
+    SELECT_SERVER = 'action.select_server',
     SEND_COMMAND = 'action.send_command',
     SHOW_DATA_VIEWER = 'action.show_data_viewer',
     SHOW_PLOT = 'action.show_plot',

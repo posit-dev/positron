@@ -6,7 +6,8 @@ import { JSONObject } from '@phosphor/coreutils/lib/json';
 import { CancellationTokenSource, Event, EventEmitter } from 'vscode';
 
 import { JupyterKernelPromiseFailedError } from '../../client/datascience/jupyter/kernels/jupyterKernelPromiseFailedError';
-import { ICell, IJupyterSession } from '../../client/datascience/types';
+import { ICell, IJupyterKernelSpec, IJupyterSession } from '../../client/datascience/types';
+import { ServerStatus } from '../../datascience-ui/interactive-common/mainState';
 import { sleep } from '../core';
 import { MockJupyterRequest } from './mockJupyterRequest';
 
@@ -16,6 +17,7 @@ const LineFeedRegEx = /(\r\n|\n)/g;
 export class MockJupyterSession implements IJupyterSession {
     private dict: Record<string, ICell>;
     private restartedEvent: EventEmitter<void> = new EventEmitter<void>();
+    private onStatusChangedEvent: EventEmitter<ServerStatus> = new EventEmitter<ServerStatus>();
     private timedelay: number;
     private executionCount: number = 0;
     private outstandingRequestTokenSources: CancellationTokenSource[] = [];
@@ -24,13 +26,29 @@ export class MockJupyterSession implements IJupyterSession {
     private completionTimeout: number = 1;
     private lastRequest: MockJupyterRequest | undefined;
 
+    private kernel: IJupyterKernelSpec;
+
     constructor(cellDictionary: Record<string, ICell>, timedelay: number) {
         this.dict = cellDictionary;
         this.timedelay = timedelay;
+        this.kernel = {
+            name: 'First',
+            language: 'Python',
+            path: 'foo/bar/python',
+            display_name: 'First',
+            argv: []
+        };
     }
 
     public get onRestarted(): Event<void> {
         return this.restartedEvent.event;
+    }
+
+    public get onSessionStatusChanged(): Event<ServerStatus> {
+        if (!this.onStatusChangedEvent) {
+            this.onStatusChangedEvent = new EventEmitter<ServerStatus>();
+        }
+        return this.onStatusChangedEvent.event;
     }
 
     public async restart(_timeout: number): Promise<void> {
@@ -123,6 +141,15 @@ export class MockJupyterSession implements IJupyterSession {
 
     public setCompletionTimeout(timeout: number) {
         this.completionTimeout = timeout;
+    }
+
+    public changeKernel(kernel: IJupyterKernelSpec): Promise<void> {
+        this.kernel = kernel;
+        return Promise.resolve();
+    }
+
+    public getKernel(): IJupyterKernelSpec {
+        return this.kernel;
     }
 
     private findCell = (code: string): ICell => {

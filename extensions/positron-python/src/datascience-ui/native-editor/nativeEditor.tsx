@@ -3,12 +3,12 @@
 'use strict';
 import * as React from 'react';
 import { connect } from 'react-redux';
-
 import { OSType } from '../../client/common/utils/platform';
 import { concatMultilineStringInput } from '../../client/datascience/common';
 import { NativeCommandType } from '../../client/datascience/interactive-common/interactiveWindowTypes';
 import { ContentPanel, IContentPanelProps } from '../interactive-common/contentPanel';
 import { handleLinkClick } from '../interactive-common/handlers';
+import { KernelSelection } from '../interactive-common/kernelSelection';
 import { ICellViewModel, IMainState } from '../interactive-common/mainState';
 import { IStore } from '../interactive-common/redux/store';
 import { IVariablePanelProps, VariablePanel } from '../interactive-common/variablePanel';
@@ -20,9 +20,8 @@ import { getLocString } from '../react-common/locReactSide';
 import { Progress } from '../react-common/progress';
 import { AddCellLine } from './addCellLine';
 import { getConnectedNativeCell } from './nativeCell';
-import { actionCreators } from './redux/actions';
-
 import './nativeEditor.less';
+import { actionCreators } from './redux/actions';
 
 type INativeEditorProps = IMainState & typeof actionCreators;
 
@@ -108,6 +107,7 @@ export class NativeEditor extends React.Component<INativeEditorProps> {
     }
 
     // tslint:disable: react-this-binding-issue
+    // tslint:disable-next-line: max-func-body-length
     private renderToolbarPanel() {
         const selectedIndex = this.props.cellVMs.findIndex(c => c.cell.id === this.props.selectedCellId);
 
@@ -145,6 +145,14 @@ export class NativeEditor extends React.Component<INativeEditorProps> {
                 this.props.sendCommand(NativeCommandType.RunBelow, 'mouse');
             }
         };
+        const selectKernel = () => {
+            this.props.selectKernel();
+            this.props.sendCommand(NativeCommandType.SelectKernel, 'mouse');
+        };
+        const selectServer = () => {
+            this.props.selectServer();
+            this.props.sendCommand(NativeCommandType.SelectServer, 'mouse');
+        };
         const canRunAbove = selectedIndex > 0;
         const canRunBelow = selectedIndex < this.props.cellVMs.length - 1 && this.props.selectedCellId;
 
@@ -181,6 +189,13 @@ export class NativeEditor extends React.Component<INativeEditorProps> {
                     <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.export} disabled={!this.props.cellVMs.length} className='native-button' tooltip={getLocString('DataScience.exportAsPythonFileTooltip', 'Save As Python File')}>
                         <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.ExportToPython} />
                     </ImageButton>
+                    <KernelSelection
+                        baseTheme={this.props.baseTheme}
+                        font={this.props.font}
+                        kernel={this.props.kernel}
+                        selectServer={selectServer}
+                        selectKernel={selectKernel}
+                    />
                 </div>
                 <div className='toolbar-divider'/>
             </div>
