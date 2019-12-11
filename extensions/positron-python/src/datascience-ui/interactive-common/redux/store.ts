@@ -4,12 +4,12 @@
 import * as fastDeepEqual from 'fast-deep-equal';
 import * as Redux from 'redux';
 import { createLogger } from 'redux-logger';
-
 import { Identifiers } from '../../../client/datascience/constants';
 import { InteractiveWindowMessages } from '../../../client/datascience/interactive-common/interactiveWindowTypes';
 import { CellState } from '../../../client/datascience/types';
-import { IMainState } from '../../interactive-common/mainState';
+import { IMainState, ServerStatus } from '../../interactive-common/mainState';
 import { generateMonacoReducer, IMonacoState } from '../../native-editor/redux/reducers/monaco';
+import { getLocString } from '../../react-common/locReactSide';
 import { PostOffice } from '../../react-common/postOffice';
 import { combineReducers, createQueueableActionMiddleware, QueuableAction } from '../../react-common/reduxUtils';
 import { computeEditorOptions, getDefaultSettings } from '../../react-common/settingsReactSide';
@@ -46,6 +46,11 @@ function generateDefaultState(skipDefault: boolean, testMode: boolean, baseTheme
             activateCount: 0,
             monacoReady: testMode, // When testing, monaco starts out ready
             loaded: false,
+            kernel: {
+                displayName: 'Python',
+                localizedUri: getLocString('DataScience.noKernel', 'No Kernel'),
+                jupyterServerStatus: ServerStatus.NotStarted
+            },
             settings: testMode ? getDefaultSettings() : undefined, // When testing, we don't send (or wait) for the real settings.
             editorOptions: testMode ? computeEditorOptions(getDefaultSettings()) : undefined
         };

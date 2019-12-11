@@ -1,28 +1,17 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import '../../common/extensions';
-
 import * as uuid from 'uuid/v4';
 import { Disposable, Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
-
 import { ILiveShareApi } from '../../common/application/types';
+import '../../common/extensions';
 import { traceError, traceInfo } from '../../common/logger';
 import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
-import {
-    IConnection,
-    IJupyterSession,
-    IJupyterSessionManager,
-    IJupyterSessionManagerFactory,
-    INotebook,
-    INotebookExecutionLogger,
-    INotebookServer,
-    INotebookServerLaunchInfo
-} from '../types';
+import { IConnection, IJupyterSession, IJupyterSessionManager, IJupyterSessionManagerFactory, INotebook, INotebookExecutionLogger, INotebookServer, INotebookServerLaunchInfo } from '../types';
 
 // This code is based on the examples here:
 // https://www.npmjs.com/package/@jupyterlab/services

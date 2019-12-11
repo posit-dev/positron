@@ -1,21 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import {
-    Contents,
-    ContentsManager,
-    Kernel,
-    KernelMessage,
-    ServerConnection,
-    Session,
-    SessionManager
-} from '@jupyterlab/services';
+import { Contents, ContentsManager, Kernel, KernelMessage, ServerConnection, Session, SessionManager } from '@jupyterlab/services';
 import { JSONObject } from '@phosphor/coreutils';
 import { Slot } from '@phosphor/signaling';
 import * as uuid from 'uuid/v4';
 import { Event, EventEmitter } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
-
+import { ServerStatus } from '../../../datascience-ui/interactive-common/mainState';
 import { Cancellation } from '../../common/cancellation';
 import { isTestExecution } from '../../common/constants';
 import { traceInfo, traceWarning } from '../../common/logger';
@@ -30,8 +22,8 @@ export class JupyterSession implements IJupyterSession {
     private session: Session.ISession | undefined;
     private restartSessionPromise: Promise<Session.ISession | undefined> | undefined;
     private notebookFiles: Contents.IModel[] = [];
-    private onRestartedEvent: EventEmitter<void> | undefined;
-    private statusHandler: Slot<Session.ISession, Kernel.Status> | undefined;
+    private onStatusChangedEvent: EventEmitter<ServerStatus> = new EventEmitter<ServerStatus>();
+    private statusHandler: Slot<Session.ISession, Kernel.Status>;
     private connected: boolean = false;
 
     constructor(
@@ -41,6 +33,7 @@ export class JupyterSession implements IJupyterSession {
         private sessionManager: SessionManager,
         private contentsManager: ContentsManager
     ) {
+        this.statusHandler = this.onStatusChanged.bind(this);
     }
 
     public dispose(): Promise<void> {
@@ -76,17 +69,17 @@ export class JupyterSession implements IJupyterSession {
             this.session = undefined;
             this.restartSessionPromise = undefined;
         }
-        if (this.onRestartedEvent) {
-            this.onRestartedEvent.dispose();
+        if (this.onStatusChangedEvent) {
+            this.onStatusChangedEvent.dispose();
         }
         traceInfo('Shutdown session -- complete');
     }
 
-    public get onRestarted(): Event<void> {
-        if (!this.onRestartedEvent) {
-            this.onRestartedEvent = new EventEmitter<void>();
+    public get onSessionStatusChanged(): Event<ServerStatus> {
+        if (!this.onStatusChangedEvent) {
+            this.onStatusChangedEvent = new EventEmitter<ServerStatus>();
         }
-        return this.onRestartedEvent.event;
+        return this.onStatusChangedEvent.event;
     }
 
     public async waitForIdle(timeout: number): Promise<void> {
@@ -111,7 +104,6 @@ export class JupyterSession implements IJupyterSession {
             traceInfo(`Got new session ${this.session.kernel.id}`);
 
             // Rewire our status changed event.
-            this.statusHandler = this.onStatusChanged.bind(this.onStatusChanged);
             this.session.statusChanged.connect(this.statusHandler);
 
             // After switching, start another in case we restart again.
@@ -128,6 +120,9 @@ export class JupyterSession implements IJupyterSession {
 
     public async interrupt(timeout: number): Promise<void> {
         if (this.session && this.session.kernel) {
+            // Listen for session status changes
+            this.session.statusChanged.connect(this.statusHandler);
+
             await this.waitForKernelPromise(this.session.kernel.interrupt(), timeout, localize.DataScience.interruptingKernelFailed());
         }
     }
@@ -162,7 +157,6 @@ export class JupyterSession implements IJupyterSession {
         this.session = await this.createSession(this.serverSettings, this.contentsManager, cancelToken);
 
         // Listen for session status changes
-        this.statusHandler = this.onStatusChanged.bind(this.onStatusChanged);
         this.session.statusChanged.connect(this.statusHandler);
 
         // Made it this far, we're connected now
@@ -171,6 +165,50 @@ export class JupyterSession implements IJupyterSession {
 
     public get isConnected(): boolean {
         return this.connected;
+    }
+
+    public async changeKernel(kernel: IJupyterKernelSpec): Promise<void> {
+        // This is just like doing a restart, kill the old session (and the old restart session), and start new ones
+        if (this.session?.kernel) {
+            this.shutdownSession(this.session, this.statusHandler).ignoreErrors();
+            this.restartSessionPromise?.then(r => this.shutdownSession(r, undefined)).ignoreErrors();
+        }
+
+        // Update our kernel spec
+        this.kernelSpec = kernel;
+
+        // Start a new session
+        this.session = await this.createSession(this.serverSettings, this.contentsManager);
+
+        // Listen for session status changes
+        this.session.statusChanged.connect(this.statusHandler);
+
+        // Start the restart session promise too.
+        this.restartSessionPromise = this.createRestartSession(this.serverSettings, this.contentsManager);
+    }
+
+    private getServerStatus(): ServerStatus {
+        if (this.session) {
+            switch (this.session.kernel.status) {
+                case 'busy':
+                    return ServerStatus.Busy;
+                case 'dead':
+                    return ServerStatus.Dead;
+                case 'idle':
+                case 'connected':
+                    return ServerStatus.Idle;
+                case 'restarting':
+                case 'autorestarting':
+                case 'reconnecting':
+                    return ServerStatus.Restarting;
+                case 'starting':
+                    return ServerStatus.Starting;
+                default:
+                    return ServerStatus.NotStarted;
+            }
+        }
+
+        return ServerStatus.NotStarted;
     }
 
     private startRestartSession() {
@@ -261,9 +299,9 @@ export class JupyterSession implements IJupyterSession {
         }
     }
 
-    private onStatusChanged(_s: Session.ISession, a: Kernel.Status) {
-        if (a === 'starting' && this.onRestartedEvent) {
-            this.onRestartedEvent.fire();
+    private onStatusChanged(_s: Session.ISession) {
+        if (this.onStatusChangedEvent) {
+            this.onStatusChangedEvent.fire(this.getServerStatus());
         }
     }
 

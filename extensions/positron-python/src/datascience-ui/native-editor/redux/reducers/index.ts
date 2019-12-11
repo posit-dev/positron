@@ -36,6 +36,8 @@ export const reducerMap: INativeEditorActionMapping = {
     [CommonActionType.SHOW_DATA_VIEWER]: Transfer.showDataViewer,
     [CommonActionType.SEND_COMMAND]: Transfer.sendCommand,
     [CommonActionType.SELECT_CELL]: Effects.selectCell,
+    [CommonActionType.SELECT_KERNEL]: Kernel.selectKernel,
+    [CommonActionType.SELECT_SERVER]: Kernel.selectJupyterURI,
     [CommonActionType.MOVE_CELL_UP]: Movement.moveCellUp,
     [CommonActionType.MOVE_CELL_DOWN]: Movement.moveCellDown,
     [CommonActionType.DELETE_CELL]: Creation.deleteCell,
@@ -78,5 +80,6 @@ export const reducerMap: INativeEditorActionMapping = {
     [IncomingMessageActions.GETCSSRESPONSE]: CommonEffects.handleCss,
     [IncomingMessageActions.MONACOREADY]: CommonEffects.monacoReady,
     [IncomingMessageActions.GETMONACOTHEMERESPONSE]: CommonEffects.monacoThemeChange,
+    [IncomingMessageActions.UPDATEKERNEL]: Kernel.updateStatus,
     [IncomingMessageActions.LOCINIT]: CommonEffects.handleLocInit
 };

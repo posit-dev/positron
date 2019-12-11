@@ -1,26 +1,16 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import '../../common/extensions';
-
 import { inject, injectable, multiInject, optional } from 'inversify';
 import * as uuid from 'uuid/v4';
 import { Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 import * as vsls from 'vsls/vscode';
-
 import { IApplicationShell, ILiveShareApi, IWorkspaceService } from '../../common/application/types';
+import '../../common/extensions';
 import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../common/types';
 import { IInterpreterService } from '../../interpreter/contracts';
-import {
-    IConnection,
-    IDataScience,
-    IJupyterSessionManagerFactory,
-    INotebook,
-    INotebookExecutionLogger,
-    INotebookServer,
-    INotebookServerLaunchInfo
-} from '../types';
+import { IConnection, IDataScience, IJupyterSessionManagerFactory, INotebook, INotebookExecutionLogger, INotebookServer, INotebookServerLaunchInfo } from '../types';
 import { GuestJupyterServer } from './liveshare/guestJupyterServer';
 import { HostJupyterServer } from './liveshare/hostJupyterServer';
 import { IRoleBasedObject, RoleBasedFactory } from './liveshare/roleBasedFactory';

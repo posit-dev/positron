@@ -2,9 +2,8 @@
 // Licensed under the MIT License.
 
 'use strict';
-
 // The react code can't use the localize.ts module because it reads from
-// disk. This isn't allowed inside a browswer, so we pass the collection
+// disk. This isn't allowed inside a browser, so we pass the collection
 // through the javascript.
 let loadedCollection: Record<string, string> | undefined;
 

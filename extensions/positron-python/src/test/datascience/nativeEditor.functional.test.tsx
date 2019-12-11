@@ -14,7 +14,6 @@ import * as sinon from 'sinon';
 import { anything, when } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
 import { Disposable, TextDocument, TextEditor, Uri, WindowState } from 'vscode';
-
 import { IApplicationShell, IDocumentManager } from '../../client/common/application/types';
 import { IFileSystem } from '../../client/common/platform/types';
 import { createDeferred, sleep, waitForPromise } from '../../client/common/utils/async';
@@ -23,10 +22,12 @@ import { noop } from '../../client/common/utils/misc';
 import { Identifiers } from '../../client/datascience/constants';
 import { InteractiveWindowMessages } from '../../client/datascience/interactive-common/interactiveWindowTypes';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
-import { ICell, IJupyterExecution, INotebookEditorProvider, INotebookExporter } from '../../client/datascience/types';
+import { KernelSpecInterpreter } from '../../client/datascience/jupyter/kernels/kernelSelector';
+import { ICell, IConnection, IJupyterExecution, INotebookEditorProvider, INotebookExporter } from '../../client/datascience/types';
 import { PythonInterpreter } from '../../client/interpreter/contracts';
 import { CellInput } from '../../datascience-ui/interactive-common/cellInput';
 import { Editor } from '../../datascience-ui/interactive-common/editor';
+import { KernelSelection } from '../../datascience-ui/interactive-common/kernelSelection';
 import { IStore } from '../../datascience-ui/interactive-common/redux/store';
 import { NativeCell } from '../../datascience-ui/native-editor/nativeCell';
 import { NativeEditor } from '../../datascience-ui/native-editor/nativeEditor';
@@ -36,39 +37,9 @@ import { IMonacoEditorState, MonacoEditor } from '../../datascience-ui/react-com
 import { waitForCondition } from '../common';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
 import { MockDocumentManager } from './mockDocumentManager';
-import {
-    addCell,
-    closeNotebook,
-    createNewEditor,
-    getNativeCellResults,
-    mountNativeWebView,
-    openEditor,
-    runMountedTest,
-    setupWebview
-} from './nativeEditorTestHelpers';
+import { addCell, closeNotebook, createNewEditor, getNativeCellResults, mountNativeWebView, openEditor, runMountedTest, setupWebview } from './nativeEditorTestHelpers';
 import { waitForUpdate } from './reactHelpers';
-import {
-    addContinuousMockData,
-    addMockData,
-    CellPosition,
-    createKeyboardEventForCell,
-    defaultDataScienceSettings,
-    escapePath,
-    findButton,
-    getLastOutputCell,
-    getNativeFocusedEditor,
-    getOutputCell,
-    injectCode,
-    isCellFocused,
-    isCellMarkdown,
-    isCellSelected,
-    srcDirectory,
-    typeCode,
-    verifyCellIndex,
-    verifyHtmlOnCell,
-    waitForMessage,
-    waitForMessageResponse
-} from './testHelpers';
+import { addContinuousMockData, addMockData, CellPosition, createKeyboardEventForCell, defaultDataScienceSettings, escapePath, findButton, getLastOutputCell, getNativeFocusedEditor, getOutputCell, injectCode, isCellFocused, isCellMarkdown, isCellSelected, srcDirectory, typeCode, verifyCellIndex, verifyHtmlOnCell, waitForMessage, waitForMessageResponse } from './testHelpers';
 
 use(chaiAsPromised);
 
@@ -239,6 +210,49 @@ for _ in range(50):
                 return Promise.resolve();
             });
             assert.equal(afterDelete.length, 1, `Delete should NOT remove the last cell`);
+        }, () => { return ioc; });
+
+        runMountedTest('Select Jupyter Server', async (_wrapper) => {
+            // tslint:disable-next-line: no-console
+            console.log('Test skipped until user can change jupyter server selection again');
+            // let selectorCalled = false;
+
+            // ioc.datascience.setup(ds => ds.selectJupyterURI()).returns(() => {
+            //     selectorCalled = true;
+            //     return Promise.resolve();
+            // });
+
+            // await createNewEditor(ioc);
+            // const editor = wrapper.find(NativeEditor);
+            // const kernelSelectionUI = editor.find(KernelSelection);
+            // const buttons = kernelSelectionUI.find('div');
+            // buttons!.at(1).simulate('click');
+
+            // assert.equal(selectorCalled, true, 'Server Selector should have been called');
+        }, () => { return ioc; });
+
+        runMountedTest('Select Jupyter Kernel', async (wrapper) => {
+            let selectorCalled = false;
+
+            ioc.datascience.setup(ds => ds.selectLocalJupyterKernel()).returns(() => {
+                selectorCalled = true;
+                const spec: KernelSpecInterpreter = {};
+                return Promise.resolve(spec);
+            });
+            const connection = TypeMoq.Mock.ofType<IConnection>();
+            ioc.datascience.setup(ds => ds.selectRemoteJupyterKernel(connection.object)).returns(() => {
+                selectorCalled = true;
+                const spec: KernelSpecInterpreter = {};
+                return Promise.resolve(spec);
+            });
+
+            await createNewEditor(ioc);
+            const editor = wrapper.find(NativeEditor);
+            const kernelSelectionUI = editor.find(KernelSelection);
+            const buttons = kernelSelectionUI.find('div');
+            buttons!.at(4).simulate('click');
+
+            assert.equal(selectorCalled, true, 'Kernel Selector should have been called');
         }, () => { return ioc; });
 
         runMountedTest('Convert to python', async (wrapper) => {

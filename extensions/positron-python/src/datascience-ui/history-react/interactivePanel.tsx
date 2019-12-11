@@ -3,10 +3,10 @@
 'use strict';
 import * as React from 'react';
 import { connect } from 'react-redux';
-
 import { Identifiers } from '../../client/datascience/constants';
 import { ContentPanel, IContentPanelProps } from '../interactive-common/contentPanel';
 import { handleLinkClick } from '../interactive-common/handlers';
+import { KernelSelection } from '../interactive-common/kernelSelection';
 import { ICellViewModel, IMainState } from '../interactive-common/mainState';
 import { IStore } from '../interactive-common/redux/store';
 import { IVariablePanelProps, VariablePanel } from '../interactive-common/variablePanel';
@@ -16,9 +16,9 @@ import { ImageButton } from '../react-common/imageButton';
 import { getLocString } from '../react-common/locReactSide';
 import { Progress } from '../react-common/progress';
 import { getConnectedInteractiveCell } from './interactiveCell';
+import './interactivePanel.less';
 import { actionCreators } from './redux/actions';
 
-import './interactivePanel.less';
 type IInteractivePanelProps = IMainState & typeof actionCreators;
 
 function mapStateToProps(state: IStore): IMainState {
@@ -121,6 +121,13 @@ export class InteractivePanel extends React.Component<IInteractivePanelProps> {
                             <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.CollapseAll} />
                         </ImageButton>
                     </div>
+                    <KernelSelection
+                        baseTheme={this.props.baseTheme}
+                        font={this.props.font}
+                        kernel={this.props.kernel}
+                        selectServer={this.props.selectServer}
+                        selectKernel={this.props.selectKernel}
+                    />
                 </div>
             </div>
         );
