@@ -40,19 +40,22 @@ suite('Data Science - KernelSelections', () => {
             label: 'Hello1',
             interpreter: { architecture: Architecture.Unknown, path: 'p1', sysPrefix: '', sysVersion: '', type: InterpreterType.Conda, displayName: 'Hello1' },
             path: 'p1',
-            detail: 'p1'
+            detail: '',
+            description: ''
         },
         {
             label: 'Hello1',
             interpreter: { architecture: Architecture.Unknown, path: 'p2', sysPrefix: '', sysVersion: '', type: InterpreterType.Conda, displayName: 'Hello2' },
             path: 'p1',
-            detail: 'p1'
+            detail: '',
+            description: ''
         },
         {
             label: 'Hello1',
             interpreter: { architecture: Architecture.Unknown, path: 'p3', sysPrefix: '', sysVersion: '', type: InterpreterType.Conda, displayName: 'Hello3' },
             path: 'p1',
-            detail: 'p1'
+            detail: '',
+            description: ''
         }
     ];
 
@@ -91,6 +94,8 @@ suite('Data Science - KernelSelections', () => {
                 )
             }
         ];
+        expectedItems.sort((a, b) => a.label === b.label ? 0 : (a.label > b.label ? 1 : -1));
+
         const items = await kernelSelectionProvider.getKernelSelectionsForRemoteSession(instance(sessionManager));
 
         verify(sessionManager.getRunningKernels()).once();
@@ -109,22 +114,24 @@ suite('Data Science - KernelSelections', () => {
         const expectedKernelItems: IKernelSpecQuickPickItem[] = [python1KernelSpecModel, python3KernelSpecModel].map(item => {
             return {
                 label: item.display_name,
-                selection: { interpreter: undefined, kernelModel: undefined, kernelSpec: item },
-                description: localize.DataScience.kernelDescriptionForKernelPicker()
+                selection: { interpreter: undefined, kernelModel: undefined, kernelSpec: item }
             };
         });
         const expectedInterpreterItems: IKernelSpecQuickPickItem[] = allInterpreters.map(item => {
             return {
                 ...item,
-                label: `$(plus) ${item.label}`,
+                label: item.label,
+                detail: '',
+                description: '',
                 selection: { kernelModel: undefined, interpreter: item.interpreter, kernelSpec: undefined }
             };
         });
-        expectedKernelItems.sort((a, b) => a.label === b.label ? 0 : (a.label > b.label ? 1 : -1));
+        const expectedList = [...expectedKernelItems, ...expectedInterpreterItems];
+        expectedList.sort((a, b) => a.label === b.label ? 0 : (a.label > b.label ? 1 : -1));
 
         const items = await kernelSelectionProvider.getKernelSelectionsForLocalSession(instance(sessionManager));
 
         verify(kernelService.getKernelSpecs(anything(), anything())).once();
-        assert.deepEqual(items, [...expectedKernelItems, ...expectedInterpreterItems]);
+        assert.deepEqual(items, expectedList);
     });
 });
