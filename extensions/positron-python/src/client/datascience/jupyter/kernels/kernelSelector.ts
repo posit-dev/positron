@@ -7,6 +7,7 @@ import { nbformat } from '@jupyterlab/coreutils';
 import { inject, injectable } from 'inversify';
 import { CancellationToken } from 'vscode-jsonrpc';
 import { IApplicationShell } from '../../../common/application/types';
+import '../../../common/extensions';
 import { traceError, traceInfo, traceVerbose } from '../../../common/logger';
 import { IInstaller, Product } from '../../../common/types';
 import * as localize from '../../../common/utils/localize';
@@ -15,6 +16,7 @@ import { IInterpreterService, PythonInterpreter } from '../../../interpreter/con
 import { IJupyterKernelSpec, IJupyterSessionManager } from '../../types';
 import { KernelSelectionProvider } from './kernelSelections';
 import { KernelService } from './kernelService';
+import { IKernelSpecQuickPickItem } from './types';
 
 export type KernelSpecInterpreter = {
     kernelSpec?: IJupyterKernelSpec;
@@ -46,18 +48,8 @@ export class KernelSelector {
      * @memberof KernelSelector
      */
     public async selectRemoteKernel(session: IJupyterSessionManager, cancelToken?: CancellationToken): Promise<KernelSpecInterpreter> {
-        const suggestions = this.selectionProvider.getKernelSelectionsForRemoteSession(session, cancelToken);
-        const selection = await this.applicationShell.showQuickPick(suggestions, undefined, cancelToken);
-        if (!selection) {
-            return {};
-        }
-
-        if (selection.selection.kernelSpec) {
-            const interpreter = await this.kernelService.findMatchingInterpreter(selection.selection.kernelSpec, cancelToken);
-            return { kernelSpec: selection.selection.kernelSpec, interpreter };
-        }
-        // This is not possible (remote kernels selector can only display remote kernels).
-        throw new Error('Invalid Selection in kernel spec (somehow a local kernel/interpreter has been selected for a remote session!');
+        const suggestions = await this.selectionProvider.getKernelSelectionsForRemoteSession(session, cancelToken);
+        return this.selectKernel(suggestions, session, cancelToken);
     }
     /**
      * Select a kernel from a local session.
@@ -69,17 +61,7 @@ export class KernelSelector {
      */
     public async selectLocalKernel(session?: IJupyterSessionManager, cancelToken?: CancellationToken): Promise<KernelSpecInterpreter> {
         const suggestions = await this.selectionProvider.getKernelSelectionsForLocalSession(session, cancelToken);
-        const selection = await this.applicationShell.showQuickPick(suggestions, undefined, cancelToken);
-        if (!selection) {
-            return {};
-        }
-        // Check if ipykernel is installed in this kernel.
-        if (selection.selection.interpreter) {
-            return this.useInterpreterAsKernel(selection.selection.interpreter, undefined, session, cancelToken);
-        } else {
-            const interpreter = selection.selection.kernelSpec ? await this.kernelService.findMatchingInterpreter(selection.selection.kernelSpec, cancelToken) : undefined;
-            return { kernelSpec: selection.selection.kernelSpec, interpreter };
-        }
+        return this.selectKernel(suggestions, session, cancelToken);
     }
     /**
      * Gets a kernel that needs to be used with a local session.
@@ -123,6 +105,19 @@ export class KernelSelector {
             traceError('Jupyter Kernel Spec not found for a local connection');
         }
         return selection;
+    }
+    private async selectKernel(suggestions: IKernelSpecQuickPickItem[], session?: IJupyterSessionManager, cancelToken?: CancellationToken){
+        const selection = await this.applicationShell.showQuickPick(suggestions, { placeHolder: localize.DataScience.selectKernel() }, cancelToken);
+        if (!selection?.selection) {
+            return {};
+        }
+        // Check if ipykernel is installed in this kernel.
+        if (selection.selection.interpreter) {
+            return this.useInterpreterAsKernel(selection.selection.interpreter, undefined, session, cancelToken);
+        } else {
+            const interpreter = selection.selection.kernelSpec ? await this.kernelService.findMatchingInterpreter(selection.selection.kernelSpec, cancelToken) : undefined;
+            return { kernelSpec: selection.selection.kernelSpec, interpreter };
+        }
     }
     /**
      * Use the provided interpreter as a kernel.
