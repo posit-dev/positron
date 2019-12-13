@@ -1,20 +1,22 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, named } from 'inversify';
 import { CancellationToken, Event, EventEmitter } from 'vscode';
 
-import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
+import { IApplicationShell, ILiveShareApi, IWorkspaceService } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
 import {
     IAsyncDisposable,
     IAsyncDisposableRegistry,
     IConfigurationService,
     IDisposableRegistry,
-    ILogger
+    ILogger,
+    IOutputChannel
 } from '../../common/types';
 import { IInterpreterService, PythonInterpreter } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
+import { JUPYTER_OUTPUT_CHANNEL } from '../constants';
 import {
     IJupyterExecution,
     INotebookServer,
@@ -41,6 +43,8 @@ type JupyterExecutionClassType = {
         configuration: IConfigurationService,
         kernelSelector: KernelSelector,
         notebookStarter: NotebookStarter,
+        appShell: IApplicationShell,
+        jupyterOutputChannel: IOutputChannel,
         serviceContainer: IServiceContainer
     ): IJupyterExecutionInterface;
 };
@@ -62,6 +66,8 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         @inject(IConfigurationService) configuration: IConfigurationService,
         @inject(KernelSelector) kernelSelector: KernelSelector,
         @inject(NotebookStarter) notebookStarter: NotebookStarter,
+        @inject(IApplicationShell) appShell: IApplicationShell,
+        @inject(IOutputChannel) @named(JUPYTER_OUTPUT_CHANNEL) jupyterOutputChannel: IOutputChannel,
         @inject(IServiceContainer) serviceContainer: IServiceContainer) {
         asyncRegistry.push(this);
         this.executionFactory = new RoleBasedFactory<IJupyterExecutionInterface, JupyterExecutionClassType>(
@@ -78,6 +84,8 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
             configuration,
             kernelSelector,
             notebookStarter,
+            appShell,
+            jupyterOutputChannel,
             serviceContainer
         );
         this.executionFactory.sessionChanged(() => this.onSessionChanged());
