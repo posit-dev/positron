@@ -5,6 +5,7 @@ import '../../../common/extensions';
 
 import * as path from 'path';
 import * as uuid from 'uuid/v4';
+import { CancellationToken } from 'vscode';
 
 import { IWorkspaceService } from '../../../common/application/types';
 import { IFileSystem } from '../../../common/platform/types';
@@ -12,7 +13,7 @@ import { IAsyncDisposable, IConfigurationService } from '../../../common/types';
 import { INotebookServer, INotebookServerOptions } from '../../types';
 
 export class ServerCache implements IAsyncDisposable {
-    private cache: Map<string, INotebookServer> = new Map<string, INotebookServer>();
+    private cache: Map<string, Promise<INotebookServer | undefined>> = new Map<string, Promise<INotebookServer | undefined>>();
     private emptyKey = uuid();
 
     constructor(
@@ -20,6 +21,43 @@ export class ServerCache implements IAsyncDisposable {
         private workspace: IWorkspaceService,
         private fileSystem: IFileSystem
     ) { }
+
+    public async getOrCreate(createFunction: (options?: INotebookServerOptions, cancelToken?: CancellationToken) => Promise<INotebookServer | undefined>,
+        options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+        const fixedOptions = await this.generateDefaultOptions(options);
+        const key = this.generateKey(fixedOptions);
+        let createPromise: Promise<INotebookServer | undefined> | undefined;
+
+        // Check to see if we already have a promise for this key
+        createPromise = this.cache.get(key);
+
+        if (!createPromise) {
+            // Didn't find one, so start up our promise and cache it
+            const newCreatePromise = createFunction(options, cancelToken);
+            this.cache.set(key, newCreatePromise);
+            createPromise = newCreatePromise;
+        }
+
+        return createPromise.then((server: INotebookServer | undefined) => {
+            if (!server) {
+                this.cache.delete(key);
+                return undefined;
+            }
+
+            // Change the dispose on it so we
+            // can detach from the server when it goes away.
+            const oldDispose = server.dispose.bind(server);
+            server.dispose = () => {
+                this.cache.delete(key);
+                return oldDispose();
+            };
+
+            return server;
+        }).catch(e => {
+            this.cache.delete(key);
+            throw e;
+        });
+    }
 
     public async get(options?: INotebookServerOptions): Promise<INotebookServer | undefined> {
         const fixedOptions = await this.generateDefaultOptions(options);
@@ -29,33 +67,11 @@ export class ServerCache implements IAsyncDisposable {
         }
     }
 
-    public async set(result: INotebookServer, disposeCallback: () => void, options?: INotebookServerOptions): Promise<void> {
-        const fixedOptions = await this.generateDefaultOptions(options);
-        const key = this.generateKey(fixedOptions);
-
-        // Eliminate any already with this key
-        const item = this.cache.get(key);
-        if (item) {
-            await item.dispose();
-        }
-
-        // Save in our cache.
-        this.cache.set(key, result);
-
-        // Save this result, but modify its dispose such that we
-        // can detach from the server when it goes away.
-        const oldDispose = result.dispose.bind(result);
-        result.dispose = () => {
-            this.cache.delete(key);
-            disposeCallback();
-            return oldDispose();
-        };
-    }
-
     public async dispose(): Promise<void> {
-        for (const [, s] of this.cache) {
-            await s.dispose();
-        }
+        await Promise.all([...this.cache.values()].map(async serverPromise => {
+            const server = await serverPromise;
+            await server?.dispose();
+        }));
         this.cache.clear();
     }
 
