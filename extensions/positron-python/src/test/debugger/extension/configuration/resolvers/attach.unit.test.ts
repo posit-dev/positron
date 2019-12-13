@@ -10,8 +10,10 @@ import * as TypeMoq from 'typemoq';
 import { DebugConfiguration, DebugConfigurationProvider, TextDocument, TextEditor, Uri, WorkspaceFolder } from 'vscode';
 import { IDocumentManager, IWorkspaceService } from '../../../../../client/common/application/types';
 import { PYTHON_LANGUAGE } from '../../../../../client/common/constants';
+import { DebugAdapterDescriptorFactory, DebugAdapterNewPtvsd } from '../../../../../client/common/experimentGroups';
 import { IFileSystem, IPlatformService } from '../../../../../client/common/platform/types';
-import { IConfigurationService } from '../../../../../client/common/types';
+import { IConfigurationService, IExperimentsManager } from '../../../../../client/common/types';
+import { Diagnostics } from '../../../../../client/common/utils/localize';
 import { OSType } from '../../../../../client/common/utils/platform';
 import { AttachConfigurationResolver } from '../../../../../client/debugger/extension/configuration/resolvers/attach';
 import { AttachRequestArguments, DebugOptions } from '../../../../../client/debugger/types';
@@ -44,6 +46,7 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
         let documentManager: TypeMoq.IMock<IDocumentManager>;
         let configurationService: TypeMoq.IMock<IConfigurationService>;
         let workspaceService: TypeMoq.IMock<IWorkspaceService>;
+        let experimentsManager: TypeMoq.IMock<IExperimentsManager>;
         const debugOptionsAvailable = getAvailableOptions();
         setup(() => {
             serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
@@ -58,7 +61,14 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 platformService
             );
             documentManager = TypeMoq.Mock.ofType<IDocumentManager>();
-            debugProvider = new AttachConfigurationResolver(workspaceService.object, documentManager.object, platformService.object, configurationService.object);
+            experimentsManager = TypeMoq.Mock.ofType<IExperimentsManager>();
+            experimentsManager
+                .setup(e => e.inExperiment(DebugAdapterNewPtvsd.experiment))
+                .returns(() => true);
+            experimentsManager
+                .setup(e => e.inExperiment(DebugAdapterDescriptorFactory.experiment))
+                .returns(() => true);
+            debugProvider = new AttachConfigurationResolver(workspaceService.object, documentManager.object, platformService.object, configurationService.object, experimentsManager.object);
         });
         function createMoqWorkspaceFolder(folderPath: string) {
             const folder = TypeMoq.Mock.ofType<WorkspaceFolder>();
@@ -176,7 +186,7 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 expect(pathMappings![0].remoteRoot).to.be.equal(workspaceFolder.uri.fsPath);
             });
             test(`Ensure drive letter is lower cased for local path mappings on Windows when host is '${host}'`, async function () {
-                if (getOSType() !== OSType.Windows || osType !== OSType.Windows){
+                if (getOSType() !== OSType.Windows || osType !== OSType.Windows) {
                     return this.skip();
                 }
                 const activeFile = 'xyz.py';
@@ -194,7 +204,7 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 expect(pathMappings![0].remoteRoot).to.be.equal(workspaceFolder.uri.fsPath);
             });
             test(`Ensure drive letter is not lower cased for local path mappings on non-Windows when host is '${host}'`, async function () {
-                if (getOSType() === OSType.Windows || osType === OSType.Windows){
+                if (getOSType() === OSType.Windows || osType === OSType.Windows) {
                     return this.skip();
                 }
                 const activeFile = 'xyz.py';
@@ -212,7 +222,7 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 expect(pathMappings![0].remoteRoot).to.be.equal(workspaceFolder.uri.fsPath);
             });
             test(`Ensure drive letter is lower cased for local path mappings on Windows when host is '${host}' and with existing path mappings`, async function () {
-                if (getOSType() !== OSType.Windows || osType !== OSType.Windows){
+                if (getOSType() !== OSType.Windows || osType !== OSType.Windows) {
                     return this.skip();
                 }
                 const activeFile = 'xyz.py';
@@ -222,7 +232,7 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 setupWorkspaces([defaultWorkspace]);
 
                 const localRoot = `Debug_PythonPath_${new Date().toString()}`;
-                const debugPathMappings = [ { localRoot: path.join('${workspaceFolder}', localRoot), remoteRoot: '/app/' }];
+                const debugPathMappings = [{ localRoot: path.join('${workspaceFolder}', localRoot), remoteRoot: '/app/' }];
                 const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { localRoot, pathMappings: debugPathMappings, host, request: 'attach' } as any as DebugConfiguration);
                 const pathMappings = (debugConfig as AttachRequestArguments).pathMappings;
 
@@ -231,7 +241,7 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 expect(pathMappings![0].remoteRoot).to.be.equal('/app/');
             });
             test(`Ensure drive letter is not lower cased for local path mappings on non-Windows when host is '${host}' and with existing path mappings`, async function () {
-                if (getOSType() === OSType.Windows || osType === OSType.Windows){
+                if (getOSType() === OSType.Windows || osType === OSType.Windows) {
                     return this.skip();
                 }
                 const activeFile = 'xyz.py';
@@ -241,7 +251,7 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 setupWorkspaces([defaultWorkspace]);
 
                 const localRoot = `Debug_PythonPath_${new Date().toString()}`;
-                const debugPathMappings = [ { localRoot: path.join('${workspaceFolder}', localRoot), remoteRoot: '/app/' }];
+                const debugPathMappings = [{ localRoot: path.join('${workspaceFolder}', localRoot), remoteRoot: '/app/' }];
                 const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { localRoot, pathMappings: debugPathMappings, host, request: 'attach' } as any as DebugConfiguration);
                 const pathMappings = (debugConfig as AttachRequestArguments).pathMappings;
 
@@ -407,6 +417,42 @@ getInfoPerOS().forEach(([osName, osType, path]) => {
                 const debugConfig = await debugProvider.resolveDebugConfiguration!(workspaceFolder, { debugOptions, request: 'attach', justMyCode: testParams.justMyCode, debugStdLib: testParams.debugStdLib } as any as DebugConfiguration);
                 expect(debugConfig).to.have.property('justMyCode', testParams.expectedResult);
             });
+        });
+
+        test('If not in PtvsdWheels experiment and debugConfiguration does not contain \'processId\' field, do not throw error', async () => {
+            const activeFile = 'xyz.py';
+            const workspaceFolder = createMoqWorkspaceFolder(__dirname);
+            setupActiveEditor(activeFile, PYTHON_LANGUAGE);
+            const defaultWorkspace = path.join('usr', 'desktop');
+            setupWorkspaces([defaultWorkspace]);
+            experimentsManager.reset();
+            experimentsManager
+                .setup(e => e.inExperiment(DebugAdapterNewPtvsd.experiment))
+                .returns(() => false);
+            experimentsManager
+                .setup(e => e.inExperiment(DebugAdapterDescriptorFactory.experiment))
+                .returns(() => true);
+
+            const promise = debugProvider.resolveDebugConfiguration!(workspaceFolder, { request: 'attach' } as any as DebugConfiguration);
+            await expect(promise).to.not.be.rejectedWith(Error);
+        });
+
+        test('If not in PtvsdWheels experiment and debugConfiguration contains \'processId\' field, throw error', async () => {
+            const activeFile = 'xyz.py';
+            const workspaceFolder = createMoqWorkspaceFolder(__dirname);
+            setupActiveEditor(activeFile, PYTHON_LANGUAGE);
+            const defaultWorkspace = path.join('usr', 'desktop');
+            setupWorkspaces([defaultWorkspace]);
+            experimentsManager.reset();
+            experimentsManager
+                .setup(e => e.inExperiment(DebugAdapterNewPtvsd.experiment))
+                .returns(() => false);
+            experimentsManager
+                .setup(e => e.inExperiment(DebugAdapterDescriptorFactory.experiment))
+                .returns(() => false);
+
+            const promise = debugProvider.resolveDebugConfiguration!(workspaceFolder, { request: 'attach', processId: 1234 } as any as DebugConfiguration);
+            await expect(promise).to.be.rejectedWith(Diagnostics.processId());
         });
     });
 });
