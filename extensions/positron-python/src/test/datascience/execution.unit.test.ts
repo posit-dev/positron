@@ -67,6 +67,7 @@ import { ServiceContainer } from '../../client/ioc/container';
 import { ServerStatus } from '../../datascience-ui/interactive-common/mainState';
 import { getOSType, OSType } from '../common';
 import { noop, sleep } from '../core';
+import { MockOutputChannel } from '../mockClasses';
 import { MockAutoSelectionService } from '../mocks/autoSelector';
 
 class MockJupyterNotebook implements INotebook {
@@ -236,6 +237,7 @@ class DisposableRegistry implements IDisposableRegistry, IAsyncDisposableRegistr
 
 suite('Jupyter Execution', async () => {
     const interpreterService = mock(InterpreterService);
+    const jupyterOutputChannel = new MockOutputChannel('');
     const executionFactory = mock(PythonExecutionFactory);
     const liveShare = mock(LiveShareApi);
     const configService = mock(ConfigurationService);
@@ -735,7 +737,7 @@ suite('Jupyter Execution', async () => {
             path: ''
         };
         when(kernelSelector.getKernelForLocalConnection(anything(), anything(), anything())).thenResolve({ kernelSpec });
-        notebookStarter = new NotebookStarter(instance(executionFactory), commandFinder, instance(fileSystem), instance(serviceContainer), instance(interpreterService));
+        notebookStarter = new NotebookStarter(instance(executionFactory), commandFinder, instance(fileSystem), instance(serviceContainer), instance(interpreterService), instance(jupyterOutputChannel));
         when(serviceContainer.get<KernelSelector>(KernelSelector)).thenReturn(instance(kernelSelector));
         when(serviceContainer.get<NotebookStarter>(NotebookStarter)).thenReturn(notebookStarter);
         return {
@@ -751,6 +753,8 @@ suite('Jupyter Execution', async () => {
                 instance(configService),
                 instance(kernelSelector),
                 notebookStarter,
+                instance(application),
+                instance(jupyterOutputChannel),
                 instance(serviceContainer))
         };
     }
