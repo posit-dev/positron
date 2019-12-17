@@ -563,6 +563,7 @@ for _ in range(50):
         });
 
         function clickCell(cellIndex: number) {
+            wrapper.update();
             wrapper
                 .find(NativeCell)
                 .at(cellIndex)
@@ -573,6 +574,7 @@ for _ in range(50):
         function simulateKeyPressOnCell(cellIndex: number, keyboardEvent: Partial<IKeyboardEvent> & { code: string }) {
             const event = { ...createKeyboardEventForCell(keyboardEvent), ...keyboardEvent };
             const id = `NotebookImport#${cellIndex}`;
+            wrapper.update();
             wrapper
                 .find(NativeCell)
                 .at(cellIndex)
@@ -696,6 +698,7 @@ for _ in range(50):
             test('Pressing \'Enter\' on a selected cell, results in focus being set to the code', async () => {
                 // For some reason we cannot allow setting focus to monaco editor.
                 // Tests are known to fall over if allowed.
+                wrapper.update();
                 const editor = wrapper
                     .find(NativeCell)
                     .at(1)
@@ -794,6 +797,7 @@ for _ in range(50):
 
             test('Pressing \'Alt+Enter\' on a selected cell adds a new cell below it', async () => {
                 // Initially 3 cells.
+                wrapper.update();
                 assert.equal(wrapper.find('NativeCell').length, 3);
 
                 const update = waitForMessage(ioc, InteractiveWindowMessages.FocusedCellEditor);
@@ -808,6 +812,7 @@ for _ in range(50):
             });
 
             test('Auto brackets work', async () => {
+                wrapper.update();
                 // Initially 3 cells.
                 assert.equal(wrapper.find('NativeCell').length, 3);
 
@@ -835,6 +840,7 @@ for _ in range(50):
 
             test('Pressing \'d\' on a selected cell twice deletes the cell', async () => {
                 // Initially 3 cells.
+                wrapper.update();
                 assert.equal(wrapper.find('NativeCell').length, 3);
 
                 clickCell(2);
@@ -847,6 +853,7 @@ for _ in range(50):
 
             test('Pressing \'a\' on a selected cell adds a cell at the current position', async () => {
                 // Initially 3 cells.
+                wrapper.update();
                 assert.equal(wrapper.find('NativeCell').length, 3);
 
                 // const secondCell = wrapper.find('NativeCell').at(1);
@@ -867,6 +874,7 @@ for _ in range(50):
 
             test('Pressing \'b\' on a selected cell adds a cell after the current position', async () => {
                 // Initially 3 cells.
+                wrapper.update();
                 assert.equal(wrapper.find('NativeCell').length, 3);
 
                 clickCell(1);
