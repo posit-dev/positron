@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 import { inject, injectable } from 'inversify';
-import { Uri } from 'vscode';
 import { ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { ExecutionInfo, IConfigurationService } from '../types';
@@ -59,11 +58,11 @@ export class CondaInstaller extends ModuleInstaller {
     /**
      * Return the commandline args needed to install the module.
      */
-    protected async getExecutionInfo(moduleName: string, resource?: Uri): Promise<ExecutionInfo> {
+    protected async getExecutionInfo(moduleName: string, resource?: InterpreterUri): Promise<ExecutionInfo> {
         const condaService = this.serviceContainer.get<ICondaService>(ICondaService);
         const condaFile = await condaService.getCondaFile();
 
-        const pythonPath = this.serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(resource).pythonPath;
+        const pythonPath = isResource(resource) ? this.serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(resource).pythonPath : resource.path;
         const info = await condaService.getCondaEnvironment(pythonPath);
         const args = ['install'];
 
