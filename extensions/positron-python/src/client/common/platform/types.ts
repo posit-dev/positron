@@ -35,6 +35,8 @@ export interface IPlatformService {
 export type TemporaryFile = { filePath: string } & Disposable;
 export type TemporaryDirectory = { path: string } & Disposable;
 
+export type WriteStream = fs.WriteStream;
+
 export const IFileSystem = Symbol('IFileSystem');
 export interface IFileSystem {
     directorySeparatorChar: string;
@@ -45,11 +47,15 @@ export interface IFileSystem {
     directoryExists(path: string): Promise<boolean>;
     createDirectory(path: string): Promise<void>;
     deleteDirectory(path: string): Promise<void>;
+    listdir(dirname: string): Promise<string[]>;
     getSubDirectories(rootDir: string): Promise<string[]>;
     getFiles(rootDir: string): Promise<string[]>;
     arePathsSame(path1: string, path2: string): boolean;
+    readData(filePath: string): Promise<Buffer>;
     readFile(filePath: string): Promise<string>;
     writeFile(filePath: string, data: {}, options?: string | fsextra.WriteFileOptions): Promise<void>;
+    readFileSync(filename: string): string;
+    appendFile(filename: string, data: {}): Promise<void>;
     appendFileSync(filename: string, data: {}, encoding: string): void;
     appendFileSync(filename: string, data: {}, options?: { encoding?: string; mode?: number; flag?: string }): void;
     // tslint:disable-next-line:unified-signatures
@@ -58,8 +64,11 @@ export interface IFileSystem {
     copyFile(src: string, dest: string): Promise<void>;
     deleteFile(filename: string): Promise<void>;
     getFileHash(filePath: string): Promise<string>;
-    search(globPattern: string): Promise<string[]>;
+    search(globPattern: string, cwd?: string): Promise<string[]>;
     createTemporaryFile(extension: string): Promise<TemporaryFile>;
+    createReadStream(path: string): fs.ReadStream;
     createWriteStream(path: string): fs.WriteStream;
     chmod(path: string, mode: string): Promise<void>;
+    move(src: string, tgt: string): Promise<void>;
+    isDirReadonly(dirname: string): Promise<boolean>;
 }

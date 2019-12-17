@@ -9,9 +9,13 @@ import * as glob from 'glob';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import * as tmp from 'tmp';
+import { promisify } from 'util';
 import { FileStat } from 'vscode';
 import { createDeferred } from '../utils/async';
+import { noop } from '../utils/misc';
 import { IFileSystem, IPlatformService, TemporaryFile } from './types';
+
+const globAsync = promisify(glob);
 
 @injectable()
 export class FileSystem implements IFileSystem {
@@ -52,7 +56,10 @@ export class FileSystem implements IFileSystem {
      * @memberof FileSystem
      */
     public readFile(filePath: string): Promise<string> {
-        return fs.readFile(filePath).then(buffer => buffer.toString());
+        return fs.readFile(filePath, 'utf8');
+    }
+    public readData(filePath: string): Promise<Buffer> {
+        return fs.readFile(filePath);
     }
 
     public async writeFile(filePath: string, data: {}, options: string | fs.WriteFileOptions = { encoding: 'utf8' }): Promise<void> {
@@ -71,6 +78,18 @@ export class FileSystem implements IFileSystem {
         const deferred = createDeferred<void>();
         fs.rmdir(directoryPath, err => (err ? deferred.reject(err) : deferred.resolve()));
         return deferred.promise;
+    }
+
+    public async listdir(root: string): Promise<string[]> {
+        return new Promise<string[]>(resolve => {
+            // Now look for Interpreters in this directory
+            fs.readdir(root, (err, names) => {
+                if (err) {
+                    return resolve([]);
+                }
+                resolve(names.map(name => path.join(root, name)));
+            });
+        });
     }
 
     public getSubDirectories(rootDir: string): Promise<string[]> {
@@ -116,6 +135,9 @@ export class FileSystem implements IFileSystem {
         }
     }
 
+    public appendFile(filename: string, data: {}): Promise<void> {
+        return fs.appendFile(filename, data);
+    }
     public appendFileSync(filename: string, data: {}, encoding: string): void;
     public appendFileSync(filename: string, data: {}, options?: { encoding?: string; mode?: number; flag?: string }): void;
     // tslint:disable-next-line:unified-signatures
@@ -169,15 +191,17 @@ export class FileSystem implements IFileSystem {
             });
         });
     }
-    public search(globPattern: string): Promise<string[]> {
-        return new Promise<string[]>((resolve, reject) => {
-            glob(globPattern, (ex, files) => {
-                if (ex) {
-                    return reject(ex);
-                }
-                resolve(Array.isArray(files) ? files : []);
-            });
-        });
+    public async search(globPattern: string, cwd?: string): Promise<string[]> {
+        let found: string[];
+        if (cwd) {
+            const options = {
+                cwd: cwd
+            };
+            found = await globAsync(globPattern, options);
+        } else {
+            found = await globAsync(globPattern);
+        }
+        return Array.isArray(found) ? found : [];
     }
     public createTemporaryFile(extension: string): Promise<TemporaryFile> {
         return new Promise<TemporaryFile>((resolve, reject) => {
@@ -188,6 +212,10 @@ export class FileSystem implements IFileSystem {
                 resolve({ filePath: tmpFile, dispose: cleanupCallback });
             });
         });
+    }
+
+    public createReadStream(filePath: string): fileSystem.ReadStream {
+        return fileSystem.createReadStream(filePath);
     }
 
     public createWriteStream(filePath: string): fileSystem.WriteStream {
@@ -201,6 +229,28 @@ export class FileSystem implements IFileSystem {
                     return reject(err);
                 }
                 resolve();
+            });
+        });
+    }
+
+    public readFileSync(filePath: string): string {
+        return fs.readFileSync(filePath, 'utf8');
+    }
+
+    public async move(src: string, tgt: string) {
+        await fs.rename(src, tgt);
+    }
+
+    public async isDirReadonly(dirname: string): Promise<boolean> {
+        const filePath = `${dirname}${path.sep}___vscpTest___`;
+        return new Promise<boolean>(resolve => {
+            fs.open(filePath, fs.constants.O_CREAT | fs.constants.O_RDWR, (error, fd) => {
+                if (!error) {
+                    fs.close(fd, () => {
+                        fs.unlink(filePath, noop);
+                    });
+                }
+                return resolve(!error);
             });
         });
     }

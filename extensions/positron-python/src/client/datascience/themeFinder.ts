@@ -1,12 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import * as fs from 'fs-extra';
-import * as glob from 'glob';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../common/constants';
+import { IFileSystem } from '../common/platform/types';
 import { ICurrentProcess, IExtensions, ILogger } from '../common/types';
 import { IThemeFinder } from './types';
 
@@ -25,8 +24,9 @@ export class ThemeFinder implements IThemeFinder {
     constructor(
         @inject(IExtensions) private extensions: IExtensions,
         @inject(ICurrentProcess) private currentProcess: ICurrentProcess,
-        @inject(ILogger) private logger: ILogger) {
-    }
+        @inject(ILogger) private logger: ILogger,
+        @inject(IFileSystem) private fs: IFileSystem
+    ) { }
 
     public async findThemeRootJson(themeName: string) : Promise<string | undefined> {
         // find our data
@@ -78,7 +78,7 @@ export class ThemeFinder implements IThemeFinder {
 
         // Should be somewhere under currentPath/resources/app/extensions inside of a json file
         let extensionsPath = path.join(currentPath, 'resources', 'app', 'extensions');
-        if (!(await fs.pathExists(extensionsPath))) {
+        if (!(await this.fs.directoryExists(extensionsPath))) {
             // Might be on mac or linux. try a different path
             currentPath = path.resolve(currentPath, '../../../..');
             extensionsPath = path.join(currentPath, 'resources', 'app', 'extensions');
@@ -89,7 +89,7 @@ export class ThemeFinder implements IThemeFinder {
 
         // If that didn't work, see if it's our MagicPython predefined tmLanguage
         if (!results && language === PYTHON_LANGUAGE) {
-            results = await fs.readFile(path.join(EXTENSION_ROOT_DIR, 'resources', 'MagicPython.tmLanguage.json'), 'utf-8');
+            results = await this.fs.readFile(path.join(EXTENSION_ROOT_DIR, 'resources', 'MagicPython.tmLanguage.json'));
         }
 
         return results;
@@ -103,14 +103,7 @@ export class ThemeFinder implements IThemeFinder {
 
         // Search through all package.json files in the directory and below, looking
         // for the themeName in them.
-        const foundPackages = await new Promise<string[]>((resolve, reject) => {
-            glob('**/package.json', { cwd: rootPath }, (err, matches) => {
-                if (err) {
-                    reject(err);
-                }
-                resolve(matches);
-            });
-        });
+        const foundPackages = await this.fs.search('**/package.json', rootPath);
         if (foundPackages.length > 0) {
             // For each one, open it up and look for the theme name.
             for (const f of foundPackages) {
@@ -146,7 +139,7 @@ export class ThemeFinder implements IThemeFinder {
 
         // Should be somewhere under currentPath/resources/app/extensions inside of a json file
         let extensionsPath = path.join(currentPath, 'resources', 'app', 'extensions');
-        if (!(await fs.pathExists(extensionsPath))) {
+        if (!(await this.fs.directoryExists(extensionsPath))) {
             // Might be on mac or linux. try a different path
             currentPath = path.resolve(currentPath, '../../../..');
             extensionsPath = path.join(currentPath, 'resources', 'app', 'extensions');
@@ -160,14 +153,7 @@ export class ThemeFinder implements IThemeFinder {
     private async findMatchingThemes(rootPath: string, themeName: string) : Promise<IThemeData | undefined> {
         // Search through all package.json files in the directory and below, looking
         // for the themeName in them.
-        const foundPackages = await new Promise<string []>((resolve, reject) => {
-            glob('**/package.json', { cwd: rootPath }, (err, matches) => {
-                if (err) {
-                    reject(err);
-                }
-                resolve(matches);
-            });
-        });
+        const foundPackages = await this.fs.search('**/package.json', rootPath);
         if (foundPackages.length > 0) {
             // For each one, open it up and look for the theme name.
             for (const f of foundPackages) {
@@ -182,7 +168,8 @@ export class ThemeFinder implements IThemeFinder {
 
     private async findMatchingLanguageFromJson(packageJson: string, language: string) : Promise<string | undefined> {
         // Read the contents of the json file
-        const json = await fs.readJSON(packageJson, { encoding: 'utf-8'});
+        const text = await this.fs.readFile(packageJson);
+        const json = JSON.parse(text);
 
         // Should have a name entry and a contributes entry
         if (json.hasOwnProperty('name') && json.hasOwnProperty('contributes')) {
@@ -195,7 +182,7 @@ export class ThemeFinder implements IThemeFinder {
                     if (t.hasOwnProperty('language') && t.language === language) {
                         // Path is relative to the package.json file.
                         const rootFile = t.hasOwnProperty('path') ? path.join(path.dirname(packageJson), t.path.toString()) : '';
-                        return fs.readFile(rootFile, 'utf-8');
+                        return this.fs.readFile(rootFile);
                     }
                 }
             }
@@ -204,7 +191,8 @@ export class ThemeFinder implements IThemeFinder {
 
     private async findMatchingThemeFromJson(packageJson: string, themeName: string) : Promise<IThemeData | undefined> {
         // Read the contents of the json file
-        const json = await fs.readJSON(packageJson, { encoding: 'utf-8'});
+        const text = await this.fs.readFile(packageJson);
+        const json = JSON.parse(text);
 
         // Should have a name entry and a contributes entry
         if (json.hasOwnProperty('name') && json.hasOwnProperty('contributes')) {
