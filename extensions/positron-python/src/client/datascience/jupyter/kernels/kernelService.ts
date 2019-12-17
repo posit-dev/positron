@@ -256,7 +256,8 @@ export class KernelService {
         }
 
         let kernel = await this.findMatchingKernelSpec({ display_name: interpreter.displayName, name }, undefined, cancelToken);
-        for (let counter = 0; counter < 5; counter += 1) {
+        // Wait for at least 5s. We know launching a python (conda env) process on windows can sometimes take around 4s.
+        for (let counter = 0; counter < 10; counter += 1) {
             if (Cancellation.isCanceled(cancelToken)) {
                 return;
             }
