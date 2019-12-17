@@ -12,8 +12,9 @@ import { traceError, traceInfo, traceVerbose } from '../../../common/logger';
 import { IInstaller, Product } from '../../../common/types';
 import * as localize from '../../../common/utils/localize';
 import { noop } from '../../../common/utils/misc';
+import { StopWatch } from '../../../common/utils/stopWatch';
 import { IInterpreterService, PythonInterpreter } from '../../../interpreter/contracts';
-import { sendTelemetryEvent } from '../../../telemetry';
+import { IEventNamePropertyMapping, sendTelemetryEvent } from '../../../telemetry';
 import { Telemetry } from '../../constants';
 import { IJupyterKernelSpec, IJupyterSessionManager } from '../../types';
 import { KernelSelectionProvider } from './kernelSelections';
@@ -119,6 +120,8 @@ export class KernelSelector {
         notebookMetadata?: nbformat.INotebookMetadata,
         cancelToken?: CancellationToken
     ): Promise<KernelSpecInterpreter> {
+        const stopWatch = new StopWatch();
+        const telemetryProps: IEventNamePropertyMapping[Telemetry.FindKernelForLocalConnection] = { kernelSpecFound: false, interpreterFound: false, promptedToSelect: false };
         // When this method is called, we know we've started a local jupyter server.
         // Lets pre-warm the list of local kernels.
         this.selectionProvider.getKernelSelectionsForLocalSession(sessionManager, cancelToken).ignoreErrors();
@@ -135,6 +138,7 @@ export class KernelSelector {
                 if (activeInterpreter) {
                     selection = await this.useInterpreterAsKernel(activeInterpreter, notebookMetadata.kernelspec.display_name, sessionManager, cancelToken);
                 } else {
+                    telemetryProps.promptedToSelect = true;
                     selection = await this.selectLocalKernel(sessionManager, cancelToken);
                 }
             }
@@ -150,6 +154,10 @@ export class KernelSelector {
         if (!selection.kernelSpec) {
             traceError('Jupyter Kernel Spec not found for a local connection');
         }
+
+        telemetryProps.kernelSpecFound = !!selection.kernelSpec;
+        telemetryProps.interpreterFound = !!selection.interpreter;
+        sendTelemetryEvent(Telemetry.FindKernelForLocalConnection, stopWatch.elapsedTime, telemetryProps);
         return selection;
     }
 

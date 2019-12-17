@@ -14,6 +14,8 @@ import { traceInfo, traceWarning } from '../../common/logger';
 import { sleep, waitForPromise } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
+import { captureTelemetry } from '../../telemetry';
+import { Telemetry } from '../constants';
 import { IConnection, IJupyterKernelSpec, IJupyterSession } from '../types';
 import { JupyterWaitForIdleError } from './jupyterWaitForIdleError';
 import { JupyterKernelPromiseFailedError } from './kernels/jupyterKernelPromiseFailedError';
@@ -248,6 +250,7 @@ export class JupyterSession implements IJupyterSession {
         }
     }
 
+    @captureTelemetry(Telemetry.WaitForIdleJupyter, undefined, true)
     private async waitForIdleOnSession(session: ISession | undefined, timeout: number): Promise<void> {
         if (session && session.kernel) {
             traceInfo(`Waiting for idle on (kernel): ${session.kernel.id} -> ${session.kernel.status}`);

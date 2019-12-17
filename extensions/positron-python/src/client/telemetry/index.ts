@@ -1592,4 +1592,53 @@ export interface IEventNamePropertyMapping {
         hasCustomShell: undefined | boolean;
         hasShellInEnv: undefined | boolean;
     };
+    /**
+     * Telemetry event sent when getting environment variables for an activated environment has failed.
+     *
+     * @type {(undefined | never)}
+     * @memberof IEventNamePropertyMapping
+     */
+    [EventName.ACTIVATE_ENV_TO_GET_ENV_VARS_FAILED]: {
+        /**
+         * Whether the activation commands contain the name `conda`.
+         *
+         * @type {boolean}
+         */
+        isPossiblyCondaEnv: boolean;
+        /**
+         * The type of terminal shell created: powershell, cmd, zsh, bash etc.
+         *
+         * @type {TerminalShellType}
+         */
+        terminal: TerminalShellType;
+    };
+    /**
+     * Telemetry event sent once done searching for kernel spec and interpreter for a local connection.
+     *
+     * @type {{
+     *         kernelSpecFound: boolean;
+     *         interpreterFound: boolean;
+     *     }}
+     * @memberof IEventNamePropertyMapping
+     */
+    [Telemetry.FindKernelForLocalConnection]: {
+        /**
+         * Whether a kernel spec was found.
+         *
+         * @type {boolean}
+         */
+        kernelSpecFound: boolean;
+        /**
+         * Whether an interpreter was found.
+         *
+         * @type {boolean}
+         */
+        interpreterFound: boolean;
+        /**
+         * Whether user was prompted to select a kernel spec.
+         *
+         * @type {boolean}
+         */
+        promptedToSelect?: boolean;
+    };
 }

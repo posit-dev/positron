@@ -18,7 +18,7 @@ import {
 import { OSType } from '../../common/utils/platform';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
 import { EXTENSION_ROOT_DIR } from '../../constants';
-import { captureTelemetry } from '../../telemetry';
+import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { PythonInterpreter } from '../contracts';
 import { IEnvironmentActivationService } from './types';
@@ -58,14 +58,14 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
         if (!shellInfo) {
             return;
         }
-
+        let isPossiblyCondaEnv = false;
         try {
             const activationCommands = await this.helper.getEnvironmentActivationShellCommands(resource, shellInfo.shellType, interpreter);
             traceVerbose(`Activation Commands received ${activationCommands} for shell ${shellInfo.shell}`);
             if (!activationCommands || !Array.isArray(activationCommands) || activationCommands.length === 0) {
                 return;
             }
-
+            isPossiblyCondaEnv = activationCommands.join(' ').toLowerCase().includes('conda');
             // Run the activate command collect the environment from it.
             const activationCommand = this.fixActivationCommands(activationCommands).join(' && ');
             const processService = await this.processServiceFactory.create(resource);
@@ -91,6 +91,7 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
             return this.parseEnvironmentOutput(result.stdout);
         } catch (e) {
             traceError('getActivatedEnvironmentVariables', e);
+            sendTelemetryEvent(EventName.ACTIVATE_ENV_TO_GET_ENV_VARS_FAILED, undefined, {isPossiblyCondaEnv, terminal: shellInfo.shellType});
 
             // Some callers want this to bubble out, others don't
             if (allowExceptions) {
