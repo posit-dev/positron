@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 import * as Cors from '@koa/cors';
-import * as fs from 'fs-extra';
 import * as http from 'http';
 import * as Koa from 'koa';
 import * as compress from 'koa-compress';
@@ -11,6 +10,7 @@ import * as path from 'path';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import { Identifiers } from '../../../datascience/constants';
 import { SharedMessages } from '../../../datascience/messages';
+import { IFileSystem } from '../../platform/types';
 
 interface IState {
     cwd: string;
@@ -23,7 +23,7 @@ export class WebPanelServer {
     private server: http.Server | undefined;
     private state = new Map<string, IState>();
 
-    constructor(private port: number, private token: string) {
+    constructor(private port: number, private token: string, private fs: IFileSystem) {
         this.app.use(Cors());
         this.app.use(compress());
         this.app.use(logger());
@@ -110,7 +110,7 @@ export class WebPanelServer {
                 break;
 
         }
-        ctx.body = fs.createReadStream(filePath);
+        ctx.body = this.fs.createReadStream(filePath);
     }
 
     // Debugging tips:
