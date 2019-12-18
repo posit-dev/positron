@@ -89,6 +89,9 @@ enum AskForSaveResult {
     Cancel
 }
 
+const KeyPrefix = 'notebook-storage-';
+const NotebookTransferKey = 'notebook-transfered';
+
 @injectable()
 export class NativeEditor extends InteractiveBase implements INotebookEditor {
     private closedEvent: EventEmitter<INotebookEditor> = new EventEmitter<INotebookEditor>();
@@ -210,6 +213,12 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
 
         // Show ourselves
         await this.show();
+
+        // Clear out old global storage the first time somebody opens
+        // a notebook
+        if (!this.globalStorage.get(NotebookTransferKey)) {
+            await this.transferStorage();
+        }
 
         // See if this file was stored in storage prior to shutdown
         const dirtyContents = await this.getStoredContents();
@@ -639,7 +648,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
     }
 
     private getStorageKey(): string {
-        return `notebook-storage-${this._file.toString()}`;
+        return `${KeyPrefix}${this._file.toString()}`;
     }
     /**
      * Gets any unsaved changes to the notebook file.
@@ -689,8 +698,10 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         try {
             const data = this.globalStorage.get<{ contents?: string; lastModifiedTimeMs?: number }>(key);
 
-            // Make sure we don't use this method ever again
-            await this.globalStorage.update(key, undefined);
+            // If we have data here, make sure we eliminate any remnants of storage
+            if (data) {
+                await this.transferStorage();
+            }
 
             // Check whether the file has been modified since the last time the contents were saved.
             if (data && data.lastModifiedTimeMs && !this.isUntitled && this.file.scheme === 'file') {
@@ -713,26 +724,49 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             // Make sure to clear so we don't use this again.
             this.localStorage.update(key, undefined);
 
-            // Transfer this to global storage so we use that next time instead
-
-            const stat = await this.fileSystem.stat(this.file.fsPath);
-            this.globalStorage.update(key, { contents: workspaceData, lastModifiedTimeMs: stat ? stat.mtime : undefined });
+            // Transfer this to a file so we use that next time instead.
+            const filePath = this.getHashedFileName(key);
+            await this.writeToStorage(filePath, workspaceData);
 
             return workspaceData;
         }
     }
 
-    // This is what we could have done to transferFromGlobalStorage all of the old keys
     // VS code recommended we use the hidden '_values' to iterate over all of the entries in
-    // the global storage map.
-    // private async transferFromGlobalStorage(): Promise<void> {
-    //     if ((this.globalStorage as any)._values) {
-    //         const map = (this.globalStorage as any)._values as Map<string, any>;
-    //         [...map.keys()].forEach(k => {
-    //             if (k.startsWith('notebook-'))
-    //         })
-    //     }
-    // }
+    // the global storage map and delete the ones we own.
+    private async transferStorage(): Promise<void[]> {
+        const promises: Thenable<void>[] = [];
+
+        // Indicate we ran this function
+        await this.globalStorage.update(NotebookTransferKey, true);
+
+        try {
+            // tslint:disable-next-line: no-any
+            if ((this.globalStorage as any)._value) {
+                // tslint:disable-next-line: no-any
+                const keys = Object.keys((this.globalStorage as any)._value);
+                [...keys].forEach((k: string) => {
+                    if (k.startsWith(KeyPrefix)) {
+                        // Write each pair to our alternate storage, but don't bother waiting for each
+                        // to finish.
+                        const filePath = this.getHashedFileName(k);
+                        const contents = this.globalStorage.get(k);
+                        if (contents) {
+                            this.writeToStorage(filePath, JSON.stringify(contents)).ignoreErrors();
+                        }
+
+                        // Remove from the map so that global storage does not have this anymore.
+                        // Use the real API here as we don't know how the map really gets updated.
+                        promises.push(this.globalStorage.update(k, undefined));
+                    }
+                });
+            }
+        } catch (e) {
+            traceError('Exception eliminating global storage parts:', e);
+        }
+
+        return Promise.all(promises);
+    }
 
     /**
      * Stores the uncommitted notebook changes into a temporary location.
