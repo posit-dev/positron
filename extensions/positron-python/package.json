@@ -1092,6 +1092,9 @@
                 ],
                 "program": "./out/client/debugger/debugAdapter/main.js",
                 "runtime": "node",
+                "variables": {
+                    "pickProcess": "python.pickLocalProcess"
+                  },
                 "configurationSnippets": [],
                 "configurationAttributes": {
                     "launch": {
