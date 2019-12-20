@@ -132,7 +132,7 @@ export class WebPanelServer {
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
-                <meta http-equiv="Content-Security-Policy" content="img-src 'self' data: https: http: blob:; default-src 'unsafe-inline' 'unsafe-eval' vscode-resource: data: https: http:;">
+                <meta http-equiv="Content-Security-Policy" content="img-src 'self' data: https: http: blob:; default-src 'unsafe-inline' 'unsafe-eval' vscode-resource: data: https: http: blob:;">
                 <meta name="theme-color" content="#000000">
                 <meta name="theme" content="${Identifiers.GeneratedThemeName}"/>
                 <title>React App</title>
