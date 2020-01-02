@@ -34,7 +34,6 @@ import { createDeferred } from '../../../client/common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../client/constants';
 import { CodeCssGenerator } from '../../../client/datascience/codeCssGenerator';
 import { DataViewerProvider } from '../../../client/datascience/data-viewing/dataViewerProvider';
-import { DataScience } from '../../../client/datascience/datascience';
 import { DataScienceErrorHandler } from '../../../client/datascience/errorHandler/errorHandler';
 import { InteractiveWindowMessages } from '../../../client/datascience/interactive-common/interactiveWindowTypes';
 import { NativeEditor } from '../../../client/datascience/interactive-ipynb/nativeEditor';
@@ -101,7 +100,6 @@ suite('Data Science - Native Editor', () => {
     let fileSystem: typemoq.IMock<IFileSystem>;
     let docManager: IDocumentManager;
     let dsErrorHandler: IDataScienceErrorHandler;
-    let ds: DataScience;
     let cmdManager: ICommandManager;
     let liveShare: ILiveShareApi;
     let applicationShell: IApplicationShell;
@@ -232,7 +230,6 @@ suite('Data Science - Native Editor', () => {
         fileSystem = typemoq.Mock.ofType<IFileSystem>();
         docManager = mock(DocumentManager);
         dsErrorHandler = mock(DataScienceErrorHandler);
-        ds = mock(DataScience);
         cmdManager = mock(CommandManager);
         workspace = mock(WorkspaceService);
         liveShare = mock(LiveShareApi);
@@ -336,7 +333,6 @@ suite('Data Science - Native Editor', () => {
             instance(jupyterVariables),
             instance(jupyterDebugger),
             instance(importer),
-            instance(ds),
             instance(dsErrorHandler),
             storage,
             localStorage,

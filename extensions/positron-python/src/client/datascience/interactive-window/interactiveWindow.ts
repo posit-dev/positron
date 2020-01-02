@@ -14,13 +14,11 @@ import { EXTENSION_ROOT_DIR } from '../../constants';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { EditorContexts, Identifiers, Telemetry } from '../constants';
-import { DataScience } from '../datascience';
 import { InteractiveBase } from '../interactive-common/interactiveBase';
 import { InteractiveWindowMessages, ISubmitNewCell } from '../interactive-common/interactiveWindowTypes';
 import {
     ICell,
     ICodeCssGenerator,
-    IDataScience,
     IDataScienceErrorHandler,
     IDataViewerProvider,
     IInteractiveWindow,
@@ -60,7 +58,7 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
         @inject(IJupyterExecution) jupyterExecution: IJupyterExecution,
         @inject(IFileSystem) fileSystem: IFileSystem,
         @inject(IConfigurationService) configuration: IConfigurationService,
-        @inject(ICommandManager) private commandManager: ICommandManager,
+        @inject(ICommandManager) commandManager: ICommandManager,
         @inject(INotebookExporter) jupyterExporter: INotebookExporter,
         @inject(IWorkspaceService) workspaceService: IWorkspaceService,
         @inject(IInteractiveWindowProvider) private interactiveWindowProvider: IInteractiveWindowProvider,
@@ -68,7 +66,6 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
         @inject(IJupyterVariables) jupyterVariables: IJupyterVariables,
         @inject(IJupyterDebugger) jupyterDebugger: IJupyterDebugger,
         @inject(INotebookEditorProvider) editorProvider: INotebookEditorProvider,
-        @inject(IDataScience) dataScience: DataScience,
         @inject(IDataScienceErrorHandler) errorHandler: IDataScienceErrorHandler,
         @inject(IPersistentStateFactory) private readonly stateFactory: IPersistentStateFactory,
         @inject(IMemento) @named(GLOBAL_MEMENTO) globalStorage: Memento
@@ -93,8 +90,8 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
             jupyterVariables,
             jupyterDebugger,
             editorProvider,
-            dataScience,
             errorHandler,
+            commandManager,
             globalStorage,
             historyReactDir,
             [path.join(historyReactDir, 'index_bundle.js')],
