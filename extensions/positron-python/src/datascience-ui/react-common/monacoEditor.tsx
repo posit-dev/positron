@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 'use strict';
 
+import * as fastDeepEqual from 'fast-deep-equal';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 import { IDisposable } from '../../client/common/types';
@@ -301,7 +302,22 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
             this.updateBackgroundStyle();
         }
     }
-
+    // tslint:disable-next-line: no-any
+    public shouldComponentUpdate(nextProps: Readonly<IMonacoEditorProps>, nextState: Readonly<IMonacoEditorState>, _nextContext: any): boolean {
+        if (!fastDeepEqual(nextProps, this.props)) {
+            return true;
+        }
+        if (nextState === this.state) {
+            return false;
+        }
+        if (nextState.visibleLineCount !== this.state.visibleLineCount) {
+            return true;
+        }
+        if (nextState.model?.id !== this.state.model?.id) {
+            return true;
+        }
+        return false;
+    }
     public render() {
         const measureWidthClassName = this.props.measureWidthClassName ? this.props.measureWidthClassName : 'measure-width-div';
         return (
