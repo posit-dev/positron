@@ -146,6 +146,10 @@ export class JupyterNotebookBase implements INotebook {
     private _workingDirectory: string | undefined;
     private _loggers: INotebookExecutionLogger[] = [];
     private onStatusChangedEvent: EventEmitter<ServerStatus> | undefined;
+    public get onKernelChanged(): Event<IJupyterKernelSpec | LiveKernelModel> {
+        return this.kernelChanged.event;
+    }
+    private kernelChanged = new EventEmitter<IJupyterKernelSpec | LiveKernelModel>();
     private sessionStatusChanged: Disposable | undefined;
     private initializedMatplotlib = false;
 
@@ -527,6 +531,8 @@ export class JupyterNotebookBase implements INotebook {
             // Change our own kernel spec
             this.launchInfo.kernelSpec = spec;
         }
+
+        this.kernelChanged.fire(spec);
     }
 
     private async initializeMatplotlib(cancelToken?: CancellationToken): Promise<void> {

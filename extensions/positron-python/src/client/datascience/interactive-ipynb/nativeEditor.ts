@@ -24,7 +24,6 @@ import { IInterpreterService } from '../../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { concatMultilineStringInput, splitMultilineString } from '../common';
 import { EditorContexts, Identifiers, NativeKeyboardCommandTelemetryLookup, NativeMouseCommandTelemetryLookup, Telemetry } from '../constants';
-import { DataScience } from '../datascience';
 import { InteractiveBase } from '../interactive-common/interactiveBase';
 import { IEditCell, IInsertCell, INativeCommand, InteractiveWindowMessages, IRemoveCell, ISaveAll, ISubmitNewCell, ISwapCells } from '../interactive-common/interactiveWindowTypes';
 import { InvalidNotebookFileError } from '../jupyter/invalidNotebookFileError';
@@ -32,7 +31,6 @@ import {
     CellState,
     ICell,
     ICodeCssGenerator,
-    IDataScience,
     IDataScienceErrorHandler,
     IDataViewerProvider,
     IInteractiveWindowInfo,
@@ -94,7 +92,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         @inject(IJupyterExecution) jupyterExecution: IJupyterExecution,
         @inject(IFileSystem) fileSystem: IFileSystem,
         @inject(IConfigurationService) configuration: IConfigurationService,
-        @inject(ICommandManager) private commandManager: ICommandManager,
+        @inject(ICommandManager) commandManager: ICommandManager,
         @inject(INotebookExporter) jupyterExporter: INotebookExporter,
         @inject(IWorkspaceService) workspaceService: IWorkspaceService,
         @inject(INotebookEditorProvider) editorProvider: INotebookEditorProvider,
@@ -102,7 +100,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         @inject(IJupyterVariables) jupyterVariables: IJupyterVariables,
         @inject(IJupyterDebugger) jupyterDebugger: IJupyterDebugger,
         @inject(INotebookImporter) private importer: INotebookImporter,
-        @inject(IDataScience) dataScience: DataScience,
         @inject(IDataScienceErrorHandler) errorHandler: IDataScienceErrorHandler,
         @inject(IMemento) @named(GLOBAL_MEMENTO) globalStorage: Memento,
         @inject(IMemento) @named(WORKSPACE_MEMENTO) private localStorage: Memento,
@@ -129,8 +126,8 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             jupyterVariables,
             jupyterDebugger,
             editorProvider,
-            dataScience,
             errorHandler,
+            commandManager,
             globalStorage,
             nativeEditorDir,
             [path.join(nativeEditorDir, 'index_bundle.js')],
