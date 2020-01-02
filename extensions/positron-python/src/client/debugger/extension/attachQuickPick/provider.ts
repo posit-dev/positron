@@ -16,7 +16,7 @@ export class AttachProcessProvider implements IAttachProcessProvider {
     constructor(
         @inject(IPlatformService) private readonly platformService: IPlatformService,
         @inject(IProcessServiceFactory) private readonly processServiceFactory: IProcessServiceFactory
-    ) { }
+    ) {}
 
     public getAttachItems(): Promise<IAttachItem[]> {
         return this._getInternalProcessEntries().then(processEntries => {
@@ -52,7 +52,6 @@ export class AttachProcessProvider implements IAttachProcessProvider {
         const processService = await this.processServiceFactory.create();
         const output = await processService.exec(processCmd.command, processCmd.args, { throwOnStdErr: true });
 
-        return this.platformService.isWindows ?
-            WmicProcessParser.parseProcesses(output.stdout) : PsProcessParser.parseProcesses(output.stdout);
+        return this.platformService.isWindows ? WmicProcessParser.parseProcesses(output.stdout) : PsProcessParser.parseProcesses(output.stdout);
     }
 }

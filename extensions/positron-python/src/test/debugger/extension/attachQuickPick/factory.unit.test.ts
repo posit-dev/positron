@@ -33,7 +33,13 @@ suite('Attach to process - attach process provider factory', () => {
         processServiceFactory = mock(ProcessServiceFactory);
         disposableRegistry = [];
 
-        factory = new AttachProcessProviderFactory(instance(applicationShell), instance(commandManager), instance(platformService), instance(processServiceFactory), disposableRegistry);
+        factory = new AttachProcessProviderFactory(
+            instance(applicationShell),
+            instance(commandManager),
+            instance(platformService),
+            instance(processServiceFactory),
+            disposableRegistry
+        );
     });
 
     test('Register commands should not fail', () => {

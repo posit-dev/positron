@@ -105,7 +105,6 @@ ProcessId=6028\r\n\
 
         verify(processService.exec(PsProcessParser.psLinuxCommand.command, PsProcessParser.psLinuxCommand.args, anything())).once();
         assert.deepEqual(attachItems, expectedOutput);
-
     });
 
     test('The macOS process list command should be called if the platform is macOS', async () => {
