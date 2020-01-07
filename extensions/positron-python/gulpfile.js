@@ -110,21 +110,24 @@ gulp.task('checkNativeDependencies', done => {
 
 gulp.task('check-datascience-dependencies', () => checkDatascienceDependencies());
 
+const webpackEnv = { 'NODE_OPTIONS': '--max_old_space_size=9096' };
+
 gulp.task('compile-webviews', async () => {
-    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.config.js', '--mode', 'production'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '0' });
-    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.config.js', '--mode', 'production'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '1' });
-    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.config.js', '--mode', 'production'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '2' });
-    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.config.js', '--mode', 'production'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '3' });
+    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.datascience-ui-interactiveWindow.config.js', '--mode', 'production'], webpackEnv);
+    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.datascience-ui-nativeEditor.config.js', '--mode', 'production'], webpackEnv);
+    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.datascience-ui-dataExplorer.config.js', '--mode', 'production'], webpackEnv);
+    await spawnAsync('npm', ['run', 'webpack', '--', '--config', './build/webpack/webpack.datascience-ui-plotViewer.config.js', '--mode', 'production'], webpackEnv);
 });
 
 gulp.task('webpack', async () => {
-    // Build node_modules and DS stuff.
-    // Unwrap the array used to build each webpack.
-    await buildWebPack('production', ['--config', './build/webpack/webpack.config.js'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '0' });
-    await buildWebPack('production', ['--config', './build/webpack/webpack.config.js'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '1' });
-    await buildWebPack('production', ['--config', './build/webpack/webpack.config.js'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '2' });
-    await buildWebPack('production', ['--config', './build/webpack/webpack.config.js'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '3' });
-    await buildWebPack('production', ['--config', './build/webpack/webpack.config.js'], { 'NODE_OPTIONS': '--max_old_space_size=9096', 'BUNDLE_INDEX': '4' });
+    // Build node_modules.
+    await buildWebPack('production', ['--config', './build/webpack/webpack.extension.dependencies.config.js'], webpackEnv);
+    // Build DS stuff (separately as it uses far too much memory and slows down CI).
+    // Individually is faster on CI.
+    await buildWebPack('production', ['--config', './build/webpack/webpack.datascience-ui-interactiveWindow.config.js'], webpackEnv);
+    await buildWebPack('production', ['--config', './build/webpack/webpack.datascience-ui-nativeEditor.config.js'], webpackEnv);
+    await buildWebPack('production', ['--config', './build/webpack/webpack.datascience-ui-dataExplorer.config.js'], webpackEnv);
+    await buildWebPack('production', ['--config', './build/webpack/webpack.datascience-ui-plotViewer.config.js'], webpackEnv);
     // Run both in parallel, for faster process on CI.
     // Yes, console would print output from both, that's ok, we have a faster CI.
     // If things fail, we can run locally separately.
@@ -338,6 +341,7 @@ function spawnAsync(command, args, env) {
     env = { ...process.env, ...env };
     return new Promise((resolve, reject) => {
         let stdOut = '';
+        console.info(`> ${command} ${args.join(' ')}`);
         const proc = spawn(command, args, { cwd: __dirname, env });
         proc.stdout.on('data', data => {
             // Log output on CI (else travis times out when there's not output).
