@@ -89,7 +89,7 @@
 - [ ] Merge `release` back into `master`
 
 ## Clean up after _this_ release
-- [ ] Go through [`info needed` issues](https://github.com/Microsoft/vscode-python/issues?utf8=%E2%9C%93&q=is%3Aopen+label%3A%22info+needed%22+sort%3Acreated-asc+-label%3A%22data+science%22) and close any that have no activity for over a month
+- [ ] Go through [`info needed` issues](https://github.com/Microsoft/vscode-python/issues?q=is%3Aopen+label%3A%22info+needed%22+-label%3A%22data+science%22+sort%3Aupdated-asc) and close any that have no activity for over a month
 - [ ] GDPR bookkeeping
 
 ## Prep for the _next_ release
