@@ -5,7 +5,7 @@
 * run `python3 -m pip install --user -r tpn/requirements.txt`
 
 
-# Release candidate (Wednesday, XXX XX)
+# Release candidate (Monday, XXX XX)
 
 - [ ] Announce the code freeze (not just to team but also to ptvsd and language server)
 - [ ] Update master for the release
@@ -58,7 +58,7 @@
 - [ ] Ask CTI to test the release candidate
 
 
-# Final (Wednesday, XXX XX)
+# Final (Monday, XXX XX)
 
 ## Preparation
 
