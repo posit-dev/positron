@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as uuid from 'uuid/v4';
 import { CancellationToken, CancellationTokenSource } from 'vscode';
 import { Cancellation, wrapCancellationTokens } from '../../../common/cancellation';
-import { PYTHON_LANGUAGE } from '../../../common/constants';
+import { PYTHON_LANGUAGE, PYTHON_WARNINGS } from '../../../common/constants';
 import '../../../common/extensions';
 import { traceDecorators, traceError, traceInfo, traceVerbose, traceWarning } from '../../../common/logger';
 import { IFileSystem } from '../../../common/platform/types';
@@ -222,6 +222,7 @@ export class KernelService {
     // tslint:disable-next-line: max-func-body-length
     @captureTelemetry(Telemetry.RegisterInterpreterAsKernel, undefined, true)
     @traceDecorators.error('Failed to register an interpreter as a kernel')
+    // tslint:disable-next-line:max-func-body-length
     public async registerKernel(interpreter: PythonInterpreter, cancelToken?: CancellationToken): Promise<IJupyterKernelSpec | undefined> {
         if (!interpreter.displayName) {
             throw new Error('Interpreter does not have a display name');
@@ -309,6 +310,15 @@ export class KernelService {
             .then(env => (env || {}) as any);
         if (Cancellation.isCanceled(cancelToken)) {
             return;
+        }
+
+        // Special case, modify the PYTHONWARNINGS env to the global value.
+        // otherwise it's forced to 'ignore' because activated variables are cached.
+        if (specModel.env && process.env[PYTHON_WARNINGS]) {
+            // tslint:disable-next-line:no-any
+            specModel.env[PYTHON_WARNINGS] = process.env[PYTHON_WARNINGS] as any;
+        } else if (specModel.env && specModel.env[PYTHON_WARNINGS]) {
+            delete specModel.env[PYTHON_WARNINGS];
         }
 
         // Ensure we update the metadata to include interpreter stuff as well (we'll use this to search kernels that match an interpreter).
