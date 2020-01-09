@@ -105,7 +105,7 @@ class InterpreterJupyterCommand implements IJupyterCommand {
                     }
                 }
             }
-            return pythonExecutionFactory.createActivatedEnvironment({ interpreter: this._interpreter });
+            return pythonExecutionFactory.createActivatedEnvironment({ interpreter: this._interpreter, bypassCondaExecution: true });
         });
     }
     public interpreter(): Promise<PythonInterpreter | undefined> {
