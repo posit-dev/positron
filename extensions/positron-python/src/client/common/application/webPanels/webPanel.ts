@@ -39,6 +39,7 @@ export class WebPanel implements IWebPanel {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [Uri.file(this.options.rootPath)],
+                enableFindWidget: true,
                 portMapping: port ? [{ webviewPort: RemappedPort, extensionHostPort: port }] : undefined
             }
         );
