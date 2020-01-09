@@ -32,6 +32,7 @@ export type SpawnOptions = ChildProcessSpawnOptions & {
     token?: CancellationToken;
     mergeStdOutErr?: boolean;
     throwOnStdErr?: boolean;
+    extraVariables?: NodeJS.ProcessEnv;
 };
 
 // tslint:disable-next-line:interface-name
