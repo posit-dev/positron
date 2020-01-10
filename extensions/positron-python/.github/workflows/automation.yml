@@ -1,0 +1,17 @@
+name: Automation
+
+on:
+  issues:
+    types: [opened, reopened, closed, labeled, unlabeled]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: microsoft/pvscbot@v1
+      with:
+        repo-token: "${{ secrets.GITHUB_TOKEN }}"
