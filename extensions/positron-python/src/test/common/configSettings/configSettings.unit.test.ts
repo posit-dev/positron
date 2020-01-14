@@ -275,7 +275,8 @@ suite('Python Settings', async () => {
             markdownRegularExpression: '',
             enablePlotViewer: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: []
         };
         expected.pythonPath = 'python3';
         // tslint:disable-next-line:no-any

@@ -60,7 +60,8 @@ export function getDefaultSettings() {
             parameterHintsEnabled: true
         },
         runStartupCommands: '',
-        debugJustMyCode: true
+        debugJustMyCode: true,
+        variableQueries: []
     };
 
     return result;

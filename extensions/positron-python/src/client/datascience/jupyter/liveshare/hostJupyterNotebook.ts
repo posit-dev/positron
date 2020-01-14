@@ -68,6 +68,7 @@ export class HostJupyterNotebook extends LiveShareParticipantHost(JupyterNoteboo
                 // Requests return arrays
                 service.onRequest(LiveShareCommands.syncRequest, (_args: any[], _cancellation: CancellationToken) => this.onSync());
                 service.onRequest(LiveShareCommands.getSysInfo, (_args: any[], cancellation: CancellationToken) => this.onGetSysInfoRequest(cancellation));
+                service.onRequest(LiveShareCommands.inspect, (args: any[], cancellation: CancellationToken) => this.inspect(args[0], cancellation));
                 service.onRequest(LiveShareCommands.restart, (args: any[], cancellation: CancellationToken) =>
                     this.onRestartRequest(args.length > 0 ? (args[0] as number) : LiveShare.InterruptDefaultTimeout, cancellation)
                 );
