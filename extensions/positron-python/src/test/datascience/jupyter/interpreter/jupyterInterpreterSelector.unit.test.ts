@@ -60,8 +60,6 @@ suite('Data Science - Jupyter Interpreter Picker', () => {
 
         const selected = await picker.selectInterpreter();
 
-        verify(interpreterSelector.getSuggestions(undefined)).once();
-        verify(appShell.showQuickPick(anything(), anything())).once();
         assert.isOk(selected === interpreter, 'Not the same instance');
     });
     test('Should display current interpreter path in the picker', async () => {

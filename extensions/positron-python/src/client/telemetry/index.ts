@@ -1495,6 +1495,13 @@ export interface IEventNamePropertyMapping {
     [Telemetry.ShowHistoryPane]: never | undefined;
     [Telemetry.StartJupyter]: never | undefined;
     [Telemetry.StartJupyterProcess]: never | undefined;
+    /**
+     * Telemetry event sent when jupyter has been found in interpreter but we cannot find kernelspec.
+     *
+     * @type {(never | undefined)}
+     * @memberof IEventNamePropertyMapping
+     */
+    [Telemetry.JupyterInstalledButNotKernelSpecModule]: never | undefined;
     [Telemetry.JupyterStartTimeout]: {
         /**
          * Total time spent in attempting to start and connect to jupyter before giving up.

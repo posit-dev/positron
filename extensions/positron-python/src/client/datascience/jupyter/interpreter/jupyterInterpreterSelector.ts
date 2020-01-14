@@ -5,7 +5,9 @@
 
 import { inject, injectable } from 'inversify';
 import { QuickPickOptions } from 'vscode';
+import { CancellationToken } from 'vscode-jsonrpc';
 import { IApplicationShell, IWorkspaceService } from '../../../common/application/types';
+import { Cancellation } from '../../../common/cancellation';
 import { IPathUtils } from '../../../common/types';
 import { DataScience } from '../../../common/utils/localize';
 import { IInterpreterSelector } from '../../../interpreter/configuration/types';
@@ -30,16 +32,20 @@ export class JupyterInterpreterSelector {
     /**
      * Displays interpreter selector and returns the selection.
      *
+     * @param {CancellationToken} [token]
      * @returns {(Promise<PythonInterpreter | undefined>)}
      * @memberof JupyterInterpreterSelector
      */
-    public async selectInterpreter(): Promise<PythonInterpreter | undefined> {
+    public async selectInterpreter(token?: CancellationToken): Promise<PythonInterpreter | undefined> {
         const workspace = this.workspace.getWorkspaceFolder(undefined);
         const currentPythonPath = this.interpreterSelectionState.selectedPythonPath
             ? this.pathUtils.getDisplayName(this.interpreterSelectionState.selectedPythonPath, workspace?.uri.fsPath)
             : undefined;
 
         const suggestions = await this.interpreterSelector.getSuggestions(undefined);
+        if (Cancellation.isCanceled(token)) {
+            return;
+        }
         const quickPickOptions: QuickPickOptions = {
             matchOnDetail: true,
             matchOnDescription: true,
