@@ -34,6 +34,7 @@ import { InteractiveWindowProvider } from './interactive-window/interactiveWindo
 import { JupyterCommandFactory } from './jupyter/interpreter/jupyterCommand';
 import { JupyterCommandFinder } from './jupyter/interpreter/jupyterCommandFinder';
 import { JupyterInterpreterConfigurationService } from './jupyter/interpreter/jupyterInterpreterConfiguration';
+import { JupyterInterpreterOldCacheStateStore } from './jupyter/interpreter/jupyterInterpreterOldCacheStateStore';
 import { JupyterInterpreterSelectionCommand } from './jupyter/interpreter/jupyterInterpreterSelectionCommand';
 import { JupyterInterpreterSelector } from './jupyter/interpreter/jupyterInterpreterSelector';
 import { JupyterInterpreterService } from './jupyter/interpreter/jupyterInterpreterService';
@@ -149,4 +150,5 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<JupyterInterpreterSelector>(JupyterInterpreterSelector, JupyterInterpreterSelector);
     serviceManager.addSingleton<JupyterInterpreterConfigurationService>(JupyterInterpreterConfigurationService, JupyterInterpreterConfigurationService);
     serviceManager.addSingleton<JupyterInterpreterService>(JupyterInterpreterService, JupyterInterpreterService);
+    serviceManager.addSingleton<JupyterInterpreterOldCacheStateStore>(JupyterInterpreterOldCacheStateStore, JupyterInterpreterOldCacheStateStore);
 }

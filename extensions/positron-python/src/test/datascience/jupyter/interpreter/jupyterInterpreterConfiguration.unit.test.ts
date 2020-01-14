@@ -4,10 +4,13 @@
 'use strict';
 
 import { assert } from 'chai';
-import { anything, instance, mock, verify, when } from 'ts-mockito';
+import { anything, deepEqual, instance, mock, verify, when } from 'ts-mockito';
 import { ApplicationShell } from '../../../../client/common/application/applicationShell';
 import { IApplicationShell } from '../../../../client/common/application/types';
 import { ProductInstaller } from '../../../../client/common/installer/productInstaller';
+import { PythonExecutionFactory } from '../../../../client/common/process/pythonExecutionFactory';
+import { PythonExecutionService } from '../../../../client/common/process/pythonProcess';
+import { IPythonExecutionService } from '../../../../client/common/process/types';
 import { IInstaller, InstallerResponse, Product } from '../../../../client/common/types';
 import { Common, DataScience } from '../../../../client/common/utils/localize';
 import { Architecture } from '../../../../client/common/utils/platform';
@@ -21,6 +24,7 @@ suite('Data Science - Jupyter Interpreter Configuration', () => {
     let configuration: JupyterInterpreterConfigurationService;
     let appShell: IApplicationShell;
     let installer: IInstaller;
+    let pythonExecService: IPythonExecutionService;
     const pythonInterpreter: PythonInterpreter = {
         path: '',
         architecture: Architecture.Unknown,
@@ -31,13 +35,14 @@ suite('Data Science - Jupyter Interpreter Configuration', () => {
     setup(() => {
         appShell = mock(ApplicationShell);
         installer = mock(ProductInstaller);
-        configuration = new JupyterInterpreterConfigurationService(instance(appShell), instance(installer));
-    });
-    teardown(() => {
-        // This must be called.
-        verify(installer.isInstalled(Product.jupyter, pythonInterpreter)).once();
-        // This must be called.
-        verify(installer.isInstalled(Product.notebook, pythonInterpreter)).once();
+        pythonExecService = mock(PythonExecutionService);
+        const pythonExecFactory = mock(PythonExecutionFactory);
+        when(pythonExecFactory.createActivatedEnvironment(anything())).thenResolve(instance(pythonExecService));
+        // tslint:disable-next-line: no-any
+        instance(pythonExecService as any).then = undefined;
+        when(pythonExecService.execModule('jupyter', deepEqual(['kernelspec', '--version']), anything())).thenResolve({ stdout: '' });
+
+        configuration = new JupyterInterpreterConfigurationService(instance(appShell), instance(installer), instance(pythonExecFactory));
     });
     test('Return ok if all dependencies are installed', async () => {
         when(installer.isInstalled(Product.jupyter, pythonInterpreter)).thenResolve(true);
@@ -71,7 +76,6 @@ suite('Data Science - Jupyter Interpreter Configuration', () => {
         const response = await configuration.configureInterpreter(pythonInterpreter);
 
         verify(installer.install(Product.jupyter, pythonInterpreter)).once();
-        verify(installer.install(anything(), anything())).once();
         assert.equal(response, expectedConfigurationReponse);
     }
     async function testInstallationOfJupyterAndNotebook(
@@ -90,7 +94,6 @@ suite('Data Science - Jupyter Interpreter Configuration', () => {
 
         verify(installer.install(Product.jupyter, pythonInterpreter)).once();
         verify(installer.install(Product.notebook, pythonInterpreter)).once();
-        verify(installer.install(anything(), anything())).twice();
         assert.equal(response, expectedConfigurationReponse);
     }
     test('Install Jupyter and return ok if installed successfully', async () => testInstallationOfJupyter(InstallerResponse.Installed, JupyterInterpreterConfigurationResponse.ok));

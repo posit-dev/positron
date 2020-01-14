@@ -294,6 +294,10 @@ export namespace DataScience {
         `IPython kernel cannot be started from '{0}'. Using closest match {1} instead.`
     );
     export const jupyterKernelSpecNotFound = localize('DataScience.jupyterKernelSpecNotFound', 'Cannot create a IPython kernel spec and none are available for use');
+    export const jupyterKernelSpecModuleNotFound = localize(
+        'DataScience.jupyterKernelSpecModuleNotFound',
+        "'Kernelspec' module not installed in the selected interpreter ({0}).\n Please re-install or update 'jupyter'."
+    );
     export const interruptKernel = localize('DataScience.interruptKernel', 'Interrupt IPython Kernel');
     export const clearAllOutput = localize('DataScience.clearAllOutput', 'Clear All Output');
     export const interruptKernelStatus = localize('DataScience.interruptKernelStatus', 'Interrupting IPython Kernel');

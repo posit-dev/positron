@@ -11,6 +11,7 @@ import {
     JupyterInterpreterConfigurationResponse,
     JupyterInterpreterConfigurationService
 } from '../../../../client/datascience/jupyter/interpreter/jupyterInterpreterConfiguration';
+import { JupyterInterpreterOldCacheStateStore } from '../../../../client/datascience/jupyter/interpreter/jupyterInterpreterOldCacheStateStore';
 import { JupyterInterpreterSelector } from '../../../../client/datascience/jupyter/interpreter/jupyterInterpreterSelector';
 import { JupyterInterpreterService } from '../../../../client/datascience/jupyter/interpreter/jupyterInterpreterService';
 import { JupyterInterpreterStateStore } from '../../../../client/datascience/jupyter/interpreter/jupyterInterpreterStateStore';
@@ -26,6 +27,7 @@ suite('Data Science - Jupyter Interpreter Service', () => {
     let selectedInterpreterEventArgs: PythonInterpreter | undefined;
     let memento: Memento;
     let interpreterSelectionState: JupyterInterpreterStateStore;
+    let oldVersionCacheStateStore: JupyterInterpreterOldCacheStateStore;
     const pythonInterpreter: PythonInterpreter = {
         path: 'some path',
         architecture: Architecture.Unknown,
@@ -47,7 +49,9 @@ suite('Data Science - Jupyter Interpreter Service', () => {
         interpreterService = mock(InterpreterService);
         memento = mock(MockMemento);
         interpreterSelectionState = mock(JupyterInterpreterStateStore);
+        oldVersionCacheStateStore = mock(JupyterInterpreterOldCacheStateStore);
         jupyterInterpreterService = new JupyterInterpreterService(
+            instance(oldVersionCacheStateStore),
             instance(interpreterSelectionState),
             instance(interpreterSelector),
             instance(interpreterConfiguration),
@@ -61,31 +65,31 @@ suite('Data Science - Jupyter Interpreter Service', () => {
     });
 
     test('Cancelling interpreter configuration is same as cancelling selection of an interpreter', async () => {
-        when(interpreterConfiguration.configureInterpreter(pythonInterpreter)).thenResolve(JupyterInterpreterConfigurationResponse.cancel);
+        when(interpreterConfiguration.configureInterpreter(pythonInterpreter, anything())).thenResolve(JupyterInterpreterConfigurationResponse.cancel);
 
         const response = await jupyterInterpreterService.selectInterpreter();
 
-        verify(interpreterConfiguration.configureInterpreter(pythonInterpreter)).once();
+        verify(interpreterConfiguration.configureInterpreter(pythonInterpreter, anything())).once();
         assert.equal(response, undefined);
         assert.isUndefined(selectedInterpreterEventArgs);
     });
     test('Once selected interpreter must be stored in settings and event fired', async () => {
-        when(interpreterConfiguration.configureInterpreter(pythonInterpreter)).thenResolve(JupyterInterpreterConfigurationResponse.ok);
+        when(interpreterConfiguration.configureInterpreter(pythonInterpreter, anything())).thenResolve(JupyterInterpreterConfigurationResponse.ok);
 
         const response = await jupyterInterpreterService.selectInterpreter();
 
-        verify(interpreterConfiguration.configureInterpreter(pythonInterpreter)).once();
+        verify(interpreterConfiguration.configureInterpreter(pythonInterpreter, anything())).once();
         assert.equal(response, pythonInterpreter);
         assert.equal(selectedInterpreterEventArgs, pythonInterpreter);
 
         // Selected interpreter should be returned.
-        const selectedInterrpeter = await jupyterInterpreterService.selectInterpreter();
+        const selectedInterpreter = await jupyterInterpreterService.selectInterpreter();
 
-        assert.equal(selectedInterrpeter, pythonInterpreter);
+        assert.equal(selectedInterpreter, pythonInterpreter);
     });
     test('Select another interpreter if user opts to not install dependencies', async () => {
-        when(interpreterConfiguration.configureInterpreter(pythonInterpreter)).thenResolve(JupyterInterpreterConfigurationResponse.selectAnotherInterpreter);
-        when(interpreterConfiguration.configureInterpreter(secondPythonInterpreter)).thenResolve(JupyterInterpreterConfigurationResponse.ok);
+        when(interpreterConfiguration.configureInterpreter(pythonInterpreter, anything())).thenResolve(JupyterInterpreterConfigurationResponse.selectAnotherInterpreter);
+        when(interpreterConfiguration.configureInterpreter(secondPythonInterpreter, anything())).thenResolve(JupyterInterpreterConfigurationResponse.ok);
         let interpreterSelection = 0;
         when(interpreterSelector.selectInterpreter()).thenCall(() => {
             // When selecting intererpter for first time, return first interpreter
@@ -97,14 +101,14 @@ suite('Data Science - Jupyter Interpreter Service', () => {
         const response = await jupyterInterpreterService.selectInterpreter();
 
         verify(interpreterSelector.selectInterpreter()).twice();
-        verify(interpreterConfiguration.configureInterpreter(pythonInterpreter)).once();
-        verify(interpreterConfiguration.configureInterpreter(secondPythonInterpreter)).once();
+        verify(interpreterConfiguration.configureInterpreter(pythonInterpreter, anything())).once();
+        verify(interpreterConfiguration.configureInterpreter(secondPythonInterpreter, anything())).once();
         assert.equal(response, secondPythonInterpreter);
         assert.equal(selectedInterpreterEventArgs, secondPythonInterpreter);
 
         // Selected interpreter should be the second interpreter.
-        const selectedInterrpeter = await jupyterInterpreterService.selectInterpreter();
+        const selectedInterpreter = await jupyterInterpreterService.selectInterpreter();
 
-        assert.equal(selectedInterrpeter, secondPythonInterpreter);
+        assert.equal(selectedInterpreter, secondPythonInterpreter);
     });
 });

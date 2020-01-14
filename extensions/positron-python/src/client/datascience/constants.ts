@@ -210,6 +210,7 @@ export enum Telemetry {
     WebviewMonacoStyleUpdate = 'DATASCIENCE.WEBVIEW_MONACO_STYLE_UPDATE',
     DataViewerFetchTime = 'DATASCIENCE.DATAVIEWER_FETCH_TIME',
     FindJupyterKernelSpec = 'DATASCIENCE.FIND_JUPYTER_KERNEL_SPEC',
+    JupyterInstalledButNotKernelSpecModule = 'DATASCIENCE.JUPYTER_INTALLED_BUT_NO_KERNELSPEC_MODULE',
     PtvsdPromptToInstall = 'DATASCIENCE.PTVSD_PROMPT_TO_INSTALL',
     PtvsdSuccessfullyInstalled = 'DATASCIENCE.PTVSD_SUCCESSFULLY_INSTALLED',
     PtvsdInstallFailed = 'DATASCIENCE.PTVSD_INSTALL_FAILED',
