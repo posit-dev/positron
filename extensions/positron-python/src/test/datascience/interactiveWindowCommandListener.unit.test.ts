@@ -134,7 +134,8 @@ suite('Interactive window command listener', async () => {
             markdownRegularExpression: '^(#\\s*%%\\s*\\[markdown\\]|#\\s*\\<markdowncell\\>)',
             enablePlotViewer: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: []
         };
 
         when(knownSearchPaths.getSearchPaths()).thenReturn(['/foo/bar']);

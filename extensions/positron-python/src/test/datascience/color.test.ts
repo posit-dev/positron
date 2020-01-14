@@ -76,7 +76,8 @@ suite('Theme colors', () => {
             markdownRegularExpression: '^(#\\s*%%\\s*\\[markdown\\]|#\\s*\\<markdowncell\\>)',
             enablePlotViewer: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: []
         };
         configService = TypeMoq.Mock.ofType<IConfigurationService>();
         configService.setup(x => x.getSettings(TypeMoq.It.isAny())).returns(() => settings);

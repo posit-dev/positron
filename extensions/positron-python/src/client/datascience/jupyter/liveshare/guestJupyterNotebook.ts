@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+import { JSONObject } from '@phosphor/coreutils';
 import { Observable } from 'rxjs/Observable';
 import { Event, EventEmitter, Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
@@ -99,6 +100,11 @@ export class GuestJupyterNotebook extends LiveShareParticipantGuest(LiveSharePar
 
         // Wait for the execution to finish
         return deferred.promise;
+    }
+
+    public async inspect(code: string): Promise<JSONObject> {
+        // Send to the other side
+        return this.sendRequest(LiveShareCommands.inspect, [code]);
     }
 
     public setLaunchingFile(_directory: string): Promise<void> {

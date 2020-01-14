@@ -545,7 +545,8 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             addGotoCodeLenses: true,
             enableCellCodeLens: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: []
         };
         this.pythonSettings.jediEnabled = false;
         this.pythonSettings.downloadLanguageServer = false;

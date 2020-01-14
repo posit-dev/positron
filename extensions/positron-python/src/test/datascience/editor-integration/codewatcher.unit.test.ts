@@ -92,7 +92,8 @@ suite('DataScience Code Watcher Unit Tests', () => {
             enableCellCodeLens: true,
             enablePlotViewer: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: []
         };
         debugService.setup(d => d.activeDebugSession).returns(() => undefined);
 

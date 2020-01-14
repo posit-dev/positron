@@ -174,6 +174,10 @@ export class JupyterSession implements IJupyterSession {
         return result;
     }
 
+    public requestInspect(content: KernelMessage.IInspectRequestMsg['content']): Promise<KernelMessage.IInspectReplyMsg | undefined> {
+        return this.session && this.session.kernel ? this.session.kernel.requestInspect(content) : Promise.resolve(undefined);
+    }
+
     public requestComplete(content: KernelMessage.ICompleteRequestMsg['content']): Promise<KernelMessage.ICompleteReplyMsg | undefined> {
         return this.session && this.session.kernel ? this.session.kernel.requestComplete(content) : Promise.resolve(undefined);
     }

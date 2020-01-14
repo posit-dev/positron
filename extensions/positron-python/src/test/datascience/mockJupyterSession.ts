@@ -91,6 +91,35 @@ export class MockJupyterSession implements IJupyterSession {
         return request;
     }
 
+    public requestInspect(_content: KernelMessage.IInspectRequestMsg['content']): Promise<KernelMessage.IInspectReplyMsg> {
+        return Promise.resolve({
+            content: {
+                status: 'ok',
+                metadata: {},
+                found: true,
+                data: {} // Could add variable values here?
+            },
+            channel: 'shell',
+            header: {
+                date: 'foo',
+                version: '1',
+                session: '1',
+                msg_id: '1',
+                msg_type: 'inspect_reply',
+                username: 'foo'
+            },
+            parent_header: {
+                date: 'foo',
+                version: '1',
+                session: '1',
+                msg_id: '1',
+                msg_type: 'inspect_request',
+                username: 'foo'
+            },
+            metadata: {}
+        });
+    }
+
     public sendInputReply(content: string) {
         if (this.lastRequest) {
             this.lastRequest.sendInputReply({ value: content, status: 'ok' });

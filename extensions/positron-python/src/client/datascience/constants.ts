@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 'use strict';
 
+import { PYTHON_LANGUAGE } from '../common/constants';
 import { IS_WINDOWS } from '../common/platform/constants';
+import { IVariableQuery } from '../common/types';
 import { NativeCommandType } from './interactive-common/interactiveWindowTypes';
 
 export const DefaultTheme = 'Default Light+';
@@ -307,6 +309,11 @@ export namespace Settings {
     export const IntellisenseTimeout = 30000;
     export const RemoteDebuggerPortBegin = 8889;
     export const RemoteDebuggerPortEnd = 9000;
+    export const DefaultVariableQuery: IVariableQuery = {
+        language: PYTHON_LANGUAGE,
+        query: '%who_ls',
+        parseExpr: "'(\\w+)'"
+    };
 }
 
 export namespace Identifiers {
@@ -369,4 +376,5 @@ export namespace LiveShareCommands {
     export const disposeServer = 'disposeServer';
     export const guestCheck = 'guestCheck';
     export const createNotebook = 'createNotebook';
+    export const inspect = 'inspect';
 }

@@ -1816,6 +1816,25 @@
                     "description": "After running a cell, add a 'Goto' code lens on the cell. Note, disabling all code lenses disables this code lens as well.",
                     "scope": "resource"
                 },
+                "python.dataScience.variableQueries": {
+                    "type": "array",
+                    "description": "Language to query mapping for returning the list of active variables in a Jupyter kernel. Used by the Variable Explorer in both the Interactive Window and Notebooks. Example: \n'[\n{\n   \"language\": \"python\",\n   \"query\": \"%who_ls\",\n  \"parseExpr\": \"'(\\\\w+)'\"\n}\n]'",
+                    "scope": "machine",
+                    "examples": [
+                        [
+                            {
+                                "language": "python",
+                                "query": "%who_ls",
+                                "parseExpr": "'(\\w+)'"
+                            },
+                            {
+                                "language": "julia",
+                                "query": "whos",
+                                "parseExpr": "'(\\w+)'"
+                            }
+                        ]                        
+                    ]
+                },
                 "python.disableInstallationCheck": {
                     "type": "boolean",
                     "default": false,

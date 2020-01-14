@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 import { nbformat } from '@jupyterlab/coreutils';
 import { Kernel, KernelMessage } from '@jupyterlab/services';
+import { JSONObject } from '@phosphor/coreutils';
 import { Observable } from 'rxjs/Observable';
 import { Subscriber } from 'rxjs/Subscriber';
 import * as uuid from 'uuid/v4';
@@ -285,6 +286,38 @@ export class JupyterNotebookBase implements INotebook {
         }
 
         // Wait for the execution to finish
+        return deferred.promise;
+    }
+
+    public inspect(code: string, cancelToken?: CancellationToken): Promise<JSONObject> {
+        // Create a deferred that will fire when the request completes
+        const deferred = createDeferred<JSONObject>();
+
+        // First make sure still valid.
+        const exitError = this.checkForExit();
+        if (exitError) {
+            // Not running, just exit
+            deferred.reject(exitError);
+        } else {
+            // Ask session for inspect result
+            this.session
+                .requestInspect({ code, cursor_pos: 0, detail_level: 0 })
+                .then(r => {
+                    if (r && r.content.status === 'ok') {
+                        deferred.resolve(r.content.data);
+                    } else {
+                        deferred.resolve(undefined);
+                    }
+                })
+                .catch(ex => {
+                    deferred.reject(ex);
+                });
+        }
+
+        if (cancelToken) {
+            this.disposableRegistry.push(cancelToken.onCancellationRequested(() => deferred.reject(new CancellationError())));
+        }
+
         return deferred.promise;
     }
 
@@ -762,11 +795,22 @@ export class JupyterNotebookBase implements INotebook {
         }
     }
 
+    private checkForExit(): Error | undefined {
+        if (this.launchInfo && this.launchInfo.connectionInfo && this.launchInfo.connectionInfo.localProcExitCode) {
+            // Not running, just exit
+            const exitCode = this.launchInfo.connectionInfo.localProcExitCode;
+            traceError(`Jupyter crashed with code ${exitCode}`);
+            return new Error(localize.DataScience.jupyterServerCrashed().format(exitCode.toString()));
+        }
+
+        return undefined;
+    }
+
     private handleInputRequest(_subscriber: CellSubscriber, msg: KernelMessage.IStdinMessage) {
         // Ask the user for input
-        if (msg.content && 'prompt' in msg.content && msg.content.prompt) {
+        if (msg.content && 'prompt' in msg.content) {
             const hasPassword = msg.content.password !== null && (msg.content.password as boolean);
-            this.applicationService.showInputBox({ prompt: msg.content.prompt.toString(), password: hasPassword }).then(v => {
+            this.applicationService.showInputBox({ prompt: msg.content.prompt ? msg.content.prompt.toString() : '', password: hasPassword }).then(v => {
                 this.session.sendInputReply(v || '');
             });
         }
@@ -777,11 +821,10 @@ export class JupyterNotebookBase implements INotebook {
         // Generate a new request if we still can
         if (subscriber.isValid(this.sessionStartTime)) {
             // Double check process is still running
-            if (this.launchInfo && this.launchInfo.connectionInfo && this.launchInfo.connectionInfo.localProcExitCode) {
+            const exitError = this.checkForExit();
+            if (exitError) {
                 // Not running, just exit
-                const exitCode = this.launchInfo.connectionInfo.localProcExitCode;
-                traceError(`Jupyter crashed with code ${exitCode}`);
-                subscriber.error(this.sessionStartTime, new Error(localize.DataScience.jupyterServerCrashed().format(exitCode.toString())));
+                subscriber.error(this.sessionStartTime, exitError);
                 subscriber.complete(this.sessionStartTime);
             } else {
                 const request = this.generateRequest(concatMultilineStringInput(subscriber.cell.data.source), silent);

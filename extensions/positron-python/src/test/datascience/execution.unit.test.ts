@@ -93,6 +93,10 @@ class MockJupyterNotebook implements INotebook {
         throw new Error('Method not implemented');
     }
 
+    public inspect(_code: string, _cancelToken?: CancellationToken): Promise<JSONObject> {
+        return Promise.resolve({});
+    }
+
     public async getCompletion(_cellCode: string, _offsetInCode: number, _cancelToken?: CancellationToken): Promise<INotebookCompletion> {
         throw new Error('Method not implemented');
     }
@@ -775,7 +779,8 @@ suite('Jupyter Execution', async () => {
             allowLiveShare: false,
             enablePlotViewer: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: []
         };
 
         // Service container also needs to generate jupyter servers. However we can't use a mock as that messes up returning

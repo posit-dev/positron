@@ -8,32 +8,46 @@ import * as path from 'path';
 import stripAnsi from 'strip-ansi';
 import * as uuid from 'uuid/v4';
 
+import { PYTHON_LANGUAGE } from '../../common/constants';
 import { traceError } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
+import { IConfigurationService } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { EXTENSION_ROOT_DIR } from '../../constants';
-import { Identifiers } from '../constants';
+import { Identifiers, Settings } from '../constants';
 import { ICell, IJupyterVariable, IJupyterVariables, INotebook } from '../types';
 import { JupyterDataRateLimitError } from './jupyterDataRateLimitError';
 
+// tslint:disable-next-line: no-var-requires no-require-imports
+
+// Regexes for parsing data from Python kernel. Not sure yet if other
+// kernels will add the ansi encoding.
+const TypeRegex = /\u001b\[1;31mType:\u001b\[0m\s+(\w+)/;
+const ValueRegex = /\u001b\[1;31mValue:\u001b\[0m\s+(.*)/;
+const StringFormRegex = /\u001b\[1;31mString form:\u001b\[0m\s+([\s\S]+?)\n\u001b\[1/;
+const DocStringRegex = /\u001b\[1;31mDocstring:\u001b\[0m\s+(.*)/;
+const CountRegex = /\u001b\[1;31mLength:\u001b\[0m\s+(.*)/;
+const ShapeRegex = /^\s+\[(\d+) rows x (\d+) columns\]/m;
+
+const DataViewableTypes: Set<string> = new Set<string>(['DataFrame', 'list', 'dict', 'np.array', 'Series']);
+
 @injectable()
 export class JupyterVariables implements IJupyterVariables {
-    private fetchVariablesScript?: string;
-    private fetchVariableValueScript?: string;
     private fetchDataFrameInfoScript?: string;
     private fetchDataFrameRowsScript?: string;
     private filesLoaded: boolean = false;
-    constructor(@inject(IFileSystem) private fileSystem: IFileSystem) {}
+    private languageToQueryMap = new Map<string, { query: string; parser: RegExp }>();
+    constructor(@inject(IFileSystem) private fileSystem: IFileSystem, @inject(IConfigurationService) private configService: IConfigurationService) {}
 
     // IJupyterVariables implementation
     public async getVariables(notebook: INotebook): Promise<IJupyterVariable[]> {
-        // Run the fetch variables script.
-        return this.runScript<IJupyterVariable[]>(notebook, undefined, [], () => this.fetchVariablesScript);
+        // Run the language appropriate variable fetch
+        return this.getVariablesBasedOnKernel(notebook);
     }
 
     public async getValue(targetVariable: IJupyterVariable, notebook: INotebook): Promise<IJupyterVariable> {
-        // Run the get value script
-        return this.runScript<IJupyterVariable>(notebook, targetVariable, targetVariable, () => this.fetchVariableValueScript);
+        // Talk to the session to get the variable value
+        return this.getVariableValueFromKernel(targetVariable, notebook);
     }
 
     public async getDataFrameInfo(targetVariable: IJupyterVariable, notebook: INotebook): Promise<IJupyterVariable> {
@@ -55,13 +69,7 @@ export class JupyterVariables implements IJupyterVariables {
     // Private methods
     // Load our python files for fetching variables
     private async loadVariableFiles(): Promise<void> {
-        let file = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'datascience', 'getJupyterVariableList.py');
-        this.fetchVariablesScript = await this.fileSystem.readFile(file);
-
-        file = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'datascience', 'getJupyterVariableValue.py');
-        this.fetchVariableValueScript = await this.fileSystem.readFile(file);
-
-        file = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'datascience', 'getJupyterVariableDataFrameInfo.py');
+        let file = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'datascience', 'getJupyterVariableDataFrameInfo.py');
         this.fetchDataFrameInfoScript = await this.fileSystem.readFile(file);
 
         file = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'datascience', 'getJupyterVariableDataFrameRows.py');
@@ -115,8 +123,7 @@ export class JupyterVariables implements IJupyterVariables {
         return this.deserializeJupyterResult<T>(results);
     }
 
-    // Pull our text result out of the Jupyter cell
-    private deserializeJupyterResult<T>(cells: ICell[]): T {
+    private extractJupyterResultText(cells: ICell[]): string {
         // Verify that we have the correct cell type and outputs
         if (cells.length > 0 && cells[0].data) {
             const codeCell = cells[0].data as nbformat.ICodeCell;
@@ -133,9 +140,15 @@ export class JupyterVariables implements IJupyterVariables {
                         throw new Error(error);
                     }
                 }
+                if (codeCellOutput && codeCellOutput.output_type === 'execute_result') {
+                    const data = codeCellOutput.data;
+                    if (data && data.hasOwnProperty('text/plain')) {
+                        // tslint:disable-next-line:no-any
+                        return (data as any)['text/plain'];
+                    }
+                }
                 if (codeCellOutput && codeCellOutput.output_type === 'stream' && codeCellOutput.hasOwnProperty('text')) {
-                    const resultString = codeCellOutput.text as string;
-                    return JSON.parse(resultString) as T;
+                    return codeCellOutput.text as string;
                 }
                 if (codeCellOutput && codeCellOutput.output_type === 'error' && codeCellOutput.hasOwnProperty('traceback')) {
                     const traceback: string[] = codeCellOutput.traceback as string[];
@@ -148,5 +161,142 @@ export class JupyterVariables implements IJupyterVariables {
         }
 
         throw new Error(localize.DataScience.jupyterGetVariablesBadResults());
+    }
+
+    // Pull our text result out of the Jupyter cell
+    private deserializeJupyterResult<T>(cells: ICell[]): T {
+        const text = this.extractJupyterResultText(cells);
+        return JSON.parse(text) as T;
+    }
+
+    private getParser(notebook: INotebook) {
+        // Figure out kernel language
+        let language = PYTHON_LANGUAGE;
+        if (notebook) {
+            const kernel = notebook.getKernelSpec();
+            language = kernel && kernel.language ? kernel.language : PYTHON_LANGUAGE;
+        }
+
+        // We may have cached this information
+        let result = this.languageToQueryMap.get(language);
+        if (!result) {
+            let query = this.configService.getSettings().datascience.variableQueries.find(v => v.language === language);
+            if (!query) {
+                query = Settings.DefaultVariableQuery;
+            }
+
+            // Use the query to generate our regex
+            result = {
+                query: query.query,
+                parser: new RegExp(query.parseExpr, 'g')
+            };
+            this.languageToQueryMap.set(language, result);
+        }
+
+        return result;
+    }
+
+    private getAllMatches(regex: RegExp, text: string): string[] {
+        const result: string[] = [];
+        let m: RegExpExecArray | null = null;
+        // tslint:disable-next-line: no-conditional-assignment
+        while ((m = regex.exec(text)) !== null) {
+            if (m.index === regex.lastIndex) {
+                regex.lastIndex += 1;
+            }
+            if (m.length > 1) {
+                result.push(m[1]);
+            }
+        }
+        // Rest after searching
+        regex.lastIndex = -1;
+        return result;
+    }
+
+    private async getVariablesBasedOnKernel(notebook: INotebook): Promise<IJupyterVariable[]> {
+        // Get our query and parser
+        const query = this.getParser(notebook);
+
+        // Now execute the query
+        if (notebook) {
+            const cells = await notebook.execute(query.query, Identifiers.EmptyFileName, 0, uuid(), undefined, true);
+            const text = this.extractJupyterResultText(cells);
+
+            // Apply the expression to it
+            const matches = this.getAllMatches(query.parser, text);
+
+            // Turn each match into a variable
+            if (matches) {
+                return matches.map(m => {
+                    // Only return the name as that's all we have at this point
+                    return {
+                        name: m,
+                        value: undefined,
+                        supportsDataExplorer: false,
+                        type: '',
+                        size: 0,
+                        shape: '',
+                        count: 0,
+                        truncated: true
+                    };
+                });
+            }
+        }
+
+        return [];
+    }
+
+    private async getVariableValueFromKernel(targetVariable: IJupyterVariable, notebook: INotebook): Promise<IJupyterVariable> {
+        const result = { ...targetVariable };
+        if (notebook) {
+            const output = await notebook.inspect(targetVariable.name);
+
+            // Should be a text/plain inside of it (at least IPython does this)
+            if (output && output.hasOwnProperty('text/plain')) {
+                // tslint:disable-next-line: no-any
+                const text = (output as any)['text/plain'].toString();
+
+                // Parse into bits
+                const type = TypeRegex.exec(text);
+                const value = ValueRegex.exec(text);
+                const stringForm = StringFormRegex.exec(text);
+                const docString = DocStringRegex.exec(text);
+                const count = CountRegex.exec(text);
+                const shape = ShapeRegex.exec(text);
+                if (type) {
+                    result.type = type[1];
+                }
+                if (value) {
+                    result.value = value[1];
+                } else if (stringForm) {
+                    result.value = stringForm[1];
+                } else if (docString) {
+                    result.value = docString[1];
+                } else {
+                    result.value = '';
+                }
+                if (count) {
+                    result.count = parseInt(count[1], 10);
+                }
+                if (shape) {
+                    result.shape = `(${shape[1]}, ${shape[2]})`;
+                }
+            }
+
+            // Otherwise look for the appropriate entries
+            if (output.type) {
+                result.type = output.type.toString();
+            }
+            if (output.value) {
+                result.value = output.value.toString();
+            }
+
+            // Determine if supports viewing based on type
+            if (DataViewableTypes.has(result.type)) {
+                result.supportsDataExplorer = true;
+            }
+        }
+
+        return result;
     }
 }
