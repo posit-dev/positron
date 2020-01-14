@@ -1513,6 +1513,24 @@ export interface IEventNamePropertyMapping {
     [Telemetry.WebviewStartup]: { type: string };
     [Telemetry.WebviewStyleUpdate]: never | undefined;
     [Telemetry.RegisterInterpreterAsKernel]: never | undefined;
+    /**
+     * Telemetry sent when user selects an interpreter to start jupyter server.
+     *
+     * @type {(never | undefined)}
+     * @memberof IEventNamePropertyMapping
+     */
+    [Telemetry.SelectJupyterInterpreterCommand]: never | undefined;
+    [Telemetry.SelectJupyterInterpreter]: {
+        /**
+         * The result of the selection.
+         * notSelected - No interpreter was selected.
+         * selected - An interpreter was selected (and configured to have jupyter and notebook).
+         * installationCancelled - Installation of jupyter and/or notebook was cancelled for an interpreter.
+         *
+         * @type {('notSelected' | 'selected' | 'installationCancelled')}
+         */
+        result?: 'notSelected' | 'selected' | 'installationCancelled';
+    };
     [NativeKeyboardCommandTelemetry.AddToEnd]: never | undefined;
     [NativeKeyboardCommandTelemetry.ArrowDown]: never | undefined;
     [NativeKeyboardCommandTelemetry.ArrowUp]: never | undefined;

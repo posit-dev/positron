@@ -188,6 +188,14 @@ export enum Telemetry {
     CodeLensAverageAcquisitionTime = 'DATASCIENCE.CODE_LENS_ACQ_TIME',
     ClassConstructionTime = 'DATASCIENCE.CLASS_CONSTRUCTION_TIME',
     FindJupyterCommand = 'DATASCIENCE.FIND_JUPYTER_COMMAND',
+    /**
+     * Telemetry sent when user selects an interpreter to be used for starting of Jupyter server.
+     */
+    SelectJupyterInterpreter = 'DATASCIENCE.SELECT_JUPYTER_INTERPRETER',
+    /**
+     * User used command to select an intrepreter for the jupyter server.
+     */
+    SelectJupyterInterpreterCommand = 'DATASCIENCE.SELECT_JUPYTER_INTERPRETER_Command',
     StartJupyterProcess = 'DATASCIENCE.START_JUPYTER_PROCESS',
     WaitForIdleJupyter = 'DATASCIENCE.WAIT_FOR_IDLE_JUPYTER',
     HiddenCellTime = 'DATASCIENCE.HIDDEN_EXECUTION_TIME',

@@ -81,6 +81,7 @@
         "onCommand:python.datascience.selectjupyteruri",
         "onCommand:python.datascience.exportfileasnotebook",
         "onCommand:python.datascience.exportfileandoutputasnotebook",
+        "onCommand:python.datascience.selectJupyterInterpreter",
         "onCommand:python.enableSourceMapSupport"
     ],
     "main": "./out/client/extension",
@@ -242,6 +243,11 @@
             {
                 "command": "python.datascience.viewJupyterOutput",
                 "title": "%python.command.python.datascience.viewJupyterOutput.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.datascience.selectJupyterInterpreter",
+                "title": "%python.command.python.datascience.selectJupyterInterpreter.title%",
                 "category": "Python"
             },
             {

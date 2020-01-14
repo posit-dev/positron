@@ -61,6 +61,7 @@ export namespace Common {
     export const doNotShowAgain = localize('Common.doNotShowAgain', 'Do not show again');
     export const reload = localize('Common.reload', 'Reload');
     export const moreInfo = localize('Common.moreInfo', 'More Info');
+    export const and = localize('Common.and', 'and');
 }
 
 export namespace AttachProcess {
@@ -207,6 +208,7 @@ export namespace DataScience {
     export const notebookCheckForImportDontAskAgain = localize('DataScience.notebookCheckForImportDontAskAgain', "Don't Ask Again");
     export const libraryNotInstalled = localize('DataScience.libraryNotInstalled', 'Data Science library {0} is not installed. Install?');
     export const jupyterInstall = localize('DataScience.jupyterInstall', 'Install');
+    export const currentlySelectedJupyterInterpreterForPlaceholder = localize('Datascience.currentlySelectedJupyterInterpreterForPlaceholder', 'current: {0}');
     export const jupyterNotSupported = localize('DataScience.jupyterNotSupported', 'Jupyter cannot be started. Error attempting to locate jupyter: {0}');
     export const jupyterNotSupportedBecauseOfEnvironment = localize('DataScience.jupyterNotSupportedBecauseOfEnvironment', 'Activating {0} to run Jupyter failed with {1}');
     export const jupyterNbConvertNotSupported = localize('DataScience.jupyterNbConvertNotSupported', 'Jupyter nbconvert is not installed');
@@ -328,6 +330,7 @@ export namespace DataScience {
     export const noKernel = localize('DataScience.noKernel', 'No Kernel');
     export const selectKernel = localize('DataScience.selectKernel', 'Select a Kernel');
     export const selectDifferentKernel = localize('DataScience.selectDifferentKernel', 'Select a different Kernel');
+    export const selectDifferentJupyterInterpreter = localize('DataScience.selectDifferentJupyterInterpreter', 'Select a different Interpreter');
     export const localJupyterServer = localize('DataScience.localJupyterServer', 'local');
     export const pandasTooOldForViewingFormat = localize(
         'DataScience.pandasTooOldForViewingFormat',
