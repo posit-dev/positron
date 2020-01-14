@@ -33,6 +33,11 @@ import { InteractiveWindowCommandListener } from './interactive-window/interacti
 import { InteractiveWindowProvider } from './interactive-window/interactiveWindowProvider';
 import { JupyterCommandFactory } from './jupyter/interpreter/jupyterCommand';
 import { JupyterCommandFinder } from './jupyter/interpreter/jupyterCommandFinder';
+import { JupyterInterpreterConfigurationService } from './jupyter/interpreter/jupyterInterpreterConfiguration';
+import { JupyterInterpreterSelectionCommand } from './jupyter/interpreter/jupyterInterpreterSelectionCommand';
+import { JupyterInterpreterSelector } from './jupyter/interpreter/jupyterInterpreterSelector';
+import { JupyterInterpreterService } from './jupyter/interpreter/jupyterInterpreterService';
+import { JupyterInterpreterStateStore } from './jupyter/interpreter/jupyterInterpreterStateStore';
 import { JupyterDebugger } from './jupyter/jupyterDebugger';
 import { JupyterExecutionFactory } from './jupyter/jupyterExecutionFactory';
 import { JupyterExporter } from './jupyter/jupyterExporter';
@@ -139,4 +144,9 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<KernelSwitcherCommand>(KernelSwitcherCommand, KernelSwitcherCommand);
     serviceManager.addSingleton<KernelSwitcher>(KernelSwitcher, KernelSwitcher);
     serviceManager.addSingleton<JupyterServerSelector>(JupyterServerSelector, JupyterServerSelector);
+    serviceManager.addSingleton<JupyterInterpreterStateStore>(JupyterInterpreterStateStore, JupyterInterpreterStateStore);
+    serviceManager.addSingleton<IExtensionSingleActivationService>(IExtensionSingleActivationService, JupyterInterpreterSelectionCommand);
+    serviceManager.addSingleton<JupyterInterpreterSelector>(JupyterInterpreterSelector, JupyterInterpreterSelector);
+    serviceManager.addSingleton<JupyterInterpreterConfigurationService>(JupyterInterpreterConfigurationService, JupyterInterpreterConfigurationService);
+    serviceManager.addSingleton<JupyterInterpreterService>(JupyterInterpreterService, JupyterInterpreterService);
 }
