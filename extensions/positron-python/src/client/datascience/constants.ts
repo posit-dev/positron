@@ -79,10 +79,12 @@ export namespace EditorContexts {
     export const HaveInteractiveCells = 'python.datascience.haveinteractivecells';
     export const HaveRedoableCells = 'python.datascience.haveredoablecells';
     export const HaveInteractive = 'python.datascience.haveinteractive';
+    export const IsInteractive = 'python.datascience.isinteractive';
     export const OwnsSelection = 'python.datascience.ownsSelection';
     export const HaveNativeCells = 'python.datascience.havenativecells';
     export const HaveNativeRedoableCells = 'python.datascience.havenativeredoablecells';
     export const HaveNative = 'python.datascience.havenative';
+    export const IsNative = 'python.datascience.isnative';
     export const HaveCellSelected = 'python.datascience.havecellselected';
 }
 
