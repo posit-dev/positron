@@ -34,6 +34,7 @@ import { InteractiveWindowCommandListener } from './interactive-window/interacti
 import { InteractiveWindowProvider } from './interactive-window/interactiveWindowProvider';
 import { JupyterCommandFactory } from './jupyter/interpreter/jupyterCommand';
 import { JupyterCommandFinder } from './jupyter/interpreter/jupyterCommandFinder';
+import { JupyterCommandFinderInterpreterExecutionService } from './jupyter/interpreter/jupyterCommandInterpreterExecutionService';
 import { JupyterInterpreterConfigurationService } from './jupyter/interpreter/jupyterInterpreterConfiguration';
 import { JupyterInterpreterOldCacheStateStore } from './jupyter/interpreter/jupyterInterpreterOldCacheStateStore';
 import { JupyterInterpreterSelectionCommand } from './jupyter/interpreter/jupyterInterpreterSelectionCommand';
@@ -80,6 +81,7 @@ import {
     IJupyterExecution,
     IJupyterPasswordConnect,
     IJupyterSessionManagerFactory,
+    IJupyterSubCommandExecutionService,
     IJupyterVariables,
     INotebookEditor,
     INotebookEditorProvider,
@@ -153,4 +155,5 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<JupyterInterpreterService>(JupyterInterpreterService, JupyterInterpreterService);
     serviceManager.addSingleton<JupyterInterpreterOldCacheStateStore>(JupyterInterpreterOldCacheStateStore, JupyterInterpreterOldCacheStateStore);
     serviceManager.addSingleton<ActiveEditorContextService>(ActiveEditorContextService, ActiveEditorContextService);
+    serviceManager.addSingleton<IJupyterSubCommandExecutionService>(IJupyterSubCommandExecutionService, JupyterCommandFinderInterpreterExecutionService);
 }
