@@ -248,6 +248,7 @@ export interface INotebookExporter extends Disposable {
 
 export const IInteractiveWindowProvider = Symbol('IInteractiveWindowProvider');
 export interface IInteractiveWindowProvider {
+    readonly onDidChangeActiveInteractiveWindow: Event<IInteractiveWindow | undefined>;
     onExecutedCode: Event<string>;
     getActive(): IInteractiveWindow | undefined;
     getOrCreateActive(): Promise<IInteractiveWindow>;
@@ -274,6 +275,9 @@ export interface IInteractiveBase extends Disposable {
 
 export const IInteractiveWindow = Symbol('IInteractiveWindow');
 export interface IInteractiveWindow extends IInteractiveBase {
+    readonly onDidChangeViewState: Event<void>;
+    readonly visible: boolean;
+    readonly active: boolean;
     closed: Event<IInteractiveWindow>;
     addCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch): Promise<boolean>;
     addMessage(message: string): Promise<void>;
@@ -290,6 +294,7 @@ export interface INotebookEditorProvider {
     readonly activeEditor: INotebookEditor | undefined;
     readonly editors: INotebookEditor[];
     readonly onDidOpenNotebookEditor: Event<INotebookEditor>;
+    readonly onDidChangeActiveNotebookEditor: Event<INotebookEditor | undefined>;
     open(file: Uri, contents: string): Promise<INotebookEditor>;
     show(file: Uri): Promise<INotebookEditor | undefined>;
     createNew(contents?: string): Promise<INotebookEditor>;
@@ -299,6 +304,7 @@ export interface INotebookEditorProvider {
 // For native editing, the INotebookEditor acts like a TextEditor and a TextDocument together
 export const INotebookEditor = Symbol('INotebookEditor');
 export interface INotebookEditor extends IInteractiveBase {
+    readonly onDidChangeViewState: Event<void>;
     readonly closed: Event<INotebookEditor>;
     readonly executed: Event<INotebookEditor>;
     readonly modified: Event<INotebookEditor>;

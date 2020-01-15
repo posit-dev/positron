@@ -63,6 +63,10 @@ const NotebookTransferKey = 'notebook-transfered';
 
 @injectable()
 export class NativeEditor extends InteractiveBase implements INotebookEditor {
+    public get onDidChangeViewState(): Event<void> {
+        return this._onDidChangeViewState.event;
+    }
+    private _onDidChangeViewState = new EventEmitter<void>();
     private closedEvent: EventEmitter<INotebookEditor> = new EventEmitter<INotebookEditor>();
     private executedEvent: EventEmitter<INotebookEditor> = new EventEmitter<INotebookEditor>();
     private modifiedEvent: EventEmitter<INotebookEditor> = new EventEmitter<INotebookEditor>();
@@ -472,6 +476,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         // Update our contexts
         const interactiveContext = new ContextKey(EditorContexts.HaveNative, this.commandManager);
         interactiveContext.set(visible && active).catch();
+        this._onDidChangeViewState.fire();
     }
 
     protected async closeBecauseOfFailure(_exc: Error): Promise<void> {
