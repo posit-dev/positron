@@ -16,25 +16,23 @@ import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { ITestManagementService } from '../../testing/types';
 import { ProgressReporting } from '../progress';
-import { ILanguageClientFactory, ILanguageServerProxy, LanguageClientFactory } from '../types';
+import { ILanguageClientFactory, ILanguageServerProxy, LanguageServerType } from '../types';
 
 @injectable()
-export class LanguageServerProxy implements ILanguageServerProxy {
+export class NodeLanguageServerProxy implements ILanguageServerProxy {
     public languageClient: LanguageClient | undefined;
     private startupCompleted: Deferred<void>;
     private readonly disposables: Disposable[] = [];
-    private extensionLoadedArgs = new Set<{}>();
     private disposed: boolean = false;
 
     constructor(
-        @inject(ILanguageClientFactory)
-        @named(LanguageClientFactory.base)
-        private readonly factory: ILanguageClientFactory,
+        @inject(ILanguageClientFactory) @named(LanguageServerType.Node) private readonly factory: ILanguageClientFactory,
         @inject(ITestManagementService) private readonly testManager: ITestManagementService,
         @inject(IConfigurationService) private readonly configurationService: IConfigurationService
     ) {
         this.startupCompleted = createDeferred<void>();
     }
+
     @traceDecorators.verbose('Stopping Language Server')
     public dispose() {
         if (this.languageClient) {
@@ -54,7 +52,7 @@ export class LanguageServerProxy implements ILanguageServerProxy {
     }
 
     @traceDecorators.error('Failed to start language server')
-    @captureTelemetry(EventName.PYTHON_LANGUAGE_SERVER_ENABLED, undefined, true)
+    @captureTelemetry(EventName.PYTHON_NODE_SERVER_ENABLED, undefined, true)
     public async start(resource: Resource, interpreter: PythonInterpreter | undefined, options: LanguageClientOptions): Promise<void> {
         if (!this.languageClient) {
             this.languageClient = await this.factory.createLanguageClient(resource, interpreter, options);
@@ -79,23 +77,18 @@ export class LanguageServerProxy implements ILanguageServerProxy {
             await this.startupCompleted.promise;
         }
     }
-    @traceDecorators.error('Failed to load Language Server extension')
-    public loadExtension(args?: {}) {
-        if (this.extensionLoadedArgs.has(args || '')) {
-            return;
-        }
-        this.extensionLoadedArgs.add(args || '');
-        this.startupCompleted.promise
-            .then(() => this.languageClient!.sendRequest('python/loadExtension', args).then(noop, ex => traceError('Request python/loadExtension failed', ex)))
-            .ignoreErrors();
-    }
-    @captureTelemetry(EventName.PYTHON_LANGUAGE_SERVER_READY, undefined, true)
+
+    // tslint:disable-next-line: no-empty
+    public loadExtension(_args?: {}) {}
+
+    @captureTelemetry(EventName.PYTHON_NODE_SERVER_READY, undefined, true)
     protected async serverReady(): Promise<void> {
         while (this.languageClient && !this.languageClient!.initializeResult) {
             await sleep(100);
         }
         this.startupCompleted.resolve();
     }
+
     @swallowExceptions('Activating Unit Tests Manager for Language Server')
     protected async registerTestServices() {
         if (!this.languageClient) {
