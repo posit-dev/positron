@@ -192,6 +192,9 @@ export class LanguageServerExtensionActivationService implements IExtensionActiv
             case LanguageServerType.None:
                 sendTelemetryEvent(EventName.PYTHON_LANGUAGE_SERVER_NONE, undefined, undefined);
                 break;
+            case LanguageServerType.Node:
+                // No telemetry in development phase.
+                break;
             case LanguageServerType.Microsoft:
                 if (this.useJedi()) {
                     serverType = LanguageServerType.Jedi;
@@ -241,6 +244,9 @@ export class LanguageServerExtensionActivationService implements IExtensionActiv
                 break;
             case LanguageServerType.Microsoft:
                 outputLine = 'Starting Microsoft Python language server.';
+                break;
+            case LanguageServerType.Node:
+                outputLine = 'Starting Node.js language server.';
                 break;
             case LanguageServerType.None:
                 outputLine = 'Editor support is inactive since language server is set to None.';

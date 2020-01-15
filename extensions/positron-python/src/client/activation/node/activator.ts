@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 import { inject, injectable, named } from 'inversify';
-import * as path from 'path';
 import {
     CancellationToken,
     CodeLens,
@@ -24,78 +23,29 @@ import {
 } from 'vscode';
 import * as vscodeLanguageClient from 'vscode-languageclient';
 
-import { IWorkspaceService } from '../../common/application/types';
-import { traceDecorators, traceError } from '../../common/logger';
-import { IFileSystem } from '../../common/platform/types';
-import { IConfigurationService, Resource } from '../../common/types';
-import { noop } from '../../common/utils/misc';
-import { EXTENSION_ROOT_DIR } from '../../constants';
+import { traceDecorators } from '../../common/logger';
+import { Resource } from '../../common/types';
 import { PythonInterpreter } from '../../interpreter/contracts';
-import { ILanguageServerActivator, ILanguageServerDownloader, ILanguageServerFolderService, ILanguageServerManager, LanguageServerType } from '../types';
+import { ILanguageServerActivator, ILanguageServerManager, LanguageServerType } from '../types';
 
 /**
- * Starts the language server managers per workspaces (currently one for first workspace).
+ * Starts the Node.js-based language server managers per workspaces (currently one for first workspace).
  *
  * @export
- * @class LanguageServerExtensionActivator
+ * @class NodeLanguageServerActivator
  * @implements {ILanguageServerActivator}
  */
 @injectable()
-export class LanguageServerExtensionActivator implements ILanguageServerActivator {
-    private resource?: Resource;
-    constructor(
-        @inject(ILanguageServerManager) @named(LanguageServerType.Microsoft) private readonly manager: ILanguageServerManager,
-        @inject(IWorkspaceService) private readonly workspace: IWorkspaceService,
-        @inject(IFileSystem) private readonly fs: IFileSystem,
-        @inject(ILanguageServerDownloader) private readonly lsDownloader: ILanguageServerDownloader,
-        @inject(ILanguageServerFolderService) private readonly languageServerFolderService: ILanguageServerFolderService,
-        @inject(IConfigurationService) private readonly configurationService: IConfigurationService
-    ) {}
+export class NodeLanguageServerActivator implements ILanguageServerActivator {
+    constructor(@inject(ILanguageServerManager) @named(LanguageServerType.Node) private readonly manager: ILanguageServerManager) {}
 
     @traceDecorators.error('Failed to activate language server')
     public async start(resource: Resource, interpreter?: PythonInterpreter): Promise<void> {
-        if (!resource) {
-            resource = this.workspace.hasWorkspaceFolders ? this.workspace.workspaceFolders![0].uri : undefined;
-        }
-        this.resource = resource;
-        await this.ensureLanguageServerIsAvailable(resource);
         await this.manager.start(resource, interpreter);
     }
+
     public dispose(): void {
         this.manager.dispose();
-    }
-    @traceDecorators.error('Failed to ensure language server is available')
-    public async ensureLanguageServerIsAvailable(resource: Resource) {
-        const settings = this.configurationService.getSettings(resource);
-        if (!settings.downloadLanguageServer) {
-            return;
-        }
-        const languageServerFolder = await this.languageServerFolderService.getLanguageServerFolderName(resource);
-        const languageServerFolderPath = path.join(EXTENSION_ROOT_DIR, languageServerFolder);
-        const mscorlib = path.join(languageServerFolderPath, 'mscorlib.dll');
-        if (!(await this.fs.fileExists(mscorlib))) {
-            await this.lsDownloader.downloadLanguageServer(languageServerFolderPath, this.resource);
-            await this.prepareLanguageServerForNoICU(languageServerFolderPath);
-        }
-    }
-    public async prepareLanguageServerForNoICU(languageServerFolderPath: string): Promise<void> {
-        const targetJsonFile = path.join(languageServerFolderPath, 'Microsoft.Python.LanguageServer.runtimeconfig.json');
-        // tslint:disable-next-line:no-any
-        let content: any = {};
-        if (await this.fs.fileExists(targetJsonFile)) {
-            try {
-                content = JSON.parse(await this.fs.readFile(targetJsonFile));
-                if (content.runtimeOptions && content.runtimeOptions.configProperties && content.runtimeOptions.configProperties['System.Globalization.Invariant'] === true) {
-                    return;
-                }
-            } catch {
-                // Do nothing.
-            }
-        }
-        content.runtimeOptions = content.runtimeOptions || {};
-        content.runtimeOptions.configProperties = content.runtimeOptions.configProperties || {};
-        content.runtimeOptions.configProperties['System.Globalization.Invariant'] = true;
-        await this.fs.writeFile(targetJsonFile, JSON.stringify(content));
     }
 
     public activate(): void {
@@ -158,13 +108,6 @@ export class LanguageServerExtensionActivator implements ILanguageServerActivato
 
     public provideSignatureHelp(document: TextDocument, position: Position, token: CancellationToken, context: SignatureHelpContext): ProviderResult<SignatureHelp> {
         return this.handleProvideSignatureHelp(document, position, token, context);
-    }
-
-    public clearAnalysisCache(): void {
-        const languageClient = this.getLanguageClient();
-        if (languageClient) {
-            languageClient.sendRequest('python/clearAnalysisCache').then(noop, ex => traceError('Request python/clearAnalysisCache failed', ex));
-        }
     }
 
     private getLanguageClient(): vscodeLanguageClient.LanguageClient | undefined {
