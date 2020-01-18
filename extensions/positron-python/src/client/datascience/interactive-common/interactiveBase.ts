@@ -7,7 +7,7 @@ import { injectable, unmanaged } from 'inversify';
 import * as os from 'os';
 import * as path from 'path';
 import * as uuid from 'uuid/v4';
-import { ConfigurationTarget, Event, EventEmitter, Memento, Position, Range, Selection, TextEditor, Uri, ViewColumn } from 'vscode';
+import { CancellationToken, ConfigurationTarget, Event, EventEmitter, Memento, Position, Range, Selection, TextEditor, Uri, ViewColumn } from 'vscode';
 import { Disposable } from 'vscode-jsonrpc';
 
 import { ServerStatus } from '../../../datascience-ui/interactive-common/mainState';
@@ -43,6 +43,7 @@ import { JupyterSelfCertsError } from '../jupyter/jupyterSelfCertsError';
 import { JupyterKernelPromiseFailedError } from '../jupyter/kernels/jupyterKernelPromiseFailedError';
 import { LiveKernelModel } from '../jupyter/kernels/types';
 import { CssMessages } from '../messages';
+import { ProgressReporter } from '../progress/progressReporter';
 import {
     CellState,
     ICell,
@@ -87,6 +88,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     }
 
     constructor(
+        @unmanaged() private readonly progressReporter: ProgressReporter,
         @unmanaged() private readonly listeners: IInteractiveWindowListener[],
         @unmanaged() liveShare: ILiveShareApi,
         @unmanaged() protected applicationShell: IApplicationShell,
@@ -733,17 +735,14 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
     private async startServerImpl(): Promise<void> {
         // Status depends upon if we're about to connect to existing server or not.
-        const status = (await this.jupyterExecution.getServer(await this.getNotebookOptions()))
-            ? this.setStatus(localize.DataScience.connectingToJupyter(), true)
-            : this.setStatus(localize.DataScience.startingJupyter(), true);
+        const progressReporter = (await this.jupyterExecution.getServer(await this.getNotebookOptions()))
+            ? this.progressReporter.createProgressIndicator(localize.DataScience.connectingToJupyter())
+            : this.progressReporter.createProgressIndicator(localize.DataScience.startingJupyter());
 
         // Check to see if we support ipykernel or not
         try {
             const usable = await this.checkUsable();
             if (!usable) {
-                // Not loading anymore
-                status.dispose();
-
                 // Indicate failing.
                 throw new JupyterInstallError(
                     localize.DataScience.jupyterNotSupported().format(await this.jupyterExecution.getNotebookError()),
@@ -751,8 +750,13 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 );
             }
             // Then load the jupyter server
-            await this.createNotebook();
+            await this.createNotebook(progressReporter.token);
         } catch (e) {
+            progressReporter.dispose();
+            // If user cancelled, then do nothing.
+            if (progressReporter.token.isCancellationRequested && e instanceof CancellationError) {
+                return;
+            }
             if (e instanceof JupyterSelfCertsError) {
                 // On a self cert error, warn the user and ask if they want to change the setting
                 const enableOption: string = localize.DataScience.jupyterSelfCertEnable();
@@ -772,7 +776,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 throw e;
             }
         } finally {
-            status.dispose();
+            progressReporter.dispose();
         }
     }
 
@@ -1041,7 +1045,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
     }
 
-    private async createNotebook(): Promise<void> {
+    private async createNotebook(token?: CancellationToken): Promise<void> {
         traceInfo('Getting jupyter server options ...');
 
         // Extract our options
@@ -1050,11 +1054,11 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         traceInfo('Connecting to jupyter server ...');
 
         // Now try to create a notebook server
-        const server = await this.jupyterExecution.connectToNotebookServer(options);
+        const server = await this.jupyterExecution.connectToNotebookServer(options, token);
 
         // Then create a new notebook
         if (server) {
-            this._notebook = await server.createNotebook(await this.getNotebookIdentity());
+            this._notebook = await server.createNotebook(await this.getNotebookIdentity(), token);
         }
 
         if (this._notebook) {
