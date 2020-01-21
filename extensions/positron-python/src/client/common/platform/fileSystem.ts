@@ -109,10 +109,6 @@ export class FileSystem implements IFileSystem {
         return this.pathUtils.arePathsSame(path1, path2);
     }
 
-    public getRealPath(filePath: string): Promise<string> {
-        return this.pathUtils.getRealPath(filePath);
-    }
-
     //=================================
     // "raw" operations
 
