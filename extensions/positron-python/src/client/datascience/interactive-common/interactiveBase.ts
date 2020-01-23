@@ -1100,7 +1100,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 }
             };
             this._notebook.onSessionStatusChanged(statusChangeHandler);
-            this._notebook.onKernelChanged(this.kernelChangeHandler);
+            this.disposables.push(this._notebook.onKernelChanged(this.kernelChangeHandler, this));
         }
 
         traceInfo('Connected to jupyter server.');
