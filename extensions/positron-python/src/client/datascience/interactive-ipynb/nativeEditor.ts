@@ -26,7 +26,17 @@ import { IInterpreterService } from '../../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { EditorContexts, Identifiers, NativeKeyboardCommandTelemetryLookup, NativeMouseCommandTelemetryLookup, Telemetry } from '../constants';
 import { InteractiveBase } from '../interactive-common/interactiveBase';
-import { IEditCell, IInsertCell, INativeCommand, InteractiveWindowMessages, IRemoveCell, ISaveAll, ISubmitNewCell, ISwapCells } from '../interactive-common/interactiveWindowTypes';
+import {
+    IEditCell,
+    IInsertCell,
+    INativeCommand,
+    InteractiveWindowMessages,
+    IRemoveCell,
+    ISaveAll,
+    ISubmitNewCell,
+    ISwapCells,
+    SysInfoReason
+} from '../interactive-common/interactiveWindowTypes';
 import { InvalidNotebookFileError } from '../jupyter/invalidNotebookFileError';
 import { ProgressReporter } from '../progress/progressReporter';
 import {
@@ -313,6 +323,11 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         return this.setDirty();
     }
 
+    protected addSysInfo(_reason: SysInfoReason): Promise<void> {
+        // These are not supported.
+        return Promise.resolve();
+    }
+
     protected async reopen(cells: ICell[]): Promise<void> {
         try {
             // Reload the web panel too.
@@ -356,23 +371,26 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
     protected submitNewCell(info: ISubmitNewCell) {
         // If there's any payload, it has the code and the id
         if (info && info.code && info.id) {
-            // Send to ourselves.
-            this.submitCode(info.code, Identifiers.EmptyFileName, 0, info.id).ignoreErrors();
-
-            // Activate the other side, and send as if came from a file
-            this.ipynbProvider
-                .show(this.file)
-                .then(_v => {
-                    this.shareMessage(InteractiveWindowMessages.RemoteAddCode, {
-                        code: info.code,
-                        file: Identifiers.EmptyFileName,
-                        line: 0,
-                        id: info.id,
-                        originator: this.id,
-                        debug: false
-                    });
-                })
-                .ignoreErrors();
+            try {
+                // Activate the other side, and send as if came from a file
+                this.ipynbProvider
+                    .show(this.file)
+                    .then(_v => {
+                        this.shareMessage(InteractiveWindowMessages.RemoteAddCode, {
+                            code: info.code,
+                            file: Identifiers.EmptyFileName,
+                            line: 0,
+                            id: info.id,
+                            originator: this.id,
+                            debug: false
+                        });
+                    })
+                    .ignoreErrors();
+                // Send to ourselves.
+                this.submitCode(info.code, Identifiers.EmptyFileName, 0, info.id).ignoreErrors();
+            } catch (exc) {
+                this.errorHandler.handleError(exc).ignoreErrors();
+            }
         }
     }
 
@@ -386,7 +404,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                 await this.clearResult(info.id);
 
                 // Send to ourselves.
-                this.submitCode(info.code, Identifiers.EmptyFileName, 0, info.id).ignoreErrors();
+                await this.submitCode(info.code, Identifiers.EmptyFileName, 0, info.id);
 
                 // Activate the other side, and send as if came from a file
                 await this.ipynbProvider.show(this.file);
@@ -760,11 +778,15 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
     }
 
     private async writeToStorage(filePath: string, contents?: string): Promise<void> {
-        if (contents) {
-            await this.fileSystem.createDirectory(path.dirname(filePath));
-            return this.fileSystem.writeFile(filePath, contents);
-        } else {
-            return this.fileSystem.deleteFile(filePath);
+        try {
+            if (contents) {
+                await this.fileSystem.createDirectory(path.dirname(filePath));
+                return this.fileSystem.writeFile(filePath, contents);
+            } else {
+                return this.fileSystem.deleteFile(filePath);
+            }
+        } catch (exc) {
+            traceError(`Error writing storage for ${filePath}: `, exc);
         }
     }
 
