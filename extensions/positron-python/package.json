@@ -1465,6 +1465,7 @@
                             "Reload - experiment",
                             "AA_testing - experiment",
                             "WebHostNotebook - experiment",
+                            "UseTerminalToGetActivatedEnvVars - experiment",
                             "All"
                         ]
                     },
@@ -1484,6 +1485,7 @@
                             "Reload - experiment",
                             "AA_testing - experiment",
                             "WebHostNotebook - experiment",
+                            "UseTerminalToGetActivatedEnvVars - experiment",
                             "All"
                         ]
                     },
