@@ -16,7 +16,7 @@ import { IApplicationShell, ICommandManager, IDocumentManager, ILiveShareApi, IW
 import { ContextKey } from '../../common/contextKey';
 import { traceError } from '../../common/logger';
 import { IFileSystem, TemporaryFile } from '../../common/platform/types';
-import { GLOBAL_MEMENTO, IConfigurationService, ICryptoUtils, IDisposableRegistry, IExtensionContext, IMemento, WORKSPACE_MEMENTO } from '../../common/types';
+import { GLOBAL_MEMENTO, IConfigurationService, ICryptoUtils, IDisposableRegistry, IExperimentsManager, IExtensionContext, IMemento, WORKSPACE_MEMENTO } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
@@ -121,7 +121,8 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         @inject(IMemento) @named(WORKSPACE_MEMENTO) private localStorage: Memento,
         @inject(ICryptoUtils) private crypto: ICryptoUtils,
         @inject(IExtensionContext) private context: IExtensionContext,
-        @inject(ProgressReporter) progressReporter: ProgressReporter
+        @inject(ProgressReporter) progressReporter: ProgressReporter,
+        @inject(IExperimentsManager) experimentsManager: IExperimentsManager
     ) {
         super(
             progressReporter,
@@ -150,7 +151,8 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             nativeEditorDir,
             [path.join(nativeEditorDir, 'index_bundle.js')],
             localize.DataScience.nativeEditorTitle(),
-            ViewColumn.Active
+            ViewColumn.Active,
+            experimentsManager
         );
     }
 

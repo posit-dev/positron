@@ -28,8 +28,9 @@ import { WorkspaceService } from '../../../client/common/application/workspace';
 import { PythonSettings } from '../../../client/common/configSettings';
 import { ConfigurationService } from '../../../client/common/configuration/service';
 import { CryptoUtils } from '../../../client/common/crypto';
+import { ExperimentsManager } from '../../../client/common/experiments';
 import { IFileSystem } from '../../../client/common/platform/types';
-import { IConfigurationService, ICryptoUtils, IExtensionContext } from '../../../client/common/types';
+import { IConfigurationService, ICryptoUtils, IExperimentsManager, IExtensionContext } from '../../../client/common/types';
 import { createDeferred } from '../../../client/common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../client/constants';
 import { CodeCssGenerator } from '../../../client/datascience/codeCssGenerator';
@@ -127,6 +128,7 @@ suite('Data Science - Native Editor', () => {
     let filesConfig: MockWorkspaceConfiguration | undefined;
     let testIndex = 0;
     let reporter: ProgressReporter;
+    let experimentsManager: IExperimentsManager;
     const baseFile = `{
  "cells": [
   {
@@ -250,11 +252,13 @@ suite('Data Science - Native Editor', () => {
         jupyterDebugger = mock(JupyterDebugger);
         importer = mock(JupyterImporter);
         reporter = mock(ProgressReporter);
+        experimentsManager = mock(ExperimentsManager);
         const settings = mock(PythonSettings);
         const settingsChangedEvent = new EventEmitter<void>();
 
         context.setup(c => c.globalStoragePath).returns(() => path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'datascience', 'WorkspaceDir'));
 
+        when(experimentsManager.inExperiment(anything())).thenReturn(false);
         when(settings.onDidChange).thenReturn(settingsChangedEvent.event);
         when(configService.getSettings()).thenReturn(instance(settings));
 
@@ -345,7 +349,8 @@ suite('Data Science - Native Editor', () => {
             localStorage,
             instance(crypto),
             context.object,
-            instance(reporter)
+            instance(reporter),
+            instance(experimentsManager)
         );
     }
 
