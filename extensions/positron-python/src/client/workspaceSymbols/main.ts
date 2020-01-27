@@ -72,7 +72,7 @@ export class WorkspaceSymbols implements Disposable {
     private registerCommands() {
         this.disposables.push(
             this.commandMgr.registerCommand(Commands.Build_Workspace_Symbols, async (rebuild: boolean = true, token?: CancellationToken) => {
-                const promises = this.buildWorkspaceSymbols(rebuild, token);
+                const promises = this.buildWorkspaceSymbols(rebuild, token, true);
                 return Promise.all(promises);
             })
         );
@@ -88,7 +88,7 @@ export class WorkspaceSymbols implements Disposable {
     }
 
     // tslint:disable-next-line:no-any
-    private buildWorkspaceSymbols(rebuild: boolean = true, token?: CancellationToken): Promise<any>[] {
+    private buildWorkspaceSymbols(rebuild: boolean = true, token?: CancellationToken, show = false): Promise<any>[] {
         if (token && token.isCancellationRequested) {
             return [];
         }
@@ -114,7 +114,9 @@ export class WorkspaceSymbols implements Disposable {
                     return;
                 } catch (error) {
                     if (!isNotInstalledError(error)) {
-                        this.outputChannel.show();
+                        if (show) {
+                            this.outputChannel.show();
+                        }
                         return;
                     }
                 }
