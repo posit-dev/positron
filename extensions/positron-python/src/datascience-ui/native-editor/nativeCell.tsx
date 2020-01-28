@@ -614,7 +614,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
     };
 
     private onCodeChange = (changes: monacoEditor.editor.IModelContentChange[], cellId: string, modelId: string) => {
-        this.props.editCell(cellId, changes, modelId);
+        this.props.editCell(cellId, changes, modelId, this.getCurrentCode());
     };
 
     private onCodeCreated = (_code: string, _file: string, cellId: string, modelId: string) => {

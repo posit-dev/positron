@@ -70,9 +70,9 @@ export const actionCreators = {
     redo: (): CommonAction<never | undefined> => ({ type: CommonActionType.REDO }),
     arrowUp: (cellId: string, code: string): CommonAction<ICodeAction> => ({ type: CommonActionType.ARROW_UP, payload: { cellId, code } }),
     arrowDown: (cellId: string, code: string): CommonAction<ICodeAction> => ({ type: CommonActionType.ARROW_DOWN, payload: { cellId, code } }),
-    editCell: (cellId: string, changes: monacoEditor.editor.IModelContentChange[], modelId: string): CommonAction<IEditCellAction> => ({
+    editCell: (cellId: string, changes: monacoEditor.editor.IModelContentChange[], modelId: string, code: string): CommonAction<IEditCellAction> => ({
         type: CommonActionType.EDIT_CELL,
-        payload: { cellId, changes, modelId }
+        payload: { cellId, changes, modelId, code }
     }),
     linkClick: (href: string): CommonAction<ILinkClickAction> => ({ type: CommonActionType.LINK_CLICK, payload: { href } }),
     showPlot: (imageHtml: string): CommonAction<IShowPlotAction> => ({ type: CommonActionType.SHOW_PLOT, payload: { imageHtml } }),

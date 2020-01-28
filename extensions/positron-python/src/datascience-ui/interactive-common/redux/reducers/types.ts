@@ -31,6 +31,7 @@ export enum CommonActionType {
     COPY_CELL_CODE = 'action.copy_cell_code',
     DELETE_ALL_CELLS = 'action.delete_all_cells',
     DELETE_CELL = 'action.delete_cell',
+    DESELECT_CELL = 'action.deselect_cell',
     DOUBLE_CLICK_CELL = 'action.double_click_cell',
     EDITOR_LOADED = 'action.editor_loaded',
     EDIT_CELL = 'action.edit_cell',
@@ -93,13 +94,13 @@ export interface ICellAction {
     cellId: string | undefined;
 }
 
-export interface IEditCellAction extends ICellAction {
-    changes: monacoEditor.editor.IModelContentChange[];
-    modelId: string;
-}
-
 export interface ICodeAction extends ICellAction {
     code: string;
+}
+
+export interface IEditCellAction extends ICodeAction {
+    changes: monacoEditor.editor.IModelContentChange[];
+    modelId: string;
 }
 
 export interface IExecuteAction extends ICodeAction {
