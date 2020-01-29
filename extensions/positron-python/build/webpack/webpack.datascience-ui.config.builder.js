@@ -6,6 +6,7 @@
 // Note to editors, if you change this file you have to restart compile-webviews.
 // It doesn't reload the config otherwise.
 
+const common = require('./common');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const FixDefaultImportPlugin = require('webpack-fix-default-import-plugin');
@@ -16,60 +17,150 @@ const TerserPlugin = require('terser-webpack-plugin');
 const constants = require('../constants');
 const configFileName = 'tsconfig.datascience-ui.json';
 
-function getPlugins(folderName) {
-    if (folderName === 'history-react' || folderName === 'native-editor') {
-        return [
-            new MonacoWebpackPlugin({
-                languages: [] // force to empty so onigasm will be used
-            })
-        ];
+// Any build on the CI is considered production mode.
+const isProdBuild = constants.isCI || process.argv.includes('--mode');
+
+function getEntry(isNotebook) {
+    if (isNotebook) {
+        return {
+            nativeEditor: ['babel-polyfill', `./src/datascience-ui/native-editor/index.tsx`],
+            interactiveWindow: ['babel-polyfill', `./src/datascience-ui/history-react/index.tsx`]
+        };
     }
 
-    return [
-        new webpack.DefinePlugin({
-            'process.env': {
-                NODE_ENV: JSON.stringify('production')
-            }
-        })
-    ];
+    return {
+        plotViewer: ['babel-polyfill', `./src/datascience-ui/plot/index.tsx`],
+        dataExplorer: ['babel-polyfill', `./src/datascience-ui/data-explorer/index.tsx`]
+    };
 }
 
-function buildConfiguration(folderName, supportsChunks) {
-    const output = supportsChunks
-        ? {
-              path: path.join(constants.ExtensionRootDir, 'out'),
-              filename: `datascience-ui/${folderName}/index_chunked_bundle.js`,
-              chunkFilename: `datascience-ui/${folderName}/[name]_chunk_bundle.js`,
-              publicPath: './'
-          }
-        : {
-              path: path.join(constants.ExtensionRootDir, 'out'),
-              filename: `datascience-ui/${folderName}/index_bundle.js`,
-              publicPath: './'
-          };
-    const maxChunks = supportsChunks ? 1000 : 1; // Could do this a different way but this is simpler
+function getPlugins(isNotebook) {
+    const plugins = [];
+    plugins.push(...common.getDefaultPlugins(isNotebook ? 'notebook' : 'viewers'));
+
+    if (isNotebook) {
+        plugins.push(
+            new MonacoWebpackPlugin({
+                languages: [] // force to empty so onigasm will be used
+            }),
+            new HtmlWebpackPlugin({
+                template: 'src/datascience-ui/native-editor/index.html',
+                indexUrl: `${constants.ExtensionRootDir}/out/1`,
+                chunks: ['monaco', 'commons', 'nativeEditor'],
+                filename: 'index.nativeEditor.html'
+            }),
+            new HtmlWebpackPlugin({
+                template: 'src/datascience-ui/history-react/index.html',
+                indexUrl: `${constants.ExtensionRootDir}/out/1`,
+                chunks: ['monaco', 'commons', 'interactiveWindow'],
+                filename: 'index.interactiveWindow.html'
+            })
+        );
+    } else {
+        plugins.push(
+            ...[
+                new webpack.DefinePlugin({
+                    'process.env': {
+                        NODE_ENV: JSON.stringify('production')
+                    }
+                }),
+                new HtmlWebpackPlugin({
+                    template: 'src/datascience-ui/plot/index.html',
+                    indexUrl: `${constants.ExtensionRootDir}/out/1`,
+                    chunks: ['commons', 'plotViewer'],
+                    filename: 'index.plotViewer.html'
+                }),
+                new HtmlWebpackPlugin({
+                    template: 'src/datascience-ui/data-explorer/index.html',
+                    indexUrl: `${constants.ExtensionRootDir}/out/1`,
+                    chunks: ['commons', 'dataExplorer'],
+                    filename: 'index.dataExplorer.html'
+                })
+            ]
+        );
+    }
+
+    return plugins;
+}
+
+function buildConfiguration(isNotebook) {
+    const bundleFolder = isNotebook ? 'notebook' : 'viewers';
     return {
         context: constants.ExtensionRootDir,
-        entry: ['babel-polyfill', `./src/datascience-ui/${folderName}/index.tsx`],
-        output,
+        entry: getEntry(isNotebook),
+        output: {
+            path: path.join(constants.ExtensionRootDir, 'out', 'datascience-ui', bundleFolder),
+            filename: '[name].js',
+            chunkFilename: `[name].bundle.js`
+        },
         mode: 'development', // Leave as is, we'll need to see stack traces when there are errors.
-        // Use 'eval' for release and `eval-source-map` for development.
-        // We need to use one where source is embedded, due to webviews (they restrict resources to specific schemes,
-        //  this seems to prevent chrome from downloading the source maps)
-        devtool: 'eval-source-map',
+        devtool: 'source-map',
         optimization: {
-            minimizer: [new TerserPlugin({ sourceMap: true })]
+            minimize: true,
+            minimizer: [new TerserPlugin({ sourceMap: true })],
+            splitChunks: {
+                chunks: 'all',
+                cacheGroups: {
+                    // These are bundles that will be created and loaded when page first loads.
+                    // These must be added to the page along with the main entry point.
+                    // Smaller they are, the faster the load in SSH.
+                    // Interactive and native editors will share common code in commons.
+                    commons: {
+                        name: 'commons',
+                        chunks: 'initial',
+                        minChunks: isNotebook ? 2 : 1, // We want at least one shared bundle (2 for notebooks, as we want monago split into another).
+                        filename: '[name].initial.bundle.js'
+                    },
+                    // Even though nteract has been split up, some of them are large as nteract alone is large.
+                    // This will ensure nteract (just some of the nteract) goes into a separate bundle.
+                    // Webpack will bundle others separately when loading them asynchronously using `await import(...)`
+                    nteract: {
+                        name: 'nteract',
+                        chunks: 'all',
+                        minChunks: 2,
+                        test(module, _chunks) {
+                            // `module.resource` contains the absolute path of the file on disk.
+                            // Look for `node_modules/monaco...`.
+                            const path = require('path');
+                            return module.resource && module.resource.includes(`${path.sep}node_modules${path.sep}@nteract`);
+                        }
+                    },
+                    // Bundling `plotly` with nteract isn't the best option, as this plotly alone is 6mb.
+                    // This will ensure it is in a seprate bundle, hence small files for SSH scenarios.
+                    plotly: {
+                        name: 'plotly',
+                        chunks: 'all',
+                        minChunks: 1,
+                        test(module, _chunks) {
+                            // `module.resource` contains the absolute path of the file on disk.
+                            // Look for `node_modules/monaco...`.
+                            const path = require('path');
+                            return module.resource && module.resource.includes(`${path.sep}node_modules${path.sep}plotly`);
+                        }
+                    },
+                    // Monaco is a monster. For SSH again, we pull this into a seprate bundle.
+                    // This is only a solution for SSH.
+                    // Ideal solution would be to dynamically load monaoc `await import`, that way it will benefit UX and SSH.
+                    // This solution doesn't improve UX, as we still need to wait for monaco to load.
+                    monaco: {
+                        name: 'monaco',
+                        chunks: 'all',
+                        minChunks: 1,
+                        test(module, _chunks) {
+                            // `module.resource` contains the absolute path of the file on disk.
+                            // Look for `node_modules/monaco...`.
+                            const path = require('path');
+                            return module.resource && module.resource.includes(`${path.sep}node_modules${path.sep}monaco`);
+                        }
+                    }
+                }
+            },
+            chunkIds: 'named'
         },
         node: {
             fs: 'empty'
         },
         plugins: [
-            new HtmlWebpackPlugin({
-                template: `src/datascience-ui/${folderName}/index.html`,
-                imageBaseUrl: `${constants.ExtensionRootDir.replace(/\\/g, '/')}/out/datascience-ui/${folderName}`,
-                indexUrl: `${constants.ExtensionRootDir}/out/1`,
-                filename: `./datascience-ui/${folderName}/index.html`
-            }),
             new FixDefaultImportPlugin(),
             new CopyWebpackPlugin(
                 [
@@ -81,9 +172,9 @@ function buildConfiguration(folderName, supportsChunks) {
                 { context: 'src' }
             ),
             new webpack.optimize.LimitChunkCountPlugin({
-                maxChunks
+                maxChunks: 100
             }),
-            ...getPlugins(folderName)
+            ...getPlugins(isNotebook)
         ],
         resolve: {
             // Add '.ts' and '.tsx' as resolvable extensions.
@@ -142,12 +233,5 @@ function buildConfiguration(folderName, supportsChunks) {
     };
 }
 
-exports.interactiveWindowConfigChunked = buildConfiguration('history-react', true);
-exports.nativeEditorConfigChunked = buildConfiguration('native-editor', true);
-exports.dataExplorerConfigChunked = buildConfiguration('data-explorer', true);
-exports.plotViewerConfigChunked = buildConfiguration('plot', true);
-
-exports.interactiveWindowConfig = buildConfiguration('history-react', false);
-exports.nativeEditorConfig = buildConfiguration('native-editor', false);
-exports.dataExplorerConfig = buildConfiguration('data-explorer', false);
-exports.plotViewerConfig = buildConfiguration('plot', false);
+exports.notebooks = buildConfiguration(true);
+exports.viewers = buildConfiguration(false);
