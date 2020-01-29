@@ -9,7 +9,7 @@ import { InteractiveWindow } from '../../client/datascience/interactive-window/i
 import { InteractiveWindowProvider } from '../../client/datascience/interactive-window/interactiveWindowProvider';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { JupyterImporter } from '../../client/datascience/jupyter/jupyterImporter';
-import { JupyterServerFactory } from '../../client/datascience/jupyter/jupyterServerFactory';
+import { JupyterServerWrapper } from '../../client/datascience/jupyter/jupyterServerWrapper';
 import { ICodeCssGenerator, IInteractiveWindow, IInteractiveWindowProvider, IJupyterExecution, INotebookImporter, INotebookServer } from '../../client/datascience/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { NOSETEST_PROVIDER, PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../../client/testing/common/constants';
@@ -147,7 +147,7 @@ export class UnitTestIocContainer extends IocContainer {
         this.serviceManager.addSingleton<IInteractiveWindowProvider>(IInteractiveWindowProvider, InteractiveWindowProvider);
         this.serviceManager.add<IInteractiveWindow>(IInteractiveWindow, InteractiveWindow);
         this.serviceManager.add<INotebookImporter>(INotebookImporter, JupyterImporter);
-        this.serviceManager.add<INotebookServer>(INotebookServer, JupyterServerFactory);
+        this.serviceManager.add<INotebookServer>(INotebookServer, JupyterServerWrapper);
         this.serviceManager.addSingleton<ICodeCssGenerator>(ICodeCssGenerator, CodeCssGenerator);
     }
 }
