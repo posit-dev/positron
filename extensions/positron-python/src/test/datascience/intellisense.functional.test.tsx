@@ -207,7 +207,7 @@ suite('DataScience Intellisense tests', () => {
                 await interactiveWindow.show();
 
                 // Force a timeout on the jupyter completions so that it takes some amount of time
-                ioc.mockJupyter.getCurrentSession()!.setCompletionTimeout(1000);
+                ioc.mockJupyter.getCurrentSession()!.setCompletionTimeout(100);
 
                 // Then enter some code. Don't submit, we're just testing that autocomplete appears
                 const suggestion = waitForSuggestion(wrapper);
