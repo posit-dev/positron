@@ -16,10 +16,12 @@ import { CancellationError } from '../../../common/cancellation';
 import { traceError, traceWarning } from '../../../common/logger';
 import { IFileSystem, TemporaryFile } from '../../../common/platform/types';
 import { Resource } from '../../../common/types';
-import { createDeferred, Deferred, waitForPromise } from '../../../common/utils/async';
+import { createDeferred, Deferred, sleep, waitForPromise } from '../../../common/utils/async';
+import { noop } from '../../../common/utils/misc';
 import { HiddenFileFormatString } from '../../../constants';
 import { IInterpreterService, PythonInterpreter } from '../../../interpreter/contracts';
-import { Identifiers, Settings } from '../../constants';
+import { sendTelemetryWhenDone } from '../../../telemetry';
+import { Identifiers, Settings, Telemetry } from '../../constants';
 import { IInteractiveWindowListener, IInteractiveWindowProvider, IJupyterExecution, INotebook } from '../../types';
 import {
     IAddCell,
@@ -345,18 +347,39 @@ export class IntellisenseProvider implements IInteractiveWindowListener {
         const cancelSource = new CancellationTokenSource();
         this.cancellationSources.set(request.requestId, cancelSource);
 
+        const getCompletions = async (): Promise<monacoEditor.languages.CompletionList> => {
+            const emptyList: monacoEditor.languages.CompletionList = {
+                dispose: noop,
+                incomplete: false,
+                suggestions: []
+            };
+
+            const lsCompletions = this.provideCompletionItems(request.position, request.context, request.cellId, cancelSource.token);
+            const jupyterCompletions = this.provideJupyterCompletionItems(request.position, request.context, request.cellId, cancelSource.token);
+
+            // Capture telemetry for each of the two providers.
+            // Telemetry will be used to improve how we handle intellisense to improve response times for code completion.
+            // NOTE: If this code is around after a few months, telemetry isn't used, or we don't need it anymore.
+            // I.e. delete this code.
+            sendTelemetryWhenDone(Telemetry.CompletionTimeFromLS, lsCompletions);
+            sendTelemetryWhenDone(Telemetry.CompletionTimeFromJupyter, jupyterCompletions);
+
+            return this.combineCompletions(
+                await Promise.all([
+                    // Ensure we wait for a result from Language Server (assumption is LS is faster).
+                    // Telemetry will prove/disprove this assumption and we'll change this code accordingly.
+                    lsCompletions,
+                    // Wait for a max of n ms before ignoring results from jupyter (jupyter completion is generally slower).
+                    Promise.race([jupyterCompletions, sleep(Settings.IntellisenseTimeout).then(() => emptyList)])
+                ])
+            );
+        };
+
         // Combine all of the results together.
-        this.postTimedResponse(
-            [
-                this.provideCompletionItems(request.position, request.context, request.cellId, cancelSource.token),
-                this.provideJupyterCompletionItems(request.position, request.context, request.cellId, cancelSource.token)
-            ],
-            InteractiveWindowMessages.ProvideCompletionItemsResponse,
-            c => {
-                const list = this.combineCompletions(c);
-                return { list, requestId: request.requestId };
-            }
-        );
+        this.postTimedResponse([getCompletions()], InteractiveWindowMessages.ProvideCompletionItemsResponse, c => {
+            const list = this.combineCompletions(c);
+            return { list, requestId: request.requestId };
+        });
     }
 
     private handleResolveCompletionItemRequest(request: IResolveCompletionItemRequest) {
@@ -397,8 +420,7 @@ export class IntellisenseProvider implements IInteractiveWindowListener {
         cancelToken: CancellationToken
     ): Promise<monacoEditor.languages.CompletionList> {
         try {
-            const activeNotebook = await this.getNotebook();
-            const document = await this.getDocument();
+            const [activeNotebook, document] = await Promise.all([this.getNotebook(), this.getDocument()]);
             if (activeNotebook && document) {
                 const data = document.getCellData(cellId);
 
@@ -446,8 +468,9 @@ export class IntellisenseProvider implements IInteractiveWindowListener {
     }
 
     private postTimedResponse<R, M extends IInteractiveWindowMapping, T extends keyof M>(promises: Promise<R>[], message: T, formatResponse: (val: (R | null)[]) => M[T]) {
-        // Time all of the promises to make sure they don't take too long
-        const timed = promises.map(p => waitForPromise(p, Settings.IntellisenseTimeout));
+        // Time all of the promises to make sure they don't take too long.
+        // Even if LS or Jupyter doesn't complete within e.g. 30s, then we should return an empty response (no point waiting that long).
+        const timed = promises.map(p => waitForPromise(p, Settings.MaxIntellisenseTimeout));
 
         // Wait for all of of the timings.
         const all = Promise.all(timed);

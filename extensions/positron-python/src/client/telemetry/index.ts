@@ -1706,4 +1706,20 @@ export interface IEventNamePropertyMapping {
      * @memberof IEventNamePropertyMapping
      */
     [Telemetry.StartSessionFailedJupyter]: undefined | never;
+    /**
+     * Telemetry event sent to capture total time taken for completions list to be provided by LS.
+     * This is used to compare against time taken by Jupyter.
+     *
+     * @type {(undefined | never)}
+     * @memberof IEventNamePropertyMapping
+     */
+    [Telemetry.CompletionTimeFromLS]: undefined | never;
+    /**
+     * Telemetry event sent to capture total time taken for completions list to be provided by Jupyter.
+     * This is used to compare against time taken by LS.
+     *
+     * @type {(undefined | never)}
+     * @memberof IEventNamePropertyMapping
+     */
+    [Telemetry.CompletionTimeFromJupyter]: undefined | never;
 }

@@ -237,7 +237,9 @@ export enum Telemetry {
     UserInstalledJupyter = 'DATASCIENCE.USER_INSTALLED_JUPYTER',
     UserDidNotInstallJupyter = 'DATASCIENCE.USER_DID_NOT_INSTALL_JUPYTER',
     OpenedInteractiveWindow = 'DATASCIENCE.OPENED_INTERACTIVE',
-    FindKernelForLocalConnection = 'DS_INTERNAL.FIND_KERNEL_FOR_LOCAL_CONNECTION'
+    FindKernelForLocalConnection = 'DS_INTERNAL.FIND_KERNEL_FOR_LOCAL_CONNECTION',
+    CompletionTimeFromLS = 'DS_INTERNAL.COMPLETION_TIME_FROM_LS',
+    CompletionTimeFromJupyter = 'DS_INTERNAL.COMPLETION_TIME_FROM_JUPYTER'
 }
 
 export enum NativeKeyboardCommandTelemetry {
@@ -316,7 +318,10 @@ export namespace Settings {
     export const JupyterServerLocalLaunch = 'local';
     export const JupyterServerUriList = 'python.dataScience.jupyterServer.uriList';
     export const JupyterServerUriListMax = 10;
-    export const IntellisenseTimeout = 30000;
+    // If this timeout expires, ignore the completion request sent to Jupyter.
+    export const IntellisenseTimeout = 500;
+    // If this timeout expires, ignore the completions requests. (don't wait for it to complete).
+    export const MaxIntellisenseTimeout = 30_000;
     export const RemoteDebuggerPortBegin = 8889;
     export const RemoteDebuggerPortEnd = 9000;
     export const DefaultVariableQuery: IVariableQuery = {

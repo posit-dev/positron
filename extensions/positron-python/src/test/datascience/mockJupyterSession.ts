@@ -26,7 +26,6 @@ export class MockJupyterSession implements IJupyterSession {
     private forceRestartTimeout: boolean = false;
     private completionTimeout: number = 1;
     private lastRequest: MockJupyterRequest | undefined;
-
     constructor(cellDictionary: Record<string, ICell>, timedelay: number) {
         this.dict = cellDictionary;
         this.timedelay = timedelay;

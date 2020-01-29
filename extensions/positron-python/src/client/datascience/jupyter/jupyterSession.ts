@@ -55,7 +55,6 @@ export class JupyterSession implements IJupyterSession {
     private onStatusChangedEvent: EventEmitter<ServerStatus> = new EventEmitter<ServerStatus>();
     private statusHandler: Slot<ISession, Kernel.Status>;
     private connected: boolean = false;
-
     constructor(
         private connInfo: IConnection,
         private serverSettings: ServerConnection.ISettings,
