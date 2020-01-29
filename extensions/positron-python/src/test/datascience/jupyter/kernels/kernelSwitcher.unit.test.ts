@@ -15,7 +15,7 @@ import { Common, DataScience } from '../../../../client/common/utils/localize';
 import { Architecture } from '../../../../client/common/utils/platform';
 import { Commands } from '../../../../client/datascience/constants';
 import { JupyterNotebookBase } from '../../../../client/datascience/jupyter/jupyterNotebook';
-import { JupyterServerFactory } from '../../../../client/datascience/jupyter/jupyterServerFactory';
+import { JupyterServerWrapper } from '../../../../client/datascience/jupyter/jupyterServerWrapper';
 import { JupyterSessionStartError } from '../../../../client/datascience/jupyter/jupyterSession';
 import { JupyterSessionManagerFactory } from '../../../../client/datascience/jupyter/jupyterSessionManagerFactory';
 import { KernelSelector } from '../../../../client/datascience/jupyter/kernels/kernelSelector';
@@ -40,7 +40,7 @@ suite('Data Science - Kernel Switcher', () => {
     let selectedInterpreter: PythonInterpreter;
     let settings: IPythonSettings;
     setup(() => {
-        notebookServer = mock(JupyterServerFactory);
+        notebookServer = mock(JupyterServerWrapper);
         settings = mock(PythonSettings);
         // tslint:disable-next-line: no-any
         currentKernel = { lastActivityTime: new Date(), name: 'CurrentKernel', numberOfConnections: 0, session: {} as any };
