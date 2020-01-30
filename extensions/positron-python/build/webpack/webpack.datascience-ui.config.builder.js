@@ -36,7 +36,9 @@ function getEntry(isNotebook) {
 
 function getPlugins(isNotebook) {
     const plugins = [];
-    plugins.push(...common.getDefaultPlugins(isNotebook ? 'notebook' : 'viewers'));
+    if (isProdBuild) {
+        plugins.push(...common.getDefaultPlugins(isNotebook ? 'notebook' : 'viewers'));
+    }
 
     if (isNotebook) {
         plugins.push(
@@ -57,13 +59,15 @@ function getPlugins(isNotebook) {
             })
         );
     } else {
+        const definePlugin = new webpack.DefinePlugin({
+            'process.env': {
+                NODE_ENV: JSON.stringify('production')
+            }
+        });
+
         plugins.push(
+            ...(isProdBuild ? [definePlugin] : []),
             ...[
-                new webpack.DefinePlugin({
-                    'process.env': {
-                        NODE_ENV: JSON.stringify('production')
-                    }
-                }),
                 new HtmlWebpackPlugin({
                     template: 'src/datascience-ui/plot/index.html',
                     indexUrl: `${constants.ExtensionRootDir}/out/1`,
@@ -84,7 +88,9 @@ function getPlugins(isNotebook) {
 }
 
 function buildConfiguration(isNotebook) {
+    // Folder inside `datascience-ui` that will be created and where the files will be dumped.
     const bundleFolder = isNotebook ? 'notebook' : 'viewers';
+
     return {
         context: constants.ExtensionRootDir,
         entry: getEntry(isNotebook),
@@ -96,8 +102,9 @@ function buildConfiguration(isNotebook) {
         mode: 'development', // Leave as is, we'll need to see stack traces when there are errors.
         devtool: 'source-map',
         optimization: {
-            minimize: true,
-            minimizer: [new TerserPlugin({ sourceMap: true })],
+            minimize: isProdBuild,
+            minimizer: isProdBuild ? [new TerserPlugin({ sourceMap: true })] : [],
+            moduleIds: 'hashed', // (doesn't re-generate bundles unnecessarily) https://webpack.js.org/configuration/optimization/#optimizationmoduleids.
             splitChunks: {
                 chunks: 'all',
                 cacheGroups: {
