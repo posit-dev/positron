@@ -36,7 +36,7 @@ git clone https://github.com/microsoft/vscode-python
 cd vscode-python
 npm ci
 python3 -m venv .venv
-# Activate the virtual environment as appropriate for your shell, For example ...
+# Activate the virtual environment as appropriate for your shell, For example, on bash it's ...
 source .venv/bin/activate
 # The Python code in the extension is formatted using Black.
 python3 -m pip install black
