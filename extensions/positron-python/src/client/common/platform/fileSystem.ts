@@ -129,7 +129,7 @@ export class RawFileSystem implements IRawFileSystem {
         paths?: IRawPath,
         vscfs?: IVSCodeFileSystemAPI,
         fsExtra?: IRawFSExtra
-    ): RawFileSystem{
+    ): RawFileSystem {
         // prettier-ignore
         return new RawFileSystem(
             paths || FileSystemPaths.withDefaults(),
@@ -471,6 +471,9 @@ export class FileSystem implements IFileSystem {
     }
     public arePathsSame(path1: string, path2: string): boolean {
         return this.utils.pathUtils.arePathsSame(path1, path2);
+    }
+    public getDisplayName(path: string): string {
+        return this.utils.pathUtils.getDisplayName(path);
     }
     public async stat(filename: string): Promise<FileStat> {
         return this.utils.raw.stat(filename);
