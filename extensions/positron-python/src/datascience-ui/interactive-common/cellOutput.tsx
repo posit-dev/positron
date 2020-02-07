@@ -276,6 +276,7 @@ export class CellOutput extends React.Component<ICellOutputProps> {
         } else if (copy.data) {
             // Compute the mime type
             mimeType = getRichestMimetype(copy.data);
+            isText = mimeType === 'text/plain';
         }
 
         // Then parse the mime type

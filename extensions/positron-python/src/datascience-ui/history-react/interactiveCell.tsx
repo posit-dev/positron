@@ -147,13 +147,15 @@ export class InteractiveCell extends React.Component<IInteractiveCellProps> {
                         <div className="content-div">
                             <div className="cell-result-container">
                                 {this.renderInput()}
-                                <CellOutput
-                                    cellVM={this.props.cellVM}
-                                    baseTheme={this.props.baseTheme}
-                                    expandImage={this.props.showPlot}
-                                    maxTextSize={this.props.maxTextSize}
-                                    themeMatplotlibPlots={themeMatplotlibPlots}
-                                />
+                                <div>
+                                    <CellOutput
+                                        cellVM={this.props.cellVM}
+                                        baseTheme={this.props.baseTheme}
+                                        expandImage={this.props.showPlot}
+                                        maxTextSize={this.props.maxTextSize}
+                                        themeMatplotlibPlots={themeMatplotlibPlots}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
