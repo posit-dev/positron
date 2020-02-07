@@ -31,6 +31,7 @@ export function fixLatexEquations(input: string): string {
         // Pick the first that matches
         let match = dollars;
         let isBeginMatch = false;
+        const isDollarsMatch = dollars?.index === dollar?.index;
         if (!match || (dollar && dollar.index < match.index)) {
             match = dollar;
             endRegex = /\$/;
@@ -58,8 +59,20 @@ export function fixLatexEquations(input: string): string {
                     // Invalid, just return
                     return input;
                 }
+            } else if (isDollarsMatch) {
+                // Output till the next $$
+                const offset = match.index + 2 + start;
+                const endDollar = endRegex.exec(input.substr(offset));
+                if (endDollar) {
+                    const length = endDollar.index + 2 + offset;
+                    output.push(input.substr(start, length));
+                    start = start + length;
+                } else {
+                    // Invalid, just return
+                    return input;
+                }
             } else {
-                // Output till the next $ or $$
+                // Output till the next $
                 const offset = match.index + 1 + start;
                 const endDollar = endRegex.exec(input.substr(offset));
                 if (endDollar) {
