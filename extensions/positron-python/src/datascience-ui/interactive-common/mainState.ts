@@ -127,7 +127,7 @@ export function generateTestState(filePath: string = '', editable: boolean = fal
         knownDark: false,
         baseTheme: 'vscode-light',
         debugging: false,
-        isAtBottom: true,
+        isAtBottom: false,
         font: {
             size: 14,
             family: "Consolas, 'Courier New', monospace"
