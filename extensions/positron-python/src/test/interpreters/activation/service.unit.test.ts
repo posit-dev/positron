@@ -8,7 +8,7 @@ import * as path from 'path';
 import { SemVer } from 'semver';
 import { anything, capture, instance, mock, verify, when } from 'ts-mockito';
 import * as typemoq from 'typemoq';
-import { Uri, workspace as workspaceType, WorkspaceConfiguration } from 'vscode';
+import { EventEmitter, Uri, workspace as workspaceType, WorkspaceConfiguration } from 'vscode';
 import { PlatformService } from '../../../client/common/platform/platformService';
 import { IPlatformService } from '../../../client/common/platform/types';
 import { CurrentProcess } from '../../../client/common/process/currentProcess';
@@ -18,6 +18,7 @@ import { IProcessService, IProcessServiceFactory } from '../../../client/common/
 import { TerminalHelper } from '../../../client/common/terminal/helper';
 import { ITerminalHelper } from '../../../client/common/terminal/types';
 import { ICurrentProcess } from '../../../client/common/types';
+import { clearCache } from '../../../client/common/utils/cacheUtils';
 import { getNamesAndValues } from '../../../client/common/utils/enum';
 import { Architecture, OSType } from '../../../client/common/utils/platform';
 import { EnvironmentVariablesProvider } from '../../../client/common/variables/environmentVariablesProvider';
@@ -63,6 +64,7 @@ suite('Interpreters Activation - Python Environment Variables', () => {
         currentProcess = mock(CurrentProcess);
         envVarsService = mock(EnvironmentVariablesProvider);
         workspace = mockedVSCodeNamespaces.workspace!;
+        when(envVarsService.onDidEnvironmentVariablesChange).thenReturn(new EventEmitter<Uri | undefined>().event);
         service = new EnvironmentActivationService(instance(helper), instance(platform), instance(processServiceFactory), instance(currentProcess), instance(envVarsService));
 
         const cfg = typemoq.Mock.ofType<WorkspaceConfiguration>();
@@ -71,6 +73,7 @@ suite('Interpreters Activation - Python Environment Variables', () => {
         cfg.setup(c => c.inspect(typemoq.It.isValue('pythonPath'))).returns(() => {
             return { globalValue: 'GlobalValuepython' } as any;
         });
+        clearCache();
     }
     teardown(() => {
         mockedVSCodeNamespaces.workspace!.reset();
