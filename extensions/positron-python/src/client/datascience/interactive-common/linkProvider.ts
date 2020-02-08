@@ -4,9 +4,9 @@
 import '../../common/extensions';
 
 import { inject, injectable } from 'inversify';
-import { Event, EventEmitter, Position, Range, TextEditorRevealType, Uri } from 'vscode';
+import { Event, EventEmitter, Position, Range, Selection, TextEditorRevealType, Uri } from 'vscode';
 
-import { IApplicationShell, IDocumentManager } from '../../common/application/types';
+import { IApplicationShell, ICommandManager, IDocumentManager } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
@@ -22,7 +22,8 @@ export class LinkProvider implements IInteractiveWindowListener {
     constructor(
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
         @inject(IFileSystem) private fileSystem: IFileSystem,
-        @inject(IDocumentManager) private documentManager: IDocumentManager
+        @inject(IDocumentManager) private documentManager: IDocumentManager,
+        @inject(ICommandManager) private commandManager: ICommandManager
     ) {
         noop();
     }
@@ -85,13 +86,22 @@ export class LinkProvider implements IInteractiveWindowListener {
         }
 
         // Show the matching editor if there is one
-        const editor = this.documentManager.visibleTextEditors.find(e => this.fileSystem.arePathsSame(e.document.fileName, uri.fsPath));
+        let editor = this.documentManager.visibleTextEditors.find(e => this.fileSystem.arePathsSame(e.document.fileName, uri.fsPath));
         if (editor) {
-            this.documentManager.showTextDocument(editor.document, { selection, viewColumn: editor.viewColumn }).then(() => {
-                editor.revealRange(selection, TextEditorRevealType.InCenter);
+            this.documentManager.showTextDocument(editor.document, { selection, viewColumn: editor.viewColumn }).then(e => {
+                e.revealRange(selection, TextEditorRevealType.InCenter);
             });
         } else {
-            this.documentManager.showTextDocument(uri, { selection });
+            // Not a visible editor, try opening otherwise
+            this.commandManager.executeCommand('vscode.open', uri).then(() => {
+                // See if that opened a text document
+                editor = this.documentManager.visibleTextEditors.find(e => this.fileSystem.arePathsSame(e.document.fileName, uri.fsPath));
+                if (editor) {
+                    // Force the selection to change
+                    editor.revealRange(selection);
+                    editor.selection = new Selection(selection.start, selection.start);
+                }
+            });
         }
     }
 }
