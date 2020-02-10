@@ -597,6 +597,38 @@ suite('Raw FileSystem', () => {
             await expect(promise).to.eventually.be.rejected;
             verifyAll();
         });
+
+        test('ignores errors from getFileType()', async () => {
+            const dirname = 'x/y/z';
+            const names = [
+                // These match the items in "expected".
+                '__init__.py',
+                'spam.py',
+                'eggs.py'
+            ];
+            const expected: [string, FileType][] = [
+                ['x/y/z/__init__.py', FileType.File],
+                ['x/y/z/spam.py', FileType.File],
+                ['x/y/z/eggs.py', FileType.Unknown]
+            ];
+            raw.setup(r => r.readdir(dirname)) // expect the specific filename
+                .returns(() => Promise.resolve(names));
+            names.forEach((name, i) => {
+                const [filename, filetype] = expected[i];
+                raw.setup(r => r.join(dirname, name)) // expect the specific filename
+                    .returns(() => filename);
+                if (filetype === FileType.Unknown) {
+                    raw.setup(r => r.lstat(filename)) // expect the specific filename
+                        .throws(new Error('oops!'));
+                } else {
+                    setupForFileType(filename, filetype);
+                }
+            });
+
+            const entries = await filesystem.listdir(dirname);
+
+            expect(entries.sort()).to.deep.equal(expected.sort());
+        });
     });
 
     suite('readTextSync', () => {
@@ -781,15 +813,14 @@ suite('FileSystemUtils', () => {
             verifyAll();
         });
 
-        test('fails if stat fails', async () => {
+        test('ignores errors from stat()', async () => {
             const filename = 'x/y/z/spam.py';
-            const err = new Error('oops!');
-            deps.setup(d => d.stat(filename)) // There was a problem while stat'ing the file.
-                .throws(err);
+            deps.setup(d => d.stat(filename)) // It's broken.
+                .returns(() => Promise.reject(new Error('oops!')));
 
-            const promise = utils.pathExists(filename);
+            const exists = await utils.pathExists(filename);
 
-            await expect(promise).to.eventually.be.rejected;
+            expect(exists).to.equal(false);
             verifyAll();
         });
 
