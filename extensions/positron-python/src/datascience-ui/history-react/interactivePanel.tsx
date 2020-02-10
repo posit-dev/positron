@@ -72,7 +72,7 @@ export class InteractivePanel extends React.Component<IInteractivePanelProps> {
                 <section id="main-panel-variable" aria-label={getLocString('DataScience.collapseVariableExplorerLabel', 'Variables')}>
                     {this.renderVariablePanel(this.props.baseTheme)}
                 </section>
-                <main id="main-panel-content" onScroll={this.handleScroll}>
+                <main id="main-panel-content" onClick={this.contentPanelClick} onScroll={this.handleScroll}>
                     {this.renderContentPanel(this.props.baseTheme)}
                 </main>
                 <section id="main-panel-footer" aria-label={getLocString('DataScience.editSection', 'Input new cells here')}>
@@ -81,6 +81,11 @@ export class InteractivePanel extends React.Component<IInteractivePanelProps> {
             </div>
         );
     }
+
+    // If click is not handled by something else, focus our input box
+    private contentPanelClick = (_event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+        this.props.focusInput();
+    };
 
     private renderToolbarPanel() {
         const variableExplorerTooltip = this.props.variableState.visible
@@ -216,7 +221,7 @@ export class InteractivePanel extends React.Component<IInteractivePanelProps> {
                         monacoTheme={this.props.monacoTheme}
                         font={this.props.font}
                         settings={this.props.settings}
-                        focusPending={this.props.activateCount}
+                        focusPending={this.props.focusPending}
                     />
                 </ErrorBoundary>
             </div>
@@ -280,7 +285,7 @@ export class InteractivePanel extends React.Component<IInteractivePanelProps> {
                             monacoTheme={this.props.monacoTheme}
                             font={this.props.font}
                             settings={this.props.settings}
-                            focusPending={this.props.activateCount}
+                            focusPending={this.props.focusPending}
                         />
                     </ErrorBoundary>
                 </div>
