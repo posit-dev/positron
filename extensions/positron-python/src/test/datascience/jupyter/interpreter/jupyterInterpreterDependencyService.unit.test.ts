@@ -12,7 +12,7 @@ import { PythonExecutionFactory } from '../../../../client/common/process/python
 import { PythonExecutionService } from '../../../../client/common/process/pythonProcess';
 import { IPythonExecutionService } from '../../../../client/common/process/types';
 import { IInstaller, InstallerResponse, Product } from '../../../../client/common/types';
-import { Common, DataScience } from '../../../../client/common/utils/localize';
+import { DataScience } from '../../../../client/common/utils/localize';
 import { Architecture } from '../../../../client/common/utils/platform';
 import {
     JupyterInterpreterDependencyResponse,
@@ -75,7 +75,7 @@ suite('Data Science - Jupyter Interpreter Configuration', () => {
                 anything(),
                 DataScience.jupyterInstall(),
                 DataScience.selectDifferentJupyterInterpreter(),
-                Common.cancel()
+                DataScience.pythonInteractiveHelpLink()
             )
         ).once();
         assert.equal(response, JupyterInterpreterDependencyResponse.cancel);
