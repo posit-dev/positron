@@ -94,7 +94,7 @@ export class JupyterInterpreterSubCommandExecutionService
             return DataScience.jupyterKernelSpecModuleNotFound();
         }
 
-        return getMessageForLibrariesNotInstalled(productsNotInstalled);
+        return getMessageForLibrariesNotInstalled(productsNotInstalled, interpreter.displayName);
     }
     public async getSelectedInterpreter(token?: CancellationToken): Promise<PythonInterpreter | undefined> {
         return this.jupyterInterpreter.getSelectedInterpreter(token);

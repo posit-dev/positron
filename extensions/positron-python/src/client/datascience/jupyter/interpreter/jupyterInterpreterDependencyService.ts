@@ -14,7 +14,7 @@ import { Common, DataScience } from '../../../common/utils/localize';
 import { noop } from '../../../common/utils/misc';
 import { PythonInterpreter } from '../../../interpreter/contracts';
 import { sendTelemetryEvent } from '../../../telemetry';
-import { Telemetry } from '../../constants';
+import { HelpLinks, Telemetry } from '../../constants';
 import { JupyterInstallError } from '../jupyterInstallError';
 
 export enum JupyterInterpreterDependencyResponse {
@@ -56,7 +56,7 @@ function sortProductsInOrderForInstallation(products: Product[]) {
  * @param {Product[]} products
  * @returns {string}
  */
-export function getMessageForLibrariesNotInstalled(products: Product[]): string {
+export function getMessageForLibrariesNotInstalled(products: Product[], interpreterName?: string): string {
     const names = products
         // Ignore kernelspec as it not something that can be installed.
         .filter(product => product !== Product.kernelspec)
@@ -68,12 +68,19 @@ export function getMessageForLibrariesNotInstalled(products: Product[]): string 
         case 0:
             return '';
         case 1:
-            return DataScience.libraryRequiredToLaunchJupyterNotInstalled().format(names[0]);
+            return interpreterName
+                ? DataScience.libraryRequiredToLaunchJupyterNotInstalledInterpreter().format(interpreterName, names[0])
+                : DataScience.libraryRequiredToLaunchJupyterNotInstalled().format(names[0]);
         default: {
             const lastItem = names.pop();
-            return DataScience.librariesRequiredToLaunchJupyterNotInstalled().format(
-                `${names.join(', ')} ${Common.and()} ${lastItem}`
-            );
+            return interpreterName
+                ? DataScience.librariesRequiredToLaunchJupyterNotInstalledInterpreter().format(
+                      interpreterName,
+                      `${names.join(', ')} ${Common.and()} ${lastItem}`
+                  )
+                : DataScience.librariesRequiredToLaunchJupyterNotInstalled().format(
+                      `${names.join(', ')} ${Common.and()} ${lastItem}`
+                  );
         }
     }
 }
@@ -132,15 +139,14 @@ export class JupyterInterpreterDependencyService {
             return JupyterInterpreterDependencyResponse.ok;
         }
 
-        const message = getMessageForLibrariesNotInstalled(productsToInstall);
+        const message = getMessageForLibrariesNotInstalled(productsToInstall, interpreter.displayName);
 
         sendTelemetryEvent(Telemetry.JupyterNotInstalledErrorShown);
         const selection = await this.applicationShell.showErrorMessage(
-            // tslint:disable-next-line: messages-must-be-localized
-            `${message}\r\n${DataScience.markdownHelpInstallingMissingDependencies()}`,
+            message,
             DataScience.jupyterInstall(),
             DataScience.selectDifferentJupyterInterpreter(),
-            Common.cancel()
+            DataScience.pythonInteractiveHelpLink()
         );
 
         if (Cancellation.isCanceled(token)) {
@@ -179,6 +185,12 @@ export class JupyterInterpreterDependencyService {
             case DataScience.selectDifferentJupyterInterpreter(): {
                 sendTelemetryEvent(Telemetry.UserDidNotInstallJupyter);
                 return JupyterInterpreterDependencyResponse.selectAnotherInterpreter;
+            }
+
+            case DataScience.pythonInteractiveHelpLink(): {
+                this.applicationShell.openUrl(HelpLinks.PythonInteractiveHelpLink);
+                sendTelemetryEvent(Telemetry.UserDidNotInstallJupyter);
+                return JupyterInterpreterDependencyResponse.cancel;
             }
 
             default:
