@@ -84,7 +84,7 @@ suite('Data Science - Kernel Switcher', () => {
         // tslint:disable-next-line: no-any
         when(settings.datascience).thenReturn({} as any);
         when(notebook.server).thenReturn(instance(notebookServer));
-        when(configService.getSettings()).thenReturn(instance(settings));
+        when(configService.getSettings(anything())).thenReturn(instance(settings));
         kernelSwitcher = new KernelSwitcher(
             instance(configService),
             instance(sessionManagerFactory),
@@ -131,6 +131,7 @@ suite('Data Science - Kernel Switcher', () => {
                             verify(
                                 kernelSelector.selectLocalKernel(
                                     anything(),
+                                    anything(),
                                     undefined,
                                     undefined,
                                     currentKernelInfo.currentKernel
@@ -138,7 +139,13 @@ suite('Data Science - Kernel Switcher', () => {
                             ).once();
                         } else {
                             verify(
-                                kernelSelector.selectRemoteKernel(anything(), anything(), anything(), anything())
+                                kernelSelector.selectRemoteKernel(
+                                    anything(),
+                                    anything(),
+                                    anything(),
+                                    anything(),
+                                    anything()
+                                )
                             ).once();
                         }
                     });
@@ -146,6 +153,7 @@ suite('Data Science - Kernel Switcher', () => {
                     test('Prompt to select local kernel', async () => {
                         when(
                             kernelSelector.selectLocalKernel(
+                                anything(),
                                 anything(),
                                 undefined,
                                 undefined,
@@ -164,6 +172,7 @@ suite('Data Science - Kernel Switcher', () => {
                                 when(
                                     kernelSelector.selectLocalKernel(
                                         anything(),
+                                        anything(),
                                         undefined,
                                         undefined,
                                         currentKernelInfo.currentKernel
@@ -175,7 +184,13 @@ suite('Data Science - Kernel Switcher', () => {
                                 });
                             } else {
                                 when(
-                                    kernelSelector.selectRemoteKernel(anything(), anything(), anything(), anything())
+                                    kernelSelector.selectRemoteKernel(
+                                        anything(),
+                                        anything(),
+                                        anything(),
+                                        anything(),
+                                        anything()
+                                    )
                                 ).thenResolve({
                                     kernelModel: selectedKernel,
                                     kernelSpec: undefined,
@@ -298,7 +313,13 @@ suite('Data Science - Kernel Switcher', () => {
                                     }
                                 });
                                 when(
-                                    kernelSelector.selectLocalKernel(anything(), undefined, anything(), anything())
+                                    kernelSelector.selectLocalKernel(
+                                        anything(),
+                                        anything(),
+                                        undefined,
+                                        anything(),
+                                        anything()
+                                    )
                                 ).thenCall(() => {
                                     // When selecting a kernel the second time, then return a different selection.
                                     firstTimeSelectingAKernel = false;
@@ -332,7 +353,13 @@ suite('Data Science - Kernel Switcher', () => {
                                 ).once();
                                 // first time when user select a kernel, second time is when user selects after failing to switch to the first kernel.
                                 verify(
-                                    kernelSelector.selectLocalKernel(anything(), anything(), anything(), anything())
+                                    kernelSelector.selectLocalKernel(
+                                        anything(),
+                                        anything(),
+                                        anything(),
+                                        anything(),
+                                        anything()
+                                    )
                                 ).twice();
                             });
                         });

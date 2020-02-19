@@ -31,6 +31,7 @@ import {
     IExperimentsManager,
     IExtensionContext,
     IMemento,
+    Resource,
     WORKSPACE_MEMENTO
 } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
@@ -101,6 +102,51 @@ const NotebookTransferKey = 'notebook-transfered';
 export class NativeEditor extends InteractiveBase implements INotebookEditor {
     public get onDidChangeViewState(): Event<void> {
         return this._onDidChangeViewState.event;
+    }
+
+    public get visible(): boolean {
+        return this.viewState.visible;
+    }
+
+    public get active(): boolean {
+        return this.viewState.active;
+    }
+
+    public get file(): Uri {
+        return this._file;
+    }
+
+    public get isUntitled(): boolean {
+        const baseName = path.basename(this.file.fsPath);
+        return baseName.includes(localize.DataScience.untitledNotebookFileName());
+    }
+
+    public get cells(): ICell[] {
+        return this.visibleCells;
+    }
+
+    public get closed(): Event<INotebookEditor> {
+        return this.closedEvent.event;
+    }
+
+    public get executed(): Event<INotebookEditor> {
+        return this.executedEvent.event;
+    }
+
+    public get modified(): Event<INotebookEditor> {
+        return this.modifiedEvent.event;
+    }
+
+    public get saved(): Event<INotebookEditor> {
+        return this.savedEvent.event;
+    }
+
+    public get metadataUpdated(): Event<INotebookEditor> {
+        return this.metadataUpdatedEvent.event;
+    }
+
+    public get isDirty(): boolean {
+        return this._dirty;
     }
     private sentExecuteCellTelemetry: boolean = false;
     private _onDidChangeViewState = new EventEmitter<void>();
@@ -186,23 +232,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             experimentsManager
         );
     }
-
-    public get visible(): boolean {
-        return this.viewState.visible;
-    }
-
-    public get active(): boolean {
-        return this.viewState.active;
-    }
-
-    public get file(): Uri {
-        return this._file;
-    }
-
-    public get isUntitled(): boolean {
-        const baseName = path.basename(this.file.fsPath);
-        return baseName.includes(localize.DataScience.untitledNotebookFileName());
-    }
     public dispose(): Promise<void> {
         super.dispose();
         return this.close();
@@ -210,10 +239,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
 
     public getContents(): Promise<string> {
         return this.generateNotebookContent(this.visibleCells);
-    }
-
-    public get cells(): ICell[] {
-        return this.visibleCells;
     }
 
     public async load(contents: string, file: Uri): Promise<void> {
@@ -248,30 +273,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             // Load without setting dirty
             return this.loadContents(contents, false);
         }
-    }
-
-    public get closed(): Event<INotebookEditor> {
-        return this.closedEvent.event;
-    }
-
-    public get executed(): Event<INotebookEditor> {
-        return this.executedEvent.event;
-    }
-
-    public get modified(): Event<INotebookEditor> {
-        return this.modifiedEvent.event;
-    }
-
-    public get saved(): Event<INotebookEditor> {
-        return this.savedEvent.event;
-    }
-
-    public get metadataUpdated(): Event<INotebookEditor> {
-        return this.metadataUpdatedEvent.event;
-    }
-
-    public get isDirty(): boolean {
-        return this._dirty;
     }
 
     // tslint:disable-next-line: no-any
@@ -329,7 +330,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
     }
 
     public async getNotebookOptions(): Promise<INotebookServerOptions> {
-        const options = await this.ipynbProvider.getNotebookOptions();
+        const options = await this.ipynbProvider.getNotebookOptions(await this.getOwningResource());
         await this.contentsLoadedPromise.promise;
         const metadata = this.notebookJson.metadata;
         return {
@@ -355,6 +356,11 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         // Clear our visible cells
         this.visibleCells = [];
         return this.setDirty();
+    }
+
+    public getOwningResource(): Promise<Resource> {
+        // Resource to use for loading and our identity are the same.
+        return this.getNotebookIdentity();
     }
 
     protected addSysInfo(reason: SysInfoReason): Promise<void> {
@@ -489,7 +495,9 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
     }
 
     protected async getNotebookIdentity(): Promise<Uri> {
-        await this.loadedPromise.promise;
+        if (this.loadedPromise) {
+            await this.loadedPromise.promise;
+        }
 
         // File should be set now
         return this._file;
@@ -897,7 +905,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
 
             // Restart our kernel so that execution counts are reset
             let oldAsk: boolean | undefined = false;
-            const settings = this.configuration.getSettings();
+            const settings = this.configuration.getSettings(await this.getOwningResource());
             if (settings && settings.datascience) {
                 oldAsk = settings.datascience.askForKernelRestart;
                 settings.datascience.askForKernelRestart = false;

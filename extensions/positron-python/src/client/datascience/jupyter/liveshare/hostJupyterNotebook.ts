@@ -9,7 +9,7 @@ import { IApplicationShell, ILiveShareApi, IWorkspaceService } from '../../../co
 import '../../../common/extensions';
 import { traceError } from '../../../common/logger';
 import { IFileSystem } from '../../../common/platform/types';
-import { IConfigurationService, IDisposableRegistry } from '../../../common/types';
+import { IConfigurationService, IDisposableRegistry, Resource } from '../../../common/types';
 import { createDeferred } from '../../../common/utils/async';
 import { Identifiers, LiveShare, LiveShareCommands } from '../../constants';
 import { IExecuteInfo } from '../../interactive-common/interactiveWindowTypes';
@@ -49,7 +49,8 @@ export class HostJupyterNotebook
         owner: INotebookServer,
         launchInfo: INotebookServerLaunchInfo,
         loggers: INotebookExecutionLogger[],
-        resource: vscode.Uri,
+        resource: Resource,
+        identity: vscode.Uri,
         getDisposedError: () => Error,
         workspace: IWorkspaceService,
         appService: IApplicationShell,
@@ -64,6 +65,7 @@ export class HostJupyterNotebook
             launchInfo,
             loggers,
             resource,
+            identity,
             getDisposedError,
             workspace,
             appService,
@@ -127,7 +129,7 @@ export class HostJupyterNotebook
         // Use our base name plus our id. This means one unique server per notebook
         // Convert to our shared URI to match the guest and remove any '.' as live share won't support them
         const sharedUri =
-            this.resource.scheme === 'file' ? this.finishedApi!.convertLocalUriToShared(this.resource) : this.resource;
+            this.identity.scheme === 'file' ? this.finishedApi!.convertLocalUriToShared(this.identity) : this.identity;
         return Promise.resolve(`${LiveShare.JupyterNotebookSharedService}${sharedUri.toString()}`);
     }
 

@@ -47,7 +47,7 @@ export class DataScience implements IDataScience {
 
         // Set our initial settings and sign up for changes
         this.onSettingsChanged();
-        this.changeHandler = this.configuration.getSettings().onDidChange(this.onSettingsChanged.bind(this));
+        this.changeHandler = this.configuration.getSettings(undefined).onDidChange(this.onSettingsChanged.bind(this));
         this.disposableRegistry.push(this);
 
         // Listen for active editor changes so we can detect have code cells or not
@@ -68,7 +68,7 @@ export class DataScience implements IDataScience {
     }
 
     private onSettingsChanged = () => {
-        const settings = this.configuration.getSettings();
+        const settings = this.configuration.getSettings(undefined);
         const enabled = settings.datascience.enabled;
         let editorContext = new ContextKey(EditorContexts.DataScienceEnabled, this.commandManager);
         editorContext.set(enabled).catch();

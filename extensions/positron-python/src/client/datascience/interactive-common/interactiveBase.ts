@@ -100,6 +100,17 @@ import { InteractiveWindowMessageListener } from './interactiveWindowMessageList
 
 @injectable()
 export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapping> implements IInteractiveBase {
+    public get notebook(): INotebook | undefined {
+        return this._notebook;
+    }
+
+    public get id(): string {
+        return this._id;
+    }
+
+    public get onExecutedCode(): Event<string> {
+        return this.executeEvent.event;
+    }
     private unfinishedCells: ICell[] = [];
     private restartingKernel: boolean = false;
     private perceivedJupyterStartupTelemetryCaptured: boolean = false;
@@ -111,9 +122,6 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     private serverAndNotebookPromise: Promise<void> | undefined;
     private notebookPromise: Promise<void> | undefined;
     private setDarkPromise: Deferred<boolean> | undefined;
-    public get notebook(): INotebook | undefined {
-        return this._notebook;
-    }
 
     constructor(
         @unmanaged() private readonly progressReporter: ProgressReporter,
@@ -187,20 +195,12 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         jupyterExecution.serverStarted(this.checkForServerStart.bind(this));
     }
 
-    public get id(): string {
-        return this._id;
-    }
-
     public async show(): Promise<void> {
         // Verify a server that matches us hasn't started already
         this.checkForServerStart().ignoreErrors();
 
         // Show our web panel.
         return super.show(true);
-    }
-
-    public get onExecutedCode(): Event<string> {
-        return this.executeEvent.event;
     }
 
     // tslint:disable-next-line: no-any no-empty cyclomatic-complexity max-func-body-length
@@ -361,7 +361,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     @captureTelemetry(Telemetry.RestartKernel)
     public async restartKernel(): Promise<void> {
         if (this._notebook && !this.restartingKernel) {
-            if (this.shouldAskForRestart()) {
+            if (await this.shouldAskForRestart()) {
                 // Ask the user if they want us to restart or not.
                 const message = localize.DataScience.restartKernelMessage();
                 const yes = localize.DataScience.restartKernelMessageYes();
@@ -370,7 +370,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
                 const v = await this.applicationShell.showInformationMessage(message, yes, dontAskAgain, no);
                 if (v === dontAskAgain) {
-                    this.disableAskForRestart();
+                    await this.disableAskForRestart();
                     await this.restartKernelInternal();
                 } else if (v === yes) {
                     await this.restartKernelInternal();
@@ -392,7 +392,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 this
             );
 
-            const settings = this.configuration.getSettings();
+            const settings = this.configuration.getSettings(await this.getOwningResource());
             const interruptTimeout = settings.datascience.jupyterInterruptTimeout;
 
             try {
@@ -422,7 +422,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
     @captureTelemetry(Telemetry.CopySourceCode, undefined, false)
     public copyCode(args: ICopyCode) {
-        this.copyCodeInternal(args.source).catch(err => {
+        return this.copyCodeInternal(args.source).catch(err => {
             this.applicationShell.showErrorMessage(err);
         });
     }
@@ -506,7 +506,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
             this._notebook && !this.perceivedJupyterStartupTelemetryCaptured ? new StopWatch() : undefined;
         let result = true;
         // Do not execute or render empty code cells
-        const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
+        const cellMatcher = new CellMatcher(this.configService.getSettings(await this.getOwningResource()).datascience);
         if (cellMatcher.stripFirstMarker(code).length === 0) {
             return result;
         }
@@ -588,7 +588,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
                 // Sign up for cell changes
                 observable.subscribe(
-                    (cells: ICell[]) => {
+                    async (cells: ICell[]) => {
                         // Combine the cell data with the possible input data (so we don't lose anything that might have already been in the cells)
                         const combined = cells.map(this.combineData.bind(undefined, data));
 
@@ -596,7 +596,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                         this.sendCellsToWebView(combined);
 
                         // Any errors will move our result to false (if allowed)
-                        if (this.configuration.getSettings().datascience.stopOnError) {
+                        if (this.configuration.getSettings(await this.getOwningResource()).datascience.stopOnError) {
                             result = result && cells.find(c => c.state === CellState.error) === undefined;
                         }
                     },
@@ -704,7 +704,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         // Take the list of cells, convert them to a notebook json format and write to disk
         if (this._notebook) {
             let directoryChange;
-            const settings = this.configuration.getSettings();
+            const settings = this.configuration.getSettings(await this.getOwningResource());
             if (settings.datascience.changeDirOnImportExport) {
                 directoryChange = file;
             }
@@ -910,13 +910,13 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
     }
 
-    private shouldAskForRestart(): boolean {
-        const settings = this.configuration.getSettings();
+    private async shouldAskForRestart(): Promise<boolean> {
+        const settings = this.configuration.getSettings(await this.getOwningResource());
         return settings && settings.datascience && settings.datascience.askForKernelRestart === true;
     }
 
-    private disableAskForRestart() {
-        const settings = this.configuration.getSettings();
+    private async disableAskForRestart(): Promise<void> {
+        const settings = this.configuration.getSettings(await this.getOwningResource());
         if (settings && settings.datascience) {
             settings.datascience.askForKernelRestart = false;
             this.configuration
@@ -925,13 +925,13 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
     }
 
-    private shouldAskForLargeData(): boolean {
-        const settings = this.configuration.getSettings();
+    private async shouldAskForLargeData(): Promise<boolean> {
+        const settings = this.configuration.getSettings(await this.getOwningResource());
         return settings && settings.datascience && settings.datascience.askForLargeDataFrames === true;
     }
 
-    private disableAskForLargeData() {
-        const settings = this.configuration.getSettings();
+    private async disableAskForLargeData(): Promise<void> {
+        const settings = this.configuration.getSettings(await this.getOwningResource());
         if (settings && settings.datascience) {
             settings.datascience.askForLargeDataFrames = false;
             this.configuration
@@ -941,7 +941,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     }
 
     private async checkColumnSize(columnSize: number): Promise<boolean> {
-        if (columnSize > ColumnWarningSize && this.shouldAskForLargeData()) {
+        if (columnSize > ColumnWarningSize && (await this.shouldAskForLargeData())) {
             const message = localize.DataScience.tooManyColumnsMessage();
             const yes = localize.DataScience.tooManyColumnsYes();
             const no = localize.DataScience.tooManyColumnsNo();
@@ -949,7 +949,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
             const result = await this.applicationShell.showWarningMessage(message, yes, no, dontAskAgain);
             if (result === dontAskAgain) {
-                this.disableAskForLargeData();
+                await this.disableAskForLargeData();
             }
             return result === yes;
         }
@@ -1040,7 +1040,9 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
         try {
             if (this._notebook) {
-                await this._notebook.restartKernel(this.generateDataScienceExtraSettings().jupyterInterruptTimeout);
+                await this._notebook.restartKernel(
+                    (await this.generateDataScienceExtraSettings()).jupyterInterruptTimeout
+                );
                 await this.addSysInfo(SysInfoReason.Restart);
 
                 // Compute if dark or not.
@@ -1082,8 +1084,14 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
         // If we have a notebook dispose of it
         if (this._notebook) {
-            const server = this._notebook;
+            const notebook = this._notebook;
             this._notebook = undefined;
+            await notebook.dispose();
+        }
+        // If we have a server, dispose of it too. We are requesting total shutdown
+        const options = await this.getNotebookOptions();
+        const server = await this.jupyterExecution.getServer(options);
+        if (server) {
             await server.dispose();
         }
     }
@@ -1106,9 +1114,13 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     private async ensureNotebookImpl(server: INotebookServer): Promise<void> {
         // Create a new notebook if we need to.
         if (!this._notebook) {
-            const [uri, options] = await Promise.all([this.getNotebookIdentity(), this.getNotebookOptions()]);
-            this._notebook = await server.createNotebook(uri, options.metadata);
-            if (this._notebook) {
+            const [resource, uri, options] = await Promise.all([
+                this.getOwningResource(),
+                this.getNotebookIdentity(),
+                this.getNotebookOptions()
+            ]);
+            this._notebook = uri ? await server.createNotebook(resource, uri, options?.metadata) : undefined;
+            if (this._notebook && uri) {
                 this.postMessage(InteractiveWindowMessages.NotebookExecutionActivated, uri.toString()).ignoreErrors();
 
                 const statusChangeHandler = async (status: ServerStatus) => {
@@ -1168,7 +1180,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
     private async reloadAfterShutdown(): Promise<void> {
         try {
-            this.stopServer().ignoreErrors();
+            await this.stopServer();
         } catch {
             // We just switched from host to guest mode. Don't really care
             // if closing the host server kills it.
@@ -1221,12 +1233,16 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
         if (editor && (editor.document.languageId === PYTHON_LANGUAGE || editor.document.isUntitled)) {
             // Figure out if any cells in this document already.
-            const ranges = generateCellRangesFromDocument(editor.document, this.generateDataScienceExtraSettings());
+            const ranges = generateCellRangesFromDocument(
+                editor.document,
+                await this.generateDataScienceExtraSettings()
+            );
             const hasCellsAlready = ranges.length > 0;
             const line = editor.selection.start.line;
             const revealLine = line + 1;
             const defaultCellMarker =
-                this.configService.getSettings().datascience.defaultCellMarker || Identifiers.DefaultCodeCellMarker;
+                this.configService.getSettings(await this.getOwningResource()).datascience.defaultCellMarker ||
+                Identifiers.DefaultCodeCellMarker;
             let newCode = `${source}${os.EOL}`;
             if (hasCellsAlready) {
                 // See if inside of a range or not.
@@ -1367,7 +1383,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         try {
             const options = await this.getNotebookOptions();
             if (options && !options.uri) {
-                activeInterpreter = await this.interpreterService.getActiveInterpreter();
+                activeInterpreter = await this.interpreterService.getActiveInterpreter(await this.getOwningResource());
                 const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython();
                 return usableInterpreter ? true : false;
             } else {

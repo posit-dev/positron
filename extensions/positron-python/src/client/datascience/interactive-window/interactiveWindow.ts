@@ -22,7 +22,8 @@ import {
     IDisposableRegistry,
     IExperimentsManager,
     IMemento,
-    IPersistentStateFactory
+    IPersistentStateFactory,
+    Resource
 } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { EXTENSION_ROOT_DIR } from '../../constants';
@@ -59,13 +60,17 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
     public get onDidChangeViewState(): Event<void> {
         return this._onDidChangeViewState.event;
     }
-    private _onDidChangeViewState = new EventEmitter<void>();
     public get visible(): boolean {
         return this.viewState.visible;
     }
     public get active(): boolean {
         return this.viewState.active;
     }
+
+    public get closed(): Event<IInteractiveWindow> {
+        return this.closedEvent.event;
+    }
+    private _onDidChangeViewState = new EventEmitter<void>();
     private closedEvent: EventEmitter<IInteractiveWindow> = new EventEmitter<IInteractiveWindow>();
     private waitingForExportCells: boolean = false;
     private trackedJupyterStart: boolean = false;
@@ -148,10 +153,6 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
         }
     }
 
-    public get closed(): Event<IInteractiveWindow> {
-        return this.closedEvent.event;
-    }
-
     public addMessage(message: string): Promise<void> {
         this.addMessageImpl(message);
         return Promise.resolve();
@@ -173,6 +174,9 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
     }
 
     public async addCode(code: string, file: string, line: number): Promise<boolean> {
+        if (this.lastFile && !this.fileSystem.arePathsSame(file, this.lastFile)) {
+            sendTelemetryEvent(Telemetry.NewFileForInteractiveWindow);
+        }
         // Save the last file we ran with.
         this.lastFile = file;
 
@@ -257,6 +261,17 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
     public scrollToCell(id: string): void {
         this.postMessage(InteractiveWindowMessages.ScrollToCell, { id }).ignoreErrors();
     }
+
+    protected async getOwningResource(): Promise<Resource> {
+        if (this.lastFile) {
+            return Uri.file(this.lastFile);
+        }
+        const root = this.workspaceService.rootPath;
+        if (root) {
+            return Uri.file(root);
+        }
+        return undefined;
+    }
     protected async onViewStateChanged(args: WebViewViewChangeEventArgs) {
         super.onViewStateChanged(args);
         this._onDidChangeViewState.fire();
@@ -287,8 +302,8 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
         }
     }
 
-    protected getNotebookOptions(): Promise<INotebookServerOptions> {
-        return this.interactiveWindowProvider.getNotebookOptions();
+    protected async getNotebookOptions(): Promise<INotebookServerOptions> {
+        return this.interactiveWindowProvider.getNotebookOptions(await this.getOwningResource());
     }
 
     protected async getNotebookIdentity(): Promise<Uri> {

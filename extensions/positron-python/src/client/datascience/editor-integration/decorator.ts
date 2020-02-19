@@ -24,7 +24,7 @@ export class Decorator implements IExtensionSingleActivationService, IDisposable
     ) {
         this.computeDecorations();
         disposables.push(this);
-        disposables.push(this.configuration.getSettings().onDidChange(this.settingsChanged, this));
+        disposables.push(this.configuration.getSettings(undefined).onDidChange(this.settingsChanged, this));
         disposables.push(this.documentManager.onDidChangeActiveTextEditor(this.changedEditor, this));
         disposables.push(this.documentManager.onDidChangeTextEditorSelection(this.changedSelection, this));
         disposables.push(this.documentManager.onDidChangeTextDocument(this.changedDocument, this));
@@ -104,13 +104,10 @@ export class Decorator implements IExtensionSingleActivationService, IDisposable
             this.cellSeparatorType &&
             this.activeCellBottom
         ) {
-            const settings = this.configuration.getSettings().datascience;
+            const settings = this.configuration.getSettings(editor.document.uri).datascience;
             if (settings.decorateCells && settings.enabled) {
                 // Find all of the cells
-                const cells = generateCellRangesFromDocument(
-                    editor.document,
-                    this.configuration.getSettings().datascience
-                );
+                const cells = generateCellRangesFromDocument(editor.document, settings);
 
                 // Find the range for our active cell.
                 const currentRange = cells.map(c => c.range).filter(r => r.contains(editor.selection.anchor));

@@ -12,7 +12,8 @@ import {
     IAsyncDisposable,
     IAsyncDisposableRegistry,
     IConfigurationService,
-    IDisposableRegistry
+    IDisposableRegistry,
+    Resource
 } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { IServiceContainer } from '../../ioc/types';
@@ -136,8 +137,8 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         }
     }
 
-    public async getNotebookOptions(): Promise<INotebookServerOptions> {
-        const settings = this.configuration.getSettings();
+    public async getNotebookOptions(resource: Resource): Promise<INotebookServerOptions> {
+        const settings = this.configuration.getSettings(resource);
         let serverURI: string | undefined = settings.datascience.jupyterServerURI;
         const useDefaultConfig: boolean | undefined = settings.datascience.useDefaultConfigForJupyter;
 
@@ -243,7 +244,7 @@ export class NativeEditorProvider implements INotebookEditorProvider, IAsyncDisp
         closeDocumentBeforeOpeningNotebook: boolean
     ) => {
         // See if this is an ipynb file
-        if (this.isNotebook(document) && this.configuration.getSettings().datascience.useNotebookEditor) {
+        if (this.isNotebook(document) && this.configuration.getSettings(document.uri).datascience.useNotebookEditor) {
             const closeActiveEditorCommand = 'workbench.action.closeActiveEditor';
             try {
                 const contents = document.getText();

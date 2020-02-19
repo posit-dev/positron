@@ -10,7 +10,7 @@ import { ServerStatus } from '../../../../datascience-ui/interactive-common/main
 import { ILiveShareApi } from '../../../common/application/types';
 import { CancellationError } from '../../../common/cancellation';
 import { traceInfo } from '../../../common/logger';
-import { IConfigurationService, IDisposableRegistry } from '../../../common/types';
+import { IConfigurationService, IDisposableRegistry, Resource } from '../../../common/types';
 import { createDeferred } from '../../../common/utils/async';
 import * as localize from '../../../common/utils/localize';
 import { noop } from '../../../common/utils/misc';
@@ -43,14 +43,19 @@ export class GuestJupyterNotebook
         liveShare: ILiveShareApi,
         private disposableRegistry: IDisposableRegistry,
         private configService: IConfigurationService,
-        private _resource: Uri,
+        private _resource: Resource,
+        private _identity: Uri,
         private _owner: INotebookServer,
         private startTime: number
     ) {
         super(liveShare);
     }
 
-    public get resource(): Uri {
+    public get identity(): Uri {
+        return this._identity;
+    }
+
+    public get resource(): Resource {
         return this._resource;
     }
 
@@ -161,7 +166,7 @@ export class GuestJupyterNotebook
     }
 
     public async interruptKernel(_timeoutMs: number): Promise<InterruptResult> {
-        const settings = this.configService.getSettings();
+        const settings = this.configService.getSettings(this.resource);
         const interruptTimeout = settings.datascience.jupyterInterruptTimeout;
 
         const response = await this.sendRequest(LiveShareCommands.interrupt, [interruptTimeout]);
@@ -171,7 +176,7 @@ export class GuestJupyterNotebook
     public async waitForServiceName(): Promise<string> {
         // Use our base name plus our id. This means one unique server per notebook
         // Live share will not accept a '.' in the name so remove any
-        const uriString = this.resource.toString();
+        const uriString = this.identity.toString();
         return Promise.resolve(`${LiveShare.JupyterNotebookSharedService}${uriString}`);
     }
 

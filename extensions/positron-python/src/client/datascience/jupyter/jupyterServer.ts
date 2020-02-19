@@ -8,7 +8,7 @@ import { CancellationToken } from 'vscode-jsonrpc';
 import { ILiveShareApi } from '../../common/application/types';
 import '../../common/extensions';
 import { traceError, traceInfo } from '../../common/logger';
-import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../common/types';
+import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry, Resource } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
@@ -81,7 +81,8 @@ export class JupyterServerBase implements INotebookServer {
     }
 
     public createNotebook(
-        resource: Uri,
+        resource: Resource,
+        identity: Uri,
         notebookMetadata?: nbformat.INotebookMetadata,
         cancelToken?: CancellationToken
     ): Promise<INotebook> {
@@ -95,6 +96,7 @@ export class JupyterServerBase implements INotebookServer {
         // Create a notebook and return it.
         return this.createNotebookInstance(
             resource,
+            identity,
             this.sessionManager,
             savedSession,
             this.disposableRegistry,
@@ -177,27 +179,28 @@ export class JupyterServerBase implements INotebookServer {
         return new Error(localize.DataScience.sessionDisposed());
     }
 
-    public async getNotebook(resource: Uri): Promise<INotebook | undefined> {
-        return this.notebooks.get(resource.toString());
+    public async getNotebook(identity: Uri): Promise<INotebook | undefined> {
+        return this.notebooks.get(identity.toString());
     }
 
     protected getNotebooks(): INotebook[] {
         return [...this.notebooks.values()];
     }
 
-    protected setNotebook(resource: Uri, notebook: INotebook) {
+    protected setNotebook(identity: Uri, notebook: INotebook) {
         const oldDispose = notebook.dispose;
         notebook.dispose = () => {
-            this.notebooks.delete(resource.toString());
+            this.notebooks.delete(identity.toString());
             return oldDispose();
         };
 
         // Save the notebook
-        this.notebooks.set(resource.toString(), notebook);
+        this.notebooks.set(identity.toString(), notebook);
     }
 
     protected createNotebookInstance(
-        _resource: Uri,
+        _resource: Resource,
+        _identity: Uri,
         _sessionManager: IJupyterSessionManager,
         _savedSession: IJupyterSession | undefined,
         _disposableRegistry: IDisposableRegistry,
