@@ -113,7 +113,7 @@ suite('Interactive window command listener', async () => {
         // Service container needs logger, file system, and config service
         when(serviceContainer.get<IConfigurationService>(IConfigurationService)).thenReturn(instance(configService));
         when(serviceContainer.get<IFileSystem>(IFileSystem)).thenReturn(instance(fileSystem));
-        when(configService.getSettings()).thenReturn(pythonSettings);
+        when(configService.getSettings(anything())).thenReturn(pythonSettings);
 
         // Setup default settings
         pythonSettings.datascience = {
@@ -261,7 +261,9 @@ suite('Interactive window command listener', async () => {
         await documentManager.showTextDocument(doc);
         when(jupyterExecution.connectToNotebookServer(anything(), anything())).thenResolve(server.object);
         const notebook = createTypeMoq<INotebook>('jupyter notebook');
-        server.setup(s => s.createNotebook(TypeMoq.It.isAny())).returns(() => Promise.resolve(notebook.object));
+        server
+            .setup(s => s.createNotebook(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve(notebook.object));
         notebook
             .setup(n =>
                 n.execute(

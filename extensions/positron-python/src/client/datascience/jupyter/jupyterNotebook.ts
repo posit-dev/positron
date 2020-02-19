@@ -14,7 +14,7 @@ import { CancellationError, createPromiseFromCancellation } from '../../common/c
 import '../../common/extensions';
 import { traceError, traceInfo, traceWarning } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
-import { IConfigurationService, IDisposableRegistry } from '../../common/types';
+import { IConfigurationService, IDisposableRegistry, Resource } from '../../common/types';
 import { createDeferred, Deferred, waitForPromise } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
@@ -150,7 +150,8 @@ export class JupyterNotebookBase implements INotebook {
     private sessionStartTime: number;
     private pendingCellSubscriptions: CellSubscriber[] = [];
     private ranInitialSetup = false;
-    private _resource: Uri;
+    private _resource: Resource;
+    private _identity: Uri;
     private _disposed: boolean = false;
     private _workingDirectory: string | undefined;
     private _loggers: INotebookExecutionLogger[] = [];
@@ -170,7 +171,8 @@ export class JupyterNotebookBase implements INotebook {
         private owner: INotebookServer,
         private launchInfo: INotebookServerLaunchInfo,
         loggers: INotebookExecutionLogger[],
-        resource: Uri,
+        resource: Resource,
+        identity: Uri,
         private getDisposedError: () => Error,
         private workspace: IWorkspaceService,
         private applicationService: IApplicationShell,
@@ -184,6 +186,7 @@ export class JupyterNotebookBase implements INotebook {
             }
         };
         this.sessionStatusChanged = this.session.onSessionStatusChanged(statusChangeHandler);
+        this._identity = identity;
         this._resource = resource;
         this._loggers = [...loggers];
         // Save our interpreter and don't change it. Later on when kernel changes
@@ -202,7 +205,7 @@ export class JupyterNotebookBase implements INotebook {
             this.sessionStatusChanged.dispose();
         }
 
-        traceInfo(`Shutting down session ${this.resource.toString()}`);
+        traceInfo(`Shutting down session ${this.identity.toString()}`);
         if (!this._disposed) {
             this._disposed = true;
             const dispose = this.session ? this.session.dispose() : undefined;
@@ -225,8 +228,11 @@ export class JupyterNotebookBase implements INotebook {
         return ServerStatus.NotStarted;
     }
 
-    public get resource(): Uri {
+    public get resource(): Resource {
         return this._resource;
+    }
+    public get identity(): Uri {
+        return this._identity;
     }
 
     public waitForIdle(timeoutMs: number): Promise<void> {
@@ -245,7 +251,7 @@ export class JupyterNotebookBase implements INotebook {
             // When we start our notebook initial, change to our workspace or user specified root directory
             await this.updateWorkingDirectory();
 
-            const settings = this.configService.getSettings().datascience;
+            const settings = this.configService.getSettings(this.resource).datascience;
             if (settings && settings.themeMatplotlibPlots) {
                 // We're theming matplotlibs, so we have to setup our default state.
                 await this.initializeMatplotlib(cancelToken);
@@ -253,7 +259,7 @@ export class JupyterNotebookBase implements INotebook {
                 this.initializedMatplotlib = false;
                 const configInit =
                     !settings || settings.enablePlotViewer ? CodeSnippits.ConfigSvg : CodeSnippits.ConfigPng;
-                traceInfo(`Initialize config for plots for ${this.resource.toString()}`);
+                traceInfo(`Initialize config for plots for ${this.identity.toString()}`);
                 await this.executeSilently(configInit, cancelToken);
             }
 
@@ -266,7 +272,7 @@ export class JupyterNotebookBase implements INotebook {
                 traceInfo(`Run startup code for notebook: ${cleanedUp} - results: ${cells.length}`);
             }
 
-            traceInfo(`Initial setup complete for ${this.resource.toString()}`);
+            traceInfo(`Initial setup complete for ${this.identity.toString()}`);
         } catch (e) {
             traceWarning(e);
         }
@@ -527,7 +533,7 @@ export class JupyterNotebookBase implements INotebook {
             await this.initializeMatplotlib();
         }
 
-        const settings = this.configService.getSettings().datascience;
+        const settings = this.configService.getSettings(this.resource).datascience;
         if (settings.themeMatplotlibPlots && !settings.ignoreVscodeTheme) {
             // Reset the matplotlib style based on if dark or not.
             await this.executeSilently(
@@ -618,14 +624,14 @@ export class JupyterNotebookBase implements INotebook {
     }
 
     private async initializeMatplotlib(cancelToken?: CancellationToken): Promise<void> {
-        const settings = this.configService.getSettings().datascience;
+        const settings = this.configService.getSettings(this.resource).datascience;
         if (settings && settings.themeMatplotlibPlots) {
             const matplobInit =
                 !settings || settings.enablePlotViewer
                     ? CodeSnippits.MatplotLibInitSvg
                     : CodeSnippits.MatplotLibInitPng;
 
-            traceInfo(`Initialize matplotlib for ${this.resource.toString()}`);
+            traceInfo(`Initialize matplotlib for ${this.identity.toString()}`);
             // Force matplotlib to inline and save the default style. We'll use this later if we
             // get a request to update style
             await this.executeSilently(matplobInit, cancelToken);
@@ -704,7 +710,14 @@ export class JupyterNotebookBase implements INotebook {
         // If we have a session, execute the code now.
         if (this.session) {
             // Generate our cells ahead of time
-            const cells = generateCells(this.configService.getSettings().datascience, code, file, line, true, id);
+            const cells = generateCells(
+                this.configService.getSettings(this.resource).datascience,
+                code,
+                file,
+                line,
+                true,
+                id
+            );
 
             // Might have more than one (markdown might be split)
             if (cells.length > 1) {
@@ -738,7 +751,7 @@ export class JupyterNotebookBase implements INotebook {
     ): Kernel.IShellFuture<KernelMessage.IExecuteRequestMsg, KernelMessage.IExecuteReplyMsg> | undefined => {
         //traceInfo(`Executing code in jupyter : ${code}`);
         try {
-            const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
+            const cellMatcher = new CellMatcher(this.configService.getSettings(this.resource).datascience);
             return this.session
                 ? this.session.requestExecute(
                       {
@@ -1250,7 +1263,7 @@ export class JupyterNotebookBase implements INotebook {
         cell.state = CellState.error;
 
         // In the error scenario, we want to stop all other pending cells.
-        if (this.configService.getSettings().datascience.stopOnError) {
+        if (this.configService.getSettings(this.resource).datascience.stopOnError) {
             this.pendingCellSubscriptions.forEach(c => {
                 if (c.cell.id !== cell.id) {
                     c.cancel();
@@ -1262,7 +1275,7 @@ export class JupyterNotebookBase implements INotebook {
     // We have a set limit for the number of output text characters that we display by default
     // trim down strings to that limit, assuming at this point we have compressed down to a single string
     private trimOutput(outputString: string): string {
-        const outputLimit = this.configService.getSettings().datascience.textOutputLimit;
+        const outputLimit = this.configService.getSettings(this.resource).datascience.textOutputLimit;
 
         if (!outputLimit || outputLimit === 0 || outputString.length <= outputLimit) {
             return outputString;

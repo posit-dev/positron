@@ -6,7 +6,7 @@ import { Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 import * as vsls from 'vsls/vscode';
 import { ILiveShareApi, IWorkspaceService } from '../../../common/application/types';
-import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../../common/types';
+import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry, Resource } from '../../../common/types';
 import { createDeferred, Deferred } from '../../../common/utils/async';
 import * as localize from '../../../common/utils/localize';
 import { LiveShare, LiveShareCommands } from '../../constants';
@@ -54,12 +54,13 @@ export class GuestJupyterServer
         return Promise.resolve();
     }
 
-    public async createNotebook(resource: Uri): Promise<INotebook> {
+    public async createNotebook(resource: Resource, identity: Uri): Promise<INotebook> {
         // Tell the host side to generate a notebook for this uri
         const service = await this.waitForService();
         if (service) {
-            const uriString = resource.toString();
-            await service.request(LiveShareCommands.createNotebook, [uriString]);
+            const resourceString = resource ? resource.toString() : undefined;
+            const identityString = identity.toString();
+            await service.request(LiveShareCommands.createNotebook, [resourceString, identityString]);
         }
 
         // Return a new notebook to listen to
@@ -68,13 +69,14 @@ export class GuestJupyterServer
             this.disposableRegistry,
             this.configService,
             resource,
+            identity,
             this,
             this.dataScience.activationStartTime
         );
-        this.notebooks.set(resource.toString(), result);
+        this.notebooks.set(identity.toString(), result);
         const oldDispose = result.dispose;
         result.dispose = () => {
-            this.notebooks.delete(resource.toString());
+            this.notebooks.delete(identity.toString());
             return oldDispose();
         };
 

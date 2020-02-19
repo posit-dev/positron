@@ -1840,4 +1840,10 @@ export interface IEventNamePropertyMapping {
      * @memberof IEventNamePropertyMapping
      */
     [Telemetry.JupyterCommandLineNonDefault]: undefined | never;
+    /**
+     * Telemetry event sent when a user runs the interactive window with a new file
+     * @type {(undefined | never)}
+     * @memberof IEventNamePropertyMapping
+     */
+    [Telemetry.NewFileForInteractiveWindow]: undefined | never;
 }

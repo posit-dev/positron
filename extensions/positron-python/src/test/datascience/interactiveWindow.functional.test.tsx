@@ -80,9 +80,11 @@ suite('DataScience Interactive Window output tests', () => {
     });
 
     async function forceSettingsChange(newSettings: IDataScienceSettings) {
-        await getOrCreateInteractiveWindow(ioc);
+        const window = await getOrCreateInteractiveWindow(ioc);
+        await window.show();
+        const update = waitForMessage(ioc, InteractiveWindowMessages.SettingsUpdated);
         ioc.forceSettingsChanged(ioc.getSettings().pythonPath, newSettings);
-        return waitForMessage(ioc, InteractiveWindowMessages.SettingsUpdated);
+        return update;
     }
 
     // Uncomment this to debug hangs on exit
@@ -567,6 +569,50 @@ Type:      builtin_function_or_method`,
     );
 
     runMountedTest(
+        'Multiple Interpreters',
+        async _wrapper => {
+            // if (!ioc.mockJupyter) {
+            //     const interactiveWindowProvider = ioc.get<IInteractiveWindowProvider>(IInteractiveWindowProvider);
+            //     const interpreterService = ioc.get<IInterpreterService>(IInterpreterService);
+            //     const window = (await interactiveWindowProvider.getOrCreateActive()) as InteractiveWindow;
+            //     await addCode(ioc, wrapper, 'a=1\na');
+            //     const activeInterpreter = await interpreterService.getActiveInterpreter(
+            //         await window.getNotebookResource()
+            //     );
+            //     verifyHtmlOnCell(wrapper, 'InteractiveCell', '<span>1</span>', CellPosition.Last);
+            //     assert.equal(
+            //         window.notebook!.getMatchingInterpreter()?.path,
+            //         activeInterpreter?.path,
+            //         'Active intrepreter not used to launch notebook'
+            //     );
+            //     await closeInteractiveWindow(window, wrapper);
+
+            //     // Add another python path (hopefully there's more than one on the machine?)
+            //     const secondUri = Uri.file('bar.py');
+            //     await ioc.addNewSetting(secondUri, undefined);
+            //     const newWrapper = mountWebView(ioc, 'interactive');
+            //     assert.ok(newWrapper, 'Could not mount a second time');
+            //     const newWindow = (await interactiveWindowProvider.getOrCreateActive()) as InteractiveWindow;
+            //     await addCode(ioc, wrapper, 'a=1\na', false, secondUri);
+            //     verifyHtmlOnCell(wrapper, 'InteractiveCell', '<span>1</span>', CellPosition.Last);
+            //     assert.notEqual(
+            //         newWindow.notebook!.getMatchingInterpreter()?.path,
+            //         activeInterpreter?.path,
+            //         'Active intrepreter used to launch second notebook when it should not have'
+            //     );
+            // } else {
+            // tslint:disable-next-line: no-console
+            console.log(
+                'Multiple interpreters test skipped for now. Reenable after fixing https://github.com/microsoft/vscode-python/issues/10134'
+            );
+            //            }
+        },
+        () => {
+            return ioc;
+        }
+    );
+
+    runMountedTest(
         'Dispose test',
         async () => {
             // tslint:disable-next-line:no-any
@@ -922,7 +968,8 @@ Type:      builtin_function_or_method`,
             const docManager = ioc.get<IDocumentManager>(IDocumentManager);
             docManager.showTextDocument(docManager.textDocuments[0]);
             const window = (await getOrCreateInteractiveWindow(ioc)) as InteractiveWindow;
-            window.copyCode({ source: 'print("baz")' });
+            await window.show();
+            await window.copyCode({ source: 'print("baz")' });
             assert.equal(
                 docManager.textDocuments[0].getText(),
                 `${defaultCellMarker}${os.EOL}print("baz")${os.EOL}${defaultCellMarker}${os.EOL}print("bar")`,
@@ -930,7 +977,7 @@ Type:      builtin_function_or_method`,
             );
             const activeEditor = docManager.activeTextEditor as MockEditor;
             activeEditor.selection = new Selection(1, 2, 1, 2);
-            window.copyCode({ source: 'print("baz")' });
+            await window.copyCode({ source: 'print("baz")' });
             assert.equal(
                 docManager.textDocuments[0].getText(),
                 `${defaultCellMarker}${os.EOL}${defaultCellMarker}${os.EOL}print("baz")${os.EOL}${defaultCellMarker}${os.EOL}print("baz")${os.EOL}${defaultCellMarker}${os.EOL}print("bar")`,
