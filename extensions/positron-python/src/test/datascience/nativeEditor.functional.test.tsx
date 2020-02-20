@@ -454,13 +454,14 @@ for _ in range(50):
         runMountedTest(
             'RunAllCells',
             async wrapper => {
-                addMockData(ioc, 'b=2\nb', 2);
-                addMockData(ioc, 'c=3\nc', 3);
+                addMockData(ioc, 'print(1)\na=1', 1);
+                addMockData(ioc, 'a=a+1\nprint(a)', 2);
+                addMockData(ioc, 'print(a+1)', 3);
 
                 const baseFile = [
-                    { id: 'NotebookImport#0', data: { source: 'a=1\na' } },
-                    { id: 'NotebookImport#1', data: { source: 'b=2\nb' } },
-                    { id: 'NotebookImport#2', data: { source: 'c=3\nc' } }
+                    { id: 'NotebookImport#0', data: { source: 'print(1)\na=1' } },
+                    { id: 'NotebookImport#1', data: { source: 'a=a+1\nprint(a)' } },
+                    { id: 'NotebookImport#2', data: { source: 'print(a+1)' } }
                 ];
                 const runAllCells = baseFile.map(cell => {
                     return createFileCell(cell, cell.data);

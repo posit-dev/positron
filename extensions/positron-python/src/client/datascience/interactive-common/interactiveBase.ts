@@ -55,7 +55,7 @@ import {
     IGotoCode,
     IInteractiveWindowMapping,
     InteractiveWindowMessages,
-    IReExecuteCell,
+    IReExecuteCells,
     IRemoteAddCode,
     IRemoteReexecuteCode,
     IShowDataViewer,
@@ -230,8 +230,8 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 this.handleMessage(message, payload, this.submitNewCell);
                 break;
 
-            case InteractiveWindowMessages.ReExecuteCell:
-                this.handleMessage(message, payload, this.reexecuteCell);
+            case InteractiveWindowMessages.ReExecuteCells:
+                this.handleMessage(message, payload, this.reexecuteCells);
                 break;
 
             case InteractiveWindowMessages.DeleteAllCells:
@@ -462,8 +462,8 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     // Submits a new cell to the window
     protected abstract submitNewCell(info: ISubmitNewCell): void;
 
-    // Re-executes a cell already in the window
-    protected reexecuteCell(_info: IReExecuteCell): void {
+    // Re-executes cells already in the window
+    protected reexecuteCells(_info: IReExecuteCells): void {
         // Default is not to do anything. This only works in the native editor
     }
 
@@ -499,7 +499,8 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         line: number,
         id?: string,
         data?: nbformat.ICodeCell | nbformat.IRawCell | nbformat.IMarkdownCell,
-        debug?: boolean
+        debug?: boolean,
+        cancelToken?: CancellationToken
     ): Promise<boolean> {
         traceInfo(`Submitting code for ${this.id}`);
         const stopWatch =
@@ -567,7 +568,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                         file,
                         line,
                         uuid(),
-                        undefined,
+                        cancelToken,
                         true
                     );
                 }
@@ -1437,7 +1438,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 this.postMessage(InteractiveWindowMessages.LoadTmLanguageResponse, s).ignoreErrors();
             })
             .catch(_e => {
-                this.postMessage(InteractiveWindowMessages.LoadTmLanguageResponse, undefined).ignoreErrors();
+                this.postMessage(InteractiveWindowMessages.LoadTmLanguageResponse).ignoreErrors();
             });
     }
 
@@ -1458,13 +1459,13 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                     this.postMessage(InteractiveWindowMessages.LoadOnigasmAssemblyResponse, contents).ignoreErrors();
                 } else {
                     traceWarning('Onigasm file not found. Colorization will not be available.');
-                    this.postMessage(InteractiveWindowMessages.LoadOnigasmAssemblyResponse, undefined).ignoreErrors();
+                    this.postMessage(InteractiveWindowMessages.LoadOnigasmAssemblyResponse).ignoreErrors();
                 }
             }
         } else {
             // This happens during testing. Onigasm not needed as we're not testing colorization.
             traceWarning('File system not found. Colorization will not be available.');
-            this.postMessage(InteractiveWindowMessages.LoadOnigasmAssemblyResponse, undefined).ignoreErrors();
+            this.postMessage(InteractiveWindowMessages.LoadOnigasmAssemblyResponse).ignoreErrors();
         }
     }
 
