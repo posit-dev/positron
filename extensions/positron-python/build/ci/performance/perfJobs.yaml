@@ -3,29 +3,17 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      ${{ each job in parameters.jobs }}:
-        ${{ each py in parameters.pythonVersions }}:
-          ${{ if not(contains('mac')) }}:
-            ${{ format('Mac{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "macos-latest"
-
-          ${{ if not(contains('win')) }}:
-            ${{ format('Win{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "vs2017-win2016"
-
-          ${{ if not(contains('linux')) }}:
-            ${{ format('Linux{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "ubuntu-latest"
+      Python37:
+        PythonVersion: '3.7'
+  pool: DSPerf
   steps:
-    - bash: |
+    - task: Gulp@0
+      displayName: 'gulp prePublishNonBundle'
+      inputs:
+          targets: 'prePublishNonBundle'
+    - powershell: |
         mocha --require source-map-support/register --opts ./build/.mocha.performance.opts
-        node .\savePerformanceResults.js
+        node ./build/ci/performance/savePerformanceResults.js
 
 - job: Testing_Round_2
   dependsOn:
@@ -33,29 +21,13 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      ${{ each job in parameters.jobs }}:
-        ${{ each py in parameters.pythonVersions }}:
-          ${{ if not(contains('mac')) }}:
-            ${{ format('Mac{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "macos-latest"
-
-          ${{ if not(contains('win')) }}:
-            ${{ format('Win{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "vs2017-win2016"
-
-          ${{ if not(contains('linux')) }}:
-            ${{ format('Linux{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "ubuntu-latest"
+      Python37:
+        PythonVersion: '3.7'
+  pool: DSPerf
   steps:
-    - bash: |
+    - powershell: |
         mocha --require source-map-support/register --opts ./build/.mocha.performance.opts
-        node .\savePerformanceResults.js
+        node ./build/ci/performance/savePerformanceResults.js
 
 - job: Testing_Round_3
   dependsOn:
@@ -63,29 +35,13 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      ${{ each job in parameters.jobs }}:
-        ${{ each py in parameters.pythonVersions }}:
-          ${{ if not(contains('mac')) }}:
-            ${{ format('Mac{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "macos-latest"
-
-          ${{ if not(contains('win')) }}:
-            ${{ format('Win{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "vs2017-win2016"
-
-          ${{ if not(contains('linux')) }}:
-            ${{ format('Linux{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "ubuntu-latest"
+      Python37:
+        PythonVersion: '3.7'
+  pool: DSPerf
   steps:
-    - bash: |
+    - powershell: |
         mocha --require source-map-support/register --opts ./build/.mocha.performance.opts
-        node .\savePerformanceResults.js
+        node ./build/ci/performance/savePerformanceResults.js
 
 - job: Testing_Round_4
   dependsOn:
@@ -93,29 +49,13 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      ${{ each job in parameters.jobs }}:
-        ${{ each py in parameters.pythonVersions }}:
-          ${{ if not(contains('mac')) }}:
-            ${{ format('Mac{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "macos-latest"
-
-          ${{ if not(contains('win')) }}:
-            ${{ format('Win{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "vs2017-win2016"
-
-          ${{ if not(contains('linux')) }}:
-            ${{ format('Linux{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "ubuntu-latest"
+      Python37:
+        PythonVersion: '3.7'
+  pool: DSPerf
   steps:
-    - bash: |
+    - powershell: |
         mocha --require source-map-support/register --opts ./build/.mocha.performance.opts
-        node .\savePerformanceResults.js
+        node ./build/ci/performance/savePerformanceResults.js
 
 - job: Testing_Round_5
   dependsOn:
@@ -123,26 +63,10 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      ${{ each job in parameters.jobs }}:
-        ${{ each py in parameters.pythonVersions }}:
-          ${{ if not(contains('mac')) }}:
-            ${{ format('Mac{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "macos-latest"
-
-          ${{ if not(contains('win')) }}:
-            ${{ format('Win{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "vs2017-win2016"
-
-          ${{ if not(contains('linux')) }}:
-            ${{ format('Linux{2}{0}{1}', py.displayName, job.test) }}:
-              PythonVersion: ${{ py.version }}
-              VSCodeChannel: "stable"
-              VMImageName: "ubuntu-latest"
+      Python37:
+        PythonVersion: '3.7'
+  pool: DSPerf
   steps:
-    - bash: |
+    - powershell: |
         mocha --require source-map-support/register --opts ./build/.mocha.performance.opts
-        node .\savePerformanceResults.js
+        node ./build/ci/performance/savePerformanceResults.js
