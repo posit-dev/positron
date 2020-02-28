@@ -6,7 +6,7 @@ import { IDataScienceExtraSettings } from '../../../../client/datascience/types'
 import { getSelectedAndFocusedInfo, IMainState } from '../../../interactive-common/mainState';
 import { postActionToExtension } from '../../../interactive-common/redux/helpers';
 import { Helpers } from '../../../interactive-common/redux/reducers/helpers';
-import { ICellAction, ICellAndCursorAction, ICodeAction } from '../../../interactive-common/redux/reducers/types';
+import { ICellAction, ICellAndCursorAction } from '../../../interactive-common/redux/reducers/types';
 import { computeEditorOptions } from '../../../react-common/settingsReactSide';
 import { NativeEditorReducerArg } from '../mapping';
 
@@ -27,14 +27,12 @@ export namespace Effects {
                 }
 
                 if (typeof removeFocusIndex === 'number') {
-                    const oldFocusCell = prevState.cellVMs[removeFocusIndex];
-                    const oldCode = oldFocusCell.uncommittedText || oldFocusCell.inputBlockText;
                     prevState = unfocusCell({
                         ...arg,
                         prevState,
                         payload: {
                             ...arg.payload,
-                            data: { cellId: prevState.cellVMs[removeFocusIndex].cell.id, code: oldCode }
+                            data: { cellId: prevState.cellVMs[removeFocusIndex].cell.id }
                         }
                     });
                     prevState = deselectCell({
@@ -67,7 +65,7 @@ export namespace Effects {
         return arg.prevState;
     }
 
-    export function unfocusCell(arg: NativeEditorReducerArg<ICellAction | ICodeAction>): IMainState {
+    export function unfocusCell(arg: NativeEditorReducerArg<ICellAction>): IMainState {
         // Unfocus the cell
         const index = arg.prevState.cellVMs.findIndex(c => c.cell.id === arg.payload.data.cellId);
         const selectionInfo = getSelectedAndFocusedInfo(arg.prevState);
@@ -76,15 +74,7 @@ export namespace Effects {
             const current = arg.prevState.cellVMs[index];
             const newCell = {
                 ...current,
-                inputBlockText: 'code' in arg.payload.data ? arg.payload.data.code : current.inputBlockText,
-                focused: false,
-                cell: {
-                    ...current.cell,
-                    data: {
-                        ...current.cell.data,
-                        source: 'code' in arg.payload.data ? arg.payload.data.code : current.cell.data.source
-                    }
-                }
+                focused: false
             };
 
             // tslint:disable-next-line: no-any
@@ -99,15 +89,7 @@ export namespace Effects {
             const newVMs = [...arg.prevState.cellVMs];
             const current = arg.prevState.cellVMs[index];
             const newCell = {
-                ...current,
-                inputBlockText: 'code' in arg.payload.data ? arg.payload.data.code : current.inputBlockText,
-                cell: {
-                    ...current.cell,
-                    data: {
-                        ...current.cell.data,
-                        source: 'code' in arg.payload.data ? arg.payload.data.code : current.cell.data.source
-                    }
-                }
+                ...current
             };
 
             // tslint:disable-next-line: no-any
@@ -168,14 +150,12 @@ export namespace Effects {
             }
 
             if (removeFocusIndex >= 0) {
-                const oldFocusCell = prevState.cellVMs[removeFocusIndex];
-                const oldCode = oldFocusCell.uncommittedText || oldFocusCell.inputBlockText;
                 prevState = unfocusCell({
                     ...arg,
                     prevState,
                     payload: {
                         ...arg.payload,
-                        data: { cellId: prevState.cellVMs[removeFocusIndex].cell.id, code: oldCode }
+                        data: { cellId: prevState.cellVMs[removeFocusIndex].cell.id }
                     }
                 });
                 prevState = deselectCell({

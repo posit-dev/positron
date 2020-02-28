@@ -41,7 +41,6 @@ enum WidgetCSSSelector {
 export interface IMonacoEditorProps {
     language: string;
     value: string;
-    previousValue: string | undefined;
     theme?: string;
     outermostParentClass: string;
     options: monacoEditor.editor.IEditorConstructionOptions;
@@ -85,6 +84,7 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
     private lineTops: { top: number; index: number }[] = [];
     private debouncedComputeLineTops = debounce(this.computeLineTops.bind(this), 100);
     private skipNotifications = false;
+    private previousModelValue: string = '';
 
     /**
      * Reference to parameter widget (used by monaco to display parameter docs).
@@ -455,6 +455,7 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
             this.closeSuggestWidget();
 
             // Change our text. This shouldn't fire an update to the model
+            this.previousModelValue = text;
             this.state.model.setValue(text);
 
             this.skipNotifications = false;
@@ -473,13 +474,9 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
     private onModelChanged = (e: monacoEditor.editor.IModelContentChangedEvent) => {
         // If not skipping notifications, send an event
         if (!this.skipNotifications && this.state.model && this.state.editor) {
-            this.props.modelChanged(
-                generateChangeEvent(
-                    e,
-                    this.state.model,
-                    this.props.previousValue ? this.props.previousValue : this.props.value
-                )
-            );
+            this.props.modelChanged(generateChangeEvent(e, this.state.model, this.previousModelValue));
+            // Any changes from now onw will be considered previous.
+            this.previousModelValue = this.getContents();
         }
     };
 

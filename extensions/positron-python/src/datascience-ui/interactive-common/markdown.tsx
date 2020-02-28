@@ -11,7 +11,6 @@ import { CursorPos, IFont } from './mainState';
 
 export interface IMarkdownProps {
     markdown: string;
-    previousMarkdown: string | undefined;
     version: number;
     codeTheme: string;
     testMode: boolean;
@@ -70,7 +69,6 @@ export class Markdown extends React.Component<IMarkdownProps> {
                     font={this.props.font}
                     disableUndoStack={this.props.disableUndoStack}
                     version={this.props.version}
-                    previousContent={this.props.previousMarkdown}
                 />
             </div>
         );

@@ -14,7 +14,6 @@ import { CursorPos, IFont } from './mainState';
 // tslint:disable-next-line: import-name
 export interface IEditorProps {
     content: string;
-    previousContent: string | undefined;
     version: number;
     codeTheme: string;
     readOnly: boolean;
@@ -114,7 +113,6 @@ export class Editor extends React.Component<IEditorProps> {
                 measureWidthClassName={this.props.editorMeasureClassName}
                 testMode={this.props.testMode}
                 value={this.props.content}
-                previousValue={this.props.previousContent}
                 outermostParentClass={this.props.outermostParentClass}
                 theme={this.props.monacoTheme ? this.props.monacoTheme : 'vs'}
                 language={this.props.language}

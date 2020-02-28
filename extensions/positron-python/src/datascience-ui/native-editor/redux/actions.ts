@@ -53,8 +53,8 @@ export const actionCreators = {
             cellId,
             newCellId: uuid()
         }),
-    executeCell: (cellId: string, code: string, moveOp: 'add' | 'select' | 'none') =>
-        createIncomingActionWithPayload(CommonActionType.EXECUTE_CELL_AND_ADVANCE, { cellId, code, moveOp }),
+    executeCell: (cellId: string, moveOp: 'add' | 'select' | 'none') =>
+        createIncomingActionWithPayload(CommonActionType.EXECUTE_CELL_AND_ADVANCE, { cellId, moveOp }),
     focusCell: (cellId: string, cursorPos: CursorPos = CursorPos.Current): CommonAction<ICellAndCursorAction> =>
         createIncomingActionWithPayload(CommonActionType.FOCUS_CELL, { cellId, cursorPos }),
     unfocusCell: (cellId: string, code: string) =>
@@ -64,8 +64,8 @@ export const actionCreators = {
     executeAllCells: (): CommonAction => createIncomingAction(CommonActionType.EXECUTE_ALL_CELLS),
     executeAbove: (cellId: string): CommonAction<ICellAction> =>
         createIncomingActionWithPayload(CommonActionType.EXECUTE_ABOVE, { cellId }),
-    executeCellAndBelow: (cellId: string, code: string): CommonAction<ICodeAction> =>
-        createIncomingActionWithPayload(CommonActionType.EXECUTE_CELL_AND_BELOW, { cellId, code }),
+    executeCellAndBelow: (cellId: string): CommonAction<ICellAction> =>
+        createIncomingActionWithPayload(CommonActionType.EXECUTE_CELL_AND_BELOW, { cellId }),
     toggleVariableExplorer: (): CommonAction => createIncomingAction(CommonActionType.TOGGLE_VARIABLE_EXPLORER),
     restartKernel: (): CommonAction => createIncomingAction(CommonActionType.RESTART_KERNEL),
     interruptKernel: (): CommonAction => createIncomingAction(CommonActionType.INTERRUPT_KERNEL),
@@ -80,8 +80,7 @@ export const actionCreators = {
         createIncomingActionWithPayload(CommonActionType.MOVE_CELL_UP, { cellId }),
     moveCellDown: (cellId: string): CommonAction<ICellAction> =>
         createIncomingActionWithPayload(CommonActionType.MOVE_CELL_DOWN, { cellId }),
-    changeCellType: (cellId: string, currentCode: string) =>
-        createIncomingActionWithPayload(CommonActionType.CHANGE_CELL_TYPE, { cellId, currentCode }),
+    changeCellType: (cellId: string) => createIncomingActionWithPayload(CommonActionType.CHANGE_CELL_TYPE, { cellId }),
     toggleLineNumbers: (cellId: string): CommonAction<ICellAction> =>
         createIncomingActionWithPayload(CommonActionType.TOGGLE_LINE_NUMBERS, { cellId }),
     toggleOutput: (cellId: string): CommonAction<ICellAction> =>

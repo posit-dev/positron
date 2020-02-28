@@ -13,7 +13,6 @@ import { CursorPos, IFont } from './mainState';
 
 export interface ICodeProps {
     code: string;
-    previousCode: string | undefined;
     version: number;
     codeTheme: string;
     testMode: boolean;
@@ -90,7 +89,6 @@ export class Code extends React.Component<ICodeProps, ICodeState> {
                     font={this.props.font}
                     disableUndoStack={this.props.disableUndoStack}
                     version={this.props.version}
-                    previousContent={this.props.previousCode}
                 />
                 <div className={waterMarkClass} role="textbox" onClick={this.clickWatermark}>
                     {this.getWatermarkString()}

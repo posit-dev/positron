@@ -270,7 +270,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
                 if (!this.isFocused() && this.isSelected() && this.isMarkdownCell()) {
                     e.stopPropagation();
                     e.preventDefault();
-                    this.props.changeCellType(cellId, this.getCurrentCode());
+                    this.props.changeCellType(cellId);
                     this.props.sendCommand(NativeCommandType.ChangeToCode, 'keyboard');
                 }
                 break;
@@ -278,7 +278,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
                 if (!this.isFocused() && this.isSelected() && this.isCodeCell()) {
                     e.stopPropagation();
                     e.preventDefault();
-                    this.props.changeCellType(cellId, this.getCurrentCode());
+                    this.props.changeCellType(cellId);
                     this.props.sendCommand(NativeCommandType.ChangeToMarkdown, 'keyboard');
                 }
                 break;
@@ -397,7 +397,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
         e.preventDefault();
 
         // Submit and move to the next.
-        this.runAndMove(e.editorInfo ? e.editorInfo.contents : undefined);
+        this.runAndMove();
 
         this.props.sendCommand(NativeCommandType.RunAndMove, 'keyboard');
     };
@@ -408,19 +408,19 @@ export class NativeCell extends React.Component<INativeCellProps> {
         e.preventDefault();
 
         // Submit this cell
-        this.runAndAdd(e.editorInfo ? e.editorInfo.contents : undefined);
+        this.runAndAdd();
 
         this.props.sendCommand(NativeCommandType.RunAndAdd, 'keyboard');
     };
 
-    private runAndMove(possibleContents?: string) {
+    private runAndMove() {
         // Submit this cell
-        this.submitCell(possibleContents, this.props.lastCell ? 'add' : 'select');
+        this.submitCell(this.props.lastCell ? 'add' : 'select');
     }
 
-    private runAndAdd(possibleContents?: string) {
+    private runAndAdd() {
         // Submit this cell
-        this.submitCell(possibleContents, 'add');
+        this.submitCell('add');
     }
 
     private ctrlEnterCell = (e: IKeyboardEvent) => {
@@ -429,25 +429,12 @@ export class NativeCell extends React.Component<INativeCellProps> {
         e.preventDefault();
 
         // Submit this cell
-        this.submitCell(e.editorInfo ? e.editorInfo.contents : undefined, 'none');
+        this.submitCell('none');
         this.props.sendCommand(NativeCommandType.Run, 'keyboard');
     };
 
-    private submitCell = (possibleContents: string | undefined, moveOp: 'add' | 'select' | 'none') => {
-        let content: string | undefined;
-
-        // If inside editor, submit this code
-        if (possibleContents !== undefined) {
-            content = possibleContents;
-        } else {
-            // Outside editor, just use the cell
-            content = concatMultilineStringInput(this.props.cellVM.cell.data.source);
-        }
-
-        // Send to jupyter
-        if (content) {
-            this.props.executeCell(this.cellId, content, moveOp);
-        }
+    private submitCell = (moveOp: 'add' | 'select' | 'none') => {
+        this.props.executeCell(this.cellId, moveOp);
     };
 
     private addNewCell = () => {
@@ -531,7 +518,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
     private renderMiddleToolbar = () => {
         const cellId = this.props.cellVM.cell.id;
         const runCell = () => {
-            this.runAndMove(this.getCurrentCode());
+            this.runAndMove();
             this.props.sendCommand(NativeCommandType.Run, 'mouse');
         };
         const gatherCell = () => {
@@ -560,7 +547,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
             // can give focus to the cell input.
             event.stopPropagation();
             event.preventDefault();
-            this.props.changeCellType(cellId, this.getCurrentCode());
+            this.props.changeCellType(cellId);
             this.props.sendCommand(otherCellTypeCommand, 'mouse');
         };
         const toolbarClassName = this.props.cellVM.cell.data.cell_type === 'code' ? '' : 'markdown-toolbar';

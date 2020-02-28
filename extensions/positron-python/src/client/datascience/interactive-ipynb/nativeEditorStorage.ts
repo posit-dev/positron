@@ -193,6 +193,9 @@ export class NativeEditorStorage implements INotebookModel, INotebookStorage {
             case 'insert':
                 changed = this.insertCell(change.cell, change.index);
                 break;
+            case 'changeCellType':
+                changed = this.changeCellType(change.cell);
+                break;
             case 'modify':
                 changed = this.modifyCells(change.newCells);
                 break;
@@ -235,6 +238,10 @@ export class NativeEditorStorage implements INotebookModel, INotebookStorage {
                 break;
             case 'edit':
                 this.editCell(change.reverse, change.id);
+                changed = true;
+                break;
+            case 'changeCellType':
+                this.changeCellType(change.cell);
                 changed = true;
                 break;
             case 'insert':
@@ -283,7 +290,10 @@ export class NativeEditorStorage implements INotebookModel, INotebookStorage {
             const after = contents.substr(change.rangeOffset + change.rangeLength);
             const newContents = `${before}${normalized}${after}`;
             if (contents !== newContents) {
-                const newCell = { ...this.cells[index], data: { ...this.cells[index].data, source: newContents } };
+                const newCell = {
+                    ...this.cells[index],
+                    data: { ...this.cells[index].data, source: splitMultilineString(newContents) }
+                };
                 this._state.cells[index] = this.asCell(newCell);
                 return true;
             }
@@ -318,6 +328,13 @@ export class NativeEditorStorage implements INotebookModel, INotebookStorage {
             const index = this.cells.findIndex(v => v.id === c.id);
             this._state.cells[index] = this.asCell(c);
         });
+        return true;
+    }
+
+    private changeCellType(cell: ICell): boolean {
+        // Update the cell in our list.
+        const index = this.cells.findIndex(v => v.id === cell.id);
+        this._state.cells[index] = this.asCell(cell);
         return true;
     }
 
