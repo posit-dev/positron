@@ -39,7 +39,6 @@ export interface ICellViewModel {
     cursorPos: CursorPos | IEditorPosition;
     hasBeenRun: boolean;
     runDuringDebug?: boolean;
-    uncommittedText?: string;
     codeVersion?: number;
 }
 

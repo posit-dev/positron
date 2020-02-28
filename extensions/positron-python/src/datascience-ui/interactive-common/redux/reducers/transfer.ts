@@ -158,6 +158,16 @@ export namespace Transfer {
         });
     }
 
+    export function changeCellType<T>(arg: CommonReducerArg<CommonActionType, T>, cell: ICell) {
+        postModelUpdate(arg, {
+            source: 'user',
+            kind: 'changeCellType',
+            newDirty: true,
+            oldDirty: arg.prevState.dirty,
+            cell
+        });
+    }
+
     export function postModelRemove<T>(arg: CommonReducerArg<CommonActionType, T>, index: number, cell: ICell) {
         postModelUpdate(arg, {
             source: 'user',
@@ -226,7 +236,14 @@ export namespace Transfer {
                 const current = arg.prevState.cellVMs[index];
                 const newCell = {
                     ...current,
-                    uncommittedText: arg.payload.data.code,
+                    inputBlockText: arg.payload.data.code,
+                    cell: {
+                        ...current.cell,
+                        data: {
+                            ...current.cell.data,
+                            source: arg.payload.data.code
+                        }
+                    },
                     codeVersion: arg.payload.data.version
                 };
 
