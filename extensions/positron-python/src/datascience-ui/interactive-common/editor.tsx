@@ -51,12 +51,6 @@ export class Editor extends React.Component<IEditorProps> {
         this.subscriptions.forEach(d => d.dispose());
     };
 
-    public componentDidUpdate(prevProps: IEditorProps) {
-        if (this.props.hasFocus && !prevProps.hasFocus) {
-            this.giveFocus(this.props.cursorPos);
-        }
-    }
-
     public render() {
         const classes = this.props.readOnly ? 'editor-area' : 'editor-area editor-area-editable';
         const renderEditor = this.renderMonacoEditor;
@@ -122,6 +116,7 @@ export class Editor extends React.Component<IEditorProps> {
                 version={this.props.version}
                 openLink={this.props.openLink}
                 ref={this.monacoRef}
+                hasFocus={this.props.hasFocus}
                 cursorPos={this.props.cursorPos}
             />
         );
