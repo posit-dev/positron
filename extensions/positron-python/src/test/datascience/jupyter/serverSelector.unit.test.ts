@@ -1,11 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 import { assert } from 'chai';
-import { anything, instance, mock, when } from 'ts-mockito';
+import { anything, instance, mock, verify, when } from 'ts-mockito';
 
 import { QuickPickItem } from 'vscode';
 import { ApplicationShell } from '../../../client/common/application/applicationShell';
+import { CommandManager } from '../../../client/common/application/commandManager';
+import { ICommandManager } from '../../../client/common/application/types';
 import { ConfigurationService } from '../../../client/common/configuration/service';
+import { IDataScienceSettings } from '../../../client/common/types';
 import { DataScience } from '../../../client/common/utils/localize';
 import { noop } from '../../../client/common/utils/misc';
 import { MultiStepInputFactory } from '../../../client/common/utils/multiStepInput';
@@ -19,21 +22,30 @@ import { MockQuickPick } from '../mockQuickPick';
 // tslint:disable: max-func-body-length
 suite('Data Science - Jupyter Server URI Selector', () => {
     let quickPick: MockQuickPick | undefined;
-
+    let cmdManager: ICommandManager;
+    let dsSettings: IDataScienceSettings;
     function createDataScienceObject(
         quickPickSelection: string,
         inputSelection: string,
         updateCallback: (val: string) => void,
         mockStorage?: MockMemento
     ): JupyterServerSelector {
+        dsSettings = {
+            jupyterServerURI: Settings.JupyterServerLocalLaunch
+            // tslint:disable-next-line: no-any
+        } as any;
         const configService = mock(ConfigurationService);
         const applicationShell = mock(ApplicationShell);
+        cmdManager = mock(CommandManager);
         const storage = mockStorage ? mockStorage : new MockMemento();
         quickPick = new MockQuickPick(quickPickSelection);
         const input = new MockInputBox(inputSelection);
+        when(cmdManager.executeCommand(anything(), anything())).thenResolve();
         when(applicationShell.createQuickPick()).thenReturn(quickPick!);
         when(applicationShell.createInputBox()).thenReturn(input);
         const multiStepFactory = new MultiStepInputFactory(instance(applicationShell));
+        // tslint:disable-next-line: no-any
+        when(configService.getSettings(anything())).thenReturn({ datascience: dsSettings } as any);
         when(configService.updateSetting('dataScience.jupyterServerURI', anything(), anything(), anything())).thenCall(
             (_a1, a2, _a3, _a4) => {
                 updateCallback(a2);
@@ -41,7 +53,7 @@ suite('Data Science - Jupyter Server URI Selector', () => {
             }
         );
 
-        return new JupyterServerSelector(storage, multiStepFactory, instance(configService));
+        return new JupyterServerSelector(storage, multiStepFactory, instance(configService), instance(cmdManager));
     }
 
     test('Local pick server uri', async () => {
@@ -128,6 +140,23 @@ suite('Data Science - Jupyter Server URI Selector', () => {
         const ds = createDataScienceObject('$(server) Existing', 'http://localhost:1111', v => (value = v));
         await ds.selectJupyterURI();
         assert.equal(value, 'http://localhost:1111', 'Already running should end up with the user inputed value');
+    });
+
+    test('Remote server uri (reload VSCode if there is a change in settings)', async () => {
+        let value = '';
+        const ds = createDataScienceObject('$(server) Existing', 'http://localhost:1111', v => (value = v));
+        await ds.selectJupyterURI();
+        assert.equal(value, 'http://localhost:1111', 'Already running should end up with the user inputed value');
+        verify(cmdManager.executeCommand(anything(), anything())).once();
+    });
+
+    test('Remote server uri (do not reload VSCode if there is no change in settings)', async () => {
+        let value = '';
+        const ds = createDataScienceObject('$(server) Existing', 'http://localhost:1111', v => (value = v));
+        dsSettings.jupyterServerURI = 'http://localhost:1111';
+        await ds.selectJupyterURI();
+        assert.equal(value, 'http://localhost:1111', 'Already running should end up with the user inputed value');
+        verify(cmdManager.executeCommand(anything(), anything())).never();
     });
 
     test('Invalid server uri', async () => {

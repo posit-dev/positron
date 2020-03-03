@@ -5,8 +5,10 @@
 
 import { inject, injectable, named } from 'inversify';
 import { ConfigurationTarget, Memento, QuickPickItem } from 'vscode';
+import { ICommandManager } from '../../common/application/types';
 import { GLOBAL_MEMENTO, IConfigurationService, IMemento } from '../../common/types';
 import { DataScience } from '../../common/utils/localize';
+import { noop } from '../../common/utils/misc';
 import {
     IMultiStepInput,
     IMultiStepInputFactory,
@@ -28,7 +30,8 @@ export class JupyterServerSelector {
     constructor(
         @inject(IMemento) @named(GLOBAL_MEMENTO) private globalState: Memento,
         @inject(IMultiStepInputFactory) private readonly multiStepFactory: IMultiStepInputFactory,
-        @inject(IConfigurationService) private configuration: IConfigurationService
+        @inject(IConfigurationService) private configuration: IConfigurationService,
+        @inject(ICommandManager) private cmdManager: ICommandManager
     ) {}
 
     @captureTelemetry(Telemetry.SelectJupyterURI)
@@ -69,22 +72,38 @@ export class JupyterServerSelector {
 
     @captureTelemetry(Telemetry.SetJupyterURIToLocal)
     private async setJupyterURIToLocal(): Promise<void> {
+        const previousValue = this.configuration.getSettings(undefined).datascience.jupyterServerURI;
         await this.configuration.updateSetting(
             'dataScience.jupyterServerURI',
             Settings.JupyterServerLocalLaunch,
             undefined,
             ConfigurationTarget.Workspace
         );
+
+        // Reload if there's a change
+        if (previousValue !== Settings.JupyterServerLocalLaunch) {
+            this.cmdManager
+                .executeCommand('python.reloadVSCode', DataScience.reloadAfterChangingJupyterServerConnection())
+                .then(noop, noop);
+        }
     }
 
     @captureTelemetry(Telemetry.SetJupyterURIToUserSpecified)
     private async setJupyterURIToRemote(userURI: string): Promise<void> {
+        const previousValue = this.configuration.getSettings(undefined).datascience.jupyterServerURI;
         await this.configuration.updateSetting(
             'dataScience.jupyterServerURI',
             userURI,
             undefined,
             ConfigurationTarget.Workspace
         );
+
+        // Reload if there's a change
+        if (previousValue !== userURI) {
+            this.cmdManager
+                .executeCommand('python.reloadVSCode', DataScience.reloadAfterChangingJupyterServerConnection())
+                .then(noop, noop);
+        }
     }
     private validateSelectJupyterURI = async (inputText: string): Promise<string | undefined> => {
         try {
