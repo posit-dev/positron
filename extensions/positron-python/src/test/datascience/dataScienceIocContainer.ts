@@ -201,6 +201,7 @@ import { JupyterVariables } from '../../client/datascience/jupyter/jupyterVariab
 import { KernelSelectionProvider } from '../../client/datascience/jupyter/kernels/kernelSelections';
 import { KernelSelector } from '../../client/datascience/jupyter/kernels/kernelSelector';
 import { KernelService } from '../../client/datascience/jupyter/kernels/kernelService';
+import { KernelSwitcher } from '../../client/datascience/jupyter/kernels/kernelSwitcher';
 import { NotebookStarter } from '../../client/datascience/jupyter/notebookStarter';
 import { ServerPreload } from '../../client/datascience/jupyter/serverPreload';
 import { PlotViewer } from '../../client/datascience/plotting/plotViewer';
@@ -396,6 +397,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
 
     private webPanelProvider: TypeMoq.IMock<IWebPanelProvider> | undefined;
     private settingsMap = new Map<string, any>();
+    private kernelServiceMock = mock(KernelService);
 
     constructor() {
         super();
@@ -647,6 +649,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         this.serviceManager.addSingleton<NotebookStarter>(NotebookStarter, NotebookStarter);
         this.serviceManager.addSingleton<KernelSelector>(KernelSelector, KernelSelector);
         this.serviceManager.addSingleton<KernelSelectionProvider>(KernelSelectionProvider, KernelSelectionProvider);
+        this.serviceManager.addSingleton<KernelSwitcher>(KernelSwitcher, KernelSwitcher);
         this.serviceManager.addSingleton<IInterpreterSelector>(IInterpreterSelector, InterpreterSelector);
         this.serviceManager.addSingleton<IShebangCodeLensProvider>(IShebangCodeLensProvider, ShebangCodeLensProvider);
         this.serviceManager.addSingleton<IProductService>(IProductService, ProductService);
@@ -1031,9 +1034,8 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         if (this.shouldMockJupyter) {
             this.jupyterMock = new MockJupyterManagerFactory(this.serviceManager);
             // When using mocked Jupyter, default to using default kernel.
-            const kernelService = mock(KernelService);
-            when(kernelService.searchAndRegisterKernel(anything(), anything())).thenResolve(undefined);
-            this.serviceManager.addSingletonInstance<KernelService>(KernelService, instance(kernelService));
+            when(this.kernelServiceMock.searchAndRegisterKernel(anything(), anything())).thenResolve(undefined);
+            this.serviceManager.addSingletonInstance<KernelService>(KernelService, instance(this.kernelServiceMock));
         } else {
             this.serviceManager.addSingleton<IInstaller>(IInstaller, ProductInstaller);
             this.serviceManager.addSingleton<KernelService>(KernelService, KernelService);
@@ -1093,6 +1095,10 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             IExtensionSingleActivationService
         );
         await Promise.all(activationServices.map(a => a.activate()));
+    }
+
+    public get kernelService() {
+        return this.kernelServiceMock;
     }
 
     public createWebPanel(): IWebPanel {
