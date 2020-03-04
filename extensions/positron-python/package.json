@@ -1520,6 +1520,8 @@
                             "AA_testing - experiment",
                             "WebHostNotebook - experiment",
                             "UseTerminalToGetActivatedEnvVars - experiment",
+                            "CollectLSRequestTiming - experiment",
+                            "CollectNodeLSRequestTiming - experiment",
                             "All"
                         ]
                     },
@@ -1540,6 +1542,8 @@
                             "AA_testing - experiment",
                             "WebHostNotebook - experiment",
                             "UseTerminalToGetActivatedEnvVars - experiment",
+                            "CollectLSRequestTiming - experiment",
+                            "CollectNodeLSRequestTiming - experiment",
                             "All"
                         ]
                     },
