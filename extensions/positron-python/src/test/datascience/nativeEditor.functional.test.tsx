@@ -1230,12 +1230,12 @@ df.head()`;
                         let imageButtons = cell.find(ImageButton);
                         assert.equal(imageButtons.length, 6, 'Cell buttons not found');
                         const deleteButton = imageButtons.at(5);
-                        await getNativeCellResults(ioc, wrapper, async () => {
+                        const afterDelete = await getNativeCellResults(ioc, wrapper, async () => {
                             deleteButton.simulate('click');
                             return Promise.resolve();
                         });
                         // Should have 3 cells
-                        assert.equal(wrapper.find('NativeCell').length, 3, 'Cell not deleted');
+                        assert.equal(afterDelete.length, 3, 'Cell not deleted');
 
                         // Undo the delete
                         await undo();
@@ -1254,12 +1254,12 @@ df.head()`;
                         imageButtons = cell.find(ImageButton);
                         assert.equal(imageButtons.length, 6, 'Cell buttons not found');
                         const moveUpButton = imageButtons.at(0);
-                        await getNativeCellResults(ioc, wrapper, async () => {
+                        const afterMove = await getNativeCellResults(ioc, wrapper, async () => {
                             moveUpButton.simulate('click');
                             return Promise.resolve();
                         });
 
-                        let foundCell = getOutputCell(wrapper, 'NativeCell', 2)?.instance() as NativeCell;
+                        let foundCell = getOutputCell(afterMove, 'NativeCell', 2)?.instance() as NativeCell;
                         assert.equal(foundCell.props.cellVM.cell.id, 'NotebookImport#1', 'Cell did not move');
                         await undo();
                         foundCell = getOutputCell(wrapper, 'NativeCell', 2)?.instance() as NativeCell;

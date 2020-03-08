@@ -581,6 +581,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                         }
                     });
                 }
+                const owningResource = await this.getOwningResource();
                 const observable = this._notebook.executeObservable(code, file, line, id, false);
 
                 // Indicate we executed some code
@@ -588,7 +589,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
                 // Sign up for cell changes
                 observable.subscribe(
-                    async (cells: ICell[]) => {
+                    (cells: ICell[]) => {
                         // Combine the cell data with the possible input data (so we don't lose anything that might have already been in the cells)
                         const combined = cells.map(this.combineData.bind(undefined, data));
 
@@ -596,7 +597,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                         this.sendCellsToWebView(combined);
 
                         // Any errors will move our result to false (if allowed)
-                        if (this.configuration.getSettings(await this.getOwningResource()).datascience.stopOnError) {
+                        if (this.configuration.getSettings(owningResource).datascience.stopOnError) {
                             result = result && cells.find(c => c.state === CellState.error) === undefined;
                         }
                     },
