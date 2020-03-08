@@ -13,15 +13,16 @@ import { Identifiers } from '../constants';
 import { IInteractiveWindowMapping, InteractiveWindowMessages } from '../interactive-common/interactiveWindowTypes';
 import {
     ICell,
-    IGatherExecution,
+    IGatherLogger,
+    IGatherProvider,
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
     IJupyterExecution,
     INotebook,
     INotebookEditorProvider,
+    INotebookExecutionLogger,
     INotebookExporter
 } from '../types';
-import { GatherLogger } from './gatherLogger';
 
 @injectable()
 export class GatherListener implements IInteractiveWindowListener {
@@ -31,11 +32,10 @@ export class GatherListener implements IInteractiveWindowListener {
         // tslint:disable-next-line: no-any
         payload: any;
     }>();
-    private gatherLogger: GatherLogger;
     private notebookUri: Uri | undefined;
+    private gatherProvider: IGatherProvider | undefined;
 
     constructor(
-        @inject(IGatherExecution) private gather: IGatherExecution,
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
         @inject(INotebookExporter) private jupyterExporter: INotebookExporter,
         @inject(INotebookEditorProvider) private ipynbProvider: INotebookEditorProvider,
@@ -44,9 +44,7 @@ export class GatherListener implements IInteractiveWindowListener {
         @inject(IConfigurationService) private configService: IConfigurationService,
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IFileSystem) private fileSystem: IFileSystem
-    ) {
-        this.gatherLogger = new GatherLogger(this.gather, this.configService);
-    }
+    ) {}
 
     public dispose() {
         noop();
@@ -61,7 +59,7 @@ export class GatherListener implements IInteractiveWindowListener {
     public onMessage(message: string, payload?: any): void {
         switch (message) {
             case InteractiveWindowMessages.NotebookExecutionActivated:
-                this.handleMessage(message, payload, this.doSetLogger);
+                this.handleMessage(message, payload, this.doInitGather);
                 break;
 
             case InteractiveWindowMessages.GatherCodeRequest:
@@ -69,7 +67,9 @@ export class GatherListener implements IInteractiveWindowListener {
                 break;
 
             case InteractiveWindowMessages.RestartKernel:
-                this.gather.resetLog();
+                if (this.gatherProvider) {
+                    this.gatherProvider.resetLog();
+                }
                 break;
 
             default:
@@ -87,11 +87,17 @@ export class GatherListener implements IInteractiveWindowListener {
         handler.bind(this)(args);
     }
 
-    private doSetLogger(payload: string): void {
-        this.setLogger(payload).ignoreErrors();
+    private doGather(payload: ICell): void {
+        this.gatherCodeInternal(payload).catch(err => {
+            this.applicationShell.showErrorMessage(err);
+        });
     }
 
-    private async setLogger(notebookUri: string) {
+    private doInitGather(payload: string): void {
+        this.initGather(payload).ignoreErrors();
+    }
+
+    private async initGather(notebookUri: string) {
         this.notebookUri = Uri.parse(notebookUri);
 
         // First get the active server
@@ -104,21 +110,25 @@ export class GatherListener implements IInteractiveWindowListener {
         if (activeServer) {
             nb = await activeServer.getNotebook(this.notebookUri);
 
-            // If we have an executing notebook, add the gather logger.
+            // If we have an executing notebook, get its gather execution service.
             if (nb) {
-                nb.addLogger(this.gatherLogger);
+                this.gatherProvider = this.getGatherProvider(nb);
             }
         }
     }
 
-    private doGather(payload: ICell): void {
-        this.gatherCodeInternal(payload).catch(err => {
-            this.applicationShell.showErrorMessage(err);
-        });
+    private getGatherProvider(nb: INotebook): IGatherProvider | undefined {
+        const gatherLogger = <IGatherLogger>(
+            nb.getLoggers().find((logger: INotebookExecutionLogger) => (<IGatherLogger>logger).getGatherProvider)
+        );
+
+        if (gatherLogger) {
+            return gatherLogger.getGatherProvider();
+        }
     }
 
     private gatherCodeInternal = async (cell: ICell) => {
-        const slicedProgram = this.gather.gatherCode(cell);
+        const slicedProgram = this.gatherProvider ? this.gatherProvider.gatherCode(cell) : 'Gather internal error';
 
         if (this.configService.getSettings().datascience.gatherToScript) {
             await this.showFile(slicedProgram, cell.file);

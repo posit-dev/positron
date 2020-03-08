@@ -575,7 +575,6 @@ export class NativeCell extends React.Component<INativeCellProps> {
                             'Gather the code required to generate this cell into a new notebook'
                         )}
                         hidden={gatherDisabled}
-                        className="hover-cell-button"
                     >
                         <Image
                             baseTheme={this.props.baseTheme}

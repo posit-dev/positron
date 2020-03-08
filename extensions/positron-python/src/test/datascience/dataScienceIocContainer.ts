@@ -166,13 +166,15 @@ import { DataViewer } from '../../client/datascience/data-viewing/dataViewer';
 import { DataViewerDependencyService } from '../../client/datascience/data-viewing/dataViewerDependencyService';
 import { DataViewerProvider } from '../../client/datascience/data-viewing/dataViewerProvider';
 import { DebugLocationTrackerFactory } from '../../client/datascience/debugLocationTrackerFactory';
+import { CellHashLogger } from '../../client/datascience/editor-integration/cellhashLogger';
 import { CellHashProvider } from '../../client/datascience/editor-integration/cellhashprovider';
 import { CodeLensFactory } from '../../client/datascience/editor-integration/codeLensFactory';
 import { DataScienceCodeLensProvider } from '../../client/datascience/editor-integration/codelensprovider';
 import { CodeWatcher } from '../../client/datascience/editor-integration/codewatcher';
 import { DataScienceErrorHandler } from '../../client/datascience/errorHandler/errorHandler';
-import { GatherExecution } from '../../client/datascience/gather/gather';
+import { GatherProvider } from '../../client/datascience/gather/gather';
 import { GatherListener } from '../../client/datascience/gather/gatherListener';
+import { GatherLogger } from '../../client/datascience/gather/gatherLogger';
 import { IntellisenseProvider } from '../../client/datascience/interactive-common/intellisense/intellisenseProvider';
 import { AutoSaveService } from '../../client/datascience/interactive-ipynb/autoSaveService';
 import { NativeEditor } from '../../client/datascience/interactive-ipynb/nativeEditor';
@@ -213,6 +215,7 @@ import { StatusProvider } from '../../client/datascience/statusProvider';
 import { ThemeFinder } from '../../client/datascience/themeFinder';
 import {
     ICellHashListener,
+    ICellHashLogger,
     ICellHashProvider,
     ICodeCssGenerator,
     ICodeLensFactory,
@@ -224,7 +227,8 @@ import {
     IDataViewer,
     IDataViewerProvider,
     IDebugLocationTracker,
-    IGatherExecution,
+    IGatherLogger,
+    IGatherProvider,
     IInteractiveWindow,
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
@@ -513,7 +517,9 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         this.serviceManager.add<IDataScienceErrorHandler>(IDataScienceErrorHandler, DataScienceErrorHandler);
         this.serviceManager.add<IInstallationChannelManager>(IInstallationChannelManager, InstallationChannelManager);
         this.serviceManager.addSingleton<IJupyterVariables>(IJupyterVariables, JupyterVariables);
-        this.serviceManager.addSingleton<IJupyterDebugger>(IJupyterDebugger, JupyterDebugger);
+        this.serviceManager.addSingleton<IJupyterDebugger>(IJupyterDebugger, JupyterDebugger, undefined, [
+            ICellHashListener
+        ]);
         this.serviceManager.addSingleton<IDebugLocationTracker>(IDebugLocationTracker, DebugLocationTrackerFactory);
         this.serviceManager.addSingleton<INotebookEditorProvider>(INotebookEditorProvider, TestNativeEditorProvider);
         this.serviceManager.addSingleton<DataViewerDependencyService>(
@@ -615,15 +621,18 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
 
         this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, IntellisenseProvider);
         this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, AutoSaveService);
+        this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, GatherListener);
         this.serviceManager.add<IProtocolParser>(IProtocolParser, ProtocolParser);
         this.serviceManager.addSingleton<IDebugService>(IDebugService, MockDebuggerService);
-        this.serviceManager.addSingleton<ICellHashProvider>(ICellHashProvider, CellHashProvider);
-        this.serviceManager.addBinding(ICellHashProvider, IInteractiveWindowListener);
-        this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, GatherListener);
-        this.serviceManager.addBinding(ICellHashProvider, INotebookExecutionLogger);
-        this.serviceManager.addBinding(IJupyterDebugger, ICellHashListener);
-        this.serviceManager.add<IGatherExecution>(IGatherExecution, GatherExecution);
-        this.serviceManager.addSingleton<ICodeLensFactory>(ICodeLensFactory, CodeLensFactory);
+        this.serviceManager.add<ICellHashProvider>(ICellHashProvider, CellHashProvider);
+        this.serviceManager.add<ICellHashLogger>(ICellHashLogger, CellHashLogger, undefined, [
+            INotebookExecutionLogger
+        ]);
+        this.serviceManager.add<IGatherProvider>(IGatherProvider, GatherProvider);
+        this.serviceManager.add<IGatherLogger>(IGatherLogger, GatherLogger, undefined, [INotebookExecutionLogger]);
+        this.serviceManager.addSingleton<ICodeLensFactory>(ICodeLensFactory, CodeLensFactory, undefined, [
+            IInteractiveWindowListener
+        ]);
         this.serviceManager.addSingleton<IShellDetector>(IShellDetector, TerminalNameShellDetector);
         this.serviceManager.addSingleton<InterpeterHashProviderFactory>(
             InterpeterHashProviderFactory,
