@@ -154,7 +154,8 @@ export enum Telemetry {
     DeleteCell = 'DATASCIENCE.DELETE_CELL',
     GotoSourceCode = 'DATASCIENCE.GOTO_SOURCE',
     CopySourceCode = 'DATASCIENCE.COPY_SOURCE',
-    RestartKernel = 'DATASCIENCE.RESTART_KERNEL',
+    RestartKernel = 'DS_INTERNAL.RESTART_KERNEL',
+    RestartKernelCommand = 'DATASCIENCE.RESTART_KERNEL_COMMAND',
     ExportNotebook = 'DATASCIENCE.EXPORT_NOTEBOOK',
     Undo = 'DATASCIENCE.UNDO',
     Redo = 'DATASCIENCE.REDO',
@@ -218,7 +219,7 @@ export enum Telemetry {
     /**
      * Telemetry sent when user selects an interpreter to be used for starting of Jupyter server.
      */
-    SelectJupyterInterpreter = 'DATASCIENCE.SELECT_JUPYTER_INTERPRETER',
+    SelectJupyterInterpreter = 'DS_INTERNAL.SELECT_JUPYTER_INTERPRETER',
     /**
      * User used command to select an intrepreter for the jupyter server.
      */
@@ -247,8 +248,8 @@ export enum Telemetry {
     PtvsdInstallFailed = 'DATASCIENCE.PTVSD_INSTALL_FAILED',
     PtvsdInstallCancelled = 'DATASCIENCE.PTVSD_INSTALL_CANCELLED',
     ScrolledToCell = 'DATASCIENCE.SCROLLED_TO_CELL',
-    ExecuteNativeCell = 'DATASCIENCE.EXECUTE_NATIVE_CELL',
-    CreateNewNotebook = 'DATASCIENCE.CREATE_NEW_NOTEBOOK',
+    ExecuteNativeCell = 'DATASCIENCE.NATIVE.EXECUTE_NATIVE_CELL',
+    CreateNewNotebook = 'DATASCIENCE.NATIVE.CREATE_NEW_NOTEBOOK',
     DebugStepOver = 'DATASCIENCE.DEBUG_STEP_OVER',
     DebugContinue = 'DATASCIENCE.DEBUG_CONTINUE',
     DebugStop = 'DATASCIENCE.DEBUG_STOP',
