@@ -1889,4 +1889,10 @@ export interface IEventNamePropertyMapping {
      * @memberof IEventNamePropertyMapping
      */
     [Telemetry.KernelInvalid]: undefined | never;
+    [Telemetry.GatherCompleted]: {
+        /**
+         * result indicates whether the gather was completed to a script, notebook or suffered an internal error.
+         */
+        result: 'err' | 'script' | 'notebook';
+    };
 }

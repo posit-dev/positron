@@ -8,8 +8,10 @@ import { IFileSystem } from '../../common/platform/types';
 import { IConfigurationService } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
+import { StopWatch } from '../../common/utils/stopWatch';
+import { sendTelemetryEvent } from '../../telemetry';
 import { generateCellsFromString } from '../cellFactory';
-import { Identifiers } from '../constants';
+import { Identifiers, Telemetry } from '../constants';
 import { IInteractiveWindowMapping, InteractiveWindowMessages } from '../interactive-common/interactiveWindowTypes';
 import {
     ICell,
@@ -34,6 +36,7 @@ export class GatherListener implements IInteractiveWindowListener {
     }>();
     private notebookUri: Uri | undefined;
     private gatherProvider: IGatherProvider | undefined;
+    private gatherTimer: StopWatch | undefined;
 
     constructor(
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
@@ -87,12 +90,6 @@ export class GatherListener implements IInteractiveWindowListener {
         handler.bind(this)(args);
     }
 
-    private doGather(payload: ICell): void {
-        this.gatherCodeInternal(payload).catch(err => {
-            this.applicationShell.showErrorMessage(err);
-        });
-    }
-
     private doInitGather(payload: string): void {
         this.initGather(payload).ignoreErrors();
     }
@@ -127,13 +124,29 @@ export class GatherListener implements IInteractiveWindowListener {
         }
     }
 
+    private doGather(payload: ICell): void {
+        this.gatherCodeInternal(payload).catch(err => {
+            this.applicationShell.showErrorMessage(err);
+        });
+    }
+
     private gatherCodeInternal = async (cell: ICell) => {
+        this.gatherTimer = new StopWatch();
+
         const slicedProgram = this.gatherProvider ? this.gatherProvider.gatherCode(cell) : 'Gather internal error';
 
-        if (this.configService.getSettings().datascience.gatherToScript) {
-            await this.showFile(slicedProgram, cell.file);
+        if (!slicedProgram) {
+            sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, { result: 'err' });
         } else {
-            await this.showNotebook(slicedProgram, cell);
+            const gatherToScript: boolean | undefined = this.configService.getSettings().datascience.gatherToScript;
+
+            if (gatherToScript) {
+                await this.showFile(slicedProgram, cell.file);
+                sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, { result: 'script' });
+            } else {
+                await this.showNotebook(slicedProgram, cell);
+                sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, { result: 'notebook' });
+            }
         }
     };
 
@@ -159,8 +172,11 @@ export class GatherListener implements IInteractiveWindowListener {
             cells = cells.concat(generateCellsFromString(slicedProgram));
 
             const notebook = await this.jupyterExporter.translateToNotebook(cells);
-            const contents = JSON.stringify(notebook);
-            await this.ipynbProvider.createNew(contents);
+            if (notebook) {
+                notebook.metadata.gatheredNotebook = true;
+                const contents = JSON.stringify(notebook);
+                await this.ipynbProvider.createNew(contents);
+            }
         }
     }
 
