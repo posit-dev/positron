@@ -36,7 +36,8 @@ import {
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
     IJupyterExecution,
-    INotebook
+    INotebook,
+    INotebookCompletion
 } from '../../types';
 import {
     ICancelIntellisenseRequest,
@@ -377,6 +378,7 @@ export class IntellisenseProvider implements IInteractiveWindowListener {
                 request.cellId,
                 cancelSource.token
             );
+
             const jupyterCompletions = this.provideJupyterCompletionItems(
                 request.position,
                 request.context,
@@ -469,6 +471,8 @@ export class IntellisenseProvider implements IInteractiveWindowListener {
 
                     const jupyterResults = await activeNotebook.getCompletion(data.text, offsetInCode, cancelToken);
                     if (jupyterResults && jupyterResults.matches) {
+                        const filteredMatches = this.filterJupyterMatches(document, jupyterResults, cellId, position);
+
                         const baseOffset = data.offset;
                         const basePosition = document.positionAt(baseOffset);
                         const startPosition = document.positionAt(jupyterResults.cursor.start + baseOffset);
@@ -480,11 +484,7 @@ export class IntellisenseProvider implements IInteractiveWindowListener {
                             endColumn: endPosition.character + 1
                         };
                         return {
-                            suggestions: convertStringsToSuggestions(
-                                jupyterResults.matches,
-                                range,
-                                jupyterResults.metadata
-                            ),
+                            suggestions: convertStringsToSuggestions(filteredMatches, range, jupyterResults.metadata),
                             incomplete: false
                         };
                     }
@@ -500,6 +500,23 @@ export class IntellisenseProvider implements IInteractiveWindowListener {
             suggestions: [],
             incomplete: false
         };
+    }
+
+    // The suggestions that the kernel is giving always include magic commands. That is confusing to the user.
+    // This function is called by provideJupyterCompletionItems to filter those magic commands when not in an empty line of code.
+    private filterJupyterMatches(
+        document: IntellisenseDocument,
+        jupyterResults: INotebookCompletion,
+        cellId: string,
+        position: monacoEditor.Position
+    ) {
+        // If the line we're analyzing is empty or a whitespace, we filter out the magic commands
+        // as its confusing to see them appear after a . or inside ().
+        const pos = document.convertToDocumentPosition(cellId, position.lineNumber, position.column);
+        const line = document.lineAt(pos);
+        return line.isEmptyOrWhitespace
+            ? jupyterResults.matches
+            : jupyterResults.matches.filter(match => !match.startsWith('%'));
     }
 
     private postTimedResponse<R, M extends IInteractiveWindowMapping, T extends keyof M>(
