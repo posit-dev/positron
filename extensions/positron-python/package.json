@@ -2954,7 +2954,8 @@
         "winreg": "^1.2.4",
         "winston": "^3.2.1",
         "ws": "^6.0.0",
-        "xml2js": "^0.4.19"
+        "xml2js": "^0.4.19",
+        "zeromq": "^6.0.0-beta.6"
     },
     "devDependencies": {
         "@babel/cli": "^7.4.4",
@@ -3109,6 +3110,7 @@
         "redux": "^4.0.4",
         "redux-logger": "^3.0.6",
         "relative": "^3.0.2",
+        "remove-files-webpack-plugin": "^1.4.0",
         "rewiremock": "^3.13.0",
         "sass-loader": "^7.1.0",
         "serialize-javascript": "^2.1.2",
