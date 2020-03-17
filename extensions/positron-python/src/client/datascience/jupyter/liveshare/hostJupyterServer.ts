@@ -20,6 +20,7 @@ import {
     IOutputChannel,
     Resource
 } from '../../../common/types';
+import { createDeferred } from '../../../common/utils/async';
 import * as localize from '../../../common/utils/localize';
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
@@ -135,7 +136,7 @@ export class HostJupyterServer extends LiveShareParticipantHost(JupyterServerBas
         await super.onSessionChange(api);
 
         this.getNotebooks().forEach(async notebook => {
-            const hostNotebook = notebook as HostJupyterNotebook;
+            const hostNotebook = (await notebook) as HostJupyterNotebook;
             if (hostNotebook) {
                 await hostNotebook.onSessionChange(api);
             }
@@ -189,61 +190,74 @@ export class HostJupyterServer extends LiveShareParticipantHost(JupyterServerBas
         }
 
         // Compute launch information from the resource and the notebook metadata
-        const { info, changedKernel } = await this.computeLaunchInfo(
-            resource,
-            sessionManager,
-            notebookMetadata,
-            cancelToken
-        );
+        const notebookPromise = createDeferred<INotebook>();
+        // Save the notebook
+        this.setNotebook(identity, notebookPromise.promise);
 
-        // If we switched kernels, try switching the possible session
-        if (changedKernel && possibleSession && info.kernelSpec) {
-            await possibleSession.changeKernel(
-                info.kernelSpec,
-                this.configService.getSettings(resource).datascience.jupyterLaunchTimeout
-            );
-        }
-
-        // Start a session (or use the existing one)
-        const session = possibleSession || (await sessionManager.startNew(info.kernelSpec, cancelToken));
-        traceInfo(`Started session ${this.id}`);
-
-        if (session) {
-            // Create our notebook
-            const notebook = new HostJupyterNotebook(
-                this.liveShare,
-                session,
-                configService,
-                disposableRegistry,
-                this,
-                info,
-                serviceContainer.getAll<INotebookExecutionLogger>(INotebookExecutionLogger),
+        const getExistingSession = async () => {
+            const { info, changedKernel } = await this.computeLaunchInfo(
                 resource,
-                identity,
-                this.getDisposedError.bind(this),
-                this.workspaceService,
-                this.appService,
-                this.fs
+                sessionManager,
+                notebookMetadata,
+                cancelToken
             );
 
-            // Wait for it to be ready
-            traceInfo(`Waiting for idle (session) ${this.id}`);
-            const idleTimeout = configService.getSettings().datascience.jupyterLaunchTimeout;
-            await notebook.waitForIdle(idleTimeout);
+            // If we switched kernels, try switching the possible session
+            if (changedKernel && possibleSession && info.kernelSpec) {
+                await possibleSession.changeKernel(
+                    info.kernelSpec,
+                    this.configService.getSettings(resource).datascience.jupyterLaunchTimeout
+                );
+            }
 
-            // Run initial setup
-            await notebook.initialize(cancelToken);
+            // Start a session (or use the existing one)
+            const session = possibleSession || (await sessionManager.startNew(info.kernelSpec, cancelToken));
+            traceInfo(`Started session ${this.id}`);
+            return { info, session };
+        };
 
-            traceInfo(`Finished connecting ${this.id}`);
+        try {
+            const { info, session } = await getExistingSession();
 
-            // Save the notebook
-            this.setNotebook(identity, notebook);
+            if (session) {
+                // Create our notebook
+                const notebook = new HostJupyterNotebook(
+                    this.liveShare,
+                    session,
+                    configService,
+                    disposableRegistry,
+                    this,
+                    info,
+                    serviceContainer.getAll<INotebookExecutionLogger>(INotebookExecutionLogger),
+                    resource,
+                    identity,
+                    this.getDisposedError.bind(this),
+                    this.workspaceService,
+                    this.appService,
+                    this.fs
+                );
 
-            // Return the result.
-            return notebook;
+                // Wait for it to be ready
+                traceInfo(`Waiting for idle (session) ${this.id}`);
+                const idleTimeout = configService.getSettings().datascience.jupyterLaunchTimeout;
+                await notebook.waitForIdle(idleTimeout);
+
+                // Run initial setup
+                await notebook.initialize(cancelToken);
+
+                traceInfo(`Finished connecting ${this.id}`);
+
+                notebookPromise.resolve(notebook);
+            } else {
+                notebookPromise.reject(this.getDisposedError());
+            }
+        } catch (ex) {
+            // If there's an error, then reject the promise that is returned.
+            // This original promise must be rejected as it is cached (check `setNotebook`).
+            notebookPromise.reject(ex);
         }
 
-        throw this.getDisposedError();
+        return notebookPromise.promise;
     }
 
     private async computeLaunchInfo(

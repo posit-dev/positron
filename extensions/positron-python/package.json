@@ -5,6 +5,7 @@
     "version": "2020.4.0-dev",
     "languageServerVersion": "0.5.30",
     "publisher": "ms-python",
+    "enableProposedApi": false,
     "author": {
         "name": "Microsoft Corporation"
     },
@@ -24,7 +25,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.42.0"
+        "vscode": "^1.43.0"
     },
     "keywords": [
         "python",
@@ -83,7 +84,8 @@
         "onCommand:python.datascience.exportfileandoutputasnotebook",
         "onCommand:python.datascience.selectJupyterInterpreter",
         "onCommand:python.datascience.selectjupytercommandline",
-        "onCommand:python.enableSourceMapSupport"
+        "onCommand:python.enableSourceMapSupport",
+        "onCustomEditor:NativeEditorProvider.ipynb"
     ],
     "main": "./out/client/extension",
     "contributes": {
