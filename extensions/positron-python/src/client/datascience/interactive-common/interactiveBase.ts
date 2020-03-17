@@ -89,6 +89,7 @@ import {
     IMessageCell,
     INotebook,
     INotebookExporter,
+    INotebookProvider,
     INotebookServer,
     INotebookServerOptions,
     InterruptResult,
@@ -152,7 +153,8 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         @unmanaged() title: string,
         @unmanaged() viewColumn: ViewColumn,
         @unmanaged() experimentsManager: IExperimentsManager,
-        @unmanaged() private switcher: KernelSwitcher
+        @unmanaged() private switcher: KernelSwitcher,
+        @unmanaged() private readonly notebookProvider: INotebookProvider
     ) {
         super(
             configuration,
@@ -326,13 +328,6 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         super.dispose();
         this.listeners.forEach(l => l.dispose());
         this.updateContexts(undefined);
-
-        // When closing an editor, dispose of the notebook associated with it.
-        // This won't work when we have multiple views of the notebook though. Notebook ownership
-        // should probably move to whatever owns the backing model.
-        return this.notebook?.dispose().then(() => {
-            this._notebook = undefined;
-        });
     }
 
     public startProgress() {
@@ -1093,7 +1088,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 this.getNotebookOptions()
             ]);
             try {
-                notebook = uri ? await server.createNotebook(resource, uri, options?.metadata) : undefined;
+                notebook = uri ? await this.notebookProvider.getNotebook(server, uri, options?.metadata) : undefined;
             } catch (e) {
                 // If we get an invalid kernel error, make sure to ask the user to switch
                 if (e instanceof JupyterInvalidKernelError && server && server.getConnectionInfo()?.localLaunch) {

@@ -53,11 +53,13 @@ import {
     IJupyterKernelSpec,
     IJupyterVariables,
     INotebookExporter,
+    INotebookProvider,
     INotebookServerOptions,
     IStatusProvider,
     IThemeFinder,
     WebViewViewChangeEventArgs
 } from '../types';
+import { InteractiveWindowNotebookProvider } from './notebookProvider';
 
 const historyReactDir = path.join(EXTENSION_ROOT_DIR, 'out', 'datascience-ui', 'notebook');
 
@@ -108,7 +110,8 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
         @inject(IMemento) @named(GLOBAL_MEMENTO) globalStorage: Memento,
         @inject(ProgressReporter) progressReporter: ProgressReporter,
         @inject(IExperimentsManager) experimentsManager: IExperimentsManager,
-        @inject(KernelSwitcher) switcher: KernelSwitcher
+        @inject(KernelSwitcher) switcher: KernelSwitcher,
+        @inject(InteractiveWindowNotebookProvider) notebookProvider: INotebookProvider
     ) {
         super(
             progressReporter,
@@ -142,7 +145,8 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
             localize.DataScience.historyTitle(),
             ViewColumn.Two,
             experimentsManager,
-            switcher
+            switcher,
+            notebookProvider
         );
 
         // Send a telemetry event to indicate window is opening

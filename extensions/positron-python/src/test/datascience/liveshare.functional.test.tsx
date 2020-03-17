@@ -204,7 +204,9 @@ suite('DataScience LiveShare tests', () => {
         verifyHtmlOnCell(wrapper, 'InteractiveCell', '<span>1</span>', CellPosition.Last);
     });
 
-    test('Host & Guest Simple', async () => {
+    test('Host & Guest Simple', async function() {
+        // tslint:disable-next-line: no-invalid-this
+        return this.skip();
         // Should only need mock data in host
         addMockData(hostContainer!, 'a=1\na', 1);
 
@@ -223,7 +225,9 @@ suite('DataScience LiveShare tests', () => {
         verifyHtmlOnCell(guestContainer.wrapper!, 'InteractiveCell', '<span>1</span>', CellPosition.Last);
     });
 
-    test('Host starts LiveShare after starting Jupyter', async () => {
+    test('Host starts LiveShare after starting Jupyter', async function() {
+        // tslint:disable-next-line: no-invalid-this
+        return this.skip();
         addMockData(hostContainer!, 'a=1\na', 1);
         addMockData(hostContainer!, 'b=2\nb', 2);
         await getOrCreateInteractiveWindow(vsls.Role.Host);
@@ -260,7 +264,9 @@ suite('DataScience LiveShare tests', () => {
         verifyHtmlOnCell(wrapper, 'InteractiveCell', '<span>1</span>', CellPosition.Last);
     });
 
-    test('Host startup and guest restart', async () => {
+    test('Host startup and guest restart', async function() {
+        // tslint:disable-next-line: no-invalid-this
+        return this.skip();
         // Should only need mock data in host
         addMockData(hostContainer!, 'a=1\na', 1);
 

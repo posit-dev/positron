@@ -182,8 +182,11 @@ import { NativeEditor } from '../../client/datascience/interactive-ipynb/nativeE
 import { NativeEditorCommandListener } from '../../client/datascience/interactive-ipynb/nativeEditorCommandListener';
 import { NativeEditorOldWebView } from '../../client/datascience/interactive-ipynb/nativeEditorOldWebView';
 import { NativeEditorStorage } from '../../client/datascience/interactive-ipynb/nativeEditorStorage';
+import { NativeEditorSynchronizer } from '../../client/datascience/interactive-ipynb/nativeEditorSynchronizer';
+import { NativeNotebookProvider } from '../../client/datascience/interactive-ipynb/notebookProvider';
 import { InteractiveWindow } from '../../client/datascience/interactive-window/interactiveWindow';
 import { InteractiveWindowCommandListener } from '../../client/datascience/interactive-window/interactiveWindowCommandListener';
+import { InteractiveWindowNotebookProvider } from '../../client/datascience/interactive-window/notebookProvider';
 import { JupyterCommandFactory } from '../../client/datascience/jupyter/interpreter/jupyterCommand';
 import { JupyterCommandFinder } from '../../client/datascience/jupyter/interpreter/jupyterCommandFinder';
 import { JupyterCommandInterpreterDependencyService } from '../../client/datascience/jupyter/interpreter/jupyterCommandInterpreterDependencyService';
@@ -247,6 +250,7 @@ import {
     INotebookExecutionLogger,
     INotebookExporter,
     INotebookImporter,
+    INotebookProvider,
     INotebookServer,
     INotebookStorage,
     IPlotViewer,
@@ -652,6 +656,12 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             this.serviceManager.add<ILanguageServerManager>(ILanguageServerManager, NodeLanguageServerManager);
         }
 
+        this.serviceManager.addSingleton<INotebookProvider>(
+            InteractiveWindowNotebookProvider,
+            InteractiveWindowNotebookProvider
+        );
+        this.serviceManager.addSingleton<INotebookProvider>(NativeNotebookProvider, NativeNotebookProvider);
+
         this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, IntellisenseProvider);
         this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, AutoSaveService);
         this.serviceManager.add<IInteractiveWindowListener>(IInteractiveWindowListener, GatherListener);
@@ -1034,7 +1044,9 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             this.serviceManager.addSingleton<IJupyterPasswordConnect>(IJupyterPasswordConnect, JupyterPasswordConnect);
             this.serviceManager.addSingleton<IProcessLogger>(IProcessLogger, ProcessLogger);
         }
-
+        this.serviceManager.addSingleton<NativeEditorSynchronizer>(NativeEditorSynchronizer, NativeEditorSynchronizer);
+        // Disable syncrhonizing edits
+        this.serviceContainer.get<NativeEditorSynchronizer>(NativeEditorSynchronizer).disable();
         const dummyDisposable = {
             dispose: () => {
                 return;

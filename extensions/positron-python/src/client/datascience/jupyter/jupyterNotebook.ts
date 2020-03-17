@@ -155,10 +155,14 @@ export class JupyterNotebookBase implements INotebook {
     private _disposed: boolean = false;
     private _workingDirectory: string | undefined;
     private onStatusChangedEvent: EventEmitter<ServerStatus> | undefined;
+    public get onDisposed(): Event<void> {
+        return this.disposed.event;
+    }
     public get onKernelChanged(): Event<IJupyterKernelSpec | LiveKernelModel> {
         return this.kernelChanged.event;
     }
     private kernelChanged = new EventEmitter<IJupyterKernelSpec | LiveKernelModel>();
+    private disposed = new EventEmitter<void>();
     private sessionStatusChanged: Disposable | undefined;
     private initializedMatplotlib = false;
 
@@ -209,6 +213,7 @@ export class JupyterNotebookBase implements INotebook {
             const dispose = this.session ? this.session.dispose() : undefined;
             return dispose ? dispose : Promise.resolve();
         }
+        this.disposed.fire();
         return Promise.resolve();
     }
 
