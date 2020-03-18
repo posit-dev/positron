@@ -1894,8 +1894,12 @@ export interface IEventNamePropertyMapping {
         /**
          * result indicates whether the gather was completed to a script, notebook or suffered an internal error.
          */
-        result: 'err' | 'script' | 'notebook';
+        result: 'err' | 'script' | 'notebook' | 'unavailable';
     };
+    /**
+     * Telemetry event sent when a gathered notebook has been saved by the user.
+     */
+    [Telemetry.GatheredNotebookSaved]: undefined | never;
     /**
      * Telemetry event sent when the ZMQ native binaries do not work.
      */
