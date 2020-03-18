@@ -1,4 +1,5 @@
 import { inject, injectable } from 'inversify';
+import { IDisposable } from 'monaco-editor';
 import * as uuid from 'uuid/v4';
 import { Event, EventEmitter, Position, Uri, ViewColumn } from 'vscode';
 import { createMarkdownCell } from '../../../datascience-ui/common/cellFactory';
@@ -173,9 +174,17 @@ export class GatherListener implements IInteractiveWindowListener {
 
             const notebook = await this.jupyterExporter.translateToNotebook(cells);
             if (notebook) {
-                notebook.metadata.gatheredNotebook = true;
                 const contents = JSON.stringify(notebook);
-                await this.ipynbProvider.createNew(contents);
+                const editor = await this.ipynbProvider.createNew(contents);
+
+                let disposable: IDisposable;
+                const handler = () => {
+                    sendTelemetryEvent(Telemetry.GatheredNotebookSaved);
+                    if (disposable) {
+                        disposable.dispose();
+                    }
+                };
+                disposable = editor.saved(handler);
             }
         }
     }
