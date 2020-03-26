@@ -28,6 +28,10 @@ import { IMonacoModelContentChangeEvent } from '../react-common/monacoHelpers';
 import { AddCellLine } from './addCellLine';
 import { actionCreators } from './redux/actions';
 
+namespace CssConstants {
+    export const CellOutputWrapper = 'cell-output-wrapper';
+}
+
 interface INativeCellBaseProps {
     role?: string;
     cellVM: ICellViewModel;
@@ -669,7 +673,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
         const toolbar = this.props.cellVM.cell.data.cell_type === 'markdown' ? this.renderMiddleToolbar() : null;
         if (this.shouldRenderOutput()) {
             return (
-                <div className="cell-output-wrapper">
+                <div className={CssConstants.CellOutputWrapper}>
                     {toolbar}
                     <CellOutput
                         cellVM={this.props.cellVM}
@@ -686,7 +690,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
 
     private onOuterKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
         // Handle keydown events for the entire cell when we don't have focus
-        if (event.key !== 'Tab' && !this.isFocused()) {
+        if (event.key !== 'Tab' && !this.isFocused() && !this.focusInOutput()) {
             this.keyDownInput(this.props.cellVM.cell.id, {
                 code: event.key,
                 shiftKey: event.shiftKey,
@@ -699,6 +703,14 @@ export class NativeCell extends React.Component<INativeCellProps> {
             });
         }
     };
+
+    private focusInOutput(): boolean {
+        const focusedElement = document.activeElement as HTMLElement;
+        if (focusedElement) {
+            return focusedElement.closest(`.${CssConstants.CellOutputWrapper}`) !== null;
+        }
+        return false;
+    }
 
     private renderCollapseBar = (input: boolean) => {
         let classes = 'collapse-bar';

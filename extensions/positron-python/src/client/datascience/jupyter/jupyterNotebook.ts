@@ -165,6 +165,7 @@ export class JupyterNotebookBase implements INotebook {
     private disposed = new EventEmitter<void>();
     private sessionStatusChanged: Disposable | undefined;
     private initializedMatplotlib = false;
+    private ioPubListeners = new Set<(msg: KernelMessage.IIOPubMessage, requestId: string) => Promise<void>>();
 
     constructor(
         _liveShare: ILiveShareApi, // This is so the liveshare mixin works
@@ -194,7 +195,6 @@ export class JupyterNotebookBase implements INotebook {
         // Save our interpreter and don't change it. Later on when kernel changes
         // are possible, recompute it.
     }
-
     public get server(): INotebookServer {
         return this.owner;
     }
@@ -623,6 +623,71 @@ export class JupyterNotebookBase implements INotebook {
         return this.loggers;
     }
 
+    public registerIOPubListener(
+        listener: (msg: KernelMessage.IIOPubMessage, requestId: string) => Promise<void>
+    ): void {
+        this.ioPubListeners.add(listener);
+    }
+
+    public registerCommTarget(
+        targetName: string,
+        callback: (comm: Kernel.IComm, msg: KernelMessage.ICommOpenMsg) => void | PromiseLike<void>
+    ) {
+        if (this.session) {
+            this.session.registerCommTarget(targetName, callback);
+        } else {
+            throw new Error(localize.DataScience.sessionDisposed());
+        }
+    }
+
+    public sendCommMessage(
+        buffers: (ArrayBuffer | ArrayBufferView)[],
+        content: { comm_id: string; data: JSONObject; target_name: string | undefined },
+        // tslint:disable-next-line: no-any
+        metadata: any,
+        // tslint:disable-next-line: no-any
+        msgId: any
+    ): Kernel.IShellFuture<
+        KernelMessage.IShellMessage<'comm_msg'>,
+        KernelMessage.IShellMessage<KernelMessage.ShellMessageType>
+    > {
+        if (this.session) {
+            return this.session.sendCommMessage(buffers, content, metadata, msgId);
+        } else {
+            throw new Error(localize.DataScience.sessionDisposed());
+        }
+    }
+
+    public requestCommInfo(
+        content: KernelMessage.ICommInfoRequestMsg['content']
+    ): Promise<KernelMessage.ICommInfoReplyMsg> {
+        if (this.session) {
+            return this.session.requestCommInfo(content);
+        } else {
+            throw new Error(localize.DataScience.sessionDisposed());
+        }
+    }
+    public registerMessageHook(
+        msgId: string,
+        hook: (msg: KernelMessage.IIOPubMessage) => boolean | PromiseLike<boolean>
+    ): void {
+        if (this.session) {
+            return this.session.registerMessageHook(msgId, hook);
+        } else {
+            throw new Error(localize.DataScience.sessionDisposed());
+        }
+    }
+    public removeMessageHook(
+        msgId: string,
+        hook: (msg: KernelMessage.IIOPubMessage) => boolean | PromiseLike<boolean>
+    ): void {
+        if (this.session) {
+            return this.session.removeMessageHook(msgId, hook);
+        } else {
+            throw new Error(localize.DataScience.sessionDisposed());
+        }
+    }
+
     private async initializeMatplotlib(cancelToken?: CancellationToken): Promise<void> {
         const settings = this.configService.getSettings(this.resource).datascience;
         if (settings && settings.themeMatplotlibPlots) {
@@ -847,7 +912,11 @@ export class JupyterNotebookBase implements INotebook {
         silent: boolean | undefined,
         clearState: RefBool,
         msg: KernelMessage.IIOPubMessage
-    ) {
+        // tslint:disable-next-line: no-any
+    ): Promise<any> {
+        // tslint:disable-next-line: no-any
+        let result: Promise<any> = Promise.resolve();
+
         // tslint:disable-next-line:no-require-imports
         const jupyterLab = require('@jupyterlab/services') as typeof import('@jupyterlab/services');
 
@@ -880,12 +949,19 @@ export class JupyterNotebookBase implements INotebook {
                 subscriber.cell.data.execution_count = msg.content.execution_count as number;
             }
 
+            // Tell all of the listeners about the event. They can cause this to not return until
+            // they are done handling the event.
+            // One such example is a comm_msg for ipywidgets. We have to wait for it to finish.
+            result = Promise.all([...this.ioPubListeners].map(l => l(msg, msg.header.msg_id)));
+
             // Show our update if any new output.
             subscriber.next(this.sessionStartTime);
         } catch (err) {
             // If not a restart error, then tell the subscriber
             subscriber.error(this.sessionStartTime, err);
         }
+
+        return result;
     }
 
     private checkForExit(): Error | undefined {
