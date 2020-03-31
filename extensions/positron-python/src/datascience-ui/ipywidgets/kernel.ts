@@ -41,7 +41,7 @@ export class ProxyKernel implements Partial<Kernel.IKernel> {
      */
     public registerCommTarget(targetName: string, callback: CommTargetCallback): void {
         this.commRegistrationMessagesToSend.push(targetName);
-        this.handlers.forEach(handler => handler(targetName, callback));
+        this.handlers.forEach((handler) => handler(targetName, callback));
         this.commTargetCallbacks.set(targetName, callback);
     }
     public connectToComm(targetName: string, commId: string = uuid()): Kernel.IComm {
@@ -79,7 +79,7 @@ export class ProxyKernel implements Partial<Kernel.IKernel> {
         }
     }
     public initialize(): void {
-        this.commRegistrationMessagesToSend.forEach(targetName =>
+        this.commRegistrationMessagesToSend.forEach((targetName) =>
             this.messageSender.sendMessage(IPyWidgetMessages.IPyWidgets_registerCommTarget, targetName)
         );
         this.commRegistrationMessagesToSend = [];
