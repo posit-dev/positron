@@ -55,8 +55,11 @@ export class WidgetManager implements IIPyWidgetManager {
     constructor(
         private readonly widgetContainer: HTMLElement,
         private readonly postOffice: PostOffice,
-        // tslint:disable-next-line: no-any
-        private loadErrorHandler: (className: string, moduleName: string, moduleVersion: string, error: any) => void
+        private readonly scriptLoader: {
+            loadWidgetScriptsFromThirdPartySource: boolean;
+            // tslint:disable-next-line: no-any
+            errorHandler(className: string, moduleName: string, moduleVersion: string, error: any): void;
+        }
     ) {
         // Create an observable with list of messages to be processed by the kernel in ipywidgets.
         // Use an observable so that messages are buffered until it is ready to process them.
@@ -197,7 +200,7 @@ export class WidgetManager implements IIPyWidgetManager {
             // When ever there is a display data message, ensure we build the model.
             this.proxyKernel.iopubMessage.connect(this.handleDisplayDataMessage.bind(this));
 
-            this.manager = new JupyterLabWidgetManager(this.proxyKernel, this.widgetContainer, this.loadErrorHandler);
+            this.manager = new JupyterLabWidgetManager(this.proxyKernel, this.widgetContainer, this.scriptLoader);
             WidgetManager._instance.next(this);
         } catch (ex) {
             // tslint:disable-next-line: no-console
