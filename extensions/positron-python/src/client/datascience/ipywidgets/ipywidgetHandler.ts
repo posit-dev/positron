@@ -5,7 +5,10 @@
 
 import { inject, injectable } from 'inversify';
 import { Event, EventEmitter, Uri } from 'vscode';
-import { ILoadIPyWidgetClassFailureAction } from '../../../datascience-ui/interactive-common/redux/reducers/types';
+import {
+    ILoadIPyWidgetClassFailureAction,
+    LoadIPyWidgetClassDisabledAction
+} from '../../../datascience-ui/interactive-common/redux/reducers/types';
 import { traceError } from '../../common/logger';
 import { IDisposableRegistry } from '../../common/types';
 import { sendTelemetryEvent } from '../../telemetry';
@@ -60,6 +63,8 @@ export class IPyWidgetHandler implements IInteractiveWindowListener {
             this.saveIdentity(payload).catch((ex) => traceError('Failed to initialize ipywidgetHandler', ex));
         } else if (message === InteractiveWindowMessages.IPyWidgetLoadFailure) {
             this.sendLoadFailureTelemetry(payload);
+        } else if (message === InteractiveWindowMessages.IPyWidgetLoadDisabled) {
+            this.sendLoadDisabledTelemetry(payload);
         }
         // tslint:disable-next-line: no-any
         this.getIPyWidgetMessageDispatcher()?.receiveMessage({ message: message as any, payload }); // NOSONAR
@@ -69,6 +74,16 @@ export class IPyWidgetHandler implements IInteractiveWindowListener {
         try {
             sendTelemetryEvent(Telemetry.IPyWidgetLoadFailure, 0, {
                 isOnline: payload.isOnline,
+                moduleHash: this.hashFn(payload.moduleName),
+                moduleVersion: payload.moduleVersion
+            });
+        } catch {
+            // do nothing on failure
+        }
+    }
+    private sendLoadDisabledTelemetry(payload: LoadIPyWidgetClassDisabledAction) {
+        try {
+            sendTelemetryEvent(Telemetry.IPyWidgetLoadDisabled, 0, {
                 moduleHash: this.hashFn(payload.moduleName),
                 moduleVersion: payload.moduleVersion
             });

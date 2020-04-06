@@ -1930,4 +1930,8 @@ export interface IEventNamePropertyMapping {
      * Telemetry event sent when an ipywidget module fails to load. Module name is hashed.
      */
     [Telemetry.IPyWidgetLoadFailure]: { isOnline: boolean; moduleHash: string; moduleVersion: string };
+    /**
+     * Telemetry event sent when an loading of 3rd party ipywidget JS scripts from 3rd party source has been disabled.
+     */
+    [Telemetry.IPyWidgetLoadDisabled]: { moduleHash: string; moduleVersion: string };
 }

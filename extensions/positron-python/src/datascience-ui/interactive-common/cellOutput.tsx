@@ -31,6 +31,7 @@ interface ICellOutputProps {
     cellVM: ICellViewModel;
     baseTheme: string;
     maxTextSize?: number;
+    loadWidgetScriptsFromThirdPartySource: boolean;
     hideOutput?: boolean;
     themeMatplotlibPlots?: boolean;
     expandImage(imageHtml: string): void;
@@ -178,6 +179,9 @@ export class CellOutput extends React.Component<ICellOutputProps> {
             return true;
         }
         if (nextProps.maxTextSize !== this.props.maxTextSize) {
+            return true;
+        }
+        if (nextProps.loadWidgetScriptsFromThirdPartySource !== this.props.loadWidgetScriptsFromThirdPartySource) {
             return true;
         }
         if (nextProps.themeMatplotlibPlots !== this.props.themeMatplotlibPlots) {
@@ -543,9 +547,24 @@ export class CellOutput extends React.Component<ICellOutputProps> {
 
         transformedList.forEach((transformed, index) => {
             const mimetype = transformed.output.mimeType;
-
             if (isIPyWidgetOutput(transformed.output.mimeBundle)) {
-                return;
+                if (this.props.loadWidgetScriptsFromThirdPartySource) {
+                    return;
+                }
+                // If loading of widget source is not allowed, display a message.
+                const errorMessage = getLocString(
+                    'DataScience.loadThirdPartyWidgetScriptsDisabled',
+                    "Loading of Widgets is disabled by default. Click <a href='https://command:python.datascience.loadWidgetScriptsFromThirdPartySource'>here</a> to enable the setting 'python.dataScience.loadWidgetScriptsFromThirdPartySource'. Once enabled you will need to restart the Kernel"
+                );
+
+                // tslint:disable: react-no-dangerous-html
+                buffer.push(
+                    <div role="group" key={index}>
+                        <span className={'cell-output-html cell-output-error'}>
+                            <div dangerouslySetInnerHTML={{ __html: errorMessage }} />
+                        </span>
+                    </div>
+                );
             } else if (mimetype && isMimeTypeSupported(mimetype)) {
                 // If that worked, use the transform
                 // Get the matching React.Component for that mimetype
