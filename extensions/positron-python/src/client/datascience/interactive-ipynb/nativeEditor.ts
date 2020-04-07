@@ -88,6 +88,8 @@ import { nbformat } from '@jupyterlab/coreutils';
 // tslint:disable-next-line: no-require-imports
 import cloneDeep = require('lodash/cloneDeep');
 import { concatMultilineStringInput } from '../../../datascience-ui/common';
+import { ServerStatus } from '../../../datascience-ui/interactive-common/mainState';
+import { isTestExecution } from '../../common/constants';
 import { KernelSwitcher } from '../jupyter/kernels/kernelSwitcher';
 
 const nativeEditorDir = path.join(EXTENSION_ROOT_DIR, 'out', 'datascience-ui', 'notebook');
@@ -671,10 +673,23 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         sendTelemetryEvent(telemetryEvent);
     }
 
-    private loadCellsComplete() {
+    private async loadCellsComplete() {
         if (!this.loadedAllCells) {
             this.loadedAllCells = true;
             sendTelemetryEvent(Telemetry.NotebookOpenTime, this.startupTimer.elapsedTime);
+        }
+
+        // If we don't have a server right now, at least show our kernel name (this seems to slow down tests
+        // too much though)
+        if (!isTestExecution()) {
+            const metadata = await this.getNotebookMetadata();
+            if (!this.notebook && metadata?.kernelspec) {
+                this.postMessage(InteractiveWindowMessages.UpdateKernel, {
+                    jupyterServerStatus: ServerStatus.NotStarted,
+                    localizedUri: '',
+                    displayName: metadata.kernelspec.display_name ?? metadata.kernelspec.name
+                }).ignoreErrors();
+            }
         }
     }
 }
