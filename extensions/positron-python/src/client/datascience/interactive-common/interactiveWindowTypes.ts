@@ -30,7 +30,7 @@ import { BaseReduxActionPayload } from './types';
 export enum InteractiveWindowMessages {
     StartCell = 'start_cell',
     FinishCell = 'finish_cell',
-    UpdateCell = 'update_cell',
+    UpdateCellWithExecutionResults = 'UpdateCellWithExecutionResults',
     GotoCodeCell = 'gotocell_code',
     CopyCodeCell = 'copycell_code',
     NotebookExecutionActivated = 'notebook_execution_activated',
@@ -497,7 +497,7 @@ export class IInteractiveWindowMapping {
     public [IPyWidgetMessages.IPyWidgets_mirror_execute]: { id: string; msg: KernelMessage.IExecuteRequestMsg };
     public [InteractiveWindowMessages.StartCell]: ICell;
     public [InteractiveWindowMessages.FinishCell]: ICell;
-    public [InteractiveWindowMessages.UpdateCell]: ICell;
+    public [InteractiveWindowMessages.UpdateCellWithExecutionResults]: ICell;
     public [InteractiveWindowMessages.GotoCodeCell]: IGotoCode;
     public [InteractiveWindowMessages.CopyCodeCell]: ICopyCode;
     public [InteractiveWindowMessages.NotebookExecutionActivated]: string;
