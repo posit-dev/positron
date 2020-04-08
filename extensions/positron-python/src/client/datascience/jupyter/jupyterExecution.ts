@@ -39,7 +39,6 @@ export class JupyterExecutionBase implements IJupyterExecution {
     private startedEmitter: EventEmitter<INotebookServerOptions> = new EventEmitter<INotebookServerOptions>();
     private disposed: boolean = false;
     private readonly jupyterInterpreterService: IJupyterSubCommandExecutionService;
-    private zmqError: Error | undefined;
 
     constructor(
         _liveShare: ILiveShareApi,
