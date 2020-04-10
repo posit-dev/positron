@@ -97,7 +97,8 @@ suite('JupyterVariables', () => {
             runStartupCommands: '',
             debugJustMyCode: true,
             variableQueries: [],
-            jupyterCommandLineArguments: []
+            jupyterCommandLineArguments: [],
+            widgetScriptSources: []
         };
 
         // Create our fake notebook
@@ -235,9 +236,9 @@ suite('JupyterVariables', () => {
                 Promise.resolve({
                     'text/plain': `\u001b[1;31mType:\u001b[0m        complex
 \u001b[1;31mString form:\u001b[0m (1+1j)
-\u001b[1;31mDocstring:\u001b[0m  
+\u001b[1;31mDocstring:\u001b[0m
 Create a complex number from a real part and an optional imaginary part.
-                        
+
 This is equivalent to (real + imag*1j) where imag defaults to 0.
                         "`
                 })
@@ -286,9 +287,9 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.
                 Promise.resolve({
                     'text/plain': `\u001b[1;31mType:\u001b[0m        complex
 \u001b[1;31mString form:\u001b[0m (1+1j)
-\u001b[1;31mDocstring:\u001b[0m  
+\u001b[1;31mDocstring:\u001b[0m
 Create a complex number from a real part and an optional imaginary part.
-                        
+
 This is equivalent to (real + imag*1j) where imag defaults to 0.
                         "`
                 })

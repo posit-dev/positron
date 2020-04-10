@@ -18,7 +18,6 @@ import {
     CommonReducerArg,
     ILoadIPyWidgetClassFailureAction,
     IOpenSettingsAction,
-    LoadIPyWidgetClassDisabledAction,
     LoadIPyWidgetClassLoadAction
 } from './types';
 
@@ -231,12 +230,18 @@ export namespace CommonEffects {
             const newVMs = [...arg.prevState.cellVMs];
             const current = arg.prevState.cellVMs[index];
 
-            const errorMessage = arg.payload.data.isOnline
-                ? arg.payload.data.error.toString()
-                : getLocString(
-                      'DataScience.loadClassFailedWithNoInternet',
-                      'Error loading {0}:{1}. Internet connection required for loading 3rd party widgets.'
-                  ).format(arg.payload.data.moduleName, arg.payload.data.moduleVersion);
+            let errorMessage = arg.payload.data.error.toString();
+            if (!arg.payload.data.isOnline) {
+                errorMessage = getLocString(
+                    'DataScience.loadClassFailedWithNoInternet',
+                    'Error loading {0}:{1}. Internet connection required for loading 3rd party widgets.'
+                ).format(arg.payload.data.moduleName, arg.payload.data.moduleVersion);
+            } else if (!arg.payload.data.cdnsUsed) {
+                errorMessage = getLocString(
+                    'DataScience.enableCDNForWidgetsSetting',
+                    "Widgets require us to download supporting files from a 3rd party website. Click <a href='https://command:python.datascience.enableLoadingWidgetScriptsFromThirdPartySource'>here</a> to enable this or click <a href='https://aka.ms/PVSCIPyWidgets'>here</a> for more information. (Error loading {0}:{1})."
+                ).format(arg.payload.data.moduleName, arg.payload.data.moduleVersion);
+            }
             newVMs[index] = Helpers.asCellViewModel({
                 ...current,
                 uiSideError: errorMessage
@@ -252,13 +257,6 @@ export namespace CommonEffects {
         } else {
             return arg.prevState;
         }
-    }
-    export function handleLoadIPyWidgetClassDisabled(
-        arg: CommonReducerArg<CommonActionType, LoadIPyWidgetClassDisabledAction>
-    ): IMainState {
-        // Make sure to tell the extension so it can log telemetry.
-        postActionToExtension(arg, InteractiveWindowMessages.IPyWidgetLoadDisabled, arg.payload.data);
-        return arg.prevState;
     }
     export function handleIPyWidgetRenderFailure(arg: CommonReducerArg<CommonActionType, Error>): IMainState {
         // Make sure to tell the extension so it can log telemetry.

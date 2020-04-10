@@ -7,7 +7,6 @@ import { inject, injectable } from 'inversify';
 import { Event, EventEmitter, Uri } from 'vscode';
 import {
     ILoadIPyWidgetClassFailureAction,
-    LoadIPyWidgetClassDisabledAction,
     LoadIPyWidgetClassLoadAction
 } from '../../../datascience-ui/interactive-common/redux/reducers/types';
 import { EnableIPyWidgets } from '../../common/experimentGroups';
@@ -45,7 +44,8 @@ export class IPyWidgetHandler implements IInteractiveWindowListener {
     constructor(
         @inject(INotebookProvider) notebookProvider: INotebookProvider,
         @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry,
-        @inject(IPyWidgetMessageDispatcherFactory) private readonly factory: IPyWidgetMessageDispatcherFactory,
+        @inject(IPyWidgetMessageDispatcherFactory)
+        private readonly widgetMessageDispatcherFactory: IPyWidgetMessageDispatcherFactory,
         @inject(IExperimentsManager) readonly experimentsManager: IExperimentsManager
     ) {
         disposables.push(
@@ -71,8 +71,6 @@ export class IPyWidgetHandler implements IInteractiveWindowListener {
             this.sendLoadSucceededTelemetry(payload);
         } else if (message === InteractiveWindowMessages.IPyWidgetLoadFailure) {
             this.sendLoadFailureTelemetry(payload);
-        } else if (message === InteractiveWindowMessages.IPyWidgetLoadDisabled) {
-            this.sendLoadDisabledTelemetry(payload);
         } else if (message === InteractiveWindowMessages.IPyWidgetRenderFailure) {
             this.sendRenderFailureTelemetry(payload);
         }
@@ -106,17 +104,6 @@ export class IPyWidgetHandler implements IInteractiveWindowListener {
             // do nothing on failure
         }
     }
-    private sendLoadDisabledTelemetry(payload: LoadIPyWidgetClassDisabledAction) {
-        try {
-            sendTelemetryEvent(Telemetry.IPyWidgetLoadDisabled, 0, {
-                moduleHash: this.hash(payload.moduleName),
-                moduleVersion: payload.moduleVersion
-            });
-        } catch {
-            // do nothing on failure
-        }
-    }
-
     private sendRenderFailureTelemetry(payload: Error) {
         try {
             traceError('Error rendering a widget: ', payload);
@@ -129,7 +116,7 @@ export class IPyWidgetHandler implements IInteractiveWindowListener {
         if (!this.notebookIdentity || !this.enabled) {
             return;
         }
-        this.ipyWidgetMessageDispatcher = this.factory.create(this.notebookIdentity);
+        this.ipyWidgetMessageDispatcher = this.widgetMessageDispatcherFactory.create(this.notebookIdentity);
         return this.ipyWidgetMessageDispatcher;
     }
 

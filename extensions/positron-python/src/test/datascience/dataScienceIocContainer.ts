@@ -1306,7 +1306,8 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
                 show: noop as any,
                 postMessage: noop as any,
                 close: noop,
-                updateCwd: noop as any
+                updateCwd: noop as any,
+                asWebviewUri: (uri) => uri
             });
         }
     }
@@ -1402,7 +1403,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             variableQueries: [],
             jupyterCommandLineArguments: [],
             disableJupyterAutoStart: true,
-            loadWidgetScriptsFromThirdPartySource: true
+            widgetScriptSources: []
         };
         pythonSettings.jediEnabled = false;
         pythonSettings.downloadLanguageServer = false;

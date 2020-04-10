@@ -87,7 +87,6 @@ const messageWithMessageTypes: MessageMapping<IInteractiveWindowMapping> & Messa
     [CommonActionType.FOCUS_INPUT]: MessageType.other,
     [CommonActionType.LOAD_IPYWIDGET_CLASS_SUCCESS]: MessageType.other,
     [CommonActionType.LOAD_IPYWIDGET_CLASS_FAILURE]: MessageType.other,
-    [CommonActionType.LOAD_IPYWIDGET_CLASS_DISABLED_FAILURE]: MessageType.other,
     [CommonActionType.IPYWIDGET_RENDER_FAILURE]: MessageType.other,
 
     // Types from InteractiveWindowMessages
@@ -116,7 +115,6 @@ const messageWithMessageTypes: MessageMapping<IInteractiveWindowMapping> & Messa
     [InteractiveWindowMessages.Interrupt]: MessageType.other,
     [InteractiveWindowMessages.IPyWidgetLoadSuccess]: MessageType.other,
     [InteractiveWindowMessages.IPyWidgetLoadFailure]: MessageType.other,
-    [InteractiveWindowMessages.IPyWidgetLoadDisabled]: MessageType.other,
     [InteractiveWindowMessages.IPyWidgetRenderFailure]: MessageType.other,
     [InteractiveWindowMessages.LoadAllCells]: MessageType.other,
     [InteractiveWindowMessages.LoadAllCellsComplete]: MessageType.other,
@@ -177,6 +175,8 @@ const messageWithMessageTypes: MessageMapping<IInteractiveWindowMapping> & Messa
     [InteractiveWindowMessages.UpdateDisplayData]: MessageType.syncWithLiveShare,
     [InteractiveWindowMessages.VariableExplorerToggle]: MessageType.other,
     [InteractiveWindowMessages.VariablesComplete]: MessageType.other,
+    [InteractiveWindowMessages.ConvertUriForUseInWebViewRequest]: MessageType.other,
+    [InteractiveWindowMessages.ConvertUriForUseInWebViewResponse]: MessageType.other,
     // Types from CssMessages
     [CssMessages.GetCssRequest]: MessageType.other,
     [CssMessages.GetCssResponse]: MessageType.other,
@@ -187,9 +187,12 @@ const messageWithMessageTypes: MessageMapping<IInteractiveWindowMapping> & Messa
     [SharedMessages.Started]: MessageType.other,
     [SharedMessages.UpdateSettings]: MessageType.other,
     // IpyWidgets
-    [IPyWidgetMessages.IPyWidgets_kernelOptions]: MessageType.noIdea,
+    [IPyWidgetMessages.IPyWidgets_kernelOptions]: MessageType.syncAcrossSameNotebooks,
     [IPyWidgetMessages.IPyWidgets_Ready]: MessageType.noIdea,
-    [IPyWidgetMessages.IPyWidgets_onRestartKernel]: MessageType.noIdea,
+    [IPyWidgetMessages.IPyWidgets_WidgetScriptSourceRequest]: MessageType.noIdea,
+    [IPyWidgetMessages.IPyWidgets_WidgetScriptSourceResponse]: MessageType.syncAcrossSameNotebooks,
+    [IPyWidgetMessages.IPyWidgets_onKernelChanged]: MessageType.syncAcrossSameNotebooks,
+    [IPyWidgetMessages.IPyWidgets_onRestartKernel]: MessageType.syncAcrossSameNotebooks,
     [IPyWidgetMessages.IPyWidgets_msg]: MessageType.noIdea,
     [IPyWidgetMessages.IPyWidgets_binary_msg]: MessageType.noIdea,
     [IPyWidgetMessages.IPyWidgets_msg_handled]: MessageType.noIdea,

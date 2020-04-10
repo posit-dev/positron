@@ -16,6 +16,14 @@ export const WIDGET_MIMETYPE = 'application/vnd.jupyter.widget-view+json';
 // tslint:disable: no-any
 // Source borrowed from https://github.com/jupyter-widgets/ipywidgets/blob/master/examples/web3/src/manager.ts
 
+// These widgets can always be loaded from requirejs (as it is bundled).
+const widgetsRegisteredInRequireJs = [
+    '@jupyter-widgets/controls',
+    '@jupyter-widgets/base',
+    '@jupyter-widgets/output',
+    'azureml_widgets'
+];
+
 export class WidgetManager extends jupyterlab.WidgetManager {
     public kernel: Kernel.IKernelConnection;
     public el: HTMLElement;
@@ -24,8 +32,9 @@ export class WidgetManager extends jupyterlab.WidgetManager {
         kernel: Kernel.IKernelConnection,
         el: HTMLElement,
         private readonly scriptLoader: {
-            loadWidgetScriptsFromThirdPartySource: boolean;
+            readonly widgetsRegisteredInRequireJs: Readonly<Set<string>>;
             errorHandler(className: string, moduleName: string, moduleVersion: string, error: any): void;
+            loadWidgetScript(moduleName: string, moduleVersion: string): Promise<void>;
             successHandler(className: string, moduleName: string, moduleVersion: string): void;
         }
     ) {
@@ -103,10 +112,17 @@ export class WidgetManager extends jupyterlab.WidgetManager {
             })
             .catch(async (originalException) => {
                 try {
-                    if (!this.scriptLoader.loadWidgetScriptsFromThirdPartySource) {
-                        throw new Error('Loading from 3rd party source is disabled');
+                    const loadModuleFromRequirejs =
+                        widgetsRegisteredInRequireJs.includes(moduleName) ||
+                        this.scriptLoader.widgetsRegisteredInRequireJs.has(moduleName);
+
+                    if (!loadModuleFromRequirejs) {
+                        // If not loading from requirejs, then check if we can.
+                        // Notify the script loader that we need to load the widget module.
+                        // If possible the loader will locate and register that in requirejs for things to start working.
+                        await this.scriptLoader.loadWidgetScript(moduleName, moduleVersion);
                     }
-                    const m = await requireLoader(moduleName, moduleVersion);
+                    const m = await requireLoader(moduleName);
                     if (m && m[className]) {
                         this.sendSuccess(className, moduleName, moduleVersion);
                         return m[className];
@@ -114,17 +130,7 @@ export class WidgetManager extends jupyterlab.WidgetManager {
                     throw originalException;
                 } catch (ex) {
                     this.sendError(className, moduleName, moduleVersion, originalException);
-                    if (this.scriptLoader.loadWidgetScriptsFromThirdPartySource) {
-                        throw originalException;
-                    } else {
-                        // Don't throw exceptions if disabled, else everything stops working.
-                        window.console.error(ex);
-                        // Returning an unresolved promise will prevent Jupyter ipywidgets from doing anything.
-                        // tslint:disable-next-line: promise-must-complete
-                        return new Promise(() => {
-                            // Noop.
-                        });
-                    }
+                    throw originalException;
                 }
             });
 

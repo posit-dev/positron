@@ -155,6 +155,9 @@ export class WebBrowserPanel implements IWebPanel, IDisposable {
             console.error('Failed to start Web Browser Panel', ex)
         );
     }
+    public asWebviewUri(localResource: Uri): Uri {
+        return localResource;
+    }
     public setTitle(newTitle: string): void {
         if (this.panel) {
             this.panel.title = newTitle;

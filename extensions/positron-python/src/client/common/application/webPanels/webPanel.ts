@@ -71,6 +71,12 @@ export class WebPanel implements IWebPanel {
             this.panel.dispose();
         }
     }
+    public asWebviewUri(localResource: Uri) {
+        if (!this.panel) {
+            throw new Error('WebView not initialized, too early to get a Uri');
+        }
+        return this.panel?.webview.asWebviewUri(localResource);
+    }
 
     public isVisible(): boolean {
         return this.panel ? this.panel.visible : false;
@@ -161,7 +167,7 @@ export class WebPanel implements IWebPanel {
                 <meta name="theme" content="${Identifiers.GeneratedThemeName}"/>
                 <title>VS Code Python React UI</title>
                 <base href="${uriBase}${uriBase.endsWith('/') ? '' : '/'}"/>
-                <link rel="stylesheet" href="${rootPath}/../common/node_modules/font-awesome/css/font-awesome.min.css">                
+                <link rel="stylesheet" href="${rootPath}/../common/node_modules/font-awesome/css/font-awesome.min.css">
                 </head>
             <body>
                 <noscript>You need to enable JavaScript to run this app.</noscript>
