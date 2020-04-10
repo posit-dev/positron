@@ -7,8 +7,15 @@ jobs:
           PythonVersion: '3.7'
     pool: DSPerf
     steps:
+      - task: Npm@1
+        displayName: 'npm ci'
+        inputs:
+          workingDir: ${{ parameters.workingDirectory }}
+          command: custom
+          verbose: true
+          customCommand: ci
       - task: Gulp@0
-        displayName: 'gulp prePublishNonBundle'
+        displayName: 'Compile and check for errors'
         inputs:
           targets: 'prePublishNonBundle'
       - powershell: |
