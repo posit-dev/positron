@@ -10,10 +10,10 @@ import {
     CommonActionType,
     IAddCellAction,
     ILoadIPyWidgetClassFailureAction,
-    LoadIPyWidgetClassDisabledAction,
     LoadIPyWidgetClassLoadAction
 } from '../../../datascience-ui/interactive-common/redux/reducers/types';
 import { PythonInterpreter } from '../../interpreter/contracts';
+import { WidgetScriptSource } from '../ipywidgets/types';
 import { LiveKernelModel } from '../jupyter/kernels/types';
 import { CssMessages, IGetCssRequest, IGetCssResponse, IGetMonacoThemeRequest, SharedMessages } from '../messages';
 import { IGetMonacoThemeResponse } from '../monacoMessages';
@@ -53,6 +53,8 @@ export enum InteractiveWindowMessages {
     DoSave = 'DoSave',
     SendInfo = 'send_info',
     Started = 'started',
+    ConvertUriForUseInWebViewRequest = 'ConvertUriForUseInWebViewRequest',
+    ConvertUriForUseInWebViewResponse = 'ConvertUriForUseInWebViewResponse',
     AddedSysInfo = 'added_sys_info',
     RemoteAddCode = 'remote_add_code',
     RemoteReexecuteCode = 'remote_reexecute_code',
@@ -111,13 +113,22 @@ export enum InteractiveWindowMessages {
     UpdateDisplayData = 'update_display_data',
     IPyWidgetLoadSuccess = 'ipywidget_load_success',
     IPyWidgetLoadFailure = 'ipywidget_load_failure',
-    IPyWidgetLoadDisabled = 'ipywidget_load_disabled',
     IPyWidgetRenderFailure = 'ipywidget_render_failure'
 }
 
 export enum IPyWidgetMessages {
     IPyWidgets_Ready = 'IPyWidgets_Ready',
     IPyWidgets_onRestartKernel = 'IPyWidgets_onRestartKernel',
+    IPyWidgets_onKernelChanged = 'IPyWidgets_onKernelChanged',
+    IPyWidgets_updateRequireConfig = 'IPyWidgets_updateRequireConfig',
+    /**
+     * UI sends a request to extension to determine whether we have the source for any of the widgets.
+     */
+    IPyWidgets_WidgetScriptSourceRequest = 'IPyWidgets_WidgetScriptSourceRequest',
+    /**
+     * Extension sends response to the request with yes/no.
+     */
+    IPyWidgets_WidgetScriptSourceResponse = 'IPyWidgets_WidgetScriptSourceResponse',
     IPyWidgets_msg = 'IPyWidgets_msg',
     IPyWidgets_binary_msg = 'IPyWidgets_binary_msg',
     IPyWidgets_msg_handled = 'IPyWidgets_msg_handled',
@@ -477,8 +488,11 @@ export type NotebookModelChange =
 // Map all messages to specific payloads
 export class IInteractiveWindowMapping {
     public [IPyWidgetMessages.IPyWidgets_kernelOptions]: KernelSocketOptions;
+    public [IPyWidgetMessages.IPyWidgets_WidgetScriptSourceRequest]: { moduleName: string; moduleVersion: string };
+    public [IPyWidgetMessages.IPyWidgets_WidgetScriptSourceResponse]: WidgetScriptSource;
     public [IPyWidgetMessages.IPyWidgets_Ready]: never | undefined;
     public [IPyWidgetMessages.IPyWidgets_onRestartKernel]: never | undefined;
+    public [IPyWidgetMessages.IPyWidgets_onKernelChanged]: never | undefined;
     public [IPyWidgetMessages.IPyWidgets_registerCommTarget]: string;
     // tslint:disable-next-line: no-any
     public [IPyWidgetMessages.IPyWidgets_binary_msg]: { id: string; data: any };
@@ -589,6 +603,7 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.UpdateDisplayData]: KernelMessage.IUpdateDisplayDataMsg;
     public [InteractiveWindowMessages.IPyWidgetLoadSuccess]: LoadIPyWidgetClassLoadAction;
     public [InteractiveWindowMessages.IPyWidgetLoadFailure]: ILoadIPyWidgetClassFailureAction;
-    public [InteractiveWindowMessages.IPyWidgetLoadDisabled]: LoadIPyWidgetClassDisabledAction;
+    public [InteractiveWindowMessages.ConvertUriForUseInWebViewRequest]: Uri;
+    public [InteractiveWindowMessages.ConvertUriForUseInWebViewResponse]: { request: Uri; response: Uri };
     public [InteractiveWindowMessages.IPyWidgetRenderFailure]: Error;
 }

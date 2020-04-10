@@ -393,8 +393,10 @@ export interface IDataScienceSettings {
     variableQueries: IVariableQuery[];
     disableJupyterAutoStart?: boolean;
     jupyterCommandLineArguments: string[];
-    loadWidgetScriptsFromThirdPartySource?: boolean;
+    widgetScriptSources: WidgetCDNs[];
 }
+
+export type WidgetCDNs = 'unpkg.com' | 'jsdelivr.com';
 
 export const IConfigurationService = Symbol('IConfigurationService');
 export interface IConfigurationService {
@@ -466,6 +468,10 @@ export interface IHttpClient {
      * @param strict Set `false` to allow trailing comma and comments in the JSON, defaults to `true`
      */
     getJSON<T>(uri: string, strict?: boolean): Promise<T>;
+    /**
+     * Returns the url is valid (i.e. return status code of 200).
+     */
+    exists(uri: string): Promise<boolean>;
 }
 
 export const IExtensionContext = Symbol('ExtensionContext');

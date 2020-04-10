@@ -66,7 +66,8 @@ export function getDefaultSettings() {
         runStartupCommands: '',
         debugJustMyCode: true,
         variableQueries: [],
-        jupyterCommandLineArguments: []
+        jupyterCommandLineArguments: [],
+        widgetScriptSources: []
     };
 
     return result;

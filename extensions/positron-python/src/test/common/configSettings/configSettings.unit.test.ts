@@ -308,7 +308,8 @@ suite('Python Settings', async () => {
             runStartupCommands: '',
             debugJustMyCode: true,
             variableQueries: [],
-            jupyterCommandLineArguments: []
+            jupyterCommandLineArguments: [],
+            widgetScriptSources: []
         };
         expected.pythonPath = 'python3';
         // tslint:disable-next-line:no-any

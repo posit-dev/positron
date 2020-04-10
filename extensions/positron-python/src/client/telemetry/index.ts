@@ -1940,6 +1940,41 @@ export interface IEventNamePropertyMapping {
      */
     [Telemetry.ZMQNotSupported]: undefined | never;
     /**
+     * Telemetry event sent with name of a Widget that is used.
+     */
+    [Telemetry.HashedIPyWidgetNameUsed]: {
+        /**
+         * Hash of the widget
+         */
+        hashedName: string;
+        /**
+         * Where did we find the hashed name (CDN or user environment or remote jupyter).
+         */
+        source?: 'cdn' | 'local' | 'remote';
+    };
+    /**
+     * Telemetry event sent with name of a Widget found.
+     */
+    [Telemetry.HashedIPyWidgetNameDiscovered]: {
+        /**
+         * Hash of the widget
+         */
+        hashedName: string;
+        /**
+         * Where did we find the hashed name (CDN or user environment or remote jupyter).
+         */
+        source?: 'cdn' | 'local' | 'remote';
+    };
+    /**
+     * Total time taken to discover all IPyWidgets on disc.
+     * This is how long it takes to discover a single widget on disc (from python environment).
+     */
+    [Telemetry.DiscoverIPyWidgetNamesLocalPerf]: never | undefined;
+    /**
+     * Something went wrong in looking for a widget.
+     */
+    [Telemetry.HashedIPyWidgetScriptDiscoveryError]: never | undefined;
+    /**
      * Telemetry event sent when an ipywidget module loads. Module name is hashed.
      */
     [Telemetry.IPyWidgetLoadSuccess]: { moduleHash: string; moduleVersion: string };
@@ -1951,6 +1986,26 @@ export interface IEventNamePropertyMapping {
      * Telemetry event sent when an loading of 3rd party ipywidget JS scripts from 3rd party source has been disabled.
      */
     [Telemetry.IPyWidgetLoadDisabled]: { moduleHash: string; moduleVersion: string };
+    /**
+     * Total time taken to discover a widget script on CDN.
+     */
+    [Telemetry.DiscoverIPyWidgetNamesCDNPerf]: {
+        // The CDN we were testing.
+        cdn: string;
+        // Whether we managed to find the widget on the CDN or not.
+        exists: boolean;
+    };
+    /**
+     * Telemetry sent when we prompt user to use a CDN for IPyWidget scripts.
+     * This is always sent when we display a prompt.
+     */
+    [Telemetry.IPyWidgetPromptToUseCDN]: never | undefined;
+    /**
+     * Telemetry sent when user does somethign with the prompt displsyed to user about using CDN for IPyWidget scripts.
+     */
+    [Telemetry.IPyWidgetPromptToUseCDNSelection]: {
+        selection: 'ok' | 'cancel' | 'dismissed' | 'doNotShowAgain';
+    };
     /**
      * Telemetry event sent to indicate the overhead of syncing the kernel with the UI.
      */

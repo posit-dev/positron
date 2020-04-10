@@ -4,7 +4,7 @@
 import '../common/extensions';
 
 import { injectable, unmanaged } from 'inversify';
-import { ConfigurationChangeEvent, ViewColumn, WebviewPanel, WorkspaceConfiguration } from 'vscode';
+import { ConfigurationChangeEvent, Uri, ViewColumn, WebviewPanel, WorkspaceConfiguration } from 'vscode';
 
 import { IWebPanel, IWebPanelMessageListener, IWebPanelProvider, IWorkspaceService } from '../common/application/types';
 import { isTestExecution } from '../common/constants';
@@ -82,7 +82,6 @@ export abstract class WebViewHost<IMapping> implements IDisposable {
             this.webPanel.updateCwd(cwd);
         }
     }
-
     public dispose() {
         if (!this.isDisposed) {
             this.disposed = true;
@@ -116,6 +115,12 @@ export abstract class WebViewHost<IMapping> implements IDisposable {
             this.themeIsDarkPromise = createDeferred<boolean>();
             this.themeIsDarkPromise.resolve(isDark);
         }
+    }
+    protected asWebviewUri(localResource: Uri) {
+        if (!this.webPanel) {
+            throw new Error('asWebViewUri called too early');
+        }
+        return this.webPanel?.asWebviewUri(localResource);
     }
 
     protected abstract getOwningResource(): Promise<Resource>;
@@ -367,7 +372,7 @@ export abstract class WebViewHost<IMapping> implements IDisposable {
             event.affectsConfiguration('files.autoSave') ||
             event.affectsConfiguration('files.autoSaveDelay') ||
             event.affectsConfiguration('python.dataScience.enableGather') ||
-            event.affectsConfiguration('python.dataScience.loadWidgetScriptsFromThirdPartySource')
+            event.affectsConfiguration('python.dataScience.widgetScriptSources')
         ) {
             // See if the theme changed
             const newSettings = await this.generateDataScienceExtraSettings();

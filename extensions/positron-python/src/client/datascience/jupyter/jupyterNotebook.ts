@@ -27,6 +27,7 @@ import { CodeSnippits, Identifiers, Telemetry } from '../constants';
 import {
     CellState,
     ICell,
+    IConnection,
     IJupyterKernelSpec,
     IJupyterSession,
     INotebook,
@@ -174,6 +175,9 @@ export class JupyterNotebookBase implements INotebook {
     private launchInfo: INotebookServerLaunchInfo;
     public get kernelSocket(): Observable<KernelSocketInformation | undefined> {
         return this.session.kernelSocket;
+    }
+    public get connection(): Readonly<IConnection> {
+        return this.launchInfo.connectionInfo;
     }
 
     constructor(

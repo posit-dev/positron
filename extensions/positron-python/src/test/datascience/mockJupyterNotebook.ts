@@ -11,6 +11,7 @@ import { LiveKernelModel } from '../../client/datascience/jupyter/kernels/types'
 import {
     ICell,
     ICellHashProvider,
+    IConnection,
     IGatherProvider,
     IJupyterKernelSpec,
     INotebook,
@@ -28,7 +29,9 @@ export class MockJupyterNotebook implements INotebook {
     public get server(): INotebookServer {
         return this.owner;
     }
-
+    public get connection(): IConnection {
+        throw new Error('Not implemented');
+    }
     public get identity(): Uri {
         return Uri.parse(Identifiers.InteractiveWindowIdentity);
     }

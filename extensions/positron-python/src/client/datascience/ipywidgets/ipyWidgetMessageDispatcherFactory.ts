@@ -75,7 +75,7 @@ class IPyWidgetMessageDispatcherWithOldMessages implements IIPyWidgetMessageDisp
  */
 @injectable()
 export class IPyWidgetMessageDispatcherFactory implements IDisposable {
-    private readonly ipywidgetMulticasters = new Map<string, IPyWidgetMessageDispatcher>();
+    private readonly messageDispatchers = new Map<string, IPyWidgetMessageDispatcher>();
     private readonly messages: IPyWidgetMessage[] = [];
     private disposed = false;
     private disposables: IDisposable[] = [];
@@ -98,17 +98,17 @@ export class IPyWidgetMessageDispatcherFactory implements IDisposable {
         }
     }
     public create(identity: Uri): IIPyWidgetMessageDispatcher {
-        let baseDispatcher = this.ipywidgetMulticasters.get(identity.fsPath);
+        let baseDispatcher = this.messageDispatchers.get(identity.fsPath);
         if (!baseDispatcher) {
             baseDispatcher = new IPyWidgetMessageDispatcher(this.notebookProvider, identity);
-            this.ipywidgetMulticasters.set(identity.fsPath, baseDispatcher);
+            this.messageDispatchers.set(identity.fsPath, baseDispatcher);
 
             // Capture all messages so we can re-play messages that others missed.
             this.disposables.push(baseDispatcher.postMessage(this.onMessage, this));
         }
 
         // If we have messages upto this point, then capture those messages,
-        // & pass to the multicaster so it can re-broadcast those old messages.
+        // & pass to the dispatcher so it can re-broadcast those old messages.
         // If there are no old messages, even then return a new instance of the class.
         // This way, the reference to that will be controlled by calling code.
         const dispatcher = new IPyWidgetMessageDispatcherWithOldMessages(
@@ -124,9 +124,9 @@ export class IPyWidgetMessageDispatcherFactory implements IDisposable {
         }
         notebook.onDisposed(
             () => {
-                const item = this.ipywidgetMulticasters.get(notebook.identity.fsPath);
+                const item = this.messageDispatchers.get(notebook.identity.fsPath);
                 item?.dispose(); // NOSONAR
-                this.ipywidgetMulticasters.delete(notebook.identity.fsPath);
+                this.messageDispatchers.delete(notebook.identity.fsPath);
             },
             this,
             this.disposables

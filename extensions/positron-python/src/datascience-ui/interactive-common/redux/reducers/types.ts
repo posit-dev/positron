@@ -58,7 +58,6 @@ export enum CommonActionType {
     IPYWIDGET_RENDER_FAILURE = 'action.ipywidget_render_failure',
     LOAD_IPYWIDGET_CLASS_SUCCESS = 'action.load_ipywidget_class_success',
     LOAD_IPYWIDGET_CLASS_FAILURE = 'action.load_ipywidget_class_failure',
-    LOAD_IPYWIDGET_CLASS_DISABLED_FAILURE = 'action.load_ipywidget_class_disabled_failure',
     LOADED_ALL_CELLS = 'action.loaded_all_cells',
     LINK_CLICK = 'action.link_click',
     MOVE_CELL_DOWN = 'action.move_cell_down',
@@ -135,7 +134,6 @@ export type CommonActionTypeMapping = {
     [CommonActionType.FOCUS_INPUT]: never | undefined;
     [CommonActionType.LOAD_IPYWIDGET_CLASS_SUCCESS]: LoadIPyWidgetClassLoadAction;
     [CommonActionType.LOAD_IPYWIDGET_CLASS_FAILURE]: ILoadIPyWidgetClassFailureAction;
-    [CommonActionType.LOAD_IPYWIDGET_CLASS_DISABLED_FAILURE]: LoadIPyWidgetClassDisabledAction;
     [CommonActionType.IPYWIDGET_RENDER_FAILURE]: Error;
 };
 
@@ -217,6 +215,7 @@ export interface ILoadIPyWidgetClassFailureAction {
     className: string;
     moduleName: string;
     moduleVersion: string;
+    cdnsUsed: boolean;
     isOnline: boolean;
     // tslint:disable-next-line: no-any
     error: any;

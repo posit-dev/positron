@@ -141,7 +141,8 @@ suite('Interactive window command listener', async () => {
             runStartupCommands: '',
             debugJustMyCode: true,
             variableQueries: [],
-            jupyterCommandLineArguments: []
+            jupyterCommandLineArguments: [],
+            widgetScriptSources: []
         };
 
         when(knownSearchPaths.getSearchPaths()).thenReturn(['/foo/bar']);
