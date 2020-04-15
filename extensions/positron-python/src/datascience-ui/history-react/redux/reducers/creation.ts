@@ -183,4 +183,15 @@ export namespace Creation {
             editCellVM: undefined
         };
     }
+
+    export function loaded(arg: InteractiveReducerArg<{ cells: ICell[] }>): IMainState {
+        postActionToExtension(arg, InteractiveWindowMessages.LoadAllCellsComplete, {
+            cells: []
+        });
+        return {
+            ...arg.prevState,
+            loaded: true,
+            busy: false
+        };
+    }
 }
