@@ -327,12 +327,6 @@ export interface IAnalysisSettings {
     readonly logLevel: LogLevel;
 }
 
-interface IGatherRule {
-    objectName?: string;
-    functionName: string;
-    doesNotModify: string[] | number[];
-}
-
 export interface IVariableQuery {
     language: string;
     query: string;
@@ -356,7 +350,7 @@ export interface IDataScienceSettings {
     maxOutputSize: number;
     enableGather?: boolean;
     gatherToScript?: boolean;
-    gatherRules?: IGatherRule[];
+    gatherSpecPath?: string;
     sendSelectionToInteractiveWindow: boolean;
     markdownRegularExpression: string;
     codeRegularExpression: string;

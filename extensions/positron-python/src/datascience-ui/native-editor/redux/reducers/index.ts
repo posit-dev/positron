@@ -55,6 +55,7 @@ export const reducerMap: Partial<INativeEditorActionMapping> = {
     [InteractiveWindowMessages.ShowPlot]: Transfer.showPlot,
     [CommonActionType.LINK_CLICK]: Transfer.linkClick,
     [CommonActionType.GATHER_CELL]: Transfer.gather,
+    [CommonActionType.GATHER_CELL_TO_SCRIPT]: Transfer.gatherToScript,
     [CommonActionType.EDITOR_LOADED]: Transfer.started,
     [CommonActionType.LOADED_ALL_CELLS]: Transfer.loadedAllCells,
     [CommonActionType.UNMOUNT]: Creation.unmount,

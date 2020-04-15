@@ -1655,68 +1655,6 @@
                     "markdownDescription": "Defines the location and order of the sources where scripts files for Widgets are downloaded from (e.g. ipywidgest, bqplot, beakerx, ipyleaflet, etc). Not selecting any of these could result in widgets not rendering or function correctly. See [here](https://aka.ms/PVSCIPyWidgets) for more information. Once updated you will need to restart the Kernel.",
                     "scope": "machine"
                 },
-                "python.dataScience.gatherRules": {
-                    "type": "array",
-                    "default": [
-                        {
-                            "objectName": "df",
-                            "functionName": "head",
-                            "doesNotModify": [
-                                "OBJECT"
-                            ]
-                        },
-                        {
-                            "objectName": "df",
-                            "functionName": "describe",
-                            "doesNotModify": [
-                                "OBJECT"
-                            ]
-                        },
-                        {
-                            "objectName": "df",
-                            "functionName": "tail",
-                            "doesNotModify": [
-                                "OBJECT"
-                            ]
-                        },
-                        {
-                            "functionName": "print",
-                            "doesNotModify": [
-                                "ARGUMENTS"
-                            ]
-                        },
-                        {
-                            "functionName": "KMeans",
-                            "doesNotModify": [
-                                "ARGUMENTS"
-                            ]
-                        },
-                        {
-                            "functionName": "scatter",
-                            "doesNotModify": [
-                                "ARGUMENTS"
-                            ]
-                        },
-                        {
-                            "functionName": "fit",
-                            "doesNotModify": [
-                                "ARGUMENTS"
-                            ]
-                        },
-                        {
-                            "functionName": "sum",
-                            "doesNotModify": [
-                                "ARGUMENTS"
-                            ]
-                        },
-                        {
-                            "functionName": "len",
-                            "doesNotModify": [
-                                "ARGUMENTS"
-                            ]
-                        }
-                    ]
-                },
                 "python.dataScience.askForLargeDataFrames": {
                     "type": "boolean",
                     "default": true,
@@ -1939,6 +1877,12 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Python Insiders Only: If experimental gather feature is enabled, gather code to a python script rather than a notebook.",
+                    "scope": "resource"
+                },
+                "python.dataScience.gatherSpecPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Python Insiders Only: If experimental gather feature is enabled, this setting specifies a folder that contains additional or replacement spec files used for analysis.",
                     "scope": "resource"
                 },
                 "python.dataScience.codeLenses": {

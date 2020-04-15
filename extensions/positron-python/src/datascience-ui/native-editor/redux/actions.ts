@@ -108,6 +108,8 @@ export const actionCreators = {
     showPlot: (imageHtml: string) => createIncomingActionWithPayload(InteractiveWindowMessages.ShowPlot, imageHtml),
     gatherCell: (cellId: string | undefined): CommonAction<ICellAction> =>
         createIncomingActionWithPayload(CommonActionType.GATHER_CELL, { cellId }),
+    gatherCellToScript: (cellId: string | undefined): CommonAction<ICellAction> =>
+        createIncomingActionWithPayload(CommonActionType.GATHER_CELL_TO_SCRIPT, { cellId }),
     editorLoaded: (): CommonAction => createIncomingAction(CommonActionType.EDITOR_LOADED),
     codeCreated: (cellId: string | undefined, modelId: string): CommonAction<ICodeCreatedAction> =>
         createIncomingActionWithPayload(CommonActionType.CODE_CREATED, { cellId, modelId }),
