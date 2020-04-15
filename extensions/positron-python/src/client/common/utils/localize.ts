@@ -266,6 +266,14 @@ export namespace DataScience {
         'DataScience.passwordFailure',
         'Failed to connect to password protected server. Check that password is correct.'
     );
+    export const rawKernelProcessNotStarted = localize(
+        'DataScience.rawKernelProcessNotStarted',
+        'Raw kernel process was not able to start.'
+    );
+    export const rawKernelProcessExitBeforeConnect = localize(
+        'DataScience.rawKernelProcessExitBeforeConnect',
+        'Raw kernel process exited before connecting.'
+    );
     export const unknownMimeTypeFormat = localize(
         'DataScience.unknownMimeTypeFormat',
         'Mime type {0} is not currently supported'
@@ -478,6 +486,14 @@ export namespace DataScience {
     export const jupyterNotebookRemoteConnectSelfCertsFailed = localize(
         'DataScience.jupyterNotebookRemoteConnectSelfCertsFailed',
         'Failed to connect to remote Jupyter notebook.\r\nSpecified server is using self signed certs. Enable Allow Unauthorized Remote Connection setting to connect anyways\r\n{0}\r\n{1}'
+    );
+    export const rawConnectionDisplayName = localize(
+        'DataScience.rawConnectionDisplayName',
+        'Direct kernel connection'
+    );
+    export const rawConnectionBrokenError = localize(
+        'DataScience.rawConnectionBrokenError',
+        'Direct kernel connection broken'
     );
     export const jupyterServerCrashed = localize(
         'DataScience.jupyterServerCrashed',

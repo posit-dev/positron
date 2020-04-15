@@ -32,9 +32,8 @@ import {
     IJupyterSession,
     INotebook,
     INotebookCompletion,
+    INotebookExecutionInfo,
     INotebookExecutionLogger,
-    INotebookServer,
-    INotebookServerLaunchInfo,
     InterruptResult,
     KernelSocketInformation
 } from '../types';
@@ -156,6 +155,7 @@ export class JupyterNotebookBase implements INotebook {
     private _identity: Uri;
     private _disposed: boolean = false;
     private _workingDirectory: string | undefined;
+    private _executionInfo: INotebookExecutionInfo;
     private onStatusChangedEvent: EventEmitter<ServerStatus> | undefined;
     public get onDisposed(): Event<void> {
         return this.disposed.event;
@@ -172,12 +172,8 @@ export class JupyterNotebookBase implements INotebook {
     private sessionStatusChanged: Disposable | undefined;
     private initializedMatplotlib = false;
     private ioPubListeners = new Set<(msg: KernelMessage.IIOPubMessage, requestId: string) => Promise<void>>();
-    private launchInfo: INotebookServerLaunchInfo;
     public get kernelSocket(): Observable<KernelSocketInformation | undefined> {
         return this.session.kernelSocket;
-    }
-    public get connection(): Readonly<IConnection> {
-        return this.launchInfo.connectionInfo;
     }
 
     constructor(
@@ -185,8 +181,7 @@ export class JupyterNotebookBase implements INotebook {
         private session: IJupyterSession,
         private configService: IConfigurationService,
         private disposableRegistry: IDisposableRegistry,
-        private owner: INotebookServer,
-        _launchInfo: INotebookServerLaunchInfo,
+        executionInfo: INotebookExecutionInfo,
         private loggers: INotebookExecutionLogger[],
         resource: Resource,
         identity: Uri,
@@ -207,10 +202,11 @@ export class JupyterNotebookBase implements INotebook {
         this._resource = resource;
 
         // Make a copy of the launch info so we can update it in this class
-        this.launchInfo = cloneDeep(_launchInfo);
+        this._executionInfo = cloneDeep(executionInfo);
     }
-    public get server(): INotebookServer {
-        return this.owner;
+
+    public get connection() {
+        return this._executionInfo.connectionInfo;
     }
 
     public async dispose(): Promise<void> {
@@ -603,11 +599,11 @@ export class JupyterNotebookBase implements INotebook {
     }
 
     public getMatchingInterpreter(): PythonInterpreter | undefined {
-        return this.launchInfo.interpreter;
+        return this._executionInfo.interpreter;
     }
 
     public getKernelSpec(): IJupyterKernelSpec | LiveKernelModel | undefined {
-        return this.launchInfo.kernelSpec;
+        return this._executionInfo.kernelSpec;
     }
 
     public async setKernelSpec(
@@ -625,20 +621,20 @@ export class JupyterNotebookBase implements INotebook {
 
             // Change our own kernel spec
             // Only after session was successfully created.
-            this.launchInfo.kernelSpec = spec;
+            this._executionInfo.kernelSpec = spec;
 
             // Rerun our initial setup
             await this.initialize();
         } else {
             // Change our own kernel spec
-            this.launchInfo.kernelSpec = spec;
+            this._executionInfo.kernelSpec = spec;
         }
 
         this.kernelChanged.fire(spec);
 
         // If our new kernelspec has an interpreter, set that as our interpreter too
         if (interpreter) {
-            this.launchInfo.interpreter = interpreter;
+            this._executionInfo.interpreter = interpreter;
         }
     }
 
@@ -902,16 +898,20 @@ export class JupyterNotebookBase implements INotebook {
     };
 
     private async updateWorkingDirectoryAndPath(launchingFile?: string): Promise<void> {
-        if (this.launchInfo && this.launchInfo.connectionInfo.localLaunch && !this._workingDirectory) {
+        if (this._executionInfo && this._executionInfo.connectionInfo.localLaunch && !this._workingDirectory) {
             // See what our working dir is supposed to be
-            const suggested = this.launchInfo.workingDir;
+            const suggested = this._executionInfo.workingDir;
             if (suggested && (await this.fs.directoryExists(suggested))) {
                 // We should use the launch info directory. It trumps the possible dir
                 this._workingDirectory = suggested;
                 return this.changeDirectoryIfPossible(this._workingDirectory);
             } else if (launchingFile && (await this.fs.fileExists(launchingFile))) {
                 // Combine the working directory with this file if possible.
-                this._workingDirectory = expandWorkingDir(this.launchInfo.workingDir, launchingFile, this.workspace);
+                this._workingDirectory = expandWorkingDir(
+                    this._executionInfo.workingDir,
+                    launchingFile,
+                    this.workspace
+                );
                 if (this._workingDirectory) {
                     return this.changeDirectoryIfPossible(this._workingDirectory);
                 }
@@ -922,8 +922,8 @@ export class JupyterNotebookBase implements INotebook {
     // Update both current working directory and sys.path with the desired directory
     private changeDirectoryIfPossible = async (directory: string): Promise<void> => {
         if (
-            this.launchInfo &&
-            this.launchInfo.connectionInfo.localLaunch &&
+            this._executionInfo &&
+            this._executionInfo.connectionInfo.localLaunch &&
             (await this.fs.directoryExists(directory))
         ) {
             await this.executeSilently(CodeSnippits.UpdateCWDAndPath.format(directory));
@@ -994,11 +994,16 @@ export class JupyterNotebookBase implements INotebook {
     }
 
     private checkForExit(): Error | undefined {
-        if (this.launchInfo && this.launchInfo.connectionInfo && this.launchInfo.connectionInfo.localProcExitCode) {
-            // Not running, just exit
-            const exitCode = this.launchInfo.connectionInfo.localProcExitCode;
-            traceError(`Jupyter crashed with code ${exitCode}`);
-            return new Error(localize.DataScience.jupyterServerCrashed().format(exitCode.toString()));
+        if (this._executionInfo && this._executionInfo.connectionInfo && !this._executionInfo.connectionInfo.valid) {
+            if (this._executionInfo.connectionInfo.type === 'jupyter') {
+                const jupyterConnection = this._executionInfo.connectionInfo as IConnection;
+                // Not running, just exit
+                if (jupyterConnection.localProcExitCode) {
+                    const exitCode = jupyterConnection.localProcExitCode;
+                    traceError(`Jupyter crashed with code ${exitCode}`);
+                    return new Error(localize.DataScience.jupyterServerCrashed().format(exitCode.toString()));
+                }
+            }
         }
 
         return undefined;
@@ -1062,9 +1067,9 @@ export class JupyterNotebookBase implements INotebook {
 
                 // Make sure our connection doesn't go down
                 let exitHandlerDisposable: Disposable | undefined;
-                if (this.launchInfo && this.launchInfo.connectionInfo) {
+                if (this._executionInfo && this._executionInfo.connectionInfo) {
                     // If the server crashes, cancel the current observable
-                    exitHandlerDisposable = this.launchInfo.connectionInfo.disconnected((c) => {
+                    exitHandlerDisposable = this._executionInfo.connectionInfo.disconnected((c) => {
                         const str = c ? c.toString() : '';
                         // Only do an error if we're not disposed. If we're disposed we already shutdown.
                         if (!this._disposed) {

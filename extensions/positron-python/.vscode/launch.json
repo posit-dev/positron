@@ -264,7 +264,7 @@
                 "--ui=tdd",
                 "--recursive",
                 "--colors",
-                //"--grep", "<suite>",
+                //"--grep", "<suite name>",
                 "--timeout=300000"
             ],
             "env": {

@@ -30,6 +30,7 @@ import { DebugListener } from './interactive-common/debugListener';
 import { IntellisenseProvider } from './interactive-common/intellisense/intellisenseProvider';
 import { LinkProvider } from './interactive-common/linkProvider';
 import { NotebookProvider } from './interactive-common/notebookProvider';
+import { NotebookServerProvider } from './interactive-common/notebookServerProvider';
 import { ShowPlotListener } from './interactive-common/showPlotListener';
 import { AutoSaveService } from './interactive-ipynb/autoSaveService';
 import { NativeEditor } from './interactive-ipynb/nativeEditor';
@@ -62,6 +63,7 @@ import { JupyterDebugger } from './jupyter/jupyterDebugger';
 import { JupyterExecutionFactory } from './jupyter/jupyterExecutionFactory';
 import { JupyterExporter } from './jupyter/jupyterExporter';
 import { JupyterImporter } from './jupyter/jupyterImporter';
+import { JupyterNotebookProvider } from './jupyter/jupyterNotebookProvider';
 import { JupyterPasswordConnect } from './jupyter/jupyterPasswordConnect';
 import { JupyterServerWrapper } from './jupyter/jupyterServerWrapper';
 import { JupyterSessionManagerFactory } from './jupyter/jupyterSessionManagerFactory';
@@ -80,6 +82,8 @@ import { PlotViewer } from './plotting/plotViewer';
 import { PlotViewerProvider } from './plotting/plotViewerProvider';
 import { PreWarmActivatedJupyterEnvironmentVariables } from './preWarmVariables';
 import { ProgressReporter } from './progress/progressReporter';
+import { EnchannelJMPConnection } from './raw-kernel/enchannelJMPConnection';
+import { RawNotebookProviderWrapper } from './raw-kernel/rawNotebookProviderWrapper';
 import { StatusProvider } from './statusProvider';
 import { ThemeFinder } from './themeFinder';
 import {
@@ -100,11 +104,14 @@ import {
     IInteractiveWindow,
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
+    IJMPConnection,
     IJupyterCommandFactory,
     IJupyterDebugger,
     IJupyterExecution,
     IJupyterInterpreterDependencyManager,
+    IJupyterNotebookProvider,
     IJupyterPasswordConnect,
+    IJupyterServerProvider,
     IJupyterSessionManagerFactory,
     IJupyterSubCommandExecutionService,
     IJupyterVariables,
@@ -118,6 +125,7 @@ import {
     INotebookStorage,
     IPlotViewer,
     IPlotViewerProvider,
+    IRawNotebookProvider,
     IStatusProvider,
     IThemeFinder
 } from './types';
@@ -148,6 +156,8 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.add<INotebookImporter>(INotebookImporter, JupyterImporter);
     serviceManager.add<INotebookServer>(INotebookServer, JupyterServerWrapper);
     serviceManager.add<INotebookStorage>(INotebookStorage, NativeEditorStorage);
+    serviceManager.addSingleton<IRawNotebookProvider>(IRawNotebookProvider, RawNotebookProviderWrapper);
+    serviceManager.addSingleton<IJupyterNotebookProvider>(IJupyterNotebookProvider, JupyterNotebookProvider);
     serviceManager.add<IPlotViewer>(IPlotViewer, PlotViewer);
     serviceManager.addSingleton<IKernelLauncher>(IKernelLauncher, KernelLauncher);
     serviceManager.addSingleton<IKernelFinder>(IKernelFinder, KernelFinder);
@@ -198,6 +208,8 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<ProgressReporter>(ProgressReporter, ProgressReporter);
     serviceManager.addSingleton<NativeEditorSynchronizer>(NativeEditorSynchronizer, NativeEditorSynchronizer);
     serviceManager.addSingleton<INotebookProvider>(INotebookProvider, NotebookProvider);
+    serviceManager.addSingleton<IJupyterServerProvider>(IJupyterServerProvider, NotebookServerProvider);
+    serviceManager.add<IJMPConnection>(IJMPConnection, EnchannelJMPConnection);
     serviceManager.addSingleton<IPyWidgetMessageDispatcherFactory>(IPyWidgetMessageDispatcherFactory, IPyWidgetMessageDispatcherFactory);
 
     // Temporary code, to allow users to revert to the old behavior.

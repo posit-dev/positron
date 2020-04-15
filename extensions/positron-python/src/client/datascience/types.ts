@@ -48,14 +48,29 @@ export interface IDataScienceCommandListener {
     register(commandManager: ICommandManager): void;
 }
 
-// Connection information for talking to a jupyter notebook process
-export interface IConnection extends Disposable {
+// Connection information for talking to a generic notebook provider
+export interface INotebookProviderConnection extends Disposable {
+    // What type of notebook provider are we connected to
+    readonly type: 'raw' | 'jupyter';
+    // Was this connection launched locally or not
+    readonly localLaunch: boolean;
+    // Is the connection still valid
+    readonly valid: boolean;
+    // Display name
+    readonly displayName: string;
+    // Called if whatever provides the notebook is disconnected
+    disconnected: Event<number>;
+}
+
+// Connection information for talking to a raw ZMQ provider
+export interface IRawConnection extends INotebookProviderConnection {}
+
+// Connection information for talking to a jupyter server process
+export interface IConnection extends INotebookProviderConnection {
     readonly baseUrl: string;
     readonly token: string;
     readonly hostName: string;
-    readonly localLaunch: boolean;
     localProcExitCode: number | undefined;
-    disconnected: Event<number>;
     allowUnauthorized?: boolean;
 }
 
@@ -64,6 +79,23 @@ export enum InterruptResult {
     TimedOut = 1,
     Restarted = 2
 }
+
+// Information used to execute a notebook
+export interface INotebookExecutionInfo {
+    // Connection to what has provided our notebook, such as a jupyter
+    // server or a raw ZMQ kernel
+    connectionInfo: INotebookProviderConnection;
+    /**
+     * The python interpreter associated with the kernel.
+     */
+    interpreter: PythonInterpreter | undefined;
+    uri: string | undefined; // Different from the connectionInfo as this is the setting used, not the result
+    kernelSpec: IJupyterKernelSpec | undefined | LiveKernelModel;
+    workingDir: string | undefined;
+    purpose: string | undefined; // Purpose this server is for
+}
+
+// Information used to launch a jupyter notebook server
 
 // Information used to launch a notebook server
 export interface INotebookServerLaunchInfo {
@@ -107,12 +139,33 @@ export interface INotebookServer extends IAsyncDisposable {
     shutdown(): Promise<void>;
 }
 
+// Provides notebooks that talk directly to kernels as opposed to a jupyter server
+export const IRawNotebookProvider = Symbol('IRawNotebookProvider');
+export interface IRawNotebookProvider extends IAsyncDisposable {
+    connect(): Promise<IRawConnection>;
+    createNotebook(
+        identity: Uri,
+        resource: Resource,
+        notebookMetadata?: nbformat.INotebookMetadata,
+        cancelToken?: CancellationToken
+    ): Promise<INotebook>;
+    getNotebook(identity: Uri): Promise<INotebook | undefined>;
+}
+
+// Provides notebooks that talk to jupyter servers
+export const IJupyterNotebookProvider = Symbol('IJupyterNotebookProvider');
+export interface IJupyterNotebookProvider {
+    connect(options: ConnectNotebookProviderOptions): Promise<IConnection | undefined>;
+    createNotebook(options: GetNotebookOptions): Promise<INotebook>;
+    getNotebook(options: GetNotebookOptions): Promise<INotebook | undefined>;
+    disconnect(options: ConnectNotebookProviderOptions): Promise<void>;
+}
+
 export interface INotebook extends IAsyncDisposable {
     readonly resource: Resource;
-    readonly connection: Readonly<IConnection>;
+    readonly connection: INotebookProviderConnection | undefined;
     kernelSocket: Observable<KernelSocketInformation | undefined>;
     readonly identity: Uri;
-    readonly server: INotebookServer;
     readonly status: ServerStatus;
     onSessionStatusChanged: Event<ServerStatus>;
     onDisposed: Event<void>;
@@ -171,6 +224,13 @@ export interface INotebook extends IAsyncDisposable {
     ): void;
     removeMessageHook(msgId: string, hook: (msg: KernelMessage.IIOPubMessage) => boolean | PromiseLike<boolean>): void;
 }
+
+// Options for connecting to a notebook provider
+export type ConnectNotebookProviderOptions = {
+    getOnly?: boolean;
+    disableUI?: boolean;
+    localOnly?: boolean;
+};
 
 export interface INotebookServerOptions {
     uri?: string;
@@ -956,7 +1016,19 @@ export interface INotebookProvider {
      * Gets or creates a notebook, and manages the lifetime of notebooks.
      */
     getOrCreateNotebook(options: GetNotebookOptions): Promise<INotebook | undefined>;
+    /**
+     * Connect to a notebook provider to prepare its connection and to get connection information
+     */
+    connect(options: ConnectNotebookProviderOptions): Promise<INotebookProviderConnection | undefined>;
 
+    /**
+     * Disconnect from a notebook provider connection
+     */
+    disconnect(options: ConnectNotebookProviderOptions): Promise<void>;
+}
+
+export const IJupyterServerProvider = Symbol('IJupyterServerProvider');
+export interface IJupyterServerProvider {
     /**
      * Gets the server used for starting notebooks
      */
@@ -1029,3 +1101,25 @@ export type KernelSocketInformation = {
      */
     readonly options: KernelSocketOptions;
 };
+
+// Connection info to connect to a kernel over JMP
+export interface IJMPConnectionInfo {
+    version: number;
+    iopub_port: number;
+    shell_port: number;
+    stdin_port: number;
+    control_port: number;
+    signature_scheme: string;
+    hb_port: number;
+    ip: string;
+    key: string;
+    transport: string;
+}
+
+export const IJMPConnection = Symbol('IJMPConnection');
+// A service to send and recieve messages over Jupyter messaging protocol
+export interface IJMPConnection extends IDisposable {
+    connect(connectInfo: IJMPConnectionInfo): Promise<void>;
+    sendMessage(message: KernelMessage.IMessage): void;
+    subscribe(handlerFunc: (message: KernelMessage.IMessage) => void): void;
+}
