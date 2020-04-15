@@ -449,6 +449,11 @@ export class NativeCell extends React.Component<INativeCellProps> {
         e.stopPropagation();
         e.preventDefault();
 
+        // Escape the current cell if it is markdown to make it render
+        if (this.isMarkdownCell()) {
+            this.escapeCell(e);
+        }
+
         // Submit this cell
         this.submitCell('none');
         this.props.sendCommand(NativeCommandType.Run, 'keyboard');
