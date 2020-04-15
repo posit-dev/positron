@@ -73,6 +73,9 @@ suite('xxxData Science - ipywidget - Widget Script Source Provider', () => {
         suite(localLaunch ? 'Local Jupyter Server' : 'Remote Jupyter Server', () => {
             setup(() => {
                 const connection: IConnection = {
+                    type: 'jupyter',
+                    valid: true,
+                    displayName: '',
                     baseUrl: '',
                     localProcExitCode: undefined,
                     disconnected: new EventEmitter<number>().event,

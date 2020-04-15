@@ -220,6 +220,7 @@
     "ripemd160",
     "roughjs-es5",
     "rxjs",
+    "rxjs-compat",
     "safe-buffer",
     "scheduler",
     "semiotic",

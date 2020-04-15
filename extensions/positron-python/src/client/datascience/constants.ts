@@ -397,6 +397,7 @@ export namespace Identifiers {
     export const EmptyFileName = '2DB9B899-6519-4E1B-88B0-FA728A274115';
     export const GeneratedThemeName = 'ipython-theme'; // This needs to be all lower class and a valid class name.
     export const HistoryPurpose = 'history';
+    export const RawPurpose = 'raw';
     export const PingPurpose = 'ping';
     export const MatplotLibDefaultParams = '_VSCode_defaultMatplotlib_Params';
     export const EditCellId = '3D3AB152-ADC1-4501-B813-4B83B49B0C10';
@@ -443,6 +444,7 @@ export namespace LiveShare {
     export const InteractiveWindowProviderService = 'interactiveWindowProviderService';
     export const GuestCheckerService = 'guestCheckerService';
     export const LiveShareBroadcastRequest = 'broadcastRequest';
+    export const RawNotebookProviderService = 'rawNotebookProviderSharedService';
     export const ResponseLifetime = 15000;
     export const ResponseRange = 1000; // Range of time alloted to check if a response matches or not
     export const InterruptDefaultTimeout = 10000;

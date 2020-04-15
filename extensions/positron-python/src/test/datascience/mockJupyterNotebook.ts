@@ -11,13 +11,12 @@ import { LiveKernelModel } from '../../client/datascience/jupyter/kernels/types'
 import {
     ICell,
     ICellHashProvider,
-    IConnection,
     IGatherProvider,
     IJupyterKernelSpec,
     INotebook,
     INotebookCompletion,
     INotebookExecutionLogger,
-    INotebookServer,
+    INotebookProviderConnection,
     InterruptResult,
     KernelSocketInformation
 } from '../../client/datascience/types';
@@ -26,11 +25,8 @@ import { ServerStatus } from '../../datascience-ui/interactive-common/mainState'
 import { noop } from '../core';
 
 export class MockJupyterNotebook implements INotebook {
-    public get server(): INotebookServer {
-        return this.owner;
-    }
-    public get connection(): IConnection {
-        throw new Error('Not implemented');
+    public get connection(): INotebookProviderConnection | undefined {
+        return this.providerConnection;
     }
     public get identity(): Uri {
         return Uri.parse(Identifiers.InteractiveWindowIdentity);
@@ -57,7 +53,7 @@ export class MockJupyterNotebook implements INotebook {
     public onKernelRestarted = new EventEmitter<void>().event;
     private onStatusChangedEvent: EventEmitter<ServerStatus> | undefined;
 
-    constructor(private owner: INotebookServer) {
+    constructor(private providerConnection: INotebookProviderConnection | undefined) {
         noop();
     }
     public registerIOPubListener(

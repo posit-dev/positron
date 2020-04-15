@@ -13,19 +13,18 @@ import { ConfigurationService } from '../../../../client/common/configuration/se
 import { IConfigurationService, IPythonSettings } from '../../../../client/common/types';
 import { Common, DataScience } from '../../../../client/common/utils/localize';
 import { Architecture } from '../../../../client/common/utils/platform';
+import { JupyterSessionStartError } from '../../../../client/datascience/baseJupyterSession';
 import { Commands } from '../../../../client/datascience/constants';
 import { JupyterNotebookBase } from '../../../../client/datascience/jupyter/jupyterNotebook';
-import { JupyterServerWrapper } from '../../../../client/datascience/jupyter/jupyterServerWrapper';
-import { JupyterSessionStartError } from '../../../../client/datascience/jupyter/jupyterSession';
 import { JupyterSessionManagerFactory } from '../../../../client/datascience/jupyter/jupyterSessionManagerFactory';
 import { KernelSelector } from '../../../../client/datascience/jupyter/kernels/kernelSelector';
 import { KernelSwitcher } from '../../../../client/datascience/jupyter/kernels/kernelSwitcher';
 import { LiveKernelModel } from '../../../../client/datascience/jupyter/kernels/types';
 import {
+    IConnection,
     IJupyterKernelSpec,
     IJupyterSessionManagerFactory,
-    INotebook,
-    INotebookServer
+    INotebook
 } from '../../../../client/datascience/types';
 import { InterpreterType, PythonInterpreter } from '../../../../client/interpreter/contracts';
 import { noop } from '../../../core';
@@ -38,14 +37,14 @@ suite('Data Science - Kernel Switcher', () => {
     let kernelSelector: KernelSelector;
     let appShell: IApplicationShell;
     let notebook: INotebook;
-    let notebookServer: INotebookServer;
+    let connection: IConnection;
     let currentKernel: IJupyterKernelSpec | LiveKernelModel;
     let selectedKernel: LiveKernelModel;
     let selectedKernelSecondTime: LiveKernelModel;
     let selectedInterpreter: PythonInterpreter;
     let settings: IPythonSettings;
     setup(() => {
-        notebookServer = mock(JupyterServerWrapper);
+        connection = mock<IConnection>();
         settings = mock(PythonSettings);
         currentKernel = {
             lastActivityTime: new Date(),
@@ -83,7 +82,7 @@ suite('Data Science - Kernel Switcher', () => {
 
         // tslint:disable-next-line: no-any
         when(settings.datascience).thenReturn({} as any);
-        when(notebook.server).thenReturn(instance(notebookServer));
+        when(notebook.connection).thenReturn(instance(connection));
         when(configService.getSettings(anything())).thenReturn(instance(settings));
         kernelSwitcher = new KernelSwitcher(
             instance(configService),
@@ -100,19 +99,23 @@ suite('Data Science - Kernel Switcher', () => {
         // tslint:disable-next-line: max-func-body-length
         suite(isLocalConnection ? 'Local Connection' : 'Remote Connection', () => {
             setup(() => {
-                when(notebookServer.getConnectionInfo()).thenReturn({
+                const jupyterConnection: IConnection = {
+                    type: 'jupyter',
                     localLaunch: isLocalConnection,
                     baseUrl: '',
                     disconnected: new EventEmitter<number>().event,
                     hostName: '',
                     token: '',
                     localProcExitCode: 0,
+                    valid: true,
+                    displayName: '',
                     dispose: noop
-                });
+                };
+                when(notebook.connection).thenReturn(jupyterConnection);
             });
             teardown(() => {
                 // We should have checked if it was a local connection.
-                verify(notebookServer.getConnectionInfo()).atLeast(1);
+                verify(notebook.connection).atLeast(1);
             });
 
             [

@@ -17,9 +17,8 @@ import {
     ICell,
     IJupyterSession,
     INotebook,
+    INotebookExecutionInfo,
     INotebookExecutionLogger,
-    INotebookServer,
-    INotebookServerLaunchInfo,
     InterruptResult
 } from '../../types';
 import { JupyterNotebookBase } from '../jupyterNotebook';
@@ -46,8 +45,7 @@ export class HostJupyterNotebook
         session: IJupyterSession,
         configService: IConfigurationService,
         disposableRegistry: IDisposableRegistry,
-        owner: INotebookServer,
-        launchInfo: INotebookServerLaunchInfo,
+        executionInfo: INotebookExecutionInfo,
         loggers: INotebookExecutionLogger[],
         resource: Resource,
         identity: vscode.Uri,
@@ -61,8 +59,7 @@ export class HostJupyterNotebook
             session,
             configService,
             disposableRegistry,
-            owner,
-            launchInfo,
+            executionInfo,
             loggers,
             resource,
             identity,

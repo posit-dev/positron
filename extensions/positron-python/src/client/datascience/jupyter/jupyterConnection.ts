@@ -217,6 +217,8 @@ export class JupyterConnectionWaiter implements IDisposable {
 // Represents an active connection to a running jupyter notebook
 class JupyterConnection implements IConnection {
     public readonly localLaunch: boolean = true;
+    public readonly type = 'jupyter';
+    public valid: boolean = true;
     public localProcExitCode: number | undefined;
     private eventEmitter: EventEmitter<number> = new EventEmitter<number>();
     constructor(
@@ -231,10 +233,15 @@ class JupyterConnection implements IConnection {
             childProc.on('exit', (c) => {
                 // Our code expects the exit code to be of type `number` or `undefined`.
                 const code = typeof c === 'number' ? c : undefined;
+                this.valid = false;
                 this.localProcExitCode = code;
                 this.eventEmitter.fire(code);
             });
         }
+    }
+
+    public get displayName(): string {
+        return getJupyterConnectionDisplayName(this.token, this.baseUrl);
     }
 
     public get disconnected(): Event<number> {
@@ -246,4 +253,9 @@ class JupyterConnection implements IConnection {
             this.disposable.dispose();
         }
     }
+}
+
+export function getJupyterConnectionDisplayName(token: string, baseUrl: string): string {
+    const tokenString = token.length > 0 ? `?token=${token}` : '';
+    return `${baseUrl}${tokenString}`;
 }

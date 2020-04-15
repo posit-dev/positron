@@ -37,8 +37,11 @@ suite('Data Science - ipywidget - CDN', () => {
         suite(localLaunch ? 'Local Jupyter Server' : 'Remote Jupyter Server', () => {
             setup(() => {
                 const connection: IConnection = {
+                    type: 'jupyter',
                     baseUrl: '',
                     localProcExitCode: undefined,
+                    valid: true,
+                    displayName: '',
                     disconnected: new EventEmitter<number>().event,
                     dispose: noop,
                     hostName: '',

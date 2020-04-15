@@ -19,12 +19,12 @@ import { PythonInterpreter } from '../../../interpreter/contracts';
 import { LiveShare, LiveShareCommands } from '../../constants';
 import {
     ICell,
-    IConnection,
     IJupyterKernelSpec,
     INotebook,
     INotebookCompletion,
+    INotebookExecutionInfo,
     INotebookExecutionLogger,
-    INotebookServer,
+    INotebookProviderConnection,
     InterruptResult,
     KernelSocketInformation
 } from '../../types';
@@ -44,10 +44,6 @@ export class GuestJupyterNotebook
         return this._jupyterLab;
     }
 
-    public get connection(): IConnection {
-        throw new Error('Not Implemented');
-    }
-
     public get identity(): Uri {
         return this._identity;
     }
@@ -56,8 +52,8 @@ export class GuestJupyterNotebook
         return this._resource;
     }
 
-    public get server(): INotebookServer {
-        return this._owner;
+    public get connection(): INotebookProviderConnection | undefined {
+        return this._executionInfo?.connectionInfo;
     }
     public kernelSocket = new Observable<KernelSocketInformation | undefined>();
 
@@ -87,7 +83,7 @@ export class GuestJupyterNotebook
         private configService: IConfigurationService,
         private _resource: Resource,
         private _identity: Uri,
-        private _owner: INotebookServer,
+        private _executionInfo: INotebookExecutionInfo | undefined,
         private startTime: number
     ) {
         super(liveShare);

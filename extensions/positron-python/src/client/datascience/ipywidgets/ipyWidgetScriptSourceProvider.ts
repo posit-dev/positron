@@ -20,7 +20,7 @@ import { Common, DataScience } from '../../common/utils/localize';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { sendTelemetryEvent } from '../../telemetry';
 import { Telemetry } from '../constants';
-import { ILocalResourceUriConverter, INotebook } from '../types';
+import { IConnection, ILocalResourceUriConverter, INotebook } from '../types';
 import { CDNWidgetScriptSourceProvider } from './cdnWidgetScriptSourceProvider';
 import { LocalWidgetScriptSourceProvider } from './localWidgetScriptSourceProvider';
 import { RemoteWidgetScriptSourceProvider } from './remoteWidgetScriptSourceProvider';
@@ -124,7 +124,7 @@ export class IPyWidgetScriptSourceProvider implements IWidgetScriptSourceProvide
         if (this.configuredScriptSources.length > 0) {
             scriptProviders.push(new CDNWidgetScriptSourceProvider(this.configurationSettings, this.httpClient));
         }
-        if (this.notebook.connection.localLaunch) {
+        if (this.notebook.connection && this.notebook.connection.localLaunch) {
             scriptProviders.push(
                 new LocalWidgetScriptSourceProvider(
                     this.notebook,
@@ -134,7 +134,11 @@ export class IPyWidgetScriptSourceProvider implements IWidgetScriptSourceProvide
                 )
             );
         } else {
-            scriptProviders.push(new RemoteWidgetScriptSourceProvider(this.notebook.connection, this.httpClient));
+            if (this.notebook.connection) {
+                scriptProviders.push(
+                    new RemoteWidgetScriptSourceProvider(this.notebook.connection as IConnection, this.httpClient)
+                );
+            }
         }
 
         this.scriptProviders = scriptProviders;

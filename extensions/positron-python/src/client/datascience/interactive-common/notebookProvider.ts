@@ -4,53 +4,44 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { ConfigurationTarget, EventEmitter, Uri } from 'vscode';
-import { IApplicationShell } from '../../common/application/types';
-import { CancellationError } from '../../common/cancellation';
-import { traceInfo } from '../../common/logger';
+import { EventEmitter, Uri } from 'vscode';
+import { LocalZMQKernel } from '../../common/experimentGroups';
+import { traceError, traceInfo } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
-import { IConfigurationService, IDisposableRegistry } from '../../common/types';
-import * as localize from '../../common/utils/localize';
+import { IConfigurationService, IDisposableRegistry, IExperimentsManager } from '../../common/types';
 import { noop } from '../../common/utils/misc';
-import { IInterpreterService } from '../../interpreter/contracts';
 import { sendTelemetryEvent } from '../../telemetry';
-import { Identifiers, Settings, Telemetry } from '../constants';
-import { JupyterInstallError } from '../jupyter/jupyterInstallError';
-import { JupyterSelfCertsError } from '../jupyter/jupyterSelfCertsError';
-import { JupyterZMQBinariesNotFoundError } from '../jupyter/jupyterZMQBinariesNotFoundError';
-import { ProgressReporter } from '../progress/progressReporter';
+import { Settings, Telemetry } from '../constants';
 import {
+    ConnectNotebookProviderOptions,
     GetNotebookOptions,
-    GetServerOptions,
     IInteractiveWindowProvider,
-    IJupyterExecution,
+    IJupyterNotebookProvider,
     INotebook,
     INotebookEditor,
     INotebookEditorProvider,
     INotebookProvider,
-    INotebookServer,
-    INotebookServerOptions
+    INotebookProviderConnection,
+    IRawNotebookProvider
 } from '../types';
 
 @injectable()
 export class NotebookProvider implements INotebookProvider {
     private readonly notebooks = new Map<string, Promise<INotebook>>();
-    private serverPromise: Promise<INotebookServer | undefined> | undefined;
-    private allowingUI = false;
     private _notebookCreated = new EventEmitter<{ identity: Uri; notebook: INotebook }>();
+    private _zmqSupported: boolean | undefined;
     public get activeNotebooks() {
         return [...this.notebooks.values()];
     }
     constructor(
-        @inject(ProgressReporter) private readonly progressReporter: ProgressReporter,
-        @inject(IConfigurationService) private readonly configuration: IConfigurationService,
         @inject(IFileSystem) private readonly fs: IFileSystem,
         @inject(INotebookEditorProvider) private readonly editorProvider: INotebookEditorProvider,
         @inject(IInteractiveWindowProvider) private readonly interactiveWindowProvider: IInteractiveWindowProvider,
         @inject(IDisposableRegistry) disposables: IDisposableRegistry,
-        @inject(IJupyterExecution) private readonly jupyterExecution: IJupyterExecution,
-        @inject(IApplicationShell) private readonly applicationShell: IApplicationShell,
-        @inject(IInterpreterService) private readonly interpreterService: IInterpreterService
+        @inject(IRawNotebookProvider) private readonly rawNotebookProvider: IRawNotebookProvider,
+        @inject(IJupyterNotebookProvider) private readonly jupyterNotebookProvider: IJupyterNotebookProvider,
+        @inject(IConfigurationService) private readonly configuration: IConfigurationService,
+        @inject(IExperimentsManager) private readonly experimentsManager: IExperimentsManager
     ) {
         disposables.push(editorProvider.onDidCloseNotebookEditor(this.onDidCloseNotebookEditor, this));
         disposables.push(
@@ -61,202 +52,120 @@ export class NotebookProvider implements INotebookProvider {
         return this._notebookCreated.event;
     }
 
-    public async getOrCreateServer(options: GetServerOptions): Promise<INotebookServer | undefined> {
-        const serverOptions = this.getNotebookServerOptions();
+    // Disconnect from the specified provider
+    public async disconnect(options: ConnectNotebookProviderOptions): Promise<void> {
+        // Only need to disconnect from actual jupyter servers
+        if (!(await this.rawKernelSupported())) {
+            return this.jupyterNotebookProvider.disconnect(options);
+        }
+    }
 
-        // If we are just fetching or only want to create for local, see if exists
-        if (options.getOnly || (options.localOnly && serverOptions.uri)) {
-            return this.jupyterExecution.getServer(serverOptions);
+    // Attempt to connect to our server provider, and if we do, return the connection info
+    public async connect(options: ConnectNotebookProviderOptions): Promise<INotebookProviderConnection | undefined> {
+        // Connect to either a jupyter server or a stubbed out raw notebook "connection"
+        if (await this.rawKernelSupported()) {
+            return this.rawNotebookProvider.connect();
         } else {
-            // Otherwise create a new server
-            return this.createServer(options);
+            return this.jupyterNotebookProvider.connect(options);
         }
     }
 
     public async getOrCreateNotebook(options: GetNotebookOptions): Promise<INotebook | undefined> {
-        // Make sure we have a server
-        const server = await this.getOrCreateServer({ getOnly: options.getOnly, disableUI: options.disableUI });
-        if (server) {
-            // We could have multiple native editors opened for the same file/model.
-            const notebook = await server.getNotebook(options.identity);
-            if (notebook) {
-                return notebook;
-            }
+        const rawKernel = await this.rawKernelSupported();
 
-            if (this.notebooks.get(options.identity.fsPath)) {
-                return this.notebooks.get(options.identity.fsPath)!!;
-            }
-
-            const promise = server.createNotebook(options.identity, options.identity, options.metadata);
-            this.notebooks.set(options.identity.fsPath, promise);
-
-            // Remove promise from cache if the same promise still exists.
-            const removeFromCache = () => {
-                const cachedPromise = this.notebooks.get(options.identity.fsPath);
-                if (cachedPromise === promise) {
-                    this.notebooks.delete(options.identity.fsPath);
-                }
-            };
-
-            promise
-                .then((nb) => {
-                    // If the notebook is disposed, remove from cache.
-                    nb.onDisposed(removeFromCache);
-                    this._notebookCreated.fire({ identity: options.identity, notebook: nb });
-                })
-                .catch(noop);
-
-            // If promise fails, then remove the promise from cache.
-            promise.catch(removeFromCache);
-
-            return promise;
+        // Check to see if our provider already has this notebook
+        const notebook = rawKernel
+            ? await this.rawNotebookProvider.getNotebook(options.identity)
+            : await this.jupyterNotebookProvider.getNotebook(options);
+        if (notebook) {
+            return notebook;
         }
+
+        // Next check our own promise cache
+        if (this.notebooks.get(options.identity.fsPath)) {
+            return this.notebooks.get(options.identity.fsPath)!!;
+        }
+
+        // We want to cache a Promise<INotebook> from the create functions
+        // but jupyterNotebookProvider.createNotebook can be undefined if the server is not available
+        // so check for our connection here first
+        if (!rawKernel) {
+            if (!(await this.jupyterNotebookProvider.connect(options))) {
+                return undefined;
+            }
+        }
+
+        // Finally create if needed
+        const promise = rawKernel
+            ? this.rawNotebookProvider.createNotebook(options.identity, options.identity, options.metadata)
+            : this.jupyterNotebookProvider.createNotebook(options);
+
+        this.cacheNotebookPromise(options.identity, promise);
+
+        return promise;
     }
 
-    private async createServer(options: GetServerOptions): Promise<INotebookServer | undefined> {
-        // When we finally try to create a server, update our flag indicating if we're going to allow UI or not. This
-        // allows the server to be attempted without a UI, but a future request can come in and use the same startup
-        this.allowingUI = options.disableUI ? this.allowingUI : true;
+    // Check to see if we have all that we need for supporting raw kernel launch
+    private async rawKernelSupported(): Promise<boolean> {
+        const zmqOk = await this.zmqSupported();
 
-        if (!this.serverPromise) {
-            // Start a server
-            this.serverPromise = this.startServer();
-        }
-        try {
-            return await this.serverPromise;
-        } catch (e) {
-            // Don't cache the error
-            this.serverPromise = undefined;
-            throw e;
-        }
+        return zmqOk && this.localLaunch() && this.experimentsManager.inExperiment(LocalZMQKernel.experiment)
+            ? true
+            : false;
     }
 
-    private async startServer(): Promise<INotebookServer | undefined> {
-        const serverOptions = this.getNotebookServerOptions();
-
-        traceInfo(`Checking for server existence.`);
-
-        // Status depends upon if we're about to connect to existing server or not.
-        const progressReporter = this.allowingUI
-            ? (await this.jupyterExecution.getServer(serverOptions))
-                ? this.progressReporter.createProgressIndicator(localize.DataScience.connectingToJupyter())
-                : this.progressReporter.createProgressIndicator(localize.DataScience.startingJupyter())
-            : undefined;
-
-        // Check to see if we support ipykernel or not
-        try {
-            traceInfo(`Checking for server usability.`);
-
-            const usable = await this.checkUsable(serverOptions);
-            if (!usable) {
-                traceInfo('Server not usable (should ask for install now)');
-                // Indicate failing.
-                throw new JupyterInstallError(
-                    localize.DataScience.jupyterNotSupported().format(await this.jupyterExecution.getNotebookError()),
-                    localize.DataScience.pythonInteractiveHelpLink()
-                );
-            }
-            // Then actually start the server
-            traceInfo(`Starting notebook server.`);
-            const result = await this.jupyterExecution.connectToNotebookServer(serverOptions, progressReporter?.token);
-            traceInfo(`Server started.`);
-            return result;
-        } catch (e) {
-            progressReporter?.dispose(); // NOSONAR
-            // If user cancelled, then do nothing.
-            if (progressReporter && progressReporter.token.isCancellationRequested && e instanceof CancellationError) {
-                return;
-            }
-
-            // Also tell jupyter execution to reset its search. Otherwise we've just cached
-            // the failure there
-            await this.jupyterExecution.refreshCommands();
-
-            if (e instanceof JupyterSelfCertsError) {
-                // On a self cert error, warn the user and ask if they want to change the setting
-                const enableOption: string = localize.DataScience.jupyterSelfCertEnable();
-                const closeOption: string = localize.DataScience.jupyterSelfCertClose();
-                this.applicationShell
-                    .showErrorMessage(
-                        localize.DataScience.jupyterSelfCertFail().format(e.message),
-                        enableOption,
-                        closeOption
-                    )
-                    .then((value) => {
-                        if (value === enableOption) {
-                            sendTelemetryEvent(Telemetry.SelfCertsMessageEnabled);
-                            this.configuration
-                                .updateSetting(
-                                    'dataScience.allowUnauthorizedRemoteConnection',
-                                    true,
-                                    undefined,
-                                    ConfigurationTarget.Workspace
-                                )
-                                .ignoreErrors();
-                        } else if (value === closeOption) {
-                            sendTelemetryEvent(Telemetry.SelfCertsMessageClose);
-                        }
-                    });
-                throw e;
-            } else {
-                throw e;
-            }
-        } finally {
-            progressReporter?.dispose(); // NOSONAR
-        }
-    }
-
-    private async checkUsable(options: INotebookServerOptions): Promise<boolean> {
-        try {
-            if (options && !options.uri) {
-                const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython();
-                return usableInterpreter ? true : false;
-            } else {
-                return true;
-            }
-        } catch (e) {
-            if (e instanceof JupyterZMQBinariesNotFoundError) {
-                throw e;
-            }
-            const activeInterpreter = await this.interpreterService.getActiveInterpreter(undefined);
-            // Can't find a usable interpreter, show the error.
-            if (activeInterpreter) {
-                const displayName = activeInterpreter.displayName
-                    ? activeInterpreter.displayName
-                    : activeInterpreter.path;
-                throw new Error(
-                    localize.DataScience.jupyterNotSupportedBecauseOfEnvironment().format(displayName, e.toString())
-                );
-            } else {
-                throw new JupyterInstallError(
-                    localize.DataScience.jupyterNotSupported().format(await this.jupyterExecution.getNotebookError()),
-                    localize.DataScience.pythonInteractiveHelpLink()
-                );
-            }
-        }
-    }
-
-    private getNotebookServerOptions(): INotebookServerOptions {
-        // Since there's one server per session, don't use a resource to figure out these settings
+    private localLaunch(): boolean {
         const settings = this.configuration.getSettings(undefined);
-        let serverURI: string | undefined = settings.datascience.jupyterServerURI;
-        const useDefaultConfig: boolean | undefined = settings.datascience.useDefaultConfigForJupyter;
+        const serverURI: string | undefined = settings.datascience.jupyterServerURI;
 
-        // For the local case pass in our URI as undefined, that way connect doesn't have to check the setting
-        if (serverURI.toLowerCase() === Settings.JupyterServerLocalLaunch) {
-            serverURI = undefined;
+        if (!serverURI || serverURI.toLowerCase() === Settings.JupyterServerLocalLaunch) {
+            return true;
         }
 
-        return {
-            uri: serverURI,
-            skipUsingDefaultConfig: !useDefaultConfig,
-            purpose: Identifiers.HistoryPurpose,
-            allowUI: this.allowUI.bind(this)
-        };
+        return false;
     }
 
-    private allowUI(): boolean {
-        return this.allowingUI;
+    // Check to see if this machine supports our local ZMQ launching
+    private async zmqSupported(): Promise<boolean> {
+        if (this._zmqSupported !== undefined) {
+            return this._zmqSupported;
+        }
+
+        try {
+            await import('zeromq');
+            traceInfo(`ZMQ install verified.`);
+            this._zmqSupported = true;
+        } catch (e) {
+            traceError(`Exception while attempting zmq :`, e);
+            sendTelemetryEvent(Telemetry.ZMQNotSupported);
+            this._zmqSupported = false;
+        }
+
+        return this._zmqSupported;
+    }
+
+    // Cache the promise that will return a notebook
+    private cacheNotebookPromise(identity: Uri, promise: Promise<INotebook>) {
+        this.notebooks.set(identity.fsPath, promise);
+
+        // Remove promise from cache if the same promise still exists.
+        const removeFromCache = () => {
+            const cachedPromise = this.notebooks.get(identity.fsPath);
+            if (cachedPromise === promise) {
+                this.notebooks.delete(identity.fsPath);
+            }
+        };
+
+        promise
+            .then((nb) => {
+                // If the notebook is disposed, remove from cache.
+                nb.onDisposed(removeFromCache);
+                this._notebookCreated.fire({ identity: identity, notebook: nb });
+            })
+            .catch(noop);
+
+        // If promise fails, then remove the promise from cache.
+        promise.catch(removeFromCache);
     }
 
     private async onDidCloseNotebookEditor(editor: INotebookEditor) {
