@@ -85,7 +85,8 @@ export enum InteractiveWindowMessages {
     SavePng = 'save_png',
     StartDebugging = 'start_debugging',
     StopDebugging = 'stop_debugging',
-    GatherCodeRequest = 'gather_code',
+    GatherCode = 'gather_code',
+    GatherCodeToScript = 'gather_code_to_script',
     LoadAllCells = 'load_all_cells',
     LoadAllCellsComplete = 'load_all_cells_complete',
     ScrollToCell = 'scroll_to_cell',
@@ -572,7 +573,8 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.SavePng]: string | undefined;
     public [InteractiveWindowMessages.StartDebugging]: never | undefined;
     public [InteractiveWindowMessages.StopDebugging]: never | undefined;
-    public [InteractiveWindowMessages.GatherCodeRequest]: ICell;
+    public [InteractiveWindowMessages.GatherCode]: ICell;
+    public [InteractiveWindowMessages.GatherCodeToScript]: ICell;
     public [InteractiveWindowMessages.LoadAllCells]: ILoadAllCells;
     public [InteractiveWindowMessages.LoadAllCellsComplete]: ILoadAllCells;
     public [InteractiveWindowMessages.ScrollToCell]: IScrollToCell;

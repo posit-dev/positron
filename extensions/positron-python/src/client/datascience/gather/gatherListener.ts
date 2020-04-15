@@ -5,6 +5,7 @@ import { Event, EventEmitter, Position, Uri, ViewColumn } from 'vscode';
 import { createMarkdownCell } from '../../../datascience-ui/common/cellFactory';
 import { IApplicationShell, IDocumentManager } from '../../common/application/types';
 import { PYTHON_LANGUAGE } from '../../common/constants';
+import { traceError } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
 import { IConfigurationService } from '../../common/types';
 import * as localize from '../../common/utils/localize';
@@ -64,8 +65,12 @@ export class GatherListener implements IInteractiveWindowListener {
                 this.handleMessage(message, payload, this.doInitGather);
                 break;
 
-            case InteractiveWindowMessages.GatherCodeRequest:
+            case InteractiveWindowMessages.GatherCode:
                 this.handleMessage(message, payload, this.doGather);
+                break;
+
+            case InteractiveWindowMessages.GatherCodeToScript:
+                this.handleMessage(message, payload, this.doGatherToScript);
                 break;
 
             case InteractiveWindowMessages.RestartKernel:
@@ -115,11 +120,19 @@ export class GatherListener implements IInteractiveWindowListener {
 
     private doGather(payload: ICell): void {
         this.gatherCodeInternal(payload).catch((err) => {
+            traceError(`Gather to Notebook error: ${err}`);
             this.applicationShell.showErrorMessage(err);
         });
     }
 
-    private gatherCodeInternal = async (cell: ICell) => {
+    private doGatherToScript(payload: ICell): void {
+        this.gatherCodeInternal(payload, true).catch((err) => {
+            traceError(`Gather to Script error: ${err}`);
+            this.applicationShell.showErrorMessage(err);
+        });
+    }
+
+    private gatherCodeInternal = async (cell: ICell, toScript: boolean = false) => {
         this.gatherTimer = new StopWatch();
 
         const slicedProgram = this.gatherProvider ? this.gatherProvider.gatherCode(cell) : 'Gather internal error';
@@ -127,7 +140,7 @@ export class GatherListener implements IInteractiveWindowListener {
         if (!slicedProgram) {
             sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, { result: 'err' });
         } else {
-            const gatherToScript: boolean | undefined = this.configService.getSettings().datascience.gatherToScript;
+            const gatherToScript: boolean = this.configService.getSettings().datascience.gatherToScript || toScript;
 
             if (gatherToScript) {
                 await this.showFile(slicedProgram, cell.file);
@@ -165,19 +178,46 @@ export class GatherListener implements IInteractiveWindowListener {
                 const contents = JSON.stringify(notebook);
                 const editor = await this.ipynbProvider.createNew(contents);
 
-                let disposable: IDisposable;
-                const handler = () => {
+                let disposableNotebookSaved: IDisposable;
+                let disposableNotebookClosed: IDisposable;
+
+                const savedHandler = () => {
                     sendTelemetryEvent(Telemetry.GatheredNotebookSaved);
-                    if (disposable) {
-                        disposable.dispose();
+                    if (disposableNotebookSaved) {
+                        disposableNotebookSaved.dispose();
+                    }
+                    if (disposableNotebookClosed) {
+                        disposableNotebookClosed.dispose();
                     }
                 };
-                disposable = editor.saved(handler);
+
+                const closedHandler = () => {
+                    if (disposableNotebookSaved) {
+                        disposableNotebookSaved.dispose();
+                    }
+                    if (disposableNotebookClosed) {
+                        disposableNotebookClosed.dispose();
+                    }
+                };
+
+                disposableNotebookSaved = editor.saved(savedHandler);
+                disposableNotebookClosed = editor.closed(closedHandler);
             }
         }
     }
 
     private async showFile(slicedProgram: string, filename: string) {
+        const defaultCellMarker =
+            this.configService.getSettings().datascience.defaultCellMarker || Identifiers.DefaultCodeCellMarker;
+
+        if (slicedProgram) {
+            // Remove all cell definitions and newlines
+            const re = new RegExp(`^(${defaultCellMarker}.*|\\s*)\n`, 'gm');
+            slicedProgram = slicedProgram.replace(re, '');
+        }
+
+        const annotatedScript = `${localize.DataScience.gatheredScriptDescription()}${defaultCellMarker}\n${slicedProgram}`;
+
         // Don't want to open the gathered code on top of the interactive window
         let viewColumn: ViewColumn | undefined;
         const fileNameMatch = this.documentManager.visibleTextEditors.filter((textEditor) =>
@@ -199,7 +239,7 @@ export class GatherListener implements IInteractiveWindowListener {
 
         // Create a new open editor with the returned program in the right panel
         const doc = await this.documentManager.openTextDocument({
-            content: slicedProgram,
+            content: annotatedScript,
             language: PYTHON_LANGUAGE
         });
         const editor = await this.documentManager.showTextDocument(doc, viewColumn);

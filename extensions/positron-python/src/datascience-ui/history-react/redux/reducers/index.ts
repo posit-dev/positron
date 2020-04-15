@@ -30,6 +30,7 @@ export const reducerMap: Partial<IInteractiveActionMapping> = {
     [CommonActionType.TOGGLE_INPUT_BLOCK]: Effects.toggleInputBlock,
     [CommonActionType.COPY_CELL_CODE]: Transfer.copyCellCode,
     [CommonActionType.GATHER_CELL]: Transfer.gather,
+    [CommonActionType.GATHER_CELL_TO_SCRIPT]: Transfer.gatherToScript,
     [CommonActionType.EDIT_CELL]: Transfer.editCell,
     [CommonActionType.SUBMIT_INPUT]: Execution.submitInput,
     [InteractiveWindowMessages.ExpandAll]: Effects.expandAll,

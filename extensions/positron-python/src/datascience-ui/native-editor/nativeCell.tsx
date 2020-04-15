@@ -128,6 +128,10 @@ export class NativeCell extends React.Component<INativeCellProps> {
         return this.props.cellVM.focused;
     };
 
+    private isError = () => {
+        return this.props.cellVM.cell.state === CellState.error;
+    };
+
     private renderNormalCell() {
         const cellOuterClass = this.props.cellVM.editable ? 'cell-outer-editable' : 'cell-outer';
         let cellWrapperClass = this.props.cellVM.editable ? 'cell-wrapper' : 'cell-wrapper cell-wrapper-noneditable';
@@ -558,6 +562,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
             this.props.cellVM.cell.data.execution_count === null ||
             this.props.cellVM.hasBeenRun === null ||
             this.props.cellVM.hasBeenRun === false ||
+            this.isError() ||
             this.isMarkdownCell() ||
             this.props.enableGather === false;
         const switchTooltip =

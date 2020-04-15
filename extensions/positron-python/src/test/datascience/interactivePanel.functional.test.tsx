@@ -65,6 +65,7 @@ suite('DataScience Interactive Panel', () => {
             focusPending: 0,
             font: { family: '', size: 1 },
             gatherCell: noopAny,
+            gatherCellToScript: noopAny,
             getVariableData: noopAny,
             gotoCell: noopAny,
             interruptKernel: noopAny,

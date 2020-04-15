@@ -115,7 +115,15 @@ export namespace Transfer {
     export function gather(arg: CommonReducerArg<CommonActionType, ICellAction>): IMainState {
         const cellVM = arg.prevState.cellVMs.find((c) => c.cell.id === arg.payload.data.cellId);
         if (cellVM) {
-            postActionToExtension(arg, InteractiveWindowMessages.GatherCodeRequest, cellVM.cell);
+            postActionToExtension(arg, InteractiveWindowMessages.GatherCode, cellVM.cell);
+        }
+        return arg.prevState;
+    }
+
+    export function gatherToScript(arg: CommonReducerArg<CommonActionType, ICellAction>): IMainState {
+        const cellVM = arg.prevState.cellVMs.find((c) => c.cell.id === arg.payload.data.cellId);
+        if (cellVM) {
+            postActionToExtension(arg, InteractiveWindowMessages.GatherCodeToScript, cellVM.cell);
         }
         return arg.prevState;
     }
