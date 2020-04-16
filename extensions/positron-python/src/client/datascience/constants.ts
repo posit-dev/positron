@@ -216,7 +216,6 @@ export enum Telemetry {
     OpenPlotViewer = 'DATASCIENCE.OPEN_PLOT_VIEWER',
     DebugCurrentCell = 'DATASCIENCE.DEBUG_CURRENT_CELL',
     CodeLensAverageAcquisitionTime = 'DS_INTERNAL.CODE_LENS_ACQ_TIME',
-    ClassConstructionTime = 'DS_INTERNAL.CLASS_CONSTRUCTION_TIME',
     FindJupyterCommand = 'DS_INTERNAL.FIND_JUPYTER_COMMAND',
     /**
      * Telemetry sent when user selects an interpreter to be used for starting of Jupyter server.
