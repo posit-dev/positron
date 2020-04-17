@@ -22,9 +22,6 @@ import { IKernelConnection, IKernelFinder, IKernelLauncher, IKernelProcess } fro
 // Exposes connection information and the process itself.
 class KernelProcess implements IKernelProcess {
     private _process?: ChildProcess;
-    //private _connection: IKernelConnection;
-    //private _kernelSpec: IJupyterKernelSpec;
-    //private _interpreterUri: InterpreterUri;
     private connectionFile?: TemporaryFile;
     private readyPromise: Deferred<void>;
     private exitEvent: EventEmitter<number | null> = new EventEmitter<number | null>();
@@ -128,8 +125,19 @@ export class KernelLauncher implements IKernelLauncher {
         @inject(IFileSystem) private file: IFileSystem
     ) {}
 
-    public async launch(interpreterUri: InterpreterUri, kernelName?: string): Promise<IKernelProcess> {
-        const kernelSpec = await this.kernelFinder.findKernelSpec(interpreterUri, kernelName);
+    public async launch(
+        interpreterUri: InterpreterUri,
+        kernelName?: string | IJupyterKernelSpec
+    ): Promise<IKernelProcess> {
+        let kernelSpec: IJupyterKernelSpec;
+        if (!kernelName || typeof kernelName === 'string') {
+            // string or undefined
+            kernelSpec = await this.kernelFinder.findKernelSpec(interpreterUri, kernelName);
+        } else {
+            // IJupyterKernelSpec
+            kernelSpec = kernelName;
+        }
+
         const connection = await this.getKernelConnection();
         const kernelProcess = new KernelProcess(
             this.executionFactory,

@@ -16,9 +16,9 @@ import * as uuid from 'uuid/v4';
 import { CancellationToken } from 'vscode-jsonrpc';
 import { Cancellation } from '../../common/cancellation';
 import { isTestExecution } from '../../common/constants';
-import { traceError, traceInfo, traceWarning } from '../../common/logger';
+import { traceError, traceInfo } from '../../common/logger';
 import { IOutputChannel } from '../../common/types';
-import { sleep, waitForPromise } from '../../common/utils/async';
+import { sleep } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
 import { captureTelemetry } from '../../telemetry';
@@ -33,18 +33,18 @@ import { KernelSelector } from './kernels/kernelSelector';
 import { LiveKernelModel } from './kernels/types';
 
 export class JupyterSession extends BaseJupyterSession {
-    private restartSessionPromise: Promise<ISession | undefined> | undefined;
     private notebookFiles: Contents.IModel[] = [];
     constructor(
         private connInfo: IConnection,
         private serverSettings: ServerConnection.ISettings,
-        private kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined,
+        kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined,
         private sessionManager: SessionManager,
         private contentsManager: ContentsManager,
-        private readonly kernelSelector: KernelSelector,
+        kernelSelector: KernelSelector,
         private readonly outputChannel: IOutputChannel
     ) {
-        super();
+        super(kernelSelector);
+        this.kernelSpec = kernelSpec;
     }
 
     public async shutdown(): Promise<void> {
@@ -59,78 +59,14 @@ export class JupyterSession extends BaseJupyterSession {
                 noop();
             }
         }
-        if (this.session) {
-            try {
-                traceInfo('Shutdown session - current session');
-                await this.shutdownSession(this.session, this.statusHandler);
-                traceInfo('Shutdown session - get restart session');
-                if (this.restartSessionPromise) {
-                    const restartSession = await this.restartSessionPromise;
-                    traceInfo('Shutdown session - shutdown restart session');
-                    await this.shutdownSession(restartSession, undefined);
-                }
-            } catch {
-                noop();
-            }
-            this.session = undefined;
-            this.restartSessionPromise = undefined;
-        }
-        if (this.onStatusChangedEvent) {
-            this.onStatusChangedEvent.dispose();
-        }
-        traceInfo('Shutdown session -- complete');
+
+        return super.shutdown();
     }
 
     @reportAction(ReportableAction.JupyterSessionWaitForIdleSession)
     public async waitForIdle(timeout: number): Promise<void> {
         // Wait for idle on this session
         await this.waitForIdleOnSession(this.session, timeout);
-    }
-
-    public async restart(_timeout: number): Promise<void> {
-        if (this.session?.isRemoteSession) {
-            await this.session.kernel.restart();
-            return;
-        }
-
-        // Start the restart session now in case it wasn't started
-        if (!this.restartSessionPromise) {
-            this.startRestartSession();
-        }
-
-        // Just kill the current session and switch to the other
-        if (this.restartSessionPromise && this.session && this.sessionManager && this.contentsManager) {
-            traceInfo(`Restarting ${this.session.kernel.id}`);
-
-            // Save old state for shutdown
-            const oldSession = this.session;
-            const oldStatusHandler = this.statusHandler;
-
-            // Just switch to the other session. It should already be ready
-            this.session = await this.restartSessionPromise;
-            if (!this.session) {
-                throw new Error(localize.DataScience.sessionDisposed());
-            }
-            this.kernelSelector.removeKernelFromIgnoreList(this.session.kernel);
-            traceInfo(`Got new session ${this.session.kernel.id}`);
-
-            // Rewire our status changed event.
-            this.session.statusChanged.connect(this.statusHandler);
-
-            // After switching, start another in case we restart again.
-            this.restartSessionPromise = this.createRestartSession(
-                oldSession.serverSettings,
-                this.kernelSpec,
-                this.contentsManager
-            );
-            traceInfo('Started new restart session');
-            if (oldStatusHandler) {
-                oldSession.statusChanged.disconnect(oldStatusHandler);
-            }
-            this.shutdownSession(oldSession, undefined).ignoreErrors();
-        } else {
-            throw new Error(localize.DataScience.sessionDisposed());
-        }
     }
 
     public requestExecute(
@@ -209,16 +145,50 @@ export class JupyterSession extends BaseJupyterSession {
         this.session?.statusChanged.connect(this.statusHandler); // NOSONAR
 
         // Start the restart session promise too.
-        this.restartSessionPromise = this.createRestartSession(this.serverSettings, kernel, this.contentsManager);
+        this.restartSessionPromise = this.createRestartSession(kernel, this.session);
     }
 
-    private startRestartSession() {
+    protected async createRestartSession(
+        kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined,
+        session: ISession,
+        cancelToken?: CancellationToken
+    ): Promise<ISession> {
+        // We need all of the above to create a restart session
+        if (!session || !this.contentsManager || !this.sessionManager) {
+            throw new Error(localize.DataScience.sessionDisposed());
+        }
+
+        let result: ISession | undefined;
+        let tryCount = 0;
+        // tslint:disable-next-line: no-any
+        let exception: any;
+        while (tryCount < 3) {
+            try {
+                result = await this.createSession(
+                    session.serverSettings,
+                    kernelSpec,
+                    this.contentsManager,
+                    cancelToken
+                );
+                await this.waitForIdleOnSession(result, 30000);
+                this.kernelSelector.addKernelToIgnoreList(result.kernel);
+                return result;
+            } catch (exc) {
+                traceInfo(`Error waiting for restart session: ${exc}`);
+                tryCount += 1;
+                if (result) {
+                    this.shutdownSession(result, undefined).ignoreErrors();
+                }
+                result = undefined;
+                exception = exc;
+            }
+        }
+        throw exception;
+    }
+
+    protected startRestartSession() {
         if (!this.restartSessionPromise && this.session && this.contentsManager) {
-            this.restartSessionPromise = this.createRestartSession(
-                this.session.serverSettings,
-                this.kernelSpec,
-                this.contentsManager
-            );
+            this.restartSessionPromise = this.createRestartSession(this.kernelSpec, this.session);
         }
     }
 
@@ -292,35 +262,6 @@ export class JupyterSession extends BaseJupyterSession {
         }
     }
 
-    private async createRestartSession(
-        serverSettings: ServerConnection.ISettings,
-        kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined,
-        contentsManager: ContentsManager,
-        cancelToken?: CancellationToken
-    ): Promise<ISession> {
-        let result: ISession | undefined;
-        let tryCount = 0;
-        // tslint:disable-next-line: no-any
-        let exception: any;
-        while (tryCount < 3) {
-            try {
-                result = await this.createSession(serverSettings, kernelSpec, contentsManager, cancelToken);
-                await this.waitForIdleOnSession(result, 30000);
-                this.kernelSelector.addKernelToIgnoreList(result.kernel);
-                return result;
-            } catch (exc) {
-                traceInfo(`Error waiting for restart session: ${exc}`);
-                tryCount += 1;
-                if (result) {
-                    this.shutdownSession(result, undefined).ignoreErrors();
-                }
-                result = undefined;
-                exception = exc;
-            }
-        }
-        throw exception;
-    }
-
     private async createSession(
         serverSettings: ServerConnection.ISettings,
         kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined,
@@ -355,61 +296,6 @@ export class JupyterSession extends BaseJupyterSession {
     private logRemoteOutput(output: string) {
         if (this.connInfo && !this.connInfo.localLaunch) {
             this.outputChannel.appendLine(output);
-        }
-    }
-
-    private async shutdownSession(
-        session: ISession | undefined,
-        statusHandler: Slot<ISession, Kernel.Status> | undefined
-    ): Promise<void> {
-        if (session && session.kernel) {
-            const kernelId = session.kernel.id;
-            traceInfo(`shutdownSession ${kernelId} - start`);
-            try {
-                if (statusHandler) {
-                    session.statusChanged.disconnect(statusHandler);
-                }
-                // Do not shutdown remote sessions.
-                if (session.isRemoteSession) {
-                    session.dispose();
-                    return;
-                }
-                try {
-                    // When running under a test, mark all futures as done so we
-                    // don't hit this problem:
-                    // https://github.com/jupyterlab/jupyterlab/issues/4252
-                    // tslint:disable:no-any
-                    if (isTestExecution()) {
-                        const defaultKernel = session.kernel as any;
-                        if (defaultKernel && defaultKernel._futures) {
-                            const futures = defaultKernel._futures as Map<any, any>;
-                            if (futures) {
-                                futures.forEach((f) => {
-                                    if (f._status !== undefined) {
-                                        f._status |= 4;
-                                    }
-                                });
-                            }
-                        }
-                        if (defaultKernel && defaultKernel._reconnectLimit) {
-                            defaultKernel._reconnectLimit = 0;
-                        }
-                        await waitForPromise(session.shutdown(), 1000);
-                    } else {
-                        // Shutdown may fail if the process has been killed
-                        await waitForPromise(session.shutdown(), 1000);
-                    }
-                } catch {
-                    noop();
-                }
-                if (session && !session.isDisposed) {
-                    session.dispose();
-                }
-            } catch (e) {
-                // Ignore, just trace.
-                traceWarning(e);
-            }
-            traceInfo(`shutdownSession ${kernelId} - shutdown complete`);
         }
     }
 }
