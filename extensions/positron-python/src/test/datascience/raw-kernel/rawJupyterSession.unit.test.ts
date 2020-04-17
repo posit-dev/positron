@@ -2,9 +2,10 @@
 // Licensed under the MIT License.
 import { assert, expect } from 'chai';
 import * as sinon from 'sinon';
-import { anything, instance, mock, when } from 'ts-mockito';
+import { anything, instance, mock, verify, when } from 'ts-mockito';
 import * as typemoq from 'typemoq';
 import { EventEmitter } from 'vscode';
+import { KernelSelector } from '../../../client/datascience/jupyter/kernels/kernelSelector';
 import { IKernelLauncher, IKernelProcess } from '../../../client/datascience/kernel-launcher/types';
 import { RawJupyterSession } from '../../../client/datascience/raw-kernel/rawJupyterSession';
 import { IJMPConnection } from '../../../client/datascience/types';
@@ -27,13 +28,16 @@ suite('Data Science - RawJupyterSession', () => {
     let rawJupyterSession: RawJupyterSession;
     let serviceContainer: IServiceContainer;
     let kernelLauncher: IKernelLauncher;
+    let kernelSelector: KernelSelector;
     let jmpConnection: typemoq.IMock<IJMPConnection>;
     let kernelProcess: typemoq.IMock<IKernelProcess>;
     let processExitEvent: EventEmitter<number | null>;
+    const fakeSpec = { name: 'testspec' };
 
     setup(() => {
         serviceContainer = mock<IServiceContainer>();
         kernelLauncher = mock<IKernelLauncher>();
+        kernelSelector = mock(KernelSelector);
 
         // Fake out our jmp connection
         jmpConnection = createTypeMoq<IJMPConnection>('jmp connection');
@@ -43,13 +47,21 @@ suite('Data Science - RawJupyterSession', () => {
         // Set up a fake kernel process for the launcher to return
         processExitEvent = new EventEmitter<number | null>();
         kernelProcess = createTypeMoq<IKernelProcess>('kernel process');
-        kernelProcess.setup((kp) => kp.kernelSpec).returns(() => 'testspec' as any);
+        kernelProcess
+            .setup((kp) => kp.kernelSpec)
+            .returns(() => {
+                return fakeSpec as any;
+            });
         kernelProcess.setup((kp) => kp.connection).returns(() => 'testconnection' as any);
         kernelProcess.setup((kp) => kp.ready).returns(() => Promise.resolve());
         kernelProcess.setup((kp) => kp.exited).returns(() => processExitEvent.event);
         when(kernelLauncher.launch(anything(), anything())).thenResolve(kernelProcess.object);
 
-        rawJupyterSession = new RawJupyterSession(instance(kernelLauncher), instance(serviceContainer));
+        rawJupyterSession = new RawJupyterSession(
+            instance(kernelLauncher),
+            instance(serviceContainer),
+            instance(kernelSelector)
+        );
     });
 
     test('RawJupyterSession - shutdown on dispose', async () => {
@@ -64,17 +76,31 @@ suite('Data Science - RawJupyterSession', () => {
         expect(rawJupyterSession.isConnected).to.equal(true, 'RawJupyterSession not connected');
     });
 
+    test('RawJupyterSession - restart', async () => {
+        kernelProcess.setup((kp) => kp.dispose).verifiable(typemoq.Times.once());
+
+        await rawJupyterSession.connect({} as any, 60_000);
+        await rawJupyterSession.restart(60_000);
+
+        // Three calls to launch (connect, first restart session, second restart session)
+        verify(kernelLauncher.launch(anything(), anything())).thrice();
+
+        // Dispose should have been called for the first process
+        kernelProcess.verifyAll();
+    });
+
     test('RawJupyterSession - Kill process', async () => {
         const shutdown = sinon.stub(rawJupyterSession, 'shutdown');
         shutdown.resolves();
 
         const kernelSpec = await rawJupyterSession.connect({} as any, 60_000);
         expect(rawJupyterSession.isConnected).to.equal(true, 'RawJupyterSession not connected');
-        expect(kernelSpec).to.equal('testspec');
+        expect(kernelSpec).to.equal(fakeSpec);
 
         // Kill the process, we should shutdown
         processExitEvent.fire(0);
 
+        // Was the session shutdown?
         assert.isTrue(shutdown.calledOnce);
     });
 });
