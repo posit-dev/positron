@@ -22,8 +22,8 @@ import {
     CellState,
     ICell,
     ICellHashListener,
-    IConnection,
     IFileHashes,
+    IJupyterConnection,
     IJupyterDebugger,
     INotebook,
     ISourceMapRequest
@@ -176,9 +176,7 @@ export class JupyterDebugger implements IJupyterDebugger, ICellHashListener {
         // Connect local or remote based on what type of notebook we're talking to
         const connectionInfo = notebook.connection;
         if (connectionInfo && !connectionInfo.localLaunch) {
-            // Remote connections are always jupyter
-            const jupyterConnection = connectionInfo as IConnection;
-            result = await this.connectToRemote(notebook, jupyterConnection);
+            result = await this.connectToRemote(notebook, connectionInfo);
         } else {
             result = await this.connectToLocal(notebook);
         }
@@ -481,7 +479,7 @@ export class JupyterDebugger implements IJupyterDebugger, ICellHashListener {
 
     private async connectToRemote(
         _notebook: INotebook,
-        _connectionInfo: IConnection
+        _connectionInfo: IJupyterConnection
     ): Promise<DebugConfiguration | undefined> {
         // We actually need a token. This isn't supported at the moment
         throw new JupyterDebuggerRemoteNotSupported();
