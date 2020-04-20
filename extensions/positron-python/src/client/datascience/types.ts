@@ -48,31 +48,30 @@ export interface IDataScienceCommandListener {
     register(commandManager: ICommandManager): void;
 }
 
-// Connection information for talking to a generic notebook provider
-export interface INotebookProviderConnection extends Disposable {
-    // What type of notebook provider are we connected to
-    readonly type: 'raw' | 'jupyter';
-    // Was this connection launched locally or not
-    readonly localLaunch: boolean;
-    // Is the connection still valid
+export interface IRawConnection extends Disposable {
+    readonly type: 'raw';
+    readonly localLaunch: true;
     readonly valid: boolean;
-    // Display name
     readonly displayName: string;
-    // Called if whatever provides the notebook is disconnected
     disconnected: Event<number>;
 }
 
-// Connection information for talking to a raw ZMQ provider
-export interface IRawConnection extends INotebookProviderConnection {}
+export interface IJupyterConnection extends Disposable {
+    readonly type: 'jupyter';
+    readonly localLaunch: boolean;
+    readonly valid: boolean;
+    readonly displayName: string;
+    disconnected: Event<number>;
 
-// Connection information for talking to a jupyter server process
-export interface IConnection extends INotebookProviderConnection {
+    // Jupyter specific members
     readonly baseUrl: string;
     readonly token: string;
     readonly hostName: string;
     localProcExitCode: number | undefined;
     allowUnauthorized?: boolean;
 }
+
+export type INotebookProviderConnection = IRawConnection | IJupyterConnection;
 
 export enum InterruptResult {
     Success = 0,
@@ -99,7 +98,7 @@ export interface INotebookExecutionInfo {
 
 // Information used to launch a notebook server
 export interface INotebookServerLaunchInfo {
-    connectionInfo: IConnection;
+    connectionInfo: IJupyterConnection;
     /**
      * The python interpreter associated with the kernel.
      *
@@ -134,7 +133,7 @@ export interface INotebookServer extends IAsyncDisposable {
     ): Promise<INotebook>;
     getNotebook(identity: Uri): Promise<INotebook | undefined>;
     connect(launchInfo: INotebookServerLaunchInfo, cancelToken?: CancellationToken): Promise<void>;
-    getConnectionInfo(): IConnection | undefined;
+    getConnectionInfo(): IJupyterConnection | undefined;
     waitForConnect(): Promise<INotebookServerLaunchInfo | undefined>;
     shutdown(): Promise<void>;
 }
@@ -155,7 +154,7 @@ export interface IRawNotebookProvider extends IAsyncDisposable {
 // Provides notebooks that talk to jupyter servers
 export const IJupyterNotebookProvider = Symbol('IJupyterNotebookProvider');
 export interface IJupyterNotebookProvider {
-    connect(options: ConnectNotebookProviderOptions): Promise<IConnection | undefined>;
+    connect(options: ConnectNotebookProviderOptions): Promise<IJupyterConnection | undefined>;
     createNotebook(options: GetNotebookOptions): Promise<INotebook>;
     getNotebook(options: GetNotebookOptions): Promise<INotebook | undefined>;
     disconnect(options: ConnectNotebookProviderOptions): Promise<void>;
@@ -352,7 +351,7 @@ export interface IJupyterSession extends IAsyncDisposable {
 
 export const IJupyterSessionManagerFactory = Symbol('IJupyterSessionManagerFactory');
 export interface IJupyterSessionManagerFactory {
-    create(connInfo: IConnection, failOnPassword?: boolean): Promise<IJupyterSessionManager>;
+    create(connInfo: IJupyterConnection, failOnPassword?: boolean): Promise<IJupyterSessionManager>;
 }
 
 export interface IJupyterSessionManager extends IAsyncDisposable {
@@ -361,7 +360,7 @@ export interface IJupyterSessionManager extends IAsyncDisposable {
         cancelToken?: CancellationToken
     ): Promise<IJupyterSession>;
     getKernelSpecs(): Promise<IJupyterKernelSpec[]>;
-    getConnInfo(): IConnection;
+    getConnInfo(): IJupyterConnection;
     getRunningKernels(): Promise<IJupyterKernel[]>;
     getRunningSessions(): Promise<Session.IModel[]>;
 }
