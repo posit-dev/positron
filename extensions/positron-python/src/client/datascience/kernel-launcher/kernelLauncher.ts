@@ -39,9 +39,6 @@ class KernelProcess implements IKernelProcess {
     public get kernelSpec(): Readonly<IJupyterKernelSpec> {
         return this._kernelSpec;
     }
-    public get process(): ChildProcess | undefined {
-        return this._process;
-    }
     public get connection(): Readonly<IKernelConnection> {
         return this._connection;
     }
