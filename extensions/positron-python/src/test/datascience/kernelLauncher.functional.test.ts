@@ -3,14 +3,12 @@
 'use strict';
 
 import { assert } from 'chai';
-import { Uri } from 'vscode';
 
 import { KernelMessage } from '@jupyterlab/services';
 import { Observable } from 'rxjs';
 import * as uuid from 'uuid/v4';
 import { IFileSystem } from '../../client/common/platform/types';
 import { IPythonExecutionFactory } from '../../client/common/process/types';
-import { Resource } from '../../client/common/types';
 import { createDeferred } from '../../client/common/utils/async';
 import { JupyterZMQBinariesNotFoundError } from '../../client/datascience/jupyter/jupyterZMQBinariesNotFoundError';
 import { KernelLauncher } from '../../client/datascience/kernel-launcher/kernelLauncher';
@@ -25,8 +23,7 @@ suite('DataScience - Kernel Launcher', () => {
     let ioc: DataScienceIocContainer;
     let kernelLauncher: KernelLauncher;
     let pythonInterpreter: PythonInterpreter | undefined;
-    let resource: Resource;
-    let kernelName: string;
+    let kernelSpec: IJupyterKernelSpec;
     let kernelFinder: MockKernelFinder;
 
     setup(async () => {
@@ -36,19 +33,25 @@ suite('DataScience - Kernel Launcher', () => {
         const executionFactory = ioc.serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
         const file = ioc.serviceContainer.get<IFileSystem>(IFileSystem);
         const interpreterService = ioc.serviceContainer.get<IInterpreterService>(IInterpreterService);
-        kernelLauncher = new KernelLauncher(kernelFinder, executionFactory, interpreterService, file);
+        kernelLauncher = new KernelLauncher(executionFactory, interpreterService, file);
 
         pythonInterpreter = await ioc.getJupyterCapableInterpreter();
-        resource = Uri.file(PYTHON_PATH);
-        kernelName = 'Python 3';
+        kernelSpec = {
+            argv: [PYTHON_PATH, '-m', 'ipykernel_launcher', '-f', '{connection_file}'],
+            display_name: 'new kernel',
+            language: 'python',
+            name: 'newkernel',
+            path: 'path',
+            env: undefined
+        };
     });
 
-    test('Launch from resource', async function () {
+    test('Launch from kernelspec', async function () {
         if (!process.env.VSCODE_PYTHON_ROLLING) {
             // tslint:disable-next-line: no-invalid-this
             this.skip();
         } else {
-            const kernel = await kernelLauncher.launch(resource, kernelName);
+            const kernel = await kernelLauncher.launch(kernelSpec);
             const exited = new Promise<boolean>((resolve) => kernel.exited(() => resolve(true)));
 
             assert.isOk<IKernelConnection | undefined>(kernel.connection, 'Connection not found');
@@ -156,7 +159,7 @@ suite('DataScience - Kernel Launcher', () => {
             };
             kernelFinder.addKernelSpec(pythonInterpreter.path, spec);
 
-            const kernel = await kernelLauncher.launch(resource, kernelName);
+            const kernel = await kernelLauncher.launch(spec);
             const exited = new Promise<boolean>((resolve) => kernel.exited(() => resolve(true)));
 
             // It should not exit.
@@ -200,7 +203,7 @@ suite('DataScience - Kernel Launcher', () => {
             // tslint:disable-next-line: no-invalid-this
             this.skip();
         } else {
-            const kernel = await kernelLauncher.launch(resource, kernelName);
+            const kernel = await kernelLauncher.launch(kernelSpec);
 
             try {
                 const zmq = await import('zeromq');

@@ -5,9 +5,11 @@
 import { Kernel } from '@jupyterlab/services';
 import { inject, injectable, named } from 'inversify';
 import * as path from 'path';
+import { CancellationToken, CancellationTokenSource } from 'vscode';
+import { wrapCancellationTokens } from '../../common/cancellation';
 import { traceError, traceInfo } from '../../common/logger';
 import { IFileSystem, IPlatformService } from '../../common/platform/types';
-import { IExtensionContext, IPathUtils, Resource } from '../../common/types';
+import { IExtensionContext, IInstaller, InstallerResponse, IPathUtils, Product, Resource } from '../../common/types';
 import {
     IInterpreterLocatorService,
     IInterpreterService,
@@ -18,6 +20,7 @@ import { captureTelemetry } from '../../telemetry';
 import { Telemetry } from '../constants';
 import { JupyterKernelSpec } from '../jupyter/kernels/jupyterKernelSpec';
 import { IJupyterKernelSpec } from '../types';
+import { getKernelInterpreter } from './helpers';
 import { IKernelFinder } from './types';
 
 const kernelPaths = new Map([
@@ -35,9 +38,10 @@ export function findIndexOfConnectionFile(kernelSpec: Readonly<IJupyterKernelSpe
 }
 
 // This class searches for a kernel that matches the given kernel name.
-// First it seraches on a global persistent state, then on the installed python interpreters,
+// First it searches on a global persistent state, then on the installed python interpreters,
 // and finally on the default locations that jupyter installs kernels on.
 // If a kernel name is not given, it returns a default IJupyterKernelSpec created from the current interpreter.
+// Before returning the IJupyterKernelSpec it makes sure that ipykernel is installed into the kernel spec interpreter
 @injectable()
 export class KernelFinder implements IKernelFinder {
     private activeInterpreter: PythonInterpreter | undefined;
@@ -51,11 +55,16 @@ export class KernelFinder implements IKernelFinder {
         @inject(IPlatformService) private platformService: IPlatformService,
         @inject(IFileSystem) private file: IFileSystem,
         @inject(IPathUtils) private readonly pathUtils: IPathUtils,
+        @inject(IInstaller) private installer: IInstaller,
         @inject(IExtensionContext) private readonly context: IExtensionContext
     ) {}
 
     @captureTelemetry(Telemetry.KernelFinderPerf)
-    public async findKernelSpec(resource: Resource, kernelName?: string): Promise<IJupyterKernelSpec> {
+    public async findKernelSpec(
+        resource: Resource,
+        kernelName?: string,
+        cancelToken?: CancellationToken
+    ): Promise<IJupyterKernelSpec> {
         this.cache = await this.readCache();
         let foundKernel: IJupyterKernelSpec | undefined;
 
@@ -91,7 +100,33 @@ export class KernelFinder implements IKernelFinder {
         }
 
         this.writeCache(this.cache).ignoreErrors();
-        return foundKernel;
+
+        // Verify that ipykernel is installed into the given kernelspec interpreter
+        return this.verifyIpyKernel(foundKernel, cancelToken);
+    }
+
+    // For the given kernelspec return back the kernelspec with ipykernel installed into it or error
+    private async verifyIpyKernel(
+        kernelSpec: IJupyterKernelSpec,
+        cancelToken?: CancellationToken
+    ): Promise<IJupyterKernelSpec> {
+        const interpreter = await getKernelInterpreter(kernelSpec, this.interpreterService);
+
+        if (await this.installer.isInstalled(Product.ipykernel, interpreter)) {
+            return kernelSpec;
+        } else {
+            const token = new CancellationTokenSource();
+            const response = await this.installer.promptToInstall(
+                Product.ipykernel,
+                interpreter,
+                wrapCancellationTokens(cancelToken, token.token)
+            );
+            if (response === InstallerResponse.Installed) {
+                return kernelSpec;
+            }
+        }
+
+        throw new Error(`IPyKernel not installed into interpreter ${interpreter.displayName}`);
     }
 
     private async getKernelSpecFromActiveInterpreter(
