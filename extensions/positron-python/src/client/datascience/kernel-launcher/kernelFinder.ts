@@ -192,7 +192,6 @@ export class KernelFinder implements IKernelFinder {
         const defaultSpec: Kernel.ISpecModel = {
             name: `python_defaultSpec_${Date.now()}`,
             language: 'python',
-            path: '<path to kernel spec.json>',
             display_name: this.activeInterpreter?.displayName ? this.activeInterpreter.displayName : 'Python 3',
             metadata: {},
             argv: [
