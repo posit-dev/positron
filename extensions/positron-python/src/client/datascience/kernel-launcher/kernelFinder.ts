@@ -75,7 +75,7 @@ export class KernelFinder implements IKernelFinder {
 
             const diskSearch = this.findDiskPath(kernelName);
             const interpreterSearch = this.interpreterLocator.getInterpreters(resource, false).then((interpreters) => {
-                const interpreterPaths = interpreters.map((interp) => interp.path);
+                const interpreterPaths = interpreters.map((interp) => interp.sysPrefix);
                 return this.findInterpreterPath(interpreterPaths, kernelName);
             });
 
@@ -102,7 +102,7 @@ export class KernelFinder implements IKernelFinder {
 
         if (this.activeInterpreter) {
             return this.getKernelSpec(
-                path.join(this.activeInterpreter.path, 'share', 'jupyter', 'kernels'),
+                path.join(this.activeInterpreter.sysPrefix, 'share', 'jupyter', 'kernels'),
                 kernelName
             );
         }
