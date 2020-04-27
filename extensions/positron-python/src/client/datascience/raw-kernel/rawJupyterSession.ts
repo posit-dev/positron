@@ -18,7 +18,7 @@ import { ReportableAction } from '../progress/types';
 import { RawSession } from '../raw-kernel/rawSession';
 import { IJMPConnection, IJupyterKernelSpec } from '../types';
 
-/* 
+/*
 RawJupyterSession is the implementation of IJupyterSession that instead of
 connecting to JupyterLab services it instead connects to a kernel directly
 through ZMQ.

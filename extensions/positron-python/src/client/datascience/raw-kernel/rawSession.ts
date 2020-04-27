@@ -3,6 +3,7 @@
 import type { Kernel, KernelMessage, ServerConnection, Session } from '@jupyterlab/services';
 import type { ISignal, Signal } from '@phosphor/signaling';
 import * as uuid from 'uuid/v4';
+import { noop } from '../../common/utils/misc';
 import { IKernelProcess } from '../kernel-launcher/types';
 import { IJMPConnection } from '../types';
 import { RawKernel } from './rawKernel';
@@ -35,16 +36,15 @@ export class RawSession implements Session.ISession {
         this._clientID = uuid();
 
         // Connect our kernel and hook up status changes
-        this._kernel = new RawKernel(connection, this._clientID);
+        this._kernel = new RawKernel(connection, this._clientID, this.kernelProcess.interrupt.bind(this.kernelProcess));
         this._kernel.statusChanged.connect(this.onKernelStatus, this);
     }
 
     public dispose() {
         if (!this.isDisposed) {
             this._kernel.dispose();
-            this.kernelProcess.dispose();
+            this.kernelProcess.dispose().catch(noop);
         }
-
         this.isDisposed = true;
     }
 
@@ -64,7 +64,8 @@ export class RawSession implements Session.ISession {
     }
 
     // Shutdown our session and kernel
-    public shutdown(): Promise<void> {
+    public async shutdown(): Promise<void> {
+        await this.kernelProcess.dispose().catch(noop);
         this.dispose();
         // Normally the server session has to shutdown here with an await on a rest call
         // but we just have a local connection, so dispose and resolve
