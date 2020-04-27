@@ -19,7 +19,7 @@ suite('Data Science - RawKernel', () => {
             jmpConnection = mock<IJMPConnection>();
             when(jmpConnection.connect(anything())).thenResolve();
             when(jmpConnection.subscribe(anything())).thenReturn();
-            rawKernel = new RawKernel(instance(jmpConnection), uuid());
+            rawKernel = new RawKernel(instance(jmpConnection), uuid(), () => Promise.resolve());
         });
 
         test('RawKernel connect should connect and subscribe to JMP', async () => {
@@ -84,7 +84,7 @@ suite('Data Science - RawKernel', () => {
 
         setup(() => {
             mockJmpConnection = new MockJMPConnection();
-            rawKernel = new RawKernel(mockJmpConnection, uuid());
+            rawKernel = new RawKernel(mockJmpConnection, uuid(), () => Promise.resolve());
         });
 
         test('RawKernel executeRequest messages', async () => {
