@@ -6,7 +6,7 @@ import type { Slot } from '@phosphor/signaling';
 import { CancellationToken } from 'vscode-jsonrpc';
 import { CancellationError, createPromiseFromCancellation } from '../../common/cancellation';
 import { traceError, traceInfo } from '../../common/logger';
-import { IDisposable, IOutputChannel } from '../../common/types';
+import { IDisposable, IOutputChannel, Resource } from '../../common/types';
 import { waitForPromise } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
@@ -34,6 +34,7 @@ export class RawJupyterSession extends BaseJupyterSession {
     constructor(
         private readonly kernelLauncher: IKernelLauncher,
         kernelSelector: KernelSelector,
+        private readonly resource: Resource,
         private readonly outputChannel: IOutputChannel
     ) {
         super(kernelSelector);
@@ -180,7 +181,7 @@ export class RawJupyterSession extends BaseJupyterSession {
         kernelSpec: IJupyterKernelSpec,
         _cancelToken?: CancellationToken
     ): Promise<RawSession> {
-        const process = await this.kernelLauncher.launch(kernelSpec);
+        const process = await this.kernelLauncher.launch(kernelSpec, this.resource);
 
         // Wait for the process to actually be ready to connect to
         await process.ready;
