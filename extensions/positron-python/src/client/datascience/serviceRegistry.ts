@@ -65,6 +65,7 @@ import { JupyterPasswordConnect } from './jupyter/jupyterPasswordConnect';
 import { JupyterServerWrapper } from './jupyter/jupyterServerWrapper';
 import { JupyterSessionManagerFactory } from './jupyter/jupyterSessionManagerFactory';
 import { JupyterVariables } from './jupyter/jupyterVariables';
+import { KernelDependencyService } from './jupyter/kernels/kernelDependencyService';
 import { KernelSelectionProvider } from './jupyter/kernels/kernelSelections';
 import { KernelSelector } from './jupyter/kernels/kernelSelector';
 import { KernelService } from './jupyter/kernels/kernelService';
@@ -112,6 +113,7 @@ import {
     IJupyterSessionManagerFactory,
     IJupyterSubCommandExecutionService,
     IJupyterVariables,
+    IKernelDependencyService,
     INotebookEditor,
     INotebookEditorProvider,
     INotebookExecutionLogger,
@@ -209,6 +211,7 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<IPyWidgetMessageDispatcherFactory>(IPyWidgetMessageDispatcherFactory, IPyWidgetMessageDispatcherFactory);
     serviceManager.addSingleton<IJupyterInterpreterDependencyManager>(IJupyterInterpreterDependencyManager, JupyterInterpreterSubCommandExecutionService);
     serviceManager.addSingleton<IJupyterSubCommandExecutionService>(IJupyterSubCommandExecutionService, JupyterInterpreterSubCommandExecutionService);
+    serviceManager.addSingleton<IKernelDependencyService>(IKernelDependencyService, KernelDependencyService);
 
     registerGatherTypes(serviceManager);
 }

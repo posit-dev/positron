@@ -214,6 +214,7 @@ import { JupyterPasswordConnect } from '../../client/datascience/jupyter/jupyter
 import { JupyterServerWrapper } from '../../client/datascience/jupyter/jupyterServerWrapper';
 import { JupyterSessionManagerFactory } from '../../client/datascience/jupyter/jupyterSessionManagerFactory';
 import { JupyterVariables } from '../../client/datascience/jupyter/jupyterVariables';
+import { KernelDependencyService } from '../../client/datascience/jupyter/kernels/kernelDependencyService';
 import { KernelSelectionProvider } from '../../client/datascience/jupyter/kernels/kernelSelections';
 import { KernelSelector } from '../../client/datascience/jupyter/kernels/kernelSelector';
 import { KernelService } from '../../client/datascience/jupyter/kernels/kernelService';
@@ -260,6 +261,7 @@ import {
     IJupyterSessionManagerFactory,
     IJupyterSubCommandExecutionService,
     IJupyterVariables,
+    IKernelDependencyService,
     INotebookEditor,
     INotebookEditorProvider,
     INotebookExecutionLogger,
@@ -751,6 +753,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         this.serviceManager.addSingleton<KernelSelector>(KernelSelector, KernelSelector);
         this.serviceManager.addSingleton<KernelSelectionProvider>(KernelSelectionProvider, KernelSelectionProvider);
         this.serviceManager.addSingleton<KernelSwitcher>(KernelSwitcher, KernelSwitcher);
+        this.serviceManager.addSingleton<IKernelDependencyService>(IKernelDependencyService, KernelDependencyService);
         this.serviceManager.addSingleton<IProductService>(IProductService, ProductService);
         this.serviceManager.addSingleton<IProductPathService>(
             IProductPathService,
