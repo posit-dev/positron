@@ -8,8 +8,9 @@ import * as os from 'os';
 import * as path from 'path';
 import * as uuid from 'uuid/v4';
 import { IFileSystem } from '../../../client/common/platform/types';
-import { IProcessServiceFactory, IPythonExecutionFactory } from '../../../client/common/process/types';
+import { IProcessServiceFactory } from '../../../client/common/process/types';
 import { createDeferred, sleep } from '../../../client/common/utils/async';
+import { KernelDaemonPool } from '../../../client/datascience/kernel-launcher/kernelDaemonPool';
 import { KernelProcess } from '../../../client/datascience/kernel-launcher/kernelProcess';
 import { createRawKernel, RawKernel } from '../../../client/datascience/raw-kernel/rawKernel';
 import { IJupyterKernelSpec } from '../../../client/datascience/types';
@@ -66,8 +67,6 @@ suite('DataScience raw kernel tests', () => {
             .getInterpreterDetails(ioc.getSettings().pythonPath);
         assert.ok(interpreter, 'No jupyter interpreter found');
         // Start our kernel
-        const execFactory = ioc.get<IPythonExecutionFactory>(IPythonExecutionFactory);
-
         connectionFile = path.join(os.tmpdir(), `tmp_${Date.now()}_k.json`);
         await fs.writeFile(connectionFile, JSON.stringify(connectionInfo), { encoding: 'utf-8', flag: 'w' });
         const kernelSpec: IJupyterKernelSpec = {
@@ -83,12 +82,13 @@ suite('DataScience raw kernel tests', () => {
             id: uuid()
         };
         kernelProcess = new KernelProcess(
-            execFactory,
             ioc.get<IProcessServiceFactory>(IProcessServiceFactory),
             ioc.get<IFileSystem>(IFileSystem),
+            ioc.get<KernelDaemonPool>(KernelDaemonPool),
             connectionInfo as any,
             kernelSpec,
-            undefined
+            undefined,
+            interpreter
         );
         await kernelProcess.launch();
         return createRawKernel(kernelProcess, uuid());
