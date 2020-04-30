@@ -57,6 +57,7 @@ export interface IKernelFinder {
 export interface IPythonKernelDaemon extends IDisposable {
     interrupt(): Promise<void>;
     kill(): Promise<void>;
+    preWarm(): Promise<void>;
     start(moduleName: string, args: string[], options: SpawnOptions): Promise<ObservableExecutionResult<string>>;
 }
 
