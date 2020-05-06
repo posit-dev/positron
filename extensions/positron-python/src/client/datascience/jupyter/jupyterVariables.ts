@@ -5,12 +5,12 @@ import type { JSONObject } from '@phosphor/coreutils';
 import { inject, injectable, named } from 'inversify';
 
 import { Event, EventEmitter } from 'vscode';
-import { IDebugService } from '../../common/application/types';
 import { RunByLine } from '../../common/experimentGroups';
 import { IDisposableRegistry, IExperimentsManager } from '../../common/types';
 import { captureTelemetry } from '../../telemetry';
 import { Identifiers, Telemetry } from '../constants';
 import {
+    IJupyterDebugService,
     IJupyterVariable,
     IJupyterVariables,
     IJupyterVariablesRequest,
@@ -28,7 +28,9 @@ export class JupyterVariables implements IJupyterVariables {
 
     constructor(
         @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry,
-        @inject(IDebugService) private debugService: IDebugService,
+        @inject(IJupyterDebugService)
+        @named(Identifiers.MULTIPLEXING_DEBUGSERVICE)
+        private debugService: IJupyterDebugService,
         @inject(IExperimentsManager) private experimentsManager: IExperimentsManager,
         @inject(IJupyterVariables) @named(Identifiers.OLD_VARIABLES) private oldVariables: IJupyterVariables,
         @inject(IJupyterVariables) @named(Identifiers.KERNEL_VARIABLES) private kernelVariables: IJupyterVariables,
@@ -50,6 +52,10 @@ export class JupyterVariables implements IJupyterVariables {
         request: IJupyterVariablesRequest
     ): Promise<IJupyterVariablesResponse> {
         return this.realVariables.getVariables(notebook, request);
+    }
+
+    public getMatchingVariable(notebook: INotebook, name: string): Promise<IJupyterVariable | undefined> {
+        return this.realVariables.getMatchingVariable(notebook, name);
     }
 
     public async getDataFrameInfo(targetVariable: IJupyterVariable, notebook: INotebook): Promise<IJupyterVariable> {

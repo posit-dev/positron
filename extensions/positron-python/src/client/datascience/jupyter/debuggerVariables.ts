@@ -1,15 +1,16 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, named } from 'inversify';
 
 import { DebugAdapterTracker, Event, EventEmitter } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { IDebugService } from '../../common/application/types';
 import { traceError } from '../../common/logger';
 import { IConfigurationService, Resource } from '../../common/types';
-import { DataFrameLoading } from '../constants';
+import { DataFrameLoading, Identifiers } from '../constants';
 import {
+    IJupyterDebugService,
     IJupyterVariable,
     IJupyterVariables,
     IJupyterVariablesRequest,
@@ -27,7 +28,7 @@ export class DebuggerVariables implements IJupyterVariables, DebugAdapterTracker
     private lastKnownVariables: IJupyterVariable[] = [];
     private topMostFrameId = 0;
     constructor(
-        @inject(IDebugService) private debugService: IDebugService,
+        @inject(IJupyterDebugService) @named(Identifiers.MULTIPLEXING_DEBUGSERVICE) private debugService: IDebugService,
         @inject(IConfigurationService) private configService: IConfigurationService
     ) {}
 
@@ -55,6 +56,12 @@ export class DebuggerVariables implements IJupyterVariables, DebugAdapterTracker
         return result;
     }
 
+    public async getMatchingVariable(_notebook: INotebook, name: string): Promise<IJupyterVariable | undefined> {
+        if (this.debugService.activeDebugSession) {
+            return this.lastKnownVariables.find((v) => v.name === name);
+        }
+    }
+
     public async getDataFrameInfo(targetVariable: IJupyterVariable, _notebook: INotebook): Promise<IJupyterVariable> {
         if (!this.debugService.activeDebugSession) {
             // No active server just return the unchanged target variable
@@ -69,7 +76,8 @@ export class DebuggerVariables implements IJupyterVariables, DebugAdapterTracker
         // Then eval calling the main function with our target variable
         const results = await this.debugService.activeDebugSession.customRequest('evaluate', {
             expression: `${DataFrameLoading.DataFrameInfoFunc}(${targetVariable.name})`,
-            frameId: this.topMostFrameId,
+            // tslint:disable-next-line: no-any
+            frameId: (targetVariable as any).frameId || this.topMostFrameId,
             context: 'repl'
         });
 
@@ -101,7 +109,8 @@ export class DebuggerVariables implements IJupyterVariables, DebugAdapterTracker
         const minnedEnd = Math.min(end, targetVariable.rowCount || 0);
         const results = await this.debugService.activeDebugSession.customRequest('evaluate', {
             expression: `${DataFrameLoading.DataFrameRowFunc}(${targetVariable.name}, ${start}, ${minnedEnd})`,
-            frameId: this.topMostFrameId,
+            // tslint:disable-next-line: no-any
+            frameId: (targetVariable as any).frameId || this.topMostFrameId,
             context: 'repl'
         });
 
@@ -167,6 +176,9 @@ export class DebuggerVariables implements IJupyterVariables, DebugAdapterTracker
                 return false;
             }
             if (KnownExcludedVariables.has(v.name)) {
+                return false;
+            }
+            if (v.type === 'NoneType') {
                 return false;
             }
             return true;
