@@ -158,7 +158,7 @@ value = 'hello world'`;
                 verifyVariables(wrapper, targetVariables);
             },
             () => {
-                return ioc;
+                return Promise.resolve(ioc);
             }
         );
 
@@ -253,7 +253,7 @@ value = 'hello world'`;
                 verifyVariables(wrapper, targetVariables);
             },
             () => {
-                return ioc;
+                return Promise.resolve(ioc);
             }
         );
 
@@ -345,7 +345,7 @@ myDict = {'a': 1}`;
                 }
             },
             () => {
-                return ioc;
+                return Promise.resolve(ioc);
             }
         );
 
@@ -469,7 +469,7 @@ Name: 0, dtype: float64`,
                 }
             },
             () => {
-                return ioc;
+                return Promise.resolve(ioc);
             }
         );
 
@@ -572,7 +572,7 @@ mySeries = myDataframe[0]
                 }
             },
             () => {
-                return ioc;
+                return Promise.resolve(ioc);
             }
         );
     });
