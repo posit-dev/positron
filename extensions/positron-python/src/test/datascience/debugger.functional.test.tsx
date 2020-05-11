@@ -11,7 +11,6 @@ import * as vsls from 'vsls/vscode';
 
 import { IApplicationShell, IDocumentManager } from '../../client/common/application/types';
 import { RunByLine } from '../../client/common/experimentGroups';
-import { IProcessServiceFactory, Output } from '../../client/common/process/types';
 import { createDeferred, waitForPromise } from '../../client/common/utils/async';
 import { noop } from '../../client/common/utils/misc';
 import { EXTENSION_ROOT_DIR } from '../../client/constants';
@@ -26,10 +25,10 @@ import {
 } from '../../client/datascience/types';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
 import { getInteractiveCellResults, getOrCreateInteractiveWindow } from './interactiveWindowTestHelpers';
-import { getConnectionInfo } from './jupyterHelpers';
 import { MockDocument } from './mockDocument';
 import { MockDocumentManager } from './mockDocumentManager';
 import { mountConnectedMainPanel, openVariableExplorer, waitForMessage } from './testHelpers';
+import { verifyVariables } from './variableTestHelpers';
 
 //import { asyncDump } from '../common/asyncDump';
 // tslint:disable-next-line:max-func-body-length no-any
@@ -37,7 +36,6 @@ suite('DataScience Debugger tests', () => {
     const disposables: Disposable[] = [];
     const postDisposables: Disposable[] = [];
     let ioc: DataScienceIocContainer;
-    let processFactory: IProcessServiceFactory;
     let lastErrorMessage: string | undefined;
     let jupyterDebuggerService: IJupyterDebugService | undefined;
 
@@ -59,7 +57,6 @@ suite('DataScience Debugger tests', () => {
             IJupyterDebugService,
             Identifiers.MULTIPLEXING_DEBUGSERVICE
         );
-        processFactory = ioc.serviceManager.get<IProcessServiceFactory>(IProcessServiceFactory);
         return ioc.activate();
     });
 
@@ -133,7 +130,7 @@ suite('DataScience Debugger tests', () => {
         breakpoint?: Range,
         breakpointFile?: string,
         expectError?: boolean,
-        step?: boolean
+        stepAndVerify?: () => void
     ): Promise<void> {
         // Create a dummy document with just this code
         const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
@@ -178,7 +175,7 @@ suite('DataScience Debugger tests', () => {
                 verifyCodeLenses(expectedBreakLine);
 
                 // Step if allowed
-                if (step && ioc.wrapper && !ioc.mockJupyter) {
+                if (stepAndVerify && ioc.wrapper && !ioc.mockJupyter) {
                     // Verify variables work
                     openVariableExplorer(ioc.wrapper);
                     const variableRefresh = waitForMessage(ioc, InteractiveWindowMessages.VariablesComplete);
@@ -191,13 +188,8 @@ suite('DataScience Debugger tests', () => {
                     // Force an update so we render whatever the current state is
                     ioc.wrapper.update();
 
-                    // Then search for results.
-                    const foundRows = ioc.wrapper.find('div.react-grid-Row');
-
-                    // Just assert we found some rows
-                    assert.ok(foundRows.length, 'Did not find any rows during debugging');
-                    const html = foundRows.html();
-                    assert.ok(!html.includes('No variables'), 'Variables not being displayed');
+                    // Then verify results.
+                    stepAndVerify();
                 }
 
                 // Verify break location
@@ -251,46 +243,19 @@ suite('DataScience Debugger tests', () => {
     });
     test('Check variables', async () => {
         ioc.setExperimentState(RunByLine.experiment, true);
-        await debugCell('#%%\nx = 4\nx = 5', undefined, undefined, false, true);
-    });
-
-    test('Debug remote', async () => {
-        const python = await ioc.getJupyterCapableInterpreter();
-        const procService = await processFactory.create();
-
-        if (procService && python) {
-            const connectionFound = createDeferred();
-            const configFile = path.join(
-                EXTENSION_ROOT_DIR,
-                'src',
-                'test',
-                'datascience',
-                'serverConfigFiles',
-                'remoteToken.py'
-            );
-            const exeResult = procService.execObservable(
-                python.path,
-                ['-m', 'jupyter', 'notebook', `--config=${configFile}`],
-                { env: process.env, throwOnStdErr: false }
-            );
-
-            // Make sure to shutdown after the session goes away. Otherwise the notebook files generated will still be around.
-            postDisposables.push(exeResult);
-
-            exeResult.out.subscribe((output: Output<string>) => {
-                const connectionURL = getConnectionInfo(output.out);
-                if (connectionURL) {
-                    connectionFound.resolve(connectionURL);
-                }
-            });
-
-            const connString = await connectionFound.promise;
-            const uri = connString as string;
-            ioc.getSettings().datascience.jupyterServerURI = uri;
-
-            // Debug with this setting should use the server URI
-            await debugCell('#%%\nprint("bar")', undefined, undefined, true);
-        }
+        await debugCell('#%%\nx = [4, 6]\nx = 5', undefined, undefined, false, () => {
+            const targetResult = {
+                name: 'x',
+                value: '[4, 6]',
+                supportsDataExplorer: true,
+                type: 'list',
+                size: 0,
+                shape: '',
+                count: 2,
+                truncated: false
+            };
+            verifyVariables(ioc!.wrapper!, [targetResult]);
+        });
     });
 
     test('Debug temporary file', async () => {
