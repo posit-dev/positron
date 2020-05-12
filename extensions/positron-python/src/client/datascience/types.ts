@@ -133,7 +133,7 @@ export interface INotebookServer extends IAsyncDisposable {
         notebookMetadata?: nbformat.INotebookMetadata,
         cancelToken?: CancellationToken
     ): Promise<INotebook>;
-    getNotebook(identity: Uri): Promise<INotebook | undefined>;
+    getNotebook(identity: Uri, cancelToken?: CancellationToken): Promise<INotebook | undefined>;
     connect(launchInfo: INotebookServerLaunchInfo, cancelToken?: CancellationToken): Promise<void>;
     getConnectionInfo(): IJupyterConnection | undefined;
     waitForConnect(): Promise<INotebookServerLaunchInfo | undefined>;
@@ -144,7 +144,7 @@ export interface INotebookServer extends IAsyncDisposable {
 export const IRawNotebookProvider = Symbol('IRawNotebookProvider');
 export interface IRawNotebookProvider extends IAsyncDisposable {
     supported(): Promise<boolean>;
-    connect(): Promise<IRawConnection>;
+    connect(token?: CancellationToken): Promise<IRawConnection>;
     createNotebook(
         identity: Uri,
         resource: Resource,
@@ -152,7 +152,7 @@ export interface IRawNotebookProvider extends IAsyncDisposable {
         notebookMetadata?: nbformat.INotebookMetadata,
         cancelToken?: CancellationToken
     ): Promise<INotebook>;
-    getNotebook(identity: Uri): Promise<INotebook | undefined>;
+    getNotebook(identity: Uri, token?: CancellationToken): Promise<INotebook | undefined>;
 }
 
 // Provides notebooks that talk to jupyter servers
@@ -233,6 +233,7 @@ export type ConnectNotebookProviderOptions = {
     getOnly?: boolean;
     disableUI?: boolean;
     localOnly?: boolean;
+    token?: CancellationToken;
 };
 
 export interface INotebookServerOptions {
@@ -784,7 +785,11 @@ export interface IJupyterVariables {
         start: number,
         end: number
     ): Promise<JSONObject>;
-    getMatchingVariableValue(notebook: INotebook, name: string): Promise<string | undefined>;
+    getMatchingVariable(
+        notebook: INotebook,
+        name: string,
+        cancelToken?: CancellationToken
+    ): Promise<IJupyterVariable | undefined>;
 }
 
 export interface IConditionalJupyterVariables extends IJupyterVariables {
@@ -1021,6 +1026,7 @@ export type GetServerOptions = {
     getOnly?: boolean;
     disableUI?: boolean;
     localOnly?: boolean;
+    token?: CancellationToken;
 };
 
 /**
@@ -1031,6 +1037,7 @@ export type GetNotebookOptions = {
     getOnly?: boolean;
     disableUI?: boolean;
     metadata?: nbformat.INotebookMetadata;
+    token?: CancellationToken;
 };
 
 export interface INotebookProvider {
@@ -1055,7 +1062,7 @@ export interface INotebookProvider {
     /**
      * Disconnect from a notebook provider connection
      */
-    disconnect(options: ConnectNotebookProviderOptions): Promise<void>;
+    disconnect(options: ConnectNotebookProviderOptions, cancelToken?: CancellationToken): Promise<void>;
 }
 
 export const IJupyterServerProvider = Symbol('IJupyterServerProvider');
