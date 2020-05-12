@@ -4,7 +4,7 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { EventEmitter, Uri } from 'vscode';
+import { CancellationToken, EventEmitter, Uri } from 'vscode';
 import { IWorkspaceService } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
 import { IDisposableRegistry, Resource } from '../../common/types';
@@ -57,10 +57,13 @@ export class NotebookProvider implements INotebookProvider {
     }
 
     // Attempt to connect to our server provider, and if we do, return the connection info
-    public async connect(options: ConnectNotebookProviderOptions): Promise<INotebookProviderConnection | undefined> {
+    public async connect(
+        options: ConnectNotebookProviderOptions,
+        token?: CancellationToken
+    ): Promise<INotebookProviderConnection | undefined> {
         // Connect to either a jupyter server or a stubbed out raw notebook "connection"
         if (await this.rawNotebookProvider.supported()) {
-            return this.rawNotebookProvider.connect();
+            return this.rawNotebookProvider.connect(token);
         } else {
             return this.jupyterNotebookProvider.connect(options);
         }
@@ -71,7 +74,7 @@ export class NotebookProvider implements INotebookProvider {
 
         // Check to see if our provider already has this notebook
         const notebook = rawKernel
-            ? await this.rawNotebookProvider.getNotebook(options.identity)
+            ? await this.rawNotebookProvider.getNotebook(options.identity, options.token)
             : await this.jupyterNotebookProvider.getNotebook(options);
         if (notebook) {
             return notebook;
@@ -103,7 +106,13 @@ export class NotebookProvider implements INotebookProvider {
                 : undefined;
         }
         const promise = rawKernel
-            ? this.rawNotebookProvider.createNotebook(options.identity, resource, options.disableUI, options.metadata)
+            ? this.rawNotebookProvider.createNotebook(
+                  options.identity,
+                  resource,
+                  options.disableUI,
+                  options.metadata,
+                  options.token
+              )
             : this.jupyterNotebookProvider.createNotebook(options);
 
         this.cacheNotebookPromise(options.identity, promise);
