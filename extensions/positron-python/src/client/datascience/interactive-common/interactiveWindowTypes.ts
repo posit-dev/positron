@@ -340,6 +340,10 @@ export interface INotebookModelChange {
     source: 'undo' | 'user' | 'redo';
 }
 
+export interface INotebookModelSaved extends INotebookModelChange {
+    kind: 'save';
+}
+
 export interface INotebookModelRemoveAllChange extends INotebookModelChange {
     kind: 'remove_all';
     oldCells: ICell[];
@@ -453,13 +457,8 @@ export interface INotebookModelVersionChange extends INotebookModelChange {
     kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined;
 }
 
-export interface INotebookModelFileChange extends INotebookModelChange {
-    kind: 'file';
-    newFile: Uri;
-    oldFile: Uri;
-}
-
 export type NotebookModelChange =
+    | INotebookModelSaved
     | INotebookModelModifyChange
     | INotebookModelRemoveAllChange
     | INotebookModelClearChange
@@ -469,7 +468,6 @@ export type NotebookModelChange =
     | INotebookModelAddChange
     | INotebookModelEditChange
     | INotebookModelVersionChange
-    | INotebookModelFileChange
     | INotebookModelChangeTypeChange;
 
 export interface IRunByLine {
