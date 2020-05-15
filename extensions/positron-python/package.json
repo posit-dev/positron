@@ -91,6 +91,7 @@
         "onCommand:python.datascience.selectjupytercommandline",
         "onCommand:python.enableSourceMapSupport",
         "onCustomEditor:NativeEditorProvider.ipynb",
+        "onNotebookEditor:jupyter-notebook",
         "workspaceContains:**/mspythonconfig.json"
     ],
     "main": "./out/client/extension",
@@ -1600,6 +1601,7 @@
                             "AA_testing - experiment",
                             "WebHostNotebook - experiment",
                             "LocalZMQKernel - experiment",
+                            "NativeNotebook - experiment",
                             "UseTerminalToGetActivatedEnvVars - experiment",
                             "CollectLSRequestTiming - experiment",
                             "CollectNodeLSRequestTiming - experiment",
@@ -1625,6 +1627,7 @@
                             "AA_testing - experiment",
                             "WebHostNotebook - experiment",
                             "LocalZMQKernel - experiment",
+                            "NativeNotebook - experiment",
                             "UseTerminalToGetActivatedEnvVars - experiment",
                             "CollectLSRequestTiming - experiment",
                             "CollectNodeLSRequestTiming - experiment",
