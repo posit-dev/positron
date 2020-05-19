@@ -1212,7 +1212,7 @@
                             "pythonPath": {
                                 "type": "string",
                                 "description": "Path (fully qualified) to python executable. Defaults to the value in settings",
-                                "default": "${config:python.interpreterPath}"
+                                "default": "${command:python.interpreterPath}"
                             },
                             "args": {
                                 "type": "array",
@@ -1350,7 +1350,7 @@
                             "pythonPath": {
                                 "type": "string",
                                 "description": "Path (fully qualified) to python executable. Defaults to the value in settings",
-                                "default": "${config:python.interpreterPath}"
+                                "default": "${command:python.interpreterPath}"
                             },
                             "stopOnEntry": {
                                 "type": "boolean",
