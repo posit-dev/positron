@@ -115,6 +115,33 @@ suite('DataScienceCodeLensProvider Unit Tests', () => {
         targetCodeWatcher.verifyAll();
         serviceContainer.verifyAll();
     });
+    test('Should not Initialize Code Lenses when a Native Notebook is open', () => {
+        // Create our document
+        const document = TypeMoq.Mock.ofType<TextDocument>();
+        document.setup((d) => d.fileName).returns(() => 'test.py');
+        document.setup((d) => d.version).returns(() => 1);
+        vscodeNotebook.reset();
+        // tslint:disable-next-line: no-any
+        vscodeNotebook.setup((c) => c.activeNotebookEditor).returns(() => ({} as any));
+
+        const targetCodeWatcher = TypeMoq.Mock.ofType<ICodeWatcher>();
+        targetCodeWatcher
+            .setup((tc) => tc.getCodeLenses())
+            .returns(() => [])
+            .verifiable(TypeMoq.Times.never());
+        serviceContainer
+            .setup((c) => c.get(TypeMoq.It.isValue(ICodeWatcher)))
+            .returns(() => targetCodeWatcher.object)
+            .verifiable(TypeMoq.Times.never());
+        documentManager.setup((d) => d.textDocuments).returns(() => [document.object]);
+
+        codeLensProvider.provideCodeLenses(document.object, tokenSource.token);
+        codeLensProvider.provideCodeLenses(document.object, tokenSource.token);
+
+        // getCodeLenses should be called twice, but getting the code watcher only once due to same doc
+        targetCodeWatcher.verifyAll();
+        serviceContainer.verifyAll();
+    });
 
     test('Initialize Code Lenses new name / version', () => {
         // Create our document
