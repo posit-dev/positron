@@ -22,7 +22,7 @@ import {
     IDisposableRegistry
 } from '../../common/types';
 import { createDeferred } from '../../common/utils/async';
-import * as localize from '../../common/utils/localize';
+import { DataScience } from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
 import { IServiceContainer } from '../../ioc/types';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
@@ -271,7 +271,7 @@ export class NativeEditorProvider
 
     private async getNextNewNotebookUri(): Promise<Uri> {
         // Just use the current counter. Counter will be incremented after actually opening a file.
-        const fileName = `${localize.DataScience.untitledNotebookFileName()}-${this.untitledCounter}.ipynb`;
+        const fileName = `${DataScience.untitledNotebookFileName()}-${this.untitledCounter}.ipynb`;
         const fileUri = Uri.file(fileName);
         // Turn this back into an untitled
         return fileUri.with({ scheme: 'untitled', path: fileName });
