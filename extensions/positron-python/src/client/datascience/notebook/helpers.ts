@@ -48,12 +48,13 @@ export function notebookModelToVSCNotebookData(model: INotebookModel): NotebookD
                 'application/x-nteract-model-debug+json',
                 'text/html',
                 'application/javascript',
+                'image/gif',
                 'text/latex',
                 'text/markdown',
-                'application/json',
                 'image/svg+xml',
                 'image/png',
                 'image/jpeg',
+                'application/json',
                 'text/plain'
             ]
         }
