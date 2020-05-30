@@ -80,6 +80,7 @@
         "onCommand:python.clearWorkspaceInterpreter",
         "onCommand:python.resetInterpreterSecurityStorage",
         "onCommand:python.datascience.createnewnotebook",
+        "onCommand:python.startPage.open",
         "onCommand:python.datascience.showhistorypane",
         "onCommand:python.datascience.importnotebook",
         "onCommand:python.datascience.importnotebookfile",
@@ -655,6 +656,11 @@
                 "category": "Python"
             },
             {
+                "command": "python.startPage.open",
+                "title": "%python.command.python.startPage.open.title%",
+                "category": "Python"
+            },
+            {
                 "command": "python.datascience.scrolltocell",
                 "title": "%python.command.python.datascience.scrolltocell.title%",
                 "category": "Python"
@@ -1104,6 +1110,11 @@
                 {
                     "command": "python.datascience.createnewnotebook",
                     "title": "%python.command.python.datascience.createnewnotebook.title%",
+                    "category": "Python"
+                },
+                {
+                    "command": "python.startPage.open",
+                    "title": "%python.command.python.startPage.open.title%",
                     "category": "Python"
                 },
                 {
@@ -2840,6 +2851,12 @@
                         "weekly",
                         "daily"
                     ],
+                    "scope": "application"
+                },
+                "python.showStartPage": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show the Python Start Page when a new update is released.",
                     "scope": "application"
                 }
             }
