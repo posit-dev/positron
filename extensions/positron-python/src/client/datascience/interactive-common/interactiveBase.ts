@@ -62,8 +62,10 @@ import {
     IRemoteReexecuteCode,
     IShowDataViewer,
     ISubmitNewCell,
-    SysInfoReason
+    SysInfoReason,
+    VariableExplorerStateKeys
 } from '../interactive-common/interactiveWindowTypes';
+import { isUntitledFile } from '../interactive-ipynb/nativeEditorStorage';
 import { JupyterInvalidKernelError } from '../jupyter/jupyterInvalidKernelError';
 import { JupyterKernelPromiseFailedError } from '../jupyter/kernels/jupyterKernelPromiseFailedError';
 import { KernelSwitcher } from '../jupyter/kernels/kernelSwitcher';
@@ -144,6 +146,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         @unmanaged() protected errorHandler: IDataScienceErrorHandler,
         @unmanaged() protected readonly commandManager: ICommandManager,
         @unmanaged() protected globalStorage: Memento,
+        @unmanaged() protected workspaceStorage: Memento,
         @unmanaged() rootPath: string,
         @unmanaged() scripts: string[],
         @unmanaged() title: string,
@@ -228,6 +231,14 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 // Send the loc strings (skip during testing as it takes up a lot of memory)
                 const locStrings = isTestExecution() ? '{}' : localize.getCollectionJSON();
                 this.postMessageInternal(SharedMessages.LocInit, locStrings).ignoreErrors();
+                this.variableExplorerHeightRequest()
+                    .then((data) =>
+                        this.postMessageInternal(
+                            InteractiveWindowMessages.VariableExplorerHeightResponse,
+                            data
+                        ).ignoreErrors()
+                    )
+                    .catch(); // do nothing
                 break;
 
             case InteractiveWindowMessages.GotoCodeCell:
@@ -276,6 +287,10 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
             case InteractiveWindowMessages.VariableExplorerToggle:
                 this.variableExplorerToggle(payload);
+                break;
+
+            case InteractiveWindowMessages.SetVariableExplorerHeight:
+                this.setVariableExplorerHeight(payload).ignoreErrors();
                 break;
 
             case InteractiveWindowMessages.AddedSysInfo:
@@ -1387,6 +1402,44 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
             sendTelemetryEvent(Telemetry.VariableExplorerToggled, undefined, { open: openValue });
         }
     };
+
+    // tslint:disable-next-line: no-any
+    private async setVariableExplorerHeight(payload?: any) {
+        // Store variable explorer height based on file name in workspace storage
+        if (payload !== undefined) {
+            const updatedHeights = payload as { containerHeight: number; gridHeight: number };
+            const uri = await this.getOwningResource(); // Get file name
+
+            if (!uri) {
+                return;
+            }
+            // Storing an object that looks like
+            //  { "fully qualified Path to 1.ipynb": 1234,
+            //    "fully qualifieid path to 2.ipynb": 1234 }
+
+            // tslint:disable-next-line: no-any
+            const value = this.workspaceStorage.get(VariableExplorerStateKeys.height, {} as any);
+            value[uri.toString()] = updatedHeights;
+            this.workspaceStorage.update(VariableExplorerStateKeys.height, value);
+        }
+    }
+
+    private async variableExplorerHeightRequest(): Promise<
+        { containerHeight: number; gridHeight: number } | undefined
+    > {
+        const uri = await this.getOwningResource(); // Get file name
+
+        if (!uri || isUntitledFile(uri)) {
+            return; // don't resotre height of untitled notebooks
+        }
+
+        // tslint:disable-next-line: no-any
+        const value = this.workspaceStorage.get(VariableExplorerStateKeys.height, {} as any);
+        const uriString = uri.toString();
+        if (uriString in value) {
+            return value[uriString];
+        }
+    }
 
     private async requestTmLanguage(languageId: string) {
         // Get the contents of the appropriate tmLanguage file.

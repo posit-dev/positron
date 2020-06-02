@@ -307,6 +307,8 @@ ${buildSettingsCss(this.props.settings)}`}</style>
             toolbarHeight = this.mainPanelToolbarRef.current.offsetHeight;
         }
         return {
+            gridHeight: this.props.variableState.gridHeight,
+            containerHeight: this.props.variableState.containerHeight,
             variables: this.props.variableState.variables,
             debugging: this.props.debugging,
             busy: this.props.busy,
@@ -314,6 +316,7 @@ ${buildSettingsCss(this.props.settings)}`}</style>
             skipDefault: this.props.skipDefault,
             testMode: this.props.testMode,
             closeVariableExplorer: this.props.toggleVariableExplorer,
+            setVariableExplorerHeight: this.props.setVariableExplorerHeight,
             baseTheme: baseTheme,
             pageIn: this.pageInVariableData,
             fontSize: this.props.font.size,

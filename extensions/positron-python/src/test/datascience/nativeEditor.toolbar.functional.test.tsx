@@ -58,6 +58,7 @@ suite('DataScience Native Toolbar', () => {
             selectionFocusedInfo: {},
             sendCommand: noopAny,
             toggleVariableExplorer: sinon.stub(),
+            setVariableExplorerHeight: sinon.stub(),
             variablesVisible: false
         };
     });
