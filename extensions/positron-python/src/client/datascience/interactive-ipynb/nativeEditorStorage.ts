@@ -35,7 +35,7 @@ interface INativeEditorStorageState {
     notebookJson: Partial<nbformat.INotebookContent>;
 }
 
-function isUntitledFile(file?: Uri) {
+export function isUntitledFile(file?: Uri) {
     return file?.scheme === 'untitled';
 }
 export function isUntitled(model?: INotebookModel): boolean {
@@ -528,7 +528,8 @@ export class NativeEditorStorage implements INotebookStorage {
             kind: 'saveAs',
             oldDirty: model.isDirty,
             newDirty: false,
-            target: file
+            target: file,
+            sourceUri: model.file
         });
         this.savedAs.fire({ new: file, old });
         this.clearHotExit(old).ignoreErrors();

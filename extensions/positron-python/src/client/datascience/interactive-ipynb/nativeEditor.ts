@@ -36,7 +36,8 @@ import {
     IDisposableRegistry,
     IExperimentsManager,
     IMemento,
-    Resource
+    Resource,
+    WORKSPACE_MEMENTO
 } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
@@ -54,7 +55,8 @@ import {
     IRunByLine,
     ISubmitNewCell,
     NotebookModelChange,
-    SysInfoReason
+    SysInfoReason,
+    VariableExplorerStateKeys
 } from '../interactive-common/interactiveWindowTypes';
 import {
     CellState,
@@ -174,6 +176,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         @inject(INotebookImporter) protected readonly importer: INotebookImporter,
         @inject(IDataScienceErrorHandler) errorHandler: IDataScienceErrorHandler,
         @inject(IMemento) @named(GLOBAL_MEMENTO) globalStorage: Memento,
+        @inject(IMemento) @named(WORKSPACE_MEMENTO) workspaceStorage: Memento,
         @inject(IExperimentsManager) experimentsManager: IExperimentsManager,
         @inject(IAsyncDisposableRegistry) asyncRegistry: IAsyncDisposableRegistry,
         @inject(KernelSwitcher) switcher: KernelSwitcher,
@@ -202,6 +205,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             errorHandler,
             commandManager,
             globalStorage,
+            workspaceStorage,
             nativeEditorDir,
             [
                 path.join(nativeEditorDir, 'require.js'),
@@ -560,6 +564,15 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             // VS code is telling us to broadcast this to our UI. Tell the UI about the new change
             await this.postMessage(InteractiveWindowMessages.UpdateModel, change);
         }
+        if (change.kind === 'saveAs' && change.model) {
+            const newFileName = change.model.file.toString();
+            const oldFileName = change.sourceUri.toString();
+
+            if (newFileName !== oldFileName) {
+                // If the filename has changed
+                this.renameVariableExplorerHeights(oldFileName, newFileName);
+            }
+        }
 
         // Use the current state of the model to indicate dirty (not the message itself)
         if (this.model && change.newDirty !== change.oldDirty) {
@@ -572,6 +585,21 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             }
         }
     }
+
+    private renameVariableExplorerHeights(name: string, updatedName: string) {
+        // Updates the workspace storage to reflect the updated name of the notebook
+        // should be called if the name of the notebook changes
+        // tslint:disable-next-line: no-any
+        const value = this.workspaceStorage.get(VariableExplorerStateKeys.height, {} as any);
+        if (!(name in value)) {
+            return; // Nothing to update
+        }
+
+        value[updatedName] = value[name];
+        delete value[name];
+        this.workspaceStorage.update(VariableExplorerStateKeys.height, value);
+    }
+
     private interruptExecution() {
         this.executeCancelTokens.forEach((t) => t.cancel());
     }
