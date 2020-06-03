@@ -37,7 +37,7 @@ export function notebookModelToVSCNotebookData(model: INotebookModel): NotebookD
 
     return {
         cells,
-        languages: [PYTHON_LANGUAGE, MARKDOWN_LANGUAGE],
+        languages: [PYTHON_LANGUAGE],
         metadata: {
             cellEditable: true,
             cellRunnable: true,
