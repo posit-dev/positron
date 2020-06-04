@@ -72,7 +72,7 @@ suite('Data Science - NativeNotebook ContentProvider', () => {
                     editable: true,
                     executionOrder: 10,
                     hasExecutionOrder: true,
-                    runState: (vscodeNotebookEnums as any).NotebookCellRunState.Idle,
+                    runState: (vscodeNotebookEnums as any).NotebookCellRunState.Success,
                     runnable: true,
                     custom: {
                         cellId: 'MyCellId1'
