@@ -239,6 +239,8 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         // Indicate we have our identity
         this.loadedPromise.resolve();
 
+        traceInfo(`Loading web panel for ${model.file}`);
+
         // Load the web panel using our file path so it can find
         // relative files next to the notebook.
         await super.loadWebPanel(path.dirname(this.file.fsPath), webViewPanel);
@@ -633,6 +635,8 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                 await this.submitCode(code, Identifiers.EmptyFileName, 0, cell.id, cell.data, undefined, cancelToken);
             }
         } catch (exc) {
+            traceInfo(`Exception executing cell ${cell.id}: `, exc);
+
             // Make this error our cell output
             this.sendCellsToWebView([
                 {
