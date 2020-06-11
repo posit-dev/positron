@@ -663,6 +663,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                         }
                     },
                     (error) => {
+                        traceError(`Error executing a cell: `, error);
                         status.dispose();
                         if (!(error instanceof CancellationError)) {
                             this.applicationShell.showErrorMessage(error.toString());
