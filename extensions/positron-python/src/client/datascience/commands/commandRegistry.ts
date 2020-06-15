@@ -21,6 +21,7 @@ import {
     INotebookEditorProvider
 } from '../types';
 import { JupyterCommandLineSelectorCommand } from './commandLineSelector';
+import { ExportCommands } from './exportCommands';
 import { KernelSwitcherCommand } from './kernelSwitcher';
 import { JupyterServerSelectorCommand } from './serverSelector';
 
@@ -44,7 +45,8 @@ export class CommandRegistry implements IDisposable {
         @inject(IApplicationShell) private appShell: IApplicationShell,
         @inject(IOutputChannel) @named(JUPYTER_OUTPUT_CHANNEL) private jupyterOutput: IOutputChannel,
         @inject(IStartPage) private startPage: IStartPage,
-        @inject(IExperimentService) private readonly expService: IExperimentService
+        @inject(IExperimentService) private readonly expService: IExperimentService,
+        @inject(ExportCommands) private readonly exportCommand: ExportCommands
     ) {
         this.disposables.push(this.serverSelectedCommand);
         this.disposables.push(this.kernelSwitcherCommand);
@@ -53,6 +55,7 @@ export class CommandRegistry implements IDisposable {
         this.commandLineCommand.register();
         this.serverSelectedCommand.register();
         this.kernelSwitcherCommand.register();
+        this.exportCommand.register();
         this.registerCommand(Commands.RunAllCells, this.runAllCells);
         this.registerCommand(Commands.RunCell, this.runCell);
         this.registerCommand(Commands.RunCurrentCell, this.runCurrentCell);

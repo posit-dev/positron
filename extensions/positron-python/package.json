@@ -59,6 +59,9 @@
         "onCommand:python.viewTestOutput",
         "onCommand:python.viewOutput",
         "onCommand:python.datascience.viewJupyterOutput",
+        "onCommand:python.datascience.exportAsPythonScript",
+        "onCommand:python.datascience.exportToHTML",
+        "onCommand:python.datascience.exportToPDF",
         "onCommand:python.selectAndRunTestMethod",
         "onCommand:python.selectAndDebugTestMethod",
         "onCommand:python.selectAndRunTestFile",
@@ -350,6 +353,11 @@
             {
                 "command": "python.datascience.viewJupyterOutput",
                 "title": "%python.command.python.datascience.viewJupyterOutput.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.datascience.exportAsPythonScript",
+                "title": "%python.command.python.datascience.exportAsPythonScript.title%",
                 "category": "Python"
             },
             {
@@ -844,6 +852,12 @@
                 }
             ],
             "commandPalette": [
+                {
+                    "command": "python.datascience.exportAsPythonScript",
+                    "title": "%python.command.python.datascience.exportAsPythonScript.title%",
+                    "category": "Python",
+                    "when": "python.datascience.isnativeactive && python.datascience.featureenabled"
+                },
                 {
                     "command": "python.switchOffInsidersChannel",
                     "title": "%python.command.python.switchOffInsidersChannel.title%",
