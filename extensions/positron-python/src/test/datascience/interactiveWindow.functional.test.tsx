@@ -38,7 +38,6 @@ import {
 } from './interactiveWindowTestHelpers';
 import { MockDocumentManager } from './mockDocumentManager';
 import { MockEditor } from './mockTextEditor';
-import { createMessageEvent } from './reactHelpers';
 import {
     addContinuousMockData,
     addInputMockData,
@@ -58,8 +57,7 @@ import {
     typeCode,
     verifyHtmlOnCell,
     verifyLastCellInputState,
-    waitForMessage,
-    waitForMessageResponse
+    waitForMessage
 } from './testHelpers';
 
 // tslint:disable:max-func-body-length trailing-comma no-any no-multiline-string
@@ -217,13 +215,12 @@ for i in range(10):
 
             const domDiv = reactDiv.querySelector('div');
 
-            if (domDiv && ioc.postMessage) {
+            if (domDiv && ioc.getDefaultWrapper()) {
                 domDiv.tabIndex = -1;
                 domDiv.focus();
 
                 // send the ctrl + 1/2 message, this should put focus back on the input box
-                const message = createMessageEvent({ type: InteractiveWindowMessages.Activate, payload: undefined });
-                ioc.postMessage(message);
+                ioc.postMessage({ type: InteractiveWindowMessages.Activate, payload: undefined }, 'default');
 
                 // Then enter press shift + enter on the active element
                 const activeElement = document.activeElement;
@@ -539,7 +536,7 @@ Type:      builtin_function_or_method`,
             const deleteButton = ImageButtons.at(3);
 
             // Make sure goto works
-            await waitForMessageResponse(ioc, () => goto.simulate('click'));
+            goto.simulate('click');
             await waitForPromise(showedEditor.promise, 1000);
             assert.ok(showedEditor.resolved, 'Goto source is not jumping to editor');
 
@@ -634,7 +631,10 @@ for i in range(0, 100):
             const interactiveWindow = await getOrCreateInteractiveWindow(ioc);
 
             // Export should cause exportCalled to change to true
-            await waitForMessageResponse(ioc, () => interactiveWindow.exportCells());
+            const exportPromise = waitForMessage(ioc, InteractiveWindowMessages.ReturnAllCells);
+            interactiveWindow.exportCells();
+            await exportPromise;
+            await sleep(100); // Give time for appshell to come up
             assert.equal(exportCalled, true, 'Export is not being called during export');
 
             // Remove the cell
@@ -651,8 +651,8 @@ for i in range(0, 100):
 
             // Then verify we cannot click the button (it should be disabled)
             exportCalled = false;
-            const response = waitForMessageResponse(ioc, () => exportButton!.simulate('click'));
-            await waitForPromise(response, 100);
+            exportButton!.simulate('click');
+            await sleep(100);
             assert.equal(exportCalled, false, 'Export should not be called when no cells visible');
         },
         () => {
@@ -880,7 +880,7 @@ for i in range(0, 100):
             const copyToSource = ImageButtons.at(2);
 
             // Then click the copy to source button
-            await waitForMessageResponse(ioc, () => copyToSource.simulate('click'));
+            copyToSource.simulate('click');
             await waitForPromise(showedEditor.promise, 100);
             assert.ok(showedEditor.resolved, 'Copy to source is not adding code to the editor');
         },
@@ -1016,7 +1016,9 @@ for i in range(0, 100):
             const gatherCode = ImageButtons.at(0);
 
             // Then click the gather code button
-            await waitForMessageResponse(ioc, () => gatherCode.simulate('click'));
+            const gatherPromise = waitForMessage(ioc, InteractiveWindowMessages.GatherCodeToScript);
+            gatherCode.simulate('click');
+            await gatherPromise;
             const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
             assert.notEqual(docManager.activeTextEditor, undefined);
             if (docManager.activeTextEditor) {
@@ -1057,7 +1059,9 @@ for i in range(0, 100):
             const gatherCode = ImageButtons.at(0);
 
             // Then click the gather code button
-            await waitForMessageResponse(ioc, () => gatherCode.simulate('click'));
+            const gatherPromise = waitForMessage(ioc, InteractiveWindowMessages.GatherCodeToScript);
+            gatherCode.simulate('click');
+            await gatherPromise;
             const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
             assert.notEqual(docManager.activeTextEditor, undefined);
 

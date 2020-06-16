@@ -18,7 +18,7 @@ export function getInteractiveCellResults(
     updater: () => Promise<void>
     // tslint:disable-next-line: no-any
 ): Promise<ReactWrapper<any, Readonly<{}>, React.Component>> {
-    return getCellResults(ioc, wrapper, 'InteractiveCell', updater);
+    return getCellResults(ioc, 'default', wrapper, 'InteractiveCell', updater);
 }
 
 export async function getOrCreateInteractiveWindow(ioc: DataScienceIocContainer): Promise<IInteractiveWindow> {
