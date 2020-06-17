@@ -95,8 +95,8 @@ import { PythonSettings } from '../../client/common/configSettings';
 import {
     EXTENSION_ROOT_DIR,
     UseCustomEditorApi,
-    UseNativeEditorApi,
-    UseProposedApi
+    UseProposedApi,
+    UseVSCodeNotebookEditorApi
 } from '../../client/common/constants';
 import { CryptoUtils } from '../../client/common/crypto';
 import { DotNetCompatibilityService } from '../../client/common/dotnet/compatibilityService';
@@ -608,7 +608,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
         );
         this.serviceManager.addSingletonInstance(UseProposedApi, false);
         this.serviceManager.addSingletonInstance(UseCustomEditorApi, useCustomEditor);
-        this.serviceManager.addSingletonInstance(UseNativeEditorApi, false);
+        this.serviceManager.addSingletonInstance(UseVSCodeNotebookEditorApi, false);
         this.serviceManager.addSingleton<IDataViewerFactory>(IDataViewerFactory, DataViewerFactory);
         this.serviceManager.add<IJupyterVariableDataProvider>(
             IJupyterVariableDataProvider,
