@@ -1329,8 +1329,6 @@
                 "languages": [
                     "python"
                 ],
-                "program": "./out/client/debugger/debugAdapter/main.js",
-                "runtime": "node",
                 "variables": {
                     "pickProcess": "python.pickLocalProcess"
                 },
@@ -1734,8 +1732,6 @@
                             "LS - enabled",
                             "AlwaysDisplayTestExplorer - experiment",
                             "ShowExtensionSurveyPrompt - enabled",
-                            "DebugAdapterFactory - experiment",
-                            "PtvsdWheels37 - experiment",
                             "Reload - experiment",
                             "AA_testing - experiment",
                             "LocalZMQKernel - experiment",
@@ -1760,8 +1756,6 @@
                             "LS - enabled",
                             "AlwaysDisplayTestExplorer - experiment",
                             "ShowExtensionSurveyPrompt - enabled",
-                            "DebugAdapterFactory - experiment",
-                            "PtvsdWheels37 - experiment",
                             "Reload - experiment",
                             "AA_testing - experiment",
                             "LocalZMQKernel - experiment",
@@ -2056,11 +2050,10 @@
                     "description": "Set of debug commands to put as code lens above a cell while debugging.",
                     "scope": "resource"
                 },
-                "python.dataScience.ptvsdDistPath": {
+                "python.dataScience.debugpyDistPath": {
                     "type": "string",
                     "default": "",
-                    "description": "Path to ptvsd experimental bits for debugging cells.",
-                    "deprecationMessage": "This setting has been deprecated in favor of 'debugpyDistPath'.",
+                    "description": "Path to debugpy bits for debugging cells.",
                     "scope": "resource"
                 },
                 "python.dataScience.stopOnFirstLineWhileDebugging": {
