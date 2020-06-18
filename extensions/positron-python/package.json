@@ -28,7 +28,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.45.0"
+        "vscode": "^1.46.0"
     },
     "keywords": [
         "python",
@@ -3128,10 +3128,10 @@
         "vscode-debugadapter": "^1.28.0",
         "vscode-debugprotocol": "^1.28.0",
         "vscode-extension-telemetry": "0.1.4",
-        "vscode-jsonrpc": "^5.0.1",
-        "vscode-languageclient": "^6.2.0-next.2",
-        "vscode-languageserver": "^6.2.0-next.2",
-        "vscode-languageserver-protocol": "^3.16.0-next.2",
+        "vscode-jsonrpc": "^6.0.0-next.3",
+        "vscode-languageclient": "^7.0.0-next.6",
+        "vscode-languageserver": "^7.0.0-next.4",
+        "vscode-languageserver-protocol": "^3.16.0-next.5",
         "vscode-tas-client": "^0.0.864",
         "vsls": "^0.3.1291",
         "winreg": "^1.2.4",
@@ -3212,7 +3212,7 @@
         "@types/tmp": "0.0.33",
         "@types/untildify": "^3.0.0",
         "@types/uuid": "^3.4.3",
-        "@types/vscode": "^1.45.0",
+        "@types/vscode": "^1.46.0",
         "@types/webpack-bundle-analyzer": "^2.13.0",
         "@types/winreg": "^1.2.30",
         "@types/ws": "^6.0.1",
