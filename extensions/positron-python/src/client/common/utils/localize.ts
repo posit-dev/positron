@@ -68,10 +68,6 @@ export namespace Diagnostics {
         'Your settings needs to be updated to change the setting "python.unitTest." to "python.testing.", otherwise testing Python code using the extension may not work. Would you like to automatically update your settings now?'
     );
     export const updateSettings = localize('diagnostics.updateSettings', 'Yes, update settings');
-    export const processId = localize(
-        'diagnostics.processId',
-        'Attaching the debugger to a local process is an experimental feature. It will be available to all users soon.'
-    );
 }
 
 export namespace Common {
@@ -1150,7 +1146,7 @@ export namespace Testing {
 export namespace OutdatedDebugger {
     export const outdatedDebuggerMessage = localize(
         'OutdatedDebugger.updateDebuggerMessage',
-        'We noticed you are attaching to ptvsd (Python debugger), which will be deprecated on May 1st, 2020. Please switch to [debugpy](https://aka.ms/migrateToDebugpy).'
+        'We noticed you are attaching to ptvsd (Python debugger), which was deprecated on May 1st, 2020. Please switch to [debugpy](https://aka.ms/migrateToDebugpy).'
     );
 }
 
