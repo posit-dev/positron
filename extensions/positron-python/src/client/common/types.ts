@@ -399,6 +399,7 @@ export interface IDataScienceSettings {
     jupyterCommandLineArguments: string[];
     widgetScriptSources: WidgetCDNs[];
     alwaysScrollOnNewCell?: boolean;
+    showKernelSelectionOnInteractiveWindow?: boolean;
 }
 
 export type WidgetCDNs = 'unpkg.com' | 'jsdelivr.com';
