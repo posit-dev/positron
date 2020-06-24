@@ -7,7 +7,7 @@ import { nbformat } from '@jupyterlab/coreutils';
 import { inject, injectable } from 'inversify';
 import { Subscription } from 'rxjs';
 import { CancellationToken, CancellationTokenSource } from 'vscode';
-import type { NotebookCell, NotebookDocument } from 'vscode-proposed';
+import type { NotebookCell, NotebookCellRunState, NotebookDocument } from 'vscode-proposed';
 import { ICommandManager } from '../../common/application/types';
 import { wrapCancellationTokens } from '../../common/cancellation';
 import '../../common/extensions';
@@ -59,33 +59,85 @@ export class NotebookExecutionService implements INotebookExecutionService {
     ) {}
     @captureTelemetry(Telemetry.ExecuteNativeCell, undefined, true)
     public async executeCell(document: NotebookDocument, cell: NotebookCell, token: CancellationToken): Promise<void> {
+        // Cannot execute empty cells.
+        if (cell.document.getText().trim().length === 0) {
+            return;
+        }
         const stopWatch = new StopWatch();
-        const model = await this.notebookStorage.load(document.uri);
-        if (token.isCancellationRequested) {
-            return;
-        }
-        const nb = await this.notebookProvider.getOrCreateNotebook({
-            identity: document.uri,
-            resource: document.uri,
-            metadata: model.metadata,
-            disableUI: false,
-            getOnly: false
+        const notebookAndModel = this.getNotebookAndModel(document);
+
+        // Mark cells as busy (this way there's immediate feedback to users).
+        // If it does not complete, then restore old state.
+        const oldCellState = cell.metadata.runState;
+        cell.metadata.runState = vscodeNotebookEnums.NotebookCellRunState.Running;
+
+        // If we cancel running cells, then restore the state to previous values unless cell has completed.
+        token.onCancellationRequested(() => {
+            if (cell.metadata.runState === vscodeNotebookEnums.NotebookCellRunState.Running) {
+                cell.metadata.runState = oldCellState;
+            }
         });
-        if (token.isCancellationRequested) {
-            return;
-        }
-        if (!nb) {
-            throw new Error('Unable to get Notebook object to run cell');
-        }
-        await this.executeIndividualCell(model, document, cell, nb, token, stopWatch);
+
+        await this.executeIndividualCell(notebookAndModel, document, cell, token, stopWatch);
     }
     @captureTelemetry(Telemetry.ExecuteNativeCell, undefined, true)
     public async executeAllCells(document: NotebookDocument, token: CancellationToken): Promise<void> {
         const stopWatch = new StopWatch();
+        const notebookAndModel = this.getNotebookAndModel(document);
+
+        // Mark all cells as busy (this way there's immediate feedback to users).
+        // If it does not complete, then restore old state.
+        const oldCellStates = new WeakMap<NotebookCell, NotebookCellRunState | undefined>();
+        document.cells.forEach((cell) => {
+            if (
+                cell.document.getText().trim().length === 0 ||
+                cell.cellKind === vscodeNotebookEnums.CellKind.Markdown
+            ) {
+                return;
+            }
+            oldCellStates.set(cell, cell.metadata.runState);
+            cell.metadata.runState = vscodeNotebookEnums.NotebookCellRunState.Running;
+        });
+
+        const restoreOldCellState = (cell: NotebookCell) => {
+            if (
+                oldCellStates.has(cell) &&
+                cell.metadata.runState === vscodeNotebookEnums.NotebookCellRunState.Running
+            ) {
+                cell.metadata.runState = oldCellStates.get(cell);
+            }
+        };
+        // If we cancel running cells, then restore the state to previous values unless cell has completed.
+        token.onCancellationRequested(() => document.cells.forEach(restoreOldCellState));
+
+        let executingAPreviousCellHasFailed = false;
+        await document.cells.reduce((previousPromise, cellToExecute) => {
+            return previousPromise.then((previousCellState) => {
+                // If a previous cell has failed or execution cancelled, the get out.
+                if (
+                    executingAPreviousCellHasFailed ||
+                    token.isCancellationRequested ||
+                    previousCellState === vscodeNotebookEnums.NotebookCellRunState.Error
+                ) {
+                    executingAPreviousCellHasFailed = true;
+                    restoreOldCellState(cellToExecute);
+                    return;
+                }
+                if (
+                    cellToExecute.document.getText().trim().length === 0 ||
+                    cellToExecute.cellKind === vscodeNotebookEnums.CellKind.Markdown
+                ) {
+                    return;
+                }
+                return this.executeIndividualCell(notebookAndModel, document, cellToExecute, token, stopWatch);
+            });
+        }, Promise.resolve<NotebookCellRunState | undefined>(undefined));
+    }
+    public cancelPendingExecutions(document: NotebookDocument): void {
+        this.pendingExecutionCancellations.get(document.uri.fsPath)?.forEach((cancellation) => cancellation.cancel()); // NOSONAR
+    }
+    private async getNotebookAndModel(document: NotebookDocument): Promise<{ model: INotebookModel; nb: INotebook }> {
         const model = await this.notebookStorage.load(document.uri);
-        if (token.isCancellationRequested) {
-            return;
-        }
         const nb = await this.notebookProvider.getOrCreateNotebook({
             identity: document.uri,
             resource: document.uri,
@@ -93,20 +145,10 @@ export class NotebookExecutionService implements INotebookExecutionService {
             disableUI: false,
             getOnly: false
         });
-        if (token.isCancellationRequested) {
-            return;
-        }
         if (!nb) {
             throw new Error('Unable to get Notebook object to run cell');
         }
-        await Promise.all(
-            document.cells.map((cellToExecute) =>
-                this.executeIndividualCell(model, document, cellToExecute, nb, token, stopWatch)
-            )
-        );
-    }
-    public cancelPendingExecutions(document: NotebookDocument): void {
-        this.pendingExecutionCancellations.get(document.uri.fsPath)?.forEach((cancellation) => cancellation.cancel()); // NOSONAR
+        return { model, nb };
     }
     private sendPerceivedCellExecute(runningStopWatch: StopWatch) {
         const props = { notebook: true };
@@ -119,13 +161,17 @@ export class NotebookExecutionService implements INotebookExecutionService {
     }
 
     private async executeIndividualCell(
-        model: INotebookModel,
+        notebookAndModel: Promise<{ model: INotebookModel; nb: INotebook }>,
         document: NotebookDocument,
         cell: NotebookCell,
-        nb: INotebook,
         token: CancellationToken,
         stopWatch: StopWatch
-    ): Promise<void> {
+    ): Promise<NotebookCellRunState | undefined> {
+        if (token.isCancellationRequested) {
+            return;
+        }
+
+        const { model, nb } = await notebookAndModel;
         if (token.isCancellationRequested) {
             return;
         }
@@ -153,7 +199,7 @@ export class NotebookExecutionService implements INotebookExecutionService {
 
         this.handleDisplayDataMessages(model, document, nb);
 
-        const deferred = createDeferred();
+        const deferred = createDeferred<NotebookCellRunState>();
         const executionStopWatch = new StopWatch();
 
         wrappedToken.onCancellationRequested(() => {
@@ -170,7 +216,6 @@ export class NotebookExecutionService implements INotebookExecutionService {
         });
 
         cell.metadata.runStartTime = new Date().getTime();
-        cell.metadata.runState = vscodeNotebookEnums.NotebookCellRunState.Running;
 
         let subscription: Subscription | undefined;
         let modelClearedEventHandler: IDisposable | undefined;
@@ -220,8 +265,8 @@ export class NotebookExecutionService implements INotebookExecutionService {
                 (error: Partial<Error>) => {
                     updateCellWithErrorStatus(cell, error);
                     this.contentProvider.notifyChangesToDocument(document);
-                    deferred.resolve();
                     this.errorHandler.handleError((error as unknown) as Error).ignoreErrors();
+                    deferred.resolve(cell.metadata.runState);
                 },
                 () => {
                     cell.metadata.lastRunDuration = executionStopWatch.elapsedTime;
@@ -249,7 +294,7 @@ export class NotebookExecutionService implements INotebookExecutionService {
 
                     updateVSCNotebookCellMetadata(cell.metadata, notebookCellModel);
                     this.contentProvider.notifyChangesToDocument(document);
-                    deferred.resolve();
+                    deferred.resolve(cell.metadata.runState);
                 }
             );
             await deferred.promise;
@@ -268,6 +313,7 @@ export class NotebookExecutionService implements INotebookExecutionService {
                 cancellations.splice(index, 1);
             }
         }
+        return cell.metadata.runState;
     }
     /**
      * Ensure we handle display data messages that can result in updates to other cells.
