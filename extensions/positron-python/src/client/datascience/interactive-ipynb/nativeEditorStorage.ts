@@ -15,7 +15,15 @@ import { Identifiers, KnownNotebookLanguages, Telemetry } from '../constants';
 import { IEditorContentChange, NotebookModelChange } from '../interactive-common/interactiveWindowTypes';
 import { InvalidNotebookFileError } from '../jupyter/invalidNotebookFileError';
 import { LiveKernelModel } from '../jupyter/kernels/types';
-import { CellState, ICell, IJupyterExecution, IJupyterKernelSpec, INotebookModel, INotebookStorage } from '../types';
+import {
+    CellState,
+    ICell,
+    IJupyterExecution,
+    IJupyterKernelSpec,
+    INotebookModel,
+    INotebookStorage,
+    ITrustService
+} from '../types';
 
 // tslint:disable-next-line:no-require-imports no-var-requires
 import detectIndent = require('detect-indent');
@@ -32,6 +40,7 @@ interface INativeEditorStorageState {
     changeCount: number;
     saveChangeCount: number;
     notebookJson: Partial<nbformat.INotebookContent>;
+    isTrusted: boolean;
 }
 
 export function isUntitled(model?: INotebookModel): boolean {
@@ -90,6 +99,9 @@ export class NativeEditorNotebookModel implements INotebookModel {
     public get id() {
         return this._id;
     }
+    public get isTrusted() {
+        return this._state.isTrusted;
+    }
     private _disposed = new EventEmitter<void>();
     private _isDisposed?: boolean;
     private _changedEmitter = new EventEmitter<NotebookModelChange>();
@@ -99,12 +111,14 @@ export class NativeEditorNotebookModel implements INotebookModel {
         changeCount: 0,
         saveChangeCount: 0,
         cells: [],
-        notebookJson: {}
+        notebookJson: {},
+        isTrusted: false
     };
 
     private _id = uuid();
 
     constructor(
+        isTrusted: boolean,
         public useNativeEditorApi: boolean,
         file: Uri,
         cells: ICell[],
@@ -116,6 +130,7 @@ export class NativeEditorNotebookModel implements INotebookModel {
         this._state.file = file;
         this._state.cells = cells;
         this._state.notebookJson = json;
+        this._state.isTrusted = isTrusted;
         this.ensureNotebookJson();
         if (isInitiallyDirty) {
             // This means we're dirty. Indicate dirty and load from this content
@@ -514,6 +529,7 @@ export class NativeEditorStorage implements INotebookStorage {
         @inject(IExtensionContext) private context: IExtensionContext,
         @inject(IMemento) @named(GLOBAL_MEMENTO) private globalStorage: Memento,
         @inject(IMemento) @named(WORKSPACE_MEMENTO) private localStorage: Memento,
+        @inject(ITrustService) private trustService: ITrustService,
         @inject(UseVSCodeNotebookEditorApi) private readonly useNativeEditorApi: boolean
     ) {}
     private static isUntitledFile(file: Uri) {
@@ -533,7 +549,11 @@ export class NativeEditorStorage implements INotebookStorage {
     }
     public async save(model: INotebookModel, _cancellation: CancellationToken): Promise<void> {
         const contents = model.getContent();
-        await this.fileSystem.writeFile(model.file.fsPath, contents, 'utf-8');
+        const parallelize = [this.fileSystem.writeFile(model.file.fsPath, contents, 'utf-8')];
+        if (model.isTrusted) {
+            parallelize.push(this.trustService.trustNotebook(model.file.toString(), contents));
+        }
+        await Promise.all(parallelize);
         model.update({
             source: 'user',
             kind: 'save',
@@ -545,7 +565,11 @@ export class NativeEditorStorage implements INotebookStorage {
     public async saveAs(model: INotebookModel, file: Uri): Promise<void> {
         const old = model.file;
         const contents = model.getContent();
-        await this.fileSystem.writeFile(file.fsPath, contents, 'utf-8');
+        const parallelize = [this.fileSystem.writeFile(file.fsPath, contents, 'utf-8')];
+        if (model.isTrusted) {
+            parallelize.push(this.trustService.trustNotebook(file.toString(), contents));
+        }
+        await Promise.all(parallelize);
         model.update({
             source: 'user',
             kind: 'saveAs',
@@ -603,7 +627,6 @@ export class NativeEditorStorage implements INotebookStorage {
         // Keep track of the time when this data was saved.
         // This way when we retrieve the data we can compare it against last modified date of the file.
         const specialContents = contents ? JSON.stringify({ contents, lastModifiedTimeMs: Date.now() }) : undefined;
-
         return this.writeToStorage(filePath, specialContents, cancelToken);
     }
 
@@ -699,7 +722,7 @@ export class NativeEditorStorage implements INotebookStorage {
             const dirtyContents = skipDirtyContents ? undefined : await this.getStoredContents(file, backupId);
             if (dirtyContents) {
                 // This means we're dirty. Indicate dirty and load from this content
-                return this.loadContents(file, dirtyContents, true);
+                return this.loadContents(file, dirtyContents, true, contents);
             } else {
                 // Load without setting dirty
                 return this.loadContents(file, contents);
@@ -707,7 +730,7 @@ export class NativeEditorStorage implements INotebookStorage {
         } catch (ex) {
             // May not exist at this time. Should always have a single cell though
             traceError(`Failed to load notebook file ${file.toString()}`, ex);
-            return new NativeEditorNotebookModel(this.useNativeEditorApi, file, []);
+            return new NativeEditorNotebookModel(true, this.useNativeEditorApi, file, []);
         }
     }
 
@@ -721,7 +744,12 @@ export class NativeEditorStorage implements INotebookStorage {
         };
     }
 
-    private async loadContents(file: Uri, contents: string | undefined, isInitiallyDirty = false) {
+    private async loadContents(
+        file: Uri,
+        contents: string | undefined,
+        isInitiallyDirty = false,
+        trueContents?: string
+    ) {
         // tslint:disable-next-line: no-any
         const json = contents ? (JSON.parse(contents) as Partial<nbformat.INotebookContent>) : undefined;
 
@@ -758,7 +786,18 @@ export class NativeEditorStorage implements INotebookStorage {
             remapped.splice(0, 0, this.createEmptyCell(uuid()));
         }
         const pythonNumber = json ? await this.extractPythonMainVersion(json) : 3;
+
+        /* As an optimization, we don't call trustNotebook for hot exit, since our hot exit backup code gets called by VS
+        Code whenever the notebook model changes. This means it's called very often, perhaps even as often as autosave.
+        Instead, when loading a file that is dirty, we check if the actual file contents on disk are trusted. If so, we treat
+        the dirty contents as trusted as well. */
+        const contentsToCheck = isInitiallyDirty && trueContents !== undefined ? trueContents : contents;
+        const isTrusted =
+            contents === undefined || isUntitledFile(file)
+                ? true // If no contents or untitled, this is a newly created file, so it should be trusted
+                : await this.trustService.isNotebookTrusted(file.toString(), contentsToCheck!);
         return new NativeEditorNotebookModel(
+            isTrusted,
             this.useNativeEditorApi,
             file,
             remapped,
