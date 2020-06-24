@@ -1017,6 +1017,7 @@ export interface INotebookModel {
     readonly onDidEdit: Event<NotebookModelChange>;
     readonly isDisposed: boolean;
     readonly metadata: nbformat.INotebookMetadata | undefined;
+    readonly isTrusted: boolean;
     getContent(): string;
     applyEdits(edits: readonly NotebookModelChange[]): Thenable<void>;
     undoEdits(edits: readonly NotebookModelChange[]): Thenable<void>;
@@ -1231,4 +1232,17 @@ export interface IJupyterDebugService extends IDebugService {
      * Stop debugging
      */
     stop(): void;
+}
+
+export const IDigestStorage = Symbol('IDigestStorage');
+export interface IDigestStorage {
+    readonly key: Promise<string>;
+    saveDigest(uri: string, digest: string): Promise<void>;
+    containsDigest(uri: string, digest: string): Promise<boolean>;
+}
+
+export const ITrustService = Symbol('ITrustService');
+export interface ITrustService {
+    isNotebookTrusted(uri: string, notebookContents: string): Promise<boolean>;
+    trustNotebook(uri: string, notebookContents: string): Promise<void>;
 }
