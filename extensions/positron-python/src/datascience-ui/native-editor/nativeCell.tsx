@@ -60,6 +60,7 @@ interface INativeCellBaseProps {
     useCustomEditorApi: boolean;
     runningByLine: DebugState;
     supportsRunByLine: boolean;
+    isNotebookTrusted: boolean;
 }
 
 type INativeCellProps = INativeCellBaseProps & typeof actionCreators;
