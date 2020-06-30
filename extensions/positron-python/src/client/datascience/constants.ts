@@ -473,6 +473,9 @@ export namespace Identifiers {
     export const DEBUGGER_VARIABLES = 'DEBUGGER_VARIABLES';
     export const MULTIPLEXING_DEBUGSERVICE = 'MULTIPLEXING_DEBUGSERVICE';
     export const RUN_BY_LINE_DEBUGSERVICE = 'RUN_BY_LINE_DEBUGSERVICE';
+    export const REMOTE_URI = 'https://remote/';
+    export const REMOTE_URI_ID_PARAM = 'id';
+    export const REMOTE_URI_HANDLE_PARAM = 'uriHandle';
 }
 
 export namespace CodeSnippits {
