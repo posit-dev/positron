@@ -1059,8 +1059,6 @@ type WebViewViewState = {
 };
 export type WebViewViewChangeEventArgs = { current: WebViewViewState; previous: WebViewViewState };
 
-export const INotebookProvider = Symbol('INotebookProvider');
-
 export type GetServerOptions = {
     getOnly?: boolean;
     disableUI?: boolean;
@@ -1081,12 +1079,14 @@ export type GetNotebookOptions = {
     token?: CancellationToken;
 };
 
+export const INotebookProvider = Symbol('INotebookProvider');
 export interface INotebookProvider {
     readonly type: 'raw' | 'jupyter';
     /**
      * Fired when a notebook has been created for a given Uri/Identity
      */
     onNotebookCreated: Event<{ identity: Uri; notebook: INotebook }>;
+    onSessionStatusChanged: Event<{ status: ServerStatus; notebook: INotebook }>;
 
     /**
      * Fired just the first time that this provider connects
