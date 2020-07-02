@@ -1023,7 +1023,7 @@ export namespace DataScience {
     );
     export const launchNotebookTrustPrompt = localize(
         'DataScience.launchNotebookTrustPrompt',
-        'A Notebook could execute harmful code when opened. Some cells & outputs have been hidden. Do you trust this notebook?'
+        'A notebook could execute harmful code when opened. Some cells & outputs have been hidden. Do you trust this notebook? (To trust all notebooks by default, click [here](command:workbench.action.openSettings?%5B%22python.dataScience.alwaysTrustNotebooks%22%5D).) [Learn more.](https://aka.ms/trusted-notebooks)'
     );
     export const trustNotebook = localize('DataScience.launchNotebookTrustPrompt.yes', 'Trust');
     export const doNotTrustNotebook = localize('DataScience.launchNotebookTrustPrompt.no', 'Do not trust');
