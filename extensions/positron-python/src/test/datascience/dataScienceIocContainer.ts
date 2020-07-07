@@ -210,7 +210,6 @@ import { ExportToPDF } from '../../client/datascience/export/exportToPDF';
 import { ExportToPython } from '../../client/datascience/export/exportToPython';
 import { ExportUtil } from '../../client/datascience/export/exportUtil';
 import { ExportFormat, IExport, IExportManager, IExportManagerFilePicker } from '../../client/datascience/export/types';
-import { GatherProvider } from '../../client/datascience/gather/gather';
 import { GatherListener } from '../../client/datascience/gather/gatherListener';
 import { GatherLogger } from '../../client/datascience/gather/gatherLogger';
 import { IntellisenseProvider } from '../../client/datascience/interactive-common/intellisense/intellisenseProvider';
@@ -292,7 +291,6 @@ import {
     IDebugLocationTracker,
     IDigestStorage,
     IGatherLogger,
-    IGatherProvider,
     IInteractiveWindow,
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
@@ -802,7 +800,6 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             INotebookExecutionLogger
         ]);
         this.serviceManager.add<INotebookExecutionLogger>(INotebookExecutionLogger, HoverProvider);
-        this.serviceManager.add<IGatherProvider>(IGatherProvider, GatherProvider);
         this.serviceManager.add<IGatherLogger>(IGatherLogger, GatherLogger, undefined, [INotebookExecutionLogger]);
         this.serviceManager.add<INotebookExecutionLogger>(INotebookExecutionLogger, TestExecutionLogger);
         this.serviceManager.addSingleton<ICodeLensFactory>(ICodeLensFactory, CodeLensFactory, undefined, [
