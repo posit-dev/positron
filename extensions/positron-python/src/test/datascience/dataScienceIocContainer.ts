@@ -1081,6 +1081,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
 
             // Make sure full interpreter services are available.
             registerInterpreterTypes(this.serviceManager);
+            registerForIOC(this.serviceManager);
 
             // Rebind the interpreter display as we don't want to use the real one
             this.serviceManager.rebindInstance<IInterpreterDisplay>(IInterpreterDisplay, interpreterDisplay.object);
