@@ -31,7 +31,7 @@ export class CellOutput extends React.Component<ICellOutputProps> {
                 return this.renderImage(mimeBundle, this.props.output.metadata);
 
             default:
-                return this.renderOutput(data);
+                return this.renderOutput(data, this.props.mimeType);
         }
     }
     /**
@@ -73,10 +73,13 @@ export class CellOutput extends React.Component<ICellOutputProps> {
             </div>
         );
     }
-    private renderOutput(data: nbformat.MultilineString | JSONObject) {
+    private renderOutput(data: nbformat.MultilineString | JSONObject, mimeType?: string) {
         const Transform = getTransform(this.props.mimeType!);
+        const divStyle: React.CSSProperties = {
+            backgroundColor: mimeType && isAltairPlot(mimeType) ? 'white' : undefined
+        };
         return (
-            <div>
+            <div style={divStyle}>
                 <Transform data={data} />
             </div>
         );
@@ -86,4 +89,8 @@ export class CellOutput extends React.Component<ICellOutputProps> {
         data = fixMarkdown(concatMultilineStringOutput(data as nbformat.MultilineString), true);
         return this.renderOutput(data);
     }
+}
+
+function isAltairPlot(mimeType: string) {
+    return mimeType.includes('application/vnd.vega');
 }
