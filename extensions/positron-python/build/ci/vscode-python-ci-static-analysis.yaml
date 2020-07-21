@@ -1,6 +1,6 @@
 # CI build (PR merge)
 
-name: '$(Year:yyyy).$(Month).0.$(BuildID)-ci-static-analysis'
+name: 'VSCode-Python-ci-static-analysis'
 
 # Notes: Only trigger a commit for master and release, and skip build/rebuild
 #        on changes in the news and .vscode folders.
@@ -19,15 +19,6 @@ jobs:
       vmImage: 'windows-latest'
 
     steps:
-      - task: APIScan@2
-        inputs:
-          softwareFolder: '$(Build.SourcesDirectory)/src'
-          softwareName: 'ms-python.python'
-          softwareVersionNum: '$(Build.SourceBranchName)'
-          softwareBuildNum: '$(Build.BuildId)'
-          symbolsFolder: 'SRV*http://symweb'
-        continueOnError: true
-
       - task: PoliCheck@1
         inputs:
           inputType: 'Basic'
@@ -76,3 +67,20 @@ jobs:
           timeout: '1800'
           ram: '16384'
           addProjectDirToScanningExclusionList: true
+
+      - task: CredScan@3
+        inputs:
+          outputFormat: 'csv'
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.x'
+          addToPath: true
+          architecture: 'x64'
+
+      - task: CmdLine@2
+        inputs:
+          script: |
+            python -m pip install -U pip
+            python -m pip install bandit
+            python -m bandit -r "$(Build.SourcesDirectory)\pythonFiles"
