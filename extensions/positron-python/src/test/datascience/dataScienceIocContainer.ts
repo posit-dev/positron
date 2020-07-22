@@ -187,7 +187,7 @@ import { CodeCssGenerator } from '../../client/datascience/codeCssGenerator';
 import { JupyterCommandLineSelectorCommand } from '../../client/datascience/commands/commandLineSelector';
 import { CommandRegistry } from '../../client/datascience/commands/commandRegistry';
 import { ExportCommands } from '../../client/datascience/commands/exportCommands';
-import { KernelSwitcherCommand } from '../../client/datascience/commands/kernelSwitcher';
+import { NotebookCommands } from '../../client/datascience/commands/notebookCommands';
 import { JupyterServerSelectorCommand } from '../../client/datascience/commands/serverSelector';
 import { DataScienceStartupTime, Identifiers, JUPYTER_OUTPUT_CHANNEL } from '../../client/datascience/constants';
 import { ActiveEditorContextService } from '../../client/datascience/context/activeEditorContext';
@@ -971,7 +971,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
             JupyterServerSelectorCommand,
             JupyterServerSelectorCommand
         );
-        this.serviceManager.addSingleton<KernelSwitcherCommand>(KernelSwitcherCommand, KernelSwitcherCommand);
+        this.serviceManager.addSingleton<NotebookCommands>(NotebookCommands, NotebookCommands);
 
         this.serviceManager.addSingleton<CommandRegistry>(CommandRegistry, CommandRegistry);
         this.serviceManager.addSingleton<IBufferDecoder>(IBufferDecoder, BufferDecoder);
