@@ -40,7 +40,7 @@ import {
     NotebookModelChange,
     SysInfoReason
 } from '../interactive-common/interactiveWindowTypes';
-import { KernelSwitcher } from '../jupyter/kernels/kernelSwitcher';
+import { KernelSelector } from '../jupyter/kernels/kernelSelector';
 import {
     ICell,
     ICodeCssGenerator,
@@ -123,14 +123,14 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
         globalStorage: Memento,
         workspaceStorage: Memento,
         experimentsManager: IExperimentsManager,
-        switcher: KernelSwitcher,
         notebookProvider: INotebookProvider,
         useCustomEditorApi: boolean,
         expService: IExperimentService,
         private exportUtil: ExportUtil,
         owner: Resource,
         mode: InteractiveWindowMode,
-        title: string | undefined
+        title: string | undefined,
+        selector: KernelSelector
     ) {
         super(
             listeners,
@@ -165,10 +165,10 @@ export class InteractiveWindow extends InteractiveBase implements IInteractiveWi
             localize.DataScience.interactiveWindowTitle(),
             ViewColumn.Two,
             experimentsManager,
-            switcher,
             notebookProvider,
             useCustomEditorApi,
-            expService
+            expService,
+            selector
         );
 
         // Send a telemetry event to indicate window is opening
