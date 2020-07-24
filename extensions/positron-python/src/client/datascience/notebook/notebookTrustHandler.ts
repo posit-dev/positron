@@ -6,9 +6,9 @@
 import { inject, injectable } from 'inversify';
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { IVSCodeNotebook } from '../../common/application/types';
-import { IFileSystem } from '../../common/platform/types';
+
 import { IDisposableRegistry } from '../../common/types';
-import { INotebookEditorProvider, ITrustService } from '../types';
+import { IDataScienceFileSystem, INotebookEditorProvider, ITrustService } from '../types';
 import { updateVSCNotebookAfterTrustingNotebook } from './helpers/cellUpdateHelpers';
 import { isJupyterNotebook } from './helpers/helpers';
 
@@ -18,7 +18,7 @@ export class NotebookTrustHandler implements IExtensionSingleActivationService {
         @inject(ITrustService) private readonly trustService: ITrustService,
         @inject(IVSCodeNotebook) private readonly vscNotebook: IVSCodeNotebook,
         @inject(INotebookEditorProvider) private readonly editorProvider: INotebookEditorProvider,
-        @inject(IFileSystem) private readonly fs: IFileSystem,
+        @inject(IDataScienceFileSystem) private readonly fs: IDataScienceFileSystem,
         @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry
     ) {}
     public async activate(): Promise<void> {
@@ -29,7 +29,9 @@ export class NotebookTrustHandler implements IExtensionSingleActivationService {
             if (!isJupyterNotebook(doc)) {
                 return;
             }
-            const editor = this.editorProvider.editors.find((e) => this.fs.arePathsSame(e.file.fsPath, doc.uri.fsPath));
+            const editor = this.editorProvider.editors.find((e) =>
+                this.fs.areLocalPathsSame(e.file.fsPath, doc.uri.fsPath)
+            );
             if (editor && editor.model?.isTrusted) {
                 updateVSCNotebookAfterTrustingNotebook(doc, editor.model);
             }

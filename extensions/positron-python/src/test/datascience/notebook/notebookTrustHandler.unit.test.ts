@@ -12,10 +12,14 @@ import { NotebookDocument } from '../../../../types/vscode-proposed';
 import { IExtensionSingleActivationService } from '../../../client/activation/types';
 import { IVSCodeNotebook } from '../../../client/common/application/types';
 import { CryptoUtils } from '../../../client/common/crypto';
-import { IFileSystem } from '../../../client/common/platform/types';
 import { IDisposable } from '../../../client/common/types';
 import { NotebookTrustHandler } from '../../../client/datascience/notebook/notebookTrustHandler';
-import { INotebookEditor, INotebookEditorProvider, ITrustService } from '../../../client/datascience/types';
+import {
+    IDataScienceFileSystem,
+    INotebookEditor,
+    INotebookEditorProvider,
+    ITrustService
+} from '../../../client/datascience/types';
 import { MockMemento } from '../../mocks/mementos';
 import { createNotebookDocument, createNotebookModel, disposeAllDisposables } from './helper';
 // tslint:disable-next-line: no-var-requires no-require-imports
@@ -27,7 +31,7 @@ suite('DataScience - NativeNotebook TrustHandler', () => {
     let trustService: ITrustService;
     let vscNotebook: IVSCodeNotebook;
     let editorProvider: INotebookEditorProvider;
-    let fs: IFileSystem;
+    let fs: IDataScienceFileSystem;
     let disposables: IDisposable[];
     let onDidTrustNotebook: EventEmitter<void>;
     let testIndex = 0;
@@ -36,10 +40,10 @@ suite('DataScience - NativeNotebook TrustHandler', () => {
         trustService = mock<ITrustService>();
         vscNotebook = mock<IVSCodeNotebook>();
         editorProvider = mock<INotebookEditorProvider>();
-        fs = mock<IFileSystem>();
+        fs = mock<IDataScienceFileSystem>();
         onDidTrustNotebook = new EventEmitter<void>();
         when(trustService.onDidSetNotebookTrust).thenReturn(onDidTrustNotebook.event);
-        when(fs.arePathsSame(anything(), anything())).thenCall((a, b) => a === b); // Dirty simple file compare.
+        when(fs.areLocalPathsSame(anything(), anything())).thenCall((a, b) => a === b); // Dirty simple file compare.
         trustHandler = new NotebookTrustHandler(
             instance(trustService),
             instance(vscNotebook),
