@@ -83,7 +83,12 @@ export class GatherListener implements IInteractiveWindowListener {
                 this.linesSubmitted = 0;
                 this.cellsSubmitted = 0;
                 if (this.gatherProvider) {
-                    this.gatherProvider.resetLog();
+                    try {
+                        this.gatherProvider.resetLog();
+                    } catch (e) {
+                        traceError('Gather: Exception at Reset Log', e);
+                        sendTelemetryEvent(Telemetry.GatherException, undefined, { exceptionType: 'reset' });
+                    }
                 }
                 break;
 
@@ -151,10 +156,18 @@ export class GatherListener implements IInteractiveWindowListener {
 
     private gatherCodeInternal = async (cell: ICell, toScript: boolean = false) => {
         this.gatherTimer = new StopWatch();
+        let slicedProgram: string | undefined;
 
-        const slicedProgram = this.gatherProvider
-            ? this.gatherProvider.gatherCode(cell)
-            : localize.DataScience.gatherError();
+        try {
+            slicedProgram = this.gatherProvider
+                ? this.gatherProvider.gatherCode(cell)
+                : localize.DataScience.gatherError();
+        } catch (e) {
+            traceError('Gather: Exception at gatherCode', e);
+            sendTelemetryEvent(Telemetry.GatherException, undefined, { exceptionType: 'gather' });
+            const newline = '\n';
+            slicedProgram = localize.DataScience.gatherError() + newline + (e as string);
+        }
 
         if (!slicedProgram) {
             sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, { result: 'err' });
@@ -166,7 +179,9 @@ export class GatherListener implements IInteractiveWindowListener {
                 sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, { result: 'script' });
             } else {
                 await this.showNotebook(slicedProgram, cell);
-                sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, { result: 'notebook' });
+                sendTelemetryEvent(Telemetry.GatherCompleted, this.gatherTimer?.elapsedTime, {
+                    result: 'notebook'
+                });
             }
 
             sendTelemetryEvent(Telemetry.GatherStats, undefined, {
