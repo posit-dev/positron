@@ -36,7 +36,7 @@ import { CancellationError } from '../../common/cancellation';
 import { EXTENSION_ROOT_DIR, isTestExecution, PYTHON_LANGUAGE } from '../../common/constants';
 import { RemoveKernelToolbarInInteractiveWindow, RunByLine } from '../../common/experiments/groups';
 import { traceError, traceInfo, traceWarning } from '../../common/logger';
-import { IFileSystem } from '../../common/platform/types';
+
 import {
     IConfigurationService,
     IDisposableRegistry,
@@ -79,6 +79,7 @@ import {
     ICell,
     ICodeCssGenerator,
     IDataScienceErrorHandler,
+    IDataScienceFileSystem,
     IInteractiveBase,
     IInteractiveWindowInfo,
     IInteractiveWindowListener,
@@ -146,7 +147,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         cssGenerator: ICodeCssGenerator,
         themeFinder: IThemeFinder,
         private statusProvider: IStatusProvider,
-        protected fileSystem: IFileSystem,
+        protected fs: IDataScienceFileSystem,
         protected configuration: IConfigurationService,
         protected jupyterExporter: INotebookExporter,
         workspaceService: IWorkspaceService,
@@ -1241,7 +1242,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     private async gotoCodeInternal(file: string, line: number) {
         let editor: TextEditor | undefined;
 
-        if (await this.fileSystem.fileExists(file)) {
+        if (await this.fs.localFileExists(file)) {
             editor = await this.documentManager.showTextDocument(Uri.file(file), { viewColumn: ViewColumn.One });
         } else {
             // File URI isn't going to work. Look through the active text documents
@@ -1475,16 +1476,16 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         // Look for the file next or our current file (this is where it's installed in the vsix)
         let filePath = path.join(__dirname, 'node_modules', 'onigasm', 'lib', 'onigasm.wasm');
         traceInfo(`Request for onigasm file at ${filePath}`);
-        if (this.fileSystem) {
-            if (await this.fileSystem.fileExists(filePath)) {
-                const contents = await this.fileSystem.readData(filePath);
+        if (this.fs) {
+            if (await this.fs.localFileExists(filePath)) {
+                const contents = await this.fs.readLocalData(filePath);
                 this.postMessage(InteractiveWindowMessages.LoadOnigasmAssemblyResponse, contents).ignoreErrors();
             } else {
                 // During development it's actually in the node_modules folder
                 filePath = path.join(EXTENSION_ROOT_DIR, 'node_modules', 'onigasm', 'lib', 'onigasm.wasm');
                 traceInfo(`Backup request for onigasm file at ${filePath}`);
-                if (await this.fileSystem.fileExists(filePath)) {
-                    const contents = await this.fileSystem.readData(filePath);
+                if (await this.fs.localFileExists(filePath)) {
+                    const contents = await this.fs.readLocalData(filePath);
                     this.postMessage(InteractiveWindowMessages.LoadOnigasmAssemblyResponse, contents).ignoreErrors();
                 } else {
                     traceWarning('Onigasm file not found. Colorization will not be available.');
