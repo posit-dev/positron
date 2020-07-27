@@ -209,7 +209,9 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }, 0);
 
         // When a notebook provider first makes its connection check it to see if we should create a notebook
-        this.disposables.push(notebookProvider.onConnectionMade(this.checkForNotebookProviderConnection.bind(this)));
+        this.disposables.push(
+            notebookProvider.onConnectionMade(this.createNotebookIfProviderConnectionExists.bind(this))
+        );
 
         // When a notebook provider indicates a kernel change, change our UI
         this.disposables.push(notebookProvider.onPotentialKernelChanged(this.potentialKernelChanged.bind(this)));
@@ -220,7 +222,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
     public async show(preserveFocus: boolean = true): Promise<void> {
         // Verify a server that matches us hasn't started already
-        this.checkForNotebookProviderConnection().ignoreErrors();
+        this.createNotebookIfProviderConnectionExists().ignoreErrors();
 
         // Show our web panel.
         return super.show(preserveFocus);
@@ -852,6 +854,19 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
     }
 
+    protected async createNotebookIfProviderConnectionExists(): Promise<void> {
+        // Check to see if we are already connected to our provider
+        const providerConnection = await this.notebookProvider.connect({ getOnly: true });
+
+        if (providerConnection) {
+            try {
+                await this.ensureNotebook(providerConnection);
+            } catch (e) {
+                this.errorHandler.handleError(e).ignoreErrors();
+            }
+        }
+    }
+
     private combineData(
         oldData: nbformat.ICodeCell | nbformat.IRawCell | nbformat.IMarkdownCell | undefined,
         cell: ICell
@@ -1201,19 +1216,6 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
     private refreshVariables() {
         this.postMessage(InteractiveWindowMessages.ForceVariableRefresh).ignoreErrors();
-    }
-
-    private async checkForNotebookProviderConnection(): Promise<void> {
-        // Check to see if we are already connected to our provider
-        const providerConnection = await this.notebookProvider.connect({ getOnly: true });
-
-        if (providerConnection) {
-            try {
-                await this.ensureNotebook(providerConnection);
-            } catch (e) {
-                this.errorHandler.handleError(e).ignoreErrors();
-            }
-        }
     }
 
     private async potentialKernelChanged(data: { identity: Uri; kernel: KernelSpecInterpreter }): Promise<void> {
