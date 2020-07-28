@@ -106,7 +106,6 @@ suite('DataScience - NativeNotebook ContentProvider', () => {
                             editable: isNotebookTrusted,
                             executionOrder: undefined,
                             hasExecutionOrder: false,
-                            runState: (vscodeNotebookEnums as any).NotebookCellRunState.Idle,
                             runnable: false
                         }
                     }
@@ -191,7 +190,6 @@ suite('DataScience - NativeNotebook ContentProvider', () => {
                             editable: isNotebookTrusted,
                             executionOrder: undefined,
                             hasExecutionOrder: false,
-                            runState: (vscodeNotebookEnums as any).NotebookCellRunState.Idle,
                             runnable: false
                         }
                     }

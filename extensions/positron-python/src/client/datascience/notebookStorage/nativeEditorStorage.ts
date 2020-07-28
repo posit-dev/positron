@@ -357,7 +357,7 @@ export class NativeEditorStorage implements INotebookStorage {
 
         const model = this.factory.createModel(
             {
-                trusted: true,
+                trusted: isUntitledFile(file) || json === undefined,
                 file,
                 cells: remapped,
                 notebookJson: json,
@@ -372,16 +372,10 @@ export class NativeEditorStorage implements INotebookStorage {
 
         // If no contents or untitled, this is a newly created file
         // If dirty, that means it's been edited before in our extension
-        if (contents !== undefined && !isUntitledFile(file) && !isInitiallyDirty) {
+        if (contents !== undefined && !isUntitledFile(file) && !isInitiallyDirty && !model.isTrusted) {
             const isNotebookTrusted = await this.trustService.isNotebookTrusted(file, model.getContent());
-            if (isNotebookTrusted !== model.isTrusted) {
-                model.update({
-                    source: 'user',
-                    kind: 'updateTrust',
-                    oldDirty: model.isDirty,
-                    newDirty: model.isDirty,
-                    isNotebookTrusted
-                });
+            if (isNotebookTrusted) {
+                model.trust();
             }
         }
 
