@@ -21,17 +21,18 @@ import { Commands, Telemetry, VSCodeNativeTelemetry } from '../constants';
 import { INotebookStorageProvider } from '../notebookStorage/notebookStorageProvider';
 import { VSCodeNotebookModel } from '../notebookStorage/vscNotebookModel';
 import { IDataScienceErrorHandler, INotebook, INotebookEditorProvider, INotebookProvider } from '../types';
-import { findMappedNotebookCellModel } from './helpers/cellMappers';
-import { clearCellForExecution } from './helpers/cellUpdateHelpers';
 import {
     handleUpdateDisplayDataMessage,
     hasTransientOutputForAnotherCell,
     updateCellExecutionCount,
-    updateCellExecutionTimes,
     updateCellOutput,
     updateCellWithErrorStatus
 } from './helpers/executionHelpers';
-import { getCellStatusMessageBasedOnFirstErrorOutput, updateVSCNotebookCellMetadata } from './helpers/helpers';
+import {
+    clearCellForExecution,
+    getCellStatusMessageBasedOnFirstCellErrorOutput,
+    updateCellExecutionTimes
+} from './helpers/helpers';
 import { NotebookEditor } from './notebookEditor';
 import { INotebookContentProvider, INotebookExecutionService } from './types';
 // tslint:disable-next-line: no-var-requires no-require-imports
@@ -222,7 +223,6 @@ export class NotebookExecutionService implements INotebookExecutionService {
         this.handleDisplayDataMessages(model, document, nb);
 
         const deferred = createDeferred<NotebookCellRunState>();
-        const executionStopWatch = new StopWatch();
         wrappedToken.onCancellationRequested(() => {
             if (deferred.completed) {
                 return;
@@ -237,7 +237,8 @@ export class NotebookExecutionService implements INotebookExecutionService {
         });
 
         // Ensure we clear the cell state and trigger a change.
-        clearCellForExecution(cell, model);
+        clearCellForExecution(cell);
+        const executionStopWatch = new StopWatch();
         cell.metadata.runStartTime = new Date().getTime();
         this.contentProvider.notifyChangesToDocument(document);
 
@@ -270,8 +271,6 @@ export class NotebookExecutionService implements INotebookExecutionService {
                         .flatMap((item) => (item.data.outputs as unknown) as nbformat.IOutput[])
                         .filter((output) => !hasTransientOutputForAnotherCell(output));
 
-                    const notebookCellModel = findMappedNotebookCellModel(cell, model.cells);
-
                     // Set execution count, all messages should have it
                     if (
                         cells.length &&
@@ -279,12 +278,12 @@ export class NotebookExecutionService implements INotebookExecutionService {
                         typeof cells[0].data.execution_count === 'number'
                     ) {
                         const executionCount = cells[0].data.execution_count as number;
-                        if (updateCellExecutionCount(model, cell, notebookCellModel, executionCount)) {
+                        if (updateCellExecutionCount(cell, executionCount)) {
                             this.contentProvider.notifyChangesToDocument(document);
                         }
                     }
 
-                    if (updateCellOutput(model, cell, notebookCellModel, rawCellOutput)) {
+                    if (updateCellOutput(cell, rawCellOutput)) {
                         this.contentProvider.notifyChangesToDocument(document);
                     }
                 },
@@ -300,26 +299,17 @@ export class NotebookExecutionService implements INotebookExecutionService {
                         ? vscodeNotebookEnums.NotebookCellRunState.Idle
                         : vscodeNotebookEnums.NotebookCellRunState.Success;
                     cell.metadata.statusMessage = '';
-
-                    // Update metadata in our model.
-                    const cellModel = findMappedNotebookCellModel(cell, model.cells);
-                    updateCellExecutionTimes(
-                        model,
-                        cellModel,
-                        cell.metadata.runStartTime,
-                        cell.metadata.lastRunDuration
-                    );
+                    updateCellExecutionTimes(cell, {
+                        startTime: cell.metadata.runStartTime,
+                        duration: cell.metadata.lastRunDuration
+                    });
 
                     // If there are any errors in the cell, then change status to error.
                     if (cell.outputs.some((output) => output.outputKind === vscodeNotebookEnums.CellOutputKind.Error)) {
                         cell.metadata.runState = vscodeNotebookEnums.NotebookCellRunState.Error;
-                        cell.metadata.statusMessage = getCellStatusMessageBasedOnFirstErrorOutput(
-                            // tslint:disable-next-line: no-any
-                            cellModel.data.outputs as any
-                        );
+                        cell.metadata.statusMessage = getCellStatusMessageBasedOnFirstCellErrorOutput(cell.outputs);
                     }
 
-                    updateVSCNotebookCellMetadata(cell.metadata, cellModel);
                     this.contentProvider.notifyChangesToDocument(document);
                     deferred.resolve(cell.metadata.runState);
                 }
