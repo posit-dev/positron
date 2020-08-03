@@ -171,6 +171,18 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [DSCommands.DebugStop]: [];
     [DSCommands.DebugContinue]: [];
     [DSCommands.RunCurrentCellAndAddBelow]: [Uri];
+    [DSCommands.InsertCellBelowPosition]: [];
+    [DSCommands.InsertCellBelow]: [];
+    [DSCommands.InsertCellAbove]: [];
+    [DSCommands.DeleteCells]: [];
+    [DSCommands.SelectCell]: [];
+    [DSCommands.SelectCellContents]: [];
+    [DSCommands.ExtendSelectionByCellAbove]: [];
+    [DSCommands.ExtendSelectionByCellBelow]: [];
+    [DSCommands.MoveCellsUp]: [];
+    [DSCommands.MoveCellsDown]: [];
+    [DSCommands.ChangeCellToMarkdown]: [];
+    [DSCommands.ChangeCellToCode]: [];
     [DSCommands.ScrollToCell]: [Uri, string];
     [DSCommands.ViewJupyterOutput]: [];
     [DSCommands.ExportAsPythonScript]: [INotebookModel];
