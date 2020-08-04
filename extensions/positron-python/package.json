@@ -2481,7 +2481,7 @@
                     ],
                     "default": "Jedi",
                     "description": "Defines type of the language server.",
-                    "scope": "resource"
+                    "scope": "window"
                 },
                 "python.analysis.openFilesOnly": {
                     "type": "boolean",
