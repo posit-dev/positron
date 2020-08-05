@@ -354,7 +354,7 @@ export class JupyterNotebookBase implements INotebook {
         return deferred.promise;
     }
 
-    public inspect(code: string, cancelToken?: CancellationToken): Promise<JSONObject> {
+    public inspect(code: string, offsetInCode = 0, cancelToken?: CancellationToken): Promise<JSONObject> {
         // Create a deferred that will fire when the request completes
         const deferred = createDeferred<JSONObject>();
 
@@ -366,7 +366,7 @@ export class JupyterNotebookBase implements INotebook {
         } else {
             // Ask session for inspect result
             this.session
-                .requestInspect({ code, cursor_pos: 0, detail_level: 0 })
+                .requestInspect({ code, cursor_pos: offsetInCode, detail_level: 0 })
                 .then((r) => {
                     if (r && r.content.status === 'ok') {
                         deferred.resolve(r.content.data);

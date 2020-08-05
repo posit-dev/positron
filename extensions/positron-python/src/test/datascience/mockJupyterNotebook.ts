@@ -73,7 +73,7 @@ export class MockJupyterNotebook implements INotebook {
         throw new Error('Method not implemented');
     }
 
-    public inspect(_code: string, _cancelToken?: CancellationToken): Promise<JSONObject> {
+    public inspect(_code: string, _offsetInCode = 0, _cancelToken?: CancellationToken): Promise<JSONObject> {
         return Promise.resolve({});
     }
 
