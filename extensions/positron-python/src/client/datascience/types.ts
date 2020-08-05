@@ -198,7 +198,7 @@ export interface INotebook extends IAsyncDisposable {
         cancelToken?: CancellationToken,
         silent?: boolean
     ): Promise<ICell[]>;
-    inspect(code: string, cancelToken?: CancellationToken): Promise<JSONObject>;
+    inspect(code: string, offsetInCode?: number, cancelToken?: CancellationToken): Promise<JSONObject>;
     getCompletion(
         cellCode: string,
         offsetInCode: number,
