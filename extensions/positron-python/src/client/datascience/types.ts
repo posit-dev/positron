@@ -74,6 +74,7 @@ export interface IJupyterConnection extends Disposable {
     readonly token: string;
     readonly hostName: string;
     localProcExitCode: number | undefined;
+    readonly rootDirectory: string; // Directory where the notebook server was started.
     // tslint:disable-next-line: no-any
     getAuthHeader?(): any; // Snould be a json object
 }
@@ -325,6 +326,7 @@ export const IJupyterSession = Symbol('IJupyterSession');
 export interface IJupyterSession extends IAsyncDisposable {
     onSessionStatusChanged: Event<ServerStatus>;
     readonly status: ServerStatus;
+    readonly workingDirectory: string;
     readonly kernelSocket: Observable<KernelSocketInformation | undefined>;
     restart(timeout: number): Promise<void>;
     interrupt(timeout: number): Promise<void>;
@@ -388,6 +390,7 @@ export interface IJupyterSessionManager extends IAsyncDisposable {
     readonly onRestartSessionUsed: Event<Kernel.IKernelConnection>;
     startNew(
         kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined,
+        workingDirectory: string,
         cancelToken?: CancellationToken
     ): Promise<IJupyterSession>;
     getKernelSpecs(): Promise<IJupyterKernelSpec[]>;
