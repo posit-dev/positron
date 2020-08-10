@@ -6,6 +6,7 @@
 import { inject, injectable } from 'inversify';
 import { EventEmitter, Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
+import { IWorkspaceService } from '../../common/application/types';
 import { IDisposable, IDisposableRegistry } from '../../common/types';
 import { generateNewNotebookUri } from '../common';
 import { INotebookModel, INotebookStorage } from '../types';
@@ -30,7 +31,8 @@ export class NotebookStorageProvider implements INotebookStorageProvider {
     private readonly disposables: IDisposable[] = [];
     constructor(
         @inject(INotebookStorage) private readonly storage: INotebookStorage,
-        @inject(IDisposableRegistry) disposables: IDisposableRegistry
+        @inject(IDisposableRegistry) disposables: IDisposableRegistry,
+        @inject(IWorkspaceService) private readonly workspace: IWorkspaceService
     ) {
         disposables.push(this);
     }
@@ -107,7 +109,12 @@ export class NotebookStorageProvider implements INotebookStorageProvider {
     }
 
     private getNextNewNotebookUri(forVSCodeNotebooks?: boolean): Uri {
-        return generateNewNotebookUri(NotebookStorageProvider.untitledCounter, undefined, forVSCodeNotebooks);
+        return generateNewNotebookUri(
+            NotebookStorageProvider.untitledCounter,
+            this.workspace.rootPath,
+            undefined,
+            forVSCodeNotebooks
+        );
     }
 
     private trackModel(model: INotebookModel): INotebookModel {
