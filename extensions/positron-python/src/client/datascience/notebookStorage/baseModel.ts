@@ -128,7 +128,9 @@ export abstract class BaseNotebookModel implements INotebookModel {
                   ...this.notebookJson.metadata,
                   id: this.kernelId
               }
-            : this.notebookJson.metadata;
+            : // Fix nyc compiler problem
+              // tslint:disable-next-line: no-any
+              (this.notebookJson.metadata as any);
     }
     public get isTrusted() {
         return this._isTrusted;
