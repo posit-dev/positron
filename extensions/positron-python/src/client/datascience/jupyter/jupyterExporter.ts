@@ -116,7 +116,8 @@ export class JupyterExporter implements INotebookExporter {
                 version: pythonNumber
             },
             orig_nbformat: 2,
-            kernelspec: kernelSpec
+            // tslint:disable-next-line: no-any
+            kernelspec: kernelSpec as any
         };
 
         // Create an object for matching cell definitions
