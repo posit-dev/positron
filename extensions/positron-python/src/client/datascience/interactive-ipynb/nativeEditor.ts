@@ -84,7 +84,6 @@ import cloneDeep = require('lodash/cloneDeep');
 import { concatMultilineString, splitMultilineString } from '../../../datascience-ui/common';
 import { ServerStatus } from '../../../datascience-ui/interactive-common/mainState';
 import { isTestExecution, PYTHON_LANGUAGE } from '../../common/constants';
-import { EnableTrustedNotebooks } from '../../common/experiments/groups';
 import { translateKernelLanguageToMonaco } from '../common';
 import { IDataViewerFactory } from '../data-viewing/types';
 import { getCellHashProvider } from '../editor-integration/cellhashprovider';
@@ -181,7 +180,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         notebookProvider: INotebookProvider,
         useCustomEditorApi: boolean,
         private trustService: ITrustService,
-        private expService: IExperimentService,
+        expService: IExperimentService,
         private _model: INotebookModel,
         webviewPanel: WebviewPanel | undefined,
         selector: KernelSelector
@@ -225,7 +224,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             selector
         );
         asyncRegistry.push(this);
-
         asyncRegistry.push(this.trustService.onDidSetNotebookTrust(this.monitorChangesToTrust, this));
         this.synchronizer.subscribeToUserActions(this, this.postMessage.bind(this));
 
@@ -699,11 +697,9 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
     private async sendInitialCellsToWebView(cells: ICell[], isNotebookTrusted: boolean): Promise<void> {
         sendTelemetryEvent(Telemetry.CellCount, undefined, { count: cells.length });
 
-        const shouldShowTrustMessage = await this.expService.inExperiment(EnableTrustedNotebooks.experiment);
         return this.postMessage(InteractiveWindowMessages.LoadAllCells, {
             cells,
-            isNotebookTrusted,
-            shouldShowTrustMessage
+            isNotebookTrusted
         });
     }
 
