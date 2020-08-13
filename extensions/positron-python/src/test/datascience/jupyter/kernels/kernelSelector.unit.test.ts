@@ -34,7 +34,7 @@ import { IKernelFinder } from '../../../../client/datascience/kernel-launcher/ty
 import { IJupyterSessionManager } from '../../../../client/datascience/types';
 import { IInterpreterService } from '../../../../client/interpreter/contracts';
 import { InterpreterService } from '../../../../client/interpreter/interpreterService';
-import { InterpreterType, PythonInterpreter } from '../../../../client/pythonEnvironments/info';
+import { EnvironmentType, PythonEnvironment } from '../../../../client/pythonEnvironments/info';
 
 // tslint:disable: max-func-body-length no-unused-expression
 
@@ -56,13 +56,13 @@ suite('DataScience - KernelSelector', () => {
         path: 'somePath',
         env: {}
     };
-    const interpreter: PythonInterpreter = {
+    const interpreter: PythonEnvironment = {
         displayName: 'Something',
         architecture: Architecture.Unknown,
         path: 'somePath',
         sysPrefix: '',
         sysVersion: '',
-        type: InterpreterType.Conda,
+        envType: EnvironmentType.Conda,
         version: { raw: '3.7.1.1', major: 3, minor: 7, patch: 1, build: ['1'], prerelease: [] }
     };
 
