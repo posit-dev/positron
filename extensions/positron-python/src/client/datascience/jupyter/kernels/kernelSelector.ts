@@ -1,13 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-import '../../../common/extensions';
-
 import type { nbformat } from '@jupyterlab/coreutils';
 import type { Kernel } from '@jupyterlab/services';
 import { inject, injectable } from 'inversify';
 import { CancellationToken } from 'vscode-jsonrpc';
-
 import { IApplicationShell } from '../../../common/application/types';
+import '../../../common/extensions';
 import { traceError, traceInfo, traceVerbose } from '../../../common/logger';
 import { IConfigurationService, IDisposableRegistry, Resource } from '../../../common/types';
 import * as localize from '../../../common/utils/localize';
@@ -32,26 +30,16 @@ import {
 import { createDefaultKernelSpec } from './helpers';
 import { KernelSelectionProvider } from './kernelSelections';
 import { KernelService } from './kernelService';
-import { IKernelSelectionUsage, IKernelSpecQuickPickItem, KernelSelection, LiveKernelModel } from './types';
-
-export type KernelSpecInterpreter = {
-    kernelSpec?: IJupyterKernelSpec;
-    /**
-     * Interpreter that goes with the kernelspec.
-     * Sometimes, we're unable to determine the exact interpreter associalted with a kernelspec, in such cases this is a closes match.
-     * E.g. when selecting a remote kernel, we do not have the remote interpreter information, we can only try to find a close match.
-     *
-     * @type {PythonEnvironment}
-     */
-    interpreter?: PythonEnvironment;
-    /**
-     * Active kernel from an active session.
-     * If this is available, then user needs to connect to an existing kernel (instead of starting a new session).
-     *
-     * @type {(LiveKernelModel)}
-     */
-    kernelModel?: LiveKernelModel;
-};
+import {
+    DefaultKernelConnectionMetadata,
+    IKernelSelectionUsage,
+    IKernelSpecQuickPickItem,
+    KernelConnectionMetadata,
+    KernelSpecConnectionMetadata,
+    LiveKernelConnectionMetadata,
+    LiveKernelModel,
+    PythonKernelConnectionMetadata
+} from './types';
 
 @injectable()
 export class KernelSelector implements IKernelSelectionUsage {
@@ -68,7 +56,7 @@ export class KernelSelector implements IKernelSelectionUsage {
         @inject(IApplicationShell) private readonly applicationShell: IApplicationShell,
         @inject(KernelService) private readonly kernelService: KernelService,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
-        @inject(IKernelDependencyService) private readonly kernelDepdencyService: IKernelDependencyService,
+        @inject(IKernelDependencyService) private readonly kernelDependencyService: IKernelDependencyService,
         @inject(IKernelFinder) private readonly kernelFinder: IKernelFinder,
         @inject(IJupyterSessionManagerFactory) private jupyterSessionManagerFactory: IJupyterSessionManagerFactory,
         @inject(IConfigurationService) private configService: IConfigurationService,
@@ -105,14 +93,6 @@ export class KernelSelector implements IKernelSelectionUsage {
 
     /**
      * Selects a kernel from a remote session.
-     *
-     * @param {Resource} resource
-     * @param {StopWatch} stopWatch
-     * @param {IJupyterSessionManager} session
-     * @param {CancellationToken} [cancelToken]
-     * @param {IJupyterKernelSpec | LiveKernelModel} [currentKernel]
-     * @returns {Promise<KernelSpecInterpreter>}
-     * @memberof KernelSelector
      */
     public async selectRemoteKernel(
         resource: Resource,
@@ -120,14 +100,14 @@ export class KernelSelector implements IKernelSelectionUsage {
         session: IJupyterSessionManager,
         cancelToken?: CancellationToken,
         currentKernelDisplayName?: string
-    ): Promise<KernelSpecInterpreter> {
+    ): Promise<LiveKernelConnectionMetadata | KernelSpecConnectionMetadata | undefined> {
         let suggestions = await this.selectionProvider.getKernelSelectionsForRemoteSession(
             resource,
             session,
             cancelToken
         );
         suggestions = suggestions.filter((item) => !this.kernelIdsToHide.has(item.selection.kernelModel?.id || ''));
-        return this.selectKernel(
+        return this.selectKernel<LiveKernelConnectionMetadata | KernelSpecConnectionMetadata>(
             resource,
             'jupyter',
             stopWatch,
@@ -140,15 +120,6 @@ export class KernelSelector implements IKernelSelectionUsage {
     }
     /**
      * Select a kernel from a local session.
-     *
-     * @param {Resource} resource
-     * @param type
-     * @param {StopWatch} stopWatch
-     * @param {IJupyterSessionManager} [session]
-     * @param {CancellationToken} [cancelToken]
-     * @param {IJupyterKernelSpec | LiveKernelModel} [currentKernel]
-     * @returns {Promise<KernelSpecInterpreter>}
-     * @memberof KernelSelector
      */
     public async selectLocalKernel(
         resource: Resource,
@@ -157,14 +128,14 @@ export class KernelSelector implements IKernelSelectionUsage {
         session?: IJupyterSessionManager,
         cancelToken?: CancellationToken,
         currentKernelDisplayName?: string
-    ): Promise<KernelSpecInterpreter> {
+    ): Promise<KernelSpecConnectionMetadata | PythonKernelConnectionMetadata | undefined> {
         const suggestions = await this.selectionProvider.getKernelSelectionsForLocalSession(
             resource,
             type,
             session,
             cancelToken
         );
-        return this.selectKernel(
+        return this.selectKernel<KernelSpecConnectionMetadata | PythonKernelConnectionMetadata>(
             resource,
             type,
             stopWatch,
@@ -178,15 +149,6 @@ export class KernelSelector implements IKernelSelectionUsage {
     /**
      * Gets a kernel that needs to be used with a local session.
      * (will attempt to find the best matching kernel, or prompt user to use current interpreter or select one).
-     *
-     * @param {Resource} resource
-     * @param type
-     * @param {IJupyterSessionManager} [sessionManager]
-     * @param {nbformat.INotebookMetadata} [notebookMetadata]
-     * @param {boolean} [disableUI]
-     * @param {CancellationToken} [cancelToken]
-     * @returns {Promise<KernelSpecInterpreter>}
-     * @memberof KernelSelector
      */
     @reportAction(ReportableAction.KernelsGetKernelForLocalConnection)
     public async getKernelForLocalConnection(
@@ -196,7 +158,9 @@ export class KernelSelector implements IKernelSelectionUsage {
         notebookMetadata?: nbformat.INotebookMetadata,
         disableUI?: boolean,
         cancelToken?: CancellationToken
-    ): Promise<KernelSpecInterpreter> {
+    ): Promise<
+        KernelSpecConnectionMetadata | PythonKernelConnectionMetadata | DefaultKernelConnectionMetadata | undefined
+    > {
         const stopWatch = new StopWatch();
         const telemetryProps: IEventNamePropertyMapping[Telemetry.FindKernelForLocalConnection] = {
             kernelSpecFound: false,
@@ -209,7 +173,11 @@ export class KernelSelector implements IKernelSelectionUsage {
             .getKernelSelectionsForLocalSession(resource, type, sessionManager, cancelToken)
             .ignoreErrors();
 
-        let selection: KernelSpecInterpreter = {};
+        let selection:
+            | KernelSpecConnectionMetadata
+            | PythonKernelConnectionMetadata
+            | DefaultKernelConnectionMetadata
+            | undefined;
 
         if (type === 'jupyter') {
             selection = await this.getKernelForLocalJupyterConnection(
@@ -226,12 +194,12 @@ export class KernelSelector implements IKernelSelectionUsage {
         }
 
         // If still not found, log an error (this seems possible for some people, so use the default)
-        if (!selection.kernelSpec) {
+        if (!selection || !selection.kernelSpec) {
             traceError('Jupyter Kernel Spec not found for a local connection');
         }
 
-        telemetryProps.kernelSpecFound = !!selection.kernelSpec;
-        telemetryProps.interpreterFound = !!selection.interpreter;
+        telemetryProps.kernelSpecFound = !!selection?.kernelSpec;
+        telemetryProps.interpreterFound = !!selection?.interpreter;
         sendTelemetryEvent(Telemetry.FindKernelForLocalConnection, stopWatch.elapsedTime, telemetryProps);
         return selection;
     }
@@ -239,13 +207,6 @@ export class KernelSelector implements IKernelSelectionUsage {
     /**
      * Gets a kernel that needs to be used with a remote session.
      * (will attempt to find the best matching kernel, or prompt user to use current interpreter or select one).
-     *
-     * @param {Resource} resource
-     * @param {IJupyterSessionManager} [sessionManager]
-     * @param {nbformat.INotebookMetadata} [notebookMetadata]
-     * @param {CancellationToken} [cancelToken]
-     * @returns {Promise<KernelSpecInterpreter>}
-     * @memberof KernelSelector
      */
     // tslint:disable-next-line: cyclomatic-complexity
     @reportAction(ReportableAction.KernelsGetKernelForRemoteConnection)
@@ -254,7 +215,7 @@ export class KernelSelector implements IKernelSelectionUsage {
         sessionManager?: IJupyterSessionManager,
         notebookMetadata?: INotebookMetadataLive,
         cancelToken?: CancellationToken
-    ): Promise<KernelSpecInterpreter> {
+    ): Promise<KernelConnectionMetadata | undefined> {
         const [interpreter, specs, sessions] = await Promise.all([
             this.interpreterService.getActiveInterpreter(resource),
             this.kernelService.getKernelSpecs(sessionManager, cancelToken),
@@ -275,7 +236,8 @@ export class KernelSelector implements IKernelSelectionUsage {
                     : 0;
                 return {
                     kernelModel: { ...session.kernel, lastActivityTime, numberOfConnections, session },
-                    interpreter: interpreter
+                    interpreter: interpreter,
+                    kind: 'connectToLiveKernel'
                 };
             }
         }
@@ -319,18 +281,28 @@ export class KernelSelector implements IKernelSelectionUsage {
             }
         }
 
-        return {
-            kernelSpec: bestMatch,
-            interpreter: interpreter
-        };
+        if (bestMatch) {
+            return {
+                kernelSpec: bestMatch,
+                interpreter: interpreter,
+                kind: 'startUsingKernelSpec'
+            };
+        } else {
+            // Unlikely scenario, we expect there to be at least one kernel spec.
+            // Either way, return so that we can start using the default kernel.
+            return {
+                interpreter: interpreter,
+                kind: 'startUsingDefaultKernel'
+            };
+        }
     }
     public async useSelectedKernel(
-        selection: KernelSelection,
+        selection: KernelConnectionMetadata,
         resource: Resource,
         type: 'raw' | 'jupyter' | 'noConnection',
         session?: IJupyterSessionManager,
         cancelToken?: CancellationToken
-    ) {
+    ): Promise<KernelConnectionMetadata | undefined> {
         // Check if ipykernel is installed in this kernel.
         if (selection.interpreter && type === 'jupyter') {
             sendTelemetryEvent(Telemetry.SwitchToInterpreterAsKernel);
@@ -345,7 +317,7 @@ export class KernelSelector implements IKernelSelectionUsage {
             );
         } else if (selection.interpreter && type === 'raw') {
             return this.useInterpreterAndDefaultKernel(selection.interpreter);
-        } else if (selection.kernelModel) {
+        } else if (selection.kind === 'connectToLiveKernel') {
             sendTelemetryEvent(Telemetry.SwitchToExistingKernel, undefined, {
                 language: this.computeLanguage(selection.kernelModel.language)
             });
@@ -354,9 +326,9 @@ export class KernelSelector implements IKernelSelectionUsage {
                 ? await this.kernelService.findMatchingInterpreter(selection.kernelModel, cancelToken)
                 : undefined;
             return {
-                kernelSpec: selection.kernelSpec,
                 interpreter,
-                kernelModel: selection.kernelModel
+                kernelModel: selection.kernelModel,
+                kind: 'connectToLiveKernel'
             };
         } else if (selection.kernelSpec) {
             sendTelemetryEvent(Telemetry.SwitchToExistingKernel, undefined, {
@@ -366,9 +338,9 @@ export class KernelSelector implements IKernelSelectionUsage {
                 ? await this.kernelService.findMatchingInterpreter(selection.kernelSpec, cancelToken)
                 : undefined;
             await this.kernelService.updateKernelEnvironment(interpreter, selection.kernelSpec, cancelToken);
-            return { kernelSpec: selection.kernelSpec, interpreter };
+            return { kernelSpec: selection.kernelSpec, interpreter, kind: 'startUsingKernelSpec' };
         } else {
-            return {};
+            return;
         }
     }
 
@@ -376,7 +348,7 @@ export class KernelSelector implements IKernelSelectionUsage {
         resource: Resource,
         type: 'raw' | 'jupyter' | 'noConnection',
         kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined
-    ): Promise<KernelSpecInterpreter | undefined> {
+    ): Promise<KernelConnectionMetadata | undefined> {
         const displayName = kernelSpec?.display_name || kernelSpec?.name || '';
         const message = localize.DataScience.sessionStartFailedWithKernel().format(
             displayName,
@@ -395,8 +367,8 @@ export class KernelSelector implements IKernelSelectionUsage {
         connection: INotebookProviderConnection | undefined,
         type: 'raw' | 'jupyter',
         currentKernelDisplayName: string | undefined
-    ): Promise<KernelSpecInterpreter | undefined> {
-        let kernel: KernelSpecInterpreter | undefined;
+    ): Promise<KernelConnectionMetadata | undefined> {
+        let kernel: KernelConnectionMetadata | undefined;
         const settings = this.configService.getSettings(resource);
         const isLocalConnection =
             connection?.localLaunch ??
@@ -414,7 +386,7 @@ export class KernelSelector implements IKernelSelectionUsage {
         resource: Resource,
         type: 'raw' | 'jupyter' | 'noConnection',
         currentKernelDisplayName: string | undefined
-    ): Promise<KernelSpecInterpreter> {
+    ): Promise<KernelConnectionMetadata | undefined> {
         return this.selectLocalKernel(resource, type, new StopWatch(), undefined, undefined, currentKernelDisplayName);
     }
 
@@ -422,7 +394,7 @@ export class KernelSelector implements IKernelSelectionUsage {
         resource: Resource,
         connInfo: IJupyterConnection,
         currentKernelDisplayName?: string
-    ): Promise<KernelSpecInterpreter> {
+    ): Promise<KernelConnectionMetadata | undefined> {
         const stopWatch = new StopWatch();
         const session = await this.jupyterSessionManagerFactory.create(connInfo);
         return this.selectRemoteKernel(resource, stopWatch, session, undefined, currentKernelDisplayName);
@@ -437,32 +409,27 @@ export class KernelSelector implements IKernelSelectionUsage {
         notebookMetadata?: nbformat.INotebookMetadata,
         disableUI?: boolean,
         cancelToken?: CancellationToken
-    ): Promise<KernelSpecInterpreter> {
-        let selection: KernelSpecInterpreter = {};
+    ): Promise<
+        KernelSpecConnectionMetadata | PythonKernelConnectionMetadata | DefaultKernelConnectionMetadata | undefined
+    > {
         if (notebookMetadata?.kernelspec) {
-            selection.kernelSpec = await this.kernelService.findMatchingKernelSpec(
+            const kernelSpec = await this.kernelService.findMatchingKernelSpec(
                 notebookMetadata?.kernelspec,
                 sessionManager,
                 cancelToken
             );
-            if (selection.kernelSpec) {
-                selection.interpreter = await this.kernelService.findMatchingInterpreter(
-                    selection.kernelSpec,
-                    cancelToken
-                );
+            if (kernelSpec) {
+                const interpreter = await this.kernelService.findMatchingInterpreter(kernelSpec, cancelToken);
                 sendTelemetryEvent(Telemetry.UseExistingKernel);
 
                 // Make sure we update the environment in the kernel before using it
-                await this.kernelService.updateKernelEnvironment(
-                    selection.interpreter,
-                    selection.kernelSpec,
-                    cancelToken
-                );
+                await this.kernelService.updateKernelEnvironment(interpreter, kernelSpec, cancelToken);
+                return { kind: 'startUsingKernelSpec', interpreter, kernelSpec };
             } else if (!cancelToken?.isCancellationRequested) {
-                // No kernel info, hence prmopt to use current interpreter as a kernel.
+                // No kernel info, hence prompt to use current interpreter as a kernel.
                 const activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
                 if (activeInterpreter) {
-                    selection = await this.useInterpreterAsKernel(
+                    return this.useInterpreterAsKernel(
                         resource,
                         activeInterpreter,
                         'jupyter',
@@ -473,29 +440,25 @@ export class KernelSelector implements IKernelSelectionUsage {
                     );
                 } else {
                     telemetryProps.promptedToSelect = true;
-                    selection = await this.selectLocalKernel(
-                        resource,
-                        'jupyter',
-                        stopWatch,
-                        sessionManager,
-                        cancelToken
-                    );
+                    return this.selectLocalKernel(resource, 'jupyter', stopWatch, sessionManager, cancelToken);
                 }
             }
         } else if (!cancelToken?.isCancellationRequested) {
             // No kernel info, hence use current interpreter as a kernel.
             const activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
             if (activeInterpreter) {
-                selection.interpreter = activeInterpreter;
-                selection.kernelSpec = await this.kernelService.searchAndRegisterKernel(
+                const kernelSpec = await this.kernelService.searchAndRegisterKernel(
                     activeInterpreter,
                     disableUI,
                     cancelToken
                 );
+                if (kernelSpec) {
+                    return { kind: 'startUsingKernelSpec', kernelSpec, interpreter: activeInterpreter };
+                } else {
+                    return { kind: 'startUsingDefaultKernel', interpreter: activeInterpreter };
+                }
             }
         }
-
-        return selection;
     }
 
     // Get our kernelspec and interpreter for a local raw connection
@@ -503,29 +466,25 @@ export class KernelSelector implements IKernelSelectionUsage {
         resource: Resource,
         notebookMetadata?: nbformat.INotebookMetadata,
         cancelToken?: CancellationToken
-    ): Promise<KernelSpecInterpreter> {
-        const selection: KernelSpecInterpreter = {};
-
+    ): Promise<KernelSpecConnectionMetadata | PythonKernelConnectionMetadata | undefined> {
         // First use our kernel finder to locate a kernelspec on disk
-        selection.kernelSpec = await this.kernelFinder.findKernelSpec(
-            resource,
-            notebookMetadata?.kernelspec,
-            cancelToken
-        );
-
-        if (selection.kernelSpec) {
-            // Locate the interpreter that matches our kernelspec
-            selection.interpreter = await this.kernelService.findMatchingInterpreter(selection.kernelSpec, cancelToken);
+        const kernelSpec = await this.kernelFinder.findKernelSpec(resource, notebookMetadata?.kernelspec, cancelToken);
+        if (!kernelSpec) {
+            return;
         }
-        return selection;
+        // Locate the interpreter that matches our kernelspec
+        const interpreter = await this.kernelService.findMatchingInterpreter(kernelSpec, cancelToken);
+        if (interpreter) {
+            return { kind: 'startUsingKernelSpec', kernelSpec, interpreter };
+        }
     }
 
-    private async selectKernel(
+    private async selectKernel<T extends KernelConnectionMetadata>(
         resource: Resource,
         type: 'raw' | 'jupyter' | 'noConnection',
         stopWatch: StopWatch,
         telemetryEvent: Telemetry,
-        suggestions: IKernelSpecQuickPickItem[],
+        suggestions: IKernelSpecQuickPickItem<T>[],
         session?: IJupyterSessionManager,
         cancelToken?: CancellationToken,
         currentKernelDisplayName?: string
@@ -536,15 +495,17 @@ export class KernelSelector implements IKernelSelectionUsage {
         sendTelemetryEvent(telemetryEvent, stopWatch.elapsedTime);
         const selection = await this.applicationShell.showQuickPick(suggestions, { placeHolder }, cancelToken);
         if (!selection?.selection) {
-            return {};
+            return;
         }
-        return this.useSelectedKernel(selection.selection, resource, type, session, cancelToken);
+        return (this.useSelectedKernel(selection.selection, resource, type, session, cancelToken) as unknown) as
+            | T
+            | undefined;
     }
 
     // When switching to an interpreter in raw kernel mode then just create a default kernelspec for that interpreter to use
-    private async useInterpreterAndDefaultKernel(interpreter: PythonEnvironment): Promise<KernelSpecInterpreter> {
+    private async useInterpreterAndDefaultKernel(interpreter: PythonEnvironment): Promise<KernelConnectionMetadata> {
         const kernelSpec = createDefaultKernelSpec(interpreter.displayName);
-        return { kernelSpec, interpreter };
+        return { kernelSpec, interpreter, kind: 'startUsingPythonInterpreter' };
     }
 
     /**
@@ -552,17 +513,6 @@ export class KernelSelector implements IKernelSelectionUsage {
      * If `displayNameOfKernelNotFound` is provided, then display a message indicating we're using the `current interpreter`.
      * This would happen when we're starting a notebook.
      * Otherwise, if not provided user is changing the kernel after starting a notebook.
-     *
-     * @private
-     * @param {Resource} resource
-     * @param {PythonEnvironment} interpreter
-     * @param type
-     * @param {string} [displayNameOfKernelNotFound]
-     * @param {IJupyterSessionManager} [session]
-     * @param {boolean} [disableUI]
-     * @param {CancellationToken} [cancelToken]
-     * @returns {Promise<KernelSpecInterpreter>}
-     * @memberof KernelSelector
      */
     private async useInterpreterAsKernel(
         resource: Resource,
@@ -572,11 +522,11 @@ export class KernelSelector implements IKernelSelectionUsage {
         session?: IJupyterSessionManager,
         disableUI?: boolean,
         cancelToken?: CancellationToken
-    ): Promise<KernelSpecInterpreter> {
+    ): Promise<KernelSpecConnectionMetadata | undefined> {
         let kernelSpec: IJupyterKernelSpec | undefined;
 
-        if (await this.kernelDepdencyService.areDependenciesInstalled(interpreter, cancelToken)) {
-            // Find the kernel associated with this interpter.
+        if (await this.kernelDependencyService.areDependenciesInstalled(interpreter, cancelToken)) {
+            // Find the kernel associated with this interpreter.
             kernelSpec = await this.kernelService.findMatchingKernelSpec(interpreter, session, cancelToken);
 
             if (kernelSpec) {
@@ -588,7 +538,7 @@ export class KernelSelector implements IKernelSelectionUsage {
                 if (displayNameOfKernelNotFound && !disableUI) {
                     this.applicationShell
                         .showInformationMessage(
-                            localize.DataScience.fallbackToUseActiveInterpeterAsKernel().format(
+                            localize.DataScience.fallbackToUseActiveInterpreterAsKernel().format(
                                 displayNameOfKernelNotFound
                             )
                         )
@@ -596,7 +546,7 @@ export class KernelSelector implements IKernelSelectionUsage {
                 }
 
                 sendTelemetryEvent(Telemetry.UseInterpreterAsKernel);
-                return { kernelSpec, interpreter };
+                return { kind: 'startUsingKernelSpec', kernelSpec, interpreter };
             }
             traceInfo(`ipykernel installed in ${interpreter.path}, no matching kernel found. Will register kernel.`);
         }
@@ -625,7 +575,9 @@ export class KernelSelector implements IKernelSelectionUsage {
         // Lets pre-warm the list of local kernels (with the new list).
         this.selectionProvider.getKernelSelectionsForLocalSession(resource, type, session, cancelToken).ignoreErrors();
 
-        return { kernelSpec, interpreter };
+        if (kernelSpec) {
+            return { kind: 'startUsingKernelSpec', kernelSpec, interpreter };
+        }
     }
 
     private computeLanguage(language: string | undefined): string {

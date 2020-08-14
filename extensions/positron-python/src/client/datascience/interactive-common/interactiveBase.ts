@@ -70,9 +70,13 @@ import {
     VariableExplorerStateKeys
 } from '../interactive-common/interactiveWindowTypes';
 import { JupyterInvalidKernelError } from '../jupyter/jupyterInvalidKernelError';
+import {
+    kernelConnectionMetadataHasKernelModel,
+    kernelConnectionMetadataHasKernelSpec
+} from '../jupyter/kernels/helpers';
 import { JupyterKernelPromiseFailedError } from '../jupyter/kernels/jupyterKernelPromiseFailedError';
-import { KernelSelector, KernelSpecInterpreter } from '../jupyter/kernels/kernelSelector';
-import { LiveKernelModel } from '../jupyter/kernels/types';
+import { KernelSelector } from '../jupyter/kernels/kernelSelector';
+import { KernelConnectionMetadata, LiveKernelModel } from '../jupyter/kernels/types';
 import { CssMessages, SharedMessages } from '../messages';
 import {
     CellState,
@@ -1144,7 +1148,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                         serverConnection.type,
                         e.kernelSpec
                     );
-                    if (newKernel?.kernelSpec) {
+                    if (newKernel && kernelConnectionMetadataHasKernelSpec(newKernel) && newKernel.kernelSpec) {
                         this.commandManager.executeCommand(
                             Commands.SetJupyterKernel,
                             newKernel,
@@ -1224,15 +1228,20 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         this.postMessage(InteractiveWindowMessages.ForceVariableRefresh).ignoreErrors();
     }
 
-    private async potentialKernelChanged(data: { identity: Uri; kernel: KernelSpecInterpreter }): Promise<void> {
-        const specOrModel = data.kernel.kernelModel || data.kernel.kernelSpec;
+    private async potentialKernelChanged(data: { identity: Uri; kernel: KernelConnectionMetadata }): Promise<void> {
+        const specOrModel = kernelConnectionMetadataHasKernelModel(data.kernel)
+            ? data.kernel.kernelModel
+            : data.kernel.kernelSpec;
         if (!this._notebook && specOrModel && this.notebookIdentity.resource.toString() === data.identity.toString()) {
+            const kernelSpecLanguage = kernelConnectionMetadataHasKernelSpec(data.kernel)
+                ? data.kernel.kernelSpec?.language
+                : undefined;
             // No notebook, send update to UI anyway
             this.postMessage(InteractiveWindowMessages.UpdateKernel, {
                 jupyterServerStatus: ServerStatus.NotStarted,
                 localizedUri: '',
                 displayName: specOrModel?.display_name || specOrModel?.name || '',
-                language: translateKernelLanguageToMonaco(data.kernel.kernelSpec?.language ?? PYTHON_LANGUAGE)
+                language: translateKernelLanguageToMonaco(kernelSpecLanguage ?? PYTHON_LANGUAGE)
             }).ignoreErrors();
 
             // Update our model

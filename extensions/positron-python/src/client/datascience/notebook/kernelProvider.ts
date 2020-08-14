@@ -13,10 +13,11 @@ import {
 import { IVSCodeNotebook } from '../../common/application/types';
 import { IDisposableRegistry } from '../../common/types';
 import { noop } from '../../common/utils/misc';
+import { kernelConnectionMetadataHasKernelSpec } from '../jupyter/kernels/helpers';
 import { KernelSelectionProvider } from '../jupyter/kernels/kernelSelections';
 import { KernelSelector } from '../jupyter/kernels/kernelSelector';
 import { KernelSwitcher } from '../jupyter/kernels/kernelSwitcher';
-import { IKernelProvider, KernelSelection } from '../jupyter/kernels/types';
+import { IKernelProvider, KernelConnectionMetadata } from '../jupyter/kernels/types';
 import { INotebookStorageProvider } from '../notebookStorage/notebookStorageProvider';
 import { INotebook, INotebookProvider } from '../types';
 import { getNotebookMetadata, isJupyterNotebook, updateKernelInNotebookMetadata } from './helpers/helpers';
@@ -29,7 +30,7 @@ class VSCodeNotebookKernelMetadata implements VSCNotebookKernel {
     constructor(
         public readonly label: string,
         public readonly description: string,
-        public readonly selection: Readonly<KernelSelection>,
+        public readonly selection: Readonly<KernelConnectionMetadata>,
         public readonly isPreferred: boolean,
         private readonly kernelProvider: IKernelProvider
     ) {}
@@ -86,8 +87,8 @@ export class VSCodeKernelPickerProvider implements NotebookKernelProvider {
         if (token.isCancellationRequested) {
             return [];
         }
-        function isPreferredKernel(item: KernelSelection) {
-            if (!preferredKernel.interpreter && !preferredKernel.kernelModel && !preferredKernel.kernelSpec) {
+        function isPreferredKernel(item: KernelConnectionMetadata) {
+            if (!preferredKernel) {
                 return false;
             }
             if (
@@ -98,19 +99,25 @@ export class VSCodeKernelPickerProvider implements NotebookKernelProvider {
                 return true;
             }
             if (
+                kernelConnectionMetadataHasKernelSpec(preferredKernel) &&
                 preferredKernel.kernelSpec &&
+                kernelConnectionMetadataHasKernelSpec(item) &&
                 item.kernelSpec &&
                 fastDeepEqual(preferredKernel.kernelSpec, item.kernelSpec)
             ) {
                 return true;
             }
-            if (
-                preferredKernel.kernelModel &&
-                item.kernelModel &&
-                fastDeepEqual(preferredKernel.kernelModel, item.kernelModel)
-            ) {
-                return true;
-            }
+            // tslint:disable-next-line: no-suspicious-comment
+            // TODO for Remote kernels.
+            // if (
+            //     kernelConnectionMetadataHasKernelModel(preferredKernel) &&
+            //     preferredKernel.kernelModel &&
+            //     kernelConnectionMetadataHasKernelModel(item) &&
+            //     item.kernelModel &&
+            //     fastDeepEqual(preferredKernel.kernelModel, item.kernelModel)
+            // ) {
+            //     return true;
+            // }
             return false;
         }
 
@@ -185,7 +192,7 @@ export class VSCodeKernelPickerProvider implements NotebookKernelProvider {
         } else {
             updateKernelInNotebookMetadata(
                 document,
-                selection.kernelModel || selection.kernelSpec,
+                selection.kind === 'connectToLiveKernel' ? selection.kernelModel : selection.kernelSpec,
                 selection.interpreter,
                 this.notebookContentProvider
             );
