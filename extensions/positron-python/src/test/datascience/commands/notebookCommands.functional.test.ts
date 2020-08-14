@@ -67,10 +67,9 @@ suite('DataScience - Notebook Commands', () => {
         {
             label: 'foobar',
             selection: {
-                kernelSpec: undefined,
                 kernelModel: remoteKernel,
                 interpreter: undefined,
-                kind: 'live'
+                kind: 'connectToLiveKernel'
             }
         }
     ];
@@ -81,16 +80,15 @@ suite('DataScience - Notebook Commands', () => {
                 kernelSpec: localKernel,
                 kernelModel: undefined,
                 interpreter: undefined,
-                kind: 'kernelSpec'
+                kind: 'startUsingKernelSpec'
             }
         },
         {
             label: 'foobaz',
             selection: {
                 kernelSpec: undefined,
-                kernelModel: undefined,
                 interpreter: selectedInterpreter,
-                kind: 'pythonInterpreter'
+                kind: 'startUsingPythonInterpreter'
             }
         }
     ];

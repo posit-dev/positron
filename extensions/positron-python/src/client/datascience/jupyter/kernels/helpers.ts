@@ -10,6 +10,13 @@ const NamedRegexp = require('named-js-regexp') as typeof import('named-js-regexp
 
 // tslint:disable-next-line: no-require-imports
 import cloneDeep = require('lodash/cloneDeep');
+import {
+    DefaultKernelConnectionMetadata,
+    KernelConnectionMetadata,
+    KernelSpecConnectionMetadata,
+    LiveKernelConnectionMetadata,
+    PythonKernelConnectionMetadata
+} from './types';
 
 // Helper functions for dealing with kernels and kernelspecs
 
@@ -23,6 +30,20 @@ export function findIndexOfConnectionFile(kernelSpec: Readonly<IJupyterKernelSpe
     return kernelSpec.argv.indexOf(connectionFilePlaceholder);
 }
 
+type ConnectionWithKernelSpec =
+    | KernelSpecConnectionMetadata
+    | PythonKernelConnectionMetadata
+    | DefaultKernelConnectionMetadata;
+export function kernelConnectionMetadataHasKernelSpec(
+    connectionMetadata: KernelConnectionMetadata
+): connectionMetadata is ConnectionWithKernelSpec {
+    return connectionMetadata.kind !== 'connectToLiveKernel';
+}
+export function kernelConnectionMetadataHasKernelModel(
+    connectionMetadata: KernelConnectionMetadata
+): connectionMetadata is LiveKernelConnectionMetadata {
+    return connectionMetadata.kind === 'connectToLiveKernel';
+}
 // Create a default kernelspec with the given display name
 export function createDefaultKernelSpec(displayName?: string): IJupyterKernelSpec {
     // This creates a default kernel spec. When launched, 'python' argument will map to using the interpreter

@@ -13,7 +13,9 @@ import { Settings } from '../../constants';
 import { RawKernelSessionStartError } from '../../raw-kernel/rawJupyterSession';
 import { IKernelDependencyService, INotebook, KernelInterpreterDependencyResponse } from '../../types';
 import { JupyterInvalidKernelError } from '../jupyterInvalidKernelError';
-import { KernelSelector, KernelSpecInterpreter } from './kernelSelector';
+import { kernelConnectionMetadataHasKernelModel, kernelConnectionMetadataHasKernelSpec } from './helpers';
+import { KernelSelector } from './kernelSelector';
+import { KernelConnectionMetadata } from './types';
 
 @injectable()
 export class KernelSwitcher {
@@ -24,7 +26,7 @@ export class KernelSwitcher {
         @inject(KernelSelector) private readonly selector: KernelSelector
     ) {}
 
-    public async switchKernelWithRetry(notebook: INotebook, kernel: KernelSpecInterpreter): Promise<void> {
+    public async switchKernelWithRetry(notebook: INotebook, kernel: KernelConnectionMetadata): Promise<void> {
         const settings = this.configService.getSettings(notebook.resource);
         const isLocalConnection =
             notebook.connection?.localLaunch ??
@@ -55,7 +57,7 @@ export class KernelSwitcher {
                     const potential = await this.selector.askForLocalKernel(
                         notebook.resource,
                         notebook.connection?.type || 'noConnection',
-                        kernel.kernelSpec || kernel.kernelModel
+                        kernelConnectionMetadataHasKernelModel(kernel) ? kernel.kernelModel : kernel.kernelSpec
                     );
                     if (potential && Object.keys(potential).length > 0) {
                         kernel = potential;
@@ -66,7 +68,7 @@ export class KernelSwitcher {
             }
         }
     }
-    private async switchToKernel(notebook: INotebook, kernel: KernelSpecInterpreter): Promise<void> {
+    private async switchToKernel(notebook: INotebook, kernel: KernelConnectionMetadata): Promise<void> {
         if (notebook.connection?.type === 'raw' && kernel.interpreter) {
             const response = await this.kernelDependencyService.installMissingDependencies(kernel.interpreter);
             if (response === KernelInterpreterDependencyResponse.cancel) {
@@ -74,19 +76,20 @@ export class KernelSwitcher {
             }
         }
 
-        const switchKernel = async (newKernel: KernelSpecInterpreter) => {
+        const switchKernel = async (newKernel: KernelConnectionMetadata) => {
             // Change the kernel. A status update should fire that changes our display
             await notebook.setKernelSpec(
-                newKernel.kernelSpec || newKernel.kernelModel!,
+                newKernel.kind === 'connectToLiveKernel' ? newKernel.kernelModel : newKernel.kernelSpec!,
                 this.configService.getSettings(notebook.resource).datascience.jupyterLaunchTimeout,
                 newKernel.interpreter
             );
         };
 
-        const kernelDisplayName = kernel.kernelSpec?.display_name || kernel.kernelModel?.display_name;
-        const kernelName = kernel.kernelSpec?.name || kernel.kernelModel?.name;
+        const kernelModel = kernelConnectionMetadataHasKernelModel(kernel) ? kernel : undefined;
+        const kernelSpec = kernelConnectionMetadataHasKernelSpec(kernel) ? kernel : undefined;
+        const kernelName = kernelSpec?.kernelSpec?.name || kernelModel?.kernelModel?.name;
         // One of them is bound to be non-empty.
-        const displayName = kernelDisplayName || kernelName || '';
+        const displayName = kernelModel?.kernelModel?.display_name || kernelName || '';
         const options: ProgressOptions = {
             location: ProgressLocation.Notification,
             cancellable: false,

@@ -36,8 +36,15 @@ import {
     InterruptResult,
     KernelSocketInformation
 } from '../../types';
+import { kernelConnectionMetadataHasKernelModel } from './helpers';
 import { KernelExecution } from './kernelExecution';
-import type { IKernel, IKernelProvider, IKernelSelectionUsage, KernelSelection, LiveKernelModel } from './types';
+import type {
+    IKernel,
+    IKernelProvider,
+    IKernelSelectionUsage,
+    KernelConnectionMetadata,
+    LiveKernelModel
+} from './types';
 
 export class Kernel implements IKernel {
     get connection(): INotebookProviderConnection | undefined {
@@ -47,7 +54,9 @@ export class Kernel implements IKernel {
         if (this.notebook) {
             return this.notebook.getKernelSpec();
         }
-        return this.metadata.kernelSpec || this.metadata.kernelModel;
+        return kernelConnectionMetadataHasKernelModel(this.metadata)
+            ? this.metadata.kernelModel
+            : this.metadata.kernelSpec;
     }
     get onStatusChanged(): Event<ServerStatus> {
         return this._onStatusChanged.event;
@@ -81,7 +90,7 @@ export class Kernel implements IKernel {
     private startCancellation = new CancellationTokenSource();
     constructor(
         public readonly uri: Uri,
-        public readonly metadata: Readonly<KernelSelection>,
+        public readonly metadata: Readonly<KernelConnectionMetadata>,
         private readonly notebookProvider: INotebookProvider,
         private readonly disposables: IDisposableRegistry,
         private readonly launchTimeout: number,
@@ -143,10 +152,12 @@ export class Kernel implements IKernel {
         } else {
             await this.validate(this.uri);
             const metadata = ((getDefaultNotebookContent().metadata || {}) as unknown) as nbformat.INotebookMetadata;
+            // tslint:disable-next-line: no-suspicious-comment
+            // TODO: Just pass the `this.metadata` into the func.
             updateNotebookMetadata(
                 metadata,
                 this.metadata.interpreter,
-                this.metadata.kernelSpec || this.metadata.kernelModel
+                this.metadata.kind === 'connectToLiveKernel' ? this.metadata.kernelModel : this.metadata.kernelSpec
             );
 
             this._notebookPromise = this.notebookProvider.getOrCreateNotebook({
