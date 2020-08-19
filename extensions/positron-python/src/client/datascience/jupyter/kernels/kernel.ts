@@ -7,6 +7,7 @@ import { nbformat } from '@jupyterlab/coreutils';
 import type { KernelMessage } from '@jupyterlab/services';
 import { Observable } from 'rxjs/Observable';
 import { Subject } from 'rxjs/Subject';
+import * as uuid from 'uuid/v4';
 import {
     CancellationToken,
     CancellationTokenSource,
@@ -23,6 +24,7 @@ import { IDisposableRegistry } from '../../../common/types';
 import { createDeferred, Deferred } from '../../../common/utils/async';
 import { noop } from '../../../common/utils/misc';
 import { IInterpreterService } from '../../../interpreter/contracts';
+import { CodeSnippets } from '../../constants';
 import { INotebookContentProvider } from '../../notebook/types';
 import { getDefaultNotebookContent, updateNotebookMetadata } from '../../notebookStorage/baseModel';
 import {
@@ -231,6 +233,7 @@ export class Kernel implements IKernel {
         if (!this.notebook) {
             return;
         }
+        this.disableJedi();
         if (!this.hookedNotebookForEvents.has(this.notebook)) {
             this.hookedNotebookForEvents.add(this.notebook);
             this.notebook.kernelSocket.subscribe(this._kernelSocket);
@@ -247,5 +250,11 @@ export class Kernel implements IKernel {
             await this.notebook.setLaunchingFile(this.uri.fsPath);
         }
         await this.notebook.waitForIdle(this.launchTimeout);
+    }
+
+    private disableJedi() {
+        if (isPythonKernelConnection(this.metadata)) {
+            this.executeObservable(CodeSnippets.disableJedi, this.uri.fsPath, 0, uuid(), true);
+        }
     }
 }
