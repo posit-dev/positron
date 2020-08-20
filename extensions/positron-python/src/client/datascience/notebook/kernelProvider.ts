@@ -86,17 +86,47 @@ export class VSCodeKernelPickerProvider implements NotebookKernelProvider {
         }
 
         // Default the interpreter to the local interpreter (if none is provided).
-        return kernels.map((kernel) => {
+        const withInterpreter = kernels.map((kernel) => {
             const selection = cloneDeep(kernel.selection); // Always clone, so we can make changes to this.
             selection.interpreter = selection.interpreter || activeInterpreter;
+            return { ...kernel, selection };
+        });
+
+        // Turn this into our preferred list.
+        const mapped = withInterpreter.map((kernel) => {
             return new VSCodeNotebookKernelMetadata(
                 kernel.label,
                 kernel.description || kernel.detail || '',
-                selection,
-                areKernelConnectionsEqual(selection, preferredKernel),
+                kernel.selection,
+                areKernelConnectionsEqual(kernel.selection, preferredKernel),
                 this.kernelProvider
             );
         });
+
+        // If no preferred kernel set but we have a language, use that to set preferred instead.
+        if (!mapped.find((v) => v.isPreferred) && document.cells.length) {
+            const languages = document.cells.map((c) => c.language);
+            // Find the first that matches on language
+            const languageMatch = kernels.findIndex((k) =>
+                languages.find((l) => l === k.selection.kernelSpec?.language)
+            );
+            if (languageMatch >= 0) {
+                const kernel = kernels[languageMatch];
+                mapped.splice(
+                    languageMatch,
+                    1,
+                    new VSCodeNotebookKernelMetadata(
+                        kernel.label,
+                        kernel.description || kernel.detail || '',
+                        kernel.selection,
+                        true,
+                        this.kernelProvider
+                    )
+                );
+            }
+        }
+
+        return mapped;
     }
     private async getPreferredKernel(document: NotebookDocument, token: CancellationToken) {
         // If we already have a kernel selected, then return that.
