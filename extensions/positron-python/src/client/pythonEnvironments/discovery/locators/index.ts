@@ -1,5 +1,7 @@
 import { inject, injectable } from 'inversify';
-import { Disposable, Event, EventEmitter, Uri } from 'vscode';
+import {
+    Disposable, Event, EventEmitter, Uri,
+} from 'vscode';
 import { traceDecorators } from '../../../common/logger';
 import { IPlatformService } from '../../../common/platform/types';
 import { IDisposableRegistry } from '../../../common/types';
@@ -15,7 +17,7 @@ import {
     KNOWN_PATH_SERVICE,
     PIPENV_SERVICE,
     WINDOWS_REGISTRY_SERVICE,
-    WORKSPACE_VIRTUAL_ENV_SERVICE
+    WORKSPACE_VIRTUAL_ENV_SERVICE,
 } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
 import { PythonEnvironment } from '../../info';
@@ -33,8 +35,11 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
     public didTriggerInterpreterSuggestions: boolean;
 
     private readonly disposables: Disposable[] = [];
+
     private readonly platform: IPlatformService;
+
     private readonly interpreterLocatorHelper: IInterpreterLocatorHelper;
+
     private readonly _hasInterpreters: Deferred<boolean>;
 
     constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {
@@ -44,6 +49,7 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
         this.interpreterLocatorHelper = serviceContainer.get<IInterpreterLocatorHelper>(IInterpreterLocatorHelper);
         this.didTriggerInterpreterSuggestions = false;
     }
+
     /**
      * This class should never emit events when we're locating.
      * The events will be fired by the indivitual locators retrieved in `getLocators`.
@@ -55,6 +61,7 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
     public get onLocating(): Event<Promise<PythonEnvironment[]>> {
         return new EventEmitter<Promise<PythonEnvironment[]>>().event;
     }
+
     public get hasInterpreters(): Promise<boolean> {
         return this._hasInterpreters.completed ? this._hasInterpreters.promise : Promise.resolve(false);
     }
@@ -115,7 +122,7 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
             [GLOBAL_VIRTUAL_ENV_SERVICE, undefined],
             [WORKSPACE_VIRTUAL_ENV_SERVICE, undefined],
             [KNOWN_PATH_SERVICE, undefined],
-            [CURRENT_PATH_SERVICE, undefined]
+            [CURRENT_PATH_SERVICE, undefined],
         ];
 
         const locators = keys
