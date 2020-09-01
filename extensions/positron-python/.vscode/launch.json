@@ -3,24 +3,6 @@
     "version": "0.1.0",
     "configurations": [
         {
-            "name": "Node: Current File",
-            "program": "${file}",
-            "request": "launch",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "type": "pwa-node"
-        },
-        {
-            "name": "Python: Current File",
-            "type": "python",
-            "justMyCode": true,
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}"
-        },
-        {
             "name": "Extension",
             "type": "extensionHost",
             "request": "launch",
@@ -304,6 +286,24 @@
             "program": "${workspaceFolder}/node_modules/gulp/bin/gulp.js",
             "args": ["watch"],
             "skipFiles": ["<node_internals>/**"]
+        },
+        {
+            "name": "Node: Current File",
+            "program": "${file}",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "pwa-node"
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "justMyCode": true,
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
