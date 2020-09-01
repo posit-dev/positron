@@ -233,11 +233,7 @@ export class NotebookEditor implements INotebookEditor {
         // Set our status
         const status = this.statusProvider.set(DataScience.restartingKernelStatus(), true, undefined, undefined);
 
-        // Disable running cells.
-        const [cellRunnable, runnable] = [this.document.metadata.cellRunnable, this.document.metadata.runnable];
         try {
-            this.document.metadata.cellRunnable = false;
-            this.document.metadata.runnable = false;
             await kernel.restart();
         } catch (exc) {
             // If we get a kernel promise failure, then restarting timed out. Just shutdown and restart the entire server.
@@ -261,8 +257,6 @@ export class NotebookEditor implements INotebookEditor {
         } finally {
             status.dispose();
             this.restartingKernel = false;
-            // Restore previous state.
-            [this.document.metadata.cellRunnable, this.document.metadata.runnable] = [cellRunnable, runnable];
         }
     }
     private async shouldAskForRestart(): Promise<boolean> {
