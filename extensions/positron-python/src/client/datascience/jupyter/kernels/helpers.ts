@@ -111,6 +111,9 @@ export function isPythonKernelConnection(kernelConnection?: KernelConnectionMeta
     if (!kernelConnection) {
         return false;
     }
+    if (kernelConnection.kind === 'startUsingPythonInterpreter') {
+        return true;
+    }
     const model = kernelConnectionMetadataHasKernelModel(kernelConnection) ? kernelConnection.kernelModel : undefined;
     const kernelSpec = kernelConnectionMetadataHasKernelSpec(kernelConnection)
         ? kernelConnection.kernelSpec

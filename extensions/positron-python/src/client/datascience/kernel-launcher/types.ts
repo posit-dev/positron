@@ -50,7 +50,7 @@ export interface IKernelFinder {
         kernelSpecMetadata?: nbformat.IKernelspecMetadata,
         cancelToken?: CancellationToken,
         ignoreDependencyCheck?: boolean
-    ): Promise<IJupyterKernelSpec>;
+    ): Promise<IJupyterKernelSpec | undefined>;
     listKernelSpecs(resource: Resource): Promise<IJupyterKernelSpec[]>;
 }
 
