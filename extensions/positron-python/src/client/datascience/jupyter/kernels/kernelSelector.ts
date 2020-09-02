@@ -500,12 +500,18 @@ export class KernelSelector implements IKernelSelectionUsage {
             cancelToken,
             ignoreDependencyCheck
         );
-        if (!kernelSpec) {
+        const activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
+        if (!kernelSpec && !activeInterpreter) {
             return;
-        }
-        // Locate the interpreter that matches our kernelspec
-        const interpreter = await this.kernelService.findMatchingInterpreter(kernelSpec, cancelToken);
-        if (interpreter) {
+        } else if (!kernelSpec && activeInterpreter) {
+            // Return current interpreter.
+            return {
+                kind: 'startUsingPythonInterpreter',
+                interpreter: activeInterpreter
+            };
+        } else if (kernelSpec) {
+            // Locate the interpreter that matches our kernelspec
+            const interpreter = await this.kernelService.findMatchingInterpreter(kernelSpec, cancelToken);
             return { kind: 'startUsingKernelSpec', kernelSpec, interpreter };
         }
     }
