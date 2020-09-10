@@ -25,7 +25,7 @@ suite('Environment Identifier', () => {
 
     suite('Windows Store', () => {
         let getEnvVar: sinon.SinonStub;
-        const fakeLocalAppDataPath = 'X:\\users\\user\\AppData\\Local';
+        const fakeLocalAppDataPath = path.join(TEST_LAYOUT_ROOT, 'storeApps');
         const fakeProgramFilesPath = 'X:\\Program Files';
         const executable = ['python.exe', 'python3.exe', 'python3.8.exe'];
         suiteSetup(() => {
@@ -94,6 +94,19 @@ suite('Environment Identifier', () => {
                 const envType: EnvironmentType = await identifyEnvironment(`\\\\?\\${interpreterPath}`);
                 assert.deepEqual(envType, EnvironmentType.WindowsStore);
             });
+        });
+    });
+
+    suite('Venv', () => {
+        test('Pyvenv.cfg is in the same directory as the interpreter', async () => {
+            const interpreterPath = path.join(TEST_LAYOUT_ROOT, 'venv1', 'python');
+            const envType: EnvironmentType = await identifyEnvironment(interpreterPath);
+            assert.deepEqual(envType, EnvironmentType.Venv);
+        });
+        test('Pyvenv.cfg is in the same directory as the interpreter', async () => {
+            const interpreterPath = path.join(TEST_LAYOUT_ROOT, 'venv2', 'bin', 'python');
+            const envType: EnvironmentType = await identifyEnvironment(interpreterPath);
+            assert.deepEqual(envType, EnvironmentType.Venv);
         });
     });
 });
