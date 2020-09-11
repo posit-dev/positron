@@ -118,6 +118,7 @@ import { NotebookEditorProvider } from './notebook/notebookEditorProvider';
 import { NotebookEditorProviderWrapper } from './notebook/notebookEditorProviderWrapper';
 import { registerTypes as registerNotebookTypes } from './notebook/serviceRegistry';
 import { NotebookAndInteractiveWindowUsageTracker } from './notebookAndInteractiveTracker';
+import { NotebookExtensibility } from './notebookExtensibility';
 import { NotebookModelFactory } from './notebookStorage/factory';
 import { NativeEditorProvider } from './notebookStorage/nativeEditorProvider';
 import { NativeEditorStorage } from './notebookStorage/nativeEditorStorage';
@@ -168,6 +169,7 @@ import {
     INotebookEditorProvider,
     INotebookExecutionLogger,
     INotebookExporter,
+    INotebookExtensibility,
     INotebookImporter,
     INotebookProvider,
     INotebookServer,
@@ -315,6 +317,7 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<ITrustService>(ITrustService, TrustService);
     serviceManager.addSingleton<IDataScienceFileSystem>(IDataScienceFileSystem, DataScienceFileSystem);
     serviceManager.addSingleton<IFileSystemPathUtils>(IFileSystemPathUtils, FileSystemPathUtils);
+    serviceManager.addSingleton<INotebookExtensibility>(INotebookExtensibility, NotebookExtensibility);
 
     registerGatherTypes(serviceManager);
     registerNotebookTypes(serviceManager);
