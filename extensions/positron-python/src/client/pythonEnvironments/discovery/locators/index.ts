@@ -5,7 +5,7 @@ import {
 import { traceDecorators } from '../../../common/logger';
 import { IPlatformService } from '../../../common/platform/types';
 import { IDisposableRegistry } from '../../../common/types';
-import { chain, createDeferred, Deferred } from '../../../common/utils/async';
+import { createDeferred, Deferred } from '../../../common/utils/async';
 import { OSType } from '../../../common/utils/platform';
 import {
     CONDA_ENV_FILE_SERVICE,
@@ -21,8 +21,18 @@ import {
 } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
 import { PythonEnvInfo } from '../../base/info';
-import { ILocator, Locator, NOOP_ITERATOR, PythonEnvsIterator, PythonLocatorQuery } from '../../base/locator';
-import { DisableableLocator, Locators } from '../../base/locators';
+import {
+    ILocator,
+    IPythonEnvsIterator,
+    Locator,
+    NOOP_ITERATOR,
+    PythonLocatorQuery,
+} from '../../base/locator';
+import {
+    combineIterators,
+    DisableableLocator,
+    Locators,
+} from '../../base/locators';
 import { PythonEnvironment } from '../../info';
 import { isHiddenInterpreter } from './services/interpreterFilter';
 import { GetInterpreterLocatorOptions } from './types';
@@ -83,7 +93,7 @@ export class WorkspaceLocators extends Locator {
         folders.onRemoved((root: Uri) => this.removeRoot(root));
     }
 
-    public iterEnvs(query?: PythonLocatorQuery): PythonEnvsIterator {
+    public iterEnvs(query?: PythonLocatorQuery): IPythonEnvsIterator {
         const iterators = Object.keys(this.locators).map((key) => {
             if (query?.searchLocations) {
                 const root = this.roots[key];
@@ -95,7 +105,7 @@ export class WorkspaceLocators extends Locator {
             const locator = this.locators[key];
             return locator.iterEnvs(query);
         });
-        return chain(iterators);
+        return combineIterators(iterators);
     }
 
     public async resolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
