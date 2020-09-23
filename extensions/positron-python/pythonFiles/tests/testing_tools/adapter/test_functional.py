@@ -10,8 +10,6 @@ import subprocess
 import sys
 import unittest
 
-import pytest
-
 from ...__main__ import TESTING_TOOLS_ROOT
 from testing_tools.adapter.util import fix_path, PATH_SEP
 
@@ -83,6 +81,15 @@ def fix_source(tests, testid, srcfile, lineno):
     test["source"] = fix_path("{}:{}".format(srcfile, lineno))
 
 
+def sorted_object(obj):
+    if isinstance(obj, dict):
+        return sorted((key, sorted_object(obj[key])) for key in obj.keys())
+    if isinstance(obj, list):
+        return sorted((sorted_object(x) for x in obj))
+    else:
+        return obj
+
+
 # Note that these tests are skipped if util.PATH_SEP is not os.path.sep.
 # This is because the functional tests should reflect the actual
 # operating environment.
@@ -141,7 +148,6 @@ class PytestTests(unittest.TestCase):
             ],
         )
 
-    @pytest.mark.skip(reason="https://github.com/microsoft/vscode-python/issues/14023")
     def test_discover_complex_default(self):
         projroot, testroot = resolve_testroot("complex")
         expected = self.complex(projroot)
@@ -160,9 +166,8 @@ class PytestTests(unittest.TestCase):
         result[0]["tests"] = fix_test_order(result[0]["tests"])
 
         self.maxDiff = None
-        self.assertEqual(result, expected)
+        self.assertEqual(sorted_object(result), sorted_object(expected))
 
-    @pytest.mark.skip(reason="https://github.com/microsoft/vscode-python/issues/14023")
     def test_discover_complex_doctest(self):
         projroot, _ = resolve_testroot("complex")
         expected = self.complex(projroot)
@@ -245,7 +250,7 @@ class PytestTests(unittest.TestCase):
         result[0]["tests"] = fix_test_order(result[0]["tests"])
 
         self.maxDiff = None
-        self.assertEqual(result, expected)
+        self.assertEqual(sorted_object(result), sorted_object(expected))
 
     def test_discover_not_found(self):
         projroot, testroot = resolve_testroot("notests")
