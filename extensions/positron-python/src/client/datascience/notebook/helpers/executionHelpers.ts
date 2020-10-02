@@ -65,13 +65,12 @@ export async function updateCellWithErrorStatus(
     cell: NotebookCell,
     ex: Partial<Error>
 ) {
-    const cellIndex = cell.notebook.cells.indexOf(cell);
     await notebookEditor.edit((edit) => {
-        edit.replaceCellMetadata(cellIndex, {
+        edit.replaceCellMetadata(cell.index, {
             ...cell.metadata,
             runState: vscodeNotebookEnums.NotebookCellRunState.Error
         });
-        edit.replaceCellOutput(cellIndex, [translateErrorOutput(createErrorOutput(ex))]);
+        edit.replaceCellOutput(cell.index, [translateErrorOutput(createErrorOutput(ex))]);
     });
 }
 
@@ -84,9 +83,8 @@ export async function updateCellExecutionCount(
     executionCount: number
 ): Promise<void> {
     if (cell.metadata.executionOrder !== executionCount && executionCount) {
-        const cellIndex = editor.document.cells.indexOf(cell);
         await editor.edit((edit) =>
-            edit.replaceCellMetadata(cellIndex, {
+            edit.replaceCellMetadata(cell.index, {
                 ...cell.metadata,
                 executionOrder: executionCount
             })
@@ -109,6 +107,5 @@ export async function updateCellOutput(editor: NotebookEditor, cell: NotebookCel
     if (cell.outputs.length === newOutput.length && fastDeepEqual(cell.outputs, newOutput)) {
         return;
     }
-    const cellIndex = cell.notebook.cells.indexOf(cell);
-    await editor.edit((edit) => edit.replaceCellOutput(cellIndex, newOutput));
+    await editor.edit((edit) => edit.replaceCellOutput(cell.index, newOutput));
 }
