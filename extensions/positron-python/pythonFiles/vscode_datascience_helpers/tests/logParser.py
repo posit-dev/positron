@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 import sys
 import argparse
 import os
@@ -18,13 +19,25 @@ parser.add_argument(
 )
 ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 pid_regex = re.compile(r"(\d+).*")
+timestamp_regex = re.compile(r"\d{4}-\d{2}-\d{2}T.*\dZ")
+
+
+def stripTimestamp(line: str):
+    match = timestamp_regex.match(line)
+    if match:
+        return line[match.end() :]
+    return line
+
+
+def readStripLines(f: TextIOWrapper):
+    return map(stripTimestamp, f.readlines())
 
 
 def printTestOutput(testlog):
     # Find all the lines that don't have a PID in them. These are the test output
     p = Path(testlog[0])
     with p.open() as f:
-        for line in f.readlines():
+        for line in readStripLines(f):
             stripped = line.strip()
             if len(stripped) > 2 and stripped[0] == "\x1B" and stripped[1] == "[":
                 print(line.rstrip())  # Should be a test line as it has color encoding
@@ -38,15 +51,14 @@ def splitByPid(testlog):
     logs = {}
     pid = None
     with p.open() as f:
-        for line in f.readlines():
+        for line in readStripLines(f):
             stripped = ansi_escape.sub("", line.strip())
-            # See if starts with a pid
-            if len(stripped) > 0 and stripped[0] <= "9" and stripped[0] >= "0":
+            if len(stripped) > 0:
                 # Pull out the pid
                 match = pid_regex.match(stripped)
 
                 # Pids are at least two digits
-                if match != None and len(match.group(1)) > 2:
+                if match and len(match.group(1)) > 2:
                     # Pid is found
                     pid = int(match.group(1))
 
