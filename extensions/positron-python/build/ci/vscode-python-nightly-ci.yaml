@@ -41,9 +41,8 @@ stages:
         strategy:
           matrix:
             'Unit':
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonInternalTools, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests, pythonInternalTools'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               TestsToRun: 'testfunctional'
               NeedsPythonTestReqs: true
@@ -65,7 +64,6 @@ stages:
             'Smoke':
               TestsToRun: 'testSmoke'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
           maxParallel: 1
         pool:
           vmImage: 'ubuntu-20.04'
@@ -80,9 +78,8 @@ stages:
             'Unit':
               PythonVersion: '3.6'
               # Note: "pythonInternalTools" tests are 3.7+.
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               PythonVersion: '3.6'
               TestsToRun: 'testfunctional'
@@ -120,9 +117,8 @@ stages:
             'Unit':
               PythonVersion: '2.7'
               # Note: "pythonInternalTools" tests are 3.7+.
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               PythonVersion: '2.7'
               TestsToRun: 'testfunctional'
@@ -158,9 +154,8 @@ stages:
         strategy:
           matrix:
             'Unit':
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonInternalTools, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests, pythonInternalTools'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               TestsToRun: 'testfunctional'
               NeedsPythonTestReqs: true
@@ -181,7 +176,6 @@ stages:
             'Smoke':
               TestsToRun: 'testSmoke'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
           maxParallel: 1
         pool:
           vmImage: '$(vmImageMacOS)'
@@ -196,9 +190,8 @@ stages:
             'Unit':
               PythonVersion: '3.6'
               # Note: "pythonInternalTools" tests are 3.7+.
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               PythonVersion: '3.6'
               TestsToRun: 'testfunctional'
@@ -236,9 +229,8 @@ stages:
             'Unit':
               PythonVersion: '2.7'
               # Note: "pythonInternalTools" tests are 3.7+.
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               PythonVersion: '2.7'
               TestsToRun: 'testfunctional'
@@ -274,9 +266,8 @@ stages:
         strategy:
           matrix:
             'Unit':
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonInternalTools, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests, pythonInternalTools'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               TestsToRun: 'testfunctional'
               NeedsPythonTestReqs: true
@@ -297,7 +288,6 @@ stages:
             'Smoke':
               TestsToRun: 'testSmoke'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
           maxParallel: 1
         pool:
           vmImage: 'vs2017-win2016'
@@ -312,9 +302,8 @@ stages:
             'Unit':
               PythonVersion: '3.6'
               # Note: "pythonInternalTools" tests are 3.7+.
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               PythonVersion: '3.6'
               TestsToRun: 'testfunctional'
@@ -352,9 +341,8 @@ stages:
             'Unit':
               PythonVersion: '2.7'
               # Note: "pythonInternalTools" tests are 3.7+.
-              TestsToRun: 'testUnitTests, pythonUnitTests, pythonIPythonTests'
+              TestsToRun: 'testUnitTests, pythonUnitTests'
               NeedsPythonTestReqs: true
-              NeedsIPythonReqs: true
             'Functional':
               PythonVersion: '2.7'
               TestsToRun: 'testfunctional'
