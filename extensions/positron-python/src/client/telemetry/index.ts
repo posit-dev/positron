@@ -108,42 +108,45 @@ export function sendTelemetryEvent<P extends IEventNamePropertyMapping, E extend
     }
     const reporter = getTelemetryReporter();
     const measures = typeof durationMs === 'number' ? { duration: durationMs } : durationMs ? durationMs : undefined;
-    let customProperties: Record<string, string> = {};
+    const customProperties: Record<string, string> = {};
     const eventNameSent = eventName as string;
 
+    if (properties) {
+        const data = properties as any;
+        Object.getOwnPropertyNames(data).forEach((prop) => {
+            if (data[prop] === undefined || data[prop] === null) {
+                return;
+            }
+            try {
+                // If there are any errors in serializing one property, ignore that and move on.
+                // Else nothing will be sent.
+                customProperties[prop] =
+                    typeof data[prop] === 'string'
+                        ? data[prop]
+                        : typeof data[prop] === 'object'
+                        ? 'object'
+                        : data[prop].toString();
+            } catch (ex) {
+                traceError(`Failed to serialize ${prop} for ${eventName}`, ex);
+            }
+        });
+    }
+
+    // Add shared properties to telemetry props (we may overwrite existing ones).
+    Object.assign(customProperties, sharedProperties);
+
     if (ex) {
-        // When sending telemetry events for exceptions no need to send custom properties.
-        // Else we have to review all properties every time as part of GDPR.
-        // Assume we have 10 events all with their own properties.
-        // As we have errors for each event, those properties are treated as new data items.
-        // Hence they need to be classified as part of the GDPR process, and thats unnecessary and onerous.
-        customProperties = { originalEventName: eventName as string };
-        reporter.sendTelemetryException(ex, customProperties, measures);
+        const errorProps = {
+            errorName: ex.name,
+            errorMessage: ex.message,
+            errorStack: ex.stack ?? ''
+        };
+        Object.assign(customProperties, errorProps);
+
+        // To avoid hardcoding the names and forgetting to update later.
+        const errorPropNames = Object.getOwnPropertyNames(errorProps);
+        reporter.sendTelemetryErrorEvent(eventNameSent, customProperties, measures, errorPropNames);
     } else {
-        if (properties) {
-            const data = properties as any;
-            Object.getOwnPropertyNames(data).forEach((prop) => {
-                if (data[prop] === undefined || data[prop] === null) {
-                    return;
-                }
-                try {
-                    // If there are any errors in serializing one property, ignore that and move on.
-                    // Else nothing will be sent.
-                    customProperties[prop] =
-                        typeof data[prop] === 'string'
-                            ? data[prop]
-                            : typeof data[prop] === 'object'
-                            ? 'object'
-                            : data[prop].toString();
-                } catch (ex) {
-                    traceError(`Failed to serialize ${prop} for ${eventName}`, ex);
-                }
-            });
-        }
-
-        // Add shared properties to telemetry props (we may overwrite existing ones).
-        Object.assign(customProperties, sharedProperties);
-
         reporter.sendTelemetryEvent(eventNameSent, customProperties, measures);
     }
 
