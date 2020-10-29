@@ -10,6 +10,7 @@ import { PYTHON_LANGUAGE } from '../../common/constants';
 import { traceError } from '../../common/logger';
 import * as internalScripts from '../../common/process/internal/scripts';
 import { IProcessServiceFactory } from '../../common/process/types';
+import { createDeferred } from '../../common/utils/async';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { ICodeExecutionHelper } from '../types';
@@ -36,12 +37,39 @@ export class CodeExecutionHelper implements ICodeExecutionHelper {
             // On windows cr is not handled well by python when passing in/out via stdin/stdout.
             // So just remove cr from the input.
             code = code.replace(new RegExp('\\r', 'g'), '');
+
             const interpreter = await this.interpreterService.getActiveInterpreter(resource);
             const processService = await this.processServiceFactory.create(resource);
-            const [args, parse] = internalScripts.normalizeForInterpreter(code);
-            const proc = await processService.exec(interpreter?.path || 'python', args, { throwOnStdErr: true });
+            const [args, parse] = internalScripts.normalizeForInterpreter();
+            const observable = processService.execObservable(interpreter?.path || 'python', args, {
+                throwOnStdErr: true
+            });
+            const normalizeOutput = createDeferred<string>();
 
-            return parse(proc.stdout);
+            // Read result from the normalization script from stdout, and resolve the promise when done.
+            let normalized = '';
+            observable.out.subscribe({
+                next: (output) => {
+                    if (output.source === 'stdout') {
+                        normalized += output.out;
+                    }
+                },
+                complete: () => {
+                    normalizeOutput.resolve(normalized);
+                }
+            });
+
+            // The normalization script expects a serialized JSON object, with the selection under the "code" key.
+            // We're using a JSON object so that we don't have to worry about encoding, or escaping non-ASCII characters.
+            const input = JSON.stringify({ code });
+            observable.proc?.stdin.write(input);
+            observable.proc?.stdin.end();
+
+            // We expect a serialized JSON object back, with the normalized code under the "normalized" key.
+            const result = await normalizeOutput.promise;
+            const object = JSON.parse(result);
+
+            return parse(object.normalized);
         } catch (ex) {
             traceError(ex, 'Python: Failed to normalize code for execution in terminal');
             return code;
