@@ -228,8 +228,8 @@ jobs:
 
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
-          echo "::set-env name=CI_PYTHON_PATH::python"
-          echo "::set-env name=CI_DISABLE_AUTO_SELECTION::1"
+          echo "CI_PYTHON_PATH=python" >> $GITHUB_ENV
+          echo "CI_DISABLE_AUTO_SELECTION=1" >> $GITHUB_ENV
         shell: bash
         if: matrix.test-suite != 'ts-unit'
 
@@ -362,8 +362,8 @@ jobs:
 
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
-          echo "::set-env name=CI_PYTHON_PATH::python"
-          echo "::set-env name=CI_DISABLE_AUTO_SELECTION::1"
+          echo "CI_PYTHON_PATH=python" >> $GITHUB_ENV
+          echo "CI_DISABLE_AUTO_SELECTION=1" >> $GITHUB_ENV
         shell: bash
 
       - name: Run smoke tests
@@ -428,8 +428,8 @@ jobs:
 
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
-          echo "::set-env name=CI_PYTHON_PATH::python"
-          echo "::set-env name=CI_DISABLE_AUTO_SELECTION::1"
+          echo "CI_PYTHON_PATH=python" >> $GITHUB_ENV
+          echo "CI_DISABLE_AUTO_SELECTION=1" >> $GITHUB_ENV
         shell: bash
 
       - name: Run insider tests
@@ -460,7 +460,7 @@ jobs:
       # The name pattern is ${{runner.os}}-${{env.COVERAGE_REPORTS}}, and possible values for runner.os are `Linux`, `Windows`, or `macOS`.
       # See https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#runner-context
       - name: Download Ubuntu test coverage artifacts
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v2
         with:
           name: Linux-${{env.COVERAGE_REPORTS}}
 
