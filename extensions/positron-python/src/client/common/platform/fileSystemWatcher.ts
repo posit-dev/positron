@@ -76,7 +76,7 @@ function watchLocationUsingChokidar(
             '**/lib/**',
             '**/includes/**'
         ], // https://github.com/microsoft/vscode/issues/23954
-        followSymlinks: false
+        followSymlinks: true
     };
     traceVerbose(`Start watching: ${baseDir} with pattern ${pattern} using chokidar`);
     let watcher: chokidar.FSWatcher | null = chokidar.watch(pattern, watcherOpts);
