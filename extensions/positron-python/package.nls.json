@@ -222,9 +222,9 @@
     "StartPage.badWebPanelFormatString": "<html><body><h1>{0} is not a valid file name</h1></body></html>",
     "Jupyter.extensionRequired": "The Jupyter extension is required to perform that task. Click Yes to open the Jupyter extension installation page.",
     "TensorBoard.logDirectoryPrompt" : "Please select a log directory to start TensorBoard with.",
-	"TensorBoard.installPrompt" : "The package TensorBoard is required in order to launch a TensorBoard session. Would you like to install it?",
-	"TensorBoard.failedToStartSessionError" : "We failed to start a TensorBoard session due to the following error: {0}",
     "TensorBoard.progressMessage" : "Starting TensorBoard session...",
+	"TensorBoard.failedToStartSessionError" : "We failed to start a TensorBoard session due to the following error: {0}",
+    "TensorBoard.nativeTensorBoardPrompt" : "VS Code now has native TensorBoard support. Would you like to launch TensorBoard?",
     "TensorBoard.usingCurrentWorkspaceFolder": "We are using the current workspace folder as the log directory for your TensorBoard session.",
     "TensorBoard.selectAFolder": "Select a folder"
 }

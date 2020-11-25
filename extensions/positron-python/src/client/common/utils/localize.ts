@@ -139,13 +139,13 @@ export namespace TensorBoard {
         'Please select a log directory to start TensorBoard with.'
     );
     export const progressMessage = localize('TensorBoard.progressMessage', 'Starting TensorBoard session...');
-    export const installTensorBoardPrompt = localize(
-        'TensorBoard.installPrompt',
-        'The package TensorBoard is required in order to launch a TensorBoard session. Would you like to install it?'
-    );
     export const failedToStartSessionError = localize(
         'TensorBoard.failedToStartSessionError',
         'We failed to start a TensorBoard session due to the following error: {0}'
+    );
+    export const nativeTensorBoardPrompt = localize(
+        'TensorBoard.nativeTensorBoardPrompt',
+        'VS Code now has native TensorBoard support. Would you like to launch TensorBoard?'
     );
     export const usingCurrentWorkspaceFolder = localize(
         'TensorBoard.usingCurrentWorkspaceFolder',
