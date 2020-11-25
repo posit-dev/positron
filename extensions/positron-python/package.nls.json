@@ -36,6 +36,7 @@
     "python.command.python.startPage.open.title": "Open Start Page",
     "python.command.python.analysis.clearCache.title": "Clear Module Analysis Cache",
     "python.command.python.analysis.restartLanguageServer.title": "Restart Language Server",
+    "python.command.python.launchTensorBoard.title": "Launch TensorBoard",
     "python.snippet.launch.standard.label": "Python: Current File",
     "python.snippet.launch.module.label": "Python: Module",
     "python.snippet.launch.module.default": "enter-your-module-name",
@@ -219,5 +220,11 @@
     "StartPage.openFolder": "Open a Folder or Workspace",
     "StartPage.folderDesc": "- Open a <div class=\"link\" role=\"button\" onclick={0}>Folder</div><br /> - Open a <div class=\"link\" role=\"button\" onclick={1}>Workspace</div>",
     "StartPage.badWebPanelFormatString": "<html><body><h1>{0} is not a valid file name</h1></body></html>",
-    "Jupyter.extensionRequired": "The Jupyter extension is required to perform that task. Click Yes to open the Jupyter extension installation page."
+    "Jupyter.extensionRequired": "The Jupyter extension is required to perform that task. Click Yes to open the Jupyter extension installation page.",
+    "TensorBoard.logDirectoryPrompt" : "Please select a log directory to start TensorBoard with.",
+	"TensorBoard.installPrompt" : "The package TensorBoard is required in order to launch a TensorBoard session. Would you like to install it?",
+	"TensorBoard.failedToStartSessionError" : "We failed to start a TensorBoard session due to the following error: {0}",
+    "TensorBoard.progressMessage" : "Starting TensorBoard session...",
+    "TensorBoard.usingCurrentWorkspaceFolder": "We are using the current workspace folder as the log directory for your TensorBoard session.",
+    "TensorBoard.selectAFolder": "Select a folder"
 }
