@@ -6,9 +6,8 @@
 import * as minimatch from 'minimatch';
 import * as path from 'path';
 import { FileChangeType, watchLocationForPattern } from '../../common/platform/fileSystemWatcher';
-import { DisposableRegistry } from '../../common/syncDisposableRegistry';
-import { IDisposable } from '../../common/types';
 import { getOSType, OSType } from '../../common/utils/platform';
+import { Disposables, IDisposable } from '../../common/utils/resourceLifecycle';
 
 const [executable, binName] = getOSType() === OSType.Windows ? ['python.exe', 'Scripts'] : ['python', 'bin'];
 
@@ -25,18 +24,31 @@ export function watchLocationForPythonBinaries(
     if (executableBaseGlob.includes(path.sep)) {
         throw new Error('Glob basename contains invalid characters');
     }
-    const patterns = [executableBaseGlob, `*/${executableBaseGlob}`, `*/${binName}/${executableBaseGlob}`];
-    const disposables = new DisposableRegistry();
-    for (const pattern of patterns) {
-        disposables.push(watchLocationForPattern(baseDir, pattern, (type: FileChangeType, e: string) => {
-            const isMatch = minimatch(path.basename(e), executableBaseGlob, { nocase: getOSType() === OSType.Windows });
-            if (!isMatch) {
-                // When deleting the file for some reason path to all directories leading up to python are reported
-                // Skip those events
-                return;
-            }
-            callback(type, e);
-        }));
+    function callbackClosure(type: FileChangeType, e: string) {
+        const isMatch = minimatch(
+            path.basename(e),
+            executableBaseGlob,
+            { nocase: getOSType() === OSType.Windows },
+        );
+        if (!isMatch) {
+            // When deleting the file for some reason path to all directories leading up to python are reported
+            // Skip those events
+            return;
+        }
+        callback(type, e);
     }
-    return disposables;
+
+    return new Disposables(
+        ...[
+            executableBaseGlob,
+            `*/${executableBaseGlob}`,
+            `*/${binName}/${executableBaseGlob}`,
+        ].map(
+            (pattern) => watchLocationForPattern(
+                baseDir,
+                pattern,
+                callbackClosure,
+            ),
+        ),
+    );
 }

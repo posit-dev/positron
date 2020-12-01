@@ -9,7 +9,7 @@ import { Architecture, getEnvironmentVariable } from '../../../../common/utils/p
 import { PythonEnvInfo, PythonEnvKind } from '../../../base/info';
 import { buildEnvInfo } from '../../../base/info/env';
 import { getPythonVersionFromPath } from '../../../base/info/pythonVersion';
-import { IDisposableLocator, IPythonEnvsIterator } from '../../../base/locator';
+import { IPythonEnvsIterator } from '../../../base/locator';
 import { FSWatchingLocator } from '../../../base/locators/lowLevel/fsWatchingLocator';
 import { getFileInfo } from '../../../common/externalDependencies';
 
@@ -138,7 +138,7 @@ export async function getWindowsStorePythonExes(): Promise<string[]> {
         .filter(isWindowsStorePythonExe);
 }
 
-class WindowsStoreLocator extends FSWatchingLocator {
+export class WindowsStoreLocator extends FSWatchingLocator {
     private readonly kind: PythonEnvKind = PythonEnvKind.WindowsStore;
 
     constructor() {
@@ -149,7 +149,7 @@ class WindowsStoreLocator extends FSWatchingLocator {
         );
     }
 
-    public iterEnvs(): IPythonEnvsIterator {
+    protected doIterEnvs(): IPythonEnvsIterator {
         const iterator = async function* (kind: PythonEnvKind) {
             const exes = await getWindowsStorePythonExes();
             yield* exes.map(async (executable: string) => buildEnvInfo({
@@ -164,7 +164,7 @@ class WindowsStoreLocator extends FSWatchingLocator {
         return iterator(this.kind);
     }
 
-    public async resolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
+    protected async doResolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
         const executablePath = typeof env === 'string' ? env : env.executable.filename;
         if (await isWindowsStoreEnvironment(executablePath)) {
             return buildEnvInfo({
@@ -178,10 +178,4 @@ class WindowsStoreLocator extends FSWatchingLocator {
         }
         return undefined;
     }
-}
-
-export async function createWindowsStoreLocator(): Promise<IDisposableLocator> {
-    const locator = new WindowsStoreLocator();
-    await locator.initialize();
-    return locator;
 }

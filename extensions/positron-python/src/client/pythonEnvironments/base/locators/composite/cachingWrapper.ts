@@ -12,6 +12,7 @@ import {
 } from '../../locator';
 import { getEnvs as getFinalEnvs } from '../../locatorUtils';
 import { PythonEnvsChangedEvent, PythonEnvsWatcher } from '../../watcher';
+import { LazyResourceBasedLocator } from '../common/resourceBasedLocator';
 
 /**
  * A locator that wraps another, caching its iterated envs.
@@ -20,12 +21,10 @@ import { PythonEnvsChangedEvent, PythonEnvsWatcher } from '../../watcher';
  * (and only then).  So the way to force a refresh is to force
  * such an event to be emitted.
  */
-export class CachingLocatorWrapper implements ILocator {
+export class CachingLocatorWrapper extends LazyResourceBasedLocator {
     public readonly onChanged: Event<PythonEnvsChangedEvent>;
 
     private readonly watcher = new PythonEnvsWatcher();
-
-    private initialized = false;
 
     private refreshing: Promise<void> | undefined;
 
@@ -34,70 +33,50 @@ export class CachingLocatorWrapper implements ILocator {
     constructor(
         private readonly wrapped: ILocator,
     ) {
+        super();
         this.onChanged = this.watcher.onChanged;
-
-        wrapped.onChanged((event) => {
-            if (this.initialized) {
-                // Refresh the cache in the background.
-                if (this.refreshing) {
-                    // The wrapped locator noticed changes while we're
-                    // already refreshing, so trigger another refresh
-                    // when that finishes.
-                    this.refreshing
-                        .then(() => this.refresh(event))
-                        .ignoreErrors();
-                } else {
-                    this.refresh(event)
-                        .ignoreErrors();
-                }
-            }
-        });
     }
 
-    /**
-     * Prepare the locator for use.
-     *
-     * This should be called as soon as possible before using the locator.
-     */
-    public async initialize(): Promise<void> {
-        if (this.initialized) {
-            return;
-        }
-        this.initialized = true;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    protected async* doIterEnvs(_query?: PythonLocatorQuery): IPythonEnvsIterator {
+        yield* this.cache.getEnvs();
+    }
 
+    protected async doResolveEnv(env: string | Partial<PythonEnvInfo>): Promise<PythonEnvInfo | undefined> {
+        if (this.refreshing !== undefined) {
+            await this.refreshing;
+        }
+        return this.cache.lookUp(env);
+    }
+
+    protected async initResources(): Promise<void> {
         // Populate the cache with initial data.
         await this.refresh();
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public iterEnvs(_query?: PythonLocatorQuery): IPythonEnvsIterator {
-        // Get the envs early in case a refresh is triggered.
-        let envs = this.cache.getEnvs();
-        async function* generator(self: CachingLocatorWrapper) {
-            if (!self.initialized) {
-                await self.initialize();
-                envs = self.cache.getEnvs();
+    protected async initWatchers(): Promise<void> {
+        const listener = this.wrapped.onChanged((event) => {
+            // Refresh the cache in the background.
+            if (this.refreshing) {
+                // The wrapped locator noticed changes while we're
+                // already refreshing, so trigger another refresh
+                // when that finishes.
+                this.refreshing
+                    .then(() => this.refresh(event))
+                    .ignoreErrors();
+            } else {
+                this.refresh(event)
+                    .ignoreErrors();
             }
-            yield* envs;
-        }
-        return generator(this);
-    }
-
-    public async resolveEnv(env: string | Partial<PythonEnvInfo>): Promise<PythonEnvInfo | undefined> {
-        if (this.refreshing !== undefined) {
-            await this.refreshing;
-        }
-        if (!this.initialized) {
-            await this.initialize();
-        }
-        return this.cache.lookUp(env);
+        });
+        this.disposables.push(listener);
     }
 
     /**
      * Update the cache using the values iterated from the wrapped locator.
      */
     private async refresh(
-        event: PythonEnvsChangedEvent = {},
+        event?: PythonEnvsChangedEvent,
     ): Promise<void> {
         if (this.refreshing !== undefined) {
             await this.refreshing;
@@ -111,7 +90,7 @@ export class CachingLocatorWrapper implements ILocator {
         const refreshed = await getFinalEnvs(iterator);
         // Handle changed data.
         const updated = this.cache.setEnvs(refreshed);
-        if (updated) {
+        if (updated && event !== undefined) {
             this.watcher.fire(event);
         }
 

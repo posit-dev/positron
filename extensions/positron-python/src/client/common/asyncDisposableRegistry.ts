@@ -2,26 +2,19 @@
 // Licensed under the MIT License.
 'use strict';
 import { injectable } from 'inversify';
-import { IAsyncDisposable, IAsyncDisposableRegistry, IDisposable } from './types';
+import { IAsyncDisposableRegistry } from './types';
+import { Disposables, IDisposable } from './utils/resourceLifecycle';
 
 // List of disposables that need to run a promise.
 @injectable()
 export class AsyncDisposableRegistry implements IAsyncDisposableRegistry {
-    private _list: (IDisposable | IAsyncDisposable)[] = [];
+    private readonly disposables = new Disposables();
+
+    public push(...disposables: IDisposable[]): void {
+        this.disposables.push(...disposables);
+    }
 
     public async dispose(): Promise<void> {
-        const promises = this._list.map((l) => l.dispose());
-        await Promise.all(promises);
-        this._list = [];
-    }
-
-    public push(disposable?: IDisposable | IAsyncDisposable) {
-        if (disposable) {
-            this._list.push(disposable);
-        }
-    }
-
-    public get list(): (IDisposable | IAsyncDisposable)[] {
-        return this._list;
+        return this.disposables.dispose();
     }
 }

@@ -59,7 +59,6 @@ import {
 } from './discovery/locators/services/workspaceVirtualEnvService';
 import { WorkspaceVirtualEnvWatcherService } from './discovery/locators/services/workspaceVirtualEnvWatcherService';
 import { EnvironmentType, PythonEnvironment } from './info';
-import { EnvironmentInfoService, IEnvironmentInfoService } from './info/environmentInfoService';
 
 const convertedKinds = new Map(Object.entries({
     [PythonEnvKind.System]: EnvironmentType.System,
@@ -282,7 +281,9 @@ class ComponentAdapter implements IComponentAdapter {
     }
 }
 
-export function registerLegacyDiscoveryForIOC(serviceManager: IServiceManager): void {
+export function registerLegacyDiscoveryForIOC(
+    serviceManager: IServiceManager,
+): void {
     serviceManager.addSingleton<IInterpreterLocatorHelper>(IInterpreterLocatorHelper, InterpreterLocatorHelper);
     serviceManager.addSingleton<IInterpreterLocatorService>(
         IInterpreterLocatorService,
@@ -363,11 +364,12 @@ export function registerLegacyDiscoveryForIOC(serviceManager: IServiceManager): 
         KnownSearchPathsForInterpreters,
     );
     serviceManager.addSingleton<IInterpreterWatcherBuilder>(IInterpreterWatcherBuilder, InterpreterWatcherBuilder);
-
-    serviceManager.addSingletonInstance<IEnvironmentInfoService>(IEnvironmentInfoService, new EnvironmentInfoService());
 }
 
-export function registerNewDiscoveryForIOC(serviceManager: IServiceManager, api:IPythonEnvironments): void {
+export function registerNewDiscoveryForIOC(
+    serviceManager: IServiceManager,
+    api:IPythonEnvironments,
+): void {
     serviceManager.addSingletonInstance<IComponentAdapter>(IComponentAdapter, new ComponentAdapter(api));
 }
 

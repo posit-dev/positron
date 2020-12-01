@@ -6,11 +6,11 @@ import * as path from 'path';
 import { traceVerbose } from '../../../../common/logger';
 import { chain, iterable } from '../../../../common/utils/async';
 import {
-    getEnvironmentVariable, getOSType, getUserHomeDir, OSType
+    getEnvironmentVariable, getOSType, getUserHomeDir, OSType,
 } from '../../../../common/utils/platform';
 import { PythonEnvInfo, PythonEnvKind } from '../../../base/info';
 import { buildEnvInfo } from '../../../base/info/env';
-import { IDisposableLocator, IPythonEnvsIterator } from '../../../base/locator';
+import { IPythonEnvsIterator } from '../../../base/locator';
 import { FSWatchingLocator } from '../../../base/locators/lowLevel/fsWatchingLocator';
 import {
     findInterpretersInDir, getEnvironmentDirFromPath, getPythonVersionFromPath, isStandardPythonBinary
@@ -20,7 +20,7 @@ import { isPipenvEnvironment } from './pipEnvHelper';
 import {
     isVenvEnvironment,
     isVirtualenvEnvironment,
-    isVirtualenvwrapperEnvironment
+    isVirtualenvwrapperEnvironment,
 } from './virtualEnvironmentIdentifier';
 
 const DEFAULT_SEARCH_DEPTH = 2;
@@ -98,7 +98,7 @@ async function buildSimpleVirtualEnvInfo(executablePath: string, kind: PythonEnv
 /**
  * Finds and resolves virtual environments created in known global locations.
  */
-class GlobalVirtualEnvironmentLocator extends FSWatchingLocator {
+export class GlobalVirtualEnvironmentLocator extends FSWatchingLocator {
     constructor(private readonly searchDepth?: number) {
         super(getGlobalVirtualEnvDirs, getVirtualEnvKind, {
             // Note detecting kind of virtual env depends on the file structure around the
@@ -109,7 +109,7 @@ class GlobalVirtualEnvironmentLocator extends FSWatchingLocator {
         });
     }
 
-    public iterEnvs(): IPythonEnvsIterator {
+    protected doIterEnvs(): IPythonEnvsIterator {
         // Number of levels of sub-directories to recurse when looking for
         // interpreters
         const searchDepth = this.searchDepth ?? DEFAULT_SEARCH_DEPTH;
@@ -149,7 +149,7 @@ class GlobalVirtualEnvironmentLocator extends FSWatchingLocator {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    public async resolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
+    protected async doResolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
         const executablePath = typeof env === 'string' ? env : env.executable.filename;
         if (await pathExists(executablePath)) {
             // We should extract the kind here to avoid doing is*Environment()
@@ -160,10 +160,4 @@ class GlobalVirtualEnvironmentLocator extends FSWatchingLocator {
         }
         return undefined;
     }
-}
-
-export async function createGlobalVirtualEnvironmentLocator(searchDepth?: number): Promise<IDisposableLocator> {
-    const locator = new GlobalVirtualEnvironmentLocator(searchDepth);
-    await locator.initialize();
-    return locator;
 }

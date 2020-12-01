@@ -57,10 +57,11 @@ export class PythonEnvsResolver implements ILocator {
         const seen: PythonEnvInfo[] = [];
 
         if (iterator.onUpdated !== undefined) {
-            iterator.onUpdated((event) => {
+            const listener = iterator.onUpdated((event) => {
                 if (event === null) {
                     state.done = true;
                     checkIfFinishedAndNotify(state, didUpdate);
+                    listener.dispose();
                 } else if (seen[event.index] !== undefined) {
                     seen[event.index] = event.update;
                     state.pending += 1;
