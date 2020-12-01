@@ -4,6 +4,7 @@
 import { Uri } from 'vscode';
 import { createDeferred } from '../../common/utils/async';
 import { getURIFilter } from '../../common/utils/misc';
+import { IDisposable } from '../../common/utils/resourceLifecycle';
 import { PythonEnvInfo } from './info';
 import { getEnvMatcher, getMaxDerivedEnvInfo } from './info/env';
 import {
@@ -84,9 +85,10 @@ export async function getEnvs(iterator: IPythonEnvsIterator): Promise<PythonEnvI
     if (iterator.onUpdated === undefined) {
         updatesDone.resolve();
     } else {
-        iterator.onUpdated((event: PythonEnvUpdatedEvent | null) => {
+        const listener = iterator.onUpdated((event: PythonEnvUpdatedEvent | null) => {
             if (event === null) {
                 updatesDone.resolve();
+                listener.dispose();
             } else {
                 const { index, update } = event;
                 // We don't worry about if envs[index] is set already.
@@ -103,8 +105,8 @@ export async function getEnvs(iterator: IPythonEnvsIterator): Promise<PythonEnvI
         }
         itemIndex += 1;
     }
-
     await updatesDone.promise;
+
     return envs;
 }
 
@@ -172,9 +174,10 @@ export async function resolveEnvFromIterator(
 
     const matchEnv = getEnvMatcher(env);
 
+    let listener: IDisposable | undefined;
     const done = createDeferred<void>();
     if (iterator.onUpdated !== undefined) {
-        iterator.onUpdated((event: PythonEnvUpdatedEvent | null) => {
+        listener = iterator.onUpdated((event: PythonEnvUpdatedEvent | null) => {
             if (event === null) {
                 done.resolve();
             } else if (matchEnv(event.update)) {
@@ -190,6 +193,10 @@ export async function resolveEnvFromIterator(
         }
     }
     await done.promise;
+
+    if (listener !== undefined) {
+        listener.dispose();
+    }
 
     return resolved;
 }

@@ -51,10 +51,11 @@ async function* iterEnvsIterator(
     const seen: PythonEnvInfo[] = [];
 
     if (iterator.onUpdated !== undefined) {
-        iterator.onUpdated((event) => {
+        const listener = iterator.onUpdated((event) => {
             if (event === null) {
                 state.done = true;
                 checkIfFinishedAndNotify(state, didUpdate);
+                listener.dispose();
             } else if (seen[event.index] !== undefined) {
                 state.pending += 1;
                 resolveDifferencesInBackground(event.index, event.update, state, didUpdate, seen).ignoreErrors();

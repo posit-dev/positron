@@ -239,11 +239,11 @@ class WorkerPool<T, R> implements IWorkerPool<T, R> {
     }
 }
 
-export function createWorkerPool<T, R>(
+export function createRunningWorkerPool<T, R>(
     workerFunc: WorkFunc<T, R>,
-    numWorkers: number = 2,
-    name: string = 'Worker'
-): IWorkerPool<T, R> {
+    numWorkers?: number,
+    name?: string
+): WorkerPool<T, R> {
     const pool = new WorkerPool<T, R>(workerFunc, numWorkers, name);
     pool.start();
     return pool;

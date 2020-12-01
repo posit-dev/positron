@@ -7,8 +7,7 @@ import * as chokidar from 'chokidar';
 import * as path from 'path';
 import { RelativePattern, workspace } from 'vscode';
 import { traceError, traceVerbose } from '../logger';
-import { DisposableRegistry } from '../syncDisposableRegistry';
-import { IDisposable } from '../types';
+import { Disposables, IDisposable } from '../utils/resourceLifecycle';
 import { normCasePath } from './fs-paths';
 
 /**
@@ -41,7 +40,7 @@ function watchLocationUsingVSCodeAPI(
     callback: (type: FileChangeType, absPath: string) => void
 ): IDisposable {
     const globPattern = new RelativePattern(baseDir, pattern);
-    const disposables = new DisposableRegistry();
+    const disposables = new Disposables();
     traceVerbose(`Start watching: ${baseDir} with pattern ${pattern} using VSCode API`);
     const watcher = workspace.createFileSystemWatcher(globPattern);
     disposables.push(watcher.onDidCreate((e) => callback(FileChangeType.Created, e.fsPath)));

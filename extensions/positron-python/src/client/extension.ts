@@ -99,11 +99,18 @@ async function activateUnsafe(
     //===============================================
     // activation starts here
 
-    const [serviceManager, serviceContainer] = initializeGlobals(context);
-    activatedServiceContainer = serviceContainer;
-    initializeCommon(context, serviceManager, serviceContainer);
-    await initializeComponents(context, serviceManager, serviceContainer);
-    const { activationPromise } = await activateComponents(context, serviceManager, serviceContainer);
+    // First we initialize.
+    const ext = initializeGlobals(context);
+    activatedServiceContainer = ext.legacyIOC.serviceContainer;
+    initializeCommon(ext);
+    const components = initializeComponents(ext);
+
+    // Then we finish activating.
+    const componentsActivated = await activateComponents(ext, components);
+    const nonBlocking = componentsActivated.map((r) => r.fullyReady);
+    const activationPromise = (async () => {
+        await Promise.all(nonBlocking);
+    })();
 
     //===============================================
     // activation ends here
@@ -111,8 +118,8 @@ async function activateUnsafe(
     startupDurations.endActivateTime = startupStopWatch.elapsedTime;
     activationDeferred.resolve();
 
-    const api = buildApi(activationPromise, serviceManager, serviceContainer);
-    return [api, activationPromise, serviceContainer];
+    const api = buildApi(activationPromise, ext.legacyIOC.serviceManager, ext.legacyIOC.serviceContainer);
+    return [api, activationPromise, ext.legacyIOC.serviceContainer];
 }
 
 // tslint:disable-next-line:no-any

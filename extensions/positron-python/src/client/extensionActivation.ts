@@ -25,7 +25,6 @@ import {
     IConfigurationService,
     IDisposableRegistry,
     IExperimentsManager,
-    IExtensionContext,
     IFeatureDeprecationManager,
     IOutputChannel
 } from './common/types';
@@ -44,7 +43,6 @@ import {
     IInterpreterService
 } from './interpreter/contracts';
 import { registerTypes as interpretersRegisterTypes } from './interpreter/serviceRegistry';
-import { IServiceContainer, IServiceManager } from './ioc/types';
 import { getLanguageConfiguration } from './language/languageConfiguration';
 import { LinterCommands } from './linters/linterCommands';
 import { registerTypes as lintersRegisterTypes } from './linters/serviceRegistry';
@@ -65,14 +63,32 @@ import { ITestContextService } from './testing/common/types';
 import { ITestCodeNavigatorCommandHandler, ITestExplorerCommandHandler } from './testing/navigation/types';
 import { registerTypes as unitTestsRegisterTypes } from './testing/serviceRegistry';
 
-export async function activateComponents(
-    context: IExtensionContext,
-    serviceManager: IServiceManager,
-    serviceContainer: IServiceContainer
-) {
-    // We will be pulling code over from activateLegacy().
+// components
+import * as pythonEnvironments from './pythonEnvironments';
 
-    return activateLegacy(context, serviceManager, serviceContainer);
+import { ActivationResult, ExtensionState } from './components';
+import { Components } from './extensionInit';
+
+export async function activateComponents(
+    // `ext` is passed to any extra activation funcs.
+    ext: ExtensionState,
+    components: Components
+): Promise<ActivationResult[]> {
+    // Note that each activation returns a promise that resolves
+    // when that activation completes.  However, it might have started
+    // some non-critical background operations that do not block
+    // extension activation but do block use of the extension "API".
+    // Each component activation can't just resolve an "inner" promise
+    // for those non-critical operations because `await` (and
+    // `Promise.all()`, etc.) will flatten nested promises.  Thus
+    // activation resolves `ActivationResult`, which can safely wrap
+    // the "inner" promise.
+    const promises: Promise<ActivationResult>[] = [
+        pythonEnvironments.activate(components.pythonEnvs),
+        // These will go away eventually.
+        activateLegacy(ext)
+    ];
+    return Promise.all(promises);
 }
 
 /////////////////////////////
@@ -85,11 +101,10 @@ export async function activateComponents(
 // init and activation: move them to activateComponents().
 // See https://github.com/microsoft/vscode-python/issues/10454.
 
-async function activateLegacy(
-    context: IExtensionContext,
-    serviceManager: IServiceManager,
-    serviceContainer: IServiceContainer
-) {
+async function activateLegacy(ext: ExtensionState): Promise<ActivationResult> {
+    const { context, legacyIOC } = ext;
+    const { serviceManager, serviceContainer } = legacyIOC;
+
     // register "services"
 
     const standardOutputChannel = window.createOutputChannel(OutputChannelNames.python());
@@ -215,5 +230,5 @@ async function activateLegacy(
 
     serviceContainer.get<IDebuggerBanner>(IDebuggerBanner).initialize();
 
-    return { activationPromise };
+    return { fullyReady: activationPromise };
 }

@@ -5,17 +5,17 @@ import * as path from 'path';
 import { traceVerbose } from '../../../../common/logger';
 import { chain, iterable } from '../../../../common/utils/async';
 import {
-    findInterpretersInDir, getEnvironmentDirFromPath, getPythonVersionFromPath, isStandardPythonBinary
+    findInterpretersInDir, getEnvironmentDirFromPath, getPythonVersionFromPath, isStandardPythonBinary,
 } from '../../../common/commonUtils';
 import {
-    getFileInfo, isParentPath, pathExists
+    getFileInfo, isParentPath, pathExists,
 } from '../../../common/externalDependencies';
 import { isCondaEnvironment } from '../../../discovery/locators/services/condaLocator';
 import { isPipenvEnvironment } from '../../../discovery/locators/services/pipEnvHelper';
 import { isVenvEnvironment, isVirtualenvEnvironment } from '../../../discovery/locators/services/virtualEnvironmentIdentifier';
 import { PythonEnvInfo, PythonEnvKind } from '../../info';
 import { buildEnvInfo } from '../../info/env';
-import { IDisposableLocator, IPythonEnvsIterator } from '../../locator';
+import { IPythonEnvsIterator } from '../../locator';
 import { FSWatchingLocator } from './fsWatchingLocator';
 
 /**
@@ -76,7 +76,7 @@ async function buildSimpleVirtualEnvInfo(executablePath: string, kind: PythonEnv
 /**
  * Finds and resolves virtual environments created in workspace roots.
  */
-class WorkspaceVirtualEnvironmentLocator extends FSWatchingLocator {
+export class WorkspaceVirtualEnvironmentLocator extends FSWatchingLocator {
     public constructor(private readonly root: string) {
         super(() => getWorkspaceVirtualEnvDirs(this.root), getVirtualEnvKind, {
             // Note detecting kind of virtual env depends on the file structure around the
@@ -85,7 +85,7 @@ class WorkspaceVirtualEnvironmentLocator extends FSWatchingLocator {
         });
     }
 
-    public iterEnvs(): IPythonEnvsIterator {
+    protected doIterEnvs(): IPythonEnvsIterator {
         async function* iterator(root: string) {
             const envRootDirs = getWorkspaceVirtualEnvDirs(root);
             const envGenerators = envRootDirs.map((envRootDir) => {
@@ -121,7 +121,7 @@ class WorkspaceVirtualEnvironmentLocator extends FSWatchingLocator {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    public async resolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
+    protected async doResolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
         const executablePath = typeof env === 'string' ? env : env.executable.filename;
         if (isParentPath(executablePath, this.root) && await pathExists(executablePath)) {
             // We should extract the kind here to avoid doing is*Environment()
@@ -132,10 +132,4 @@ class WorkspaceVirtualEnvironmentLocator extends FSWatchingLocator {
         }
         return undefined;
     }
-}
-
-export async function createWorkspaceVirtualEnvLocator(root: string): Promise<IDisposableLocator> {
-    const locator = new WorkspaceVirtualEnvironmentLocator(root);
-    await locator.initialize();
-    return locator;
 }

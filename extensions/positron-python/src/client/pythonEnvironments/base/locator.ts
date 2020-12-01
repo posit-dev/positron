@@ -5,8 +5,6 @@
 /* eslint-disable max-classes-per-file */
 
 import { Event, Uri } from 'vscode';
-import { DisposableRegistry } from '../../common/syncDisposableRegistry';
-import { IDisposable } from '../../common/types';
 import { IAsyncIterableIterator, iterEmpty } from '../../common/utils/async';
 import { PythonEnvInfo, PythonEnvKind } from './info';
 import {
@@ -167,9 +165,6 @@ export interface ILocator<E extends BasicPythonEnvsChangedEvent = PythonEnvsChan
     resolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined>;
 }
 
-export interface IDisposableLocator<E extends BasicPythonEnvsChangedEvent = PythonEnvsChangedEvent>
-    extends ILocator<E>, IDisposable{}
-
 interface IEmitter<E extends BasicPythonEnvsChangedEvent> {
     fire(e: E): void;
 }
@@ -187,12 +182,10 @@ interface IEmitter<E extends BasicPythonEnvsChangedEvent> {
  * `BasicPythonEnvsChangedEvent`.
  */
 abstract class LocatorBase<E extends BasicPythonEnvsChangedEvent = PythonEnvsChangedEvent>
-implements IDisposableLocator<E> {
+implements ILocator<E> {
     public readonly onChanged: Event<E>;
 
     protected readonly emitter: IEmitter<E>;
-
-    protected readonly disposables = new DisposableRegistry();
 
     constructor(watcher: IPythonEnvsWatcher<E> & IEmitter<E>) {
         this.emitter = watcher;
@@ -205,10 +198,6 @@ implements IDisposableLocator<E> {
     // eslint-disable-next-line class-methods-use-this,@typescript-eslint/no-unused-vars
     public async resolveEnv(_env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
         return undefined;
-    }
-
-    public dispose(): void {
-        this.disposables.dispose();
     }
 }
 
