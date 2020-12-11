@@ -49,39 +49,6 @@ export class TensorBoardSession {
         private readonly commandManager: ICommandManager
     ) {}
 
-    private static async showFilePicker(): Promise<string | undefined> {
-        const selection = await window.showOpenDialog({
-            canSelectFiles: false,
-            canSelectFolders: true,
-            canSelectMany: false
-        });
-        // If the user selected a folder, return the uri.fsPath
-        // There will only be one selection since canSelectMany: false
-        if (selection) {
-            return selection[0].fsPath;
-        }
-        return undefined;
-    }
-
-    private static getQuickPickItems(logDir: string | undefined) {
-        if (logDir) {
-            const useCwd = {
-                label: TensorBoard.useCurrentWorkingDirectory(),
-                detail: TensorBoard.useCurrentWorkingDirectoryDetail()
-            };
-            const selectAnotherFolder = {
-                label: TensorBoard.selectAnotherFolder(),
-                detail: TensorBoard.selectAnotherFolderDetail()
-            };
-            return [useCwd, selectAnotherFolder];
-        }
-        const selectAFolder = {
-            label: TensorBoard.selectAFolder(),
-            detail: TensorBoard.selectAFolderDetail()
-        };
-        return [selectAFolder];
-    }
-
     public async initialize(): Promise<void> {
         const tensorBoardWasInstalled = await this.ensureTensorboardIsInstalled();
         if (!tensorBoardWasInstalled) {
@@ -124,6 +91,38 @@ export class TensorBoardSession {
         return response === InstallerResponse.Installed;
     }
 
+    private async showFilePicker() {
+        const selection = await window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false
+        });
+        // If the user selected a folder, return the uri.fsPath
+        // There will only be one selection since canSelectMany: false
+        if (selection) {
+            return selection[0].fsPath;
+        }
+    }
+
+    private getQuickPickItems(logDir: string | undefined) {
+        if (logDir) {
+            const useCwd = {
+                label: TensorBoard.useCurrentWorkingDirectory(),
+                detail: TensorBoard.useCurrentWorkingDirectoryDetail()
+            };
+            const selectAnotherFolder = {
+                label: TensorBoard.selectAnotherFolder(),
+                detail: TensorBoard.selectAnotherFolderDetail()
+            };
+            return [useCwd, selectAnotherFolder];
+        }
+        const selectAFolder = {
+            label: TensorBoard.selectAFolder(),
+            detail: TensorBoard.selectAFolderDetail()
+        };
+        return [selectAFolder];
+    }
+
     // Display a quickpick asking the user to acknowledge our autopopulated log directory or
     // select a new one using the file picker. Default this to the folder that is open in
     // the editor, if any, then the directory that the active text editor is in, if any.
@@ -132,7 +131,7 @@ export class TensorBoardSession {
         const useCurrentWorkingDirectory = TensorBoard.useCurrentWorkingDirectory();
         const selectAFolder = TensorBoard.selectAFolder();
         const selectAnotherFolder = TensorBoard.selectAnotherFolder();
-        const items: QuickPickItem[] = TensorBoardSession.getQuickPickItems(logDir);
+        const items: QuickPickItem[] = this.getQuickPickItems(logDir);
         const quickPick = window.createQuickPick();
         quickPick.title = TensorBoard.logDirectoryPrompt();
         quickPick.canSelectMany = false;
@@ -154,7 +153,7 @@ export class TensorBoardSession {
                 return logDir;
             case selectAFolder:
             case selectAnotherFolder:
-                return TensorBoardSession.showFilePicker();
+                return this.showFilePicker();
             default:
                 return undefined;
         }
