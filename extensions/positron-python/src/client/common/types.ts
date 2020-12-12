@@ -78,7 +78,8 @@ export enum ProductType {
     TestFramework = 'TestFramework',
     RefactoringLibrary = 'RefactoringLibrary',
     WorkspaceSymbols = 'WorkspaceSymbols',
-    DataScience = 'DataScience'
+    DataScience = 'DataScience',
+    TensorBoard = 'TensorBoard'
 }
 
 export enum Product {
