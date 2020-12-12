@@ -166,6 +166,10 @@ export namespace TensorBoard {
         'TensorBoard.selectAnotherFolderDetail',
         'Use the file explorer to select another folder'
     );
+    export const installPrompt = localize(
+        'TensorBoard.installPrompt',
+        'The package TensorBoard is required to launch a TensorBoard session. Would you like to install it?'
+    );
     export const launchNativeTensorBoardSessionCodeLens = localize(
         'TensorBoard.launchNativeTensorBoardSessionCodeLens',
         '▶ Launch TensorBoard Session'

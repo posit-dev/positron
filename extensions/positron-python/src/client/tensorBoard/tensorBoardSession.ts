@@ -67,15 +67,15 @@ export class TensorBoardSession {
     // Ensure that the TensorBoard package is installed before we attempt
     // to start a TensorBoard session.
     private async ensureTensorboardIsInstalled() {
-        traceInfo('Ensuring TensorBoard package is installed');
-        if (await this.installer.isInstalled(Product.tensorboard)) {
-            return true;
-        }
+        traceInfo('Ensuring TensorBoard package is installed into active interpreter');
         const interpreter =
             (await this.interpreterService.getActiveInterpreter()) ||
             (await this.commandManager.executeCommand('python.setInterpreter'));
         if (!interpreter) {
-            return undefined;
+            return false;
+        }
+        if (await this.installer.isInstalled(Product.tensorboard, interpreter)) {
+            return true;
         }
         const tokenSource = new CancellationTokenSource();
         const installerToken = tokenSource.token;
@@ -91,7 +91,7 @@ export class TensorBoardSession {
         return response === InstallerResponse.Installed;
     }
 
-    private async showFilePicker() {
+    private async showFilePicker(): Promise<string | undefined> {
         const selection = await window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
@@ -102,6 +102,7 @@ export class TensorBoardSession {
         if (selection) {
             return selection[0].fsPath;
         }
+        return undefined;
     }
 
     private getQuickPickItems(logDir: string | undefined) {
@@ -132,23 +133,12 @@ export class TensorBoardSession {
         const selectAFolder = TensorBoard.selectAFolder();
         const selectAnotherFolder = TensorBoard.selectAnotherFolder();
         const items: QuickPickItem[] = this.getQuickPickItems(logDir);
-        const quickPick = window.createQuickPick();
-        quickPick.title = TensorBoard.logDirectoryPrompt();
-        quickPick.canSelectMany = false;
-        quickPick.enabled = false;
-        quickPick.items = items;
-        if (logDir) {
-            quickPick.placeholder = TensorBoard.currentDirectory().format(logDir);
-        }
-        const selection = createDeferred<QuickPickItem>();
-        quickPick.onDidAccept(() => {
-            quickPick.hide();
-            selection.resolve(quickPick.selectedItems[0]);
+        const item = await window.showQuickPick(items, {
+            canPickMany: false,
+            ignoreFocusOut: false,
+            placeHolder: logDir ? TensorBoard.currentDirectory().format(logDir) : undefined
         });
-        quickPick.show();
-        const item = await selection.promise;
-        quickPick.dispose();
-        switch (item.label) {
+        switch (item?.label) {
             case useCurrentWorkingDirectory:
                 return logDir;
             case selectAFolder:
@@ -205,6 +195,7 @@ export class TensorBoardSession {
                 throw new Error(`Timed out after ${timeout / 1000} seconds waiting for TensorBoard to launch.`);
             case 'canceled':
                 traceInfo('Canceled starting TensorBoard session.');
+                observable.dispose();
                 return false;
             case 'success':
                 this.process = observable.proc;

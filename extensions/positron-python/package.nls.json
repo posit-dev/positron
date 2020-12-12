@@ -232,6 +232,7 @@
     "TensorBoard.selectAFolderDetail": "Select a log directory containing tfevent files",
     "TensorBoard.selectAnotherFolderDetail": "Use the file explorer to select another folder",
     "TensorBoard.useCurrentWorkingDirectoryDetail": "TensorBoard will search for tfevent files in all subdirectories of the current working directory",
+    "TensorBoard.installPrompt": "The package TensorBoard is required to launch a TensorBoard session. Would you like to install it?",
     "TensorBoard.launchNativeTensorBoardSessionCodeAction": "Launch TensorBoard session",
     "TensorBoard.launchNativeTensorBoardSessionCodeLens": "▶ Launch TensorBoard Session"
 }
