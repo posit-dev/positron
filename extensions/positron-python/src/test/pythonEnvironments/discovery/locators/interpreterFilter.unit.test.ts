@@ -46,13 +46,15 @@ suite('Interpreters - Filter', () => {
     doNotHideThesePaths.forEach((interpreterPath) => {
         test(`Interpreter path should NOT be hidden - ${interpreterPath}`, () => {
             const interpreter: PythonEnvironment = getInterpreterFromPath(interpreterPath);
-            expect(isHiddenInterpreter(interpreter), `${interpreterPath} should NOT be treated as hidden.`).to.be.false;
+            // tslint:disable-next-line: chai-vague-errors
+            expect(isHiddenInterpreter(interpreter), `${interpreterPath} should NOT be treated as hidden.`).to.equal(false);
         });
     });
     hideThesePaths.forEach((interpreterPath) => {
         test(`Interpreter path should be hidden - ${interpreterPath}`, () => {
             const interpreter: PythonEnvironment = getInterpreterFromPath(interpreterPath);
-            expect(isHiddenInterpreter(interpreter), `${interpreterPath} should be treated as hidden.`).to.be.true;
+            // tslint:disable-next-line: chai-vague-errors
+            expect(isHiddenInterpreter(interpreter), `${interpreterPath} should be treated as hidden.`).to.equal(true);
         });
     });
 });

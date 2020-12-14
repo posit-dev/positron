@@ -44,12 +44,13 @@ export class Disposables implements IDisposables {
         this.disposables.push(...disposables);
     }
 
-    public push(...disposables: IDisposable[]) {
+    public push(...disposables: IDisposable[]): void {
         this.disposables.push(...disposables);
     }
 
     public async dispose(): Promise<void> {
-        const disposables = this.disposables;
+        // tslint:disable-next-line: no-this-assignment
+        const { disposables } = this;
         this.disposables = [];
         await disposeAll(disposables);
     }
