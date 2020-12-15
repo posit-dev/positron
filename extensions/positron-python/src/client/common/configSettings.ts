@@ -113,6 +113,7 @@ export class PythonSettings implements IPythonSettings {
     public experiments!: IExperiments;
     public languageServer: LanguageServerType = LanguageServerType.Microsoft;
     public logging: ILoggingSettings = { level: LogLevel.Error };
+    public useIsolation: boolean = true;
 
     protected readonly changed = new EventEmitter<void>();
     private workspaceRoot: Resource;
@@ -243,6 +244,8 @@ export class PythonSettings implements IPythonSettings {
         this.autoUpdateLanguageServer = systemVariables.resolveAny(
             pythonSettings.get<boolean>('autoUpdateLanguageServer', true)
         )!;
+
+        this.useIsolation = systemVariables.resolveAny(pythonSettings.get<boolean>('useIsolation', true))!;
 
         let ls = pythonSettings.get<LanguageServerType>('languageServer') ?? LanguageServerType.Jedi;
         ls = systemVariables.resolveAny(ls);
