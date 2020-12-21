@@ -78,8 +78,9 @@ jobs:
       - name: Check dependencies
         run: npm run checkDependencies
 
-      - name: Run linting on TypeScript code
-        run: npx tslint --project tsconfig.json
+      # TODO: Uncomment once we are ready to rely on eslint.
+      # - name: Run linting on TypeScript code
+      #   run: npm run lint
 
   ### Non-smoke tests
   tests:
