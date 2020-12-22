@@ -26,6 +26,7 @@ suite('Interpretersx - Interpreter Hash Provider Factory', () => {
         windowsStoreInterpreter = mock(WindowsStoreInterpreter);
         standardHashProvider = mock(InterpreterHashProvider);
         const windowsStoreInstance = instance(windowsStoreInterpreter);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (windowsStoreInstance as any).then = undefined;
         factory = new InterpeterHashProviderFactory(
             instance(configService),
@@ -55,6 +56,7 @@ suite('Interpretersx - Interpreter Hash Provider Factory', () => {
     test('When provided resource resolves to a python path that is not a window store interpreter return standard hash provider', async () => {
         const pythonPath = 'NonWindowsInterpreterPath';
         const resource = Uri.file('1');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         when(configService.getSettings(resource)).thenReturn({ pythonPath } as any);
         when(windowsStoreInterpreter.isWindowsStoreInterpreter(pythonPath)).thenReturn(Promise.resolve(false));
 
@@ -66,6 +68,7 @@ suite('Interpretersx - Interpreter Hash Provider Factory', () => {
     test('When provided resource resolves to a python path that is a windows store interpreter return windows store hash provider', async () => {
         const pythonPath = 'NonWindowsInterpreterPath';
         const resource = Uri.file('1');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         when(configService.getSettings(resource)).thenReturn({ pythonPath } as any);
         when(windowsStoreInterpreter.isWindowsStoreInterpreter(pythonPath)).thenReturn(Promise.resolve(true));
 

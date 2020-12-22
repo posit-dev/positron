@@ -69,6 +69,7 @@ suite('Interpreters Conda Service', () => {
         config = TypeMoq.Mock.ofType<IConfigurationService>();
         settings = TypeMoq.Mock.ofType<IPythonSettings>();
         procServiceFactory = TypeMoq.Mock.ofType<IProcessServiceFactory>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         processService.setup((x: any) => x.then).returns(() => undefined);
         procServiceFactory
             .setup((p) => p.create(TypeMoq.It.isAny()))
@@ -133,6 +134,7 @@ suite('Interpreters Conda Service', () => {
         );
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function resetMockState(data: any) {
         mockState = new MockState(data);
     }
