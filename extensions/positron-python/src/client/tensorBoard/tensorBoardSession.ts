@@ -19,7 +19,7 @@ import { createPromiseFromCancellation } from '../common/cancellation';
 import { traceError, traceInfo } from '../common/logger';
 import { tensorboardLauncher } from '../common/process/internal/scripts';
 import { IProcessServiceFactory, ObservableExecutionResult } from '../common/process/types';
-import { IInstaller, InstallerResponse, Product } from '../common/types';
+import { IDisposableRegistry, IInstaller, InstallerResponse, Product } from '../common/types';
 import { createDeferred, sleep } from '../common/utils/async';
 import { TensorBoard } from '../common/utils/localize';
 import { IInterpreterService } from '../interpreter/contracts';
@@ -47,6 +47,7 @@ export class TensorBoardSession {
         private readonly workspaceService: IWorkspaceService,
         private readonly processServiceFactory: IProcessServiceFactory,
         private readonly commandManager: ICommandManager,
+        private readonly disposables: IDisposableRegistry,
     ) {}
 
     public async initialize(): Promise<void> {
@@ -241,65 +242,58 @@ export class TensorBoardSession {
         const webviewPanel = window.createWebviewPanel('tensorBoardSession', 'TensorBoard', ViewColumn.Two, {
             enableScripts: true,
         });
+        webviewPanel.webview.html = `<!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'unsafe-inline'; frame-src ${this.url} http: https:;">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>TensorBoard</title>
+            </head>
+            <body>
+                <script type="text/javascript">
+                    function resizeFrame() {
+                        var f = window.document.getElementById('vscode-tensorboard-iframe');
+                        if (f) {
+                            f.style.height = window.innerHeight / 0.7 + "px";
+                            f.style.width = window.innerWidth / 0.7 + "px";
+                        }
+                    }
+                    resizeFrame();
+                    window.addEventListener('resize', resizeFrame);
+                </script>
+                <iframe
+                    id="vscode-tensorboard-iframe"
+                    class="responsive-iframe"
+                    sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock"
+                    src="${this.url}"
+                    frameborder="0"
+                    border="0"
+                    allowfullscreen
+                ></iframe>
+                <style>
+                    .responsive-iframe {
+                        transform: scale(0.7);
+                        transform-origin: 0 0;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        overflow: hidden;
+                        display: block;
+                    }
+                </style>
+            </body>
+        </html>`;
         this.webviewPanel = webviewPanel;
-        webviewPanel.onDidDispose(() => {
-            this.webviewPanel = undefined;
-            // Kill the running TensorBoard session
-            this.process?.kill();
-            this.process = undefined;
-        });
-        webviewPanel.onDidChangeViewState(() => {
-            if (webviewPanel.visible) {
-                this.update();
-            }
-        }, null);
+        this.disposables.push(
+            webviewPanel.onDidDispose(() => {
+                this.webviewPanel = undefined;
+                // Kill the running TensorBoard session
+                this.process?.kill();
+                this.process = undefined;
+            }),
+        );
         return webviewPanel;
-    }
-
-    private update() {
-        if (this.webviewPanel) {
-            this.webviewPanel.webview.html = `<!DOCTYPE html>
-            <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta http-equiv="Content-Security-Policy" content="default-src 'unsafe-inline'; frame-src ${this.url};">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>TensorBoard</title>
-                </head>
-                <body>
-                    <script type="text/javascript">
-                        function resizeFrame() {
-                            var f = window.document.getElementById('vscode-tensorboard-iframe');
-                            if (f) {
-                                f.style.height = window.innerHeight / 0.7 + "px";
-                                f.style.width = window.innerWidth / 0.7 + "px";
-                            }
-                        }
-                        window.addEventListener('resize', resizeFrame);
-                    </script>
-                    <iframe
-                        id="vscode-tensorboard-iframe"
-                        class="responsive-iframe"
-                        sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock"
-                        src="${this.url}"
-                        frameborder="0"
-                        border="0"
-                        allowfullscreen
-                    ></iframe>
-                    <style>
-                        .responsive-iframe {
-                            transform: scale(0.7);
-                            transform-origin: 0 0;
-                            position: absolute;
-                            top: 0;
-                            left: 0;
-                            overflow: hidden;
-                            display: block;
-                        }
-                    </style>
-                </body>
-            </html>`;
-        }
     }
 
     private autopopulateLogDirectoryPath(): string | undefined {
