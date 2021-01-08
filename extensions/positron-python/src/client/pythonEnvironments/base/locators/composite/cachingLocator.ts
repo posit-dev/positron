@@ -34,29 +34,40 @@ export class CachingLocator extends LazyResourceBasedLocator {
     }
 
     protected async doResolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
-        // If necessary we could be more aggressive about invalidating
-        // the cached value.
-        const query = getMinimalPartialInfo(env);
-        if (query === undefined) {
-            return undefined;
-        }
-        const candidates = this.cache.filterEnvs(query);
-        if (candidates === undefined) {
-            return undefined;
-        }
-        if (candidates.length > 0) {
-            return pickBestEnv(candidates);
+        let matchingEnvs = this.filterMatchingEnvsFromCache(env);
+        if (matchingEnvs.length > 0) {
+            return pickBestEnv(matchingEnvs);
         }
         // Fall back to the underlying locator.
         const resolved = await this.locator.resolveEnv(env);
         if (resolved !== undefined) {
-            const envs = this.cache.getAllEnvs();
-            if (envs !== undefined) {
-                envs.push(resolved);
-                await this.updateCache(envs);
+            // Add resolved env to cache if it doesn't already exist in cache
+            // The cache may have changed, query again for matching envs
+            matchingEnvs = this.filterMatchingEnvsFromCache(resolved);
+            if (matchingEnvs.length === 0) {
+                const envs = this.cache.getAllEnvs();
+                if (envs !== undefined) {
+                    envs.push(resolved);
+                    await this.updateCache(envs);
+                }
             }
         }
         return resolved;
+    }
+
+    /**
+     * If the cache has been activated, return environment info objects that match a env.
+     * If none of the environments in the cache match the env, return an empty array.
+     */
+    private filterMatchingEnvsFromCache(env: string | PythonEnvInfo): PythonEnvInfo[] {
+        // If necessary we could be more aggressive about invalidating
+        // the cached value.
+        const query = getMinimalPartialInfo(env);
+        if (query === undefined) {
+            return [];
+        }
+        const candidates = this.cache.filterEnvs(query);
+        return candidates !== undefined && candidates.length > 0 ? candidates : [];
     }
 
     protected async initResources(): Promise<void> {
