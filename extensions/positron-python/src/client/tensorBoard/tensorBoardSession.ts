@@ -39,6 +39,14 @@ import { TensorBoardSessionStartResult } from './constants';
  * - shuts down the TensorBoard process when the webview is closed
  */
 export class TensorBoardSession {
+    public get panel(): WebviewPanel | undefined {
+        return this.webviewPanel;
+    }
+
+    public get daemon(): ChildProcess | undefined {
+        return this.process;
+    }
+
     private webviewPanel: WebviewPanel | undefined;
 
     private url: string | undefined;
