@@ -59,7 +59,7 @@ export class TensorBoardSessionProvider implements IExtensionSingleActivationSer
                         ) {
                             sendTelemetryEvent(EventName.TENSORBOARD_IMPORT_CODEACTION_CLICKED);
                         }
-                        this.createNewSession();
+                        return this.createNewSession();
                     },
                 ),
             );
@@ -68,7 +68,7 @@ export class TensorBoardSessionProvider implements IExtensionSingleActivationSer
         }
     }
 
-    private async createNewSession(): Promise<void> {
+    private async createNewSession(): Promise<TensorBoardSession | undefined> {
         traceInfo('Starting new TensorBoard session...');
         try {
             const newSession = new TensorBoardSession(
@@ -80,9 +80,11 @@ export class TensorBoardSessionProvider implements IExtensionSingleActivationSer
                 this.disposables,
             );
             await newSession.initialize();
+            return newSession;
         } catch (e) {
             traceError(`Encountered error while starting new TensorBoard session: ${e}`);
             await this.applicationShell.showErrorMessage(TensorBoard.failedToStartSessionError().format(e));
         }
+        return undefined;
     }
 }

@@ -11,10 +11,8 @@ import { TensorBoardPrompt } from './tensorBoardPrompt';
 import { TensorBoardSessionProvider } from './tensorBoardSessionProvider';
 
 export function registerTypes(serviceManager: IServiceManager): void {
-    serviceManager.addSingleton<IExtensionSingleActivationService>(
-        IExtensionSingleActivationService,
-        TensorBoardSessionProvider,
-    );
+    serviceManager.addSingleton<TensorBoardSessionProvider>(TensorBoardSessionProvider, TensorBoardSessionProvider);
+    serviceManager.addBinding(TensorBoardSessionProvider, IExtensionSingleActivationService);
     serviceManager.addSingleton<TensorBoardFileWatcher>(TensorBoardFileWatcher, TensorBoardFileWatcher);
     serviceManager.addBinding(TensorBoardFileWatcher, IExtensionSingleActivationService);
     serviceManager.addSingleton<TensorBoardPrompt>(TensorBoardPrompt, TensorBoardPrompt);
