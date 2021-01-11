@@ -1,13 +1,13 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import { TensorBoardImportTracker } from '../../client/tensorBoard/tensorBoardImportTracker';
+import { TensorBoardUsageTracker } from '../../client/tensorBoard/tensorBoardUsageTracker';
 import { TensorBoardPrompt } from '../../client/tensorBoard/tensorBoardPrompt';
 import { MockDocumentManager } from '../startPage/mockDocumentManager';
 import { createTensorBoardPromptWithMocks } from './helpers';
 
-suite('TensorBoard import tracker', () => {
+suite('TensorBoard usage tracker', () => {
     let documentManager: MockDocumentManager;
-    let tensorBoardImportTracker: TensorBoardImportTracker;
+    let tensorBoardImportTracker: TensorBoardUsageTracker;
     let prompt: TensorBoardPrompt;
     let showNativeTensorBoardPrompt: sinon.SinonSpy;
 
@@ -15,7 +15,7 @@ suite('TensorBoard import tracker', () => {
         documentManager = new MockDocumentManager();
         prompt = createTensorBoardPromptWithMocks();
         showNativeTensorBoardPrompt = sinon.spy(prompt, 'showNativeTensorBoardPrompt');
-        tensorBoardImportTracker = new TensorBoardImportTracker(documentManager, [], prompt);
+        tensorBoardImportTracker = new TensorBoardUsageTracker(documentManager, [], prompt);
     });
 
     test('Simple tensorboard import in Python file', async () => {

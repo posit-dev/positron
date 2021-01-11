@@ -4,11 +4,12 @@
 import { IExtensionSingleActivationService } from '../activation/types';
 import { IServiceManager } from '../ioc/types';
 import { TensorBoardCodeActionProvider } from './tensorBoardCodeActionProvider';
-import { TensorBoardCodeLensProvider } from './tensorBoardCodeLensProvider';
+import { TensorBoardImportCodeLensProvider } from './tensorBoardImportCodeLensProvider';
 import { TensorBoardFileWatcher } from './tensorBoardFileWatcher';
-import { TensorBoardImportTracker } from './tensorBoardImportTracker';
+import { TensorBoardUsageTracker } from './tensorBoardUsageTracker';
 import { TensorBoardPrompt } from './tensorBoardPrompt';
 import { TensorBoardSessionProvider } from './tensorBoardSessionProvider';
+import { TensorBoardNbextensionCodeLensProvider } from './nbextensionCodeLensProvider';
 
 export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingleton<TensorBoardSessionProvider>(TensorBoardSessionProvider, TensorBoardSessionProvider);
@@ -18,12 +19,18 @@ export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingleton<TensorBoardPrompt>(TensorBoardPrompt, TensorBoardPrompt);
     serviceManager.addSingleton<IExtensionSingleActivationService>(
         IExtensionSingleActivationService,
-        TensorBoardImportTracker,
+        TensorBoardUsageTracker,
     );
-    serviceManager.addSingleton<IExtensionSingleActivationService>(
-        IExtensionSingleActivationService,
-        TensorBoardCodeLensProvider,
+    serviceManager.addSingleton<TensorBoardImportCodeLensProvider>(
+        TensorBoardImportCodeLensProvider,
+        TensorBoardImportCodeLensProvider,
     );
+    serviceManager.addBinding(TensorBoardImportCodeLensProvider, IExtensionSingleActivationService);
+    serviceManager.addSingleton<TensorBoardNbextensionCodeLensProvider>(
+        TensorBoardNbextensionCodeLensProvider,
+        TensorBoardNbextensionCodeLensProvider,
+    );
+    serviceManager.addBinding(TensorBoardNbextensionCodeLensProvider, IExtensionSingleActivationService);
     serviceManager.addSingleton<IExtensionSingleActivationService>(
         IExtensionSingleActivationService,
         TensorBoardCodeActionProvider,
