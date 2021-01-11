@@ -14,8 +14,11 @@ import { containsTensorBoardImport } from './helpers';
 import { TensorBoardPrompt } from './tensorBoardPrompt';
 
 const testExecution = isTestExecution();
+
+// Prompt the user to start an integrated TensorBoard session whenever the active Python file or Python notebook
+// contains a valid TensorBoard import.
 @injectable()
-export class TensorBoardImportTracker implements IExtensionSingleActivationService {
+export class TensorBoardUsageTracker implements IExtensionSingleActivationService {
     constructor(
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IDisposableRegistry) private disposables: IDisposableRegistry,
@@ -41,15 +44,13 @@ export class TensorBoardImportTracker implements IExtensionSingleActivationServi
         );
     }
 
-    private onChangedActiveTextEditor(editor: TextEditor | undefined) {
+    private onChangedActiveTextEditor(editor: TextEditor | undefined): void {
         if (!editor || !editor.document) {
             return;
         }
         const { document } = editor;
-        if (
-            (path.extname(document.fileName) === '.ipynb' && document.languageId === 'python') ||
-            path.extname(document.fileName) === '.py'
-        ) {
+        const extName = path.extname(document.fileName).toLowerCase();
+        if (extName === '.py' || (extName === '.ipynb' && document.languageId === 'python')) {
             const lines = getDocumentLines(document);
             if (containsTensorBoardImport(lines)) {
                 this.prompt.showNativeTensorBoardPrompt(TensorBoardEntrypointTrigger.fileimport).ignoreErrors();
