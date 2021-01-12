@@ -12,6 +12,11 @@ import { watchLocationForPythonBinaries } from '../../../common/pythonBinariesWa
 import { PythonEnvKind } from '../../info';
 import { LazyResourceBasedLocator } from '../common/resourceBasedLocator';
 
+export enum FSWatcherKind {
+    Global, // Watcher observes a global location such as ~/.envs, %LOCALAPPDATA%/Microsoft/WindowsApps.
+    Workspace, // Watchers observes directory in the user's currently open workspace.
+}
+
 /**
  * The base for Python envs locators who watch the file system.
  * Most low-level locators should be using this.
@@ -25,7 +30,7 @@ export abstract class FSWatchingLocator extends LazyResourceBasedLocator {
          */
         private readonly getRoots: () => Promise<string[]> | string | string[],
         /**
-         * Returns the kind of environment specific to locator given the path to exectuable.
+         * Returns the kind of environment specific to locator given the path to executable.
          */
         private readonly getKind: (executable: string) => Promise<PythonEnvKind>,
         private readonly opts: {
@@ -42,19 +47,30 @@ export abstract class FSWatchingLocator extends LazyResourceBasedLocator {
              */
             searchLocation?: string;
         } = {},
+        private readonly watcherKind: FSWatcherKind = FSWatcherKind.Global,
     ) {
         super();
     }
 
     protected async initWatchers(): Promise<void> {
-        if (await inExperiment(DiscoveryVariants.discoverWithFileWatching)) {
-            // Start the FS watchers.
-            let roots = await this.getRoots();
-            if (typeof roots === 'string') {
-                roots = [roots];
-            }
-            roots.forEach((root) => this.startWatcher(root));
+        // Start the FS watchers.
+        let roots = await this.getRoots();
+        if (typeof roots === 'string') {
+            roots = [roots];
         }
+
+        // Enable all workspace watchers.
+        let enableGlobalWatchers = true;
+        if (this.watcherKind === FSWatcherKind.Global) {
+            // Enable global watchers only if the experiment allows it.
+            enableGlobalWatchers = await inExperiment(DiscoveryVariants.discoverWithFileWatching);
+        }
+
+        roots.forEach((root) => {
+            if (enableGlobalWatchers) {
+                this.startWatcher(root);
+            }
+        });
     }
 
     private startWatcher(root: string): void {
