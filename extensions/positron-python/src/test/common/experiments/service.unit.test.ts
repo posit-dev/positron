@@ -1,3 +1,4 @@
+/* eslint-disable no-new */
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
@@ -8,10 +9,9 @@ import * as sinon from 'sinon';
 import { anything, instance, mock, when } from 'ts-mockito';
 import * as tasClient from 'vscode-tas-client';
 import { ApplicationEnvironment } from '../../../client/common/application/applicationEnvironment';
-import { Channel, IApplicationEnvironment } from '../../../client/common/application/types';
-import { ConfigurationService } from '../../../client/common/configuration/service';
+import { Channel, IApplicationEnvironment, IWorkspaceService } from '../../../client/common/application/types';
+import { WorkspaceService } from '../../../client/common/application/workspace';
 import { ExperimentService } from '../../../client/common/experiments/service';
-import { IConfigurationService } from '../../../client/common/types';
 import { Experiments } from '../../../client/common/utils/localize';
 import * as Telemetry from '../../../client/telemetry';
 import { EventName } from '../../../client/telemetry/constants';
@@ -22,14 +22,14 @@ import { MockMemento } from '../../mocks/mementos';
 suite('Experimentation service', () => {
     const extensionVersion = '1.2.3';
 
-    let configurationService: IConfigurationService;
+    let workspaceService: IWorkspaceService;
     let appEnvironment: IApplicationEnvironment;
     let globalMemento: MockMemento;
     let outputChannel: MockOutputChannel;
 
     setup(() => {
-        configurationService = mock(ConfigurationService);
         appEnvironment = mock(ApplicationEnvironment);
+        workspaceService = mock(WorkspaceService);
         globalMemento = new MockMemento();
         outputChannel = new MockOutputChannel('');
     });
@@ -40,12 +40,20 @@ suite('Experimentation service', () => {
     });
 
     function configureSettings(enabled: boolean, optInto: string[], optOutFrom: string[]) {
-        when(configurationService.getSettings(undefined)).thenReturn({
-            experiments: {
-                enabled,
-                optInto,
-                optOutFrom,
+        when(workspaceService.getConfiguration('python')).thenReturn({
+            get: (key: string) => {
+                if (key === 'experiments.enabled') {
+                    return enabled;
+                }
+                if (key === 'experiments.optInto') {
+                    return optInto;
+                }
+                if (key === 'experiments.optOutFrom') {
+                    return optOutFrom;
+                }
+                return undefined;
             },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any);
     }
 
@@ -62,12 +70,8 @@ suite('Experimentation service', () => {
             configureSettings(true, [], []);
             configureApplicationEnvironment('stable', extensionVersion);
 
-            new ExperimentService(
-                instance(configurationService),
-                instance(appEnvironment),
-                globalMemento,
-                outputChannel,
-            );
+            // eslint-disable-next-line no-new
+            new ExperimentService(instance(workspaceService), instance(appEnvironment), globalMemento, outputChannel);
 
             sinon.assert.calledWithExactly(
                 getExperimentationServiceStub,
@@ -85,12 +89,8 @@ suite('Experimentation service', () => {
             configureSettings(true, [], []);
             configureApplicationEnvironment('insiders', extensionVersion);
 
-            new ExperimentService(
-                instance(configurationService),
-                instance(appEnvironment),
-                globalMemento,
-                outputChannel,
-            );
+            // eslint-disable-next-line no-new
+            new ExperimentService(instance(workspaceService), instance(appEnvironment), globalMemento, outputChannel);
 
             sinon.assert.calledWithExactly(
                 getExperimentationServiceStub,
@@ -109,7 +109,7 @@ suite('Experimentation service', () => {
             configureApplicationEnvironment('stable', extensionVersion);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -124,7 +124,7 @@ suite('Experimentation service', () => {
             configureApplicationEnvironment('stable', extensionVersion);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -139,10 +139,11 @@ suite('Experimentation service', () => {
             configureSettings(true, [], []);
             configureApplicationEnvironment('stable', extensionVersion);
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             when(globalMemento.get(anything(), anything())).thenReturn({ features: experiments } as any);
 
             new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 instance(globalMemento),
                 outputChannel,
@@ -155,14 +156,14 @@ suite('Experimentation service', () => {
 
     suite('In-experiment check', () => {
         const experiment = 'Test Experiment - experiment';
-        let telemetryEvents: { eventName: string; properties: object }[] = [];
+        let telemetryEvents: { eventName: string; properties: Record<string, unknown> }[] = [];
         let isCachedFlightEnabledStub: sinon.SinonStub;
         let sendTelemetryEventStub: sinon.SinonStub;
 
         setup(() => {
             sendTelemetryEventStub = sinon
                 .stub(Telemetry, 'sendTelemetryEvent')
-                .callsFake((eventName: string, _, properties: object) => {
+                .callsFake((eventName: string, _, properties: Record<string, unknown>) => {
                     const telemetry = { eventName, properties };
                     telemetryEvents.push(telemetry);
                 });
@@ -170,7 +171,7 @@ suite('Experimentation service', () => {
             isCachedFlightEnabledStub = sinon.stub().returns(Promise.resolve(true));
             sinon.stub(tasClient, 'getExperimentationService').returns({
                 isCachedFlightEnabled: isCachedFlightEnabledStub,
-            } as any);
+            } as never);
 
             configureApplicationEnvironment('stable', extensionVersion);
         });
@@ -183,7 +184,7 @@ suite('Experimentation service', () => {
             configureSettings(true, [], []);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -199,7 +200,7 @@ suite('Experimentation service', () => {
             configureSettings(false, [], []);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -215,7 +216,7 @@ suite('Experimentation service', () => {
             configureSettings(true, ['All'], []);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -235,7 +236,7 @@ suite('Experimentation service', () => {
             configureSettings(true, [experiment], []);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -255,7 +256,7 @@ suite('Experimentation service', () => {
             configureSettings(true, [], ['All']);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -275,7 +276,7 @@ suite('Experimentation service', () => {
             configureSettings(true, [], [experiment]);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -300,7 +301,7 @@ suite('Experimentation service', () => {
             getTreatmentVariableAsyncStub = sinon.stub().returns(Promise.resolve('value'));
             sinon.stub(tasClient, 'getExperimentationService').returns({
                 getTreatmentVariableAsync: getTreatmentVariableAsyncStub,
-            } as any);
+            } as never);
 
             configureApplicationEnvironment('stable', extensionVersion);
         });
@@ -309,7 +310,7 @@ suite('Experimentation service', () => {
             configureSettings(true, [], []);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -324,7 +325,7 @@ suite('Experimentation service', () => {
             configureSettings(false, [], []);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -339,7 +340,7 @@ suite('Experimentation service', () => {
             configureSettings(true, [], ['All']);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
@@ -354,7 +355,7 @@ suite('Experimentation service', () => {
             configureSettings(true, [], [experiment]);
 
             const experimentService = new ExperimentService(
-                instance(configurationService),
+                instance(workspaceService),
                 instance(appEnvironment),
                 globalMemento,
                 outputChannel,
