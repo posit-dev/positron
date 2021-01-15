@@ -5,6 +5,7 @@ import { injectable } from 'inversify';
 import * as vscode from 'vscode';
 import { IExtensionSingleActivationService } from '../activation/types';
 import { DiscoveryVariants } from '../common/experiments/groups';
+import { traceError } from '../common/logger';
 import { FileChangeType } from '../common/platform/fileSystemWatcher';
 import { IDisposableRegistry, Resource } from '../common/types';
 import { getVersionString, parseVersion } from '../common/utils/version';
@@ -131,12 +132,20 @@ function convertEnvInfo(info: PythonEnvInfo): PythonEnvironment {
     return env;
 }
 
+export async function inDiscoveryExperiment(): Promise<boolean> {
+    const results = await Promise.all([
+        inExperiment(DiscoveryVariants.discoverWithFileWatching),
+        inExperiment(DiscoveryVariants.discoveryWithoutFileWatching),
+    ]);
+    return results.includes(true);
+}
+
 export interface IPythonEnvironments extends ILocator {}
 
 @injectable()
 class ComponentAdapter implements IComponentAdapter, IExtensionSingleActivationService {
     // this will be set based on experiment
-    private enabled?: boolean;
+    private enabled = false;
 
     private readonly refreshing = new vscode.EventEmitter<void>();
 
@@ -150,12 +159,7 @@ class ComponentAdapter implements IComponentAdapter, IExtensionSingleActivationS
     ) {}
 
     public async activate(): Promise<void> {
-        this.enabled = (
-            await Promise.all([
-                inExperiment(DiscoveryVariants.discoverWithFileWatching),
-                inExperiment(DiscoveryVariants.discoveryWithoutFileWatching),
-            ])
-        ).includes(true);
+        this.enabled = await inDiscoveryExperiment();
         this.disposables.push(
             this.api.onChanged((e) => {
                 const query = {
@@ -346,36 +350,64 @@ class ComponentAdapter implements IComponentAdapter, IExtensionSingleActivationS
     }
 }
 
-export function registerLegacyDiscoveryForIOC(serviceManager: IServiceManager): void {
-    serviceManager.addSingleton<IInterpreterLocatorHelper>(IInterpreterLocatorHelper, InterpreterLocatorHelper);
-    serviceManager.addSingleton<IInterpreterLocatorService>(
-        IInterpreterLocatorService,
-        PythonInterpreterLocatorService,
-        INTERPRETER_LOCATOR_SERVICE,
-    );
+export async function registerLegacyDiscoveryForIOC(serviceManager: IServiceManager): Promise<void> {
+    const inExp = await inDiscoveryExperiment().catch((ex) => {
+        // This is mainly to support old tests, where IExperimentService was registered
+        // out of sequence / or not registered, so this throws an error. But we do not
+        // care about that error as we don't care about IExperimentService in old tests.
+        // But if this fails in other cases, it's a major error. Hence log it anyways.
+        traceError('Failed to not register old code when in Discovery experiment', ex);
+        return false;
+    });
+    if (!inExp) {
+        serviceManager.addSingleton<IInterpreterLocatorHelper>(IInterpreterLocatorHelper, InterpreterLocatorHelper);
+        serviceManager.addSingleton<IInterpreterLocatorService>(
+            IInterpreterLocatorService,
+            PythonInterpreterLocatorService,
+            INTERPRETER_LOCATOR_SERVICE,
+        );
+        serviceManager.addSingleton<IInterpreterLocatorService>(
+            IInterpreterLocatorService,
+            CondaEnvFileService,
+            CONDA_ENV_FILE_SERVICE,
+        );
+        serviceManager.addSingleton<IInterpreterLocatorService>(
+            IInterpreterLocatorService,
+            CondaEnvService,
+            CONDA_ENV_SERVICE,
+        );
+        serviceManager.addSingleton<IInterpreterLocatorService>(
+            IInterpreterLocatorService,
+            GlobalVirtualEnvService,
+            GLOBAL_VIRTUAL_ENV_SERVICE,
+        );
+        serviceManager.addSingleton<IVirtualEnvironmentsSearchPathProvider>(
+            IVirtualEnvironmentsSearchPathProvider,
+            GlobalVirtualEnvironmentsSearchPathProvider,
+            'global',
+        );
+        serviceManager.addSingleton<IInterpreterLocatorService>(
+            IInterpreterLocatorService,
+            KnownPathsService,
+            KNOWN_PATH_SERVICE,
+        );
+        serviceManager.addSingleton<IKnownSearchPathsForInterpreters>(
+            IKnownSearchPathsForInterpreters,
+            KnownSearchPathsForInterpreters,
+        );
+    }
     serviceManager.addSingleton<IInterpreterLocatorProgressService>(
         IInterpreterLocatorProgressService,
         InterpreterLocatorProgressService,
     );
     serviceManager.addSingleton<IInterpreterLocatorService>(
         IInterpreterLocatorService,
-        CondaEnvFileService,
-        CONDA_ENV_FILE_SERVICE,
-    );
-    serviceManager.addSingleton<IInterpreterLocatorService>(
-        IInterpreterLocatorService,
-        CondaEnvService,
-        CONDA_ENV_SERVICE,
-    );
-    serviceManager.addSingleton<IInterpreterLocatorService>(
-        IInterpreterLocatorService,
         CurrentPathService,
         CURRENT_PATH_SERVICE,
     );
-    serviceManager.addSingleton<IInterpreterLocatorService>(
-        IInterpreterLocatorService,
-        GlobalVirtualEnvService,
-        GLOBAL_VIRTUAL_ENV_SERVICE,
+    serviceManager.addSingleton<IPythonInPathCommandProvider>(
+        IPythonInPathCommandProvider,
+        PythonInPathCommandProvider,
     );
     serviceManager.addSingleton<IInterpreterLocatorService>(
         IInterpreterLocatorService,
@@ -389,17 +421,8 @@ export function registerLegacyDiscoveryForIOC(serviceManager: IServiceManager): 
         WindowsRegistryService,
         WINDOWS_REGISTRY_SERVICE,
     );
-    serviceManager.addSingleton<IInterpreterLocatorService>(
-        IInterpreterLocatorService,
-        KnownPathsService,
-        KNOWN_PATH_SERVICE,
-    );
     serviceManager.addSingleton<ICondaService>(ICondaService, CondaService);
     serviceManager.addSingleton<IPipEnvServiceHelper>(IPipEnvServiceHelper, PipEnvServiceHelper);
-    serviceManager.addSingleton<IPythonInPathCommandProvider>(
-        IPythonInPathCommandProvider,
-        PythonInPathCommandProvider,
-    );
 
     serviceManager.add<IInterpreterWatcher>(
         IInterpreterWatcher,
@@ -414,17 +437,8 @@ export function registerLegacyDiscoveryForIOC(serviceManager: IServiceManager): 
     );
     serviceManager.addSingleton<IVirtualEnvironmentsSearchPathProvider>(
         IVirtualEnvironmentsSearchPathProvider,
-        GlobalVirtualEnvironmentsSearchPathProvider,
-        'global',
-    );
-    serviceManager.addSingleton<IVirtualEnvironmentsSearchPathProvider>(
-        IVirtualEnvironmentsSearchPathProvider,
         WorkspaceVirtualEnvironmentsSearchPathProvider,
         'workspace',
-    );
-    serviceManager.addSingleton<IKnownSearchPathsForInterpreters>(
-        IKnownSearchPathsForInterpreters,
-        KnownSearchPathsForInterpreters,
     );
     serviceManager.addSingleton<IInterpreterWatcherBuilder>(IInterpreterWatcherBuilder, InterpreterWatcherBuilder);
 }
