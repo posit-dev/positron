@@ -42,7 +42,7 @@ suite('Formatting - General', () => {
 
         return this.skip();
         await initialize();
-        initializeDI();
+        await initializeDI();
         [autoPep8FileToFormat, blackFileToFormat, yapfFileToFormat].forEach((file) => {
             fs.copySync(originalUnformattedFile, file, { overwrite: true });
         });
@@ -60,7 +60,7 @@ suite('Formatting - General', () => {
 
     setup(async () => {
         await initializeTest();
-        initializeDI();
+        await initializeDI();
     });
     suiteTeardown(async () => {
         [autoPep8FileToFormat, blackFileToFormat, yapfFileToFormat].forEach((file) => {
@@ -75,7 +75,7 @@ suite('Formatting - General', () => {
         await ioc.dispose();
     });
 
-    function initializeDI() {
+    async function initializeDI() {
         ioc = new UnitTestIocContainer();
         ioc.registerCommonTypes();
         ioc.registerVariableTypes();
@@ -85,9 +85,9 @@ suite('Formatting - General', () => {
 
         // Mocks.
         ioc.registerMockProcessTypes();
-        ioc.registerMockInterpreterTypes();
+        await ioc.registerMockInterpreterTypes();
 
-        registerForIOC(ioc.serviceManager, ioc.serviceContainer);
+        await registerForIOC(ioc.serviceManager, ioc.serviceContainer);
     }
 
     async function injectFormatOutput(outputFileName: string) {

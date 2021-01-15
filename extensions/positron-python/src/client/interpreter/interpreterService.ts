@@ -22,6 +22,7 @@ import { sleep } from '../common/utils/async';
 import { IServiceContainer } from '../ioc/types';
 import { InterpeterHashProviderFactory } from '../pythonEnvironments/discovery/locators/services/hashProviderFactory';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
+import { inDiscoveryExperiment } from '../pythonEnvironments/legacyIOC';
 import { captureTelemetry } from '../telemetry';
 import { EventName } from '../telemetry/constants';
 import {
@@ -40,6 +41,7 @@ const EXPITY_DURATION = 24 * 60 * 60 * 1000;
 
 // The parts of IComponentAdapter used here.
 interface IComponent {
+    hasInterpreters: Promise<boolean | undefined>;
     getInterpreterDetails(pythonPath: string): Promise<undefined | PythonEnvironment>;
     getInterpreters(resource?: Uri): Promise<PythonEnvironment[] | undefined>;
 }
@@ -47,7 +49,16 @@ interface IComponent {
 @injectable()
 export class InterpreterService implements Disposable, IInterpreterService {
     public get hasInterpreters(): Promise<boolean> {
-        return this.locator.hasInterpreters;
+        return this.pyenvs.hasInterpreters.then((res) => {
+            if (res !== undefined) {
+                return res;
+            }
+            const locator = this.serviceContainer.get<IInterpreterLocatorService>(
+                IInterpreterLocatorService,
+                INTERPRETER_LOCATOR_SERVICE,
+            );
+            return locator.hasInterpreters;
+        });
     }
 
     public get onDidChangeInterpreter(): Event<void> {
@@ -62,7 +73,6 @@ export class InterpreterService implements Disposable, IInterpreterService {
     }
     public _pythonPathSetting: string = '';
     private readonly didChangeInterpreterConfigurationEmitter = new EventEmitter<Uri | undefined>();
-    private readonly locator: IInterpreterLocatorService;
     private readonly persistentStateFactory: IPersistentStateFactory;
     private readonly configService: IConfigurationService;
     private readonly interpreterPathService: IInterpreterPathService;
@@ -77,10 +87,6 @@ export class InterpreterService implements Disposable, IInterpreterService {
         @inject(InterpeterHashProviderFactory) private readonly hashProviderFactory: IInterpreterHashProviderFactory,
         @inject(IComponentAdapter) private readonly pyenvs: IComponent,
     ) {
-        this.locator = serviceContainer.get<IInterpreterLocatorService>(
-            IInterpreterLocatorService,
-            INTERPRETER_LOCATOR_SERVICE,
-        );
         this.persistentStateFactory = this.serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
         this.configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         this.interpreterPathService = this.serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
@@ -133,7 +139,11 @@ export class InterpreterService implements Disposable, IInterpreterService {
         if (envs !== undefined) {
             environments = envs;
         } else {
-            environments = await this.locator.getInterpreters(resource, options);
+            const locator = this.serviceContainer.get<IInterpreterLocatorService>(
+                IInterpreterLocatorService,
+                INTERPRETER_LOCATOR_SERVICE,
+            );
+            environments = await locator.getInterpreters(resource, options);
         }
 
         await Promise.all(
@@ -151,7 +161,15 @@ export class InterpreterService implements Disposable, IInterpreterService {
     }
 
     public dispose(): void {
-        this.locator.dispose();
+        inDiscoveryExperiment().then((inExp) => {
+            if (!inExp) {
+                const locator = this.serviceContainer.get<IInterpreterLocatorService>(
+                    IInterpreterLocatorService,
+                    INTERPRETER_LOCATOR_SERVICE,
+                );
+                locator.dispose();
+            }
+        });
         this.didChangeInterpreterEmitter.dispose();
         this.didChangeInterpreterInformation.dispose();
     }
