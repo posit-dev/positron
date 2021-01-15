@@ -8,16 +8,9 @@ import { Memento } from 'vscode';
 import { getExperimentationService, IExperimentationService, TargetPopulation } from 'vscode-tas-client';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
-import { IApplicationEnvironment } from '../application/types';
+import { IApplicationEnvironment, IWorkspaceService } from '../application/types';
 import { PVSC_EXTENSION_ID, STANDARD_OUTPUT_CHANNEL } from '../constants';
-import {
-    GLOBAL_MEMENTO,
-    IConfigurationService,
-    IExperimentService,
-    IMemento,
-    IOutputChannel,
-    IPythonSettings,
-} from '../types';
+import { GLOBAL_MEMENTO, IExperimentService, IMemento, IOutputChannel } from '../types';
 import { Experiments } from '../utils/localize';
 import { ExperimentationTelemetry } from './telemetry';
 
@@ -29,30 +22,32 @@ export class ExperimentService implements IExperimentService {
      * Experiments the user requested to opt into manually.
      */
     public _optInto: string[] = [];
+
     /**
      * Experiments the user requested to opt out from manually.
      */
     public _optOutFrom: string[] = [];
 
     private readonly experimentationService?: IExperimentationService;
-    private readonly settings: IPythonSettings;
 
     constructor(
-        @inject(IConfigurationService) readonly configurationService: IConfigurationService,
+        @inject(IWorkspaceService) readonly workspaceService: IWorkspaceService,
         @inject(IApplicationEnvironment) private readonly appEnvironment: IApplicationEnvironment,
         @inject(IMemento) @named(GLOBAL_MEMENTO) private readonly globalState: Memento,
         @inject(IOutputChannel) @named(STANDARD_OUTPUT_CHANNEL) private readonly output: IOutputChannel,
     ) {
-        this.settings = configurationService.getSettings(undefined);
-
+        const settings = this.workspaceService.getConfiguration('python');
         // Users can only opt in or out of experiment groups, not control groups.
-        const optInto = this.settings.experiments.optInto;
-        const optOutFrom = this.settings.experiments.optOutFrom;
+        const optInto = settings.get<string[]>('experiments.optInto') || [];
+        const optOutFrom = settings.get<string[]>('experiments.optOutFrom') || [];
         this._optInto = optInto.filter((exp) => !exp.endsWith('control'));
         this._optOutFrom = optOutFrom.filter((exp) => !exp.endsWith('control'));
 
         // Don't initialize the experiment service if the extension's experiments setting is disabled.
-        const enabled = this.settings.experiments.enabled;
+        let enabled = settings.get<boolean>('experiments.enabled');
+        if (enabled === undefined) {
+            enabled = true;
+        }
         if (!enabled) {
             return;
         }
@@ -106,7 +101,7 @@ export class ExperimentService implements IExperimentService {
 
     public async getExperimentValue<T extends boolean | number | string>(experiment: string): Promise<T | undefined> {
         if (!this.experimentationService || this._optOutFrom.includes('All') || this._optOutFrom.includes(experiment)) {
-            return;
+            return undefined;
         }
 
         return this.experimentationService.getTreatmentVariableAsync('vscode', experiment);
@@ -121,7 +116,8 @@ export class ExperimentService implements IExperimentService {
             // short circuit and return. So, printing out additional experiment info might cause
             // confusion. So skip printing out any specific experiment details to the log.
             return;
-        } else if (this._optInto.includes('All')) {
+        }
+        if (this._optInto.includes('All')) {
             // Only if 'All' is not in optOut then check if it is in Opt In.
             this.output.appendLine(Experiments.inGroup().format('All'));
 
