@@ -15,36 +15,6 @@ export interface IPipEnvServiceHelper {
     trackWorkspaceFolder(pythonPath: string, workspaceFolder: Uri): Promise<void>;
 }
 
-/**
- * Factory to create a hash provider.
- * Getting the hash of an interpreter can vary based on the type of the interpreter.
- *
- * @export
- * @interface IInterpreterHashProviderFactory
- */
-export const IInterpreterHashProviderFactory = Symbol('IInterpreterHashProviderFactory');
-export interface IInterpreterHashProviderFactory {
-    create(options: { pythonPath: string } | { resource: Uri }): Promise<IInterpreterHashProvider>;
-}
-
-/**
- * Provides the ability to get the has of a given interpreter.
- *
- * @export
- * @interface IInterpreterHashProvider
- */
-export interface IInterpreterHashProvider {
-    /**
-     * Gets the hash of a given Python Interpreter.
-     * (hash is calculated based on last modified timestamp of executable)
-     *
-     * @param {string} pythonPath
-     * @returns {Promise<string>}
-     * @memberof IInterpreterHashProvider
-     */
-    getInterpreterHash(pythonPath: string): Promise<string>;
-}
-
 export interface IWindowsStoreInterpreter {
     /**
      * Whether this is a Windows Store/App Interpreter.
