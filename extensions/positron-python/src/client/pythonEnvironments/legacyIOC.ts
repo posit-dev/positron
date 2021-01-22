@@ -55,7 +55,6 @@ import { KnownPathsService, KnownSearchPathsForInterpreters } from './discovery/
 import { PipEnvService } from './discovery/locators/services/pipEnvService';
 import { PipEnvServiceHelper } from './discovery/locators/services/pipEnvServiceHelper';
 import { WindowsRegistryService } from './discovery/locators/services/windowsRegistryService';
-import { WindowsStoreInterpreter } from './discovery/locators/services/windowsStoreInterpreter';
 import { isWindowsStoreEnvironment } from './discovery/locators/services/windowsStoreLocator';
 import {
     WorkspaceVirtualEnvironmentsSearchPathProvider,
@@ -128,6 +127,7 @@ function convertEnvInfo(info: PythonEnvInfo): PythonEnvironment {
     return env;
 }
 
+// Shouldn't be used outside of the discovery component.
 export async function inDiscoveryExperiment(): Promise<boolean> {
     const results = await Promise.all([
         inExperiment(DiscoveryVariants.discoverWithFileWatching),
@@ -285,8 +285,6 @@ class ComponentAdapter implements IComponentAdapter, IExtensionSingleActivationS
 
         return { name: env.name, path: env.location };
     }
-
-    // Implements IWindowsStoreInterpreter
 
     // A result of `undefined` means "Fall back to the old code!"
     public async isWindowsStoreInterpreter(pythonPath: string): Promise<boolean | undefined> {
@@ -470,7 +468,6 @@ export async function registerLegacyDiscoveryForIOC(serviceManager: IServiceMana
     );
     serviceManager.addSingleton<ICondaService>(ICondaService, CondaService);
     serviceManager.addSingleton<IPipEnvServiceHelper>(IPipEnvServiceHelper, PipEnvServiceHelper);
-    serviceManager.addSingleton<WindowsStoreInterpreter>(WindowsStoreInterpreter, WindowsStoreInterpreter);
 }
 
 export function registerNewDiscoveryForIOC(
