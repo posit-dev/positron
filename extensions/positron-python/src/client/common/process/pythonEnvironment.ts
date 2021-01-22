@@ -53,6 +53,18 @@ class PythonEnvironment {
         return getExecutablePath(python, this.deps.exec);
     }
 
+    public async getModuleVersion(moduleName: string): Promise<string | undefined> {
+        const [args, parse] = internalPython.getModuleVersion(moduleName);
+        const info = this.getExecutionInfo(args);
+        let data: ExecutionResult<string>;
+        try {
+            data = await this.deps.exec(info.command, info.args);
+        } catch {
+            return undefined;
+        }
+        return parse(data.stdout);
+    }
+
     public async isModuleInstalled(moduleName: string): Promise<boolean> {
         // prettier-ignore
         const [args,] = internalPython.isModuleInstalled(moduleName);
