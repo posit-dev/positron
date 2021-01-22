@@ -72,6 +72,12 @@ export enum InstallerResponse {
     Ignore,
 }
 
+export enum ProductInstallStatus {
+    Installed,
+    NotInstalled,
+    NeedsUpgrade,
+}
+
 export enum ProductType {
     Linter = 'Linter',
     Formatter = 'Formatter',
@@ -121,9 +127,15 @@ export interface IInstaller {
         product: Product,
         resource?: InterpreterUri,
         cancel?: CancellationToken,
+        isUpgrade?: boolean,
     ): Promise<InstallerResponse>;
     install(product: Product, resource?: InterpreterUri, cancel?: CancellationToken): Promise<InstallerResponse>;
     isInstalled(product: Product, resource?: InterpreterUri): Promise<boolean | undefined>;
+    isProductVersionCompatible(
+        product: Product,
+        semVerRequirement: string,
+        resource?: InterpreterUri,
+    ): Promise<ProductInstallStatus | undefined>;
     translateProductToModuleName(product: Product, purpose: ModuleNamePurpose): string;
 }
 

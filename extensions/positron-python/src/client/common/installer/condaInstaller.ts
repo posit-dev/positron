@@ -56,7 +56,11 @@ export class CondaInstaller extends ModuleInstaller {
     /**
      * Return the commandline args needed to install the module.
      */
-    protected async getExecutionInfo(moduleName: string, resource?: InterpreterUri): Promise<ExecutionInfo> {
+    protected async getExecutionInfo(
+        moduleName: string,
+        resource?: InterpreterUri,
+        isUpgrade?: boolean,
+    ): Promise<ExecutionInfo> {
         const condaService = this.serviceContainer.get<ICondaService>(ICondaService);
         const condaFile = await condaService.getCondaFile();
 
@@ -64,8 +68,13 @@ export class CondaInstaller extends ModuleInstaller {
             ? this.serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(resource).pythonPath
             : resource.path;
         const info = await condaService.getCondaEnvironment(pythonPath);
-        const args = ['install'];
+        const args = [isUpgrade ? 'update' : 'install'];
 
+        // Temporarily ensure tensorboard is installed from the conda-forge
+        // channel since 2.4.1 is not yet available in the default index
+        if (moduleName === 'tensorboard') {
+            args.push('-c', 'conda-forge');
+        }
         if (info && info.name) {
             // If we have the name of the conda environment, then use that.
             args.push('--name');
