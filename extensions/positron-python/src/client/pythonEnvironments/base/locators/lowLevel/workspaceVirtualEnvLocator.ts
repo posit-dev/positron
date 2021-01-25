@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+import { uniq } from 'lodash';
 import * as path from 'path';
 import { Uri } from 'vscode';
 import { traceVerbose } from '../../../../common/logger';
@@ -17,7 +18,7 @@ import {
     isVenvEnvironment,
     isVirtualenvEnvironment,
 } from '../../../discovery/locators/services/virtualEnvironmentIdentifier';
-import { PythonEnvInfo, PythonEnvKind } from '../../info';
+import { PythonEnvInfo, PythonEnvKind, PythonEnvSource } from '../../info';
 import { buildEnvInfo } from '../../info/env';
 import { IPythonEnvsIterator } from '../../locator';
 import { FSWatchingLocator } from './fsWatchingLocator';
@@ -56,11 +57,16 @@ async function getVirtualEnvKind(interpreterPath: string): Promise<PythonEnvKind
     return PythonEnvKind.Unknown;
 }
 
-async function buildSimpleVirtualEnvInfo(executablePath: string, kind: PythonEnvKind): Promise<PythonEnvInfo> {
+async function buildSimpleVirtualEnvInfo(
+    executablePath: string,
+    kind: PythonEnvKind,
+    source?: PythonEnvSource[],
+): Promise<PythonEnvInfo> {
     const envInfo = buildEnvInfo({
         kind,
         version: await getPythonVersionFromPath(executablePath),
         executable: executablePath,
+        source: source ?? [PythonEnvSource.Other],
     });
     const location = getEnvironmentDirFromPath(executablePath);
     envInfo.location = location;
@@ -132,12 +138,13 @@ export class WorkspaceVirtualEnvironmentLocator extends FSWatchingLocator {
     // eslint-disable-next-line class-methods-use-this
     protected async doResolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
         const executablePath = typeof env === 'string' ? env : env.executable.filename;
+        const source = typeof env === 'string' ? [PythonEnvSource.Other] : uniq([PythonEnvSource.Other, ...env.source]);
         if (isParentPath(executablePath, this.root) && (await pathExists(executablePath))) {
             // We should extract the kind here to avoid doing is*Environment()
             // check multiple times. Those checks are file system heavy and
             // we can use the kind to determine this anyway.
             const kind = await getVirtualEnvKind(executablePath);
-            return buildSimpleVirtualEnvInfo(executablePath, kind);
+            return buildSimpleVirtualEnvInfo(executablePath, kind, source);
         }
         return undefined;
     }

@@ -10,6 +10,7 @@ import * as platformUtils from '../../../../../client/common/utils/platform';
 import {
     PythonEnvInfo,
     PythonEnvKind,
+    PythonEnvSource,
     PythonReleaseLevel,
     PythonVersion,
     UNKNOWN_PYTHON_VERSION,
@@ -47,6 +48,7 @@ suite('WorkspaceVirtualEnvironment Locator', () => {
             arch: platformUtils.Architecture.Unknown,
             distro: { org: '' },
             searchLocation: Uri.file(path.dirname(location)),
+            source: [PythonEnvSource.Other],
         };
     }
 
@@ -187,6 +189,7 @@ suite('WorkspaceVirtualEnvironment Locator', () => {
                 mtime: -1,
             },
             version: UNKNOWN_PYTHON_VERSION,
+            source: [],
         };
 
         const actual = await locator.resolveEnv(input);
