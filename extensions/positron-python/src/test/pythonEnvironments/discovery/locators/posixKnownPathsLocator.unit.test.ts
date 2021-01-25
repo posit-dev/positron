@@ -8,10 +8,11 @@ import { Architecture } from '../../../../client/common/utils/platform';
 import {
     PythonEnvInfo,
     PythonEnvKind,
+    PythonEnvSource,
     PythonReleaseLevel,
     PythonVersion,
 } from '../../../../client/pythonEnvironments/base/info';
-import { InterpreterInformation } from '../../../../client/pythonEnvironments/base/info/interpreter';
+import { buildEnvInfo } from '../../../../client/pythonEnvironments/base/info/env';
 import { parseVersion } from '../../../../client/pythonEnvironments/base/info/pythonVersion';
 import { getEnvs } from '../../../../client/pythonEnvironments/base/locatorUtils';
 import { PosixKnownPathsLocator } from '../../../../client/pythonEnvironments/discovery/locators/services/posixKnownPathsLocator';
@@ -34,12 +35,7 @@ suite('Posix Known Path Locator', () => {
     testFileData.set(testLocation2, ['python', 'python37', 'python38']);
     testFileData.set(testLocation3, ['python3.7', 'python3.8']);
 
-    function createExpectedInterpreterInfo(
-        executable: string,
-        sysVersion?: string,
-        sysPrefix?: string,
-        versionStr?: string,
-    ): InterpreterInformation {
+    function createExpectedEnvInfo(executable: string, sysVersion?: string, versionStr?: string): PythonEnvInfo {
         let version: PythonVersion;
         try {
             version = parseVersion(versionStr ?? path.basename(executable));
@@ -55,16 +51,13 @@ suite('Posix Known Path Locator', () => {
                 sysVersion,
             };
         }
-        return {
+        return buildEnvInfo({
             version,
+            kind: PythonEnvKind.OtherGlobal,
             arch: Architecture.Unknown,
-            executable: {
-                filename: executable,
-                sysPrefix: sysPrefix ?? '',
-                ctime: -1,
-                mtime: -1,
-            },
-        };
+            executable,
+            source: [PythonEnvSource.PathEnvVar],
+        });
     }
 
     setup(async () => {
@@ -84,13 +77,7 @@ suite('Posix Known Path Locator', () => {
             const binaries = testFileData.get(location);
             if (binaries) {
                 binaries.forEach((binary) => {
-                    envs.push({
-                        name: '',
-                        location: '',
-                        kind: PythonEnvKind.OtherGlobal,
-                        distro: { org: '' },
-                        ...createExpectedInterpreterInfo(path.join(location, binary)),
-                    });
+                    envs.push(createExpectedEnvInfo(path.join(location, binary)));
                 });
             }
         });
@@ -104,13 +91,7 @@ suite('Posix Known Path Locator', () => {
 
     test('resolveEnv(string)', async () => {
         const pythonPath = path.join(testLocation1, 'python');
-        const expected = {
-            name: '',
-            location: '',
-            kind: PythonEnvKind.OtherGlobal,
-            distro: { org: '' },
-            ...createExpectedInterpreterInfo(pythonPath),
-        };
+        const expected = createExpectedEnvInfo(pythonPath);
 
         const actual = await locator.resolveEnv(pythonPath);
         assertEnvEqual(actual, expected);
@@ -118,13 +99,7 @@ suite('Posix Known Path Locator', () => {
 
     test('resolveEnv(PythonEnvInfo)', async () => {
         const pythonPath = path.join(testLocation1, 'python');
-        const expected = {
-            name: '',
-            location: '',
-            kind: PythonEnvKind.OtherGlobal,
-            distro: { org: '' },
-            ...createExpectedInterpreterInfo(pythonPath),
-        };
+        const expected = createExpectedEnvInfo(pythonPath);
 
         // Partially filled in env info object
         const input: PythonEnvInfo = {
@@ -145,6 +120,7 @@ suite('Posix Known Path Locator', () => {
                 micro: -1,
                 release: { level: PythonReleaseLevel.Final, serial: -1 },
             },
+            source: [],
         };
 
         const actual = await locator.resolveEnv(input);

@@ -6,7 +6,7 @@ import * as minimatch from 'minimatch';
 import * as path from 'path';
 import { traceWarning } from '../../../../common/logger';
 import { Architecture, getEnvironmentVariable } from '../../../../common/utils/platform';
-import { PythonEnvInfo, PythonEnvKind } from '../../../base/info';
+import { PythonEnvInfo, PythonEnvKind, PythonEnvSource } from '../../../base/info';
 import { buildEnvInfo } from '../../../base/info/env';
 import { getPythonVersionFromPath } from '../../../base/info/pythonVersion';
 import { IPythonEnvsIterator } from '../../../base/locator';
@@ -155,6 +155,7 @@ export class WindowsStoreLocator extends FSWatchingLocator {
                     org: 'Microsoft',
                     arch: Architecture.x64,
                     fileInfo: await getFileInfo(executable),
+                    source: [PythonEnvSource.PathEnvVar],
                 }),
             );
         };
@@ -163,6 +164,8 @@ export class WindowsStoreLocator extends FSWatchingLocator {
 
     protected async doResolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
         const executablePath = typeof env === 'string' ? env : env.executable.filename;
+        const source =
+            typeof env === 'string' ? [PythonEnvSource.PathEnvVar] : [PythonEnvSource.PathEnvVar, ...env.source];
         if (await isWindowsStoreEnvironment(executablePath)) {
             return buildEnvInfo({
                 kind: this.kind,
@@ -171,6 +174,7 @@ export class WindowsStoreLocator extends FSWatchingLocator {
                 org: 'Microsoft',
                 arch: Architecture.x64,
                 fileInfo: await getFileInfo(executablePath),
+                source,
             });
         }
         return undefined;

@@ -50,6 +50,37 @@ export type PythonExecutableInfo = FileInfo & {
 };
 
 /**
+ * Source types indicating how a particular environment was discovered.
+ *
+ * Notes: This is used in auto-selection to figure out which python to select.
+ * We added this field to support the existing mechanism in the extension to
+ * calculate the auto-select python.
+ */
+export enum PythonEnvSource {
+    /**
+     * Environment was found via PATH env variable
+     */
+    PathEnvVar = 'path env var',
+    /**
+     * Environment was found via conda binary or conda environments file
+     */
+    Conda = 'conda',
+    /**
+     * Environment was found at pyenv default location
+     */
+    Pyenv = 'pyenv',
+    /**
+     * Environment was found in windows registry
+     */
+    WindowsRegistry = 'windows registry',
+    /**
+     * Environment was found using other means
+     */
+    Other = 'other',
+    // If source turns out to be useful we will expand this enum to contain more details sources.
+}
+
+/**
  * The most fundamental information about a Python environment.
  *
  * You should expect these objects to be complete (no empty props).
@@ -61,6 +92,7 @@ export type PythonExecutableInfo = FileInfo & {
  * @prop executable - info about the env's Python binary
  * @prop name - the env's distro-specific name, if any
  * @prop location - the env's location (on disk), if relevant
+ * @prop source - the locator[s] which found the environment.
  */
 export type PythonEnvBaseInfo = {
     kind: PythonEnvKind;
@@ -72,6 +104,8 @@ export type PythonEnvBaseInfo = {
     // * managed: boolean (if the env is "managed")
     // * parent: PythonEnvBaseInfo (the env from which this one was created)
     // * binDir: string (where env-installed executables are found)
+
+    source: PythonEnvSource[];
 };
 
 /**

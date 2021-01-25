@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import * as fsWatcher from '../../../../client/common/platform/fileSystemWatcher';
 import * as platformUtils from '../../../../client/common/utils/platform';
-import { PythonEnvInfo, PythonEnvKind } from '../../../../client/pythonEnvironments/base/info';
+import { PythonEnvInfo, PythonEnvKind, PythonEnvSource } from '../../../../client/pythonEnvironments/base/info';
 import { buildEnvInfo } from '../../../../client/pythonEnvironments/base/info/env';
 import { getEnvs } from '../../../../client/pythonEnvironments/base/locatorUtils';
 import { PyenvLocator } from '../../../../client/pythonEnvironments/discovery/locators/services/pyenvLocator';
@@ -54,6 +54,7 @@ suite('Pyenv Locator Tests', () => {
                     minor: 9,
                     micro: 0,
                 },
+                source: [PythonEnvSource.Pyenv],
             });
             envInfo.defaultDisplayName = '3.9.0:pyenv';
             envInfo.location = path.join(testPyenvVersionsDir, '3.9.0');
@@ -70,6 +71,7 @@ suite('Pyenv Locator Tests', () => {
                     minor: 8,
                     micro: 5,
                 },
+                source: [PythonEnvSource.Pyenv],
             });
             envInfo.defaultDisplayName = 'conda1:pyenv';
             envInfo.location = path.join(testPyenvVersionsDir, 'conda1');
@@ -86,6 +88,7 @@ suite('Pyenv Locator Tests', () => {
                     minor: 7,
                     micro: -1,
                 },
+                source: [PythonEnvSource.Pyenv],
             });
             envInfo.defaultDisplayName = 'miniconda3-4.7.12:pyenv';
             envInfo.location = path.join(testPyenvVersionsDir, 'miniconda3-4.7.12');
@@ -103,6 +106,7 @@ suite('Pyenv Locator Tests', () => {
                     minor: 9,
                     micro: 0,
                 },
+                source: [PythonEnvSource.Pyenv],
             });
             envInfo.defaultDisplayName = 'venv1:pyenv';
             envInfo.location = path.join(testPyenvVersionsDir, 'venv1');
@@ -128,7 +132,7 @@ suite('Pyenv Locator Tests', () => {
             });
 
         const actualEnvs = (await getEnvs(locator.iterEnvs()))
-            // We sort for a stable comparision.
+            // We sort for a stable comparison.
             .sort((a, b) => a.executable.filename.localeCompare(b.executable.filename));
         assertEnvsEqual(actualEnvs, expectedEnvs);
     });
@@ -162,6 +166,7 @@ suite('Pyenv Locator Tests', () => {
                 minor: -1,
                 micro: -1,
             },
+            source: [],
         };
 
         const actual = await locator.resolveEnv(input);

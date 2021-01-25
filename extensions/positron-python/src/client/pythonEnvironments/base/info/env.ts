@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { cloneDeep } from 'lodash';
+import { cloneDeep, uniq } from 'lodash';
 import * as path from 'path';
 import { getArchitectureDisplayName } from '../../../common/platform/registry';
 import { normalizeFilename } from '../../../common/utils/filesystem';
@@ -11,7 +11,15 @@ import { getKindDisplayName, getPrioritizedEnvKinds } from './envKind';
 import { parseVersionFromExecutable } from './executable';
 import { areIdenticalVersion, areSimilarVersions, getVersionDisplayString, isVersionEmpty } from './pythonVersion';
 
-import { FileInfo, PythonDistroInfo, PythonEnvInfo, PythonEnvKind, PythonReleaseLevel, PythonVersion } from '.';
+import {
+    FileInfo,
+    PythonDistroInfo,
+    PythonEnvInfo,
+    PythonEnvKind,
+    PythonEnvSource,
+    PythonReleaseLevel,
+    PythonVersion,
+} from '.';
 
 /**
  * Create a new info object with all values empty.
@@ -21,14 +29,17 @@ import { FileInfo, PythonDistroInfo, PythonEnvInfo, PythonEnvKind, PythonRelease
 export function buildEnvInfo(init?: {
     kind?: PythonEnvKind;
     executable?: string;
+    name?: string;
     location?: string;
     version?: PythonVersion;
     org?: string;
     arch?: Architecture;
     fileInfo?: { ctime: number; mtime: number };
+    source?: PythonEnvSource[];
+    defaultDisplayName?: string;
 }): PythonEnvInfo {
     const env = {
-        name: '',
+        name: init?.name ?? '',
         location: '',
         kind: PythonEnvKind.Unknown,
         executable: {
@@ -38,7 +49,7 @@ export function buildEnvInfo(init?: {
             mtime: init?.fileInfo?.mtime ?? -1,
         },
         searchLocation: undefined,
-        defaultDisplayName: undefined,
+        defaultDisplayName: init?.defaultDisplayName,
         version: {
             major: -1,
             minor: -1,
@@ -52,6 +63,7 @@ export function buildEnvInfo(init?: {
         distro: {
             org: init?.org ?? '',
         },
+        source: init?.source ?? [],
     };
     if (init !== undefined) {
         updateEnv(env, init);
@@ -481,6 +493,7 @@ export function mergeEnvironments(target: PythonEnvInfo, other: PythonEnvInfo): 
     merged.name = merged.name.length ? merged.name : other.name;
     merged.searchLocation = merged.searchLocation ?? other.searchLocation;
     merged.version = version;
+    merged.source = uniq([...target.source, ...other.source]);
 
     return merged;
 }

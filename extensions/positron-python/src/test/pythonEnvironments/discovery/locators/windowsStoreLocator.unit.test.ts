@@ -10,6 +10,7 @@ import * as platformApis from '../../../../client/common/utils/platform';
 import {
     PythonEnvInfo,
     PythonEnvKind,
+    PythonEnvSource,
     PythonReleaseLevel,
     PythonVersion,
     UNKNOWN_PYTHON_VERSION,
@@ -158,6 +159,7 @@ suite('Windows Store', () => {
                             location: '',
                             kind: PythonEnvKind.WindowsStore,
                             distro: { org: 'Microsoft' },
+                            source: [PythonEnvSource.PathEnvVar],
                             ...createExpectedInterpreterInfo(k),
                         };
                     }
@@ -181,6 +183,7 @@ suite('Windows Store', () => {
                 location: '',
                 kind: PythonEnvKind.WindowsStore,
                 distro: { org: 'Microsoft' },
+                source: [PythonEnvSource.PathEnvVar],
                 ...createExpectedInterpreterInfo(python38path),
             };
 
@@ -198,6 +201,7 @@ suite('Windows Store', () => {
                 location: '',
                 kind: PythonEnvKind.WindowsStore,
                 distro: { org: 'Microsoft' },
+                source: [PythonEnvSource.PathEnvVar],
                 ...createExpectedInterpreterInfo(python38path),
             };
 
@@ -222,6 +226,7 @@ suite('Windows Store', () => {
                     micro: -1,
                     release: { level: PythonReleaseLevel.Final, serial: -1 },
                 },
+                source: [],
             };
 
             const actual = await locator.resolveEnv(input);
@@ -237,6 +242,7 @@ suite('Windows Store', () => {
                 location: '',
                 kind: PythonEnvKind.WindowsStore,
                 distro: { org: 'Microsoft' },
+                source: [PythonEnvSource.PathEnvVar],
                 ...createExpectedInterpreterInfo(python38path),
             };
 
