@@ -51,6 +51,9 @@ export class ApplicationEnvironment implements IApplicationEnvironment {
     public get appRoot(): string {
         return vscode.env.appRoot;
     }
+    public get uiKind(): vscode.UIKind {
+        return vscode.env.uiKind;
+    }
     public get language(): string {
         return vscode.env.language;
     }
