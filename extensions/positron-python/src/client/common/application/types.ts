@@ -47,6 +47,7 @@ import {
     TextEditorViewColumnChangeEvent,
     TreeView,
     TreeViewOptions,
+    UIKind,
     Uri,
     ViewColumn,
     WebviewPanel,
@@ -1036,6 +1037,12 @@ export interface IApplicationEnvironment {
      * The custom uri scheme the editor registers to in the operating system.
      */
     readonly uriScheme: string;
+    /**
+     * The UI kind property indicates from which UI extensions
+     * are accessed from. For example, extensions could be accessed
+     * from a desktop application or a web browser.
+     */
+    readonly uiKind: UIKind;
 }
 
 export interface IWebviewMessageListener {

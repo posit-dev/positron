@@ -14,6 +14,7 @@ import { IExtensionBuildInstaller, INSIDERS_INSTALLER } from '../installer/types
 import { traceDecorators } from '../logger';
 import { IDisposable, IDisposableRegistry } from '../types';
 import { ExtensionChannels, IExtensionChannelRule, IExtensionChannelService, IInsiderExtensionPrompt } from './types';
+import { UIKind } from 'vscode';
 
 @injectable()
 export class InsidersExtensionService implements IExtensionSingleActivationService {
@@ -101,6 +102,10 @@ export class InsidersExtensionService implements IExtensionSingleActivationServi
      */
     private async promptToInstallInsidersIfApplicable(isDefault: boolean): Promise<boolean> {
         if (this.appEnvironment.channel !== 'insiders') {
+            return false;
+        }
+        if (this.appEnvironment.uiKind === UIKind.Web) {
+            // We're running in Codespaces browser-based editor, do not show prompt.
             return false;
         }
         if (this.insidersPrompt.hasUserBeenNotified.value) {
