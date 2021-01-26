@@ -85,7 +85,7 @@ export enum SendSelectionToREPL {
 
 // Feature flag for 'Python: Launch TensorBoard' feature
 export enum NativeTensorBoard {
-    experiment = 'nativeTensorBoard',
+    experiment = 'pythonTensorboardExperiment',
 }
 
 // Experiment to show a prompt asking users to install or select linter
@@ -93,12 +93,6 @@ export enum LinterInstallationPromptVariants {
     pylintFirst = 'pythonInstallPylintButtonFirst',
     flake8First = 'pythonInstallFlake8ButtonFirst',
     noPrompt = 'pythonNotDisplayLinterPrompt',
-}
-
-// AB test codeactions vs codelenses as an entrypoint for native TensorBoard sessions
-export enum NativeTensorBoardEntrypoints {
-    codeActions = 'pythonTensorBoardCodeActions',
-    codeLenses = 'pythonTensorBoardCodeLenses',
 }
 
 // Experiment to control which environment discovery mechanism can be used
