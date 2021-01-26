@@ -368,10 +368,9 @@ suite('Interpreters - Auto Selection - Workspace Virtual Envs Rule', () => {
 
         const resource = Uri.file('x');
         // Return interpreters using the component adapter instead
-        when(componentAdapter.getWorkspaceVirtualEnvInterpreters(folderUri)).thenResolve([
-            interpreter2,
-            interpreter3,
-        ] as any);
+        when(
+            componentAdapter.getWorkspaceVirtualEnvInterpreters(folderUri, deepEqual({ ignoreCache: true })),
+        ).thenResolve([interpreter2, interpreter3] as any);
         const manager = mock(InterpreterAutoSelectionService);
         const nextInvoked = createDeferred();
         rule.next = () => Promise.resolve(nextInvoked.resolve());

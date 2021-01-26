@@ -64,12 +64,10 @@ export class WorkspaceVirtualEnvInterpretersAutoSelectionRule extends BaseRuleSe
         if (pythonPathInConfig.workspaceFolderValue || pythonPathInConfig.workspaceValue) {
             return NextAction.runNextRule;
         }
-        let interpreters: PythonEnvironment[] | undefined = [];
-        if (await inDiscoveryExperiment(this.experimentService)) {
-            interpreters = await this.pyenvs.getWorkspaceVirtualEnvInterpreters(workspacePath.folderUri);
-        } else {
-            interpreters = await this.getWorkspaceVirtualEnvInterpreters(workspacePath.folderUri);
-        }
+        const interpreters = (await inDiscoveryExperiment(this.experimentService))
+            ? // The cache may not have the workspace environments for this workspace, so ignore cache and query for fresh envs
+              await this.pyenvs.getWorkspaceVirtualEnvInterpreters(workspacePath.folderUri, { ignoreCache: true })
+            : await this.getWorkspaceVirtualEnvInterpreters(workspacePath.folderUri);
         const bestInterpreter =
             Array.isArray(interpreters) && interpreters.length > 0
                 ? this.helper.getBestInterpreter(interpreters)

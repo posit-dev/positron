@@ -42,7 +42,10 @@ export interface IComponentAdapter {
         source?: PythonEnvSource[],
     ): Promise<PythonEnvironment[] | undefined>;
     // WorkspaceVirtualEnvInterpretersAutoSelectionRule
-    getWorkspaceVirtualEnvInterpreters(resource: Uri): Promise<PythonEnvironment[] | undefined>;
+    getWorkspaceVirtualEnvInterpreters(
+        resource: Uri,
+        options?: { ignoreCache?: boolean },
+    ): Promise<PythonEnvironment[] | undefined>;
     // IInterpreterService
     getInterpreterDetails(pythonPath: string, _resource?: Uri): Promise<undefined | PythonEnvironment>;
     // IInterpreterHelper

@@ -371,7 +371,10 @@ class ComponentAdapter implements IComponentAdapter, IExtensionSingleActivationS
         return envs.map(convertEnvInfo);
     }
 
-    public async getWorkspaceVirtualEnvInterpreters(resource: vscode.Uri): Promise<PythonEnvironment[] | undefined> {
+    public async getWorkspaceVirtualEnvInterpreters(
+        resource: vscode.Uri,
+        options?: { ignoreCache?: boolean },
+    ): Promise<PythonEnvironment[] | undefined> {
         if (!this.enabled) {
             return undefined;
         }
@@ -383,6 +386,7 @@ class ComponentAdapter implements IComponentAdapter, IExtensionSingleActivationS
             searchLocations: {
                 roots: [workspaceFolder.uri],
             },
+            ignoreCache: options?.ignoreCache,
         };
         const iterator = this.api.iterEnvs(query);
         const envs = await getEnvs(iterator);
