@@ -53,12 +53,15 @@ suite('Linting - Linter Commands', () => {
         expect(result).to.be.equal('Hello');
     });
 
-    async function testEnableLintingWithCurrentState(currentState: boolean, selectedState: 'on' | 'off' | undefined) {
+    async function testEnableLintingWithCurrentState(
+        currentState: boolean,
+        selectedState: 'Enable' | 'Disable' | undefined,
+    ) {
         when(manager.isLintingEnabled(true, anything())).thenResolve(currentState);
         const expectedQuickPickOptions = {
             matchOnDetail: true,
             matchOnDescription: true,
-            placeHolder: `current: ${currentState ? 'on' : 'off'}`,
+            placeHolder: `current: ${currentState ? 'Enable' : 'Disable'}`,
         };
         when(shell.showQuickPick(anything(), anything())).thenResolve(selectedState as any);
 
@@ -67,29 +70,33 @@ suite('Linting - Linter Commands', () => {
         verify(shell.showQuickPick(anything(), anything())).once();
         const options = capture(shell.showQuickPick).last()[0];
         const quickPickOptions = capture(shell.showQuickPick).last()[1];
-        expect(options).to.deep.equal(['on', 'off']);
+        expect(options).to.deep.equal(['Enable', 'Disable']);
         expect(quickPickOptions).to.deep.equal(expectedQuickPickOptions);
 
         if (selectedState) {
-            verify(manager.enableLintingAsync(selectedState === 'on', anything())).once();
+            verify(manager.enableLintingAsync(selectedState === 'Enable', anything())).once();
         } else {
             verify(manager.enableLintingAsync(anything(), anything())).never();
         }
     }
-    test("Enable linting should check if linting is enabled, and display current state of 'on' and select nothing", async () => {
+    test("Enable linting should check if linting is enabled, and display current state of 'Enable' and select nothing", async () => {
         await testEnableLintingWithCurrentState(true, undefined);
     });
-    test("Enable linting should check if linting is enabled, and display current state of 'on' and select 'on'", async () => {
-        await testEnableLintingWithCurrentState(true, 'on');
+
+    test("Enable linting should check if linting is enabled, and display current state of 'Enable' and select 'Enable'", async () => {
+        await testEnableLintingWithCurrentState(true, 'Enable');
     });
-    test("Enable linting should check if linting is enabled, and display current state of 'on' and select 'off'", async () => {
-        await testEnableLintingWithCurrentState(true, 'off');
+
+    test("Enable linting should check if linting is enabled, and display current state of 'Enable' and select 'Disable'", async () => {
+        await testEnableLintingWithCurrentState(true, 'Disable');
     });
-    test("Enable linting should check if linting is enabled, and display current state of 'off' and select 'on'", async () => {
-        await testEnableLintingWithCurrentState(true, 'on');
+
+    test("Enable linting should check if linting is enabled, and display current state of 'Disable' and select 'Enable'", async () => {
+        await testEnableLintingWithCurrentState(true, 'Enable');
     });
-    test("Enable linting should check if linting is enabled, and display current state of 'off' and select 'off'", async () => {
-        await testEnableLintingWithCurrentState(true, 'off');
+
+    test("Enable linting should check if linting is enabled, and display current state of 'Disable' and select 'Disable'", async () => {
+        await testEnableLintingWithCurrentState(true, 'Disable');
     });
 
     test('Set Linter should display a quickpick', async () => {
@@ -108,6 +115,7 @@ suite('Linting - Linter Commands', () => {
         const quickPickOptions = capture(shell.showQuickPick).last()[1];
         expect(quickPickOptions).to.deep.equal(expectedQuickPickOptions);
     });
+
     test('Set Linter should display a quickpick and currently active linter when only one is enabled', async () => {
         const linterId = 'Hello World';
         const activeLinters: ILinterInfo[] = [{ id: linterId } as any];
@@ -126,6 +134,7 @@ suite('Linting - Linter Commands', () => {
         const quickPickOptions = capture(shell.showQuickPick).last()[1];
         expect(quickPickOptions).to.deep.equal(expectedQuickPickOptions);
     });
+
     test('Set Linter should display a quickpick and with message about multiple linters being enabled', async () => {
         const activeLinters: ILinterInfo[] = [{ id: 'linterId' } as any, { id: 'linterId2' } as any];
         when(manager.getAllLinterInfos()).thenReturn([]);
@@ -143,6 +152,7 @@ suite('Linting - Linter Commands', () => {
         const quickPickOptions = capture(shell.showQuickPick).last()[1];
         expect(quickPickOptions).to.deep.equal(expectedQuickPickOptions);
     });
+
     test('Selecting a linter should display warning message about multiple linters', async () => {
         const linters: ILinterInfo[] = [{ id: '1' }, { id: '2' }, { id: '3', product: 'Three' }] as any;
         const activeLinters: ILinterInfo[] = [{ id: '1' }, { id: '3' }] as any;
