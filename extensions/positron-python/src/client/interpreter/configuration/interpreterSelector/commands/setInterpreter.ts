@@ -39,7 +39,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
         super(pythonPathUpdaterService, commandManager, applicationShell, workspaceService);
     }
 
-    public async activate() {
+    public async activate(): Promise<void> {
         this.disposables.push(
             this.commandManager.registerCommand(Commands.Set_Interpreter, this.setInterpreter.bind(this)),
         );
@@ -74,12 +74,15 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
         });
 
         if (selection === undefined) {
-            return;
+            sendTelemetryEvent(EventName.SELECT_INTERPRETER_SELECTED, undefined, { action: 'escape' });
         } else if (selection.label === enterInterpreterPathSuggestion.label) {
             return this._enterOrBrowseInterpreterPath(input, state);
         } else {
+            sendTelemetryEvent(EventName.SELECT_INTERPRETER_SELECTED, undefined, { action: 'selected' });
             state.path = (selection as IInterpreterQuickPickItem).path;
         }
+
+        return undefined;
     }
 
     @captureTelemetry(EventName.SELECT_INTERPRETER_ENTER_BUTTON)
@@ -122,16 +125,18 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
     }
 
     @captureTelemetry(EventName.SELECT_INTERPRETER)
-    public async setInterpreter() {
+    public async setInterpreter(): Promise<void> {
         const targetConfig = await this.getConfigTarget();
         if (!targetConfig) {
             return;
         }
-        const configTarget = targetConfig.configTarget;
+
+        const { configTarget } = targetConfig;
         const wkspace = targetConfig.folderUri;
         const interpreterState: InterpreterStateArgs = { path: undefined, workspace: wkspace };
         const multiStep = this.multiStepFactory.create<InterpreterStateArgs>();
         await multiStep.run((input, s) => this._pickInterpreter(input, s), interpreterState);
+
         if (interpreterState.path !== undefined) {
             // User may choose to have an empty string stored, so variable `interpreterState.path` may be
             // an empty string, in which case we should update.
