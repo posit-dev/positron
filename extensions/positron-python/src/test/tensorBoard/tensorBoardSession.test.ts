@@ -32,6 +32,7 @@ suite('TensorBoard session creation', async () => {
         // Pretend to be in experiment
         const experimentService = serviceManager.get<IExperimentService>(IExperimentService);
         sandbox.stub(experimentService, 'inExperiment').resolves(true);
+
         // Create tensorboard session provider
         provider = serviceManager.get<TensorBoardSessionProvider>(TensorBoardSessionProvider);
         await provider.activate();
