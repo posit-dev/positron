@@ -14,7 +14,7 @@ export interface IEnvironmentsSecurity {
      */
     isEnvSafe(env: PythonEnvInfo): boolean;
     /**
-     * Mark all environments to be safe.
+     * Mark all environments to be safe to execute.
      */
     markAllEnvsAsSafe(): void;
 }
@@ -26,10 +26,10 @@ export class EnvironmentsSecurity implements IEnvironmentsSecurity {
     /**
      * Carries `true` if it's secure to run all environment executables, `false` otherwise.
      */
-    private allEnvsSafe = false;
+    private areAllEnvsSafe = false;
 
     public isEnvSafe(env: PythonEnvInfo): boolean {
-        if (this.allEnvsSafe) {
+        if (this.areAllEnvsSafe) {
             return true;
         }
         const folders = vscode.workspace.workspaceFolders;
@@ -48,6 +48,6 @@ export class EnvironmentsSecurity implements IEnvironmentsSecurity {
     }
 
     public markAllEnvsAsSafe(): void {
-        this.allEnvsSafe = true;
+        this.areAllEnvsSafe = true;
     }
 }
