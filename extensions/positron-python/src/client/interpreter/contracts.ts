@@ -33,31 +33,38 @@ export interface IVirtualEnvironmentsSearchPathProvider {
 export const IComponentAdapter = Symbol('IComponentAdapter');
 export interface IComponentAdapter {
     // VirtualEnvPrompt
-    onDidCreate(resource: Resource, callback: () => void): Disposable | undefined;
+    onDidCreate(resource: Resource, callback: () => void): Disposable;
     // IInterpreterLocatorService
-    hasInterpreters: Promise<boolean | undefined>;
+    hasInterpreters: Promise<boolean>;
     getInterpreters(
         resource?: Uri,
         options?: GetInterpreterOptions,
         source?: PythonEnvSource[],
-    ): Promise<PythonEnvironment[] | undefined>;
+    ): Promise<PythonEnvironment[]>;
+
     // WorkspaceVirtualEnvInterpretersAutoSelectionRule
     getWorkspaceVirtualEnvInterpreters(
         resource: Uri,
         options?: { ignoreCache?: boolean },
-    ): Promise<PythonEnvironment[] | undefined>;
+    ): Promise<PythonEnvironment[]>;
+
     // IInterpreterLocatorService (for WINDOWS_REGISTRY_SERVICE)
-    getWinRegInterpreters(resource: Resource): Promise<PythonEnvironment[] | undefined>;
+    getWinRegInterpreters(resource: Resource): Promise<PythonEnvironment[]>;
     // IInterpreterService
-    getInterpreterDetails(pythonPath: string, _resource?: Uri): Promise<undefined | PythonEnvironment>;
+    getInterpreterDetails(pythonPath: string, _resource?: Uri): Promise<PythonEnvironment>;
+
     // IInterpreterHelper
-    getInterpreterInformation(pythonPath: string): Promise<undefined | Partial<PythonEnvironment>>;
-    isMacDefaultPythonPath(pythonPath: string): Promise<boolean | undefined>;
+    // Undefined is expected on this API, if the environment info retrieval fails.
+    getInterpreterInformation(pythonPath: string): Promise<Partial<PythonEnvironment> | undefined>;
+
+    isMacDefaultPythonPath(pythonPath: string): Promise<boolean>;
+
     // ICondaService
-    isCondaEnvironment(interpreterPath: string): Promise<boolean | undefined>;
+    isCondaEnvironment(interpreterPath: string): Promise<boolean>;
+    // Undefined is expected on this API, if the environment is not conda env.
     getCondaEnvironment(interpreterPath: string): Promise<CondaEnvironmentInfo | undefined>;
 
-    isWindowsStoreInterpreter(pythonPath: string): Promise<boolean | undefined>;
+    isWindowsStoreInterpreter(pythonPath: string): Promise<boolean>;
 }
 
 export const IInterpreterLocatorService = Symbol('IInterpreterLocatorService');
