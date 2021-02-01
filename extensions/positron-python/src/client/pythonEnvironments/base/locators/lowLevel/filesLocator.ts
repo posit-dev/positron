@@ -5,14 +5,13 @@
 /* eslint-disable max-classes-per-file */
 
 import { Event, EventEmitter } from 'vscode';
-import { findInterpretersInDir } from '../../../common/commonUtils';
+import { iterPythonExecutablesInDir } from '../../../common/commonUtils';
 import { normalizePath } from '../../../common/externalDependencies';
 import { PythonEnvInfo, PythonEnvKind } from '../../info';
 import { getFastEnvInfo } from '../../info/env';
 import { ILocator, IPythonEnvsIterator, PythonEnvUpdatedEvent, PythonLocatorQuery } from '../../locator';
 import { iterAndUpdateEnvs, resolveEnvFromIterator } from '../../locatorUtils';
 import { PythonEnvsChangedEvent, PythonEnvsWatcher } from '../../watcher';
-import { FSWatchingLocator } from './fsWatchingLocator';
 
 /**
  * A naive locator the wraps a function that finds Python executables.
@@ -67,30 +66,26 @@ async function* iterMinimalEnvsFromExecutables(
 /**
  * A locator for executables in a single directory.
  */
-export class DirFilesLocator extends FSWatchingLocator {
-    private readonly subLocator: ILocator;
-
+export class DirFilesLocator extends FoundFilesLocator {
     constructor(
         dirname: string,
         kind: PythonEnvKind,
-        getExecutables: (dir: string) => AsyncIterableIterator<string> = findInterpretersInDir,
+        getExecutables: (dir: string) => AsyncIterableIterator<string> = getExecutablesDefault,
     ) {
         super(
-            () => [dirname],
-            async () => kind,
-        );
-        this.subLocator = new FoundFilesLocator(
             kind,
             // a wrapper
             () => getExecutables(dirname),
         );
     }
+}
 
-    protected doIterEnvs(query: PythonLocatorQuery): IPythonEnvsIterator {
-        return this.subLocator.iterEnvs(query);
-    }
+// For now we do not have a DirFilesWatchingLocator.  It would be
+// a subclass of FSWatchingLocator that wraps a DirFilesLocator
+// instance.
 
-    protected async doResolveEnv(env: string | PythonEnvInfo): Promise<PythonEnvInfo | undefined> {
-        return this.subLocator.resolveEnv(env);
+async function* getExecutablesDefault(dirname: string): AsyncIterableIterator<string> {
+    for await (const entry of iterPythonExecutablesInDir(dirname)) {
+        yield entry.filename;
     }
 }

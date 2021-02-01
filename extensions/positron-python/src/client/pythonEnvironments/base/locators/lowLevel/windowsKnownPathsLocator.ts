@@ -60,7 +60,13 @@ function getDirFilesLocator(
     dirname: string,
     kind: PythonEnvKind,
 ): ILocator & IDisposable {
+    // For now we do not bother using a locator that watches for changes
+    // in the directory.  If we did then we would use
+    // `DirFilesWatchingLocator`, but only if not \\windows\system32 and
+    // the `isDirWatchable()` (from fsWatchingLocator.ts) returns true.
     const locator = new DirFilesLocator(dirname, kind);
+    const dispose = async () => undefined;
+
     // Really we should be checking for symlinks or something more
     // sophisticated.  Also, this should be done in ReducingLocator
     // rather than in each low-level locator.  In the meantime we
@@ -95,7 +101,7 @@ function getDirFilesLocator(
     return {
         iterEnvs,
         resolveEnv,
+        dispose,
         onChanged: locator.onChanged,
-        dispose: () => locator.dispose(),
     };
 }
