@@ -118,6 +118,7 @@ import { Architecture } from '../../client/common/utils/platform';
 import { Random } from '../../client/common/utils/random';
 import {
     ICondaService,
+    ICondaLocatorService,
     IInterpreterLocatorService,
     IInterpreterService,
     INTERPRETER_LOCATOR_SERVICE,
@@ -156,6 +157,7 @@ suite('Module Installer', () => {
         let ioc: UnitTestIocContainer;
         let mockTerminalService: TypeMoq.IMock<ITerminalService>;
         let condaService: TypeMoq.IMock<ICondaService>;
+        let condaLocatorService: TypeMoq.IMock<ICondaLocatorService>;
         let interpreterService: TypeMoq.IMock<IInterpreterService>;
         let mockTerminalFactory: TypeMoq.IMock<ITerminalServiceFactory>;
 
@@ -216,6 +218,11 @@ suite('Module Installer', () => {
 
             await ioc.registerMockInterpreterTypes();
             condaService = TypeMoq.Mock.ofType<ICondaService>();
+            condaLocatorService = TypeMoq.Mock.ofType<ICondaLocatorService>();
+            ioc.serviceManager.addSingletonInstance<ICondaLocatorService>(
+                ICondaLocatorService,
+                condaLocatorService.object,
+            );
             ioc.serviceManager.rebindInstance<ICondaService>(ICondaService, condaService.object);
             interpreterService = TypeMoq.Mock.ofType<IInterpreterService>();
             ioc.serviceManager.rebindInstance<IInterpreterService>(IInterpreterService, interpreterService.object);
@@ -456,8 +463,11 @@ suite('Module Installer', () => {
             settings.setup((s) => s.pythonPath).returns(() => pythonPath);
             configService.setup((c) => c.getSettings(TypeMoq.It.isAny())).returns(() => settings.object);
             serviceContainer.setup((c) => c.get(TypeMoq.It.isValue(ICondaService))).returns(() => condaService.object);
+            serviceContainer
+                .setup((c) => c.get(TypeMoq.It.isValue(ICondaLocatorService)))
+                .returns(() => condaLocatorService.object);
             condaService.setup((c) => c.isCondaAvailable()).returns(() => Promise.resolve(true));
-            condaService
+            condaLocatorService
                 .setup((c) => c.isCondaEnvironment(TypeMoq.It.isValue(pythonPath)))
                 .returns(() => Promise.resolve(true));
 
@@ -476,8 +486,11 @@ suite('Module Installer', () => {
             settings.setup((s) => s.pythonPath).returns(() => pythonPath);
             configService.setup((c) => c.getSettings(TypeMoq.It.isAny())).returns(() => settings.object);
             serviceContainer.setup((c) => c.get(TypeMoq.It.isValue(ICondaService))).returns(() => condaService.object);
+            serviceContainer
+                .setup((c) => c.get(TypeMoq.It.isValue(ICondaLocatorService)))
+                .returns(() => condaLocatorService.object);
             condaService.setup((c) => c.isCondaAvailable()).returns(() => Promise.resolve(true));
-            condaService
+            condaLocatorService
                 .setup((c) => c.isCondaEnvironment(TypeMoq.It.isValue(pythonPath)))
                 .returns(() => Promise.resolve(false));
 
