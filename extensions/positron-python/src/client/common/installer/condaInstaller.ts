@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import { inject, injectable } from 'inversify';
-import { ICondaService } from '../../interpreter/contracts';
+import { ICondaService, ICondaLocatorService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { ExecutionInfo, IConfigurationService } from '../types';
 import { isResource } from '../utils/misc';
@@ -67,7 +67,8 @@ export class CondaInstaller extends ModuleInstaller {
         const pythonPath = isResource(resource)
             ? this.serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(resource).pythonPath
             : resource.path;
-        const info = await condaService.getCondaEnvironment(pythonPath);
+        const condaLocatorService = this.serviceContainer.get<ICondaLocatorService>(ICondaLocatorService);
+        const info = await condaLocatorService.getCondaEnvironment(pythonPath);
         const args = [isUpgrade ? 'update' : 'install'];
 
         // Temporarily ensure tensorboard is installed from the conda-forge
@@ -96,7 +97,7 @@ export class CondaInstaller extends ModuleInstaller {
      * Is the provided interprter a conda environment
      */
     private async isCurrentEnvironmentACondaEnvironment(resource?: InterpreterUri): Promise<boolean> {
-        const condaService = this.serviceContainer.get<ICondaService>(ICondaService);
+        const condaService = this.serviceContainer.get<ICondaLocatorService>(ICondaLocatorService);
         const pythonPath = isResource(resource)
             ? this.serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(resource).pythonPath
             : resource.path;

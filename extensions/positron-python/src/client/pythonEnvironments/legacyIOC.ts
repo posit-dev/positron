@@ -18,6 +18,7 @@ import {
     GLOBAL_VIRTUAL_ENV_SERVICE,
     IComponentAdapter,
     ICondaService,
+    ICondaLocatorService,
     IInterpreterLocatorHelper,
     IInterpreterLocatorProgressService,
     IInterpreterLocatorService,
@@ -48,6 +49,7 @@ import { CondaEnvironmentInfo, isCondaEnvironment } from './discovery/locators/s
 import { CondaEnvFileService } from './discovery/locators/services/condaEnvFileService';
 import { CondaEnvService } from './discovery/locators/services/condaEnvService';
 import { CondaService } from './discovery/locators/services/condaService';
+import { CondaLocatorService } from './discovery/locators/services/condaLocatorService';
 import { CurrentPathService, PythonInPathCommandProvider } from './discovery/locators/services/currentPathService';
 import {
     GlobalVirtualEnvironmentsSearchPathProvider,
@@ -451,6 +453,7 @@ export async function registerLegacyDiscoveryForIOC(serviceManager: IServiceMana
         serviceManager.addSingleton<IPipEnvServiceHelper>(IPipEnvServiceHelper, PipEnvServiceHelper);
     }
 
+    serviceManager.addSingleton<ICondaLocatorService>(ICondaLocatorService, CondaLocatorService);
     serviceManager.addSingleton<ICondaService>(ICondaService, CondaService);
 }
 
