@@ -1,4 +1,4 @@
-import { expect, should as chai_should, use as chai_use } from 'chai';
+import { expect, should as chaiShould, use as chaiUse } from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import * as path from 'path';
 import { SemVer } from 'semver';
@@ -34,6 +34,7 @@ import { AsyncDisposableRegistry } from '../../client/common/asyncDisposableRegi
 import { ConfigurationService } from '../../client/common/configuration/service';
 import { CryptoUtils } from '../../client/common/crypto';
 import { EditorUtils } from '../../client/common/editor';
+import { DiscoveryVariants } from '../../client/common/experiments/groups';
 import { ExperimentsManager } from '../../client/common/experiments/manager';
 import { ExperimentService } from '../../client/common/experiments/service';
 import { FeatureDeprecationManager } from '../../client/common/featureDeprecationManager';
@@ -134,9 +135,9 @@ import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../constants';
 import { MockModuleInstaller } from '../mocks/moduleInstaller';
 import { MockProcessService } from '../mocks/proc';
 import { UnitTestIocContainer } from '../testing/serviceRegistry';
-import { closeActiveWindows, initializeTest } from './../initialize';
+import { closeActiveWindows, initializeTest } from '../initialize';
 
-chai_use(chaiAsPromised);
+chaiUse(chaiAsPromised);
 
 const isolated = path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'pythonFiles', 'pyvsc-run-isolated.py');
 
@@ -158,13 +159,14 @@ suite('Module Installer', () => {
         let mockTerminalService: TypeMoq.IMock<ITerminalService>;
         let condaService: TypeMoq.IMock<ICondaService>;
         let condaLocatorService: TypeMoq.IMock<ICondaLocatorService>;
+        let experimentService: TypeMoq.IMock<IExperimentService>;
         let interpreterService: TypeMoq.IMock<IInterpreterService>;
         let mockTerminalFactory: TypeMoq.IMock<ITerminalServiceFactory>;
 
         const workspaceUri = Uri.file(path.join(__dirname, '..', '..', '..', 'src', 'test'));
         suiteSetup(initializeTest);
         setup(async () => {
-            chai_should();
+            chaiShould();
             await initializeDI();
             await initializeTest();
             await resetSettings();
@@ -219,6 +221,10 @@ suite('Module Installer', () => {
             await ioc.registerMockInterpreterTypes();
             condaService = TypeMoq.Mock.ofType<ICondaService>();
             condaLocatorService = TypeMoq.Mock.ofType<ICondaLocatorService>();
+            experimentService = TypeMoq.Mock.ofType<IExperimentService>();
+            experimentService
+                .setup((e) => e.inExperiment(DiscoveryVariants.discoverWithFileWatching))
+                .returns(() => Promise.resolve(false));
             ioc.serviceManager.addSingletonInstance<ICondaLocatorService>(
                 ICondaLocatorService,
                 condaLocatorService.object,
@@ -340,15 +346,14 @@ suite('Module Installer', () => {
             );
         }
         async function getCurrentPythonPath(): Promise<string> {
-            const pythonPath = getExtensionSettings(workspaceUri).pythonPath;
+            const { pythonPath } = getExtensionSettings(workspaceUri);
             if (path.basename(pythonPath) === pythonPath) {
                 const pythonProc = await ioc.serviceContainer
                     .get<IPythonExecutionFactory>(IPythonExecutionFactory)
                     .create({ resource: workspaceUri });
                 return pythonProc.getExecutablePath().catch(() => pythonPath);
-            } else {
-                return pythonPath;
             }
+            return pythonPath;
         }
         test('Ensure pip is supported and conda is not', async () => {
             ioc.serviceManager.addSingletonInstance<IModuleInstaller>(
@@ -466,6 +471,9 @@ suite('Module Installer', () => {
             serviceContainer
                 .setup((c) => c.get(TypeMoq.It.isValue(ICondaLocatorService)))
                 .returns(() => condaLocatorService.object);
+            serviceContainer
+                .setup((c) => c.get(TypeMoq.It.isValue(IExperimentService)))
+                .returns(() => experimentService.object);
             condaService.setup((c) => c.isCondaAvailable()).returns(() => Promise.resolve(true));
             condaLocatorService
                 .setup((c) => c.isCondaEnvironment(TypeMoq.It.isValue(pythonPath)))
@@ -489,6 +497,9 @@ suite('Module Installer', () => {
             serviceContainer
                 .setup((c) => c.get(TypeMoq.It.isValue(ICondaLocatorService)))
                 .returns(() => condaLocatorService.object);
+            serviceContainer
+                .setup((c) => c.get(TypeMoq.It.isValue(IExperimentService)))
+                .returns(() => experimentService.object);
             condaService.setup((c) => c.isCondaAvailable()).returns(() => Promise.resolve(true));
             condaLocatorService
                 .setup((c) => c.isCondaEnvironment(TypeMoq.It.isValue(pythonPath)))
@@ -537,11 +548,12 @@ suite('Module Installer', () => {
                 .setup((t) => t.sendCommand(TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
                 .returns((_cmd: string, args: string[]) => {
                     argsSent = args;
-                    return Promise.resolve(void 0);
+                    return Promise.resolve();
                 });
             interpreterService
                 .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .returns(() => Promise.resolve({ envType: EnvironmentType.Unknown } as any));
 
             await pipInstaller.installModule(moduleName, resource);
@@ -582,7 +594,7 @@ suite('Module Installer', () => {
                 .setup((t) => t.sendCommand(TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
                 .returns((_cmd: string, args: string[]) => {
                     argsSent = args;
-                    return Promise.resolve(void 0);
+                    return Promise.resolve();
                 });
 
             await pipInstaller.installModule(moduleName, resource);
@@ -620,7 +632,7 @@ suite('Module Installer', () => {
                 .returns((cmd: string, args: string[]) => {
                     argsSent = args;
                     command = cmd;
-                    return Promise.resolve(void 0);
+                    return Promise.resolve();
                 });
 
             await pipInstaller.installModule(moduleName, resource);
