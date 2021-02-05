@@ -12,14 +12,22 @@ import { IWorkspaceService } from '../application/types';
 import { PythonSettings } from '../configSettings';
 import { isUnitTestExecution } from '../constants';
 import { DeprecatePythonPath } from '../experiments/groups';
-import { IConfigurationService, IExperimentsManager, IInterpreterPathService, IPythonSettings } from '../types';
+import {
+    IConfigurationService,
+    IDefaultLanguageServer,
+    IExperimentsManager,
+    IInterpreterPathService,
+    IPythonSettings,
+} from '../types';
 
 @injectable()
 export class ConfigurationService implements IConfigurationService {
     private readonly workspaceService: IWorkspaceService;
+
     constructor(@inject(IServiceContainer) private readonly serviceContainer: IServiceContainer) {
         this.workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     }
+
     public getSettings(resource?: Uri): IPythonSettings {
         const InterpreterAutoSelectionService = this.serviceContainer.get<IInterpreterAutoSeletionProxyService>(
             IInterpreterAutoSeletionProxyService,
@@ -29,6 +37,7 @@ export class ConfigurationService implements IConfigurationService {
         const interpreterSecurityService = this.serviceContainer.get<IInterpreterSecurityService>(
             IInterpreterSecurityService,
         );
+        const defaultJedi = this.serviceContainer.tryGet<IDefaultLanguageServer>(IDefaultLanguageServer);
         return PythonSettings.getInstance(
             resource,
             InterpreterAutoSelectionService,
@@ -36,13 +45,14 @@ export class ConfigurationService implements IConfigurationService {
             experiments,
             interpreterPathService,
             interpreterSecurityService,
+            defaultJedi,
         );
     }
 
     public async updateSectionSetting(
         section: string,
         setting: string,
-        value?: {},
+        value?: unknown,
         resource?: Uri,
         configTarget?: ConfigurationTarget,
     ): Promise<void> {
@@ -58,7 +68,7 @@ export class ConfigurationService implements IConfigurationService {
         if (section === 'python' && configTarget !== ConfigurationTarget.Global) {
             settingsInfo = PythonSettings.getSettingsUriAndTarget(resource, this.workspaceService);
         }
-        configTarget = configTarget ? configTarget : settingsInfo.target;
+        configTarget = configTarget || settingsInfo.target;
 
         const configSection = this.workspaceService.getConfiguration(section, settingsInfo.uri);
         const currentValue =
@@ -76,6 +86,7 @@ export class ConfigurationService implements IConfigurationService {
         }
         if (section === 'python' && setting === 'pythonPath') {
             if (inExperiment) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await interpreterPathService.update(settingsInfo.uri, configTarget, value as any);
             }
         } else {
@@ -86,13 +97,14 @@ export class ConfigurationService implements IConfigurationService {
 
     public async updateSetting(
         setting: string,
-        value?: {},
+        value?: unknown,
         resource?: Uri,
         configTarget?: ConfigurationTarget,
     ): Promise<void> {
         return this.updateSectionSetting('python', setting, value, resource, configTarget);
     }
 
+    // eslint-disable-next-line class-methods-use-this
     public isTestExecution(): boolean {
         return process.env.VSC_PYTHON_CI_TEST === '1';
     }
@@ -101,7 +113,7 @@ export class ConfigurationService implements IConfigurationService {
         configSection: WorkspaceConfiguration,
         target: ConfigurationTarget,
         settingName: string,
-        value?: {},
+        value?: unknown,
     ): Promise<void> {
         if (this.isTestExecution() && !isUnitTestExecution()) {
             let retries = 0;
@@ -112,12 +124,14 @@ export class ConfigurationService implements IConfigurationService {
                 }
                 if (setting && value !== undefined) {
                     // Both specified
-                    const actual =
-                        target === ConfigurationTarget.Global
-                            ? setting.globalValue
-                            : target === ConfigurationTarget.Workspace
-                            ? setting.workspaceValue
-                            : setting.workspaceFolderValue;
+                    let actual;
+                    if (target === ConfigurationTarget.Global) {
+                        actual = setting.globalValue;
+                    } else if (target === ConfigurationTarget.Workspace) {
+                        actual = setting.workspaceValue;
+                    } else {
+                        actual = setting.workspaceFolderValue;
+                    }
                     if (actual === value) {
                         break;
                     }

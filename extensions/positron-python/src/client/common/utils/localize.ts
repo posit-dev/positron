@@ -7,6 +7,8 @@ import * as path from 'path';
 import { EXTENSION_ROOT_DIR } from '../../constants';
 import { FileSystem } from '../platform/fileSystem';
 
+/* eslint-disable @typescript-eslint/no-namespace, no-shadow */
+
 // External callers of localize use these tables to retrieve localized values.
 export namespace Diagnostics {
     export const warnSourceMaps = localize(
@@ -191,6 +193,7 @@ export namespace LanguageService {
         'Starting Microsoft Python language server.',
     );
     export const startingPylance = localize('LanguageService.startingPylance', 'Starting Pylance language server.');
+    export const startingJediLSP = localize('LanguageService.startingJediLSP', 'Starting Jedi language server.');
     export const startingNone = localize(
         'LanguageService.startingNone',
         'Editor support is inactive since language server is set to None.',
@@ -575,14 +578,14 @@ let askedForCollection: Record<string, string> = {};
 let loadedLocale: string;
 
 // This is exported only for testing purposes.
-export function _resetCollections() {
+export function _resetCollections(): void {
     loadedLocale = '';
     loadedCollection = undefined;
     askedForCollection = {};
 }
 
 // This is exported only for testing purposes.
-export function _getAskedForCollection() {
+export function _getAskedForCollection(): Record<string, string> {
     return askedForCollection;
 }
 
@@ -601,7 +604,7 @@ export function getCollectionJSON(): string {
 
 export function localize(key: string, defValue?: string) {
     // Return a pointer to function so that we refetch it on each call.
-    return () => {
+    return (): string => {
         return getString(key, defValue);
     };
 }
