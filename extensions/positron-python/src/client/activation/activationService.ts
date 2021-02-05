@@ -55,11 +55,17 @@ interface IActivatedServer {
 export class LanguageServerExtensionActivationService
     implements IExtensionActivationService, ILanguageServerCache, Disposable {
     private cache = new Map<string, Promise<RefCountedLanguageServer>>();
+
     private activatedServer?: IActivatedServer;
+
     private readonly workspaceService: IWorkspaceService;
+
     private readonly output: OutputChannel;
+
     private readonly interpreterService: IInterpreterService;
+
     private readonly languageServerChangeHandler: LanguageServerChangeHandler;
+
     private resource!: Resource;
 
     constructor(
@@ -138,7 +144,7 @@ export class LanguageServerExtensionActivationService
         return result;
     }
 
-    public dispose() {
+    public dispose(): void {
         if (this.activatedServer) {
             this.activatedServer.server.dispose();
         }
@@ -185,8 +191,8 @@ export class LanguageServerExtensionActivationService
         );
     }
 
-    protected async onWorkspaceFoldersChanged() {
-        //If an activated workspace folder was removed, dispose its activator
+    protected async onWorkspaceFoldersChanged(): Promise<void> {
+        // If an activated workspace folder was removed, dispose its activator
         const workspaceKeys = await Promise.all(
             this.workspaceService.workspaceFolders!.map((workspaceFolder) => this.getKey(workspaceFolder.uri)),
         );
@@ -263,6 +269,9 @@ export class LanguageServerExtensionActivationService
             case LanguageServerType.Jedi:
                 outputLine = LanguageService.startingJedi();
                 break;
+            case LanguageServerType.JediLSP:
+                outputLine = LanguageService.startingJediLSP();
+                break;
             case LanguageServerType.Microsoft:
                 outputLine = LanguageService.startingMicrosoft();
                 break;
@@ -304,7 +313,7 @@ export class LanguageServerExtensionActivationService
             resource,
             workspacePathNameForGlobalWorkspaces,
         );
-        interpreter = interpreter ? interpreter : await this.interpreterService.getActiveInterpreter(resource);
+        interpreter = interpreter || (await this.interpreterService.getActiveInterpreter(resource));
         const interperterPortion = interpreter ? `${interpreter.path}-${interpreter.envName}` : '';
         return `${resourcePortion}-${interperterPortion}`;
     }

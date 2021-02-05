@@ -1049,6 +1049,7 @@
                             "pythonSendEntireLineToREPL",
                             "pythonTensorboardExperiment",
                             "pythonDiscoveryModule",
+                            "pythonJediLSP",
                             "All"
                         ]
                     },
@@ -1078,6 +1079,7 @@
                             "pythonSendEntireLineToREPL",
                             "pythonTensorboardExperiment",
                             "pythonDiscoveryModule",
+                            "pythonJediLSP",
                             "All"
                         ]
                     },
@@ -1168,13 +1170,14 @@
                 "python.jediPath": {
                     "type": "string",
                     "default": "",
-                    "description": "Path to directory containing the Jedi library (this path will contain the 'Jedi' sub directory). Note: since Jedi depends on Parso, if using this setting you will need to ensure a suitable version of Parso is available.",
+                    "description": "Path to directory containing the Jedi library (this path will contain the 'Jedi' sub directory). Note: since Jedi depends on Parso, if using this setting you will need to ensure a suitable version of Parso is available. This setting only works with \"languageServer=Jedi\" and not JediLSP.",
                     "scope": "resource"
                 },
                 "python.languageServer": {
                     "type": "string",
                     "enum": [
                         "Jedi",
+                        "JediLSP",
                         "Pylance",
                         "Microsoft",
                         "None"
