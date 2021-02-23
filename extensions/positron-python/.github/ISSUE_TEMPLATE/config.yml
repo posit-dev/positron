@@ -9,6 +9,6 @@ contact_links:
   - name: Jupyter
     url: https://github.com/microsoft/vscode-jupyter/issues
     about: For issues relating to the Jupyter extension
-  - name: Stack Overflow
-    url: https://stackoverflow.com/questions/tagged/visual-studio-code+python
-    about: Please ask support questions here
+  - name: Help/Support
+    url: https://github.com/microsoft/vscode-python/discussions/categories/q-a
+    about: Please ask support questions in our "Q&A" Discussions category
