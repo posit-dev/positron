@@ -1050,8 +1050,6 @@
                         "enum": [
                             "ShowExtensionSurveyPrompt - enabled",
                             "Reload - experiment",
-                            "CollectLSRequestTiming - experiment",
-                            "CollectNodeLSRequestTiming - experiment",
                             "DeprecatePythonPath - experiment",
                             "tryPylance",
                             "debuggerDataViewer",
@@ -1072,8 +1070,6 @@
                         "enum": [
                             "ShowExtensionSurveyPrompt - enabled",
                             "Reload - experiment",
-                            "CollectLSRequestTiming - experiment",
-                            "CollectNodeLSRequestTiming - experiment",
                             "DeprecatePythonPath - experiment",
                             "tryPylance",
                             "debuggerDataViewer",
