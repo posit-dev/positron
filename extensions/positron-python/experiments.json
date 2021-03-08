@@ -12,18 +12,6 @@
         "max": 40
     },
     {
-        "name": "UseTerminalToGetActivatedEnvVars - experiment",
-        "salt": "UseTerminalToGetActivatedEnvVars",
-        "min": 0,
-        "max": 0
-    },
-    {
-        "name": "UseTerminalToGetActivatedEnvVars - control",
-        "salt": "UseTerminalToGetActivatedEnvVars",
-        "min": 0,
-        "max": 100
-    },
-    {
         "name": "CollectLSRequestTiming - experiment",
         "salt": "CollectLSRequestTiming",
         "min": 0,
