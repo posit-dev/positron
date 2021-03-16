@@ -71,6 +71,7 @@
         "onCommand:python.buildWorkspaceSymbols",
         "onCommand:python.startREPL",
         "onCommand:python.goToPythonObject",
+        "onCommand:python.reportIssue",
         "onCommand:python.setLinter",
         "onCommand:python.enableLinting",
         "onCommand:python.createTerminal",
@@ -321,6 +322,11 @@
             {
                 "command": "python.goToPythonObject",
                 "title": "%python.command.python.goToPythonObject.title%",
+                "category": "Python"
+            },
+            {
+                "command": "python.reportIssue",
+                "title": "%python.command.python.reportIssue.title%",
                 "category": "Python"
             },
             {
