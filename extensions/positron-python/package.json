@@ -1055,7 +1055,6 @@
                     "items": {
                         "enum": [
                             "ShowExtensionSurveyPrompt - enabled",
-                            "Reload - experiment",
                             "DeprecatePythonPath - experiment",
                             "tryPylance",
                             "pythonTensorboardExperiment",
@@ -1073,7 +1072,6 @@
                     "items": {
                         "enum": [
                             "ShowExtensionSurveyPrompt - enabled",
-                            "Reload - experiment",
                             "DeprecatePythonPath - experiment",
                             "tryPylance",
                             "pythonTensorboardExperiment",
