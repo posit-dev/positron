@@ -1054,12 +1054,12 @@
                     "default": [],
                     "items": {
                         "enum": [
-                            "ShowExtensionSurveyPrompt - enabled",
                             "DeprecatePythonPath - experiment",
                             "tryPylance",
                             "pythonTensorboardExperiment",
                             "pythonDiscoveryModule",
                             "pythonJediLSP",
+                            "pythonSurveyNotification",
                             "All"
                         ]
                     },
@@ -1071,12 +1071,12 @@
                     "default": [],
                     "items": {
                         "enum": [
-                            "ShowExtensionSurveyPrompt - enabled",
                             "DeprecatePythonPath - experiment",
                             "tryPylance",
                             "pythonTensorboardExperiment",
                             "pythonDiscoveryModule",
                             "pythonJediLSP",
+                            "pythonSurveyNotification",
                             "All"
                         ]
                     },
