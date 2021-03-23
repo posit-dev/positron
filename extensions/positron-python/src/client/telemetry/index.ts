@@ -1319,9 +1319,10 @@ export interface IEventNamePropertyMapping {
         userAction: string;
     };
     /**
-     * Telemetry event sent when we fallback from JediLSP to Jedi
+     * Telemetry event sent when we fallback from JediLSP to Jedi in cases where JediLSP is
+     * not supported.
      */
-    [EventName.JEDI_LANGUAGE_SERVER_FALLBACK]: unknown;
+    [EventName.JEDI_FALLBACK]: unknown;
     /**
      * Telemetry event sent when Jedi Language Server is started for workspace (workspace folder in case of multi-root)
      */
