@@ -12,6 +12,7 @@ import { BaseTerminalActivator } from './base';
 @injectable()
 export class TerminalActivator implements ITerminalActivator {
     protected baseActivator!: ITerminalActivator;
+    private pendingActivations = new WeakMap<Terminal, Promise<boolean>>();
     constructor(
         @inject(ITerminalHelper) readonly helper: ITerminalHelper,
         @multiInject(ITerminalActivationHandler) private readonly handlers: ITerminalActivationHandler[],
@@ -20,6 +21,18 @@ export class TerminalActivator implements ITerminalActivator {
         this.initialize();
     }
     public async activateEnvironmentInTerminal(
+        terminal: Terminal,
+        options?: TerminalActivationOptions,
+    ): Promise<boolean> {
+        let promise = this.pendingActivations.get(terminal);
+        if (promise) {
+            return promise;
+        }
+        promise = this.activateEnvironmentInTerminalImpl(terminal, options);
+        this.pendingActivations.set(terminal, promise);
+        return promise;
+    }
+    private async activateEnvironmentInTerminalImpl(
         terminal: Terminal,
         options?: TerminalActivationOptions,
     ): Promise<boolean> {
