@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { traceVerbose } from '../../../../common/logger';
-import { getUserHomeDir } from '../../../../common/utils/platform';
+import { getOSType, getUserHomeDir, OSType } from '../../../../common/utils/platform';
 import { getPythonSetting, isParentPath, pathExists, shellExecute } from '../../../common/externalDependencies';
 import { getEnvironmentDirFromPath } from '../../../common/commonUtils';
 import { isVirtualenvEnvironment } from './virtualEnvironmentIdentifier';
@@ -29,6 +29,11 @@ async function isGlobalPoetryEnvironment(interpreterPath: string): Promise<boole
     const envDir = getEnvironmentDirFromPath(interpreterPath);
     return globalPoetryEnvDirRegex.test(path.basename(envDir)) ? isVirtualenvEnvironment(interpreterPath) : false;
 }
+/**
+ * Local poetry environments are created by the `virtualenvs.in-project` setting , which always names the environment
+ * folder '.venv': https://python-poetry.org/docs/configuration/#virtualenvsin-project-boolean
+ */
+export const localPoetryEnvDirName = '.venv';
 
 /**
  * Checks if the given interpreter belongs to a local poetry environment, i.e environment is located inside the project.
@@ -36,8 +41,6 @@ async function isGlobalPoetryEnvironment(interpreterPath: string): Promise<boole
  * @returns {boolean} : Returns true if the interpreter belongs to a venv environment.
  */
 async function isLocalPoetryEnvironment(interpreterPath: string): Promise<boolean> {
-    // Local poetry environments are created by the `virtualenvs.in-project` setting , which always names the environment
-    // folder '.venv': https://python-poetry.org/docs/configuration/#virtualenvsin-project-boolean
     // This is the layout we wish to verify.
     // project
     // |__ pyproject.toml  <--- check if this exists
@@ -45,7 +48,7 @@ async function isLocalPoetryEnvironment(interpreterPath: string): Promise<boolea
     //     |__ Scripts/bin
     //         |__ python  <--- interpreterPath
     const envDir = getEnvironmentDirFromPath(interpreterPath);
-    if (path.basename(envDir) !== '.venv') {
+    if (path.basename(envDir) !== localPoetryEnvDirName) {
         return false;
     }
     const project = path.dirname(envDir);
@@ -86,7 +89,7 @@ export class Poetry {
      * Locating poetry binary can be expensive, since it potentially involves spawning or
      * trying to spawn processes; so we only do it once per session.
      */
-    private static poetryPromise: Promise<Poetry | undefined> | undefined;
+    public static _poetryPromise: Promise<Poetry | undefined> | undefined;
 
     /**
      * Timeout for the shell exec commands. Sometimes timeout can happen if poetry path is not valid.
@@ -96,17 +99,17 @@ export class Poetry {
     /**
      * Creates a Poetry service corresponding to the corresponding "poetry" command.
      *
-     * @param command - Command used to run poetry. This has the same meaning as the
+     * @param _command - Command used to run poetry. This has the same meaning as the
      * first argument of spawn() - i.e. it can be a full path, or just a binary name.
      */
-    constructor(readonly command: string) {}
+    constructor(public readonly _command: string) {}
 
     public static async getPoetry(): Promise<Poetry | undefined> {
         traceVerbose(`Searching for poetry.`);
-        if (Poetry.poetryPromise === undefined) {
-            Poetry.poetryPromise = Poetry.locate();
+        if (Poetry._poetryPromise === undefined) {
+            Poetry._poetryPromise = Poetry.locate();
         }
-        return Poetry.poetryPromise;
+        return Poetry._poetryPromise;
     }
 
     /**
@@ -152,7 +155,7 @@ export class Poetry {
     }
 
     private async getVersion(): Promise<string | undefined> {
-        const result = await shellExecute(`${this.command} --version`, {
+        const result = await shellExecute(`${this._command} --version`, {
             timeout: this.timeout,
             throwOnStdErr: true,
         });
@@ -164,14 +167,27 @@ export class Poetry {
      * Corresponds to "poetry env list --full-path". Swallows errors if any.
      */
     public async getEnvList(cwd: string): Promise<string[]> {
-        const result = await this.safeShellExecute(`${this.command} env list --full-path`, cwd);
+        cwd = fixCwd(cwd);
+        const result = await this.safeShellExecute(`${this._command} env list --full-path`, cwd);
         if (!result) {
             return [];
         }
-        return result.stdout
-            .split(/\r?\n/g)
-            .map((line) => line.trim())
-            .filter((line) => line !== '');
+        /**
+         * We expect stdout to contain something like:
+         *
+         * <full-path>\poetry_2-tutorial-project-6hnqYwvD-py3.7
+         * <full-path>\poetry_2-tutorial-project-6hnqYwvD-py3.8
+         * <full-path>\poetry_2-tutorial-project-6hnqYwvD-py3.9 (Activated)
+         *
+         * So we'll need to remove the string "(Activated)" after splitting lines to get the full path.
+         */
+        const activated = '(Activated)';
+        return result.stdout.splitLines().map((line) => {
+            if (line.endsWith(activated)) {
+                line = line.slice(0, -activated.length);
+            }
+            return line.trim();
+        });
     }
 
     /**
@@ -179,7 +195,8 @@ export class Poetry {
      * Corresponds to "poetry env info -p". Swallows errors if any.
      */
     public async getActiveEnvPath(cwd: string): Promise<string | undefined> {
-        const result = await this.safeShellExecute(`${this.command} env info -p`, cwd);
+        cwd = fixCwd(cwd);
+        const result = await this.safeShellExecute(`${this._command} env info -p`, cwd);
         if (!result) {
             return undefined;
         }
@@ -191,7 +208,8 @@ export class Poetry {
      * environments are created for the directory. Corresponds to "poetry config virtualenvs.path". Swallows errors if any.
      */
     public async getVirtualenvsPathSetting(cwd?: string): Promise<string | undefined> {
-        const result = await this.safeShellExecute(`${this.command} config virtualenvs.path`, cwd);
+        cwd = cwd ? fixCwd(cwd) : cwd;
+        const result = await this.safeShellExecute(`${this._command} config virtualenvs.path`, cwd);
         if (!result) {
             return undefined;
         }
@@ -212,6 +230,27 @@ export class Poetry {
         });
         return result;
     }
+}
+
+function fixCwd(cwd: string): string {
+    if (cwd && getOSType() === OSType.Windows) {
+        /**
+         * Due to an upstream poetry issue on Windows https://github.com/python-poetry/poetry/issues/3829,
+         * 'poetry env list' does not handle case-insensitive paths as cwd, which are valid on Windows.
+         * So we need to pass the case-exact path as cwd.
+         * It has been observed that only the drive letter in `cwd` is lowercased here. Unfortunately,
+         * there's no good way to get case of the drive letter correctly without using Win32 APIs:
+         * https://stackoverflow.com/questions/33086985/how-to-obtain-case-exact-path-of-a-file-in-node-js-on-windows
+         * So we do it manually.
+         */
+        if (/^[a-z]:/.test(cwd)) {
+            // Replace first character by the upper case version of the character.
+            const a = cwd.split(':');
+            a[0] = a[0].toUpperCase();
+            cwd = a.join(':');
+        }
+    }
+    return cwd;
 }
 
 /**
