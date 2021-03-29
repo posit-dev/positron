@@ -258,9 +258,14 @@ function fixCwd(cwd: string): string {
  * false otherwise.
  * @param interpreterPath Absolute path to any python interpreter.
  * @param folder Absolute path to the folder.
+ * @param poetryPath Poetry command to use to calculate the result.
  */
-export async function isPoetryEnvironmentRelatedToFolder(interpreterPath: string, folder: string): Promise<boolean> {
-    const poetry = await Poetry.getPoetry();
+export async function isPoetryEnvironmentRelatedToFolder(
+    interpreterPath: string,
+    folder: string,
+    poetryPath?: string,
+): Promise<boolean> {
+    const poetry = poetryPath ? new Poetry(poetryPath) : await Poetry.getPoetry();
     const pathToEnv = await poetry?.getActiveEnvPath(folder);
     if (!pathToEnv) {
         return false;
