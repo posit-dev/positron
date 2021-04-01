@@ -4,11 +4,12 @@
 'use strict';
 
 import * as path from 'path';
-import { traceVerbose } from '../../../../common/logger';
+import { traceError, traceVerbose } from '../../../../common/logger';
 import { getOSType, getUserHomeDir, OSType } from '../../../../common/utils/platform';
 import { getPythonSetting, isParentPath, pathExists, shellExecute } from '../../../common/externalDependencies';
 import { getEnvironmentDirFromPath } from '../../../common/commonUtils';
 import { isVirtualenvEnvironment } from './virtualEnvironmentIdentifier';
+import { StopWatch } from '../../../../common/utils/stopWatch';
 
 /**
  * Global virtual env dir for a project is named as:
@@ -92,11 +93,6 @@ export class Poetry {
     public static _poetryPromise: Promise<Poetry | undefined> | undefined;
 
     /**
-     * Timeout for the shell exec commands. Sometimes timeout can happen if poetry path is not valid.
-     */
-    private readonly timeout = 15000;
-
-    /**
      * Creates a Poetry service corresponding to the corresponding "poetry" command.
      *
      * @param _command - Command used to run poetry. This has the same meaning as the
@@ -138,6 +134,7 @@ export class Poetry {
         for await (const poetryPath of getCandidates()) {
             traceVerbose(`Probing poetry binary: ${poetryPath}`);
             const poetry = new Poetry(poetryPath);
+            const stopWatch = new StopWatch();
             try {
                 await poetry.getVersion();
                 traceVerbose(`Found poetry via filesystem probing: ${poetryPath}`);
@@ -148,6 +145,7 @@ export class Poetry {
                 // line arguments that we passed (indicating an old version that we do not support).
                 traceVerbose(ex);
             }
+            traceVerbose(`Time taken to run ${poetryPath} --version in ms`, stopWatch.elapsedTime);
         }
 
         // Didn't find anything.
@@ -157,7 +155,6 @@ export class Poetry {
 
     private async getVersion(): Promise<string | undefined> {
         const result = await shellExecute(`${this._command} --version`, {
-            timeout: this.timeout,
             throwOnStdErr: true,
         });
         return result.stdout.trim();
@@ -169,7 +166,7 @@ export class Poetry {
      */
     public async getEnvList(cwd: string): Promise<string[]> {
         cwd = fixCwd(cwd);
-        const result = await this.safeShellExecute(`${this._command} env list --full-path`, cwd);
+        const result = await safeShellExecute(`${this._command} env list --full-path`, cwd);
         if (!result) {
             return [];
         }
@@ -197,7 +194,7 @@ export class Poetry {
      */
     public async getActiveEnvPath(cwd: string): Promise<string | undefined> {
         cwd = fixCwd(cwd);
-        const result = await this.safeShellExecute(`${this._command} env info -p`, cwd);
+        const result = await safeShellExecute(`${this._command} env info -p`, cwd, true);
         if (!result) {
             return undefined;
         }
@@ -210,27 +207,34 @@ export class Poetry {
      */
     public async getVirtualenvsPathSetting(cwd?: string): Promise<string | undefined> {
         cwd = cwd ? fixCwd(cwd) : cwd;
-        const result = await this.safeShellExecute(`${this._command} config virtualenvs.path`, cwd);
+        const result = await safeShellExecute(`${this._command} config virtualenvs.path`, cwd);
         if (!result) {
             return undefined;
         }
         return result.stdout.trim();
     }
+}
 
-    /**
-     * Executes the command within the cwd specified. Swallows errors if any.
-     */
-    private async safeShellExecute(command: string, cwd?: string) {
-        const result = await shellExecute(command, {
-            cwd,
-            timeout: this.timeout,
-            throwOnStdErr: true,
-        }).catch((ex) => {
+/**
+ * Executes the command within the cwd specified. Swallows errors if any.
+ */
+async function safeShellExecute(command: string, cwd?: string, logVerbose = false) {
+    // It has been observed that commands related to conda or poetry binary take upto 10-15 seconds unlike
+    // python binaries. So for now no timeouts on them.
+    const stopWatch = new StopWatch();
+    const result = await shellExecute(command, {
+        cwd,
+        throwOnStdErr: true,
+    }).catch((ex) => {
+        if (logVerbose) {
             traceVerbose(ex);
-            return undefined;
-        });
-        return result;
-    }
+        } else {
+            traceError(ex);
+        }
+        return undefined;
+    });
+    traceVerbose(`Time taken to run ${command} in ms`, stopWatch.elapsedTime);
+    return result;
 }
 
 function fixCwd(cwd: string): string {
