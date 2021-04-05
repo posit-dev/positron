@@ -26,8 +26,8 @@ import { isPoetryEnvironment, localPoetryEnvDirName, Poetry } from './poetry';
  */
 async function getVirtualEnvDirs(root: string): Promise<string[]> {
     const envDirs = [path.join(root, localPoetryEnvDirName)];
-    const poetry = await Poetry.getPoetry();
-    const virtualenvs = await poetry?.getEnvList(root);
+    const poetry = await Poetry.getPoetry(root);
+    const virtualenvs = await poetry?.getEnvList();
     if (virtualenvs) {
         envDirs.push(...virtualenvs);
     }
@@ -35,9 +35,24 @@ async function getVirtualEnvDirs(root: string): Promise<string[]> {
 }
 
 async function getRootVirtualEnvDir(root: string): Promise<string[]> {
-    const poetry = await Poetry.getPoetry();
-    const setting = await poetry?.getVirtualenvsPathSetting(root);
-    return setting ? [setting] : [];
+    const rootDirs = [];
+    const poetry = await Poetry.getPoetry(root);
+    /**
+     * We can infer the directory in which the existing poetry environments are created to determine
+     * the root virtual env dir. If no virtual envs are created yet, then fetch the setting value to
+     * get the root directory instead. We prefer to use 'poetry env list' command first because the
+     * result of that command is already cached when getting poetry.
+     */
+    const virtualenvs = await poetry?.getEnvList();
+    if (virtualenvs?.length) {
+        rootDirs.push(path.dirname(virtualenvs[0]));
+    } else {
+        const setting = await poetry?.getVirtualenvsPathSetting();
+        if (setting) {
+            rootDirs.push(setting);
+        }
+    }
+    return rootDirs;
 }
 
 async function getVirtualEnvKind(interpreterPath: string): Promise<PythonEnvKind> {
