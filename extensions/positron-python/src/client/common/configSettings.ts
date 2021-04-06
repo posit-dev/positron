@@ -349,6 +349,7 @@ export class PythonSettings implements IPythonSettings {
             ? this.linting
             : {
                   enabled: false,
+                  cwd: undefined,
                   ignorePatterns: [],
                   flake8Args: [],
                   flake8Enabled: false,
@@ -418,6 +419,10 @@ export class PythonSettings implements IPythonSettings {
         );
         this.linting.mypyPath = getAbsolutePath(systemVariables.resolveAny(this.linting.mypyPath), workspaceRoot);
         this.linting.banditPath = getAbsolutePath(systemVariables.resolveAny(this.linting.banditPath), workspaceRoot);
+
+        if (this.linting.cwd) {
+            this.linting.cwd = getAbsolutePath(systemVariables.resolveAny(this.linting.cwd), workspaceRoot);
+        }
 
         const formattingSettings = systemVariables.resolveAny(pythonSettings.get<IFormattingSettings>('formatting'))!;
         if (this.formatting) {
