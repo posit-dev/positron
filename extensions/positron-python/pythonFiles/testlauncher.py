@@ -12,8 +12,14 @@ def parse_argv():
     2. Test runner, `pytest` or `nose`
     3. Rest of the arguments are passed into the test runner.
     """
+    cwd = sys.argv[1]
+    testRunner = sys.argv[2]
+    args = sys.argv[3:]
+    if testRunner == "nose":
+        # Nose expects the program name to be first argument in vargs
+        args.insert(0, sys.argv[0])
 
-    return (sys.argv[1], sys.argv[2], sys.argv[3:])
+    return (cwd, testRunner, args)
 
 
 def run(cwd, testRunner, args):
