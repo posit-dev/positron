@@ -76,7 +76,7 @@ export interface IInterpreterLocatorService extends Disposable {
     readonly onLocating: Event<Promise<PythonEnvironment[]>>;
     readonly hasInterpreters: Promise<boolean>;
     didTriggerInterpreterSuggestions?: boolean;
-    getInterpreters(resource?: Uri, options?: GetInterpreterLocatorOptions): Promise<PythonEnvironment[]>;
+    getInterpreters(resource?: Uri, options?: GetInterpreterOptions): Promise<PythonEnvironment[]>;
 }
 
 export const ICondaService = Symbol('ICondaService');
@@ -179,8 +179,4 @@ export type WorkspacePythonPath = {
     configTarget: ConfigurationTarget.Workspace | ConfigurationTarget.WorkspaceFolder;
 };
 
-export type GetInterpreterOptions = {
-    onSuggestion?: boolean;
-};
-
-export type GetInterpreterLocatorOptions = GetInterpreterOptions & { ignoreCache?: boolean };
+export type GetInterpreterOptions = { ignoreCache?: boolean; onSuggestion?: boolean };
