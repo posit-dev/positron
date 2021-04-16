@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-import { NotebookCell, NotebookCellRange, NotebookDocumentMetadata, Uri } from 'vscode';
+import { NotebookCell, NotebookRange, NotebookDocumentMetadata, Uri } from 'vscode';
 import { NotebookDocument } from 'vscode-proposed';
 
 export interface ISafeNotebookDocument extends NotebookDocument {}
@@ -8,6 +8,7 @@ export interface ISafeNotebookDocument extends NotebookDocument {}
 // The old API for NotebookDocument for vscode engine version < 1.56
 interface IOldNotebookDocument {
     readonly cells: ReadonlyArray<NotebookCell>;
+    readonly fileName: string;
 }
 
 // In the Python extension we often need to support different changing
@@ -19,12 +20,12 @@ export class SafeNotebookDocument implements ISafeNotebookDocument {
     constructor(private notebook: NotebookDocument) {}
 
     // Functions changed to handle multiple APIs
-    public getCells(range?: NotebookCellRange): ReadonlyArray<NotebookCell> {
+    public getCells(range?: NotebookRange): NotebookCell[] {
         if ('getCells' in this.notebook) {
             return this.notebook.getCells(range);
         }
         // Old API with .cells
-        return (this.notebook as IOldNotebookDocument).cells;
+        return [...(this.notebook as IOldNotebookDocument).cells];
     }
 
     public cellAt(index: number): NotebookCell {
@@ -45,6 +46,16 @@ export class SafeNotebookDocument implements ISafeNotebookDocument {
         return (this.notebook as IOldNotebookDocument).cells.length;
     }
 
+    public get fileName(): string {
+        if ('fileName' in this.notebook) {
+            // .fileName is only in the old API
+            return (this.notebook as IOldNotebookDocument).fileName;
+        }
+
+        // In the new API use the URI
+        return this.notebook.uri.fsPath;
+    }
+
     // Functions directly implemented by NotebookDocument
     public get uri(): Uri {
         return this.notebook.uri;
@@ -52,10 +63,6 @@ export class SafeNotebookDocument implements ISafeNotebookDocument {
 
     public get version(): number {
         return this.notebook.version;
-    }
-
-    public get fileName(): string {
-        return this.notebook.fileName;
     }
 
     public get isDirty(): boolean {
