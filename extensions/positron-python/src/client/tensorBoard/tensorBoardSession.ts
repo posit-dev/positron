@@ -42,6 +42,7 @@ import { sendTelemetryEvent } from '../telemetry';
 import { EventName } from '../telemetry/constants';
 import { ImportTracker } from '../telemetry/importTracker';
 import { TensorBoardPromptSelection, TensorBoardSessionStartResult } from './constants';
+import { IMultiStepInputFactory } from '../common/utils/multiStepInput';
 
 enum Messages {
     JumpToSource = 'jump_to_source',
@@ -87,6 +88,7 @@ export class TensorBoardSession {
         private readonly applicationShell: IApplicationShell,
         private readonly isInTorchProfilerExperiment: boolean,
         private readonly globalMemento: IPersistentState<ViewColumn>,
+        private readonly multiStepFactory: IMultiStepInputFactory,
     ) {}
 
     public async initialize(): Promise<void> {
@@ -419,7 +421,6 @@ export class TensorBoardSession {
     private async createPanel() {
         const webviewPanel = window.createWebviewPanel('tensorBoardSession', 'TensorBoard', this.globalMemento.value, {
             enableScripts: true,
-            retainContextWhenHidden: true,
         });
         const fullWebServerUri = await env.asExternalUri(Uri.parse(this.url!));
         webviewPanel.webview.html = `<!DOCTYPE html>
@@ -499,7 +500,7 @@ export class TensorBoardSession {
                 // Handle messages posted from the webview
                 switch (message.command) {
                     case Messages.JumpToSource:
-                        jumpToSource(message.args.filename, message.args.line);
+                        void this.jumpToSource(message.args.filename, message.args.line);
                         break;
                     default:
                         break;
@@ -519,24 +520,58 @@ export class TensorBoardSession {
         }
         return undefined;
     }
-}
 
-function jumpToSource(fsPath: string, line: number) {
-    if (fs.existsSync(fsPath)) {
-        const uri = Uri.file(fsPath);
-        workspace
-            .openTextDocument(uri)
-            .then((doc) => window.showTextDocument(doc, ViewColumn.Beside))
-            .then((editor) => {
-                // Select the line if it exists in the document
-                if (line < editor.document.lineCount) {
-                    const position = new Position(line, 0);
-                    const selection = new Selection(position, editor.document.lineAt(line).range.end);
-                    editor.selection = selection;
-                    editor.revealRange(selection, TextEditorRevealType.InCenterIfOutsideViewport);
+    private async jumpToSource(fsPath: string, line: number) {
+        let uri: Uri | undefined;
+        if (fs.existsSync(fsPath)) {
+            uri = Uri.file(fsPath);
+        } else {
+            traceError(
+                `Requested jump to source filepath ${fsPath} does not exist. Prompting user to select source file...`,
+            );
+            // Prompt the user to pick the file on disk
+            const items: QuickPickItem[] = [
+                {
+                    label: TensorBoard.selectMissingSourceFile(),
+                    description: TensorBoard.selectMissingSourceFileDescription(),
+                },
+            ];
+            // Using a multistep so that we can add a title to the quickpick
+            const multiStep = this.multiStepFactory.create<unknown>();
+            await multiStep.run(async (input) => {
+                const selection = await input.showQuickPick({
+                    items,
+                    title: TensorBoard.missingSourceFile(),
+                    placeholder: fsPath,
+                });
+                switch (selection?.label) {
+                    case TensorBoard.selectMissingSourceFile(): {
+                        const filePickerSelection = await this.applicationShell.showOpenDialog({
+                            canSelectFiles: true,
+                            canSelectFolders: false,
+                            canSelectMany: false,
+                        });
+                        if (filePickerSelection !== undefined) {
+                            [uri] = filePickerSelection;
+                        }
+                        break;
+                    }
+                    default:
+                        break;
                 }
-            });
-    } else {
-        traceError(`Requested jump to source filepath ${fsPath} does not exist`);
+            }, {});
+        }
+        if (uri === undefined) {
+            return;
+        }
+        const document = await workspace.openTextDocument(uri);
+        const editor = await window.showTextDocument(document, ViewColumn.Beside);
+        // Select the line if it exists in the document
+        if (line < editor.document.lineCount) {
+            const position = new Position(line, 0);
+            const selection = new Selection(position, editor.document.lineAt(line).range.end);
+            editor.selection = selection;
+            editor.revealRange(selection, TextEditorRevealType.InCenterIfOutsideViewport);
+        }
     }
 }
