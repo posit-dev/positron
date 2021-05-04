@@ -72,6 +72,7 @@ jobs:
         with:
           name: ${{ needs.setup.outputs.vsix_artifact_name }}
           path: ${{ needs.setup.outputs.vsix_name }}
+          if-no-files-found: error
           retention-days: 14
 
   lint:
