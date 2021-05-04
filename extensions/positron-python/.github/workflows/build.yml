@@ -9,7 +9,6 @@ on:
       - 'release-*'
 
 env:
-  PYTHON_DEBUGPY_WHEEL_VERSION: 3.8
   NODE_VERSION: 12.15.0
   # Force a path with spaces and to test extension works in these scenarios
   # Unicode characters are causing 2.7 failures so skip that for now.
@@ -148,14 +147,6 @@ jobs:
       - name: Compile
         run: npx gulp prePublishNonBundle
 
-      - name: Install Python ${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }} for debugpy wheels
-        if: matrix.test-suite == 'debugger'
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }}
-
-      # Specifically run after the Python version for the debugger install to make
-      # sure `python` is set to the specific version for testing.
       - name: Install Python ${{matrix.python}}
         uses: actions/setup-python@v2
         with:
@@ -175,15 +166,15 @@ jobs:
       - name: Install test requirements
         run: python -m pip install --upgrade -r build/test-requirements.txt
 
-      - name: Install debugpy wheels (python ${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }})
+      - name: Install debugpy wheels
         run: |
           python${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }} -m pip install wheel
           python${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }} -m pip --disable-pip-version-check install -r build/debugger-install-requirements.txt
           python${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }} ./pythonFiles/install_debugpy.py
         shell: bash
-        if: matrix.test-suite == 'debugger'
+        if: matrix.test-suite == 'debugger' && matrix.python != 2.7
 
-      - name: Install debugpy (python 2.7)
+      - name: Install debugpy wheel (Python 2.7)
         run: |
           python -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
         shell: bash
