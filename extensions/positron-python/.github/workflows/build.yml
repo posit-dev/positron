@@ -168,9 +168,9 @@ jobs:
 
       - name: Install debugpy wheels
         run: |
-          python${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }} -m pip install wheel
-          python${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }} -m pip --disable-pip-version-check install -r build/debugger-install-requirements.txt
-          python${{ env.PYTHON_DEBUGPY_WHEEL_VERSION }} ./pythonFiles/install_debugpy.py
+          python -m pip install wheel
+          python -m pip --disable-pip-version-check install -r build/debugger-install-requirements.txt
+          python ./pythonFiles/install_debugpy.py
         shell: bash
         if: matrix.test-suite == 'debugger' && matrix.python != 2.7
 
