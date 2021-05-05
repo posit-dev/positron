@@ -81,6 +81,11 @@ gulp.task('addExtensionDependencies', async () => {
     await addExtensionDependencies();
 });
 
+gulp.task('addExtensionPackDependencies', async () => {
+    await buildLicense();
+    await addExtensionPackDependencies();
+});
+
 async function addExtensionDependencies() {
     // Update the package.json to add extension dependencies at build time so that
     // extension dependencies need not be installed during development
@@ -90,6 +95,25 @@ async function addExtensionDependencies() {
         packageJson.extensionDependencies ? packageJson.extensionDependencies : [],
     );
     await fsExtra.writeFile('package.json', JSON.stringify(packageJson, null, 4), 'utf-8');
+}
+
+async function addExtensionPackDependencies() {
+    // Update the package.json to add extension pack dependencies at build time so that
+    // extension dependencies need not be installed during development
+    const packageJsonContents = await fsExtra.readFile('package.json', 'utf-8');
+    const packageJson = JSON.parse(packageJsonContents);
+    packageJson.extensionPack = ['ms-python.vscode-pylance'].concat(
+        packageJson.extensionPack ? packageJson.extensionPack : [],
+    );
+    await fsExtra.writeFile('package.json', JSON.stringify(packageJson, null, 4), 'utf-8');
+}
+
+async function buildLicense() {
+    const headerPath = path.join(__dirname, 'build', 'license-header.txt');
+    const licenseHeader = await fsExtra.readFile(headerPath, 'utf-8');
+    const license = await fsExtra.readFile('LICENSE', 'utf-8');
+
+    await fsExtra.writeFile('LICENSE', `${licenseHeader}\n${license}`, 'utf-8');
 }
 
 gulp.task('updateBuildNumber', async () => {
