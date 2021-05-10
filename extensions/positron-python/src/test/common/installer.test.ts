@@ -8,7 +8,6 @@ import { ApplicationEnvironment } from '../../client/common/application/applicat
 import { ClipboardService } from '../../client/common/application/clipboard';
 import { ReloadVSCodeCommandHandler } from '../../client/common/application/commands/reloadCommand';
 import { ReportIssueCommandHandler } from '../../client/common/application/commands/reportIssueCommand';
-import { CustomEditorService } from '../../client/common/application/customEditorService';
 import { DebugService } from '../../client/common/application/debugService';
 import { DebugSessionTelemetry } from '../../client/common/application/debugSessionTelemetry';
 import { DocumentManager } from '../../client/common/application/documentManager';
@@ -19,7 +18,6 @@ import {
     IApplicationShell,
     IClipboard,
     ICommandManager,
-    ICustomEditorService,
     IDebugService,
     IDocumentManager,
     IWorkspaceService,
@@ -296,7 +294,6 @@ suite('Installer', () => {
             IExtensionSingleActivationService,
             DebugSessionTelemetry,
         );
-        ioc.serviceManager.addSingleton<ICustomEditorService>(ICustomEditorService, CustomEditorService);
     }
     async function resetSettings() {
         await updateSetting('linting.pylintEnabled', true, rootWorkspaceUri, ConfigurationTarget.Workspace);
