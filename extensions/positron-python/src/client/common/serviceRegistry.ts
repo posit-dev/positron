@@ -119,6 +119,8 @@ import {
 } from './types';
 import { IMultiStepInputFactory, MultiStepInputFactory } from './utils/multiStepInput';
 import { Random } from './utils/random';
+import { JupyterNotInstalledNotificationHelper } from '../jupyter/jupyterNotInstalledNotificationHelper';
+import { IJupyterNotInstalledNotificationHelper } from '../jupyter/types';
 
 export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingletonInstance<boolean>(IsWindows, IS_WINDOWS);
@@ -139,6 +141,10 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<IJupyterExtensionDependencyManager>(
         IJupyterExtensionDependencyManager,
         JupyterExtensionDependencyManager,
+    );
+    serviceManager.addSingleton<IJupyterNotInstalledNotificationHelper>(
+        IJupyterNotInstalledNotificationHelper,
+        JupyterNotInstalledNotificationHelper,
     );
     serviceManager.addSingleton<ICommandManager>(ICommandManager, CommandManager);
     serviceManager.addSingleton<IConfigurationService>(IConfigurationService, ConfigurationService);
