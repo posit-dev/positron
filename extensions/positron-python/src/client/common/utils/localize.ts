@@ -132,9 +132,9 @@ export namespace Pylance {
 }
 
 export namespace Jupyter {
-    export const jupyterExtensionRequired = localize(
-        'Jupyter.extensionRequired',
-        'The Jupyter extension is required to perform that task. Click Yes to open the Jupyter extension installation page.',
+    export const jupyterExtensionNotInstalled = localize(
+        'Jupyter.extensionNotInstalled',
+        "This feature is available in the Jupyter extension, which isn't currently installed.",
     );
 }
 
@@ -440,7 +440,7 @@ export namespace StartPage {
     );
     export const interactiveWindowDesc = localize(
         'StartPage.interactiveWindowDesc',
-        '- You can create cells on a Python file by typing "#%%" <br /> - Use "<div class="italics">Shift + Enter</div> " to run a cell, the output will be shown in the interactive window',
+        '- You can create cells on a Python file by typing "#%%". Make sure you have the Jupyter extension installed. <br /> - Use "<div class="italics">Shift + Enter</div> " to run a cell, the output will be shown in the interactive window',
     );
 
     export const releaseNotes = localize(
