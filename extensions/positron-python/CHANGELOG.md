@@ -10,9 +10,10 @@
    ([#16102](https://github.com/Microsoft/vscode-python/issues/16102))
 1. Add an `enumDescriptions` key under the `python.languageServer` setting to describe all language server options.
    ([#16141](https://github.com/Microsoft/vscode-python/issues/16141))
+1. Ensure users upgrade to v0.2.0 of the torch-tb-profiler TensorBoard plugin to access jump-to-source functionality.
+   ([#16330](https://github.com/Microsoft/vscode-python/issues/16330))
 
 ### Fixes
-
 1. Fixes a bug in the bandit linter where messages weren't being propagated to the editor.
    (thanks [Anthony Shaw](https://github.com/tonybaloney))
    ([#15561](https://github.com/Microsoft/vscode-python/issues/15561))
