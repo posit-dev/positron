@@ -1,6 +1,6 @@
 ---
 name: General feature request
-about: Suggest an idea for this project (please 👍 a preexisting issue over creating a new one when possible)
+about: Suggest an idea for this project (please 👍 a preexisting issue instead of creating a new issue when possible)
 labels: classify, type-enhancement
 ---
 
