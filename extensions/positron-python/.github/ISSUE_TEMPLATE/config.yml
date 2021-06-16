@@ -9,6 +9,9 @@ contact_links:
   - name: Jupyter
     url: https://github.com/microsoft/vscode-jupyter/issues
     about: For issues relating to the Jupyter extension
+  - name: Feature Request
+    url: https://github.com/microsoft/vscode-python/discussions/categories/ideas
+    about: For ideas to improve the extension
   - name: Help/Support
     url: https://github.com/microsoft/vscode-python/discussions/categories/q-a
     about: Having trouble with the extension? Need help getting something to work?
