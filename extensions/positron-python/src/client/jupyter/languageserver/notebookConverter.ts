@@ -30,9 +30,11 @@ import {
     Uri,
     WorkspaceEdit,
 } from 'vscode';
-import { NotebookCell, NotebookConcatTextDocument, NotebookDocument } from 'vscode-proposed';
+import { NotebookCell, NotebookDocument } from 'vscode-proposed';
 import { IVSCodeNotebook } from '../../common/application/types';
+import { InteractiveInputScheme, InteractiveScheme, NotebookCellScheme, PYTHON_LANGUAGE } from '../../common/constants';
 import { IFileSystem } from '../../common/platform/types';
+import { IConcatTextDocument } from './concatTextDocument';
 import { NotebookConcatDocument } from './notebookConcatDocument';
 
 /* Used by code actions. Disabled for now.
@@ -74,6 +76,18 @@ export class NotebookConverter implements Disposable {
     }
 
     private static getDocumentKey(uri: Uri): string {
+        if (uri.scheme === InteractiveInputScheme) {
+            // input
+            const counter = /InteractiveInput-(\d+)/.exec(uri.path);
+            if (counter && counter[1]) {
+                return `Interactive-${counter[1]}.interactive`;
+            }
+        }
+
+        if (uri.scheme === InteractiveScheme) {
+            return uri.path;
+        }
+
         // Use the path of the doc uri. It should be the same for all cells
         if (os.platform() === 'win32') {
             return uri.fsPath.toLowerCase();
@@ -131,8 +145,10 @@ export class NotebookConverter implements Disposable {
             const cellUris: string[] = [];
             const oldCellUris = this.mapOfConcatDocumentsWithCellUris.get(uri.toString()) || [];
             wrapper.notebook.getCells().forEach((c: NotebookCell) => {
-                result.set(c.document.uri, []);
-                cellUris.push(c.document.uri.toString());
+                if (c.document.languageId === PYTHON_LANGUAGE) {
+                    result.set(c.document.uri, []);
+                    cellUris.push(c.document.uri.toString());
+                }
             });
             // Possible some cells were deleted, we need to clear the diagnostics of those cells as well.
             const currentCellUris = new Set(cellUris);
@@ -588,15 +604,13 @@ export class NotebookConverter implements Disposable {
     // Returns true if the given location needs conversion
     // Should be if it's in a notebook cell or if it's in a notebook concat document
     private locationNeedsConversion(locationUri: Uri): boolean {
-        return (
-            locationUri.scheme === 'vscode-notebook-cell' || this.getWrapperFromOutgoingUri(locationUri) !== undefined
-        );
+        return locationUri.scheme === NotebookCellScheme || this.getWrapperFromOutgoingUri(locationUri) !== undefined;
     }
 
     private toIncomingUri(outgoingUri: Uri, range: Range) {
         const wrapper = this.getWrapperFromOutgoingUri(outgoingUri);
         if (wrapper) {
-            const location = wrapper.concatDocument.locationAt(range);
+            const location = wrapper.locationAt(range);
             return location.uri;
         }
         return outgoingUri;
@@ -659,6 +673,7 @@ export class NotebookConverter implements Disposable {
             const wrapper = this.getTextDocumentWrapper(doc.uri);
             this.activeDocuments.delete(key);
             this.activeDocumentsOutgoingMap.delete(NotebookConverter.getDocumentKey(wrapper.uri));
+            wrapper.dispose();
         }
     }
 
@@ -676,6 +691,7 @@ export class NotebookConverter implements Disposable {
                 throw new Error(`Invalid uri, not a notebook: ${uri.fsPath}`);
             }
             result = new NotebookConcatDocument(doc, this.api, this.cellSelector);
+            this.disposables.push(result);
             result.onCellsChanged((e) => this.onDidChangeCellsEmitter.fire(e), undefined, this.disposables);
             this.activeDocuments.set(key, result);
             this.activeDocumentsOutgoingMap.set(NotebookConverter.getDocumentKey(result.uri), result);
@@ -683,7 +699,7 @@ export class NotebookConverter implements Disposable {
         return result;
     }
 
-    private getConcatDocument(cell: TextDocument | Uri): NotebookConcatTextDocument | undefined {
+    private getConcatDocument(cell: TextDocument | Uri): IConcatTextDocument | undefined {
         return this.getTextDocumentWrapper(cell)?.concatDocument;
     }
 }
