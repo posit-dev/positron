@@ -17,10 +17,13 @@ import {
     Uri,
 } from 'vscode';
 import { isEqual } from 'lodash';
-import { NotebookConcatTextDocument, NotebookCell, NotebookDocument } from 'vscode-proposed';
+import { NotebookCell, NotebookDocument } from 'vscode-proposed';
 import { IVSCodeNotebook } from '../../common/application/types';
 import { IDisposable } from '../../common/types';
-import { PYTHON_LANGUAGE } from '../../common/constants';
+import { InteractiveScheme, PYTHON_LANGUAGE } from '../../common/constants';
+import { IConcatTextDocument } from './concatTextDocument';
+import { InteractiveConcatTextDocument } from './interactiveConcatTextDocument';
+import { EnhancedNotebookConcatTextDocument } from './nativeNotebookConcatTextDocument';
 
 const NotebookConcatPrefix = '_NotebookConcat_';
 
@@ -103,7 +106,7 @@ export class NotebookConcatDocument implements TextDocument, IDisposable {
 
     public firedClose = false;
 
-    public concatDocument: NotebookConcatTextDocument;
+    public concatDocument: IConcatTextDocument;
 
     private dummyFilePath: string;
 
@@ -129,7 +132,13 @@ export class NotebookConcatDocument implements TextDocument, IDisposable {
         // that the caller doesn't remove diagnostics for this document.
         this.dummyFilePath = path.join(dir, `${NotebookConcatPrefix}${uuid().replace(/-/g, '')}.py`);
         this.dummyUri = Uri.file(this.dummyFilePath);
-        this.concatDocument = notebookApi.createConcatTextDocument(notebook, selector);
+
+        if (notebook.uri.scheme === InteractiveScheme) {
+            this.concatDocument = new InteractiveConcatTextDocument(notebook, selector, notebookApi);
+        } else {
+            this.concatDocument = new EnhancedNotebookConcatTextDocument(notebook, selector, notebookApi);
+        }
+
         this.onDidChangeSubscription = this.concatDocument.onDidChange(this.onDidChange, this);
         this.updateCellTracking();
     }
@@ -149,15 +158,7 @@ export class NotebookConcatDocument implements TextDocument, IDisposable {
     }
 
     public lineAt(posOrNumber: Position | number): TextLine {
-        const position = typeof posOrNumber === 'number' ? new Position(posOrNumber, 0) : posOrNumber;
-
-        // convert this position into a cell location
-        // (we need the translated location, that's why we can't use getCellAtPosition)
-        const location = this.concatDocument.locationAt(position);
-
-        // Get the cell at this location
-        const cell = this.notebook.getCells().find((c) => c.document.uri.toString() === location.uri.toString());
-        return cell!.document.lineAt(location.range.start);
+        return this.concatDocument.lineAt(posOrNumber);
     }
 
     public offsetAt(position: Position): number {
@@ -173,13 +174,7 @@ export class NotebookConcatDocument implements TextDocument, IDisposable {
     }
 
     public getWordRangeAtPosition(position: Position, regexp?: RegExp | undefined): Range | undefined {
-        // convert this position into a cell location
-        // (we need the translated location, that's why we can't use getCellAtPosition)
-        const location = this.concatDocument.locationAt(position);
-
-        // Get the cell at this location
-        const cell = this.notebook.getCells().find((c) => c.document.uri.toString() === location.uri.toString());
-        return cell!.document.getWordRangeAtPosition(location.range.start, regexp);
+        return this.concatDocument.getWordRangeAtPosition(position, regexp);
     }
 
     public validateRange(range: Range): Range {
@@ -190,14 +185,22 @@ export class NotebookConcatDocument implements TextDocument, IDisposable {
         return this.concatDocument.validatePosition(pos);
     }
 
+    public locationAt(range: Range): Location {
+        return this.concatDocument.locationAt(range);
+    }
+
     public getCellAtPosition(position: Position): NotebookCell | undefined {
         const location = this.concatDocument.locationAt(position);
         return this.notebook.getCells().find((c) => c.document.uri === location.uri);
     }
 
+    private getPythonCells() {
+        return this.notebook.getCells().filter((c) => c.document.languageId.toLowerCase() === PYTHON_LANGUAGE);
+    }
+
     private updateCellTracking() {
         this.cellTracking = [];
-        this.notebook.getCells().forEach((c) => {
+        this.getPythonCells().forEach((c) => {
             // Compute end position from number of lines in a cell
             const cellText = c.document.getText();
             const lines = cellText.splitLines({ trim: false });
@@ -212,7 +215,7 @@ export class NotebookConcatDocument implements TextDocument, IDisposable {
 
     private onDidChange() {
         this._version += 1;
-        const newUris = this.notebook.getCells().map((c) => c.document.uri.toString());
+        const newUris = this.getPythonCells().map((c) => c.document.uri.toString());
         const oldUris = this.cellTracking.map((c) => c.uri.toString());
 
         // See if number of cells or cell positions changed
@@ -242,7 +245,7 @@ export class NotebookConcatDocument implements TextDocument, IDisposable {
 
     private raiseCellInsertions(oldUris: string[]) {
         // One or more cells were added. Add a change event for each
-        const insertions = this.notebook.getCells().filter((c) => !oldUris.includes(c.document.uri.toString()));
+        const insertions = this.getPythonCells().filter((c) => !oldUris.includes(c.document.uri.toString()));
 
         const changes = insertions.map((insertion) => {
             // Figure out the position of the item. This is where we're inserting the cell
