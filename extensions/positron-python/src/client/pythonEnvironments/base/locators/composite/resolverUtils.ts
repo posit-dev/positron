@@ -17,7 +17,7 @@ import { AnacondaCompanyName, Conda } from '../../../discovery/locators/services
 import { parsePyenvVersion } from '../../../discovery/locators/services/pyenvLocator';
 import { Architecture, getOSType, OSType } from '../../../../common/utils/platform';
 import { getPythonVersionFromPath as parsePythonVersionFromPath, parseVersion } from '../../info/pythonVersion';
-import { getRegistryInterpreters } from '../../../common/windowsUtils';
+import { getRegistryInterpreters, getRegistryInterpretersSync } from '../../../common/windowsUtils';
 import { BasicEnvInfo } from '../../locator';
 
 function getResolvers(): Map<PythonEnvKind, (executablePath: string) => Promise<PythonEnvInfo>> {
@@ -41,12 +41,13 @@ function getResolvers(): Map<PythonEnvKind, (executablePath: string) => Promise<
  * executable and returns it. Notice `undefined` is never returned, so environment
  * returned could still be invalid.
  */
-export async function resolveBasicEnv({ kind, executablePath }: BasicEnvInfo): Promise<PythonEnvInfo> {
+export async function resolveBasicEnv({ kind, executablePath, source }: BasicEnvInfo): Promise<PythonEnvInfo> {
     const resolvers = getResolvers();
     const resolverForKind = resolvers.get(kind)!;
     const resolvedEnv = await resolverForKind(executablePath);
     resolvedEnv.searchLocation = getSearchLocation(resolvedEnv);
-    if (getOSType() === OSType.Windows) {
+    resolvedEnv.source = uniq(resolvedEnv.source.concat(source ?? []));
+    if (getOSType() === OSType.Windows && resolvedEnv.source?.includes(PythonEnvSource.WindowsRegistry)) {
         // We can update env further using information we can get from the Windows registry.
         await updateEnvUsingRegistry(resolvedEnv);
     }
@@ -72,7 +73,13 @@ function getSearchLocation(env: PythonEnvInfo): Uri | undefined {
 }
 
 async function updateEnvUsingRegistry(env: PythonEnvInfo): Promise<void> {
-    const interpreters = await getRegistryInterpreters();
+    // Environment source has already been identified as windows registry, so we expect windows registry
+    // cache to already be populated. Call sync function which relies on cache.
+    let interpreters = getRegistryInterpretersSync();
+    if (!interpreters) {
+        traceError('Expected registry interpreter cache to be initialized already');
+        interpreters = await getRegistryInterpreters();
+    }
     const data = interpreters.find((i) => i.interpreterPath.toUpperCase() === env.executable.filename.toUpperCase());
     if (data) {
         const versionStr = data.versionStr ?? data.sysVersionStr ?? data.interpreterPath;
@@ -88,6 +95,8 @@ async function updateEnvUsingRegistry(env: PythonEnvInfo): Promise<void> {
         env.arch = data.bitnessStr === '32bit' ? Architecture.x86 : Architecture.x64;
         env.distro.org = data.distroOrgName ?? env.distro.org;
         env.source = uniq(env.source.concat(PythonEnvSource.WindowsRegistry));
+    } else {
+        traceWarning('Expected registry to find the interpreter as source was set');
     }
 }
 
@@ -139,7 +148,7 @@ async function resolveCondaEnv(executablePath: string): Promise<PythonEnvInfo> {
                 kind: PythonEnvKind.Conda,
                 org: AnacondaCompanyName,
                 location: prefix,
-                source: [PythonEnvSource.Conda],
+                source: [],
                 version: await getPythonVersionFromPath(executable),
                 fileInfo: await getFileInfo(executable),
             });
@@ -167,7 +176,7 @@ async function resolvePyenvEnv(executablePath: string): Promise<PythonEnvInfo> {
     const envInfo = buildEnvInfo({
         kind: PythonEnvKind.Pyenv,
         executable: executablePath,
-        source: [PythonEnvSource.Pyenv],
+        source: [],
         location,
         // Pyenv environments can fall in to these three categories:
         // 1. Global Installs : These are environments that are created when you install

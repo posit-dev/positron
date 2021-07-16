@@ -32,8 +32,6 @@ suite('Resolver Utils', () => {
         const testPyenvVersionsDir = path.join(testPyenvRoot, 'versions');
         setup(() => {
             sinon.stub(externalDependencies, 'getWorkspaceFolders').returns([]);
-            sinon.stub(winreg, 'readRegistryValues').resolves([]);
-            sinon.stub(winreg, 'readRegistryKeys').resolves([]);
             sinon.stub(platformApis, 'getEnvironmentVariable').withArgs('PYENV_ROOT').returns(testPyenvRoot);
         });
 
@@ -49,7 +47,7 @@ suite('Resolver Utils', () => {
                     minor: 9,
                     micro: 0,
                 },
-                source: [PythonEnvSource.Pyenv],
+                source: [],
             });
             envInfo.display = '3.9.0:pyenv';
             envInfo.location = path.join(testPyenvVersionsDir, '3.9.0');
@@ -72,8 +70,6 @@ suite('Resolver Utils', () => {
 
         setup(() => {
             sinon.stub(externalDependencies, 'getWorkspaceFolders').returns([]);
-            sinon.stub(winreg, 'readRegistryValues').resolves([]);
-            sinon.stub(winreg, 'readRegistryKeys').resolves([]);
             sinon.stub(platformApis, 'getEnvironmentVariable').withArgs('LOCALAPPDATA').returns(testLocalAppData);
         });
 
@@ -171,7 +167,7 @@ suite('Resolver Utils', () => {
                 kind: PythonEnvKind.Conda,
                 org: AnacondaCompanyName,
                 location,
-                source: [PythonEnvSource.Conda],
+                source: [],
                 version: UNKNOWN_PYTHON_VERSION,
                 fileInfo: undefined,
                 name: 'base',
@@ -206,8 +202,6 @@ suite('Resolver Utils', () => {
 
         setup(() => {
             sinon.stub(externalDependencies, 'getWorkspaceFolders').returns([]);
-            sinon.stub(winreg, 'readRegistryValues').resolves([]);
-            sinon.stub(winreg, 'readRegistryKeys').resolves([]);
         });
 
         teardown(() => {
@@ -273,8 +267,6 @@ suite('Resolver Utils', () => {
         const testVirtualHomeDir = path.join(TEST_LAYOUT_ROOT, 'virtualhome');
         setup(() => {
             sinon.stub(externalDependencies, 'getWorkspaceFolders').returns([testVirtualHomeDir]);
-            sinon.stub(winreg, 'readRegistryValues').resolves([]);
-            sinon.stub(winreg, 'readRegistryKeys').resolves([]);
         });
 
         teardown(() => {
@@ -536,6 +528,7 @@ suite('Resolver Utils', () => {
             const actual = await resolveBasicEnv({
                 executablePath: interpreterPath,
                 kind: PythonEnvKind.Unknown,
+                source: [PythonEnvSource.WindowsRegistry],
             });
             const expected = buildEnvInfo({
                 kind: PythonEnvKind.OtherGlobal, // Environment should be marked as "Global" instead of "Unknown".
@@ -554,6 +547,7 @@ suite('Resolver Utils', () => {
             const actual = await resolveBasicEnv({
                 executablePath: interpreterPath,
                 kind: PythonEnvKind.Unknown,
+                source: [PythonEnvSource.WindowsRegistry, PythonEnvSource.PathEnvVar],
             });
             const expected = buildEnvInfo({
                 kind: PythonEnvKind.OtherGlobal, // Environment should be marked as "Global" instead of "Unknown".
@@ -561,7 +555,7 @@ suite('Resolver Utils', () => {
                 version: parseVersion('3.8.5'), // Registry provides more complete version info.
                 arch: Architecture.x86, // Provided by registry
                 org: 'PythonCodingPack', // Provided by registry
-                source: [PythonEnvSource.WindowsRegistry],
+                source: [PythonEnvSource.WindowsRegistry, PythonEnvSource.PathEnvVar],
             });
             expected.distro.defaultDisplayName = 'Python 3.8 (32-bit)';
             assertEnvEqual(actual, expected);
@@ -575,6 +569,7 @@ suite('Resolver Utils', () => {
             const actual = await resolveBasicEnv({
                 executablePath: interpreterPath,
                 kind: PythonEnvKind.Conda,
+                source: [PythonEnvSource.WindowsRegistry],
             });
             const expected = buildEnvInfo({
                 location: path.join(regTestRoot, 'conda3'),
