@@ -7,7 +7,7 @@ import {
     _getAssociatedPipfile,
     isPipenvEnvironment,
     isPipenvEnvironmentRelatedToFolder,
-} from '../../../../client/pythonEnvironments/discovery/locators/services/pipEnvHelper';
+} from '../../../../client/pythonEnvironments/common/environmentManagers/pipenv';
 
 const path = platformApis.getOSType() === platformApis.OSType.Windows ? pathModule.win32 : pathModule.posix;
 

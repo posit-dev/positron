@@ -2,10 +2,10 @@
 // Licensed under the MIT License.
 
 import { traceError } from '../../../../common/logger';
-import { PythonEnvKind, PythonEnvSource } from '../../../base/info';
-import { BasicEnvInfo, IPythonEnvsIterator, Locator } from '../../../base/locator';
+import { PythonEnvKind, PythonEnvSource } from '../../info';
+import { BasicEnvInfo, IPythonEnvsIterator, Locator } from '../../locator';
 import { commonPosixBinPaths, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
-import { isPyenvShimDir } from './pyenvLocator';
+import { isPyenvShimDir } from '../../../common/environmentManagers/pyenv';
 
 export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
     private kind: PythonEnvKind = PythonEnvKind.OtherGlobal;
