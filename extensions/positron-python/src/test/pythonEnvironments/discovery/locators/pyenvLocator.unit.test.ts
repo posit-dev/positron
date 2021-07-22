@@ -11,7 +11,7 @@ import {
     isPyenvEnvironment,
     isPyenvShimDir,
     parsePyenvVersion,
-} from '../../../../client/pythonEnvironments/discovery/locators/services/pyenvLocator';
+} from '../../../../client/pythonEnvironments/common/environmentManagers/pyenv';
 
 suite('Pyenv Identifier Tests', () => {
     const home = platformUtils.getUserHomeDir() || '';
@@ -278,7 +278,7 @@ suite('Pyenv Versions Parser Test', () => {
 
     testData.forEach((data) => {
         test(`Parse pyenv version [${data.input}]`, async () => {
-            assert.deepStrictEqual(await parsePyenvVersion(data.input), data.expectedOutput);
+            assert.deepStrictEqual(parsePyenvVersion(data.input), data.expectedOutput);
         });
     });
 });

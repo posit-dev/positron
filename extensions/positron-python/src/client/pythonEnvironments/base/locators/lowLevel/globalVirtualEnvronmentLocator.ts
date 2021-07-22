@@ -6,17 +6,17 @@ import * as path from 'path';
 import { traceError, traceVerbose } from '../../../../common/logger';
 import { chain, iterable } from '../../../../common/utils/async';
 import { getEnvironmentVariable, getOSType, getUserHomeDir, OSType } from '../../../../common/utils/platform';
-import { PythonEnvKind } from '../../../base/info';
-import { BasicEnvInfo, IPythonEnvsIterator } from '../../../base/locator';
-import { FSWatchingLocator } from '../../../base/locators/lowLevel/fsWatchingLocator';
+import { PythonEnvKind } from '../../info';
+import { BasicEnvInfo, IPythonEnvsIterator } from '../../locator';
+import { FSWatchingLocator } from './fsWatchingLocator';
 import { findInterpretersInDir, looksLikeBasicVirtualPython } from '../../../common/commonUtils';
 import { pathExists, untildify } from '../../../common/externalDependencies';
-import { isPipenvEnvironment } from './pipEnvHelper';
+import { isPipenvEnvironment } from '../../../common/environmentManagers/pipenv';
 import {
     isVenvEnvironment,
     isVirtualenvEnvironment,
     isVirtualenvwrapperEnvironment,
-} from './virtualEnvironmentIdentifier';
+} from '../../../common/environmentManagers/simplevirtualenvs';
 import '../../../../common/extensions';
 import { asyncFilter } from '../../../../common/utils/arrayUtils';
 
