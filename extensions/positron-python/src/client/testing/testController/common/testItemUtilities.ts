@@ -2,7 +2,16 @@
 // Licensed under the MIT License.
 
 import * as path from 'path';
-import { TestItem, Uri, Range, Position, TestController } from 'vscode';
+import {
+    TestItem,
+    Uri,
+    Range,
+    Position,
+    TestController,
+    TestRunResult,
+    TestResultState,
+    TestResultSnapshot,
+} from 'vscode';
 import { traceError, traceVerbose } from '../../../common/logger';
 import {
     RawDiscoveredTests,
@@ -517,4 +526,29 @@ export function getNodeByUri(root: TestItem, uri: Uri): TestItem | undefined {
         }
     }
     return undefined;
+}
+
+function updateTestResultMapForSnapshot(resultMap: Map<string, TestResultState>, snapshot: TestResultSnapshot) {
+    for (const taskState of snapshot.taskStates) {
+        resultMap.set(snapshot.id, taskState.state);
+    }
+    snapshot.children.forEach((child) => updateTestResultMapForSnapshot(resultMap, child));
+}
+
+export function updateTestResultMap(
+    resultMap: Map<string, TestResultState>,
+    testResults: readonly TestRunResult[],
+): void {
+    const ordered = new Array(...testResults).sort((a, b) => a.completedAt - b.completedAt);
+    ordered.forEach((testResult) => {
+        testResult.results.forEach((snapshot) => updateTestResultMapForSnapshot(resultMap, snapshot));
+    });
+}
+
+export function checkForFailedTests(resultMap: Map<string, TestResultState>): boolean {
+    return (
+        Array.from(resultMap.values()).find(
+            (state) => state === TestResultState.Failed || state === TestResultState.Errored,
+        ) !== undefined
+    );
 }
