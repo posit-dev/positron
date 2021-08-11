@@ -30,7 +30,7 @@
     "bugs": {
         "url": "https://github.com/Microsoft/vscode-python/issues"
     },
-    "qna": "https://stackoverflow.com/questions/tagged/visual-studio-code+python",
+    "qna": "https://github.com/microsoft/vscode-python/discussions/categories/q-a",
     "icon": "icon.png",
     "galleryBanner": {
         "color": "#1e415e",
