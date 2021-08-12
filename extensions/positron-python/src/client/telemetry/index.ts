@@ -14,7 +14,6 @@ import { StopWatch } from '../common/utils/stopWatch';
 import { isPromise } from '../common/utils/async';
 import { DebugConfigurationType } from '../debugger/extension/types';
 import { ConsoleType, TriggerType } from '../debugger/types';
-import { AutoSelectionRule } from '../interpreter/autoSelection/types';
 import { LinterId } from '../linters/types';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
 import {
@@ -689,10 +688,6 @@ export interface IEventNamePropertyMapping {
          */
         usingUserDefinedInterpreter: boolean;
         /**
-         * If interpreter is auto selected for the workspace
-         */
-        usingAutoSelectedWorkspaceInterpreter: boolean;
-        /**
          * If global interpreter is being used
          */
         usingGlobalInterpreter: boolean;
@@ -1055,12 +1050,6 @@ export interface IEventNamePropertyMapping {
         interpreterType: EnvironmentType;
     };
     [EventName.PYTHON_INTERPRETER_AUTO_SELECTION]: {
-        /**
-         * The rule used to auto-select the interpreter
-         *
-         * @type {AutoSelectionRule}
-         */
-        rule?: AutoSelectionRule;
         /**
          * If cached interpreter no longer exists or is invalid
          *
