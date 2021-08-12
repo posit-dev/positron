@@ -3,18 +3,12 @@
 
 'use strict';
 
-import { inject, injectable, named } from 'inversify';
+import { inject, injectable } from 'inversify';
 import { Disposable, Uri } from 'vscode';
-import { EnvironmentSorting } from '../../../common/experiments/groups';
-import { IExperimentService, IPathUtils, Resource } from '../../../common/types';
+import { IPathUtils, Resource } from '../../../common/types';
 import { PythonEnvironment } from '../../../pythonEnvironments/info';
 import { IInterpreterService } from '../../contracts';
-import {
-    IInterpreterComparer,
-    IInterpreterQuickPickItem,
-    IInterpreterSelector,
-    InterpreterComparisonType,
-} from '../types';
+import { IInterpreterComparer, IInterpreterQuickPickItem, IInterpreterSelector } from '../types';
 
 @injectable()
 export class InterpreterSelector implements IInterpreterSelector {
@@ -22,14 +16,8 @@ export class InterpreterSelector implements IInterpreterSelector {
 
     constructor(
         @inject(IInterpreterService) private readonly interpreterManager: IInterpreterService,
-        @inject(IInterpreterComparer)
-        @named(InterpreterComparisonType.Default)
-        private readonly interpreterComparer: IInterpreterComparer,
-        @inject(IInterpreterComparer)
-        @named(InterpreterComparisonType.EnvType)
-        private readonly envTypeComparer: IInterpreterComparer,
+        @inject(IInterpreterComparer) private readonly envTypeComparer: IInterpreterComparer,
         @inject(IPathUtils) private readonly pathUtils: IPathUtils,
-        @inject(IExperimentService) private readonly experimentService: IExperimentService,
     ) {}
 
     public dispose(): void {
@@ -42,11 +30,7 @@ export class InterpreterSelector implements IInterpreterSelector {
             ignoreCache,
         });
 
-        if (await this.experimentService.inExperiment(EnvironmentSorting.experiment)) {
-            interpreters.sort(this.envTypeComparer.compare.bind(this.envTypeComparer));
-        } else {
-            interpreters.sort(this.interpreterComparer.compare.bind(this.interpreterComparer));
-        }
+        interpreters.sort(this.envTypeComparer.compare.bind(this.envTypeComparer));
 
         return Promise.all(interpreters.map((item) => this.suggestionToQuickPickItem(item, resource)));
     }
