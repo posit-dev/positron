@@ -1,5 +1,5 @@
 ---
 name: Feature request
-about: Create a report to help us improve
+about: Request for the Python extension, not supporting/sibling extensions
 labels: classify, feature-request
 ---
