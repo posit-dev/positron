@@ -1,6 +1,6 @@
 ---
 name: General bug report
-about: Issue that does not involve one of the projects listed below
+about: Issue with the Python extension, not supporting/sibling extensions
 labels: classify, bug
 ---
 
