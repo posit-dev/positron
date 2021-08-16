@@ -1,6 +1,6 @@
 ---
 name: General bug report
-about: Create a report to help us improve
+about: Issue that does not involve one of the projects listed below
 labels: classify, bug
 ---
 
