@@ -6,7 +6,13 @@
 import { Event, Uri } from 'vscode';
 import { IAsyncIterableIterator, iterEmpty } from '../../common/utils/async';
 import { PythonEnvInfo, PythonEnvKind, PythonEnvSource } from './info';
-import { BasicPythonEnvsChangedEvent, IPythonEnvsWatcher, PythonEnvsChangedEvent, PythonEnvsWatcher } from './watcher';
+import {
+    BasicPythonEnvsChangedEvent,
+    IPythonEnvsWatcher,
+    PythonEnvCollectionChangedEvent,
+    PythonEnvsChangedEvent,
+    PythonEnvsWatcher,
+} from './watcher';
 
 /**
  * A single update to a previously provided Python env object.
@@ -74,7 +80,7 @@ export const NOOP_ITERATOR: IPythonEnvsIterator = iterEmpty<PythonEnvInfo>();
  */
 type BasicPythonLocatorQuery = {
     /**
-     * If set as true, ignore the cache and query for fresh environments.
+     * If set as true, ignore the cache and wait until the fresh list of environments is retrieved.
      */
     ignoreCache?: boolean;
     /**
@@ -162,6 +168,31 @@ interface IResolver {
 }
 
 export interface IResolvingLocator<I = PythonEnvInfo> extends IResolver, ILocator<I> {}
+
+export interface IDiscoveryAPI {
+    /**
+     * Fires when the known list of environments starts refreshing, i.e when discovery starts or restarts.
+     */
+    readonly onRefreshTrigger: Event<void>;
+    /**
+     * Fires with details if the known list changes.
+     */
+    readonly onChanged: Event<PythonEnvCollectionChangedEvent>;
+    /**
+     * Resolves once environment list has finished refreshing, i.e all environments are
+     * discovered.
+     */
+    readonly refreshPromise: Promise<void>;
+    /**
+     * Get current list of known environments.
+     */
+    getEnvs(query?: PythonLocatorQuery): Promise<PythonEnvInfo[]>;
+    /**
+     * Find as much info about the given Python environment as possible.
+     * If executable passed is invalid, then `undefined` is returned.
+     */
+    resolveEnv(executablePath: string): Promise<PythonEnvInfo | undefined>;
+}
 
 interface IEmitter<E extends PythonEnvsChangedEvent> {
     fire(e: E): void;
