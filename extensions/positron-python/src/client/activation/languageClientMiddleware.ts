@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import NotebookMiddlewareAddon from 'vscode-jupyter-lsp-middleware';
+import NotebookMiddlewareAddon from '@vscode/jupyter-lsp-middleware';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { IJupyterExtensionDependencyManager, IVSCodeNotebook } from '../common/application/types';
 import { PYTHON_LANGUAGE } from '../common/constants';

@@ -30,7 +30,7 @@ import {
     Middleware,
     ResponseError,
 } from 'vscode-languageclient';
-import type NotebookMiddlewareAddon from 'vscode-jupyter-lsp-middleware';
+import type NotebookMiddlewareAddon from '@vscode/jupyter-lsp-middleware';
 
 import { HiddenFilePrefix } from '../common/constants';
 import { IConfigurationService } from '../common/types';
