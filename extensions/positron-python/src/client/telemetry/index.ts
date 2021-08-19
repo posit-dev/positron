@@ -1732,4 +1732,9 @@ export interface IEventNamePropertyMapping {
      * on the machine currently running TensorBoard.
      */
     [EventName.TENSORBOARD_JUMP_TO_SOURCE_FILE_NOT_FOUND]: never | undefined;
+
+    /**
+     * Telemetry event sent when the prompt about Python 2.7 support is displayed.
+     */
+    [EventName.PYTHON_27_SUPPORT_PROMPT]: never | undefined;
 }
