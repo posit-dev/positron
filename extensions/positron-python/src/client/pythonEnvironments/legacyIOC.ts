@@ -12,7 +12,6 @@ import {
     CONDA_ENV_FILE_SERVICE,
     CONDA_ENV_SERVICE,
     CURRENT_PATH_SERVICE,
-    GetInterpreterOptions,
     GLOBAL_VIRTUAL_ENV_SERVICE,
     IComponentAdapter,
     ICondaService,
@@ -29,6 +28,7 @@ import {
     PIPENV_SERVICE,
     WINDOWS_REGISTRY_SERVICE,
     WORKSPACE_VIRTUAL_ENV_SERVICE,
+    PythonEnvironmentsChangedEvent,
 } from '../interpreter/contracts';
 import { IPipEnvServiceHelper, IPythonInPathCommandProvider } from '../interpreter/locators/types';
 import { VirtualEnvironmentManager } from '../interpreter/virtualEnvs';
@@ -69,6 +69,7 @@ import { IExtensionSingleActivationService } from '../activation/types';
 import { EnvironmentInfoServiceQueuePriority, getEnvironmentInfoService } from './base/info/environmentInfoService';
 import { createDeferred } from '../common/utils/async';
 import { PythonEnvCollectionChangedEvent } from './base/watcher';
+import { asyncFilter } from '../common/utils/arrayUtils';
 
 const convertedKinds = new Map(
     Object.entries({
@@ -139,17 +140,32 @@ class ComponentAdapter implements IComponentAdapter {
 
     private readonly refreshed = new vscode.EventEmitter<void>();
 
-    private readonly onAddedToCollection = createDeferred();
+    private readonly changed = new vscode.EventEmitter<PythonEnvironmentsChangedEvent>();
 
     constructor(
         // The adapter only wraps one thing: the component API.
         private readonly api: IDiscoveryAPI,
     ) {
-        this.api.onChanged((e: PythonEnvCollectionChangedEvent) => {
-            if (e.update) {
-                this.onAddedToCollection.resolve();
-            }
+        this.api.onChanged((event) => {
+            this.changed.fire({
+                type: event.type,
+                update: event.update ? convertEnvInfo(event.update) : undefined,
+                old: event.old ? convertEnvInfo(event.old) : undefined,
+                resource: event.searchLocation,
+            });
         });
+    }
+
+    public triggerRefresh(query?: PythonLocatorQuery): Promise<void> {
+        return this.api.triggerRefresh(query);
+    }
+
+    public get refreshPromise() {
+        return this.api.refreshPromise;
+    }
+
+    public get onChanged() {
+        return this.changed.event;
     }
 
     // For use in VirtualEnvironmentPrompt.activate()
@@ -249,43 +265,33 @@ class ComponentAdapter implements IComponentAdapter {
     }
 
     // Implements IInterpreterLocatorService
-    public get hasInterpreters(): Promise<boolean> {
+    public async hasInterpreters(
+        filter: (e: PythonEnvironment) => Promise<boolean> = async () => true,
+    ): Promise<boolean> {
+        const onAddedToCollection = createDeferred();
+        // Watch for collection changed events.
+        this.api.onChanged(async (e: PythonEnvCollectionChangedEvent) => {
+            if (e.update) {
+                if (await filter(convertEnvInfo(e.update))) {
+                    onAddedToCollection.resolve();
+                }
+            }
+        });
         const initialEnvs = this.api.getEnvs();
         if (initialEnvs.length > 0) {
-            return Promise.resolve(true);
+            return true;
         }
         // We should already have initiated discovery. Wait for an env to be added
         // to the collection until the refresh has finished.
-        return Promise.race([this.onAddedToCollection.promise, this.api.refreshPromise]).then(() => {
-            const envs = this.api.getEnvs();
-            return envs.length > 0;
-        });
+        await Promise.race([onAddedToCollection.promise, this.api.refreshPromise]);
+        const envs = await asyncFilter(this.api.getEnvs(), (e) => filter(convertEnvInfo(e)));
+        return envs.length > 0;
     }
 
-    public async getInterpreters(
-        resource?: vscode.Uri,
-        options?: GetInterpreterOptions,
-        source?: PythonEnvSource[],
-    ): Promise<PythonEnvironment[]> {
+    public getInterpreters(resource?: vscode.Uri, source?: PythonEnvSource[]): PythonEnvironment[] {
         // Notify locators are locating.
         this.refreshing.fire();
 
-        const legacyEnvs = await this.getInterpretersViaAPI(resource, options, source).catch((ex) => {
-            traceError('Fetching environments via the new API failed', ex);
-            return <PythonEnvironment[]>[];
-        });
-
-        // Notify all locators have completed locating. Note it's crucial to notify this even when getInterpretersViaAPI
-        // fails, to ensure "Python extension loading..." text disappears.
-        this.refreshed.fire();
-        return legacyEnvs;
-    }
-
-    private async getInterpretersViaAPI(
-        resource?: vscode.Uri,
-        options?: GetInterpreterOptions,
-        source?: PythonEnvSource[],
-    ): Promise<PythonEnvironment[]> {
         const query: PythonLocatorQuery = {};
         if (resource !== undefined) {
             const wsFolder = vscode.workspace.getWorkspaceFolder(resource);
@@ -297,16 +303,17 @@ class ComponentAdapter implements IComponentAdapter {
             }
         }
 
-        if (options?.ignoreCache) {
-            await this.api.triggerRefresh(query);
-        }
-        await this.api.refreshPromise;
         let envs = this.api.getEnvs(query);
         if (source) {
             envs = envs.filter((env) => intersection(source, env.source).length > 0);
         }
 
-        return envs.map(convertEnvInfo);
+        const legacyEnvs = envs.map(convertEnvInfo);
+
+        // Notify all locators have completed locating. Note it's crucial to notify this even when getInterpretersViaAPI
+        // fails, to ensure "Python extension loading..." text disappears.
+        this.refreshed.fire();
+        return legacyEnvs;
     }
 
     public async getWorkspaceVirtualEnvInterpreters(

@@ -1,8 +1,10 @@
 import { SemVer } from 'semver';
 import { CodeLensProvider, ConfigurationTarget, Disposable, Event, TextDocument, Uri } from 'vscode';
 import { IExtensionSingleActivationService } from '../activation/types';
+import { FileChangeType } from '../common/platform/fileSystemWatcher';
 import { Resource } from '../common/types';
 import { PythonEnvSource } from '../pythonEnvironments/base/info';
+import { PythonLocatorQuery } from '../pythonEnvironments/base/locator';
 import { CondaEnvironmentInfo, CondaInfo } from '../pythonEnvironments/common/environmentManagers/conda';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
 
@@ -30,20 +32,26 @@ export interface IVirtualEnvironmentsSearchPathProvider {
     getSearchPaths(resource?: Uri): Promise<string[]>;
 }
 
+export type PythonEnvironmentsChangedEvent = {
+    type?: FileChangeType;
+    resource?: Uri;
+    old?: PythonEnvironment;
+    update?: PythonEnvironment | undefined;
+};
+
 export const IComponentAdapter = Symbol('IComponentAdapter');
 export interface IComponentAdapter {
+    triggerRefresh(query?: PythonLocatorQuery): Promise<void>;
+    readonly refreshPromise: Promise<void>;
+    readonly onChanged: Event<PythonEnvironmentsChangedEvent>;
     // InterpreterLocatorProgressStatubarHandler
     readonly onRefreshing: Event<void>;
     readonly onRefreshed: Event<void>;
     // VirtualEnvPrompt
     onDidCreate(resource: Resource, callback: () => void): Disposable;
     // IInterpreterLocatorService
-    hasInterpreters: Promise<boolean>;
-    getInterpreters(
-        resource?: Uri,
-        options?: GetInterpreterOptions,
-        source?: PythonEnvSource[],
-    ): Promise<PythonEnvironment[]>;
+    hasInterpreters(filter?: (e: PythonEnvironment) => Promise<boolean>): Promise<boolean>;
+    getInterpreters(resource?: Uri, source?: PythonEnvSource[]): PythonEnvironment[];
 
     // WorkspaceVirtualEnvInterpretersAutoSelectionRule
     getWorkspaceVirtualEnvInterpreters(
@@ -104,11 +112,15 @@ export interface ICondaLocatorService {
 
 export const IInterpreterService = Symbol('IInterpreterService');
 export interface IInterpreterService {
+    triggerRefresh(query?: PythonLocatorQuery): Promise<void>;
+    readonly refreshPromise: Promise<void>;
+    readonly onDidChangeInterpreters: Event<PythonEnvironmentsChangedEvent>;
     onDidChangeInterpreterConfiguration: Event<Uri | undefined>;
     onDidChangeInterpreter: Event<void>;
     onDidChangeInterpreterInformation: Event<PythonEnvironment>;
-    hasInterpreters: Promise<boolean>;
+    hasInterpreters(filter?: (e: PythonEnvironment) => Promise<boolean>): Promise<boolean>;
     getInterpreters(resource?: Uri, options?: GetInterpreterOptions): Promise<PythonEnvironment[]>;
+    getAllInterpreters(resource?: Uri, options?: GetInterpreterOptions): Promise<PythonEnvironment[]>;
     getActiveInterpreter(resource?: Uri): Promise<PythonEnvironment | undefined>;
     getInterpreterDetails(pythonPath: string, resoure?: Uri): Promise<undefined | PythonEnvironment>;
     refresh(resource: Resource): Promise<void>;
