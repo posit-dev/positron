@@ -154,7 +154,9 @@ export function testLocatorWatcher(
         return items.some((item) => externalDeps.arePathsSame(item.executablePath, executable));
     }
 
-    suiteSetup(() => venvs.cleanUp());
+    suiteSetup(async () => {
+        await venvs.cleanUp();
+    });
 
     setup(() => {
         inExperimentStub = sinon.stub(externalDeps, 'inExperiment');
@@ -163,16 +165,18 @@ export function testLocatorWatcher(
 
     async function setupLocator(onChanged: (e: PythonEnvsChangedEvent) => Promise<void>) {
         locator = options?.arg ? await createLocatorFactoryFunc(options.arg) : await createLocatorFactoryFunc();
+        locator.onChanged(onChanged);
         await getEnvs(locator.iterEnvs()); // Force the FS watcher to start.
         // Wait for watchers to get ready
         await sleep(1000);
-        locator.onChanged(onChanged);
     }
 
     teardown(async () => {
+        sinon.restore();
+        if (locator) {
+            await locator.dispose();
+        }
         await venvs.cleanUp();
-        locator.dispose();
-        inExperimentStub.restore();
     });
 
     test('Detect a new environment', async () => {
