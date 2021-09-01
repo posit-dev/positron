@@ -96,12 +96,8 @@ src/test/language/tokenizer.unit.test.ts
 src/test/api.functional.test.ts
 
 src/test/testing/mocks.ts
-src/test/testing/helper.ts
 src/test/testing/common/debugLauncher.unit.test.ts
-src/test/testing/common/testUtils.unit.test.ts
-src/test/testing/common/services/storageService.unit.test.ts
 src/test/testing/common/services/configSettingService.unit.test.ts
-src/test/testing/results.ts
 
 src/test/common/exitCIAfterTestReporter.ts
 src/test/common/crypto.unit.test.ts
@@ -494,15 +490,6 @@ src/client/application/diagnostics/commands/ignore.ts
 src/client/application/diagnostics/commands/factory.ts
 src/client/application/diagnostics/commands/execVSCCommand.ts
 src/client/application/diagnostics/commands/launchBrowser.ts
-
-src/client/logging/levels.ts
-src/client/logging/transports.ts
-src/client/logging/_global.ts
-src/client/logging/logger.ts
-src/client/logging/util.ts
-src/client/logging/index.ts
-src/client/logging/formatters.ts
-src/client/logging/trace.ts
 
 src/client/refactor/proxy.ts
 src/client/workspaceSymbols/main.ts
