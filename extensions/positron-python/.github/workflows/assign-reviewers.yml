@@ -17,7 +17,8 @@ jobs:
     if: github.repository == 'microsoft/vscode-python'
 
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2
+        ref: main
 
       - name: Install Python
         uses: actions/setup-python@v2
@@ -25,7 +26,7 @@ jobs:
           python-version: '3.9'
 
       - name: Load pip cache
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v2
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('.github/assign-reviewers/requirements.txt') }}
