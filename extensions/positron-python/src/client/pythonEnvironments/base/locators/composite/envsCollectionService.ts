@@ -84,11 +84,11 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
 
     private async startRefresh(query: PythonLocatorQuery | undefined): Promise<void> {
         const stopWatch = new StopWatch();
+        const deferred = createDeferred<void>();
+        // Ensure we set this before we trigger the promise to correctly track when a refresh has started.
+        this.refreshPromises.set(query, deferred.promise);
         this.refreshStarted.fire();
         const iterator = this.locator.iterEnvs(query);
-        const deferred = createDeferred<void>();
-        // Ensure we set this before we trigger the promise to correctly indicate when a refresh has started.
-        this.refreshPromises.set(query, deferred.promise);
         const promise = this.addEnvsToCacheFromIterator(iterator);
         return promise
             .then(async () => {
