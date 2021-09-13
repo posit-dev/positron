@@ -8,7 +8,6 @@ import { DownloadBetaChannelRule, DownloadDailyChannelRule } from '../../client/
 import { LanguageServerDownloader } from '../../client/activation/common/downloader';
 import { LanguageServerDownloadChannel } from '../../client/activation/common/packageRepository';
 import { ExtensionSurveyPrompt } from '../../client/activation/extensionSurvey';
-import { JediExtensionActivator } from '../../client/activation/jedi';
 import { DotNetLanguageServerActivator } from '../../client/activation/languageServer/activator';
 import { DotNetLanguageServerAnalysisOptions } from '../../client/activation/languageServer/analysisOptions';
 import { MPLSDeprecationPrompt } from '../../client/activation/languageServer/deprecationPrompt';
@@ -26,6 +25,7 @@ import { DotNetLanguageServerProxy } from '../../client/activation/languageServe
 import { DotNetLanguageServerManager } from '../../client/activation/languageServer/manager';
 import { LanguageServerOutputChannel } from '../../client/activation/languageServer/outputChannel';
 import { PlatformData } from '../../client/activation/languageServer/platformData';
+import { NoLanguageServerExtensionActivator } from '../../client/activation/none/activator';
 import { registerTypes } from '../../client/activation/serviceRegistry';
 import {
     IDownloadChannelRule,
@@ -154,13 +154,6 @@ suite('Unit Tests - Language Server Activation Service Registry', () => {
                 LanguageServerType.Microsoft,
             ),
         ).once();
-        verify(
-            serviceManager.add<ILanguageServerActivator>(
-                ILanguageServerActivator,
-                JediExtensionActivator,
-                LanguageServerType.Jedi,
-            ),
-        ).once();
         verify(serviceManager.add<ILanguageServerProxy>(ILanguageServerProxy, DotNetLanguageServerProxy)).once();
         verify(serviceManager.add<ILanguageServerManager>(ILanguageServerManager, DotNetLanguageServerManager)).once();
         verify(
@@ -177,6 +170,14 @@ suite('Unit Tests - Language Server Activation Service Registry', () => {
         ).once();
         verify(
             serviceManager.addSingleton<IMPLSDeprecationPrompt>(IMPLSDeprecationPrompt, MPLSDeprecationPrompt),
+        ).once();
+
+        verify(
+            serviceManager.add<ILanguageServerActivator>(
+                ILanguageServerActivator,
+                NoLanguageServerExtensionActivator,
+                LanguageServerType.None,
+            ),
         ).once();
     });
 });

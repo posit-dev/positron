@@ -645,7 +645,6 @@
                             "pythonDeprecatePythonPath",
                             "pythonDiscoveryModule",
                             "pythonDiscoveryModuleWithoutWatcher",
-                            "pythonJediLSP",
                             "pythonSortEnvs",
                             "pythonSurveyNotification",
                             "pythonTensorboardExperiment",
@@ -666,7 +665,6 @@
                             "pythonDeprecatePythonPath",
                             "pythonDiscoveryModule",
                             "pythonDiscoveryModuleWithoutWatcher",
-                            "pythonJediLSP",
                             "pythonSortEnvs",
                             "pythonSurveyNotification",
                             "pythonTensorboardExperiment",
@@ -770,13 +768,11 @@
                     "enum": [
                         "Default",
                         "Jedi",
-                        "JediLSP",
                         "Pylance",
                         "None"
                     ],
                     "enumDescriptions": [
                         "Automatically select a language server: Pylance if installed and available, otherwise fallback to Jedi.",
-                        "Use Jedi as a language server.",
                         "Use Jedi behind the Language Server Protocol (LSP) as a language server.",
                         "Use Pylance as a language server.",
                         "Disable language server capabilities."

@@ -10,7 +10,6 @@ import { DownloadBetaChannelRule, DownloadDailyChannelRule } from './common/down
 import { LanguageServerDownloader } from './common/downloader';
 import { LanguageServerDownloadChannel } from './common/packageRepository';
 import { ExtensionSurveyPrompt } from './extensionSurvey';
-import { JediExtensionActivator } from './jedi';
 import { JediLanguageServerAnalysisOptions } from './jedi/analysisOptions';
 import { JediLanguageClientFactory } from './jedi/languageClientFactory';
 import { JediLanguageServerProxy } from './jedi/languageServerProxy';
@@ -130,34 +129,29 @@ export function registerTypes(serviceManager: IServiceManager, languageServerTyp
             ILanguageServerFolderService,
             NodeLanguageServerFolderService,
         );
-    } else if (languageServerType === LanguageServerType.JediLSP) {
+    } else if (languageServerType === LanguageServerType.Jedi) {
         serviceManager.add<ILanguageServerActivator>(
             ILanguageServerActivator,
             JediLanguageServerActivator,
-            LanguageServerType.JediLSP,
+            LanguageServerType.Jedi,
         );
 
         serviceManager.add<ILanguageServerAnalysisOptions>(
             ILanguageServerAnalysisOptions,
             JediLanguageServerAnalysisOptions,
-            LanguageServerType.JediLSP,
+            LanguageServerType.Jedi,
         );
 
         serviceManager.addSingleton<ILanguageClientFactory>(ILanguageClientFactory, JediLanguageClientFactory);
         serviceManager.add<ILanguageServerManager>(ILanguageServerManager, JediLanguageServerManager);
         serviceManager.add<ILanguageServerProxy>(ILanguageServerProxy, JediLanguageServerProxy);
-    } else if (languageServerType === LanguageServerType.None) {
-        serviceManager.add<ILanguageServerActivator>(
-            ILanguageServerActivator,
-            NoLanguageServerExtensionActivator,
-            LanguageServerType.None,
-        );
     }
+
     serviceManager.add<ILanguageServerActivator>(
         ILanguageServerActivator,
-        JediExtensionActivator,
-        LanguageServerType.Jedi,
-    ); // We fallback to Jedi if for some reason we're unable to use other language servers, hence register this always.
+        NoLanguageServerExtensionActivator,
+        LanguageServerType.None,
+    );
 
     serviceManager.addSingleton<IDownloadChannelRule>(
         IDownloadChannelRule,

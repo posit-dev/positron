@@ -24,7 +24,7 @@ export class LanguageClientMiddleware extends LanguageClientMiddlewareBase {
     ) {
         super(serviceContainer, serverType, sendTelemetryEvent, serverVersion);
 
-        if (serverType === LanguageServerType.None || serverType === LanguageServerType.Jedi) {
+        if (serverType === LanguageServerType.None) {
             return;
         }
 
