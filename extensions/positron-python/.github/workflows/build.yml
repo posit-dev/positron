@@ -89,14 +89,16 @@ jobs:
         test-suite: [ts-unit, python-unit, venv, single-workspace, multi-workspace, debugger, functional]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v2
         with:
           path: ${{env.special-working-directory-relative}}
 
       - name: Install Node
-        uses: actions/setup-node@v2.4.0
+        uses: actions/setup-node@v2
         with:
           node-version: ${{env.NODE_VERSION}}
+          cache: 'npm'
+          cache-dependency-path: ${{env.special-working-directory-relative}}/package-lock.json
 
       - name: Install dependencies (npm ci)
         run: npm ci
@@ -108,11 +110,6 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{matrix.python}}
-
-      - name: Install Node
-        uses: actions/setup-node@v2.4.0
-        with:
-          node-version: ${{env.NODE_VERSION}}
 
       - name: Install Python requirements
         run: |
@@ -313,12 +310,13 @@ jobs:
   #         python: [3.8] # For Jupyter.
   #     steps:
   #       - name: Checkout
-  #         uses: actions/checkout@v2.3.4
+  #         uses: actions/checkout@v2
 
   #       - name: Install Node
-  #         uses: actions/setup-node@v2.4.0
+  #         uses: actions/setup-node@v2
   #         with:
   #           node-version: ${{env.NODE_VERSION}}
+  #           cache: 'npm'
 
   #       - name: Use Python ${{matrix.python}}
   #         uses: actions/setup-python@v2
