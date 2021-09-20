@@ -54,6 +54,11 @@ runs:
         python ./pythonFiles/install_debugpy.py
       shell: bash
 
+    - name: Install Jedi LSP
+      run: |
+        python -m pip --disable-pip-version-check install -t ./pythonFiles/lib/jedilsp --no-cache-dir --implementation py --platform any --abi none --no-deps --only-binary :all: --upgrade -r jedils_requirements.txt
+      shell: bash
+
     - name: Run npm ci
       run: npm ci --prefer-offline
       shell: bash
