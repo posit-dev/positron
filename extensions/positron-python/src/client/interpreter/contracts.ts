@@ -188,9 +188,3 @@ export type WorkspacePythonPath = {
 };
 
 export type GetInterpreterOptions = { ignoreCache?: boolean; onSuggestion?: boolean };
-
-export const IPython27SupportPrompt = Symbol('IPython27SupportPrompt');
-export interface IPython27SupportPrompt {
-    shouldShowPrompt(interpreter: PythonEnvironment): Promise<boolean>;
-    showPrompt(): Promise<void>;
-}
