@@ -30,8 +30,10 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
         return this.refreshStarted.event;
     }
 
-    public get refreshPromise(): Promise<void> {
-        return Promise.all(Array.from(this.refreshPromises.values())).then();
+    public get refreshPromise(): Promise<void> | undefined {
+        return this.refreshPromises.size > 0
+            ? Promise.all(Array.from(this.refreshPromises.values())).then()
+            : undefined;
     }
 
     constructor(private readonly cache: IEnvsCollectionCache, private readonly locator: IResolvingLocator) {
@@ -88,15 +90,16 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
     private startRefresh(query: PythonLocatorQuery | undefined): Promise<void> {
         const stopWatch = new StopWatch();
         const deferred = createDeferred<void>();
-        // Ensure we set this before we trigger the promise to correctly track when a refresh has started.
+        // Ensure we set this before we trigger the promise to accurately track when a refresh has started.
         this.refreshPromises.set(query, deferred.promise);
         this.refreshStarted.fire();
         const iterator = this.locator.iterEnvs(query);
         const promise = this.addEnvsToCacheFromIterator(iterator);
         return promise
             .then(async () => {
-                deferred.resolve();
+                // Ensure we delete this before we resolve the promise to accurately track when a refresh finishes.
                 this.refreshPromises.delete(query);
+                deferred.resolve();
                 sendTelemetryEvent(EventName.PYTHON_INTERPRETER_DISCOVERY, stopWatch.elapsedTime, {
                     interpreters: this.cache.getAllEnvs().length,
                 });
