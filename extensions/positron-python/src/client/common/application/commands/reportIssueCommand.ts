@@ -12,7 +12,6 @@ import { ICommandManager, IWorkspaceService } from '../types';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import { IInterpreterService, IInterpreterVersionService } from '../../../interpreter/contracts';
 import { identifyEnvironment } from '../../../pythonEnvironments/common/environmentIdentifier';
-import { getPythonOutputChannelContent } from '../../../logging';
 import { Commands } from '../../constants';
 import { IConfigurationService, IPythonSettings } from '../../types';
 
@@ -63,7 +62,6 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
                 }
             }
         });
-        const pythonLogs = await getPythonOutputChannelContent();
         const template = await fs.readFile(this.templatePath, 'utf8');
         const interpreterPath = (await this.interpreterService.getActiveInterpreter())?.path || 'not-selected';
         const pythonVersion = await this.interpreterVersionService.getVersion(interpreterPath, '');
@@ -73,7 +71,7 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
 
         this.commandManager.executeCommand('workbench.action.openIssueReporter', {
             extensionId: 'ms-python.python',
-            issueBody: template.format(pythonVersion, virtualEnv, languageServer, pythonLogs, userSettings),
+            issueBody: template.format(pythonVersion, virtualEnv, languageServer, userSettings),
         });
     }
 }
