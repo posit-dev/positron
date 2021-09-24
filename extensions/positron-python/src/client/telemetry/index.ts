@@ -1250,6 +1250,10 @@ export interface IEventNamePropertyMapping {
      */
     [EventName.PYTHON_EXPERIMENTS_INIT_PERFORMANCE]: unknown;
     /**
+     * Telemetry event sent when the user use the report issue command.
+     */
+    [EventName.USE_REPORT_ISSUE_COMMAND]: unknown;
+    /**
      * Telemetry event sent once on session start with details on which experiments are opted into and opted out from.
      */
     [EventName.PYTHON_EXPERIMENTS_OPT_IN_OPT_OUT_SETTINGS]: {

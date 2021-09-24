@@ -8,6 +8,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { anything, capture, instance, mock, verify, when } from 'ts-mockito';
 import { expect } from 'chai';
+import * as Telemetry from '../../../../client/telemetry';
 import { LanguageServerType } from '../../../../client/activation/types';
 import { CommandManager } from '../../../../client/common/application/commandManager';
 import { ReportIssueCommandHandler } from '../../../../client/common/application/commands/reportIssueCommand';
@@ -25,6 +26,7 @@ import { Commands } from '../../../../client/common/constants';
 import { AllCommands } from '../../../../client/common/application/commands';
 import { ConfigurationService } from '../../../../client/common/configuration/service';
 import { IConfigurationService } from '../../../../client/common/types';
+import { EventName } from '../../../../client/telemetry/constants';
 
 suite('Report Issue Command', () => {
     let reportIssueCommandHandler: ReportIssueCommandHandler;
@@ -108,5 +110,12 @@ suite('Report Issue Command', () => {
         expect(args[0]).to.be.equal('workbench.action.openIssueReporter');
         const actual = args[1].issueBody;
         expect(actual).to.be.equal(expectedIssueBody);
+    });
+    test('Should send telemetry event when run Report Issue Command', async () => {
+        const sendTelemetryStub = sinon.stub(Telemetry, 'sendTelemetryEvent');
+        await reportIssueCommandHandler.openReportIssue();
+
+        sinon.assert.calledWith(sendTelemetryStub, EventName.USE_REPORT_ISSUE_COMMAND);
+        sinon.restore();
     });
 });

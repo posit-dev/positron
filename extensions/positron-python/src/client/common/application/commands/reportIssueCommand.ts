@@ -14,6 +14,8 @@ import { IInterpreterService, IInterpreterVersionService } from '../../../interp
 import { identifyEnvironment } from '../../../pythonEnvironments/common/environmentIdentifier';
 import { Commands } from '../../constants';
 import { IConfigurationService, IPythonSettings } from '../../types';
+import { sendTelemetryEvent } from '../../../telemetry';
+import { EventName } from '../../../telemetry/constants';
 
 /**
  * Allows the user to report an issue related to the Python extension using our template.
@@ -69,9 +71,10 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
             this.workspaceService.getConfiguration('python').get<string>('languageServer') || 'Not Found';
         const virtualEnv = await identifyEnvironment(interpreterPath);
 
-        this.commandManager.executeCommand('workbench.action.openIssueReporter', {
+        await this.commandManager.executeCommand('workbench.action.openIssueReporter', {
             extensionId: 'ms-python.python',
             issueBody: template.format(pythonVersion, virtualEnv, languageServer, userSettings),
         });
+        sendTelemetryEvent(EventName.USE_REPORT_ISSUE_COMMAND, undefined, {});
     }
 }
