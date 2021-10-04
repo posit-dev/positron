@@ -12,7 +12,7 @@
         },
         "virtualWorkspaces": {
             "supported": false,
-            "description": "Python only works with local file paths."
+            "description": "Limited support on the web."
         }
     },
     "languageServerVersion": "0.5.30",
