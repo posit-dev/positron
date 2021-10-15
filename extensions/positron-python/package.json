@@ -2047,7 +2047,7 @@
         "webpack": "webpack"
     },
     "dependencies": {
-        "@vscode/jupyter-lsp-middleware": "^0.2.5",
+        "@vscode/jupyter-lsp-middleware": "^0.2.13",
         "arch": "^2.1.0",
         "azure-storage": "^2.10.4",
         "chokidar": "^3.4.3",
