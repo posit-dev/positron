@@ -384,6 +384,84 @@ export class LanguageClientMiddlewareBase implements Middleware {
         }
     }
 
+    public provideTypeDefinition() {
+        if (this.connected) {
+            return this.callNext('provideTypeDefinition', arguments);
+        }
+    }
+
+    public provideImplementation() {
+        if (this.connected) {
+            return this.callNext('provideImplementation', arguments);
+        }
+    }
+
+    public provideDocumentColors() {
+        if (this.connected) {
+            return this.callNext('provideDocumentColors', arguments);
+        }
+    }
+
+    public provideColorPresentations() {
+        if (this.connected) {
+            return this.callNext('provideColorPresentations', arguments);
+        }
+    }
+
+    public provideFoldingRanges() {
+        if (this.connected) {
+            return this.callNext('provideFoldingRanges', arguments);
+        }
+    }
+
+    public provideSelectionRanges() {
+        if (this.connected) {
+            return this.callNext('provideSelectionRanges', arguments);
+        }
+    }
+
+    public prepareCallHierarchy() {
+        if (this.connected) {
+            return this.callNext('prepareCallHierarchy', arguments);
+        }
+    }
+
+    public provideCallHierarchyIncomingCalls() {
+        if (this.connected) {
+            return this.callNext('provideCallHierarchyIncomingCalls', arguments);
+        }
+    }
+
+    public provideCallHierarchyOutgoingCalls() {
+        if (this.connected) {
+            return this.callNext('provideCallHierarchyOutgoingCalls', arguments);
+        }
+    }
+
+    public provideDocumentSemanticTokens() {
+        if (this.connected) {
+            return this.callNext('provideDocumentSemanticTokens', arguments);
+        }
+    }
+
+    public provideDocumentSemanticTokensEdits() {
+        if (this.connected) {
+            return this.callNext('provideDocumentSemanticTokensEdits', arguments);
+        }
+    }
+
+    public provideDocumentRangeSemanticTokens() {
+        if (this.connected) {
+            return this.callNext('provideDocumentRangeSemanticTokens', arguments);
+        }
+    }
+
+    public provideLinkedEditingRange() {
+        if (this.connected) {
+            return this.callNext('provideLinkedEditingRange', arguments);
+        }
+    }
+
     private callNext(funcName: keyof Middleware, args: IArguments) {
         // This function uses the last argument to call the 'next' item. If we're allowing notebook
         // middleware, it calls into the notebook middleware first.
