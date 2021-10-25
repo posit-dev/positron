@@ -27,7 +27,6 @@ import { DeprecatePythonPath } from './experiments/groups';
 import { ExtensionChannels } from './insidersBuild/types';
 import { IS_WINDOWS } from './platform/constants';
 import {
-    IAnalysisSettings,
     IAutoCompleteSettings,
     IDefaultLanguageServer,
     IExperiments,
@@ -122,15 +121,13 @@ export class PythonSettings implements IPythonSettings {
 
     public globalModuleInstallation = false;
 
-    public analysis!: IAnalysisSettings;
-
     public autoUpdateLanguageServer = true;
 
     public insidersChannel!: ExtensionChannels;
 
     public experiments!: IExperiments;
 
-    public languageServer: LanguageServerType = LanguageServerType.Microsoft;
+    public languageServer: LanguageServerType = LanguageServerType.Node;
 
     public languageServerIsDefault = true;
 
@@ -186,9 +183,6 @@ export class PythonSettings implements IPythonSettings {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const config = workspace.getConfiguration('editor', resource || (null as any));
             const formatOnType = config ? config.get('formatOnType', false) : false;
-            sendTelemetryEvent(EventName.COMPLETION_ADD_BRACKETS, undefined, {
-                enabled: settings.autoComplete ? settings.autoComplete.addBrackets : false,
-            });
             sendTelemetryEvent(EventName.FORMAT_ON_TYPE, undefined, { enabled: formatOnType });
         }
 
@@ -279,6 +273,7 @@ export class PythonSettings implements IPythonSettings {
         if (
             !userLS ||
             userLS === 'Default' ||
+            userLS === 'Microsoft' ||
             !Object.values(LanguageServerType).includes(userLS as LanguageServerType)
         ) {
             this.languageServer = this.defaultLS?.defaultLSType ?? LanguageServerType.None;
@@ -290,6 +285,15 @@ export class PythonSettings implements IPythonSettings {
         } else {
             this.languageServer = userLS as LanguageServerType;
             this.languageServerIsDefault = false;
+        }
+
+        const autoCompleteSettings = systemVariables.resolveAny(
+            pythonSettings.get<IAutoCompleteSettings>('autoComplete'),
+        )!;
+        if (this.autoComplete) {
+            Object.assign<IAutoCompleteSettings, IAutoCompleteSettings>(this.autoComplete, autoCompleteSettings);
+        } else {
+            this.autoComplete = autoCompleteSettings;
         }
 
         const envFileSetting = pythonSettings.get<string>('envFile');
@@ -305,13 +309,6 @@ export class PythonSettings implements IPythonSettings {
             Object.assign<ILintingSettings, ILintingSettings>(this.linting, lintingSettings);
         } else {
             this.linting = lintingSettings;
-        }
-
-        const analysisSettings = systemVariables.resolveAny(pythonSettings.get<IAnalysisSettings>('analysis'))!;
-        if (this.analysis) {
-            Object.assign<IAnalysisSettings, IAnalysisSettings>(this.analysis, analysisSettings);
-        } else {
-            this.analysis = analysisSettings;
         }
 
         this.disableInstallationChecks = pythonSettings.get<boolean>('disableInstallationCheck') === true;
@@ -431,24 +428,6 @@ export class PythonSettings implements IPythonSettings {
             systemVariables.resolveAny(this.formatting.blackPath),
             workspaceRoot,
         );
-
-        const autoCompleteSettings = systemVariables.resolveAny(
-            pythonSettings.get<IAutoCompleteSettings>('autoComplete'),
-        )!;
-        if (this.autoComplete) {
-            Object.assign<IAutoCompleteSettings, IAutoCompleteSettings>(this.autoComplete, autoCompleteSettings);
-        } else {
-            this.autoComplete = autoCompleteSettings;
-        }
-        // Support for travis.
-        this.autoComplete = this.autoComplete
-            ? this.autoComplete
-            : {
-                  extraPaths: [],
-                  addBrackets: false,
-                  showAdvancedMembers: false,
-                  typeshedPaths: [],
-              };
 
         const testSettings = systemVariables.resolveAny(pythonSettings.get<ITestingSettings>('testing'))!;
         if (this.testing) {
