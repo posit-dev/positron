@@ -26,7 +26,7 @@ body:
       label: OS version
     validations:
       required: true
-  - type: input
+  - type: dropdown
     attributes:
       label: Python distribution
       options: ['python.org', 'Anaconda', 'Operating system', 'Other']
