@@ -45,8 +45,6 @@ body:
         - Pylance
         - Jedi
         - None
-    validations:
-      required: true
   - type: checkboxes
     attributes:
       label: Code of Conduct
