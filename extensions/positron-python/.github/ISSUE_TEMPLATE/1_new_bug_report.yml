@@ -28,8 +28,8 @@ body:
       required: true
   - type: dropdown
     attributes:
-      label: Python distribution
-      options: ['python.org', 'Anaconda', 'Operating system', 'Other']
+      label: "Language server"
+      options: ['Default', 'Pylance', 'Jedi', 'None']
     validations:
       required: true
   - type: input
@@ -37,12 +37,12 @@ body:
       label: Python version
     validations:
       required: true
-  - type: input
-    attributes:
-      label: Language server
-      description: 'Value of the `python.languagServer` setting'
-    validations:
-      required: true
+  # - type: input
+  #   attributes:
+  #     label: Language server
+  #     description: 'Value of the `python.languagServer` setting'
+  #   validations:
+  #     required: true
   - type: textarea
     attributes:
       label: Expected behaviour
