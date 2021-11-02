@@ -1,9 +1,6 @@
 name: Bug Report
-description: File a bug report
-title: "[Bug]: "
-labels: ["bug", "triage"]
-assignees:
-  - octocat
+description: "Issue with the Python extension, not supporting/sibling extensions (you may also use the `Python: Report Issue` command)"
+labels: ["bug", "classify"]
 body:
   - type: markdown
     attributes:
