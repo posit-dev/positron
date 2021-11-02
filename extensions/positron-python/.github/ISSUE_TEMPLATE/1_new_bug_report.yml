@@ -1,4 +1,4 @@
-name: Bug Report
+name: General Bug Report
 description: "Issue with the Python extension, not supporting/sibling extensions (you may also use the `Python: Report Issue` command)"
 labels: ["bug", "classify"]
 body:
