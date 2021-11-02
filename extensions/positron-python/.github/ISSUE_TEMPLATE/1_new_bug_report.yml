@@ -40,7 +40,7 @@ body:
   - type: dropdown
     attributes:
       label: Language server
-      options : ['Default', 'Pylance', 'Jedi', 'None']
+      options : ['Default', 'Pylance', 'Jedi', 'Disabled']
     validations:
       required: true
   - type: textarea
