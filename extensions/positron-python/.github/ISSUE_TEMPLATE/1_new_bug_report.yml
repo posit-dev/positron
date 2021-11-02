@@ -2,58 +2,82 @@ name: Bug Report
 description: "Issue with the Python extension, not supporting/sibling extensions (you may also use the `Python: Report Issue` command)"
 labels: ["bug", "classify"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for taking the time to fill out this bug report!
+body:
   - type: input
-    id: contact
     attributes:
-      label: Contact Details
-      description: How can we get in touch with you if we need more info?
-      placeholder: ex. email@example.com
-    validations:
-      required: false
-  - type: textarea
-    id: what-happened
+      label: VS Code version
+      description: 'Can be found via the `Help: About` command'
+    validation:
+      required: true
+  - type: input
     attributes:
-      label: What happened?
-      description: Also tell us, what did you expect to happen?
-      placeholder: Tell us what you see!
-      value: "A bug happened!"
-    validations:
+      label: Extension version
+      description: 'Available under the Extensions side bar'
+    validation:
       required: true
   - type: dropdown
-    id: version
     attributes:
-      label: Version
-      description: What version of our software are you running?
-      options:
-        - 1.0.2 (Default)
-        - 1.0.3 (Edge)
-    validations:
+      label: OS type
+      options: ['Windows', 'macOS', 'Linux', 'Other']
+    validation:
+      required: true
+  - type: input
+    attributes:
+      label: OS version
+    validation:
+      required: true
+  - type: input
+    attributes:
+      label: Python version
+    validation:
       required: true
   - type: dropdown
-    id: browsers
     attributes:
-      label: What browsers are you seeing the problem on?
-      multiple: true
-      options:
-        - Firefox
-        - Chrome
-        - Safari
-        - Microsoft Edge
+      label: Python distribution
+      options: ['python.org', 'Anaconda', 'Operating system', 'Other']
+    validation:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Python environment
+      options: ['Virtual', 'conda', 'Other', 'N/A']
+    validation:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Language server
+      description: 'Value of the `python.languagServer` setting'
+      options: ['Default', 'Pylance', 'Jedi', 'None']
+    validation:
+      required: true
   - type: textarea
-    id: logs
     attributes:
-      label: Relevant log output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-      render: shell
+      label: Expected behaviour
+      description: 'What do you think should have happened?'
+    validation:
+      required: true
+  - type: textarea
+    attributes:
+      label: Actual behaviour
+      description: What happened?
+    validation:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      description: 'Self-contained, minimal reproducing code samples are **extremely** helpful and will expedite addressing your issue'
+      placeholder: 'If you think a GIF of what is happening would be helpful, consider tools like https://www.cockos.com/licecap/, https://github.com/phw/peek or https://www.screentogif.com/'
+    validation:
+      required: true
+  - type: textarea
+    attributes:
+      label: Logs
+      description: 'Output for `Python` in the Output panel'
+      placeholder: '`View` → `Output`, change the drop-down the upper-right of the `Output` panel to `Python`'
   - type: checkboxes
-    id: terms
     attributes:
       label: Code of Conduct
-      description: By submitting this issue, you agree to follow our [Code of Conduct](https://example.com)
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/microsoft/vscode-python/blob/main/CODE_OF_CONDUCT.md)
       options:
         - label: I agree to follow this project's Code of Conduct
           required: true
