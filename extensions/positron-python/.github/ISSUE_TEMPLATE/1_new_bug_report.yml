@@ -9,6 +9,12 @@ body:
       description: "Can be found via the `Help: About` command"
     validations:
       required: true
+  - type: input
+    attributes:
+      label: Extension version
+      description: 'Available under the Extensions side bar'
+    validations:
+      required: true
   - type: checkboxes
     attributes:
       label: Code of Conduct
