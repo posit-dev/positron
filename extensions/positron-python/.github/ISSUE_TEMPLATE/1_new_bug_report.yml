@@ -19,17 +19,17 @@ body:
     attributes:
       label: OS type
       options: ['Windows', 'macOS', 'Linux', 'Other']
-    validation:
+    validations:
       required: true
   - type: input
     attributes:
       label: OS version
-    validation:
+    validations:
       required: true
   - type: input
     attributes:
       label: Python version
-    validation:
+    validations:
       required: true
   - type: checkboxes
     attributes:
