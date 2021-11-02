@@ -37,10 +37,10 @@ body:
       options: ['python.org', 'Anaconda', 'Operating system', 'Other']
     validations:
       required: true
-  - type: dropdown
+  - type: textarea
     attributes:
-      label: Language server
-      options: ['Default', 'Pylance', 'Jedi', 'None']
+      label: Expected behaviour
+      description: 'What do you think should have happened?'
     validations:
       required: true
   - type: checkboxes
