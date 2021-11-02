@@ -21,6 +21,16 @@ body:
       options: ['Windows', 'macOS', 'Linux', 'Other']
     validations:
       required: true
+  - type: input
+    attributes:
+      label: OS version
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Python version
+    validations:
+      required: true
   - type: checkboxes
     attributes:
       label: Code of Conduct
