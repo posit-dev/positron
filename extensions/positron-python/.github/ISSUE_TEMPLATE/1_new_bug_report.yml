@@ -31,49 +31,6 @@ body:
       label: Python version
     validation:
       required: true
-  - type: dropdown
-    attributes:
-      label: Python distribution
-      options: ['python.org', 'Anaconda', 'Operating system', 'Other']
-    validation:
-      required: true
-  - type: dropdown
-    attributes:
-      label: Python environment
-      options: ['Virtual', 'conda', 'Other', 'N/A']
-    validation:
-      required: true
-  - type: dropdown
-    attributes:
-      label: Language server
-      description: 'Value of the `python.languagServer` setting'
-      options: ['Default', 'Pylance', 'Jedi', 'None']
-    validation:
-      required: true
-  - type: textarea
-    attributes:
-      label: Expected behaviour
-      description: 'What do you think should have happened?'
-    validation:
-      required: true
-  - type: textarea
-    attributes:
-      label: Actual behaviour
-      description: What happened?
-    validation:
-      required: true
-  - type: textarea
-    attributes:
-      label: Steps to reproduce
-      description: 'Self-contained, minimal reproducing code samples are **extremely** helpful and will expedite addressing your issue'
-      placeholder: 'If you think a GIF of what is happening would be helpful, consider tools like https://www.cockos.com/licecap/, https://github.com/phw/peek or https://www.screentogif.com/'
-    validation:
-      required: true
-  - type: textarea
-    attributes:
-      label: Logs
-      description: 'Output for `Python` in the Output panel'
-      placeholder: '`View` → `Output`, change the drop-down the upper-right of the `Output` panel to `Python`'
   - type: checkboxes
     attributes:
       label: Code of Conduct
