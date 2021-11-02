@@ -37,10 +37,15 @@ body:
       label: Python version
     validations:
       required: true
-  - type: input
+  - type: dropdown
     attributes:
       label: Language server
       description: 'Value of the `python.languagServer` setting'
+      options:
+        - Default
+        - Pylance
+        - Jedi
+        - "None"
     validations:
       required: true
   - type: textarea
