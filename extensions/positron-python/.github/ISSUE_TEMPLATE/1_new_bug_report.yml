@@ -31,6 +31,25 @@ body:
       label: Python version
     validations:
       required: true
+  - type: dropdown
+    attributes:
+      label: Python distribution
+      options: ['python.org', 'Anaconda', 'Operating system', 'Other']
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Python environment
+      options: ['Virtual', 'conda', 'Other', 'N/A']
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Language server
+      description: 'Value of the `python.languagServer` setting'
+      options: ['Default', 'Pylance', 'Jedi', 'None']
+    validations:
+      required: true
   - type: checkboxes
     attributes:
       label: Code of Conduct
