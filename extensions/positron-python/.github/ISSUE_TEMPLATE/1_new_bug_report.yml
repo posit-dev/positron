@@ -6,14 +6,8 @@ body:
   - type: input
     attributes:
       label: VS Code version
-      description: 'Can be found via the `Help: About` command'
-    validation:
-      required: true
-  - type: input
-    attributes:
-      label: Extension version
-      description: 'Available under the Extensions side bar'
-    validation:
+      description: "Can be found via the `Help: About` command"
+    validations:
       required: true
   - type: checkboxes
     attributes:
