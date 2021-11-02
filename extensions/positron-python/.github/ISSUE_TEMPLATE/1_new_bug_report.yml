@@ -40,7 +40,7 @@ body:
   - type: dropdown
     attributes:
       label: Language server
-      description: 'Value of the `python.languagServer` setting'
+      description: "Value of the `python.languagServer` setting"
       options: ['Default', 'Pylance', 'Jedi', 'None']
     validations:
       required: true
