@@ -39,9 +39,8 @@ body:
       required: true
   - type: dropdown
     attributes:
-      label: "Language server"
-      description: "The value of the `python.languageServer` setting"
-      options: ["Default", "Pylance", "Jedi", "None"]
+      label: Python distribution
+      options: ['python.org', 'Anaconda', 'Operating system', 'Other']
     validations:
       required: true
   - type: textarea
