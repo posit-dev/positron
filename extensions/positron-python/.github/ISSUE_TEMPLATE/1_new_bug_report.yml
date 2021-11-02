@@ -43,6 +43,12 @@ body:
       description: 'What do you think should have happened?'
     validations:
       required: true
+  - type: textarea
+    attributes:
+      label: Actual behaviour
+      description: What happened?
+    validations:
+      required: true
   - type: checkboxes
     attributes:
       label: Code of Conduct
