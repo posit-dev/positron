@@ -6,10 +6,16 @@ import { IServiceContainer } from '../../ioc/types';
 import { ModuleInstallerType } from '../../pythonEnvironments/info';
 import { IWorkspaceService } from '../application/types';
 import { IPythonExecutionFactory } from '../process/types';
-import { ExecutionInfo } from '../types';
+import { ExecutionInfo, IInstaller, Product } from '../types';
 import { isResource } from '../utils/misc';
-import { ModuleInstaller } from './moduleInstaller';
+import { ModuleInstaller, translateProductToModule } from './moduleInstaller';
 import { InterpreterUri, ModuleInstallFlags } from './types';
+import * as path from 'path';
+import { _SCRIPTS_DIR } from '../process/internal/scripts/constants';
+import { ProductNames } from './productNames';
+import { sendTelemetryEvent } from '../../telemetry';
+import { EventName } from '../../telemetry/constants';
+import { IInterpreterService } from '../../interpreter/contracts';
 
 @injectable()
 export class PipInstaller extends ModuleInstaller {
@@ -35,9 +41,51 @@ export class PipInstaller extends ModuleInstaller {
     }
     protected async getExecutionInfo(
         moduleName: string,
-        _resource?: InterpreterUri,
+        resource?: InterpreterUri,
         flags: ModuleInstallFlags = 0,
     ): Promise<ExecutionInfo> {
+        if (moduleName === translateProductToModule(Product.pip)) {
+            const version = isResource(resource)
+                ? ''
+                : `${resource.version?.major || ''}.${resource.version?.minor || ''}.${resource.version?.patch || ''}`;
+            const envType = isResource(resource) ? undefined : resource.envType;
+
+            sendTelemetryEvent(EventName.PYTHON_INSTALL_PACKAGE, undefined, {
+                installer: 'unavailable',
+                requiredInstaller: ModuleInstallerType.Pip,
+                productName: ProductNames.get(Product.pip),
+                version,
+                envType,
+            });
+
+            // If `ensurepip` is available, if not, then install pip using the script file.
+            const installer = this.serviceContainer.get<IInstaller>(IInstaller);
+            if (await installer.isInstalled(Product.ensurepip, resource)) {
+                return {
+                    args: [],
+                    moduleName: 'ensurepip',
+                };
+            }
+
+            sendTelemetryEvent(EventName.PYTHON_INSTALL_PACKAGE, undefined, {
+                installer: 'unavailable',
+                requiredInstaller: ModuleInstallerType.Pip,
+                productName: ProductNames.get(Product.ensurepip),
+                version,
+                envType,
+            });
+
+            // Return script to install pip.
+            const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
+            const interpreter = isResource(resource)
+                ? await interpreterService.getActiveInterpreter(resource)
+                : resource;
+            return {
+                execPath: interpreter ? interpreter.path : 'python',
+                args: [path.join(_SCRIPTS_DIR, 'get-pip.py')],
+            };
+        }
+
         const args: string[] = [];
         const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const proxy = workspaceService.getConfiguration('http').get('proxy', '');
