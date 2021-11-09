@@ -52,10 +52,10 @@ export interface IEnvsCollectionCache {
     validateCache(): Promise<void>;
 }
 
-type PythonEnvCompleteInfo = { hasCompleteInfo?: boolean } & PythonEnvInfo;
+export type PythonEnvCompleteInfo = { hasCompleteInfo?: boolean } & PythonEnvInfo;
 
 interface IPersistentStorage {
-    load(): Promise<PythonEnvInfo[] | undefined>;
+    load(): Promise<PythonEnvInfo[]>;
     store(envs: PythonEnvInfo[]): Promise<void>;
 }
 
@@ -118,7 +118,7 @@ export class PythonEnvInfoCache extends PythonEnvsWatcher<PythonEnvCollectionCha
     }
 
     public async clearAndReloadFromStorage(): Promise<void> {
-        this.envs = (await this.persistentStorage.load()) ?? this.envs;
+        this.envs = await this.persistentStorage.load();
     }
 
     public async flush(): Promise<void> {
