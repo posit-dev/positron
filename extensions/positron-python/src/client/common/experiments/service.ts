@@ -155,7 +155,7 @@ export class ExperimentService implements IExperimentService {
         }
 
         if (experimentsDisabled) {
-            this.output.appendLine('Experiments are disabled, logging experiments for info.');
+            this.output.appendLine('Experiments are disabled, only manually opted experiments are active.');
         }
 
         if (this._optOutFrom.includes('All')) {
@@ -176,8 +176,6 @@ export class ExperimentService implements IExperimentService {
             return;
         }
 
-        const experiments = this.globalState.get<{ features: string[] }>(EXP_MEMENTO_KEY, { features: [] });
-
         // Log experiments that users manually opt out, these are experiments which are added using the exp framework.
         this._optOutFrom
             .filter((exp) => exp !== 'All' && exp.toLowerCase().startsWith('python'))
@@ -192,18 +190,21 @@ export class ExperimentService implements IExperimentService {
                 this.output.appendLine(Experiments.inGroup().format(exp));
             });
 
-        // Log experiments that users are added to by the exp framework
-        experiments.features.forEach((exp) => {
-            // Filter out experiment groups that are not from the Python extension.
-            // Filter out experiment groups that are not already opted out or opted into.
-            if (
-                exp.toLowerCase().startsWith('python') &&
-                !this._optOutFrom.includes(exp) &&
-                !this._optInto.includes(exp)
-            ) {
-                this.output.appendLine(Experiments.inGroup().format(exp));
-            }
-        });
+        if (!experimentsDisabled) {
+            const experiments = this.globalState.get<{ features: string[] }>(EXP_MEMENTO_KEY, { features: [] });
+            // Log experiments that users are added to by the exp framework
+            experiments.features.forEach((exp) => {
+                // Filter out experiment groups that are not from the Python extension.
+                // Filter out experiment groups that are not already opted out or opted into.
+                if (
+                    exp.toLowerCase().startsWith('python') &&
+                    !this._optOutFrom.includes(exp) &&
+                    !this._optInto.includes(exp)
+                ) {
+                    this.output.appendLine(Experiments.inGroup().format(exp));
+                }
+            });
+        }
     }
 }
 
