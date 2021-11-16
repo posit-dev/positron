@@ -18,6 +18,7 @@ import { ILinterManager, ILintingEngine } from '../linters/types';
 
 @injectable()
 export class LinterProvider implements IExtensionActivationService, Disposable {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     private interpreterService: IInterpreterService;
     private documents: IDocumentManager;
     private configuration: IConfigurationService;

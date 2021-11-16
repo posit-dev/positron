@@ -16,6 +16,8 @@ import { containsTensorBoardImport } from './helpers';
 
 @injectable()
 export class TensorBoardImportCodeLensProvider implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
     private sendTelemetryOnce = once(
         sendTelemetryEvent.bind(this, EventName.TENSORBOARD_ENTRYPOINT_SHOWN, undefined, {
             trigger: TensorBoardEntrypointTrigger.fileimport,

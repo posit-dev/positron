@@ -22,6 +22,8 @@ import { EnvironmentType } from '../../../pythonEnvironments/info';
  */
 @injectable()
 export class ReportIssueCommandHandler implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
+
     constructor(
         @inject(ICommandManager) private readonly commandManager: ICommandManager,
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,

@@ -8,6 +8,8 @@ import { EventName } from '../telemetry/constants';
 // Every 5 min look, through active terminals to see if any are running `tensorboard`
 @injectable()
 export class TerminalWatcher implements IExtensionSingleActivationService, IDisposable {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
     private handle: NodeJS.Timeout | undefined;
 
     constructor(@inject(IDisposableRegistry) private disposables: IDisposableRegistry) {}

@@ -58,6 +58,7 @@ export const IExtensionActivationService = Symbol('IExtensionActivationService')
  * @interface IExtensionActivationService
  */
 export interface IExtensionActivationService {
+    supportedWorkspaceTypes: { untrustedWorkspace: boolean; virtualWorkspace: boolean };
     activate(resource: Resource): Promise<void>;
 }
 
@@ -178,5 +179,6 @@ export const IExtensionSingleActivationService = Symbol('IExtensionSingleActivat
  * @interface IExtensionSingleActivationService
  */
 export interface IExtensionSingleActivationService {
+    supportedWorkspaceTypes: { untrustedWorkspace: boolean; virtualWorkspace: boolean };
     activate(): Promise<void>;
 }

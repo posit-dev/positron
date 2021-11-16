@@ -20,6 +20,8 @@ const testExecution = isTestExecution();
 // contains a valid TensorBoard import.
 @injectable()
 export class TensorBoardUsageTracker implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
     constructor(
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IDisposableRegistry) private disposables: IDisposableRegistry,

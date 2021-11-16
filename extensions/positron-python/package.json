@@ -11,8 +11,8 @@
             "supported": false
         },
         "virtualWorkspaces": {
-            "supported": false,
-            "description": "Limited support on the web."
+            "supported": "limited",
+            "description": "Only Partial IntelliSense supported."
         }
     },
     "languageServerVersion": "0.5.30",

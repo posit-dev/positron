@@ -18,6 +18,8 @@ import { IComponentAdapter, IInterpreterHelper } from '../contracts';
 const doNotDisplayPromptStateKey = 'MESSAGE_KEY_FOR_VIRTUAL_ENV';
 @injectable()
 export class VirtualEnvironmentPrompt implements IExtensionActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
+
     constructor(
         @inject(IPersistentStateFactory) private readonly persistentStateFactory: IPersistentStateFactory,
         @inject(IInterpreterHelper) private readonly helper: IInterpreterHelper,

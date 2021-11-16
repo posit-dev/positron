@@ -14,6 +14,7 @@ import { IApplicationShell, ICommandManager } from '../types';
  */
 @injectable()
 export class ReloadVSCodeCommandHandler implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
     constructor(
         @inject(ICommandManager) private readonly commandManager: ICommandManager,
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,

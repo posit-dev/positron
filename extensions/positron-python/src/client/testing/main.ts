@@ -35,6 +35,7 @@ export class TestingService implements ITestingService {
 @injectable()
 export class UnitTestManagementService implements IExtensionActivationService {
     private activatedOnce: boolean = false;
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     private readonly disposableRegistry: Disposable[];
     private workspaceService: IWorkspaceService;
     private context: IContextKeyManager;

@@ -49,6 +49,8 @@ export class LanguageServerExtensionActivationService
 
     private activatedServer?: IActivatedServer;
 
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: true, virtualWorkspace: true };
+
     private readonly workspaceService: IWorkspaceService;
 
     private readonly configurationService: IConfigurationService;
@@ -234,7 +236,6 @@ export class LanguageServerExtensionActivationService
         }
 
         this.sendTelemetryForChosenLanguageServer(serverType).ignoreErrors();
-
         await this.logStartup(serverType);
         let server = this.serviceContainer.get<ILanguageServerActivator>(ILanguageServerActivator, serverType);
         try {

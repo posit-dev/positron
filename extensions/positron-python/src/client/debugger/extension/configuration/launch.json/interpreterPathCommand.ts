@@ -12,6 +12,7 @@ import { IConfigurationService, IDisposable, IDisposableRegistry } from '../../.
 
 @injectable()
 export class InterpreterPathCommand implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     constructor(
         @inject(ICommandManager) private readonly commandManager: ICommandManager,
         @inject(IConfigurationService) private readonly configurationService: IConfigurationService,

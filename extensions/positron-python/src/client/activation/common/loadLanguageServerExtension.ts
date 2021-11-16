@@ -13,6 +13,8 @@ import { IExtensionSingleActivationService } from '../types';
 
 @injectable()
 export class LoadLanguageServerExtension implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: true, virtualWorkspace: true };
+
     constructor(
         @inject(ICommandManager) private readonly commandManager: ICommandManager,
         @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry,

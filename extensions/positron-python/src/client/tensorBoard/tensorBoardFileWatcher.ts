@@ -13,6 +13,8 @@ import { TensorBoardPrompt } from './tensorBoardPrompt';
 
 @injectable()
 export class TensorBoardFileWatcher implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
     private fileSystemWatchers = new Map<WorkspaceFolder, FileSystemWatcher[]>();
 
     private globPatterns = ['*tfevents*', '*/*tfevents*', '*/*/*tfevents*'];

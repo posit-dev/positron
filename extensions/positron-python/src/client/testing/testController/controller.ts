@@ -16,6 +16,7 @@ import {
     Uri,
     EventEmitter,
 } from 'vscode';
+import { IExtensionSingleActivationService } from '../../activation/types';
 import { IWorkspaceService } from '../../common/application/types';
 import { IConfigurationService, IDisposableRegistry, Resource } from '../../common/types';
 import { DelayedTrigger, IDelayedTrigger } from '../../common/utils/delayTrigger';
@@ -27,7 +28,9 @@ import { DebugTestTag, getNodeByUri, RunTestTag } from './common/testItemUtiliti
 import { ITestController, ITestFrameworkController, TestRefreshOptions } from './common/types';
 
 @injectable()
-export class PythonTestController implements ITestController {
+export class PythonTestController implements ITestController, IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
     private readonly testController: TestController;
 
     private readonly refreshData: IDelayedTrigger;
@@ -90,7 +93,9 @@ export class PythonTestController implements ITestController {
             ),
         );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
+    }
 
+    public async activate(): Promise<void> {
         this.watchForTestChanges();
     }
 

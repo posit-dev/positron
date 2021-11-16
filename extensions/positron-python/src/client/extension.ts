@@ -68,6 +68,7 @@ export async function activate(context: IExtensionContext): Promise<IExtensionAp
     }
     // Send the "success" telemetry only if activation did not fail.
     // Otherwise Telemetry is send via the error handler.
+
     sendStartupTelemetry(ready, durations, stopWatch, serviceContainer)
         // Run in the background.
         .ignoreErrors();
@@ -131,8 +132,8 @@ async function activateUnsafe(
 
     setTimeout(async () => {
         if (activatedServiceContainer) {
-            const interpreterManager = activatedServiceContainer.get<IInterpreterService>(IInterpreterService);
             const workspaceService = activatedServiceContainer.get<IWorkspaceService>(IWorkspaceService);
+            const interpreterManager = activatedServiceContainer.get<IInterpreterService>(IInterpreterService);
             const workspaces = workspaceService.workspaceFolders ?? [];
             await interpreterManager
                 .refresh(workspaces.length > 0 ? workspaces[0].uri : undefined)
@@ -159,6 +160,7 @@ async function handleError(ex: Error, startupDurations: IStartupDurations) {
         "Extension activation failed, run the 'Developer: Toggle Developer Tools' command for more information.",
     );
     traceError('extension activation failed', ex);
+
     await sendErrorTelemetry(ex, startupDurations, activatedServiceContainer);
 }
 

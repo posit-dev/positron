@@ -19,6 +19,7 @@ import { traceDecoratorError } from '../../logging';
 
 @injectable()
 export class InsidersExtensionService implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
     constructor(
         @inject(IExtensionChannelService) private readonly extensionChannelService: IExtensionChannelService,
         @inject(IInsiderExtensionPrompt) private readonly insidersPrompt: IInsiderExtensionPrompt,

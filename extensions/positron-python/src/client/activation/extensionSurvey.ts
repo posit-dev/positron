@@ -28,6 +28,7 @@ const WAIT_TIME_TO_SHOW_SURVEY = 1000 * 60 * 60 * 3; // 3 hours
 
 @injectable()
 export class ExtensionSurveyPrompt implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
     constructor(
         @inject(IApplicationShell) private appShell: IApplicationShell,
         @inject(IBrowserService) private browserService: IBrowserService,

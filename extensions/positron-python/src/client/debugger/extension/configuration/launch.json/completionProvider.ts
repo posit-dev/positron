@@ -28,6 +28,7 @@ enum JsonLanguages {
 
 @injectable()
 export class LaunchJsonCompletionProvider implements CompletionItemProvider, IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     constructor(
         @inject(ILanguageService) private readonly languageService: ILanguageService,
         @inject(IDisposableRegistry) private readonly disposableRegistry: IDisposableRegistry,
