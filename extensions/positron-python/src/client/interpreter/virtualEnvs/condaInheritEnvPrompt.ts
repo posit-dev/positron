@@ -18,6 +18,7 @@ export const condaInheritEnvPromptKey = 'CONDA_INHERIT_ENV_PROMPT_KEY';
 
 @injectable()
 export class CondaInheritEnvPrompt implements IExtensionActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
     constructor(
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,

@@ -63,6 +63,7 @@ export type KeysStorage = { key: string; defaultValue: unknown };
 
 @injectable()
 export class PersistentStateFactory implements IPersistentStateFactory, IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
     public readonly _globalKeysStorage = new PersistentState<KeysStorage[]>(
         this.globalState,
         GLOBAL_PERSISTENT_KEYS,

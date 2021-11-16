@@ -29,6 +29,8 @@ const PREFERRED_VIEWGROUP = 'PythonTensorBoardWebviewPreferredViewGroup';
 
 @injectable()
 export class TensorBoardSessionProvider implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
     private knownSessions: TensorBoardSession[] = [];
 
     private preferredViewGroupMemento: IPersistentState<ViewColumn>;

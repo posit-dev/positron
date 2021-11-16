@@ -39,7 +39,16 @@ export class ExtensionActivationManager implements IExtensionActivationManager {
         @inject(IActiveResourceService) private readonly activeResourceService: IActiveResourceService,
         @inject(IExperimentService) private readonly experiments: IExperimentService,
         @inject(IInterpreterPathService) private readonly interpreterPathService: IInterpreterPathService,
-    ) {}
+    ) {
+        if (this.workspaceService.isVirtualWorkspace) {
+            this.activationServices = this.activationServices.filter(
+                (service) => service.supportedWorkspaceTypes.virtualWorkspace,
+            );
+            this.singleActivationServices = this.singleActivationServices.filter(
+                (service) => service.supportedWorkspaceTypes.virtualWorkspace,
+            );
+        }
+    }
 
     public dispose(): void {
         while (this.disposables.length > 0) {
@@ -56,8 +65,9 @@ export class ExtensionActivationManager implements IExtensionActivationManager {
         await this.initialize();
 
         // Activate all activation services together.
+
         await Promise.all([
-            Promise.all(this.singleActivationServices.map((item) => item.activate())),
+            ...this.singleActivationServices.map((item) => item.activate()),
             this.activateWorkspace(this.activeResourceService.getActiveResource()),
         ]);
     }

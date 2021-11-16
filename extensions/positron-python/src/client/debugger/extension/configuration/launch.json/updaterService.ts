@@ -146,6 +146,7 @@ export class LaunchJsonUpdaterServiceHelper {
 
 @injectable()
 export class LaunchJsonUpdaterService implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     constructor(
         @inject(ICommandManager) private readonly commandManager: ICommandManager,
         @inject(IDisposableRegistry) private readonly disposableRegistry: IDisposableRegistry,

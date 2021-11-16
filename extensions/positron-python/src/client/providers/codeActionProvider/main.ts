@@ -9,6 +9,7 @@ import { LaunchJsonCodeActionProvider } from './launchJsonCodeActionProvider';
 
 @injectable()
 export class CodeActionProviderService implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     constructor(@inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry) {}
     public async activate(): Promise<void> {
         const vscode = require('vscode') as typeof vscodeTypes;

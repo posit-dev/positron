@@ -14,6 +14,7 @@ import { IPythonPathUpdaterServiceManager } from '../../types';
 
 @injectable()
 export abstract class BaseInterpreterSelectorCommand implements IExtensionSingleActivationService, IDisposable {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
     protected disposables: Disposable[] = [];
     constructor(
         @unmanaged() protected readonly pythonPathUpdaterService: IPythonPathUpdaterServiceManager,

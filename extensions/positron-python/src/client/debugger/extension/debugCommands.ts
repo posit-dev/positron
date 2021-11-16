@@ -15,6 +15,8 @@ import { DebugPurpose, LaunchRequestArguments } from '../types';
 
 @injectable()
 export class DebugCommands implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
     constructor(
         @inject(ICommandManager) private readonly commandManager: ICommandManager,
         @inject(IDebugService) private readonly debugService: IDebugService,

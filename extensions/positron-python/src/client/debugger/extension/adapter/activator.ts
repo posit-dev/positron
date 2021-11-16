@@ -13,6 +13,7 @@ import { IDebugAdapterDescriptorFactory, IDebugSessionLoggingFactory, IOutdatedD
 
 @injectable()
 export class DebugAdapterActivator implements IExtensionSingleActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     constructor(
         @inject(IDebugService) private readonly debugService: IDebugService,
         @inject(IDebugAdapterDescriptorFactory) private descriptorFactory: IDebugAdapterDescriptorFactory,

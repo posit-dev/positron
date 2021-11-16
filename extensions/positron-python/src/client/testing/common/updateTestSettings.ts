@@ -17,6 +17,7 @@ import { traceDecoratorError, traceError } from '../../logging';
 // TODO: rename the class since it is not used just for test settings
 @injectable()
 export class UpdateTestSettingService implements IExtensionActivationService {
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
     constructor(
         @inject(IFileSystem) private readonly fs: IFileSystem,
         @inject(IApplicationEnvironment) private readonly application: IApplicationEnvironment,
