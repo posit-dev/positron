@@ -1471,7 +1471,7 @@ export interface IEventNamePropertyMapping {
      * Telemetry event sent when LS is started for workspace (workspace folder in case of multi-root)
      */
     /* __GDPR__
-       "python_langauge_server.enabled" : {
+       "python_language_server.enabled" : {
           "lsversion" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
        }
      */
