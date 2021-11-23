@@ -8,6 +8,7 @@ import { inject, injectable, named } from 'inversify';
 import { dirname } from 'path';
 import { CancellationToken, Disposable, Event, Extension, Memento, Uri } from 'vscode';
 import * as lsp from 'vscode-languageserver-protocol';
+import type { SemVer } from 'semver';
 import { ILanguageServerCache, ILanguageServerConnection } from '../activation/types';
 import { IWorkspaceService } from '../common/application/types';
 import { JUPYTER_EXTENSION_ID } from '../common/constants';
@@ -28,6 +29,7 @@ import { IEnvironmentActivationService } from '../interpreter/activation/types';
 import { IInterpreterQuickPickItem, IInterpreterSelector } from '../interpreter/configuration/types';
 import {
     IComponentAdapter,
+    ICondaService,
     IInterpreterDisplay,
     IInterpreterService,
     IInterpreterStatusbarVisibilityFilter,
@@ -146,6 +148,15 @@ type PythonApiForJupyterExtension = {
      * Registers a visibility filter for the interpreter status bar.
      */
     registerInterpreterStatusFilter(filter: IInterpreterStatusbarVisibilityFilter): void;
+    getCondaVersion(): Promise<SemVer | undefined>;
+    /**
+     * Returns the conda executable.
+     */
+    getCondaFile(): Promise<string | undefined>;
+    getEnvironmentActivationShellCommands(
+        resource: Resource,
+        interpreter?: PythonEnvironment,
+    ): Promise<string[] | undefined>;
 };
 
 type JupyterExtensionApi = {
@@ -182,6 +193,7 @@ export class JupyterExtensionIntegration {
         @inject(IInterpreterDisplay) private interpreterDisplay: IInterpreterDisplay,
         @inject(IComponentAdapter) private pyenvs: IComponentAdapter,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
+        @inject(ICondaService) private readonly condaService: ICondaService,
     ) {}
 
     public registerApi(jupyterExtensionApi: JupyterExtensionApi): JupyterExtensionApi | undefined {
@@ -259,6 +271,10 @@ export class JupyterExtensionIntegration {
             registerInterpreterStatusFilter: this.interpreterDisplay.registerVisibilityFilter.bind(
                 this.interpreterDisplay,
             ),
+            getCondaFile: () => this.condaService.getCondaFile(),
+            getCondaVersion: () => this.condaService.getCondaVersion(),
+            getEnvironmentActivationShellCommands: (resource: Resource, interpreter?: PythonEnvironment) =>
+                this.envActivation.getEnvironmentActivationShellCommands(resource, interpreter),
         });
         return undefined;
     }
