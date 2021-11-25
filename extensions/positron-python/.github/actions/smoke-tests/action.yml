@@ -23,7 +23,10 @@ runs:
       with:
         python-version: '3.9'
         cache: 'pip'
-        cache-dependency-path: ['build/test-requirements.txt', 'requirements.txt', 'build/smoke-test-requirements.txt']
+        cache-dependency-path: |
+          build/test-requirements.txt
+          requirements.txt
+          build/smoke-test-requirements.txt
 
     - name: Install dependencies (npm ci)
       run: npm ci --prefer-offline

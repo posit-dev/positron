@@ -376,7 +376,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-          cache-dependency-path: ['requirements.txt', 'jedils_requirements.txt', 'build/test-requirements.txt', 'build/functional-test-requirements.txt']
+          cache-dependency-path: |
+            requirements.txt
+            jedils_requirements.txt
+            build/test-requirements.txt
+            build/functional-test-requirements.txt
 
       - name: Install Python requirements
         run: |
