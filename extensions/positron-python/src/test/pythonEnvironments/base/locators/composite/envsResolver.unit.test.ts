@@ -96,7 +96,7 @@ suite('Python envs locator - Environments Resolver', () => {
                 new Promise<ExecutionResult<string>>((resolve) => {
                     resolve({
                         stdout:
-                            '{"versionInfo": [3, 8, 3, "final", 0], "sysPrefix": "path", "sysVersion": "3.8.3 (tags/v3.8.3:6f8c832, May 13 2020, 22:37:02) [MSC v.1924 64 bit (AMD64)]", "is64Bit": true}',
+                            'SomeGarbage>>>JSON\n{"versionInfo": [3, 8, 3, "final", 0], "sysPrefix": "path", "sysVersion": "3.8.3 (tags/v3.8.3:6f8c832, May 13 2020, 22:37:02) [MSC v.1924 64 bit (AMD64)]", "is64Bit": true}\n<<<JSON_SomeGarbage',
                     });
                 }),
             );
@@ -160,7 +160,6 @@ suite('Python envs locator - Environments Resolver', () => {
             stubShellExec.returns(
                 new Promise<ExecutionResult<string>>((resolve) => {
                     resolve({
-                        stderr: 'Kaboom',
                         stdout: '',
                     });
                 }),
@@ -251,7 +250,7 @@ suite('Python envs locator - Environments Resolver', () => {
                 new Promise<ExecutionResult<string>>((resolve) => {
                     resolve({
                         stdout:
-                            '{"versionInfo": [3, 8, 3, "final", 0], "sysPrefix": "path", "sysVersion": "3.8.3 (tags/v3.8.3:6f8c832, May 13 2020, 22:37:02) [MSC v.1924 64 bit (AMD64)]", "is64Bit": true}',
+                            'SomeGarbage>>>JSON\n{"versionInfo": [3, 8, 3, "final", 0], "sysPrefix": "path", "sysVersion": "3.8.3 (tags/v3.8.3:6f8c832, May 13 2020, 22:37:02) [MSC v.1924 64 bit (AMD64)]", "is64Bit": true}\n<<<JSON_SomeGarbage',
                     });
                 }),
             );
@@ -295,7 +294,7 @@ suite('Python envs locator - Environments Resolver', () => {
             assert.deepEqual(expected, undefined);
         });
 
-        test('If fetching interpreter info fails with stderr, return undefined', async () => {
+        test('If parsing interpreter info fails, return undefined', async () => {
             stubShellExec.returns(
                 new Promise<ExecutionResult<string>>((resolve) => {
                     resolve({
