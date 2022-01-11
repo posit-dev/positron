@@ -59,7 +59,6 @@ import {
     WorkspaceFolderPickOptions,
     WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import type { NotebookConcatTextDocument, NotebookDocument } from 'vscode-proposed';
 
 import { Channel } from '../constants';
 import { Resource } from '../types';
@@ -522,7 +521,7 @@ export interface IDocumentManager {
     /**
      * The currently visible editors or an empty array.
      */
-    readonly visibleTextEditors: TextEditor[];
+    readonly visibleTextEditors: readonly TextEditor[];
 
     /**
      * An [event](#Event) which fires when the [active editor](#window.activeTextEditor)
@@ -542,7 +541,7 @@ export interface IDocumentManager {
      * An [event](#Event) which fires when the array of [visible editors](#window.visibleTextEditors)
      * has changed.
      */
-    readonly onDidChangeVisibleTextEditors: Event<TextEditor[]>;
+    readonly onDidChangeVisibleTextEditors: Event<readonly TextEditor[]>;
 
     /**
      * An [event](#Event) which fires when the selection in an editor has changed.
@@ -874,7 +873,7 @@ export interface IDebugService {
     /**
      * List of breakpoints.
      */
-    readonly breakpoints: Breakpoint[];
+    readonly breakpoints: readonly Breakpoint[];
 
     /**
      * An [event](#Event) which fires when the [active debug session](#debug.activeDebugSession)
@@ -1098,11 +1097,4 @@ export interface IClipboard {
      * Writes text into the clipboard.
      */
     writeText(value: string): Promise<void>;
-}
-export const IVSCodeNotebook = Symbol('IVSCodeNotebook');
-export interface IVSCodeNotebook {
-    readonly notebookDocuments: ReadonlyArray<NotebookDocument>;
-    readonly onDidOpenNotebookDocument: Event<NotebookDocument>;
-    readonly onDidCloseNotebookDocument: Event<NotebookDocument>;
-    createConcatTextDocument(notebook: NotebookDocument, selector?: DocumentSelector): NotebookConcatTextDocument;
 }
