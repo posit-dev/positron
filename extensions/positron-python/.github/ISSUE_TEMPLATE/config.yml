@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Bug 🐜
+    url: https://aka.ms/pvsc-bug
+    about: Use the `Python: Report Issue...` command to report an issue
   - name: Pylance
     url: https://github.com/microsoft/pylance-release/issues
     about: For issues relating to the Pylance language server extension
