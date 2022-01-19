@@ -6,7 +6,6 @@ import '../../../../common/extensions';
 import { createDeferred } from '../../../../common/utils/async';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { traceError } from '../../../../logging';
-import { reportInterpretersChanged } from '../../../../proposedApi';
 import { sendTelemetryEvent } from '../../../../telemetry';
 import { EventName } from '../../../../telemetry/constants';
 import { PythonEnvInfo } from '../../info';
@@ -81,7 +80,7 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
         return query ? cachedEnvs.filter(getQueryFilter(query)) : cachedEnvs;
     }
 
-    public triggerRefresh(query?: PythonLocatorQuery): Promise<void> {
+    public triggerRefresh(query?: PythonLocatorQuery & { clearCache?: boolean }): Promise<void> {
         let refreshPromise = this.getRefreshPromiseForQuery(query);
         if (!refreshPromise) {
             refreshPromise = this.startRefresh(query);
@@ -89,15 +88,12 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
         return refreshPromise;
     }
 
-    private startRefresh(query: PythonLocatorQuery | undefined): Promise<void> {
+    private startRefresh(query: (PythonLocatorQuery & { clearCache?: boolean }) | undefined): Promise<void> {
         const stopWatch = new StopWatch();
         const deferred = createDeferred<void>();
 
-        if (!query) {
-            // `undefined` query means this is full refresh of environments.
-            // Trigger an event indicating that we need to clear everything and start
-            // fresh.
-            reportInterpretersChanged([{ path: undefined, type: 'clear-all' }]);
+        if (query?.clearCache) {
+            this.cache.clearCache();
         }
         // Ensure we set this before we trigger the promise to accurately track when a refresh has started.
         this.refreshPromises.set(query, deferred.promise);
