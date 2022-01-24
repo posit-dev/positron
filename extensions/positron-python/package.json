@@ -600,10 +600,7 @@
                         "yapf"
                     ],
                     "scope": "resource",
-                    "type": "string",
-                    "tags": [
-                        "experimental"
-                    ]
+                    "type": "string"
                 },
                 "python.formatting.yapfArgs": {
                     "default": [],
