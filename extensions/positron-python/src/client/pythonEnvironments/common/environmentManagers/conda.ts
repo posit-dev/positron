@@ -10,6 +10,7 @@ import {
     pathExists,
     readFile,
     shellExecute,
+    onDidChangePythonSetting,
 } from '../externalDependencies';
 
 import { PythonVersion, UNKNOWN_PYTHON_VERSION } from '../../base/info';
@@ -25,7 +26,7 @@ import { buildPythonExecInfo } from '../../exec';
 import { getExecutablePath } from '../../info/executable';
 
 export const AnacondaCompanyName = 'Anaconda, Inc.';
-
+export const CONDAPATH_SETTING_KEY = 'condaPath';
 export type CondaEnvironmentInfo = {
     name: string;
     path: string;
@@ -247,13 +248,17 @@ export class Conda {
      * @param command - Command used to spawn conda. This has the same meaning as the
      * first argument of spawn() - i.e. it can be a full path, or just a binary name.
      */
-    constructor(readonly command: string) {}
+    constructor(readonly command: string) {
+        onDidChangePythonSetting(CONDAPATH_SETTING_KEY, () => {
+            Conda.condaPromise = undefined;
+        });
+    }
 
     public static async getConda(): Promise<Conda | undefined> {
-        if (this.condaPromise === undefined || isTestExecution()) {
-            this.condaPromise = Conda.locate();
+        if (Conda.condaPromise === undefined || isTestExecution()) {
+            Conda.condaPromise = Conda.locate();
         }
-        return this.condaPromise;
+        return Conda.condaPromise;
     }
 
     /**
@@ -269,7 +274,7 @@ export class Conda {
 
         // Produce a list of candidate binaries to be probed by exec'ing them.
         async function* getCandidates() {
-            const customCondaPath = getPythonSetting<string>('condaPath');
+            const customCondaPath = getPythonSetting<string>(CONDAPATH_SETTING_KEY);
             if (customCondaPath && customCondaPath !== 'conda') {
                 // If user has specified a custom conda path, use it first.
                 yield customCondaPath;
