@@ -2,7 +2,6 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as TypeMoq from 'typemoq';
 import * as sinon from 'sinon';
-import { IWorkspaceService } from '../../../../client/common/application/types';
 import { FileSystemPaths, FileSystemPathUtils } from '../../../../client/common/platform/fs-paths';
 import { IFileSystem, IPlatformService } from '../../../../client/common/platform/types';
 import { CondaService } from '../../../../client/pythonEnvironments/common/environmentManagers/condaService';
@@ -12,9 +11,7 @@ suite('Interpreters Conda Service', () => {
     let platformService: TypeMoq.IMock<IPlatformService>;
     let condaService: CondaService;
     let fileSystem: TypeMoq.IMock<IFileSystem>;
-    let workspaceService: TypeMoq.IMock<IWorkspaceService>;
     setup(async () => {
-        workspaceService = TypeMoq.Mock.ofType<IWorkspaceService>();
         platformService = TypeMoq.Mock.ofType<IPlatformService>();
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
 
@@ -27,7 +24,7 @@ suite('Interpreters Conda Service', () => {
                 return utils.arePathsSame(p1, p2);
             });
 
-        condaService = new CondaService(platformService.object, fileSystem.object, [], workspaceService.object);
+        condaService = new CondaService(platformService.object, fileSystem.object);
         sinon.stub(Conda, 'getConda').callsFake(() => Promise.resolve(undefined));
     });
     teardown(() => sinon.restore());
