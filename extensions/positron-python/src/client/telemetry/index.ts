@@ -1057,11 +1057,20 @@ export interface IEventNamePropertyMapping {
         osVersion?: string;
     };
     /**
+     * Telemetry event sent when an environment without contain a python binary is selected.
+     */
+    /* __GDPR__
+       "environment_without_python_selected" : {
+           "duration" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true, "owner": "karrtikr" }
+       }
+     */
+    [EventName.ENVIRONMENT_WITHOUT_PYTHON_SELECTED]: never | undefined;
+    /**
      * Telemetry event sent when 'Select Interpreter' command is invoked.
      */
     /* __GDPR__
        "select_interpreter" : {
-           "duration" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true, "owner": "karrtikr" }
+           "duration" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true }
        }
      */
     [EventName.SELECT_INTERPRETER]: never | undefined;
@@ -1287,7 +1296,8 @@ export interface IEventNamePropertyMapping {
     /* __GDPR__
        "python_interpreter_discovery" : {
            "duration" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true, "owner": "karrtikr" },
-          "interpreters" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true, "owner": "karrtikr" }
+          "interpreters" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true , "owner": "karrtikr"}
+          "environmentsWithoutPython" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true, "owner": "karrtikr" }
        }
      */
     [EventName.PYTHON_INTERPRETER_DISCOVERY]: {
@@ -1295,6 +1305,10 @@ export interface IEventNamePropertyMapping {
          * The number of the interpreters returned by locator
          */
         interpreters?: number;
+        /**
+         * The number of environments discovered not containing an interpreter
+         */
+        environmentsWithoutPython?: number;
     };
     /**
      * Telemetry event sent when pipenv interpreter discovery is executed.

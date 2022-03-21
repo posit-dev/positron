@@ -2,7 +2,15 @@ import * as fsapi from 'fs-extra';
 import * as path from 'path';
 import { lt, parse, SemVer } from 'semver';
 import { getEnvironmentVariable, getOSType, getUserHomeDir, OSType } from '../../../common/utils/platform';
-import { arePathsSame, exec, getPythonSetting, isParentPath, pathExists, readFile } from '../externalDependencies';
+import {
+    arePathsSame,
+    exec,
+    getPythonSetting,
+    isParentPath,
+    pathExists,
+    readFile,
+    shellExecute,
+} from '../externalDependencies';
 
 import { PythonVersion, UNKNOWN_PYTHON_VERSION } from '../../base/info';
 import { parseVersion } from '../../base/info/pythonVersion';
@@ -13,6 +21,8 @@ import { cache } from '../../../common/utils/decorators';
 import { isTestExecution } from '../../../common/constants';
 import { traceError, traceVerbose } from '../../../logging';
 import { OUTPUT_MARKER_SCRIPT } from '../../../common/process/internal/scripts';
+import { buildPythonExecInfo } from '../../exec';
+import { getExecutablePath } from '../../info/executable';
 
 export const AnacondaCompanyName = 'Anaconda, Inc.';
 
@@ -82,7 +92,7 @@ export async function parseCondaInfo(
         .then((interpreters) => interpreters.map((interpreter) => interpreter!));
 }
 
-function getCondaMetaPaths(interpreterPath: string): string[] {
+export function getCondaMetaPaths(interpreterPathOrEnvPath: string): string[] {
     const condaMetaDir = 'conda-meta';
 
     // Check if the conda-meta directory is in the same directory as the interpreter.
@@ -90,7 +100,7 @@ function getCondaMetaPaths(interpreterPath: string): string[] {
     // env
     // |__ conda-meta  <--- check if this directory exists
     // |__ python.exe  <--- interpreterPath
-    const condaEnvDir1 = path.join(path.dirname(interpreterPath), condaMetaDir);
+    const condaEnvDir1 = path.join(path.dirname(interpreterPathOrEnvPath), condaMetaDir);
 
     // Check if the conda-meta directory is in the parent directory relative to the interpreter.
     // This layout is common on linux/Mac.
@@ -98,16 +108,18 @@ function getCondaMetaPaths(interpreterPath: string): string[] {
     // |__ conda-meta  <--- check if this directory exists
     // |__ bin
     //     |__ python  <--- interpreterPath
-    const condaEnvDir2 = path.join(path.dirname(path.dirname(interpreterPath)), condaMetaDir);
+    const condaEnvDir2 = path.join(path.dirname(path.dirname(interpreterPathOrEnvPath)), condaMetaDir);
+
+    const condaEnvDir3 = path.join(interpreterPathOrEnvPath, condaMetaDir);
 
     // The paths are ordered in the most common to least common
-    return [condaEnvDir1, condaEnvDir2];
+    return [condaEnvDir1, condaEnvDir2, condaEnvDir3];
 }
 
 /**
  * Checks if the given interpreter path belongs to a conda environment. Using
  * known folder layout, and presence of 'conda-meta' directory.
- * @param {string} interpreterPath: Absolute path to any python interpreter.
+ * @param {string} interpreterPathOrEnvPath: Absolute path to any python interpreter.
  *
  * Remarks: This is what we will use to begin with. Another approach we can take
  * here is to parse ~/.conda/environments.txt. This file will have list of conda
@@ -134,8 +146,8 @@ function getCondaMetaPaths(interpreterPath: string): string[] {
  *   ]
  * }
  */
-export async function isCondaEnvironment(interpreterPath: string): Promise<boolean> {
-    const condaMetaPaths = getCondaMetaPaths(interpreterPath);
+export async function isCondaEnvironment(interpreterPathOrEnvPath: string): Promise<boolean> {
+    const condaMetaPaths = getCondaMetaPaths(interpreterPathOrEnvPath);
     // We don't need to test all at once, testing each one here
     for (const condaMeta of condaMetaPaths) {
         if (await pathExists(condaMeta)) {
@@ -198,6 +210,19 @@ export async function getPythonVersionFromConda(interpreterPath: string): Promis
     }
 
     return UNKNOWN_PYTHON_VERSION;
+}
+
+/**
+ * Return the interpreter's filename for the given environment.
+ */
+async function getInterpreterPath(condaEnvironmentPath: string): Promise<string | undefined> {
+    // where to find the Python binary within a conda env.
+    const relativePath = getOSType() === OSType.Windows ? 'python.exe' : path.join('bin', 'python');
+    const filePath = path.join(condaEnvironmentPath, relativePath);
+    if (await pathExists(filePath)) {
+        return filePath;
+    }
+    return undefined;
 }
 
 // Minimum version number of conda required to be able to use 'conda run' with '--no-capture-output' flag.
@@ -400,9 +425,41 @@ export class Conda {
         }));
     }
 
-    public async getCondaEnvironment(executable: string): Promise<CondaEnvInfo | undefined> {
+    /**
+     * Returns conda environment related to path provided.
+     * @param executableOrEnvPath Path to environment folder or path to interpreter that uniquely identifies an environment.
+     */
+    public async getCondaEnvironment(executableOrEnvPath: string): Promise<CondaEnvInfo | undefined> {
         const envList = await this.getEnvList();
-        return envList.find((e) => isParentPath(executable, e.prefix));
+        // Assuming `executableOrEnvPath` is path to env.
+        const condaEnv = envList.find((e) => arePathsSame(executableOrEnvPath, e.prefix));
+        if (condaEnv) {
+            return condaEnv;
+        }
+        // Assuming `executableOrEnvPath` is an executable.
+        return envList.find((e) => isParentPath(executableOrEnvPath, e.prefix));
+    }
+
+    public async getInterpreterPathForEnvironment(condaEnv: CondaEnvInfo): Promise<string | undefined> {
+        const executablePath = await getInterpreterPath(condaEnv.prefix);
+        if (executablePath) {
+            return executablePath;
+        }
+        return this.getInterpreterPathUsingCondaRun(condaEnv);
+    }
+
+    @cache(-1, true)
+    private async getInterpreterPathUsingCondaRun(condaEnv: CondaEnvInfo) {
+        const runArgs = await this.getRunPythonArgs(condaEnv);
+        if (runArgs) {
+            try {
+                const python = buildPythonExecInfo(runArgs);
+                return getExecutablePath(python, shellExecute, CONDA_ACTIVATION_TIMEOUT);
+            } catch (ex) {
+                traceError(`Failed to process environment: ${JSON.stringify(condaEnv)}`, ex);
+            }
+        }
+        return undefined;
     }
 
     public async getRunPythonArgs(env: CondaEnvInfo): Promise<string[] | undefined> {
