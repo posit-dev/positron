@@ -110,7 +110,7 @@ export class CondaService implements ICondaService {
             return condaPath2;
         }
 
-        return undefined;
+        return this.getCondaFile();
     }
 
     /**

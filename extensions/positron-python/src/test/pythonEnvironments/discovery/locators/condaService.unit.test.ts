@@ -1,10 +1,12 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as TypeMoq from 'typemoq';
+import * as sinon from 'sinon';
 import { IWorkspaceService } from '../../../../client/common/application/types';
 import { FileSystemPaths, FileSystemPathUtils } from '../../../../client/common/platform/fs-paths';
 import { IFileSystem, IPlatformService } from '../../../../client/common/platform/types';
 import { CondaService } from '../../../../client/pythonEnvironments/common/environmentManagers/condaService';
+import { Conda } from '../../../../client/pythonEnvironments/common/environmentManagers/conda';
 
 suite('Interpreters Conda Service', () => {
     let platformService: TypeMoq.IMock<IPlatformService>;
@@ -26,7 +28,9 @@ suite('Interpreters Conda Service', () => {
             });
 
         condaService = new CondaService(platformService.object, fileSystem.object, [], workspaceService.object);
+        sinon.stub(Conda, 'getConda').callsFake(() => Promise.resolve(undefined));
     });
+    teardown(() => sinon.restore());
 
     type InterpreterSearchTestParams = {
         pythonPath: string;
@@ -106,7 +110,7 @@ suite('Interpreters Conda Service', () => {
             if (t.expectedCondaPath.includes(t.environmentName)) {
                 assert.strictEqual(condaFile, t.expectedCondaPath);
             } else {
-                assert.strictEqual(condaFile, undefined);
+                assert.strictEqual(condaFile, 'conda');
             }
         });
     });
