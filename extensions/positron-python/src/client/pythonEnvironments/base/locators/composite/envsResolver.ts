@@ -19,6 +19,7 @@ import {
 import { PythonEnvsChangedEvent } from '../../watcher';
 import { resolveBasicEnv } from './resolverUtils';
 import { traceVerbose } from '../../../../logging';
+import { getEnvironmentDirFromPath, getInterpreterPathFromDir, isPythonExecutable } from '../../../common/commonUtils';
 
 /**
  * Calls environment info service which runs `interpreterInfo.py` script on environments received
@@ -34,9 +35,11 @@ export class PythonEnvsResolver implements IResolvingLocator {
         private readonly environmentInfoService: IEnvironmentInfoService,
     ) {}
 
-    public async resolveEnv(executablePath: string): Promise<PythonEnvInfo | undefined> {
-        const kind = await identifyEnvironment(executablePath);
-        const environment = await resolveBasicEnv({ kind, executablePath });
+    public async resolveEnv(path: string): Promise<PythonEnvInfo | undefined> {
+        const [executablePath, envPath] = await getExecutablePathAndEnvPath(path);
+        path = executablePath.length ? executablePath : envPath;
+        const kind = await identifyEnvironment(path);
+        const environment = await resolveBasicEnv({ kind, executablePath, envPath });
         const info = await this.environmentInfoService.getEnvironmentInfo(environment);
         if (!info) {
             return undefined;
@@ -149,4 +152,18 @@ function getResolvedEnv(interpreterInfo: InterpreterInformation, environment: Py
     // Display name should be set after all the properties as we need other properties to build display name.
     setEnvDisplayString(resolvedEnv);
     return resolvedEnv;
+}
+
+async function getExecutablePathAndEnvPath(path: string) {
+    let executablePath: string;
+    let envPath: string;
+    const isPathAnExecutable = await isPythonExecutable(path);
+    if (isPathAnExecutable) {
+        executablePath = path;
+        envPath = getEnvironmentDirFromPath(executablePath);
+    } else {
+        envPath = path;
+        executablePath = (await getInterpreterPathFromDir(envPath)) ?? '';
+    }
+    return [executablePath, envPath];
 }

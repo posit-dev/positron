@@ -34,9 +34,9 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
     private readonly workspaceService: IWorkspaceService;
     private readonly pathUtils: IPathUtils;
     private readonly interpreterService: IInterpreterService;
+    private currentlySelectedInterpreterDisplay?: string;
     private currentlySelectedInterpreterPath?: string;
     private currentlySelectedWorkspaceFolder: Resource;
-    private interpreterPath: string | undefined;
     private statusBarCanBeDisplayed?: boolean;
     private visibilityFilters: IInterpreterStatusbarVisibilityFilter[] = [];
     private disposableRegistry: Disposable[];
@@ -101,48 +101,54 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
     }
     private async updateDisplay(workspaceFolder?: Uri) {
         const interpreter = await this.interpreterService.getActiveInterpreter(workspaceFolder);
+        if (
+            this.currentlySelectedInterpreterDisplay &&
+            this.currentlySelectedInterpreterDisplay === interpreter?.detailedDisplayName
+        ) {
+            return;
+        }
         this.currentlySelectedWorkspaceFolder = workspaceFolder;
         if (this.statusBar) {
             if (interpreter) {
                 this.statusBar.color = '';
                 this.statusBar.tooltip = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
-                if (this.interpreterPath !== interpreter.path) {
+                if (this.currentlySelectedInterpreterPath !== interpreter.path) {
                     traceLog(
                         Interpreters.pythonInterpreterPath().format(
                             this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath),
                         ),
                     );
-                    this.interpreterPath = interpreter.path;
+                    this.currentlySelectedInterpreterPath = interpreter.path;
                 }
                 let text = interpreter.detailedDisplayName;
                 text = text?.startsWith('Python') ? text?.substring('Python'.length)?.trim() : text;
-                this.statusBar.text = text!;
-                this.currentlySelectedInterpreterPath = interpreter.path;
+                this.statusBar.text = text ?? '';
+                this.currentlySelectedInterpreterDisplay = interpreter.detailedDisplayName;
             } else {
                 this.statusBar.tooltip = '';
                 this.statusBar.color = '';
                 this.statusBar.text = '$(alert) Select Python Interpreter';
-                this.currentlySelectedInterpreterPath = undefined;
+                this.currentlySelectedInterpreterDisplay = undefined;
             }
         } else if (this.languageStatus) {
             if (interpreter) {
                 this.languageStatus.detail = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
-                if (this.interpreterPath !== interpreter.path) {
+                if (this.currentlySelectedInterpreterPath !== interpreter.path) {
                     traceLog(
                         Interpreters.pythonInterpreterPath().format(
                             this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath),
                         ),
                     );
-                    this.interpreterPath = interpreter.path;
+                    this.currentlySelectedInterpreterPath = interpreter.path;
                 }
                 let text = interpreter.detailedDisplayName!;
                 text = text.startsWith('Python') ? text.substring('Python'.length).trim() : text;
                 this.languageStatus.text = text;
-                this.currentlySelectedInterpreterPath = interpreter.path;
+                this.currentlySelectedInterpreterDisplay = interpreter.detailedDisplayName;
             } else {
                 this.languageStatus.text = '$(alert) No Interpreter Selected';
                 this.languageStatus.detail = undefined;
-                this.currentlySelectedInterpreterPath = undefined;
+                this.currentlySelectedInterpreterDisplay = undefined;
             }
         }
         this.statusBarCanBeDisplayed = true;
