@@ -7,7 +7,8 @@ import { inject, injectable } from 'inversify';
 import { Disposable, Uri } from 'vscode';
 import { arePathsSame } from '../../../common/platform/fs-paths';
 import { IPathUtils, Resource } from '../../../common/types';
-import { EnvironmentType, PythonEnvironment } from '../../../pythonEnvironments/info';
+import { getEnvPath } from '../../../pythonEnvironments/base/info/env';
+import { PythonEnvironment } from '../../../pythonEnvironments/info';
 import { IInterpreterService } from '../../contracts';
 import { IInterpreterComparer, IInterpreterQuickPickItem, IInterpreterSelector } from '../types';
 
@@ -44,17 +45,16 @@ export class InterpreterSelector implements IInterpreterSelector {
         workspaceUri?: Uri,
         useDetailedName = false,
     ): IInterpreterQuickPickItem {
-        const detail = this.pathUtils.getDisplayName(
-            interpreter.envType === EnvironmentType.Conda && interpreter.envPath
+        const path =
+            interpreter.envPath && getEnvPath(interpreter.path, interpreter.envPath).pathType === 'envFolderPath'
                 ? interpreter.envPath
-                : interpreter.path,
-            workspaceUri ? workspaceUri.fsPath : undefined,
-        );
+                : interpreter.path;
+        const detail = this.pathUtils.getDisplayName(path, workspaceUri ? workspaceUri.fsPath : undefined);
         const cachedPrefix = interpreter.cachedEntry ? '(cached) ' : '';
         return {
             label: (useDetailedName ? interpreter.detailedDisplayName : interpreter.displayName) || 'Python',
             description: `${cachedPrefix}${detail}`,
-            path: interpreter.path,
+            path,
             interpreter,
         };
     }
