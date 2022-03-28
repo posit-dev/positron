@@ -42,7 +42,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.63.1"
+        "vscode": "^1.65.0"
     },
     "keywords": [
         "python",
@@ -1828,7 +1828,7 @@
         "webpack": "webpack"
     },
     "dependencies": {
-        "@vscode/jupyter-lsp-middleware": "^0.2.35",
+        "@vscode/jupyter-lsp-middleware": "^0.2.41",
         "arch": "^2.1.0",
         "diff-match-patch": "^1.0.0",
         "fs-extra": "^9.1.0",
@@ -1856,10 +1856,10 @@
         "vscode-debugadapter": "^1.28.0",
         "vscode-debugprotocol": "^1.28.0",
         "vscode-extension-telemetry": "0.4.5",
-        "vscode-jsonrpc": "6.0.0",
-        "vscode-languageclient": "7.0.0",
-        "vscode-languageserver": "7.0.0",
-        "vscode-languageserver-protocol": "3.16.0",
+        "vscode-jsonrpc": "8.0.0-next.7",
+        "vscode-languageclient": "8.0.0-next.13",
+        "vscode-languageserver": "8.0.0-next.9",
+        "vscode-languageserver-protocol": "3.17.0-next.15",
         "vscode-tas-client": "^0.1.22",
         "winreg": "^1.2.4",
         "xml2js": "^0.4.19"
@@ -1886,7 +1886,7 @@
         "@types/tmp": "0.0.33",
         "@types/untildify": "^3.0.0",
         "@types/uuid": "^3.4.3",
-        "@types/vscode": "~1.63.0",
+        "@types/vscode": "~1.65.0",
         "@types/winreg": "^1.2.30",
         "@types/xml2js": "^0.4.2",
         "@typescript-eslint/eslint-plugin": "^3.7.0",
@@ -1895,7 +1895,7 @@
         "chai": "^4.1.2",
         "chai-arrays": "^2.0.0",
         "chai-as-promised": "^7.1.1",
-        "copy-webpack-plugin": "^5.1.2",
+        "copy-webpack-plugin": "^9.1.0",
         "cross-spawn": "^6.0.5",
         "del": "^3.0.0",
         "download": "^7.0.0",
@@ -1929,7 +1929,7 @@
         "shortid": "^2.2.8",
         "sinon": "^8.0.1",
         "source-map-support": "^0.5.12",
-        "ts-loader": "^5.3.0",
+        "ts-loader": "^9.2.8",
         "ts-mockito": "^2.5.0",
         "ts-node": "^8.3.0",
         "tsconfig-paths-webpack-plugin": "^3.2.0",
@@ -1939,13 +1939,13 @@
         "vsce": "^2.6.6",
         "vscode-debugadapter-testsupport": "^1.27.0",
         "vscode-telemetry-extractor": "^1.9.5",
-        "webpack": "^4.33.0",
-        "webpack-bundle-analyzer": "^3.6.0",
+        "webpack": "^5.70.0",
+        "webpack-bundle-analyzer": "^4.5.0",
         "webpack-cli": "^3.1.2",
         "webpack-fix-default-import-plugin": "^1.0.3",
-        "webpack-merge": "^4.1.4",
-        "webpack-node-externals": "^1.7.2",
-        "webpack-require-from": "^1.8.0",
+        "webpack-merge": "^5.8.0",
+        "webpack-node-externals": "^3.0.0",
+        "webpack-require-from": "^1.8.6",
         "yargs": "^15.3.1"
     },
     "__metadata": {

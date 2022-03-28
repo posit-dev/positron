@@ -6,6 +6,7 @@ import {
     ConfigurationParams,
     ConfigurationRequest,
     HandleDiagnosticsSignature,
+    LSPObject,
     Middleware,
     ResponseError,
 } from 'vscode-languageclient';
@@ -82,12 +83,13 @@ export class LanguageClientMiddlewareBase implements Middleware {
                     // value as though it were in the user's settings.json file.
                     // As this is for backwards compatibility, `ConfigService.pythonPath`
                     // can be considered as active interpreter path.
-                    settings[i].pythonPath = configService.getSettings(uri).pythonPath;
+                    const settingDict: LSPObject = settings[i] as LSPObject;
+                    settingDict.pythonPath = configService.getSettings(uri).pythonPath;
 
                     const env = await envService.getEnvironmentVariables(uri);
                     const envPYTHONPATH = env.PYTHONPATH;
                     if (envPYTHONPATH) {
-                        settings[i]._envPYTHONPATH = envPYTHONPATH;
+                        settingDict._envPYTHONPATH = envPYTHONPATH;
                     }
                 }
             }
