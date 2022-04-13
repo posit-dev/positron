@@ -4,6 +4,7 @@
 import {
     CancellationToken,
     Event,
+    OutputChannel,
     TestController,
     TestItem,
     TestRun,
@@ -121,4 +122,66 @@ export type RawDiscoveredTests = {
     root: string;
     parents: RawTestParent[];
     tests: RawTest[];
+};
+
+// New test discovery adapter types
+
+export type DataReceivedEvent = {
+    cwd: string;
+    data: string;
+};
+
+export type TestDiscoveryCommand = {
+    script: string;
+    args: string[];
+};
+
+export type TestCommandOptions = {
+    workspaceFolder: Uri;
+    cwd: string;
+    command: TestDiscoveryCommand;
+    token?: CancellationToken;
+    outChannel?: OutputChannel;
+};
+
+/**
+ * Interface describing the server that will send test commands to the Python side, and process responses.
+ *
+ * Consumers will call sendCommand in order to execute Python-related code,
+ * and will subscribe to the onDataReceived event to wait for the results.
+ */
+export interface ITestServer {
+    readonly onDataReceived: Event<DataReceivedEvent>;
+    sendCommand(options: TestCommandOptions): Promise<void>;
+}
+
+export interface ITestDiscoveryAdapter {
+    discoverTests(uri: Uri): Promise<DiscoveredTestPayload>;
+}
+
+// Same types as in pythonFiles/unittestadapter/utils.py
+export type DiscoveredTestType = 'folder' | 'file' | 'class' | 'test';
+
+export type DiscoveredTestCommon = {
+    path: string;
+    name: string;
+    // Trailing underscore to avoid collision with the 'type' Python keyword.
+    type_: DiscoveredTestType;
+};
+
+export type DiscoveredTestItem = DiscoveredTestCommon & {
+    lineno: number;
+    // Trailing underscore to avoid collision with the 'id' Python keyword.
+    id_: string;
+};
+
+export type DiscoveredTestNode = DiscoveredTestCommon & {
+    children: (DiscoveredTestNode | DiscoveredTestItem)[];
+};
+
+export type DiscoveredTestPayload = {
+    cwd: string;
+    tests?: DiscoveredTestNode;
+    status: 'success' | 'error';
+    errors?: string[];
 };
