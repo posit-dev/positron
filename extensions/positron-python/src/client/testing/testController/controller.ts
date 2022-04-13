@@ -18,14 +18,19 @@ import {
 } from 'vscode';
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { IWorkspaceService } from '../../common/application/types';
+import { IPythonExecutionFactory } from '../../common/process/types';
 import { IConfigurationService, IDisposableRegistry, Resource } from '../../common/types';
 import { DelayedTrigger, IDelayedTrigger } from '../../common/utils/delayTrigger';
 import { traceVerbose } from '../../logging';
 import { IEventNamePropertyMapping, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../common/constants';
+import { TestProvider } from '../types';
+import { PythonTestServer } from './common/server';
 import { DebugTestTag, getNodeByUri, RunTestTag } from './common/testItemUtilities';
-import { ITestController, ITestFrameworkController, TestRefreshOptions } from './common/types';
+import { ITestController, ITestDiscoveryAdapter, ITestFrameworkController, TestRefreshOptions } from './common/types';
+import { UnittestTestDiscoveryAdapter } from './unittest/testDiscoveryAdapter';
+import { WorkspaceTestAdapter } from './workspaceTestAdapter';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -35,6 +40,8 @@ type TriggerType = EventPropertyType[TriggerKeyType];
 @injectable()
 export class PythonTestController implements ITestController, IExtensionSingleActivationService {
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+
+    private readonly testAdapters: Map<Uri, WorkspaceTestAdapter> = new Map();
 
     private readonly triggerTypes: TriggerType[] = [];
 
@@ -52,6 +59,8 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         WorkspaceFolder[]
     >();
 
+    private pythonTestServer: PythonTestServer;
+
     public readonly onRefreshingCompleted = this.refreshingCompletedEvent.event;
 
     public readonly onRefreshingStarted = this.refreshingStartedEvent.event;
@@ -66,6 +75,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         @inject(ITestFrameworkController) @named(PYTEST_PROVIDER) private readonly pytest: ITestFrameworkController,
         @inject(ITestFrameworkController) @named(UNITTEST_PROVIDER) private readonly unittest: ITestFrameworkController,
         @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry,
+        @inject(IPythonExecutionFactory) private readonly pythonExecFactory: IPythonExecutionFactory,
     ) {
         this.refreshCancellation = new CancellationTokenSource();
 
@@ -102,10 +112,37 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             ),
         );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
+
+        this.pythonTestServer = new PythonTestServer(this.pythonExecFactory);
     }
 
     public async activate(): Promise<void> {
-        this.watchForTestChanges();
+        const workspaces: readonly WorkspaceFolder[] = this.workspaceService.workspaceFolders || [];
+        workspaces.forEach((workspace) => {
+            const settings = this.configSettings.getSettings(workspace.uri);
+
+            let discoveryAdapter: ITestDiscoveryAdapter;
+            let testProvider: TestProvider;
+            if (settings.testing.unittestEnabled) {
+                discoveryAdapter = new UnittestTestDiscoveryAdapter(this.pythonTestServer, this.configSettings);
+                testProvider = UNITTEST_PROVIDER;
+            } else {
+                // TODO: PYTEST DISCOVERY ADAPTER
+                // this is a placeholder for now
+                discoveryAdapter = new UnittestTestDiscoveryAdapter(this.pythonTestServer, { ...this.configSettings });
+                testProvider = PYTEST_PROVIDER;
+            }
+
+            const workspaceTestAdapter = new WorkspaceTestAdapter(testProvider, discoveryAdapter, workspace.uri);
+
+            this.testAdapters.set(workspace.uri, workspaceTestAdapter);
+
+            if (settings.testing.autoTestDiscoverOnSaveEnabled) {
+                traceVerbose(`Testing: Setting up watcher for ${workspace.uri.fsPath}`);
+                this.watchForSettingsChanges(workspace);
+                this.watchForTestContentChanges(workspace);
+            }
+        });
     }
 
     public refreshTestData(uri?: Resource, options?: TestRefreshOptions): Promise<void> {
@@ -155,6 +192,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
                 await this.pytest.refreshTestData(this.testController, uri, this.refreshCancellation.token);
             } else if (settings.testing.unittestEnabled) {
+                // TODO: Use new test discovery mechanism
                 traceVerbose(`Testing: Refreshing test data for ${uri.fsPath}`);
 
                 // Ensure we send test telemetry if it gets disabled again
@@ -307,18 +345,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 item.invalidateResults();
             }
         });
-    }
-
-    private watchForTestChanges(): void {
-        const workspaces: readonly WorkspaceFolder[] = this.workspaceService.workspaceFolders || [];
-        for (const workspace of workspaces) {
-            const settings = this.configSettings.getSettings(workspace.uri);
-            if (settings.testing.autoTestDiscoverOnSaveEnabled) {
-                traceVerbose(`Testing: Setting up watcher for ${workspace.uri.fsPath}`);
-                this.watchForSettingsChanges(workspace);
-                this.watchForTestContentChanges(workspace);
-            }
-        }
     }
 
     private watchForSettingsChanges(workspace: WorkspaceFolder): void {
