@@ -8,12 +8,12 @@ import { IApplicationShell } from '../../common/application/types';
 import { IDisposableRegistry, IPersistentStateFactory } from '../../common/types';
 import { sleep } from '../../common/utils/async';
 import { Common, Interpreters } from '../../common/utils/localize';
-import { traceDecoratorError } from '../../logging';
+import { traceDecoratorError, traceVerbose } from '../../logging';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { IPythonPathUpdaterServiceManager } from '../configuration/types';
-import { IComponentAdapter, IInterpreterHelper } from '../contracts';
+import { IComponentAdapter, IInterpreterHelper, IInterpreterService } from '../contracts';
 
 const doNotDisplayPromptStateKey = 'MESSAGE_KEY_FOR_VIRTUAL_ENV';
 @injectable()
@@ -28,6 +28,7 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
         @inject(IDisposableRegistry) private readonly disposableRegistry: Disposable[],
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,
         @inject(IComponentAdapter) private readonly pyenvs: IComponentAdapter,
+        @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
     ) {}
 
     public async activate(resource: Uri): Promise<void> {
@@ -45,6 +46,11 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
                 ? this.helper.getBestInterpreter(interpreters)
                 : undefined;
         if (!interpreter) {
+            return;
+        }
+        const currentInterpreter = await this.interpreterService.getActiveInterpreter(resource);
+        if (currentInterpreter?.id === interpreter.id) {
+            traceVerbose('New environment has already been selected');
             return;
         }
         await this.notifyUser(interpreter, resource);
