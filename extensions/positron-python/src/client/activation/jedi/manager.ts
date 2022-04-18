@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import '../../common/extensions';
-
-import { inject, injectable, named } from 'inversify';
 
 import { ICommandManager } from '../../common/application/types';
 import { IDisposable, Resource } from '../../common/types';
@@ -24,10 +23,7 @@ import {
 } from '../types';
 import { traceDecoratorError, traceDecoratorVerbose, traceVerbose } from '../../logging';
 
-@injectable()
 export class JediLanguageServerManager implements ILanguageServerManager {
-    private languageServerProxy?: ILanguageServerProxy;
-
     private resource!: Resource;
 
     private interpreter: PythonEnvironment | undefined;
@@ -43,11 +39,10 @@ export class JediLanguageServerManager implements ILanguageServerManager {
     private lsVersion: string | undefined;
 
     constructor(
-        @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
-        @inject(ILanguageServerAnalysisOptions)
-        @named(LanguageServerType.Jedi)
+        private readonly serviceContainer: IServiceContainer,
         private readonly analysisOptions: ILanguageServerAnalysisOptions,
-        @inject(ICommandManager) commandManager: ICommandManager,
+        private readonly languageServerProxy: ILanguageServerProxy,
+        commandManager: ICommandManager,
     ) {
         if (JediLanguageServerManager.commandDispose) {
             JediLanguageServerManager.commandDispose.dispose();
@@ -77,9 +72,6 @@ export class JediLanguageServerManager implements ILanguageServerManager {
 
     @traceDecoratorError('Failed to start language server')
     public async start(resource: Resource, interpreter: PythonEnvironment | undefined): Promise<void> {
-        if (this.languageProxy) {
-            throw new Error('Language server already started');
-        }
         this.resource = resource;
         this.interpreter = interpreter;
         this.analysisOptions.onDidChange(this.restartLanguageServerDebounced, this, this.disposables);
@@ -107,13 +99,17 @@ export class JediLanguageServerManager implements ILanguageServerManager {
     }
 
     public connect(): void {
-        this.connected = true;
-        this.middleware?.connect();
+        if (!this.connected) {
+            this.connected = true;
+            this.middleware?.connect();
+        }
     }
 
     public disconnect(): void {
-        this.connected = false;
-        this.middleware?.disconnect();
+        if (this.connected) {
+            this.connected = false;
+            this.middleware?.disconnect();
+        }
     }
 
     @debounceSync(1000)
@@ -139,8 +135,6 @@ export class JediLanguageServerManager implements ILanguageServerManager {
     )
     @traceDecoratorVerbose('Starting language server')
     protected async startLanguageServer(): Promise<void> {
-        this.languageServerProxy = this.serviceContainer.get<ILanguageServerProxy>(ILanguageServerProxy);
-
         const options = await this.analysisOptions.getAnalysisOptions();
         this.middleware = new LanguageClientMiddleware(this.serviceContainer, LanguageServerType.Jedi, this.lsVersion);
         options.middleware = this.middleware;

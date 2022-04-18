@@ -1,24 +1,23 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-import { inject, injectable } from 'inversify';
+
+import { LanguageClientOptions } from 'vscode-languageclient';
 import { IWorkspaceService } from '../../common/application/types';
 
 import { LanguageServerAnalysisOptionsBase } from '../common/analysisOptions';
 import { ILanguageServerOutputChannel } from '../types';
 
-@injectable()
 export class NodeLanguageServerAnalysisOptions extends LanguageServerAnalysisOptionsBase {
-    constructor(
-        @inject(ILanguageServerOutputChannel) lsOutputChannel: ILanguageServerOutputChannel,
-        @inject(IWorkspaceService) workspace: IWorkspaceService,
-    ) {
+    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
+    constructor(lsOutputChannel: ILanguageServerOutputChannel, workspace: IWorkspaceService) {
         super(lsOutputChannel, workspace);
     }
 
-    protected async getInitializationOptions() {
-        return {
+    // eslint-disable-next-line class-methods-use-this
+    protected async getInitializationOptions(): Promise<LanguageClientOptions> {
+        return ({
             experimentationSupport: true,
             trustedWorkspaceSupport: true,
-        };
+        } as unknown) as LanguageClientOptions;
     }
 }

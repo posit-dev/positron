@@ -21,60 +21,24 @@ import {
     WorkspaceEdit,
 } from 'vscode';
 import * as vscodeLanguageClient from 'vscode-languageclient/node';
+import { ILanguageServer, ILanguageServerConnection, ILanguageServerProxy } from '../activation/types';
+import { ILanguageServerCapabilities } from './types';
 
-import { injectable } from 'inversify';
-import { IWorkspaceService } from '../../common/application/types';
-import { IFileSystem } from '../../common/platform/types';
-import { IConfigurationService, Resource } from '../../common/types';
-import { PythonEnvironment } from '../../pythonEnvironments/info';
-import { ILanguageServerActivator, ILanguageServerManager } from '../types';
-import { traceDecoratorError } from '../../logging';
-
-/**
- * Starts the language server managers per workspaces (currently one for first workspace).
- *
- * @export
- * @class LanguageServerActivatorBase
- * @implements {ILanguageServerActivator}
+/*
+ * The Language Server Capabilities class implements the ILanguageServer interface to provide support for the existing Jupyter integration.
  */
-@injectable()
-export abstract class LanguageServerActivatorBase implements ILanguageServerActivator {
-    protected resource?: Resource;
-    constructor(
-        protected readonly manager: ILanguageServerManager,
-        protected readonly workspace: IWorkspaceService,
-        protected readonly fs: IFileSystem,
-        protected readonly configurationService: IConfigurationService,
-    ) {}
-
-    @traceDecoratorError('Failed to activate language server')
-    public async start(resource: Resource, interpreter?: PythonEnvironment): Promise<void> {
-        if (!resource) {
-            resource =
-                this.workspace.workspaceFolders && this.workspace.workspaceFolders.length > 0
-                    ? this.workspace.workspaceFolders[0].uri
-                    : undefined;
-        }
-        this.resource = resource;
-        await this.ensureLanguageServerIsAvailable(resource);
-        await this.manager.start(resource, interpreter);
-    }
+export class LanguageServerCapabilities implements ILanguageServerCapabilities {
+    serverProxy: ILanguageServerProxy | undefined;
 
     public dispose(): void {
-        this.manager.dispose();
+        // Nothing to do here.
     }
 
-    public abstract ensureLanguageServerIsAvailable(resource: Resource): Promise<void>;
-
-    public activate(): void {
-        this.manager.connect();
+    get(): Promise<ILanguageServer> {
+        return Promise.resolve(this);
     }
 
-    public deactivate(): void {
-        this.manager.disconnect();
-    }
-
-    public get connection() {
+    public get connection(): ILanguageServerConnection | undefined {
         const languageClient = this.getLanguageClient();
         if (languageClient) {
             // Return an object that looks like a connection
@@ -87,13 +51,17 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 onProgress: languageClient.onProgress.bind(languageClient),
             };
         }
+
+        return undefined;
     }
 
-    public get capabilities() {
+    public get capabilities(): vscodeLanguageClient.ServerCapabilities | undefined {
         const languageClient = this.getLanguageClient();
         if (languageClient) {
             return languageClient.initializeResult?.capabilities;
         }
+
+        return undefined;
     }
 
     public provideRenameEdits(
@@ -156,10 +124,7 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
     }
 
     protected getLanguageClient(): vscodeLanguageClient.LanguageClient | undefined {
-        const proxy = this.manager.languageProxy;
-        if (proxy) {
-            return proxy.languageClient;
-        }
+        return this.serverProxy?.languageClient;
     }
 
     private async handleProvideRenameEdits(
@@ -180,6 +145,8 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 return languageClient.protocol2CodeConverter.asWorkspaceEdit(result);
             }
         }
+
+        return undefined;
     }
 
     private async handleProvideDefinition(
@@ -198,6 +165,8 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 return languageClient.protocol2CodeConverter.asDefinitionResult(result);
             }
         }
+
+        return undefined;
     }
 
     private async handleProvideHover(
@@ -216,6 +185,8 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 return languageClient.protocol2CodeConverter.asHover(result);
             }
         }
+
+        return undefined;
     }
 
     private async handleProvideReferences(
@@ -240,6 +211,8 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 });
             }
         }
+
+        return undefined;
     }
 
     private async handleProvideCodeLenses(
@@ -256,6 +229,8 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 return languageClient.protocol2CodeConverter.asCodeLenses(result);
             }
         }
+
+        return undefined;
     }
 
     private async handleProvideCompletionItems(
@@ -272,6 +247,8 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 return languageClient.protocol2CodeConverter.asCompletionResult(result);
             }
         }
+
+        return undefined;
     }
 
     private async handleProvideDocumentSymbols(
@@ -289,17 +266,18 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 token,
             );
             if (result && result.length) {
-                if ((result[0] as any).range) {
+                if ((result[0] as DocumentSymbol).range) {
                     // Document symbols
                     const docSymbols = result as vscodeLanguageClient.DocumentSymbol[];
                     return languageClient.protocol2CodeConverter.asDocumentSymbols(docSymbols);
-                } else {
-                    // Document symbols
-                    const symbols = result as vscodeLanguageClient.SymbolInformation[];
-                    return languageClient.protocol2CodeConverter.asSymbolInformations(symbols);
                 }
+                // Document symbols
+                const symbols = result as vscodeLanguageClient.SymbolInformation[];
+                return languageClient.protocol2CodeConverter.asSymbolInformations(symbols);
             }
         }
+
+        return undefined;
     }
 
     private async handleProvideSignatureHelp(
@@ -323,5 +301,7 @@ export abstract class LanguageServerActivatorBase implements ILanguageServerActi
                 return languageClient.protocol2CodeConverter.asSignatureHelp(result);
             }
         }
+
+        return undefined;
     }
 }

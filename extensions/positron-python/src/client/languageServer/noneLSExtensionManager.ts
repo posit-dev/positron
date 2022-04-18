@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-import { injectable } from 'inversify';
+
+/* eslint-disable class-methods-use-this */
+
 import {
     CancellationToken,
     CodeLens,
@@ -20,26 +22,42 @@ import {
     TextDocument,
     WorkspaceEdit,
 } from 'vscode';
-import { Resource } from '../../common/types';
-import { PythonEnvironment } from '../../pythonEnvironments/info';
-import { ILanguageServerActivator } from '../types';
+import { ILanguageServer, ILanguageServerProxy } from '../activation/types';
+import { ILanguageServerExtensionManager } from './types';
 
-/**
- * Provides 'no language server' pseudo-activator.
- *
- * @export
- * @class NoLanguageServerExtensionActivator
- * @implements {ILanguageServerActivator}
- */
-@injectable()
-export class NoLanguageServerExtensionActivator implements ILanguageServerActivator {
-    public async start(_resource: Resource, _interpreter?: PythonEnvironment): Promise<void> {}
+// This LS manager implements ILanguageServer directly
+// instead of extending LanguageServerCapabilities because it doesn't need to do anything.
+export class NoneLSExtensionManager implements ILanguageServer, ILanguageServerExtensionManager {
+    serverProxy: ILanguageServerProxy | undefined;
 
-    public dispose(): void {}
+    constructor() {
+        this.serverProxy = undefined;
+    }
 
-    public activate(): void {}
+    dispose(): void {
+        // Nothing to do here.
+    }
 
-    public deactivate(): void {}
+    get(): Promise<ILanguageServer> {
+        return Promise.resolve(this);
+    }
+
+    startLanguageServer(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    stopLanguageServer(): void {
+        // Nothing to do here.
+    }
+
+    canStartLanguageServer(): boolean {
+        return true;
+    }
+
+    languageServerNotAvailable(): Promise<void> {
+        // Nothing to do here.
+        return Promise.resolve();
+    }
 
     public provideRenameEdits(
         _document: TextDocument,
@@ -49,6 +67,7 @@ export class NoLanguageServerExtensionActivator implements ILanguageServerActiva
     ): ProviderResult<WorkspaceEdit> {
         return null;
     }
+
     public provideDefinition(
         _document: TextDocument,
         _position: Position,
@@ -56,6 +75,7 @@ export class NoLanguageServerExtensionActivator implements ILanguageServerActiva
     ): ProviderResult<Location | Location[] | LocationLink[]> {
         return null;
     }
+
     public provideHover(
         _document: TextDocument,
         _position: Position,
@@ -63,6 +83,7 @@ export class NoLanguageServerExtensionActivator implements ILanguageServerActiva
     ): ProviderResult<Hover> {
         return null;
     }
+
     public provideReferences(
         _document: TextDocument,
         _position: Position,
@@ -71,6 +92,7 @@ export class NoLanguageServerExtensionActivator implements ILanguageServerActiva
     ): ProviderResult<Location[]> {
         return null;
     }
+
     public provideCompletionItems(
         _document: TextDocument,
         _position: Position,
@@ -79,15 +101,18 @@ export class NoLanguageServerExtensionActivator implements ILanguageServerActiva
     ): ProviderResult<CompletionItem[] | CompletionList> {
         return null;
     }
+
     public provideCodeLenses(_document: TextDocument, _token: CancellationToken): ProviderResult<CodeLens[]> {
         return null;
     }
+
     public provideDocumentSymbols(
         _document: TextDocument,
         _token: CancellationToken,
     ): ProviderResult<SymbolInformation[] | DocumentSymbol[]> {
         return null;
     }
+
     public provideSignatureHelp(
         _document: TextDocument,
         _position: Position,

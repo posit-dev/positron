@@ -3,7 +3,6 @@
 
 'use strict';
 
-import { SemVer } from 'semver';
 import {
     CodeLensProvider,
     CompletionItemProvider,
@@ -79,7 +78,7 @@ export type ILanguageServerConnection = Pick<
     'sendRequest' | 'sendNotification' | 'onProgress' | 'sendProgress' | 'onNotification' | 'onRequest'
 >;
 
-interface ILanguageServer
+export interface ILanguageServer
     extends RenameProvider,
         DefinitionProvider,
         HoverProvider,
@@ -103,15 +102,6 @@ export interface ILanguageServerActivator extends ILanguageServer {
 export const ILanguageServerCache = Symbol('ILanguageServerCache');
 export interface ILanguageServerCache {
     get(resource: Resource, interpreter?: PythonEnvironment): Promise<ILanguageServer>;
-}
-
-export type FolderVersionPair = { path: string; version: SemVer };
-export const ILanguageServerFolderService = Symbol('ILanguageServerFolderService');
-
-export interface ILanguageServerFolderService {
-    getLanguageServerFolderName(resource: Resource): Promise<string>;
-    getCurrentLanguageServerDirectory(): Promise<FolderVersionPair | undefined>;
-    skipDownload(): Promise<boolean>;
 }
 
 export const ILanguageClientFactory = Symbol('ILanguageClientFactory');
