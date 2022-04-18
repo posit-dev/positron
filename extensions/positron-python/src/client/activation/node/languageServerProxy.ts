@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 import '../../common/extensions';
 
-import { inject, injectable } from 'inversify';
 import {
     DidChangeConfigurationNotification,
     Disposable,
@@ -11,19 +10,21 @@ import {
     State,
 } from 'vscode-languageclient/node';
 
-import { IConfigurationService, IExperimentService, IInterpreterPathService, Resource } from '../../common/types';
+import { IExperimentService, IExtensions, IInterpreterPathService, Resource } from '../../common/types';
 import { createDeferred, Deferred, sleep } from '../../common/utils/async';
 import { noop } from '../../common/utils/misc';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
-import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
+import { captureTelemetry } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { FileBasedCancellationStrategy } from '../common/cancellationUtils';
 import { ProgressReporting } from '../progress';
-import { ILanguageClientFactory, ILanguageServerFolderService, ILanguageServerProxy } from '../types';
+import { ILanguageClientFactory, ILanguageServerProxy } from '../types';
 import { traceDecoratorError, traceDecoratorVerbose, traceError } from '../../logging';
 import { IWorkspaceService } from '../../common/application/types';
+import { PYLANCE_EXTENSION_ID } from '../../common/constants';
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 namespace InExperiment {
     export const Method = 'python/inExperiment';
 
@@ -36,6 +37,7 @@ namespace InExperiment {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 namespace GetExperimentValue {
     export const Method = 'python/getExperimentValue';
 
@@ -48,23 +50,26 @@ namespace GetExperimentValue {
     }
 }
 
-@injectable()
 export class NodeLanguageServerProxy implements ILanguageServerProxy {
     public languageClient: LanguageClient | undefined;
+
     private startupCompleted: Deferred<void>;
+
     private cancellationStrategy: FileBasedCancellationStrategy | undefined;
+
     private readonly disposables: Disposable[] = [];
-    private disposed: boolean = false;
+
+    private disposed = false;
+
     private lsVersion: string | undefined;
 
     constructor(
-        @inject(ILanguageClientFactory) private readonly factory: ILanguageClientFactory,
-        @inject(IConfigurationService) private readonly configurationService: IConfigurationService,
-        @inject(ILanguageServerFolderService) private readonly folderService: ILanguageServerFolderService,
-        @inject(IExperimentService) private readonly experimentService: IExperimentService,
-        @inject(IInterpreterPathService) private readonly interpreterPathService: IInterpreterPathService,
-        @inject(IEnvironmentVariablesProvider) private readonly environmentService: IEnvironmentVariablesProvider,
-        @inject(IWorkspaceService) private readonly workspace: IWorkspaceService,
+        private readonly factory: ILanguageClientFactory,
+        private readonly experimentService: IExperimentService,
+        private readonly interpreterPathService: IInterpreterPathService,
+        private readonly environmentService: IEnvironmentVariablesProvider,
+        private readonly workspace: IWorkspaceService,
+        private readonly extensions: IExtensions,
     ) {
         this.startupCompleted = createDeferred<void>();
     }
@@ -76,7 +81,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
     }
 
     @traceDecoratorVerbose('Stopping language server')
-    public dispose() {
+    public dispose(): void {
         if (this.languageClient) {
             // Do not await on this.
             this.languageClient.stop().then(noop, (ex) => traceError('Stopping language client failed', ex));
@@ -111,8 +116,8 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         options: LanguageClientOptions,
     ): Promise<void> {
         if (!this.languageClient) {
-            const directory = await this.folderService.getCurrentLanguageServerDirectory();
-            this.lsVersion = directory?.version.format();
+            const extension = this.extensions.getExtension(PYLANCE_EXTENSION_ID);
+            this.lsVersion = extension?.packageJSON.version || '0';
 
             this.cancellationStrategy = new FileBasedCancellationStrategy();
             options.connectionOptions = { cancellationStrategy: this.cancellationStrategy };
@@ -141,14 +146,16 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
 
             if (this.disposed) {
                 // Check if it got disposed in the interim.
-                return;
             }
         } else {
             await this.startupCompleted.promise;
         }
     }
 
-    public loadExtension(_args?: {}) {}
+    // eslint-disable-next-line class-methods-use-this
+    public loadExtension(): void {
+        // No body.
+    }
 
     @captureTelemetry(
         EventName.LANGUAGE_SERVER_READY,
@@ -167,7 +174,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         this.startupCompleted.resolve();
     }
 
-    private registerHandlers(resource: Resource) {
+    private registerHandlers(_resource: Resource) {
         if (this.disposed) {
             // Check if it got disposed in the interim.
             return;
@@ -195,24 +202,6 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
             }),
         );
 
-        const settings = this.configurationService.getSettings(resource);
-        if (settings.downloadLanguageServer) {
-            this.languageClient!.onTelemetry((telemetryEvent) => {
-                const eventName = telemetryEvent.EventName || EventName.LANGUAGE_SERVER_TELEMETRY;
-                const formattedProperties = {
-                    ...telemetryEvent.Properties,
-                    // Replace all slashes in the method name so it doesn't get scrubbed by vscode-extension-telemetry.
-                    method: telemetryEvent.Properties.method?.replace(/\//g, '.'),
-                };
-                sendTelemetryEvent(
-                    eventName,
-                    telemetryEvent.Measurements,
-                    formattedProperties,
-                    telemetryEvent.Exception,
-                );
-            });
-        }
-
         this.languageClient!.onRequest(
             InExperiment.Method,
             async (params: InExperiment.IRequest): Promise<InExperiment.IResponse> => {
@@ -232,11 +221,9 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         );
 
         this.disposables.push(
-            this.languageClient!.onRequest('python/isTrustedWorkspace', async () => {
-                return {
-                    isTrusted: this.workspace.isTrusted,
-                };
-            }),
+            this.languageClient!.onRequest('python/isTrustedWorkspace', async () => ({
+                isTrusted: this.workspace.isTrusted,
+            })),
         );
     }
 }
