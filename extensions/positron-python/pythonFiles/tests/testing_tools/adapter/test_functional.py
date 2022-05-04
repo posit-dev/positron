@@ -10,8 +10,9 @@ import subprocess
 import sys
 import unittest
 
+from testing_tools.adapter.util import PATH_SEP, fix_path
+
 from ...__main__ import TESTING_TOOLS_ROOT
-from testing_tools.adapter.util import fix_path, PATH_SEP
 
 # Pytest 3.7 and later uses pathlib/pathlib2 for path resolution.
 try:
@@ -1272,6 +1273,13 @@ COMPLEX = {
             "parentid": "./tests/test_pytest.py::test_param_fixture",
         },
         {
+            "id": "./tests/test_pytest.py::test_param_mark_fixture[(1+0j)]",
+            "name": "test_param_mark_fixture[(1+0j)]",
+            "source": fix_path("./tests/test_pytest.py:207"),
+            "markers": [],
+            "parentid": "./tests/test_pytest.py::test_param_mark_fixture",
+        },
+        {
             "id": "./tests/test_pytest.py::test_param_mark_fixture[x0]",
             "name": "test_param_mark_fixture[x0]",
             "source": fix_path("./tests/test_pytest.py:207"),
@@ -1281,13 +1289,6 @@ COMPLEX = {
         {
             "id": "./tests/test_pytest.py::test_param_mark_fixture[x1]",
             "name": "test_param_mark_fixture[x1]",
-            "source": fix_path("./tests/test_pytest.py:207"),
-            "markers": [],
-            "parentid": "./tests/test_pytest.py::test_param_mark_fixture",
-        },
-        {
-            "id": "./tests/test_pytest.py::test_param_mark_fixture[x2]",
-            "name": "test_param_mark_fixture[x2]",
             "source": fix_path("./tests/test_pytest.py:207"),
             "markers": [],
             "parentid": "./tests/test_pytest.py::test_param_mark_fixture",
