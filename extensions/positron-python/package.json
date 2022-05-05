@@ -2,7 +2,7 @@
     "name": "python",
     "displayName": "Python",
     "description": "IntelliSense (Pylance), Linting, Debugging (multi-threaded, remote), Jupyter Notebooks, code formatting, refactoring, unit tests, and more.",
-    "version": "2022.5.0-dev",
+    "version": "2022.6.0",
     "featureFlags": {
         "usingNewInterpreterStorage": true
     },
@@ -42,7 +42,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.67.0-insider"
+        "vscode": "^1.67.0"
     },
     "keywords": [
         "python",
