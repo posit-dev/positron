@@ -56,7 +56,7 @@ export class SwitchToDefaultLanguageServerDiagnosticService extends BaseDiagnost
         }
 
         return Promise.resolve(
-            changed ? [new SwitchToDefaultLanguageServerDiagnostic(SwitchToDefaultLS.bannerMessage(), resource)] : [],
+            changed ? [new SwitchToDefaultLanguageServerDiagnostic(SwitchToDefaultLS.bannerMessage, resource)] : [],
         );
     }
 
@@ -72,7 +72,7 @@ export class SwitchToDefaultLanguageServerDiagnosticService extends BaseDiagnost
         await this.messageService.handle(diagnostic, {
             commandPrompts: [
                 {
-                    prompt: Common.gotIt(),
+                    prompt: Common.gotIt,
                 },
             ],
         });

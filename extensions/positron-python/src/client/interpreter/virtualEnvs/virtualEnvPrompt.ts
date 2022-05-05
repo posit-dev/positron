@@ -64,12 +64,9 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
         if (!notificationPromptEnabled.value) {
             return;
         }
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const telemetrySelections: ['Yes', 'No', 'Ignore'] = ['Yes', 'No', 'Ignore'];
-        const selection = await this.appShell.showInformationMessage(
-            Interpreters.environmentPromptMessage(),
-            ...prompts,
-        );
+        const selection = await this.appShell.showInformationMessage(Interpreters.environmentPromptMessage, ...prompts);
         sendTelemetryEvent(EventName.PYTHON_INTERPRETER_ACTIVATE_ENVIRONMENT_PROMPT, undefined, {
             selection: selection ? telemetrySelections[prompts.indexOf(selection)] : undefined,
         });

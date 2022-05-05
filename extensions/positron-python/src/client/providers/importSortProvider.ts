@@ -161,14 +161,14 @@ export class SortImportsEditingProvider implements ISortImportsEditingProvider {
             return;
         }
         const selection = await this.shell.showWarningMessage(
-            Diagnostics.checkIsort5UpgradeGuide(),
-            Common.openOutputPanel(),
-            Common.doNotShowAgain(),
+            Diagnostics.checkIsort5UpgradeGuide,
+            Common.openOutputPanel,
+            Common.doNotShowAgain,
         );
-        if (selection === Common.openOutputPanel()) {
+        if (selection === Common.openOutputPanel) {
             const cmdManager = this.serviceContainer.get<ICommandManager>(ICommandManager);
             await cmdManager.executeCommand(Commands.ViewOutput);
-        } else if (selection === Common.doNotShowAgain()) {
+        } else if (selection === Common.doNotShowAgain) {
             await neverShowAgain.updateValue(true);
         }
     }

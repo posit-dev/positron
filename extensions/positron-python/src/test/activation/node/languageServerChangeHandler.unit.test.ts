@@ -52,25 +52,23 @@ suite('Language Server - Change Handler', () => {
     test('Handler should prompt for install when language server changes to Pylance and Pylance is not installed', async () => {
         when(
             appShell.showWarningMessage(
-                Pylance.pylanceRevertToJediPrompt(),
-                Pylance.pylanceInstallPylance(),
-                Pylance.pylanceRevertToJedi(),
-                Pylance.remindMeLater(),
+                Pylance.pylanceRevertToJediPrompt,
+                Pylance.pylanceInstallPylance,
+                Pylance.pylanceRevertToJedi,
+                Pylance.remindMeLater,
             ),
         ).thenReturn(Promise.resolve(undefined));
 
         handler = makeHandler(undefined);
         await handler.handleLanguageServerChange(LanguageServerType.Node);
 
-        verify(
-            appShell.showInformationMessage(LanguageService.reloadAfterLanguageServerChange(), Common.reload()),
-        ).never();
+        verify(appShell.showInformationMessage(LanguageService.reloadAfterLanguageServerChange, Common.reload)).never();
         verify(
             appShell.showWarningMessage(
-                Pylance.pylanceRevertToJediPrompt(),
-                Pylance.pylanceInstallPylance(),
-                Pylance.pylanceRevertToJedi(),
-                Pylance.remindMeLater(),
+                Pylance.pylanceRevertToJediPrompt,
+                Pylance.pylanceInstallPylance,
+                Pylance.pylanceRevertToJedi,
+                Pylance.remindMeLater,
             ),
         ).once();
     });
@@ -78,12 +76,12 @@ suite('Language Server - Change Handler', () => {
     test('Handler should open Pylance store page when language server changes to Pylance, Pylance is not installed and user clicks Yes', async () => {
         when(
             appShell.showWarningMessage(
-                Pylance.pylanceRevertToJediPrompt(),
-                Pylance.pylanceInstallPylance(),
-                Pylance.pylanceRevertToJedi(),
-                Pylance.remindMeLater(),
+                Pylance.pylanceRevertToJediPrompt,
+                Pylance.pylanceInstallPylance,
+                Pylance.pylanceRevertToJedi,
+                Pylance.remindMeLater,
             ),
-        ).thenReturn(Promise.resolve(Pylance.pylanceInstallPylance()));
+        ).thenReturn(Promise.resolve(Pylance.pylanceInstallPylance));
 
         handler = makeHandler(undefined);
         await handler.handleLanguageServerChange(LanguageServerType.Node);
@@ -95,12 +93,12 @@ suite('Language Server - Change Handler', () => {
     test('Handler should not open Pylance store page when language server changes to Pylance, Pylance is not installed and user clicks No', async () => {
         when(
             appShell.showWarningMessage(
-                Pylance.pylanceRevertToJediPrompt(),
-                Pylance.pylanceInstallPylance(),
-                Pylance.pylanceRevertToJedi(),
-                Pylance.remindMeLater(),
+                Pylance.pylanceRevertToJediPrompt,
+                Pylance.pylanceInstallPylance,
+                Pylance.pylanceRevertToJedi,
+                Pylance.remindMeLater,
             ),
-        ).thenReturn(Promise.resolve(Pylance.remindMeLater()));
+        ).thenReturn(Promise.resolve(Pylance.remindMeLater));
 
         handler = makeHandler(undefined);
         await handler.handleLanguageServerChange(LanguageServerType.Node);
@@ -116,12 +114,12 @@ suite('Language Server - Change Handler', () => {
 
             when(
                 appShell.showWarningMessage(
-                    Pylance.pylanceRevertToJediPrompt(),
-                    Pylance.pylanceInstallPylance(),
-                    Pylance.pylanceRevertToJedi(),
-                    Pylance.remindMeLater(),
+                    Pylance.pylanceRevertToJediPrompt,
+                    Pylance.pylanceInstallPylance,
+                    Pylance.pylanceRevertToJedi,
+                    Pylance.remindMeLater,
                 ),
-            ).thenReturn(Promise.resolve(Pylance.pylanceRevertToJedi()));
+            ).thenReturn(Promise.resolve(Pylance.pylanceRevertToJedi));
 
             when(workspace.getConfiguration('python')).thenReturn(instance(configuration));
 
@@ -137,14 +135,14 @@ suite('Language Server - Change Handler', () => {
             await handler.handleLanguageServerChange(LanguageServerType.Node);
 
             verify(
-                appShell.showInformationMessage(LanguageService.reloadAfterLanguageServerChange(), Common.reload()),
+                appShell.showInformationMessage(LanguageService.reloadAfterLanguageServerChange, Common.reload),
             ).never();
             verify(
                 appShell.showWarningMessage(
-                    Pylance.pylanceRevertToJediPrompt(),
-                    Pylance.pylanceInstallPylance(),
-                    Pylance.pylanceRevertToJedi(),
-                    Pylance.remindMeLater(),
+                    Pylance.pylanceRevertToJediPrompt,
+                    Pylance.pylanceInstallPylance,
+                    Pylance.pylanceRevertToJedi,
+                    Pylance.remindMeLater,
                 ),
             ).once();
             verify(configService.updateSetting('languageServer', LanguageServerType.Jedi, undefined, target)).once();
@@ -158,12 +156,12 @@ suite('Language Server - Change Handler', () => {
 
             when(
                 appShell.showWarningMessage(
-                    Pylance.pylanceRevertToJediPrompt(),
-                    Pylance.pylanceInstallPylance(),
-                    Pylance.pylanceRevertToJedi(),
-                    Pylance.remindMeLater(),
+                    Pylance.pylanceRevertToJediPrompt,
+                    Pylance.pylanceInstallPylance,
+                    Pylance.pylanceRevertToJedi,
+                    Pylance.remindMeLater,
                 ),
-            ).thenReturn(Promise.resolve(Pylance.pylanceRevertToJedi()));
+            ).thenReturn(Promise.resolve(Pylance.pylanceRevertToJedi));
 
             when(workspace.getConfiguration('python')).thenReturn(instance(configuration));
 
@@ -179,14 +177,14 @@ suite('Language Server - Change Handler', () => {
             await handler.handleLanguageServerChange(LanguageServerType.Node);
 
             verify(
-                appShell.showInformationMessage(LanguageService.reloadAfterLanguageServerChange(), Common.reload()),
+                appShell.showInformationMessage(LanguageService.reloadAfterLanguageServerChange, Common.reload),
             ).never();
             verify(
                 appShell.showWarningMessage(
-                    Pylance.pylanceRevertToJediPrompt(),
-                    Pylance.pylanceInstallPylance(),
-                    Pylance.pylanceRevertToJedi(),
-                    Pylance.remindMeLater(),
+                    Pylance.pylanceRevertToJediPrompt,
+                    Pylance.pylanceInstallPylance,
+                    Pylance.pylanceRevertToJedi,
+                    Pylance.remindMeLater,
                 ),
             ).once();
             verify(configService.updateSetting(anything(), anything(), anything(), anything())).never();

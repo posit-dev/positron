@@ -16,7 +16,6 @@ import { Channel } from '../../../client/common/constants';
 import { ExperimentService } from '../../../client/common/experiments/service';
 import { PersistentState } from '../../../client/common/persistentState';
 import { IPersistentStateFactory } from '../../../client/common/types';
-import { Experiments } from '../../../client/common/utils/localize';
 import { registerLogger } from '../../../client/logging';
 import { OutputChannelLogger } from '../../../client/logging/outputChannelLogger';
 import * as Telemetry from '../../../client/telemetry';
@@ -158,7 +157,7 @@ suite('Experimentation service', () => {
                 instance(stateFactory),
             );
             await exp.activate();
-            const output = `${Experiments.inGroup().format('pythonExperiment')}\n`;
+            const output = "Experiment 'pythonExperiment' is active\n";
 
             assert.strictEqual(outputChannel.output, output);
         });

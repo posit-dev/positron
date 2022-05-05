@@ -72,7 +72,7 @@ suite('Application Diagnostics - Pylance informational prompt', () => {
         const diagnostics = await diagnosticService.diagnose(undefined);
 
         assert.deepStrictEqual(diagnostics, [
-            new PylanceDefaultDiagnostic(Diagnostics.pylanceDefaultMessage(), undefined),
+            new PylanceDefaultDiagnostic(Diagnostics.pylanceDefaultMessage, undefined),
         ]);
     });
 
@@ -111,7 +111,7 @@ suite('Application Diagnostics - Pylance informational prompt', () => {
 
         assert.notDeepStrictEqual(messagePrompt, undefined);
         assert.notDeepStrictEqual(messagePrompt!.onClose, undefined);
-        assert.deepStrictEqual(messagePrompt!.commandPrompts, [{ prompt: Common.ok() }]);
+        assert.deepStrictEqual(messagePrompt!.commandPrompts, [{ prompt: Common.ok }]);
     });
 
     test('Should return empty diagnostics if the diagnostic code has been ignored', async () => {

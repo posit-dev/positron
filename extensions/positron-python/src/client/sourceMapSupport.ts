@@ -26,8 +26,8 @@ export class SourceMapSupport {
         await this.enableSourceMaps(true);
         require('source-map-support').install();
         const localize = require('./common/utils/localize') as typeof import('./common/utils/localize');
-        const disable = localize.Diagnostics.disableSourceMaps();
-        this.vscode.window.showWarningMessage(localize.Diagnostics.warnSourceMaps(), disable).then((selection) => {
+        const disable = localize.Diagnostics.disableSourceMaps;
+        this.vscode.window.showWarningMessage(localize.Diagnostics.warnSourceMaps, disable).then((selection) => {
             if (selection === disable) {
                 this.disable().ignoreErrors();
             }

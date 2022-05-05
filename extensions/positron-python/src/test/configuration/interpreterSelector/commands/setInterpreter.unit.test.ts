@@ -122,7 +122,7 @@ suite('Set Interpreter Command', () => {
         };
         const defaultInterpreterPath = 'defaultInterpreterPath';
         const defaultInterpreterPathSuggestion = {
-            label: `${Octicons.Gear} ${InterpreterQuickPickList.defaultInterpreterPath.label()}`,
+            label: `${Octicons.Gear} ${InterpreterQuickPickList.defaultInterpreterPath.label}`,
             description: defaultInterpreterPath,
             path: defaultInterpreterPath,
             alwaysShow: true,
@@ -141,7 +141,7 @@ suite('Set Interpreter Command', () => {
             } as PythonEnvironment,
         };
         const expectedEnterInterpreterPathSuggestion = {
-            label: `${Octicons.Add} ${InterpreterQuickPickList.enterPath.label()}`,
+            label: `${Octicons.Add} ${InterpreterQuickPickList.enterPath.label}`,
             alwaysShow: true,
         };
         const currentPythonPath = 'python';
@@ -228,12 +228,12 @@ suite('Set Interpreter Command', () => {
                 recommended,
             ];
             const expectedParameters: IQuickPickParameters<QuickPickItem> = {
-                placeholder: InterpreterQuickPickList.quickPickListPlaceholder().format(currentPythonPath),
+                placeholder: `Selected Interpreter: ${currentPythonPath}`,
                 items: suggestions,
                 activeItem: recommended,
                 matchOnDetail: true,
                 matchOnDescription: true,
-                title: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                title: InterpreterQuickPickList.browsePath.openButtonLabel,
                 sortByLabel: true,
                 keepScrollPosition: true,
             };
@@ -343,12 +343,12 @@ suite('Set Interpreter Command', () => {
                 interpreterItems[5],
             ];
             const expectedParameters: IQuickPickParameters<QuickPickItem> = {
-                placeholder: InterpreterQuickPickList.quickPickListPlaceholder().format(currentPythonPath),
+                placeholder: `Selected Interpreter: ${currentPythonPath}`,
                 items: suggestions,
                 activeItem: recommended,
                 matchOnDetail: true,
                 matchOnDescription: true,
-                title: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                title: InterpreterQuickPickList.browsePath.openButtonLabel,
                 sortByLabel: true,
                 keepScrollPosition: true,
             };
@@ -418,7 +418,7 @@ suite('Set Interpreter Command', () => {
             const separator = { label: EnvGroups.Recommended, kind: QuickPickItemKind.Separator };
 
             const defaultPathSuggestion = {
-                label: `${Octicons.Gear} ${InterpreterQuickPickList.defaultInterpreterPath.label()}`,
+                label: `${Octicons.Gear} ${InterpreterQuickPickList.defaultInterpreterPath.label}`,
                 description: expandedDetail,
                 path: expandedPath,
                 alwaysShow: true,
@@ -426,12 +426,12 @@ suite('Set Interpreter Command', () => {
 
             const suggestions = [expectedEnterInterpreterPathSuggestion, defaultPathSuggestion, separator, recommended];
             const expectedParameters: IQuickPickParameters<QuickPickItem> = {
-                placeholder: InterpreterQuickPickList.quickPickListPlaceholder().format(currentPythonPath),
+                placeholder: `Selected Interpreter: ${currentPythonPath}`,
                 items: suggestions,
                 activeItem: recommended,
                 matchOnDetail: true,
                 matchOnDescription: true,
-                title: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                title: InterpreterQuickPickList.browsePath.openButtonLabel,
                 sortByLabel: true,
                 keepScrollPosition: true,
             };
@@ -549,7 +549,7 @@ suite('Set Interpreter Command', () => {
 
             const recommended = cloneDeep(refreshedItem);
             recommended.label = `${Octicons.Star} ${refreshedItem.label}`;
-            recommended.description = `${interpreterPath} - ${Common.recommended()}`;
+            recommended.description = `${interpreterPath} - ${Common.recommended}`;
             assert.deepStrictEqual(
                 quickPick,
                 {
@@ -676,12 +676,12 @@ suite('Set Interpreter Command', () => {
     suite('Test method _enterOrBrowseInterpreterPath()', async () => {
         const items: QuickPickItem[] = [
             {
-                label: InterpreterQuickPickList.browsePath.label(),
-                detail: InterpreterQuickPickList.browsePath.detail(),
+                label: InterpreterQuickPickList.browsePath.label,
+                detail: InterpreterQuickPickList.browsePath.detail,
             },
         ];
         const expectedParameters = {
-            placeholder: InterpreterQuickPickList.enterPath.placeholder(),
+            placeholder: InterpreterQuickPickList.enterPath.placeholder,
             items,
             acceptFilterBoxTextAsSelection: true,
         };
@@ -732,9 +732,9 @@ suite('Set Interpreter Command', () => {
             filtersObject[filtersKey] = ['exe'];
             const expectedParams = {
                 filters: filtersObject,
-                openLabel: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
-                title: InterpreterQuickPickList.browsePath.title(),
+                title: InterpreterQuickPickList.browsePath.title,
             };
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
             multiStepInput.setup((i) => i.showQuickPick(TypeMoq.It.isAny())).returns(() => Promise.resolve(items[0]));
@@ -753,9 +753,9 @@ suite('Set Interpreter Command', () => {
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
             const expectedParams = {
                 filters: undefined,
-                openLabel: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
-                title: InterpreterQuickPickList.browsePath.title(),
+                title: InterpreterQuickPickList.browsePath.title,
             };
             multiStepInput.setup((i) => i.showQuickPick(TypeMoq.It.isAny())).returns(() => Promise.resolve(items[0]));
             appShell.setup((a) => a.showOpenDialog(expectedParams)).verifiable(TypeMoq.Times.once());
@@ -806,9 +806,9 @@ suite('Set Interpreter Command', () => {
                 const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
                 const expectedParams = {
                     filters: undefined,
-                    openLabel: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                    openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                     canSelectMany: false,
-                    title: InterpreterQuickPickList.browsePath.title(),
+                    title: InterpreterQuickPickList.browsePath.title,
                 };
                 multiStepInput
                     .setup((i) => i.showQuickPick(TypeMoq.It.isAny()))
@@ -1004,7 +1004,7 @@ suite('Set Interpreter Command', () => {
                     detail: 'python',
                 },
                 {
-                    label: Interpreters.entireWorkspace(),
+                    label: Interpreters.entireWorkspace,
                     uri: folder1.uri,
                 },
             ];
@@ -1073,7 +1073,7 @@ suite('Set Interpreter Command', () => {
                     detail: 'python',
                 },
                 {
-                    label: Interpreters.entireWorkspace(),
+                    label: Interpreters.entireWorkspace,
                     uri: folder1.uri,
                 },
             ];
@@ -1090,7 +1090,7 @@ suite('Set Interpreter Command', () => {
                 .setup((s) => s.showQuickPick(TypeMoq.It.isValue(expectedItems), TypeMoq.It.isAny()))
                 .returns(() =>
                     Promise.resolve({
-                        label: Interpreters.entireWorkspace(),
+                        label: Interpreters.entireWorkspace,
                         uri: folder1.uri,
                     }),
                 )
@@ -1134,7 +1134,7 @@ suite('Set Interpreter Command', () => {
                     detail: 'python',
                 },
                 {
-                    label: Interpreters.entireWorkspace(),
+                    label: Interpreters.entireWorkspace,
                     uri: folder1.uri,
                 },
             ];

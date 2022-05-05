@@ -98,10 +98,10 @@ export class UnitTestManagementService implements IExtensionActivationService {
                     // Once that is fixed delete this notification and test should be configured from the test view.
                     const app = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
                     const response = await app.showInformationMessage(
-                        Testing.testNotConfigured(),
-                        Testing.configureTests(),
+                        Testing.testNotConfigured,
+                        Testing.configureTests,
                     );
-                    if (response === Testing.configureTests()) {
+                    if (response === Testing.configureTests) {
                         await commandManager.executeCommand(
                             constants.Commands.Tests_Configure,
                             undefined,

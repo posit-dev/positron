@@ -46,14 +46,14 @@ export class TensorBoardPrompt {
 
     public async showNativeTensorBoardPrompt(trigger: TensorBoardEntrypointTrigger): Promise<void> {
         if (this.enabled && this.enabledInCurrentSession && !this.waitingForUserSelection) {
-            const yes = Common.bannerLabelYes();
-            const no = Common.bannerLabelNo();
-            const doNotAskAgain = Common.doNotShowAgain();
+            const yes = Common.bannerLabelYes;
+            const no = Common.bannerLabelNo;
+            const doNotAskAgain = Common.doNotShowAgain;
             const options = [yes, no, doNotAskAgain];
             this.waitingForUserSelection = true;
             this.sendTelemetryOnce(trigger);
             const selection = await this.applicationShell.showInformationMessage(
-                TensorBoard.nativeTensorBoardPrompt(),
+                TensorBoard.nativeTensorBoardPrompt,
                 ...options,
             );
             this.waitingForUserSelection = false;

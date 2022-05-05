@@ -28,10 +28,10 @@ suite('Debugging - Configuration Provider Module', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.module.snippet.name(),
+            name: DebugConfigStrings.module.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
-            module: DebugConfigStrings.module.snippet.default(),
+            module: DebugConfigStrings.module.snippet.default,
             justMyCode: true,
         };
 
@@ -47,7 +47,7 @@ suite('Debugging - Configuration Provider Module', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.module.snippet.name(),
+            name: DebugConfigStrings.module.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'hello',

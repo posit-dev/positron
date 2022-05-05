@@ -141,7 +141,7 @@ suite('Application Diagnostics - Jedi with Python 2.7 deprecated', () => {
             const diagnostic = result[0];
 
             assert.strictEqual(result.length, 1);
-            assert.strictEqual(diagnostic.message, Python27Support.jediMessage());
+            assert.strictEqual(diagnostic.message, Python27Support.jediMessage);
         });
 
         test('Should return a diagnostics array with one diagnostic if the language server is Jedi', async () => {
@@ -175,7 +175,7 @@ suite('Application Diagnostics - Jedi with Python 2.7 deprecated', () => {
             const diagnostic = result[0];
 
             assert.strictEqual(result.length, 1);
-            assert.strictEqual(diagnostic.message, Python27Support.jediMessage());
+            assert.strictEqual(diagnostic.message, Python27Support.jediMessage);
         });
 
         test('Should return an empty diagnostics array if the language server is Pylance', async () => {

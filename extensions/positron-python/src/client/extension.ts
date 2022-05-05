@@ -28,6 +28,7 @@ initializeFileLogging(logDispose);
 //===============================================
 // loading starts here
 
+import '../setupNls';
 import { ProgressLocation, ProgressOptions, window } from 'vscode';
 import { buildApi } from './api';
 import { IApplicationShell, IWorkspaceService } from './common/application/types';
@@ -164,7 +165,7 @@ async function activateUnsafe(
 }
 
 function displayProgress(promise: Promise<any>) {
-    const progressOptions: ProgressOptions = { location: ProgressLocation.Window, title: Common.loadingExtension() };
+    const progressOptions: ProgressOptions = { location: ProgressLocation.Window, title: Common.loadingExtension };
     window.withProgress(progressOptions, () => promise);
 }
 

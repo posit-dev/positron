@@ -22,7 +22,7 @@ suite('Debugging - Configuration Provider File', () => {
         await provider.buildConfiguration(undefined as any, state);
 
         const config = {
-            name: DebugConfigStrings.attachPid.snippet.name(),
+            name: DebugConfigStrings.attachPid.snippet.name,
             type: DebuggerTypeName,
             request: 'attach',
             processId: '${command:pickProcess}',

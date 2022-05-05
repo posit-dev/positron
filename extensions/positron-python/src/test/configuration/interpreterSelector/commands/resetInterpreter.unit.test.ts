@@ -91,7 +91,7 @@ suite('Reset Interpreter Command', () => {
         test('Update selected workspace folder settings when there is more than one workspace folder', async () => {
             workspace.setup((w) => w.workspaceFolders).returns(() => [folder1, folder2]);
             const expectedItems = [
-                { label: Common.clearAll() },
+                { label: Common.clearAll },
                 {
                     label: 'one',
                     description: path.dirname(folder1.uri.fsPath),
@@ -105,7 +105,7 @@ suite('Reset Interpreter Command', () => {
                     detail: 'pythonPath',
                 },
                 {
-                    label: Interpreters.clearAtWorkspace(),
+                    label: Interpreters.clearAtWorkspace,
                     uri: folder1.uri,
                 },
             ];
@@ -141,7 +141,7 @@ suite('Reset Interpreter Command', () => {
         test('Update entire workspace settings when there is more than one workspace folder and `Select at workspace level` is selected', async () => {
             workspace.setup((w) => w.workspaceFolders).returns(() => [folder1, folder2]);
             const expectedItems = [
-                { label: Common.clearAll() },
+                { label: Common.clearAll },
                 {
                     label: 'one',
                     description: path.dirname(folder1.uri.fsPath),
@@ -155,7 +155,7 @@ suite('Reset Interpreter Command', () => {
                     detail: 'pythonPath',
                 },
                 {
-                    label: Interpreters.clearAtWorkspace(),
+                    label: Interpreters.clearAtWorkspace,
                     uri: folder1.uri,
                 },
             ];
@@ -163,7 +163,7 @@ suite('Reset Interpreter Command', () => {
                 .setup((s) => s.showQuickPick(TypeMoq.It.isValue(expectedItems), TypeMoq.It.isAny()))
                 .returns(() =>
                     Promise.resolve({
-                        label: Interpreters.clearAtWorkspace(),
+                        label: Interpreters.clearAtWorkspace,
                         uri: folder1.uri,
                     }),
                 )
@@ -189,7 +189,7 @@ suite('Reset Interpreter Command', () => {
         test('Update all folders and workspace scope if `Clear all` is selected', async () => {
             workspace.setup((w) => w.workspaceFolders).returns(() => [folder1, folder2]);
             const expectedItems = [
-                { label: Common.clearAll() },
+                { label: Common.clearAll },
                 {
                     label: 'one',
                     description: path.dirname(folder1.uri.fsPath),
@@ -203,7 +203,7 @@ suite('Reset Interpreter Command', () => {
                     detail: 'pythonPath',
                 },
                 {
-                    label: Interpreters.clearAtWorkspace(),
+                    label: Interpreters.clearAtWorkspace,
                     uri: folder1.uri,
                 },
             ];
@@ -211,7 +211,7 @@ suite('Reset Interpreter Command', () => {
                 .setup((s) => s.showQuickPick(TypeMoq.It.isValue(expectedItems), TypeMoq.It.isAny()))
                 .returns(() =>
                     Promise.resolve({
-                        label: Common.clearAll(),
+                        label: Common.clearAll,
                         uri: folder1.uri,
                     }),
                 )
@@ -260,7 +260,7 @@ suite('Reset Interpreter Command', () => {
             workspace.setup((w) => w.workspaceFolders).returns(() => [folder1, folder2]);
 
             const expectedItems = [
-                { label: Common.clearAll() },
+                { label: Common.clearAll },
                 {
                     label: 'one',
                     description: path.dirname(folder1.uri.fsPath),
@@ -274,7 +274,7 @@ suite('Reset Interpreter Command', () => {
                     detail: 'pythonPath',
                 },
                 {
-                    label: Interpreters.clearAtWorkspace(),
+                    label: Interpreters.clearAtWorkspace,
                     uri: folder1.uri,
                 },
             ];

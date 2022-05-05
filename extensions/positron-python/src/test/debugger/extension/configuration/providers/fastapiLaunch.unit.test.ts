@@ -56,7 +56,7 @@ suite('Debugging - Configuration Provider FastAPI', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.fastapi.snippet.name(),
+            name: DebugConfigStrings.fastapi.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'uvicorn',
@@ -77,7 +77,7 @@ suite('Debugging - Configuration Provider FastAPI', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.fastapi.snippet.name(),
+            name: DebugConfigStrings.fastapi.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'uvicorn',

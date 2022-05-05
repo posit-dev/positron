@@ -4,12 +4,14 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
+import * as nls from 'vscode-nls';
 import { IPlatformService } from '../../../common/platform/types';
 import { IProcessServiceFactory } from '../../../common/process/types';
-import { AttachProcess as AttachProcessLocalization } from '../../../common/utils/localize';
 import { PsProcessParser } from './psProcessParser';
 import { IAttachItem, IAttachProcessProvider, ProcessListCommand } from './types';
 import { WmicProcessParser } from './wmicProcessParser';
+
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 @injectable()
 export class AttachProcessProvider implements IAttachProcessProvider {
@@ -69,7 +71,13 @@ export class AttachProcessProvider implements IAttachProcessProvider {
         } else if (this.platformService.isWindows) {
             processCmd = WmicProcessParser.wmicCommand;
         } else {
-            throw new Error(AttachProcessLocalization.unsupportedOS().format(this.platformService.osType));
+            throw new Error(
+                localize(
+                    'AttachProcess.unsupportedOS',
+                    "Operating system '{0}' not supported.",
+                    this.platformService.osType,
+                ),
+            );
         }
 
         const processService = await this.processServiceFactory.create();

@@ -21,12 +21,14 @@ const flat = require('flat');
 const { argv } = require('yargs');
 const os = require('os');
 const rmrf = require('rimraf');
+const typescript = require('typescript');
+
+const tsProject = ts.createProject('./tsconfig.json', { typescript });
 
 const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined;
 
 gulp.task('compile', (done) => {
     let failed = false;
-    const tsProject = ts.createProject('tsconfig.json');
     tsProject
         .src()
         .pipe(tsProject())

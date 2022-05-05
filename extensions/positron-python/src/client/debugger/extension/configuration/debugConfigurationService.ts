@@ -108,44 +108,44 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
         type DebugConfigurationQuickPickItem = QuickPickItem & { type: DebugConfigurationType };
         const items: DebugConfigurationQuickPickItem[] = [
             {
-                label: DebugConfigStrings.file.selectConfiguration.label(),
+                label: DebugConfigStrings.file.selectConfiguration.label,
                 type: DebugConfigurationType.launchFile,
-                description: DebugConfigStrings.file.selectConfiguration.description(),
+                description: DebugConfigStrings.file.selectConfiguration.description,
             },
             {
-                label: DebugConfigStrings.module.selectConfiguration.label(),
+                label: DebugConfigStrings.module.selectConfiguration.label,
                 type: DebugConfigurationType.launchModule,
-                description: DebugConfigStrings.module.selectConfiguration.description(),
+                description: DebugConfigStrings.module.selectConfiguration.description,
             },
             {
-                label: DebugConfigStrings.attach.selectConfiguration.label(),
+                label: DebugConfigStrings.attach.selectConfiguration.label,
                 type: DebugConfigurationType.remoteAttach,
-                description: DebugConfigStrings.attach.selectConfiguration.description(),
+                description: DebugConfigStrings.attach.selectConfiguration.description,
             },
             {
-                label: DebugConfigStrings.attachPid.selectConfiguration.label(),
+                label: DebugConfigStrings.attachPid.selectConfiguration.label,
                 type: DebugConfigurationType.pidAttach,
-                description: DebugConfigStrings.attachPid.selectConfiguration.description(),
+                description: DebugConfigStrings.attachPid.selectConfiguration.description,
             },
             {
-                label: DebugConfigStrings.django.selectConfiguration.label(),
+                label: DebugConfigStrings.django.selectConfiguration.label,
                 type: DebugConfigurationType.launchDjango,
-                description: DebugConfigStrings.django.selectConfiguration.description(),
+                description: DebugConfigStrings.django.selectConfiguration.description,
             },
             {
-                label: DebugConfigStrings.fastapi.selectConfiguration.label(),
+                label: DebugConfigStrings.fastapi.selectConfiguration.label,
                 type: DebugConfigurationType.launchFastAPI,
-                description: DebugConfigStrings.fastapi.selectConfiguration.description(),
+                description: DebugConfigStrings.fastapi.selectConfiguration.description,
             },
             {
-                label: DebugConfigStrings.flask.selectConfiguration.label(),
+                label: DebugConfigStrings.flask.selectConfiguration.label,
                 type: DebugConfigurationType.launchFlask,
-                description: DebugConfigStrings.flask.selectConfiguration.description(),
+                description: DebugConfigStrings.flask.selectConfiguration.description,
             },
             {
-                label: DebugConfigStrings.pyramid.selectConfiguration.label(),
+                label: DebugConfigStrings.pyramid.selectConfiguration.label,
                 type: DebugConfigurationType.launchPyramid,
-                description: DebugConfigStrings.pyramid.selectConfiguration.description(),
+                description: DebugConfigStrings.pyramid.selectConfiguration.description,
             },
         ];
         state.config = {};
@@ -153,8 +153,8 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
             DebugConfigurationQuickPickItem,
             IQuickPickParameters<DebugConfigurationQuickPickItem>
         >({
-            title: DebugConfigStrings.selectConfiguration.title(),
-            placeholder: DebugConfigStrings.selectConfiguration.placeholder(),
+            title: DebugConfigStrings.selectConfiguration.title,
+            placeholder: DebugConfigStrings.selectConfiguration.placeholder,
             activeItem: items[0],
             items: items,
         });

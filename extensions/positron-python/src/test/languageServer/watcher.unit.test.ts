@@ -306,7 +306,7 @@ suite('Language server watcher', () => {
 
         await watcher.startLanguageServer(LanguageServerType.None);
 
-        assert.strictEqual(output, LanguageService.startingNone().format('workspace'));
+        assert.strictEqual(output, LanguageService.startingNone);
     });
 
     test(`When starting the language server, if the language server can be started, this.languageServerType should reflect the new language server type`, async () => {

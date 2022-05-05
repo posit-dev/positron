@@ -207,7 +207,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
             const shell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
             const progressOptions: ProgressOptions = {
                 location: ProgressLocation.Window,
-                title: `[${Interpreters.installingPython()}](command:${Commands.ViewOutput})`,
+                title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
             };
             traceLog('Conda envs without Python are known to not work well; fixing conda environment...');
             const promise = installer.install(Product.python, await this.getInterpreterDetails(pythonPath));

@@ -46,7 +46,7 @@ suite('TensorBoard prompt', () => {
     });
 
     test('Disable prompt if user selects "Do not show again"', async () => {
-        await setupPromptWithOptions(true, Common.doNotShowAgain());
+        await setupPromptWithOptions(true, Common.doNotShowAgain);
         verify(persistentState.updateValue(false)).once();
     });
 

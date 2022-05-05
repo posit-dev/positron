@@ -67,7 +67,7 @@ export abstract class BaseInterpreterSelectorCommand implements IExtensionSingle
         let quickPickItems: WorkspaceSelectionQuickPickItem[] = options?.resetTarget
             ? [
                   {
-                      label: Common.clearAll(),
+                      label: Common.clearAll,
                   },
               ]
             : [];
@@ -85,7 +85,7 @@ export abstract class BaseInterpreterSelectorCommand implements IExtensionSingle
                 };
             }),
             {
-                label: options?.resetTarget ? Interpreters.clearAtWorkspace() : Interpreters.entireWorkspace(),
+                label: options?.resetTarget ? Interpreters.clearAtWorkspace : Interpreters.entireWorkspace,
                 uri: workspaceFolders[0].uri,
             },
         );
@@ -96,7 +96,7 @@ export abstract class BaseInterpreterSelectorCommand implements IExtensionSingle
                 : 'Select the workspace folder to set the interpreter',
         });
 
-        if (selection?.label === Common.clearAll()) {
+        if (selection?.label === Common.clearAll) {
             const folderTargets: {
                 folderUri: Resource;
                 configTarget: ConfigurationTarget;
@@ -111,7 +111,7 @@ export abstract class BaseInterpreterSelectorCommand implements IExtensionSingle
         }
 
         return selection
-            ? selection.label === Interpreters.entireWorkspace() || selection.label === Interpreters.clearAtWorkspace()
+            ? selection.label === Interpreters.entireWorkspace || selection.label === Interpreters.clearAtWorkspace
                 ? [{ folderUri: selection.uri, configTarget: ConfigurationTarget.Workspace }]
                 : [{ folderUri: selection.uri, configTarget: ConfigurationTarget.WorkspaceFolder }]
             : undefined;

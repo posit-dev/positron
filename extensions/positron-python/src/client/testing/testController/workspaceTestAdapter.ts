@@ -62,13 +62,13 @@ export class WorkspaceTestAdapter {
             sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, { tool: this.testProvider, failed: true });
 
             const cancel = token?.isCancellationRequested
-                ? Testing.cancelUnittestDiscovery()
-                : Testing.errorUnittestDiscovery();
+                ? Testing.cancelUnittestDiscovery
+                : Testing.errorUnittestDiscovery;
 
             traceError(`${cancel}\r\n`, ex);
 
             // Report also on the test view.
-            const message = util.format(`${cancel} ${Testing.seePythonOutput()}\r\n`, ex);
+            const message = util.format(`${cancel} ${Testing.seePythonOutput}\r\n`, ex);
             const options = buildErrorNodeOptions(this.workspaceUri, message);
             const errorNode = createErrorTestItem(testController, options);
             testController.items.add(errorNode);
@@ -88,11 +88,11 @@ export class WorkspaceTestAdapter {
         // Check if there were any errors in the discovery process.
         if (rawTestData.status === 'error') {
             const { errors } = rawTestData;
-            traceError(Testing.errorUnittestDiscovery(), '\r\n', errors!.join('\r\n\r\n'));
+            traceError(Testing.errorUnittestDiscovery, '\r\n', errors!.join('\r\n\r\n'));
 
             let errorNode = testController.items.get(`DiscoveryError:${workspacePath}`);
             const message = util.format(
-                `${Testing.errorUnittestDiscovery()} ${Testing.seePythonOutput()}\r\n`,
+                `${Testing.errorUnittestDiscovery} ${Testing.seePythonOutput}\r\n`,
                 errors!.join('\r\n\r\n'),
             );
 

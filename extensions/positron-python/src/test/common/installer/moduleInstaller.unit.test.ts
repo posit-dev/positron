@@ -37,7 +37,6 @@ import {
     Product,
 } from '../../../client/common/types';
 import { getNamesAndValues } from '../../../client/common/utils/enum';
-import { Products } from '../../../client/common/utils/localize';
 import { noop } from '../../../client/common/utils/misc';
 import { Architecture } from '../../../client/common/utils/platform';
 import { IComponentAdapter, ICondaService, IInterpreterService } from '../../../client/interpreter/contracts';
@@ -540,7 +539,7 @@ suite('Module Installer', () => {
                                             const options = {
                                                 location: ProgressLocation.Notification,
                                                 cancellable: true,
-                                                title: Products.installingModule().format(product.name),
+                                                title: `Installing ${product.name}`,
                                             };
                                             appShell
                                                 .setup((a) => a.withProgress(TypeMoq.It.isAny(), TypeMoq.It.isAny()))

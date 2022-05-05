@@ -21,7 +21,7 @@ export class PidAttachDebugConfigurationProvider implements IDebugConfigurationP
     )
     public async buildConfiguration(_input: MultiStepInput<DebugConfigurationState>, state: DebugConfigurationState) {
         const config: Partial<AttachRequestArguments> = {
-            name: DebugConfigStrings.attachPid.snippet.name(),
+            name: DebugConfigStrings.attachPid.snippet.name,
             type: DebuggerTypeName,
             request: 'attach',
             processId: '${command:pickProcess}',

@@ -23,8 +23,8 @@ export class ReloadVSCodeCommandHandler implements IExtensionSingleActivationSer
         this.commandManager.registerCommand('python.reloadVSCode', this.onReloadVSCode, this);
     }
     private async onReloadVSCode(message: string) {
-        const item = await this.appShell.showInformationMessage(message, Common.reload());
-        if (item === Common.reload()) {
+        const item = await this.appShell.showInformationMessage(message, Common.reload);
+        if (item === Common.reload) {
             this.commandManager.executeCommand('workbench.action.reloadWindow').then(noop, noop);
         }
     }

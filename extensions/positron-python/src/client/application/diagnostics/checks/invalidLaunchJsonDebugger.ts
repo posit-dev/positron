@@ -17,9 +17,9 @@ import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '.
 import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../types';
 
 const messages = {
-    [DiagnosticCodes.InvalidDebuggerTypeDiagnostic]: Diagnostics.invalidDebuggerTypeDiagnostic(),
-    [DiagnosticCodes.JustMyCodeDiagnostic]: Diagnostics.justMyCodeDiagnostic(),
-    [DiagnosticCodes.ConsoleTypeDiagnostic]: Diagnostics.consoleTypeDiagnostic(),
+    [DiagnosticCodes.InvalidDebuggerTypeDiagnostic]: Diagnostics.invalidDebuggerTypeDiagnostic,
+    [DiagnosticCodes.JustMyCodeDiagnostic]: Diagnostics.justMyCodeDiagnostic,
+    [DiagnosticCodes.ConsoleTypeDiagnostic]: Diagnostics.consoleTypeDiagnostic,
     [DiagnosticCodes.ConfigPythonPathDiagnostic]: '',
 };
 
@@ -140,7 +140,7 @@ export class InvalidLaunchJsonDebuggerService extends BaseDiagnosticsService {
         }
         const commandPrompts = [
             {
-                prompt: Diagnostics.yesUpdateLaunch(),
+                prompt: Diagnostics.yesUpdateLaunch,
                 command: {
                     diagnostic,
                     invoke: async (): Promise<void> => {
@@ -149,7 +149,7 @@ export class InvalidLaunchJsonDebuggerService extends BaseDiagnosticsService {
                 },
             },
             {
-                prompt: Common.noIWillDoItLater(),
+                prompt: Common.noIWillDoItLater,
             },
         ];
 

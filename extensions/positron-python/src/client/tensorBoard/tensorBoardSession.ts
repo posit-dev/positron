@@ -23,6 +23,7 @@ import {
     window,
     workspace,
 } from 'vscode';
+import * as nls from 'vscode-nls';
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../common/application/types';
 import { createPromiseFromCancellation } from '../common/cancellation';
 import { tensorboardLauncher } from '../common/process/internal/scripts';
@@ -46,6 +47,8 @@ import { TensorBoardPromptSelection, TensorBoardSessionStartResult } from './con
 import { IMultiStepInputFactory } from '../common/utils/multiStepInput';
 import { ModuleInstallFlags } from '../common/installer/types';
 import { traceError, traceInfo } from '../logging';
+
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 enum Messages {
     JumpToSource = 'jump_to_source',
@@ -147,8 +150,8 @@ export class TensorBoardSession {
         profilerPluginInstallStatus: ProductInstallStatus,
     ) {
         sendTelemetryEvent(EventName.TENSORBOARD_INSTALL_PROMPT_SHOWN);
-        const yes = Common.bannerLabelYes();
-        const no = Common.bannerLabelNo();
+        const yes = Common.bannerLabelYes;
+        const no = Common.bannerLabelNo;
         const isUpgrade = tensorBoardInstallStatus === ProductInstallStatus.NeedsUpgrade;
         let message;
 
@@ -157,16 +160,16 @@ export class TensorBoardSession {
             profilerPluginInstallStatus !== ProductInstallStatus.Installed
         ) {
             // PyTorch user already has TensorBoard, just ask if they want the profiler plugin
-            message = TensorBoard.installProfilerPluginPrompt();
+            message = TensorBoard.installProfilerPluginPrompt;
         } else if (profilerPluginInstallStatus !== ProductInstallStatus.Installed) {
             // PyTorch user doesn't have compatible TensorBoard or the profiler plugin
-            message = TensorBoard.installTensorBoardAndProfilerPluginPrompt();
+            message = TensorBoard.installTensorBoardAndProfilerPluginPrompt;
         } else if (isUpgrade) {
             // Not a PyTorch user and needs upgrade, don't need to mention profiler plugin
-            message = TensorBoard.upgradePrompt();
+            message = TensorBoard.upgradePrompt;
         } else {
             // Not a PyTorch user and needs install, again don't need to mention profiler plugin
-            message = TensorBoard.installPrompt();
+            message = TensorBoard.installPrompt;
         }
         const selection = await this.applicationShell.showErrorMessage(message, ...[yes, no]);
         let telemetrySelection = TensorBoardPromptSelection.None;
@@ -222,10 +225,10 @@ export class TensorBoardSession {
             tensorboardInstallStatus,
             isTorchUser ? profilerPluginInstallStatus : ProductInstallStatus.Installed,
         );
-        if (selection !== Common.bannerLabelYes() && !needsTensorBoardInstall) {
+        if (selection !== Common.bannerLabelYes && !needsTensorBoardInstall) {
             return true;
         }
-        if (selection !== Common.bannerLabelYes()) {
+        if (selection !== Common.bannerLabelYes) {
             return false;
         }
 
@@ -309,25 +312,25 @@ export class TensorBoardSession {
 
         if (logDir) {
             const useCwd = {
-                label: TensorBoard.useCurrentWorkingDirectory(),
-                detail: TensorBoard.useCurrentWorkingDirectoryDetail(),
+                label: TensorBoard.useCurrentWorkingDirectory,
+                detail: TensorBoard.useCurrentWorkingDirectoryDetail,
             };
             const selectAnotherFolder = {
-                label: TensorBoard.selectAnotherFolder(),
-                detail: TensorBoard.selectAnotherFolderDetail(),
+                label: TensorBoard.selectAnotherFolder,
+                detail: TensorBoard.selectAnotherFolderDetail,
             };
             items.push(useCwd, selectAnotherFolder);
         } else {
             const selectAFolder = {
-                label: TensorBoard.selectAFolder(),
-                detail: TensorBoard.selectAFolderDetail(),
+                label: TensorBoard.selectAFolder,
+                detail: TensorBoard.selectAFolderDetail,
             };
             items.push(selectAFolder);
         }
 
         items.push({
-            label: TensorBoard.enterRemoteUrl(),
-            detail: TensorBoard.enterRemoteUrlDetail(),
+            label: TensorBoard.enterRemoteUrl,
+            detail: TensorBoard.enterRemoteUrlDetail,
         });
 
         return items;
@@ -346,15 +349,15 @@ export class TensorBoardSession {
         }
         // No log directory in settings. Ask the user which directory to use
         const logDir = this.autopopulateLogDirectoryPath();
-        const useCurrentWorkingDirectory = TensorBoard.useCurrentWorkingDirectory();
-        const selectAFolder = TensorBoard.selectAFolder();
-        const selectAnotherFolder = TensorBoard.selectAnotherFolder();
-        const enterRemoteUrl = TensorBoard.enterRemoteUrl();
+        const { useCurrentWorkingDirectory } = TensorBoard;
+        const { selectAFolder } = TensorBoard;
+        const { selectAnotherFolder } = TensorBoard;
+        const { enterRemoteUrl } = TensorBoard;
         const items: QuickPickItem[] = this.getQuickPickItems(logDir);
         const item = await this.applicationShell.showQuickPick(items, {
             canPickMany: false,
             ignoreFocusOut: false,
-            placeHolder: logDir ? TensorBoard.currentDirectory().format(logDir) : undefined,
+            placeHolder: logDir ? localize('TensorBoard.currentDirectory', 'Current: {0}', logDir) : undefined,
         });
         switch (item?.label) {
             case useCurrentWorkingDirectory:
@@ -364,7 +367,7 @@ export class TensorBoardSession {
                 return this.showFilePicker();
             case enterRemoteUrl:
                 return this.applicationShell.showInputBox({
-                    prompt: TensorBoard.enterRemoteUrlDetail(),
+                    prompt: TensorBoard.enterRemoteUrlDetail,
                 });
             default:
                 return undefined;
@@ -387,7 +390,7 @@ export class TensorBoardSession {
 
         // Display a progress indicator as TensorBoard takes at least a couple seconds to launch
         const progressOptions: ProgressOptions = {
-            title: TensorBoard.progressMessage(),
+            title: TensorBoard.progressMessage,
             location: ProgressLocation.Notification,
             cancellable: true,
         };
@@ -550,8 +553,8 @@ export class TensorBoardSession {
             // Prompt the user to pick the file on disk
             const items: QuickPickItem[] = [
                 {
-                    label: TensorBoard.selectMissingSourceFile(),
-                    description: TensorBoard.selectMissingSourceFileDescription(),
+                    label: TensorBoard.selectMissingSourceFile,
+                    description: TensorBoard.selectMissingSourceFileDescription,
                 },
             ];
             // Using a multistep so that we can add a title to the quickpick
@@ -559,11 +562,11 @@ export class TensorBoardSession {
             await multiStep.run(async (input) => {
                 const selection = await input.showQuickPick({
                     items,
-                    title: TensorBoard.missingSourceFile(),
+                    title: TensorBoard.missingSourceFile,
                     placeholder: fsPath,
                 });
                 switch (selection?.label) {
-                    case TensorBoard.selectMissingSourceFile(): {
+                    case TensorBoard.selectMissingSourceFile: {
                         const filePickerSelection = await this.applicationShell.showOpenDialog({
                             canSelectFiles: true,
                             canSelectFolders: false,

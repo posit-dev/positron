@@ -53,7 +53,7 @@ export class JediPython27NotSupportedDiagnosticService extends BaseDiagnosticsSe
         // We don't need to check for JediLSP here, because we retrieve the setting from the configuration service,
         // Which already switched the JediLSP option to Jedi.
         if (interpreter && (interpreter.version?.major ?? 0) < 3 && languageServer === LanguageServerType.Jedi) {
-            return [new JediPython27NotSupportedDiagnostic(Python27Support.jediMessage(), resource)];
+            return [new JediPython27NotSupportedDiagnostic(Python27Support.jediMessage, resource)];
         }
 
         return [];
@@ -71,10 +71,10 @@ export class JediPython27NotSupportedDiagnosticService extends BaseDiagnosticsSe
         const commandFactory = this.serviceContainer.get<IDiagnosticsCommandFactory>(IDiagnosticsCommandFactory);
         const options = [
             {
-                prompt: Common.gotIt(),
+                prompt: Common.gotIt,
             },
             {
-                prompt: Common.doNotShowAgain(),
+                prompt: Common.doNotShowAgain,
                 command: commandFactory.createCommand(diagnostic, { type: 'ignore', options: DiagnosticScope.Global }),
             },
         ];

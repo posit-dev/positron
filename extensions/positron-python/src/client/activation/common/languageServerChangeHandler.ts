@@ -16,15 +16,15 @@ export async function promptForPylanceInstall(
     configService: IConfigurationService,
 ): Promise<void> {
     const response = await appShell.showWarningMessage(
-        Pylance.pylanceRevertToJediPrompt(),
-        Pylance.pylanceInstallPylance(),
-        Pylance.pylanceRevertToJedi(),
-        Pylance.remindMeLater(),
+        Pylance.pylanceRevertToJediPrompt,
+        Pylance.pylanceInstallPylance,
+        Pylance.pylanceRevertToJedi,
+        Pylance.remindMeLater,
     );
 
-    if (response === Pylance.pylanceInstallPylance()) {
+    if (response === Pylance.pylanceInstallPylance) {
         commandManager.executeCommand('extension.open', PYLANCE_EXTENSION_ID);
-    } else if (response === Pylance.pylanceRevertToJedi()) {
+    } else if (response === Pylance.pylanceRevertToJedi) {
         const inspection = workspace.getConfiguration('python').inspect<string>('languageServer');
 
         let target: ConfigurationTarget | undefined;
