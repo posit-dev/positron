@@ -24,6 +24,10 @@ extends:
   template: azure-pipelines/extension/stable.yml@templates
   parameters:
     publishExtension: ${{ parameters.publishExtension }}
+
+    locTsConfigs: $(Build.SourcesDirectory)/tsconfig.json
+    locBundleDestination: $(Build.SourcesDirectory)/out/client
+
     buildSteps:
       - task: NodeTool@0
         inputs:

@@ -50,7 +50,7 @@ export class PythonPathDeprecatedDiagnosticService extends BaseDiagnosticsServic
         const isCodeWorkspaceSettingSet = this.workspaceService.workspaceFile && setting.workspaceValue !== undefined;
         const isSettingsJsonSettingSet = setting.workspaceFolderValue !== undefined;
         if (isCodeWorkspaceSettingSet || isSettingsJsonSettingSet) {
-            return [new PythonPathDeprecatedDiagnostic(Diagnostics.removedPythonPathFromSettings(), resource)];
+            return [new PythonPathDeprecatedDiagnostic(Diagnostics.removedPythonPathFromSettings, resource)];
         }
         return [];
     }
@@ -66,7 +66,7 @@ export class PythonPathDeprecatedDiagnosticService extends BaseDiagnosticsServic
         const commandFactory = this.serviceContainer.get<IDiagnosticsCommandFactory>(IDiagnosticsCommandFactory);
         const options = [
             {
-                prompt: Common.ok(),
+                prompt: Common.ok,
             },
         ];
         const command = commandFactory.createCommand(diagnostic, { type: 'ignore', options: DiagnosticScope.Global });

@@ -79,12 +79,12 @@ suite('Partial Mode Status', async () => {
             language: 'python',
         });
         assert.deepEqual(languageItem, ({
-            name: LanguageService.statusItem.name(),
+            name: LanguageService.statusItem.name,
             severity: vscodeMock.LanguageStatusSeverity.Warning,
-            text: LanguageService.statusItem.text(),
-            detail: LanguageService.statusItem.detail(),
+            text: LanguageService.statusItem.text,
+            detail: LanguageService.statusItem.detail,
             command: {
-                title: Common.learnMore(),
+                title: Common.learnMore,
                 command: 'vscode.open',
                 arguments: ['https://aka.ms/AAdzyh4'],
             },
@@ -105,12 +105,12 @@ suite('Partial Mode Status', async () => {
             language: 'python',
         });
         assert.deepEqual(languageItem, ({
-            name: LanguageService.statusItem.name(),
+            name: LanguageService.statusItem.name,
             severity: vscodeMock.LanguageStatusSeverity.Warning,
-            text: LanguageService.statusItem.text(),
-            detail: LanguageService.virtualWorkspaceStatusItem.detail(),
+            text: LanguageService.statusItem.text,
+            detail: LanguageService.virtualWorkspaceStatusItem.detail,
             command: {
-                title: Common.learnMore(),
+                title: Common.learnMore,
                 command: 'vscode.open',
                 arguments: ['https://aka.ms/AAdzyh4'],
             },
@@ -131,12 +131,12 @@ suite('Partial Mode Status', async () => {
             language: 'python',
         });
         assert.deepEqual(languageItem, ({
-            name: LanguageService.statusItem.name(),
+            name: LanguageService.statusItem.name,
             severity: vscodeMock.LanguageStatusSeverity.Warning,
-            text: LanguageService.statusItem.text(),
-            detail: LanguageService.statusItem.detail(),
+            text: LanguageService.statusItem.text,
+            detail: LanguageService.statusItem.detail,
             command: {
-                title: Common.learnMore(),
+                title: Common.learnMore,
                 command: 'vscode.open',
                 arguments: ['https://aka.ms/AAdzyh4'],
             },

@@ -56,7 +56,7 @@ suite('Debugging - Configuration Provider Flask', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.flask.snippet.name(),
+            name: DebugConfigStrings.flask.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'flask',
@@ -81,7 +81,7 @@ suite('Debugging - Configuration Provider Flask', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.flask.snippet.name(),
+            name: DebugConfigStrings.flask.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'flask',
@@ -106,7 +106,7 @@ suite('Debugging - Configuration Provider Flask', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.flask.snippet.name(),
+            name: DebugConfigStrings.flask.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'flask',

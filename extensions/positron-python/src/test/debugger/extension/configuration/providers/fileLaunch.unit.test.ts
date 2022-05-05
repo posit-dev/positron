@@ -22,7 +22,7 @@ suite('Debugging - Configuration Provider File', () => {
         await provider.buildConfiguration(undefined as any, state);
 
         const config = {
-            name: DebugConfigStrings.file.snippet.name(),
+            name: DebugConfigStrings.file.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             program: '${file}',

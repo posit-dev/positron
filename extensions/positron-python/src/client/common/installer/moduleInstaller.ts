@@ -18,10 +18,12 @@ import * as internalPython from '../process/internal/python';
 import { IProcessServiceFactory } from '../process/types';
 import { ITerminalServiceFactory, TerminalCreationOptions } from '../terminal/types';
 import { ExecutionInfo, IConfigurationService, IOutputChannel, Product } from '../types';
-import { Products } from '../utils/localize';
 import { isResource } from '../utils/misc';
 import { ProductNames } from './productNames';
 import { IModuleInstaller, InstallOptions, InterpreterUri, ModuleInstallFlags } from './types';
+import * as nls from 'vscode-nls';
+
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 @injectable()
 export abstract class ModuleInstaller implements IModuleInstaller {
@@ -128,7 +130,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
             const options: ProgressOptions = {
                 location: ProgressLocation.Notification,
                 cancellable: true,
-                title: Products.installingModule().format(name),
+                title: localize('products.installingModule', 'Installing {0}', name),
             };
             await shell.withProgress(options, async (_, token: CancellationToken) =>
                 install(wrapCancellationTokens(token, cancel)),

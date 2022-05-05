@@ -377,7 +377,7 @@ suite('Conda Inherit Env Prompt', async () => {
     });
 
     suite('Method promptAndUpdate()', () => {
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.moreInfo()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.moreInfo];
         setup(() => {
             workspaceService = TypeMoq.Mock.ofType<IWorkspaceService>();
             appShell = TypeMoq.Mock.ofType<IApplicationShell>();
@@ -409,7 +409,7 @@ suite('Conda Inherit Env Prompt', async () => {
                 .returns(() => false)
                 .verifiable(TypeMoq.Times.once());
             appShell
-                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage(), ...prompts))
+                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage, ...prompts))
                 .returns(() => Promise.resolve(undefined))
                 .verifiable(TypeMoq.Times.never());
             await condaInheritEnvPrompt.promptAndUpdate();
@@ -424,7 +424,7 @@ suite('Conda Inherit Env Prompt', async () => {
                 .returns(() => true)
                 .verifiable(TypeMoq.Times.once());
             appShell
-                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage(), ...prompts))
+                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage, ...prompts))
                 .returns(() => Promise.resolve(undefined))
                 .verifiable(TypeMoq.Times.once());
             workspaceService
@@ -457,8 +457,8 @@ suite('Conda Inherit Env Prompt', async () => {
                 .returns(() => true)
                 .verifiable(TypeMoq.Times.once());
             appShell
-                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage(), ...prompts))
-                .returns(() => Promise.resolve(Common.bannerLabelYes()))
+                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage, ...prompts))
+                .returns(() => Promise.resolve(Common.bannerLabelYes))
                 .verifiable(TypeMoq.Times.once());
             workspaceService
                 .setup((ws) => ws.getConfiguration('terminal'))
@@ -490,8 +490,8 @@ suite('Conda Inherit Env Prompt', async () => {
                 .returns(() => true)
                 .verifiable(TypeMoq.Times.once());
             appShell
-                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage(), ...prompts))
-                .returns(() => Promise.resolve(Common.bannerLabelNo()))
+                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage, ...prompts))
+                .returns(() => Promise.resolve(Common.bannerLabelNo))
                 .verifiable(TypeMoq.Times.once());
             workspaceService
                 .setup((ws) => ws.getConfiguration('terminal'))
@@ -523,8 +523,8 @@ suite('Conda Inherit Env Prompt', async () => {
                 .returns(() => true)
                 .verifiable(TypeMoq.Times.once());
             appShell
-                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage(), ...prompts))
-                .returns(() => Promise.resolve(Common.moreInfo()))
+                .setup((a) => a.showInformationMessage(Interpreters.condaInheritEnvMessage, ...prompts))
+                .returns(() => Promise.resolve(Common.moreInfo))
                 .verifiable(TypeMoq.Times.once());
             workspaceService
                 .setup((ws) => ws.getConfiguration('terminal'))

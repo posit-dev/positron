@@ -177,7 +177,7 @@ suite('Application Diagnostics - Python Path Deprecated', () => {
             expect(messagePrompt).to.be.deep.equal({
                 commandPrompts: [
                     {
-                        prompt: Common.ok(),
+                        prompt: Common.ok,
                     },
                 ],
             });
@@ -244,7 +244,7 @@ suite('Application Diagnostics - Python Path Deprecated', () => {
 
             const diagnostics = await diagnosticService.diagnose(resource);
             expect(diagnostics.length).to.equal(1);
-            expect(diagnostics[0].message).to.equal(Diagnostics.removedPythonPathFromSettings());
+            expect(diagnostics[0].message).to.equal(Diagnostics.removedPythonPathFromSettings);
             expect(diagnostics[0].resource).to.equal(resource);
 
             workspaceService.verifyAll();
@@ -269,7 +269,7 @@ suite('Application Diagnostics - Python Path Deprecated', () => {
 
             const diagnostics = await diagnosticService.diagnose(resource);
             expect(diagnostics.length).to.equal(1);
-            expect(diagnostics[0].message).to.equal(Diagnostics.removedPythonPathFromSettings());
+            expect(diagnostics[0].message).to.equal(Diagnostics.removedPythonPathFromSettings);
             expect(diagnostics[0].resource).to.equal(resource);
 
             workspaceService.verifyAll();
@@ -294,7 +294,7 @@ suite('Application Diagnostics - Python Path Deprecated', () => {
 
             const diagnostics = await diagnosticService.diagnose(resource);
             expect(diagnostics.length).to.equal(1);
-            expect(diagnostics[0].message).to.equal(Diagnostics.removedPythonPathFromSettings());
+            expect(diagnostics[0].message).to.equal(Diagnostics.removedPythonPathFromSettings);
             expect(diagnostics[0].resource).to.equal(resource);
 
             workspaceService.verifyAll();

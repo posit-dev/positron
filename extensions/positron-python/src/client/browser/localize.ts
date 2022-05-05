@@ -6,7 +6,9 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 
 // IMPORTANT: Do not import any node fs related modules here, as they do not work in browser.
-import { getLocalizedString } from '../common/utils/localizeHelpers';
+import * as nls from 'vscode-nls';
+
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 export namespace LanguageService {
     export const statusItem = {
@@ -18,9 +20,4 @@ export namespace LanguageService {
 
 export namespace Common {
     export const learnMore = localize('Common.learnMore', 'Learn more');
-}
-
-function localize(key: string, defValue?: string) {
-    // Return a pointer to function so that we refetch it on each call.
-    return (): string => getLocalizedString(key, defValue);
 }

@@ -102,6 +102,6 @@ export class PylanceLSExtensionManager extends LanguageServerCapabilities
             this.configurationService,
         );
 
-        traceLog(Pylance.pylanceNotInstalledMessage());
+        traceLog(Pylance.pylanceNotInstalledMessage);
     }
 }

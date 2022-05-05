@@ -79,7 +79,7 @@ suite('Debugging - Configuration Provider Remote Attach', () => {
         }
 
         const config = {
-            name: DebugConfigStrings.attach.snippet.name(),
+            name: DebugConfigStrings.attach.snippet.name,
             type: DebuggerTypeName,
             request: 'attach',
             connect: {
@@ -115,7 +115,7 @@ suite('Debugging - Configuration Provider Remote Attach', () => {
         }
 
         const config = {
-            name: DebugConfigStrings.attach.snippet.name(),
+            name: DebugConfigStrings.attach.snippet.name,
             type: DebuggerTypeName,
             request: 'attach',
             connect: {

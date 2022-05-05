@@ -25,7 +25,7 @@ export class FlaskLaunchDebugConfigurationProvider implements IDebugConfiguratio
         const application = await this.getApplicationPath(state.folder);
         let manuallyEnteredAValue: boolean | undefined;
         const config: Partial<LaunchRequestArguments> = {
-            name: DebugConfigStrings.flask.snippet.name(),
+            name: DebugConfigStrings.flask.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'flask',
@@ -40,14 +40,14 @@ export class FlaskLaunchDebugConfigurationProvider implements IDebugConfiguratio
 
         if (!application) {
             const selectedApp = await input.showInputBox({
-                title: DebugConfigStrings.flask.enterAppPathOrNamePath.title(),
+                title: DebugConfigStrings.flask.enterAppPathOrNamePath.title,
                 value: 'app.py',
-                prompt: DebugConfigStrings.flask.enterAppPathOrNamePath.prompt(),
+                prompt: DebugConfigStrings.flask.enterAppPathOrNamePath.prompt,
                 validate: (value) =>
                     Promise.resolve(
                         value && value.trim().length > 0
                             ? undefined
-                            : DebugConfigStrings.flask.enterAppPathOrNamePath.invalid(),
+                            : DebugConfigStrings.flask.enterAppPathOrNamePath.invalid,
                     ),
             });
             if (selectedApp) {

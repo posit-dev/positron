@@ -61,7 +61,7 @@ export class InterpreterLocatorProgressStatubarHandler implements IExtensionSing
         const progressOptions: ProgressOptions = {
             location: ProgressLocation.Window,
             title: `[${
-                this.isFirstTimeLoadingInterpreters ? Interpreters.discovering() : Interpreters.refreshing()
+                this.isFirstTimeLoadingInterpreters ? Interpreters.discovering : Interpreters.refreshing
             }](command:${Commands.Set_Interpreter})`,
         };
         this.isFirstTimeLoadingInterpreters = false;

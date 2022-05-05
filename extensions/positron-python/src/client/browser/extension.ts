@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+import '../../setupNls';
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { LanguageClientOptions } from 'vscode-languageclient';
@@ -8,7 +9,6 @@ import { LanguageClient } from 'vscode-languageclient/browser';
 import { LanguageClientMiddlewareBase } from '../activation/languageClientMiddlewareBase';
 import { LanguageServerType } from '../activation/types';
 import { AppinsightsKey, PVSC_EXTENSION_ID, PYLANCE_EXTENSION_ID } from '../common/constants';
-import { loadLocalizedStringsForBrowser } from '../common/utils/localizeHelpers';
 import { EventName } from '../telemetry/constants';
 import { createStatusItem } from './intellisenseStatus';
 
@@ -19,8 +19,6 @@ interface BrowserConfig {
 let languageClient: LanguageClient | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    // Run in a promise and return early so that VS Code can go activate Pylance.
-    await loadLocalizedStringsForBrowser();
     const pylanceExtension = vscode.extensions.getExtension(PYLANCE_EXTENSION_ID);
     if (pylanceExtension) {
         await runPylance(context, pylanceExtension);

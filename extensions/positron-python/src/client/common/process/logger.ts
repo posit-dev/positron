@@ -27,7 +27,7 @@ export class ProcessLogger implements IProcessLogger {
             : fileOrCommand;
         const info = [`> ${this.getDisplayCommands(command)}`];
         if (options && options.cwd) {
-            info.push(`${Logging.currentWorkingDirectory()} ${this.getDisplayCommands(options.cwd)}`);
+            info.push(`${Logging.currentWorkingDirectory} ${this.getDisplayCommands(options.cwd)}`);
         }
 
         info.forEach((line) => {

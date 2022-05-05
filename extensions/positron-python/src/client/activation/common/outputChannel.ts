@@ -23,7 +23,7 @@ export class LanguageServerOutputChannel implements ILanguageServerOutputChannel
 
     public get channel(): IOutputChannel {
         if (!this.output) {
-            this.output = this.appShell.createOutputChannel(OutputChannelNames.languageServer());
+            this.output = this.appShell.createOutputChannel(OutputChannelNames.languageServer);
             this.registerCommand().ignoreErrors();
         }
         return this.output;

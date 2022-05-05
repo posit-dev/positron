@@ -52,9 +52,9 @@ export class CondaInheritEnvPrompt implements IExtensionActivationService {
         if (!notificationPromptEnabled.value) {
             return;
         }
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.moreInfo()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.moreInfo];
         const telemetrySelections: ['Yes', 'No', 'More Info'] = ['Yes', 'No', 'More Info'];
-        const selection = await this.appShell.showInformationMessage(Interpreters.condaInheritEnvMessage(), ...prompts);
+        const selection = await this.appShell.showInformationMessage(Interpreters.condaInheritEnvMessage, ...prompts);
         sendTelemetryEvent(EventName.CONDA_INHERIT_ENV_PROMPT, undefined, {
             selection: selection ? telemetrySelections[prompts.indexOf(selection)] : undefined,
         });

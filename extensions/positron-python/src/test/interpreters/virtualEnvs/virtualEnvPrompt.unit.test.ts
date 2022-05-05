@@ -63,7 +63,7 @@ suite('Virtual Environment Prompt', () => {
         const resource = Uri.file('a');
         const interpreter1 = { path: 'path/to/interpreter1' };
         const interpreter2 = { path: 'path/to/interpreter2' };
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
 
         when(componentAdapter.getWorkspaceVirtualEnvInterpreters(resource)).thenResolve([
@@ -88,7 +88,7 @@ suite('Virtual Environment Prompt', () => {
         const resource = Uri.file('a');
         const interpreter1 = { path: 'path/to/interpreter1' };
         const interpreter2 = { path: 'path/to/interpreter2' };
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
 
         // Return interpreters using the component adapter instead
@@ -117,7 +117,7 @@ suite('Virtual Environment Prompt', () => {
         const resource = Uri.file('a');
         const interpreter1 = { path: 'path/to/interpreter1' };
         const interpreter2 = { path: 'path/to/interpreter2' };
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
 
         // Return interpreters using the component adapter instead
@@ -142,7 +142,7 @@ suite('Virtual Environment Prompt', () => {
     test("If user selects 'Yes', python path is updated", async () => {
         const resource = Uri.file('a');
         const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
         when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
             notificationPromptEnabled.object,
@@ -177,7 +177,7 @@ suite('Virtual Environment Prompt', () => {
     test("If user selects 'No', no operation is performed", async () => {
         const resource = Uri.file('a');
         const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
         when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
             notificationPromptEnabled.object,
@@ -217,7 +217,7 @@ suite('Virtual Environment Prompt', () => {
     test("If user selects 'Do not show again', prompt is disabled", async () => {
         const resource = Uri.file('a');
         const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
         when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
             notificationPromptEnabled.object,
@@ -241,7 +241,7 @@ suite('Virtual Environment Prompt', () => {
     test('If prompt is disabled, no notification is shown', async () => {
         const resource = Uri.file('a');
         const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes(), Common.bannerLabelNo(), Common.doNotShowAgain()];
+        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
         when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
             notificationPromptEnabled.object,

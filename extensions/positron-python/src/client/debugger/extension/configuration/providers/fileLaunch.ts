@@ -21,7 +21,7 @@ export class FileLaunchDebugConfigurationProvider implements IDebugConfiguration
     )
     public async buildConfiguration(_input: MultiStepInput<DebugConfigurationState>, state: DebugConfigurationState) {
         const config: Partial<LaunchRequestArguments> = {
-            name: DebugConfigStrings.file.snippet.name(),
+            name: DebugConfigStrings.file.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             program: '${file}',

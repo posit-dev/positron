@@ -44,7 +44,7 @@ export class TensorBoardNbextensionCodeLensProvider implements IExtensionSingleA
 
     public provideCodeLenses(document: TextDocument, cancelToken: CancellationToken): CodeLens[] {
         const command: Command = {
-            title: TensorBoard.launchNativeTensorBoardSessionCodeLens(),
+            title: TensorBoard.launchNativeTensorBoardSessionCodeLens,
             command: Commands.LaunchTensorBoard,
             arguments: [
                 { trigger: TensorBoardEntrypointTrigger.nbextension, entrypoint: TensorBoardEntrypoint.codelens },

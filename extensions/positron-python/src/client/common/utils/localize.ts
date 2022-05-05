@@ -3,8 +3,9 @@
 
 'use strict';
 
-import { FileSystem } from '../platform/fileSystem';
-import { getLocalizedString, loadLocalizedStringsUsingNodeFS, shouldLoadUsingNodeFS } from './localizeHelpers';
+import * as nls from 'vscode-nls';
+
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 /* eslint-disable @typescript-eslint/no-namespace, no-shadow */
 
@@ -98,7 +99,6 @@ export namespace CommonSurvey {
 }
 
 export namespace AttachProcess {
-    export const unsupportedOS = localize('AttachProcess.unsupportedOS', "Operating system '{0}' not supported.");
     export const attachTitle = localize('AttachProcess.attachTitle', 'Attach to process');
     export const selectProcessPlaceholder = localize(
         'AttachProcess.selectProcessPlaceholder',
@@ -142,16 +142,11 @@ export namespace TensorBoard {
         'TensorBoard.useCurrentWorkingDirectory',
         'Use current working directory',
     );
-    export const currentDirectory = localize('TensorBoard.currentDirectory', 'Current: {0}');
     export const logDirectoryPrompt = localize(
         'TensorBoard.logDirectoryPrompt',
         'Select a log directory to start TensorBoard with',
     );
     export const progressMessage = localize('TensorBoard.progressMessage', 'Starting TensorBoard session...');
-    export const failedToStartSessionError = localize(
-        'TensorBoard.failedToStartSessionError',
-        'We failed to start a TensorBoard session due to the following error: {0}',
-    );
     export const nativeTensorBoardPrompt = localize(
         'TensorBoard.nativeTensorBoardPrompt',
         'VS Code now has integrated TensorBoard support. Would you like to launch TensorBoard?  (Tip: Launch TensorBoard anytime by opening the command palette and searching for "Launch TensorBoard".)',
@@ -214,7 +209,6 @@ export namespace LanguageService {
         detail: localize('LanguageService.statusItem.detail', 'Limited IntelliSense provided by Pylance'),
     };
     export const startingPylance = localize('LanguageService.startingPylance', 'Starting Pylance language server.');
-    export const startingJedi = localize('LanguageService.startingJedi', 'Starting Jedi language server for {0}.');
     export const startingNone = localize(
         'LanguageService.startingNone',
         'Editor support is inactive since language server is set to None.',
@@ -259,15 +253,6 @@ export namespace LanguageService {
         'Search paths have changed for this Python interpreter. Please reload the extension to ensure that the IntelliSense works correctly.',
     );
 }
-
-export namespace Http {
-    export const downloadingFile = localize('downloading.file', 'Downloading {0}...');
-    export const downloadingFileProgress = localize('downloading.file.progress', '{0}{1} of {2} KB ({3}%)');
-}
-export namespace Experiments {
-    export const inGroup = localize('Experiments.inGroup', "Experiment '{0}' is active");
-    export const optedOutOf = localize('Experiments.optedOutOf', "Experiment '{0}' is inactive");
-}
 export namespace Interpreters {
     export const installingPython = localize('Interpreters.installingPython', 'Installing Python into Environment...');
     export const discovering = localize('Interpreters.DiscoveringInterpreters', 'Discovering Python Interpreters');
@@ -286,16 +271,11 @@ export namespace Interpreters {
         'Interpreters.selectInterpreterTip',
         'Tip: you can change the Python interpreter used by the Python extension by clicking on the Python version in the status bar',
     );
-    export const pythonInterpreterPath = localize('Interpreters.pythonInterpreterPath', 'Python interpreter path: {0}');
 }
 
 export namespace InterpreterQuickPickList {
     export const globalGroupName = localize('InterpreterQuickPickList.globalGroupName', 'Global');
     export const workspaceGroupName = localize('InterpreterQuickPickList.workspaceGroupName', 'Workspace');
-    export const quickPickListPlaceholder = localize(
-        'InterpreterQuickPickList.quickPickListPlaceholder',
-        'Selected Interpreter: {0}',
-    );
     export const enterPath = {
         label: localize('InterpreterQuickPickList.enterPath.label', 'Enter interpreter path...'),
         placeholder: localize('InterpreterQuickPickList.enterPath.placeholder', 'Enter path to a Python interpreter.'),
@@ -332,10 +312,6 @@ export namespace Logging {
 }
 
 export namespace Linters {
-    export const replaceWithSelectedLinter = localize(
-        'Linter.replaceWithSelectedLinter',
-        "Multiple linters are enabled in settings. Replace with '{0}'?",
-    );
     export const selectLinter = localize('Linter.selectLinter', 'Select Linter');
 }
 
@@ -349,14 +325,6 @@ export namespace Installer {
         'There is no Pip installer available in the selected environment.',
     );
     export const searchForHelp = localize('Installer.searchForHelp', 'Search for help');
-    export const couldNotInstallLibrary = localize(
-        'Installer.couldNotInstallLibrary',
-        'Could not install {0}. If pip is not available, please use the package manager of your choice to manually install this library into your Python environment.',
-    );
-    export const dataScienceInstallPrompt = localize(
-        'Installer.dataScienceInstallPrompt',
-        'Data Science library {0} is not installed. Install?',
-    );
 }
 
 export namespace ExtensionSurveyBanner {
@@ -368,144 +336,157 @@ export namespace ExtensionSurveyBanner {
     export const bannerLabelNo = localize('ExtensionSurveyBanner.bannerLabelNo', 'No, thanks');
     export const maybeLater = localize('ExtensionSurveyBanner.maybeLater', 'Maybe later');
 }
-
-export namespace Products {
-    export const installingModule = localize('products.installingModule', 'Installing {0}');
-    export const formatterNotInstalled = localize(
-        'products.formatterNotInstalled',
-        'Formatter {0} is not installed. Install?',
-    );
-    export const useFormatter = localize('products.useFormatter', 'Use {0}');
-    export const invalidFormatterPath = localize(
-        'products.invalidFormatterPath',
-        'Path to the {0} formatter is invalid ({1})',
-    );
-}
 export namespace DebugConfigStrings {
     export const selectConfiguration = {
-        title: localize('debug.selectConfigurationTitle'),
-        placeholder: localize('debug.selectConfigurationPlaceholder'),
+        title: localize('debug.selectConfigurationTitle', 'Select a debug configuration'),
+        placeholder: localize('debug.selectConfigurationPlaceholder', 'Debug Configuration'),
     };
     export const launchJsonCompletions = {
-        label: localize('debug.launchJsonConfigurationsCompletionLabel'),
-        description: localize('debug.launchJsonConfigurationsCompletionDescription'),
+        label: localize('debug.launchJsonConfigurationsCompletionLabel', 'Python'),
+        description: localize(
+            'debug.launchJsonConfigurationsCompletionDescription',
+            'Select a Python debug configuration',
+        ),
     };
 
     export namespace file {
         export const snippet = {
-            name: localize('python.snippet.launch.standard.label'),
+            name: localize('python.snippet.launch.standard.label', 'Python: Current File'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.debugFileConfigurationLabel'),
-            description: localize('debug.debugFileConfigurationDescription'),
+            label: localize('debug.debugFileConfigurationLabel', 'Python File'),
+            description: localize('debug.debugFileConfigurationDescription', 'Debug the currently active Python file'),
         };
     }
     export namespace module {
         export const snippet = {
-            name: localize('python.snippet.launch.module.label'),
-            default: localize('python.snippet.launch.module.default'),
+            name: localize('python.snippet.launch.module.label', 'Python: Module'),
+            default: localize('python.snippet.launch.module.default', 'enter-your-module-name'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.debugModuleConfigurationLabel'),
-            description: localize('debug.debugModuleConfigurationDescription'),
+            label: localize('debug.debugModuleConfigurationLabel', 'Module'),
+            description: localize(
+                'debug.debugModuleConfigurationDescription',
+                "Debug a Python module by invoking it with '-m'",
+            ),
         };
         export const enterModule = {
-            title: localize('debug.moduleEnterModuleTitle'),
-            prompt: localize('debug.moduleEnterModulePrompt'),
-            default: localize('debug.moduleEnterModuleDefault'),
-            invalid: localize('debug.moduleEnterModuleInvalidNameError'),
+            title: localize('debug.moduleEnterModuleTitle', 'Debug Module'),
+            prompt: localize('debug.moduleEnterModulePrompt', 'Enter a Python module/package name'),
+            default: localize('debug.moduleEnterModuleDefault', 'enter-your-module-name'),
+            invalid: localize('debug.moduleEnterModuleInvalidNameError', 'Enter a valid module name'),
         };
     }
     export namespace attach {
         export const snippet = {
-            name: localize('python.snippet.launch.attach.label'),
+            name: localize('python.snippet.launch.attach.label', 'Python: Remote Attach'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.remoteAttachConfigurationLabel'),
-            description: localize('debug.remoteAttachConfigurationDescription'),
+            label: localize('debug.remoteAttachConfigurationLabel', 'Remote Attach'),
+            description: localize('debug.remoteAttachConfigurationDescription', 'Attach to a remote debug server'),
         };
         export const enterRemoteHost = {
-            title: localize('debug.attachRemoteHostTitle'),
-            prompt: localize('debug.attachRemoteHostPrompt'),
-            invalid: localize('debug.attachRemoteHostValidationError'),
+            title: localize('debug.attachRemoteHostTitle', 'Remote Debugging'),
+            prompt: localize('debug.attachRemoteHostPrompt', 'Enter a valid host name or IP address'),
+            invalid: localize('debug.attachRemoteHostValidationError', 'Enter a valid host name or IP address'),
         };
         export const enterRemotePort = {
-            title: localize('debug.attachRemotePortTitle'),
-            prompt: localize('debug.attachRemotePortPrompt'),
-            invalid: localize('debug.attachRemotePortValidationError'),
+            title: localize('debug.attachRemotePortTitle', 'Remote Debugging'),
+            prompt: localize(
+                'debug.attachRemotePortPrompt',
+                'Enter the port number that the debug server is listening on',
+            ),
+            invalid: localize('debug.attachRemotePortValidationError', 'Enter a valid port number'),
         };
     }
     export namespace attachPid {
         export const snippet = {
-            name: localize('python.snippet.launch.attachpid.label'),
+            name: localize('python.snippet.launch.attachpid.label', 'Python: Attach using Process Id'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.attachPidConfigurationLabel'),
-            description: localize('debug.attachPidConfigurationDescription'),
+            label: localize('debug.attachPidConfigurationLabel', 'Attach using Process ID'),
+            description: localize('debug.attachPidConfigurationDescription', 'Attach to a local process'),
         };
     }
     export namespace django {
         export const snippet = {
-            name: localize('python.snippet.launch.django.label'),
+            name: localize('python.snippet.launch.django.label', 'Python: Django'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.debugDjangoConfigurationLabel'),
-            description: localize('debug.debugDjangoConfigurationDescription'),
+            label: localize('debug.debugDjangoConfigurationLabel', 'Django'),
+            description: localize(
+                'debug.debugDjangoConfigurationDescription',
+                'Launch and debug a Django web application',
+            ),
         };
         export const enterManagePyPath = {
-            title: localize('debug.djangoEnterManagePyPathTitle'),
-            prompt: localize('debug.djangoEnterManagePyPathPrompt'),
-            invalid: localize('debug.djangoEnterManagePyPathInvalidFilePathError'),
+            title: localize('debug.djangoEnterManagePyPathTitle', 'Debug Django'),
+            prompt: localize(
+                'debug.djangoEnterManagePyPathPrompt',
+                "Enter the path to manage.py ('${workspaceFolderToken}' points to the root of the current workspace folder)",
+            ),
+            invalid: localize('debug.djangoEnterManagePyPathInvalidFilePathError', 'Enter a valid Python file path'),
         };
     }
     export namespace fastapi {
         export const snippet = {
-            name: localize('python.snippet.launch.fastapi.label'),
+            name: localize('python.snippet.launch.fastapi.label', 'Python: FastAPI'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.debugFastAPIConfigurationLabel'),
-            description: localize('debug.debugFastAPIConfigurationDescription'),
+            label: localize('debug.debugFastAPIConfigurationLabel', 'FastAPI'),
+            description: localize(
+                'debug.debugFastAPIConfigurationDescription',
+                'Launch and debug a FastAPI web application',
+            ),
         };
         export const enterAppPathOrNamePath = {
-            title: localize('debug.fastapiEnterAppPathOrNamePathTitle'),
-            prompt: localize('debug.fastapiEnterAppPathOrNamePathPrompt'),
-            invalid: localize('debug.fastapiEnterAppPathOrNamePathInvalidNameError'),
+            title: localize('debug.fastapiEnterAppPathOrNamePathTitle', 'Debug FastAPI'),
+            prompt: localize(
+                'debug.fastapiEnterAppPathOrNamePathPrompt',
+                "Enter the path to the application, e.g. 'main.py' or 'main'",
+            ),
+            invalid: localize('debug.fastapiEnterAppPathOrNamePathInvalidNameError', 'Enter a valid name'),
         };
     }
     export namespace flask {
         export const snippet = {
-            name: localize('python.snippet.launch.flask.label'),
+            name: localize('python.snippet.launch.flask.label', 'Python: Flask'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.debugFlaskConfigurationLabel'),
-            description: localize('debug.debugFlaskConfigurationDescription'),
+            label: localize('debug.debugFlaskConfigurationLabel', 'Flask'),
+            description: localize(
+                'debug.debugFlaskConfigurationDescription',
+                'Launch and debug a Flask web application',
+            ),
         };
         export const enterAppPathOrNamePath = {
-            title: localize('debug.flaskEnterAppPathOrNamePathTitle'),
-            prompt: localize('debug.flaskEnterAppPathOrNamePathPrompt'),
-            invalid: localize('debug.flaskEnterAppPathOrNamePathInvalidNameError'),
+            title: localize('debug.flaskEnterAppPathOrNamePathTitle', 'Debug Flask'),
+            prompt: localize('debug.flaskEnterAppPathOrNamePathPrompt', 'Python: Flask'),
+            invalid: localize('debug.flaskEnterAppPathOrNamePathInvalidNameError', 'Enter a valid name'),
         };
     }
     export namespace pyramid {
         export const snippet = {
-            name: localize('python.snippet.launch.pyramid.label'),
+            name: localize('python.snippet.launch.pyramid.label', 'Python: Pyramid Application'),
         };
 
         export const selectConfiguration = {
-            label: localize('debug.debugPyramidConfigurationLabel'),
-            description: localize('debug.debugPyramidConfigurationDescription'),
+            label: localize('debug.debugPyramidConfigurationLabel', 'Pyramid'),
+            description: localize(
+                'debug.debugPyramidConfigurationDescription',
+                'Launch and debug a Pyramid web application',
+            ),
         };
         export const enterDevelopmentIniPath = {
-            title: localize('debug.pyramidEnterDevelopmentIniPathTitle'),
-            prompt: localize('debug.pyramidEnterDevelopmentIniPathPrompt'),
-            invalid: localize('debug.pyramidEnterDevelopmentIniPathInvalidFilePathError'),
+            title: localize('debug.pyramidEnterDevelopmentIniPathTitle', 'Debug Pyramid'),
+            invalid: localize('debug.pyramidEnterDevelopmentIniPathInvalidFilePathError', 'Enter a valid file path'),
         };
     }
 }
@@ -541,18 +522,3 @@ export namespace SwitchToDefaultLS {
         "The Microsoft Python Language Server has reached end of life. Your language server has been set to the default for Python in VS Code, Pylance.\n\nIf you'd like to change your language server, you can learn about how to do so [here](https://devblogs.microsoft.com/python/python-in-visual-studio-code-may-2021-release/#configuring-your-language-server).\n\nRead Pylance's license [here](https://marketplace.visualstudio.com/items/ms-python.vscode-pylance/license).",
     );
 }
-
-function localize(key: string, defValue?: string) {
-    // Return a pointer to function so that we refetch it on each call.
-    return (): string => getString(key, defValue);
-}
-
-function getString(key: string, defValue?: string) {
-    if (shouldLoadUsingNodeFS()) {
-        loadLocalizedStringsUsingNodeFS(new FileSystem());
-    }
-    return getLocalizedString(key, defValue);
-}
-
-// Default to loading the current locale
-loadLocalizedStringsUsingNodeFS(new FileSystem());

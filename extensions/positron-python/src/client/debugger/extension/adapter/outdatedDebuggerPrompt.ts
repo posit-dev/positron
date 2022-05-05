@@ -22,9 +22,9 @@ class OutdatedDebuggerPrompt implements DebugAdapterTracker {
 
     public onDidSendMessage(message: DebugProtocol.ProtocolMessage) {
         if (this.promptCheck.shouldShowPrompt() && this.isPtvsd(message)) {
-            const prompts = [Common.moreInfo()];
+            const prompts = [Common.moreInfo];
             this.appShell
-                .showInformationMessage(OutdatedDebugger.outdatedDebuggerMessage(), ...prompts)
+                .showInformationMessage(OutdatedDebugger.outdatedDebuggerMessage, ...prompts)
                 .then((selection) => {
                     if (selection === prompts[0]) {
                         this.browserService.launch('https://aka.ms/migrateToDebugpy');

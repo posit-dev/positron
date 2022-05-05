@@ -25,7 +25,7 @@ export class FastAPILaunchDebugConfigurationProvider implements IDebugConfigurat
         const application = await this.getApplicationPath(state.folder);
         let manuallyEnteredAValue: boolean | undefined;
         const config: Partial<LaunchRequestArguments> = {
-            name: DebugConfigStrings.fastapi.snippet.name(),
+            name: DebugConfigStrings.fastapi.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'uvicorn',
@@ -36,14 +36,14 @@ export class FastAPILaunchDebugConfigurationProvider implements IDebugConfigurat
 
         if (!application) {
             const selectedPath = await input.showInputBox({
-                title: DebugConfigStrings.fastapi.enterAppPathOrNamePath.title(),
+                title: DebugConfigStrings.fastapi.enterAppPathOrNamePath.title,
                 value: 'main.py',
-                prompt: DebugConfigStrings.fastapi.enterAppPathOrNamePath.prompt(),
+                prompt: DebugConfigStrings.fastapi.enterAppPathOrNamePath.prompt,
                 validate: (value) =>
                     Promise.resolve(
                         value && value.trim().length > 0
                             ? undefined
-                            : DebugConfigStrings.fastapi.enterAppPathOrNamePath.invalid(),
+                            : DebugConfigStrings.fastapi.enterAppPathOrNamePath.invalid,
                     ),
             });
             if (selectedPath) {

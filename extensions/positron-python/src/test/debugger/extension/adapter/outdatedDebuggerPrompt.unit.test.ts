@@ -91,7 +91,7 @@ suite('Debugging - Outdated Debugger Prompt tests.', () => {
     });
 
     test('Show prompt when attaching to ptvsd, more info is clicked', async () => {
-        when(appShell.showInformationMessage(anything(), anything())).thenReturn(Promise.resolve(Common.moreInfo()));
+        when(appShell.showInformationMessage(anything(), anything())).thenReturn(Promise.resolve(Common.moreInfo));
         const deferred = createDeferred();
         when(browserService.launch(anything())).thenCall(() => deferred.resolve());
 

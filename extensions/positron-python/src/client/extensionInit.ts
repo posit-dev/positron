@@ -53,7 +53,7 @@ export function initializeGlobals(
     serviceManager.addSingletonInstance<Memento>(IMemento, context.workspaceState, WORKSPACE_MEMENTO);
     serviceManager.addSingletonInstance<IExtensionContext>(IExtensionContext, context);
 
-    const standardOutputChannel = window.createOutputChannel(OutputChannelNames.python());
+    const standardOutputChannel = window.createOutputChannel(OutputChannelNames.python);
     context.subscriptions.push(registerLogger(new OutputChannelLogger(standardOutputChannel)));
 
     const workspaceService = new WorkspaceService();
@@ -61,7 +61,7 @@ export function initializeGlobals(
         workspaceService.isVirtualWorkspace || !workspaceService.isTrusted
             ? // Do not create any test related output UI when using virtual workspaces.
               instance(mock<IOutputChannel>())
-            : window.createOutputChannel(OutputChannelNames.pythonTest());
+            : window.createOutputChannel(OutputChannelNames.pythonTest);
     serviceManager.addSingletonInstance<OutputChannel>(IOutputChannel, standardOutputChannel, STANDARD_OUTPUT_CHANNEL);
     serviceManager.addSingletonInstance<OutputChannel>(IOutputChannel, unitTestOutChannel, TEST_OUTPUT_CHANNEL);
 

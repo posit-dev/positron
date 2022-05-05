@@ -50,7 +50,7 @@ export class PylanceDefaultDiagnosticService extends BaseDiagnosticsService {
             return [];
         }
 
-        return [new PylanceDefaultDiagnostic(Diagnostics.pylanceDefaultMessage(), resource)];
+        return [new PylanceDefaultDiagnostic(Diagnostics.pylanceDefaultMessage, resource)];
     }
 
     protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
@@ -63,7 +63,7 @@ export class PylanceDefaultDiagnosticService extends BaseDiagnosticsService {
             return;
         }
 
-        const options = [{ prompt: Common.ok() }];
+        const options = [{ prompt: Common.ok }];
 
         await this.messageService.handle(diagnostic, {
             commandPrompts: options,

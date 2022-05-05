@@ -7,6 +7,7 @@ import { inject, injectable } from 'inversify';
 import { cloneDeep } from 'lodash';
 import * as path from 'path';
 import { QuickPick, QuickPickItem, QuickPickItemKind } from 'vscode';
+import * as nls from 'vscode-nls';
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../../../../common/application/types';
 import { Commands, Octicons } from '../../../../common/constants';
 import { isParentPath } from '../../../../common/platform/fs-paths';
@@ -34,6 +35,7 @@ import {
 } from '../../types';
 import { BaseInterpreterSelectorCommand } from './base';
 
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 const untildify = require('untildify');
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
@@ -53,22 +55,22 @@ function isSeparatorItem(item: QuickPickType): item is QuickPickItem {
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace EnvGroups {
-    export const Workspace = InterpreterQuickPickList.workspaceGroupName();
+    export const Workspace = InterpreterQuickPickList.workspaceGroupName;
     export const Conda = 'Conda';
-    export const Global = InterpreterQuickPickList.globalGroupName();
+    export const Global = InterpreterQuickPickList.globalGroupName;
     export const VirtualEnv = 'VirtualEnv';
     export const PipEnv = 'PipEnv';
     export const Pyenv = 'Pyenv';
     export const Venv = 'Venv';
     export const Poetry = 'Poetry';
     export const VirtualEnvWrapper = 'VirtualEnvWrapper';
-    export const Recommended = Common.recommended();
+    export const Recommended = Common.recommended;
 }
 
 @injectable()
 export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
     private readonly manualEntrySuggestion: ISpecialQuickPickItem = {
-        label: `${Octicons.Add} ${InterpreterQuickPickList.enterPath.label()}`,
+        label: `${Octicons.Add} ${InterpreterQuickPickList.enterPath.label}`,
         alwaysShow: true,
     };
 
@@ -115,18 +117,22 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
             state.workspace ? state.workspace.fsPath : undefined,
         );
         const selection = await input.showQuickPick<QuickPickType, IQuickPickParameters<QuickPickType>>({
-            placeholder: InterpreterQuickPickList.quickPickListPlaceholder().format(currentInterpreterPathDisplay),
+            placeholder: localize(
+                'InterpreterQuickPickList.quickPickListPlaceholder',
+                'Selected Interpreter: {0}',
+                currentInterpreterPathDisplay,
+            ),
             items: suggestions,
             sortByLabel: !preserveOrderWhenFiltering,
             keepScrollPosition: true,
             activeItem: await this.getActiveItem(state.workspace, suggestions),
             matchOnDetail: true,
             matchOnDescription: true,
-            title: InterpreterQuickPickList.browsePath.openButtonLabel(),
+            title: InterpreterQuickPickList.browsePath.openButtonLabel,
             customButtonSetup: {
                 button: {
                     iconPath: getIcon(REFRESH_BUTTON_ICON),
-                    tooltip: InterpreterQuickPickList.refreshInterpreterList(),
+                    tooltip: InterpreterQuickPickList.refreshInterpreterList,
                 },
                 callback: () => this.interpreterService.triggerRefresh().ignoreErrors(),
             },
@@ -213,7 +219,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
         const defaultInterpreterPathValue = systemVariables.resolveAny(config.get<string>('defaultInterpreterPath'));
         if (defaultInterpreterPathValue && defaultInterpreterPathValue !== 'python') {
             return {
-                label: `${Octicons.Gear} ${InterpreterQuickPickList.defaultInterpreterPath.label()}`,
+                label: `${Octicons.Gear} ${InterpreterQuickPickList.defaultInterpreterPath.label}`,
                 description: this.pathUtils.getDisplayName(
                     defaultInterpreterPathValue,
                     resource ? resource.fsPath : undefined,
@@ -311,7 +317,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
             recommended.description = areItemsGrouped
                 ? // No need to add a tag as "Recommended" group already exists.
                   recommended.description
-                : `${recommended.description ?? ''} - ${Common.recommended()}`;
+                : `${recommended.description ?? ''} - ${Common.recommended}`;
             const index = items.findIndex(
                 (item) => isInterpreterQuickPickItem(item) && item.interpreter.id === recommended.interpreter.id,
             );
@@ -329,13 +335,13 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
     ): Promise<void | InputStep<InterpreterStateArgs>> {
         const items: QuickPickItem[] = [
             {
-                label: InterpreterQuickPickList.browsePath.label(),
-                detail: InterpreterQuickPickList.browsePath.detail(),
+                label: InterpreterQuickPickList.browsePath.label,
+                detail: InterpreterQuickPickList.browsePath.detail,
             },
         ];
 
         const selection = await input.showQuickPick({
-            placeholder: InterpreterQuickPickList.enterPath.placeholder(),
+            placeholder: InterpreterQuickPickList.enterPath.placeholder,
             items,
             acceptFilterBoxTextAsSelection: true,
         });
@@ -345,16 +351,16 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'enter' });
             state.path = selection;
             this.sendInterpreterEntryTelemetry(selection, state.workspace, suggestions);
-        } else if (selection && selection.label === InterpreterQuickPickList.browsePath.label()) {
+        } else if (selection && selection.label === InterpreterQuickPickList.browsePath.label) {
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'browse' });
             const filtersKey = 'Executables';
             const filtersObject: { [name: string]: string[] } = {};
             filtersObject[filtersKey] = ['exe'];
             const uris = await this.applicationShell.showOpenDialog({
                 filters: this.platformService.isWindows ? filtersObject : undefined,
-                openLabel: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
-                title: InterpreterQuickPickList.browsePath.title(),
+                title: InterpreterQuickPickList.browsePath.title,
             });
             if (uris && uris.length > 0) {
                 state.path = uris[0].fsPath;

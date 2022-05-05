@@ -19,7 +19,7 @@ import { IApplicationShell, IWorkspaceService } from '../../client/common/applic
 import { Commands, PYTHON_LANGUAGE } from '../../client/common/constants';
 import { IFileSystem } from '../../client/common/platform/types';
 import { IDisposableRegistry, IPathUtils, ReadWrite } from '../../client/common/types';
-import { InterpreterQuickPickList, Interpreters } from '../../client/common/utils/localize';
+import { InterpreterQuickPickList } from '../../client/common/utils/localize';
 import { Architecture } from '../../client/common/utils/platform';
 import {
     IInterpreterDisplay,
@@ -136,7 +136,7 @@ suite('Interpreters Display', () => {
                     languageStatusItem.verify(
                         (s) =>
                             (s.command = TypeMoq.It.isValue({
-                                title: InterpreterQuickPickList.browsePath.openButtonLabel(),
+                                title: InterpreterQuickPickList.browsePath.openButtonLabel,
                                 command: Commands.Set_Interpreter,
                             })),
                         TypeMoq.Times.once(),
@@ -211,7 +211,10 @@ suite('Interpreters Display', () => {
                     .returns(() => Promise.resolve(activeInterpreter));
 
                 await interpreterDisplay.refresh(resource);
-                traceLogStub.calledOnceWithExactly(Interpreters.pythonInterpreterPath().format(activeInterpreter.path));
+                traceLogStub.calledOnceWithExactly(
+                    `Python interpreter path: ${activeInterpreter.path}`,
+                    activeInterpreter.path,
+                );
             });
             test('If interpreter is not identified then tooltip should point to python Path', async () => {
                 const resource = Uri.file('x');
@@ -275,7 +278,7 @@ suite('Interpreters Display', () => {
                     statusBar.verify(
                         (s) =>
                             (s.text = TypeMoq.It.isValue(
-                                `$(alert) ${InterpreterQuickPickList.browsePath.openButtonLabel()}`,
+                                `$(alert) ${InterpreterQuickPickList.browsePath.openButtonLabel}`,
                             )),
                         TypeMoq.Times.once(),
                     );

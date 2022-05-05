@@ -131,7 +131,7 @@ suite('Debugging - Configuration Provider Pyramid', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.pyramid.snippet.name(),
+            name: DebugConfigStrings.pyramid.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'pyramid.scripts.pserve',
@@ -153,7 +153,7 @@ suite('Debugging - Configuration Provider Pyramid', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.pyramid.snippet.name(),
+            name: DebugConfigStrings.pyramid.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'pyramid.scripts.pserve',
@@ -178,7 +178,7 @@ suite('Debugging - Configuration Provider Pyramid', () => {
         await provider.buildConfiguration(instance(input), state);
 
         const config = {
-            name: DebugConfigStrings.pyramid.snippet.name(),
+            name: DebugConfigStrings.pyramid.snippet.name,
             type: DebuggerTypeName,
             request: 'launch',
             module: 'pyramid.scripts.pserve',

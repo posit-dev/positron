@@ -33,7 +33,7 @@ export class TensorBoardImportCodeLensProvider implements IExtensionSingleActiva
     // eslint-disable-next-line class-methods-use-this
     public provideCodeLenses(document: TextDocument, cancelToken: CancellationToken): CodeLens[] {
         const command: Command = {
-            title: TensorBoard.launchNativeTensorBoardSessionCodeLens(),
+            title: TensorBoard.launchNativeTensorBoardSessionCodeLens,
             command: Commands.LaunchTensorBoard,
             arguments: [
                 { trigger: TensorBoardEntrypointTrigger.fileimport, entrypoint: TensorBoardEntrypoint.codelens },

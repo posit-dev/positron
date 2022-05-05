@@ -82,24 +82,20 @@ export class ExtensionSurveyPrompt implements IExtensionSingleActivationService 
 
     @traceDecoratorError('Failed to display prompt for extension survey')
     public async showSurvey() {
-        const prompts = [
-            ExtensionSurveyBanner.bannerLabelYes(),
-            ExtensionSurveyBanner.maybeLater(),
-            Common.doNotShowAgain(),
-        ];
+        const prompts = [ExtensionSurveyBanner.bannerLabelYes, ExtensionSurveyBanner.maybeLater, Common.doNotShowAgain];
         const telemetrySelections: ['Yes', 'Maybe later', 'Do not show again'] = [
             'Yes',
             'Maybe later',
             'Do not show again',
         ];
-        const selection = await this.appShell.showInformationMessage(ExtensionSurveyBanner.bannerMessage(), ...prompts);
+        const selection = await this.appShell.showInformationMessage(ExtensionSurveyBanner.bannerMessage, ...prompts);
         sendTelemetryEvent(EventName.EXTENSION_SURVEY_PROMPT, undefined, {
             selection: selection ? telemetrySelections[prompts.indexOf(selection)] : undefined,
         });
         if (!selection) {
             return;
         }
-        if (selection === ExtensionSurveyBanner.bannerLabelYes()) {
+        if (selection === ExtensionSurveyBanner.bannerLabelYes) {
             this.launchSurvey();
             // Disable survey for a few weeks
             await this.persistentState
@@ -109,7 +105,7 @@ export class ExtensionSurveyPrompt implements IExtensionSingleActivationService 
                     timeToDisableSurveyFor,
                 )
                 .updateValue(true);
-        } else if (selection === Common.doNotShowAgain()) {
+        } else if (selection === Common.doNotShowAgain) {
             // Never show the survey again
             await this.persistentState
                 .createGlobalPersistentState(extensionSurveyStateKeys.doNotShowAgain, false)
