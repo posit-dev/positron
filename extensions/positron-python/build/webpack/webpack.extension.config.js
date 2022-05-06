@@ -26,12 +26,7 @@ const config = {
     },
     module: {
         rules: [
-            {
-                loader: 'vscode-nls-dev/lib/webpack-loader',
-                options: {
-                    base: constants.ExtensionRootDir,
-                },
-            },
+            ...common.getTranlationsLoader(),
             {
                 test: /\.ts$/,
                 use: [
