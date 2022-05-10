@@ -276,6 +276,7 @@ export interface IFormattingSettings {
 
 export interface ITerminalSettings {
     readonly executeInFileDir: boolean;
+    readonly focusAfterLaunch: boolean;
     readonly launchArgs: string[];
     readonly activateEnvironment: boolean;
     readonly activateEnvInCurrentTerminal: boolean;
