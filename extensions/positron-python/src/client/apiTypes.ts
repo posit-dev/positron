@@ -5,6 +5,7 @@ import { Event, Uri } from 'vscode';
 import { Resource } from './common/types';
 import { IDataViewerDataProvider, IJupyterUriProvider } from './jupyter/types';
 import { EnvPathType, PythonEnvKind } from './pythonEnvironments/base/info';
+import { GetRefreshEnvironmentsOptions, ProgressNotificationEvent } from './pythonEnvironments/base/locator';
 
 /*
  * Do not introduce any breaking changes to this API.
@@ -204,10 +205,16 @@ export interface IProposedExtensionAPI {
          */
         refreshEnvironment(options?: RefreshEnvironmentsOptions): Promise<EnvPathType[] | undefined>;
         /**
+         * Tracks discovery progress for current list of known environments, i.e when it starts, finishes or any other relevant
+         * stage. Note the progress for a particular query is currently not tracked or reported, this only indicates progress of
+         * the entire collection.
+         */
+        readonly onRefreshProgress: Event<ProgressNotificationEvent>;
+        /**
          * Returns a promise for the ongoing refresh. Returns `undefined` if there are no active
          * refreshes going on.
          */
-        getRefreshPromise(): Promise<void> | undefined;
+        getRefreshPromise(options?: GetRefreshEnvironmentsOptions): Promise<void> | undefined;
         /**
          * This event is triggered when the known environment list changes, like when a environment
          * is found, existing environment is removed, or some details changed on an environment.
