@@ -1,11 +1,17 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+import { Event } from 'vscode';
 import { StopWatch } from '../common/utils/stopWatch';
 import { sendTelemetryEvent } from '../telemetry';
 import { EventName } from '../telemetry/constants';
 import { getEnvPath } from './base/info/env';
-import { IDiscoveryAPI, PythonLocatorQuery } from './base/locator';
+import {
+    GetRefreshEnvironmentsOptions,
+    IDiscoveryAPI,
+    ProgressNotificationEvent,
+    PythonLocatorQuery,
+} from './base/locator';
 
 export type GetLocatorFunc = () => Promise<IDiscoveryAPI>;
 
@@ -26,12 +32,12 @@ class PythonEnvironments implements IDiscoveryAPI {
         this.locator = await this.getLocator();
     }
 
-    public get onRefreshStart() {
-        return this.locator.onRefreshStart;
+    public get onProgress(): Event<ProgressNotificationEvent> {
+        return this.locator.onProgress;
     }
 
-    public get refreshPromise() {
-        return this.locator.refreshPromise;
+    public getRefreshPromise(options?: GetRefreshEnvironmentsOptions) {
+        return this.locator.getRefreshPromise(options);
     }
 
     public get onChanged() {

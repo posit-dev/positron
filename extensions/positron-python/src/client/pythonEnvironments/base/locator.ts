@@ -64,7 +64,23 @@ export interface IPythonEnvsIterator<I = PythonEnvInfo> extends IAsyncIterableIt
      * If this property is not provided then it means the iterator does
      * not support updates.
      */
-    onUpdated?: Event<PythonEnvUpdatedEvent<I> | null>;
+    onUpdated?: Event<PythonEnvUpdatedEvent<I> | ProgressNotificationEvent>;
+}
+
+export enum ProgressReportStage {
+    discoveryStarted = 'discoveryStarted',
+    allPathsDiscovered = 'allPathsDiscovered',
+    discoveryFinished = 'discoveryFinished',
+}
+
+export type ProgressNotificationEvent = {
+    stage: ProgressReportStage;
+};
+
+export function isProgressEvent<I = PythonEnvInfo>(
+    event: PythonEnvUpdatedEvent<I> | ProgressNotificationEvent,
+): event is ProgressNotificationEvent {
+    return 'stage' in event;
 }
 
 /**
@@ -170,11 +186,20 @@ interface IResolver {
 
 export interface IResolvingLocator<I = PythonEnvInfo> extends IResolver, ILocator<I> {}
 
+export interface GetRefreshEnvironmentsOptions {
+    /**
+     * Get refresh promise which resolves once the following stage has been reached for the list of known environments.
+     */
+    stage?: ProgressReportStage;
+}
+
 export interface IDiscoveryAPI {
     /**
-     * Fires when the known list of environments starts refreshing, i.e when discovery starts or restarts.
+     * Tracks discovery progress for current list of known environments, i.e when it starts, finishes or any other relevant
+     * stage. Note the progress for a particular query is currently not tracked or reported, this only indicates progress of
+     * the entire collection.
      */
-    readonly onRefreshStart: Event<void>;
+    readonly onProgress: Event<ProgressNotificationEvent>;
     /**
      * Fires with details if the known list changes.
      */
@@ -183,7 +208,7 @@ export interface IDiscoveryAPI {
      * Resolves once environment list has finished refreshing, i.e all environments are
      * discovered. Carries `undefined` if there is no refresh currently going on.
      */
-    readonly refreshPromise: Promise<void> | undefined;
+    getRefreshPromise(options?: GetRefreshEnvironmentsOptions): Promise<void> | undefined;
     /**
      * Triggers a new refresh for query if there isn't any already running.
      */
