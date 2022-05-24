@@ -50,6 +50,16 @@ This will give you a URL that looks like http://localhost:9888/?tkn=14202de2-c71
 
 Click the `Ports` tab and add port `9888` to the list, then open your browser and navigate to the URL. Myriac should then load in your browser; most changes you make in VS Code will be reflected after being picked up by the `yarn watch` window.
 
+### Fork Management
+
+To merge changes from the [upstream Code - OSS repository](https://github.com/microsoft/vscode), pull from the upstream remote using this script:
+
+```bash
+$ ./scripts/pull-upstream.sh
+```
+
+Currently we merge frequently and stay right on the tip of the main branch, though this strategy may change when stabilization becomes a concern down the road.
+
 ### Related Repositories
 
 - [Amalthea](https://github.com/rstudio/amalthea), a Jupyter kernel framework written in Rust
