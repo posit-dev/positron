@@ -9,6 +9,7 @@ extensions/**/dist/
 /extensions/**/out/
 build/node_modules
 coverage/
+tags
 test_data/
 test-results/
 yarn-error.log
