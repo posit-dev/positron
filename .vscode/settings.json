@@ -1,0 +1,111 @@
+{
+	"editor.insertSpaces": false,
+	"files.trimTrailingWhitespace": true,
+	"files.exclude": {
+		".git": true,
+		".build": true,
+		".profile-oss": true,
+		"**/.DS_Store": true,
+		"build/**/*.js": {
+			"when": "$(basename).ts"
+		}
+	},
+	"files.associations": {
+		"cglicenses.json": "jsonc"
+	},
+	"search.exclude": {
+		"**/node_modules": true,
+		"**/bower_components": true,
+		".build/**": true,
+		"out/**": true,
+		"out-build/**": true,
+		"out-vscode/**": true,
+		"i18n/**": true,
+		"extensions/**/out/**": true,
+		"test/smoke/out/**": true,
+		"test/automation/out/**": true,
+		"test/integration/browser/out/**": true,
+		"src/vs/base/test/node/uri.test.data.txt": true,
+		"src/vs/workbench/api/test/browser/extHostDocumentData.test.perf-data.ts": true
+	},
+	"lcov.path": [
+		"./.build/coverage/lcov.info",
+		"./.build/coverage-single/lcov.info"
+	],
+	"lcov.watch": [
+		{
+			"pattern": "**/*.test.js",
+			"command": "${workspaceFolder}/scripts/test.sh --coverage --run ${file}",
+			"windows": {
+				"command": "${workspaceFolder}\\scripts\\test.bat --coverage --run ${file}"
+			}
+		}
+	],
+	"eslint.options": {
+		"rulePaths": [
+			"./build/lib/eslint"
+		]
+	},
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"npm.exclude": "**/extensions/**",
+	"npm.packageManager": "yarn",
+	"emmet.excludeLanguages": [],
+	"typescript.preferences.importModuleSpecifier": "non-relative",
+	"typescript.preferences.quoteStyle": "single",
+	"json.schemas": [
+		{
+			"fileMatch": [
+				"cgmanifest.json"
+			],
+			"url": "./.vscode/cgmanifest.schema.json"
+		},
+		{
+			"fileMatch": [
+				"cglicenses.json"
+			],
+			"url": "./.vscode/cglicenses.schema.json"
+		}
+	],
+	"git.ignoreLimitWarning": true,
+	"git.branchProtection": [
+		"main",
+		"release/*"
+	],
+	"git.branchProtectionPrompt": "alwaysCommitToNewBranch",
+	"git.branchRandomName.enable": true,
+	"remote.extensionKind": {
+		"msjsdiag.debugger-for-chrome": "workspace"
+	},
+	"gulp.autoDetect": "off",
+	"files.insertFinalNewline": true,
+	"[plaintext]": {
+		"files.insertFinalNewline": false
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "vscode.typescript-language-features",
+		"editor.formatOnSave": true
+	},
+	"[javascript]": {
+		"editor.defaultFormatter": "vscode.typescript-language-features",
+		"editor.formatOnSave": true
+	},
+	"typescript.tsc.autoDetect": "off",
+	"testing.autoRun.mode": "rerun",
+	"conventionalCommits.scopes": [
+		"tree",
+		"scm",
+		"grid",
+		"splitview",
+		"table",
+		"list",
+		"git",
+		"sash"
+	],
+	"editor.quickSuggestions": {
+		"other": "inline",
+		"comments": "inline",
+		"strings": "inline"
+	},
+	"githubPullRequests.assignCreated": "${user}",
+	"githubPullRequests.defaultMergeMethod": "squash"
+}

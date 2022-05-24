@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.monaco-workbench.nopanel .part.panel {
+	display: none !important;
+	visibility: hidden !important;
+}
+
+.monaco-workbench .part.panel.bottom .composite.title {
+	border-top-width: 1px;
+	border-top-style: solid;
+}
+
+.monaco-workbench.noeditorarea .part.panel.bottom .composite.title {
+	border-top-width: 0; /* no border when editor area is hiden */
+}
+
+.monaco-workbench .part.panel.right {
+	border-left-width: 1px;
+	border-left-style: solid;
+}
+
+.monaco-workbench.noeditorarea .part.panel.right {
+	border-left-width: 0; /* no border when editor area is hiden */
+}
+
+.monaco-workbench .part.panel.left {
+	border-right-width: 1px;
+	border-right-style: solid;
+}
+
+.monaco-workbench.noeditorarea .part.panel.left {
+	border-right-width: 0; /* no border when editor area is hiden */
+}

@@ -1,0 +1,31 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"removeComments": false,
+		"preserveConstEnums": true,
+		"sourceMap": false,
+		"outDir": "../out/vs",
+		"target": "es2020",
+		"types": [
+			"keytar",
+			"mocha",
+			"semver",
+			"sinon",
+			"winreg",
+			"trusted-types",
+			"wicg-file-system-access"
+		],
+		"plugins": [
+			{
+				"name": "tsec",
+				"exemptionConfig": "./tsec.exemptions.json"
+			}
+		]
+	},
+	"include": [
+		"./typings",
+		"./vs",
+		"vscode-dts/vscode.proposed.*.d.ts",
+		"vscode-dts/vscode.d.ts"
+	]
+}

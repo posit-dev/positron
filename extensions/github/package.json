@@ -1,0 +1,98 @@
+{
+  "name": "github",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "publisher": "vscode",
+  "license": "MIT",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.41.0"
+  },
+  "icon": "images/icon.png",
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "extensionDependencies": [
+    "vscode.git-base"
+  ],
+  "main": "./out/extension.js",
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "github.publish",
+        "title": "Publish to GitHub"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "github.publish",
+          "when": "git-base.gitEnabled"
+        }
+      ]
+    },
+    "configuration": [
+      {
+        "title": "GitHub",
+        "properties": {
+          "github.gitAuthentication": {
+            "type": "boolean",
+            "scope": "resource",
+            "default": true,
+            "description": "%config.gitAuthentication%"
+          },
+          "github.gitProtocol": {
+            "type": "string",
+            "enum": [
+              "https",
+              "ssh"
+            ],
+            "default": "https",
+            "description": "%config.gitProtocol%"
+          }
+        }
+      }
+    ],
+    "viewsWelcome": [
+      {
+        "view": "scm",
+        "contents": "%welcome.publishFolder%",
+        "when": "config.git.enabled && git.state == initialized && workbenchState == folder"
+      },
+      {
+        "view": "scm",
+        "contents": "%welcome.publishWorkspaceFolder%",
+        "when": "config.git.enabled && git.state == initialized && workbenchState == workspace && workspaceFolderCount != 0"
+      }
+    ],
+    "markdown.previewStyles": [
+      "./markdown.css"
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "gulp compile-extension:github",
+    "watch": "gulp watch-extension:github"
+  },
+  "dependencies": {
+    "@octokit/rest": "^18.0.1",
+    "tunnel": "^0.0.6",
+    "vscode-nls": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "16.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/vscode.git"
+  }
+}
