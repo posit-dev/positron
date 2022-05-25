@@ -26,7 +26,11 @@
 
 	"extensions": [
 		"dbaeumer.vscode-eslint",
-		"mutantdino.resourcemonitor"
+		"mutantdino.resourcemonitor",
+		"ms-toolsai.jupyter",
+		"ms-toolsai.jupyter-renderers",
+		"ms-python.vscode-pylance",
+		"ms-python.python"
 	],
 
 	// Perform post-create steps
