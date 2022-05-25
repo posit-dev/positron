@@ -29,8 +29,8 @@
 		"mutantdino.resourcemonitor"
 	],
 
-	// Optionally loads a cached yarn install for the repo
-	"postCreateCommand": ".devcontainer/cache/restore-diff.sh",
+	// Perform post-create steps
+	"postCreateCommand": ".devcontainer/cache/post-create.sh",
 
 	"remoteUser": "node",
 
