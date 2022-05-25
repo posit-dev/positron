@@ -28,6 +28,14 @@ RPKGLIB=$(Rscript -e 'cat(path.expand(Sys.getenv("R_LIBS_USER")))')
 mkdir -p "$RPKGLIB"
 Rscript -e "install.packages(c('rmarkdown', 'renv', 'shiny', 'testthat', 'tidyverse'), repos='https://cran.rstudio.com/')"
 
+# Install Myriac extensions from OpenVSX. Note that this list of extensions
+# differs from the one in `devcontainer.json`; that one controls the extensions
+# installed in the VS Code host, whereas this one installs extensions into the
+# development/working copy of Myriac.
+echo "*** Installing extensions from OpenVSX..."
+code --install-extension ms-python.python
+code --install-extension ms-toolsai.jupyter
+
 # Find and execute the restore-diff script, which unpacks the cached yarn install (in cache.tar)
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 $SCRIPT_DIR/restore-diff.sh
