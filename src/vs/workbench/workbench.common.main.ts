@@ -210,6 +210,9 @@ import 'vs/workbench/contrib/debug/browser/debugViewlet';
 // Markers
 import 'vs/workbench/contrib/markers/browser/markers.contribution';
 
+// Merge Editor
+import 'vs/workbench/contrib/mergeEditor/browser/mergeEditor.contribution';
+
 // Comments
 import 'vs/workbench/contrib/comments/browser/comments.contribution';
 
@@ -321,6 +324,9 @@ import 'vs/workbench/contrib/userDataSync/browser/userDataSync.contribution';
 
 // Profiles
 import 'vs/workbench/contrib/profiles/common/profiles.contribution';
+
+// Continue Edit Session
+import 'vs/workbench/contrib/sessionSync/browser/sessionSync.contribution';
 
 // Code Actions
 import 'vs/workbench/contrib/codeActions/browser/codeActions.contribution';
