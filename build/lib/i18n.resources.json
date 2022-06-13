@@ -147,6 +147,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/repl",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/quickaccess",
 			"project": "vscode-workbench"
 		},
