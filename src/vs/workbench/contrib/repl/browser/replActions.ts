@@ -17,7 +17,7 @@ export function registerReplActions() {
 		constructor() {
 			super({
 				id: ReplCommandId.New,
-				title: { value: localize('workbench.action.repl.new', "Create New Console"), original: 'Create New Console' },
+				title: { value: localize('workbench.action.repl.new', "Create New REPL"), original: 'Create New REPL' },
 				f1: true,
 				category,
 				// TODO: Do we need to add the 'precondition' key here? Is there any context
