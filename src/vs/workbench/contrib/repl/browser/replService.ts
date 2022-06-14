@@ -17,6 +17,15 @@ export class ReplService implements IReplService {
 		return this._instances;
 	}
 
-	createRepl(options?: ICreateReplOptions | undefined): Promise<IReplInstance> {
+	/**
+	 * Creates a new REPL instance and returns it.
+	 *
+	 * @param options The REPL's settings
+	 * @returns A promise that resolves to the newly created REPL instance.
+	 */
+	async createRepl(options?: ICreateReplOptions | undefined): Promise<IReplInstance> {
+		return {
+			instanceId: 0
+		};
 	}
 }
