@@ -32,9 +32,10 @@ $ yarn
 
 #### Iterating and Running
 
-Open a new Terminal and run the following command:
+Open a new Terminal and run the following commands. The `nvm use 16` is necessary since Code currently requires a Node 16 dev environment (latest is 18 but container has 14).
 
 ```bash
+$ nvm use 16
 $ yarn watch
 ```
 
