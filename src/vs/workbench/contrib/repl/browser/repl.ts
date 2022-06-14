@@ -2,6 +2,11 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+
+// Create the decorator for the REPL service (used in dependency injection)
+export const IReplService = createDecorator<IReplService>('replService');
+
 /**
  * An instance of a REPL bound to a language runtime.
  */
