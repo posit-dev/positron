@@ -8,6 +8,13 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 export const IReplService = createDecorator<IReplService>('replService');
 
 /**
+ * The parameters needed to construct a new REPL instance
+ */
+export interface ICreateReplOptions {
+	language?: string;
+}
+
+/**
  * An instance of a REPL bound to a language runtime.
  */
 export interface IReplInstance {
@@ -20,4 +27,11 @@ export interface IReplInstance {
 export interface IReplService {
 	/** An accessor returning the set of open REPLs */
 	readonly instances: readonly IReplInstance[];
+
+	/**
+	 * Creates a new REPL instance and returns it.
+	 *
+	 * @param options The REPL's settings.
+	 */
+	createRepl(options?: ICreateReplOptions): Promise<IReplInstance>;
 }
