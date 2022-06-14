@@ -5,11 +5,18 @@
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { ReplCommandId, REPL_VIEW_ID } from 'vs/workbench/contrib/repl/common/repl';
+import { IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 import { terminalViewIcon } from 'vs/workbench/contrib/terminal/browser/terminalIcons';
 import { TerminalViewPane } from 'vs/workbench/contrib/terminal/browser/terminalView';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { Extensions as ViewContainerExtensions, IViewContainersRegistry, ViewContainerLocation, IViewsRegistry } from 'vs/workbench/common/views';
 import * as nls from 'vs/nls';
+import { registerReplActions } from 'vs/workbench/contrib/repl/browser/replActions';
+import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { ReplService } from 'vs/workbench/contrib/repl/browser/replService';
+
+// Register REPL service singleton with platform
+registerSingleton(IReplService, ReplService, true);
 
 // Register the REPL view with the views registry
 const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
@@ -37,3 +44,6 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 		order: 3
 	}
 }], VIEW_CONTAINER);
+
+// Register all the REPL commands
+registerReplActions();
