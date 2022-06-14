@@ -7,13 +7,13 @@ import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneCont
 import { ReplCommandId, REPL_VIEW_ID } from 'vs/workbench/contrib/repl/common/repl';
 import { IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 import { terminalViewIcon } from 'vs/workbench/contrib/terminal/browser/terminalIcons';
-import { TerminalViewPane } from 'vs/workbench/contrib/terminal/browser/terminalView';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { Extensions as ViewContainerExtensions, IViewContainersRegistry, ViewContainerLocation, IViewsRegistry } from 'vs/workbench/common/views';
 import * as nls from 'vs/nls';
 import { registerReplActions } from 'vs/workbench/contrib/repl/browser/replActions';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ReplService } from 'vs/workbench/contrib/repl/browser/replService';
+import { ReplViewPane } from 'vs/workbench/contrib/repl/browser/replView';
 
 // Register REPL service singleton with platform
 registerSingleton(IReplService, ReplService, true);
@@ -34,8 +34,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	containerIcon: terminalViewIcon,
 	canToggleVisibility: false,
 	canMoveView: true,
-	// TODO: Should be the ReplViewPane when it's created
-	ctorDescriptor: new SyncDescriptor(TerminalViewPane),
+	ctorDescriptor: new SyncDescriptor(ReplViewPane),
 	openCommandActionDescriptor: {
 		id: ReplCommandId.New,
 		mnemonicTitle: nls.localize({ key: 'miNewRepl', comment: ['&& denotes a mnemonic'] }, "&&Console"),

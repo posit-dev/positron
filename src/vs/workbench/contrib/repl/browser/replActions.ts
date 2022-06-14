@@ -11,7 +11,7 @@ import { Codicon } from 'vs/base/common/codicons';
 import { ICreateReplOptions, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 
 export function registerReplActions() {
-	const category: ILocalizedString = { value: REPL_ACTION_CATEGORY, original: 'Terminal' };
+	const category: ILocalizedString = { value: REPL_ACTION_CATEGORY, original: 'REPL' };
 
 	registerAction2(class extends Action2 {
 		constructor() {
@@ -27,7 +27,7 @@ export function registerReplActions() {
 				description: {
 					description: 'workbench.action.repl.new',
 					args: [{
-						name: 'eventOrOptions',
+						name: 'options',
 						schema: {
 							type: 'object'
 						}

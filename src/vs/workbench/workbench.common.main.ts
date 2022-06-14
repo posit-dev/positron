@@ -357,5 +357,6 @@ import 'vs/workbench/contrib/audioCues/browser/audioCues.contribution';
 //#region --- Myriac contributions
 
 import 'vs/workbench/contrib/repl/browser/repl.contribution';
+import 'vs/workbench/contrib/repl/browser/replView';
 
 //#endregion
