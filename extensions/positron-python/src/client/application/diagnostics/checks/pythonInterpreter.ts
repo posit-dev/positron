@@ -22,6 +22,7 @@ import {
     IDiagnosticHandlerService,
     IDiagnosticMessageOnCloseHandler,
 } from '../types';
+import { Common } from '../../../common/utils/localize';
 
 const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
@@ -113,7 +114,7 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
             case DiagnosticCodes.NoPythonInterpretersDiagnostic: {
                 return [
                     {
-                        prompt: 'Download',
+                        prompt: Common.download,
                         command: commandFactory.createCommand(diagnostic, {
                             type: 'launch',
                             options: 'https://www.python.org/downloads',
@@ -124,7 +125,7 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
             case DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic: {
                 return [
                     {
-                        prompt: 'Select Python Interpreter',
+                        prompt: Common.selectPythonInterpreter,
                         command: commandFactory.createCommand(diagnostic, {
                             type: 'executeVSCCommand',
                             options: 'python.setInterpreter',
