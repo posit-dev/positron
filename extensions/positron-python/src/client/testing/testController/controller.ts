@@ -135,6 +135,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     public async activate(): Promise<void> {
         const workspaces: readonly WorkspaceFolder[] = this.workspaceService.workspaceFolders || [];
         workspaces.forEach((workspace) => {
+            console.warn(`instantiating test adapters - workspace name: ${workspace.name}`);
             const settings = this.configSettings.getSettings(workspace.uri);
 
             let discoveryAdapter: ITestDiscoveryAdapter;
@@ -209,11 +210,20 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 await this.pytest.refreshTestData(this.testController, uri, this.refreshCancellation.token);
             } else if (settings.testing.unittestEnabled) {
                 // TODO: Use new test discovery mechanism
-                traceVerbose(`Testing: Refreshing test data for ${uri.fsPath}`);
-
-                // Ensure we send test telemetry if it gets disabled again
-                this.sendTestDisabledTelemetry = true;
-
+                // traceVerbose(`Testing: Refreshing test data for ${uri.fsPath}`);
+                // const workspace = this.workspaceService.getWorkspaceFolder(uri);
+                // console.warn(`Discover tests for workspace name: ${workspace?.name} - uri: ${uri.fsPath}`);
+                // const testAdapter =
+                //     this.testAdapters.get(uri) || (this.testAdapters.values().next().value as WorkspaceTestAdapter);
+                // testAdapter.discoverTests(
+                //     this.testController,
+                //     this.refreshCancellation.token,
+                //     this.testAdapters.size > 1,
+                //     this.workspaceService.workspaceFile?.fsPath,
+                // );
+                // // Ensure we send test telemetry if it gets disabled again
+                // this.sendTestDisabledTelemetry = true;
+                // comment below 229 to run the new way and uncomment above 212 ~ 227
                 await this.unittest.refreshTestData(this.testController, uri, this.refreshCancellation.token);
             } else {
                 if (this.sendTestDisabledTelemetry) {

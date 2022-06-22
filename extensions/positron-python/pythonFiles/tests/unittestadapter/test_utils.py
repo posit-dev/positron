@@ -76,22 +76,27 @@ def test_get_existing_child_node() -> None:
                         "path": "nested/one",
                         "type_": TestNodeTypeEnum.folder,
                         "children": [],
+                        "id_": "nested/one",
                     },
                     {
                         "name": "nestedTwo",
                         "path": "nested/two",
                         "type_": TestNodeTypeEnum.folder,
                         "children": [],
+                        "id_": "nested/two",
                     },
                 ],
+                "id_": "child/one",
             },
             {
                 "name": "childTwo",
                 "path": "child/two",
                 "type_": TestNodeTypeEnum.folder,
                 "children": [],
+                "id_": "child/two",
             },
         ],
+        "id_": "foo",
     }
 
     get_child_node("childTwo", "child/two", TestNodeTypeEnum.folder, tree)
@@ -119,22 +124,27 @@ def test_no_existing_child_node() -> None:
                         "path": "nested/one",
                         "type_": TestNodeTypeEnum.folder,
                         "children": [],
+                        "id_": "nested/one",
                     },
                     {
                         "name": "nestedTwo",
                         "path": "nested/two",
                         "type_": TestNodeTypeEnum.folder,
                         "children": [],
+                        "id_": "nested/two",
                     },
                 ],
+                "id_": "child/one",
             },
             {
                 "name": "childTwo",
                 "path": "child/two",
                 "type_": TestNodeTypeEnum.folder,
                 "children": [],
+                "id_": "child/two",
             },
         ],
+        "id_": "foo",
     }
 
     # Make a separate copy of tree["children"].
@@ -180,24 +190,27 @@ def test_build_simple_tree() -> None:
                         "type_": TestNodeTypeEnum.class_,
                         "children": [
                             {
-                                "id_": "utils_simple_tree.TreeOne.test_one",
                                 "name": "test_one",
                                 "path": file_path,
                                 "type_": TestNodeTypeEnum.test,
                                 "lineno": "13",
+                                "id_": file_path + "\\" + "TreeOne" + "\\" + "test_one",
                             },
                             {
-                                "id_": "utils_simple_tree.TreeOne.test_two",
                                 "name": "test_two",
                                 "path": file_path,
                                 "type_": TestNodeTypeEnum.test,
                                 "lineno": "16",
+                                "id_": file_path + "\\" + "TreeOne" + "\\" + "test_two",
                             },
                         ],
+                        "id_": file_path + "\\" + "TreeOne",
                     }
                 ],
+                "id_": file_path,
             }
         ],
+        "id_": start_dir,
     }
 
     loader = unittest.TestLoader()
@@ -235,24 +248,27 @@ def test_build_decorated_tree() -> None:
                         "type_": TestNodeTypeEnum.class_,
                         "children": [
                             {
-                                "id_": "utils_decorated_tree.TreeOne.test_one",
                                 "name": "test_one",
                                 "path": file_path,
                                 "type_": TestNodeTypeEnum.test,
                                 "lineno": "24",
+                                "id_": file_path + "\\" + "TreeOne" + "\\" + "test_one",
                             },
                             {
-                                "id_": "utils_decorated_tree.TreeOne.test_two",
                                 "name": "test_two",
                                 "path": file_path,
                                 "type_": TestNodeTypeEnum.test,
                                 "lineno": "28",
+                                "id_": file_path + "\\" + "TreeOne" + "\\" + "test_two",
                             },
                         ],
+                        "id_": file_path + "\\" + "TreeOne",
                     }
                 ],
+                "id_": file_path,
             }
         ],
+        "id_": start_dir,
     }
 
     loader = unittest.TestLoader()

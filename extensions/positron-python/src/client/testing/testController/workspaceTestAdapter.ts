@@ -126,6 +126,7 @@ export class WorkspaceTestAdapter {
                     path: childrenRootPath,
                     name: childrenRootName,
                     type_: 'folder' as DiscoveredTestType,
+                    id_: childrenRootPath,
                     children: wrappedTests ? [wrappedTests] : [],
                 },
             ];
@@ -135,6 +136,7 @@ export class WorkspaceTestAdapter {
                 path: rootPath,
                 name: this.testProvider,
                 type_: 'folder',
+                id_: rootPath,
                 children,
             };
 
@@ -236,9 +238,11 @@ function updateTestTree(
                 let testItem;
                 if (isTestItem(child)) {
                     testItem = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
+                    // testItem = testController.createTestItem(child.uniqueID, child.name, Uri.file(child.path));
                     const range = new Range(new Position(child.lineno - 1, 0), new Position(child.lineno, 0));
 
                     testItem.canResolveChildren = false;
+
                     testItem.tags = [RunTestTag, DebugTestTag];
                     testItem.range = range;
 
@@ -276,20 +280,21 @@ function populateTestTree(
     // Recursively populate the tree with test data.
     testTreeData.children.forEach((child) => {
         if (!token?.isCancellationRequested) {
+            // Try to identify if we fall into TestItem or TestNode?
+
             if (isTestItem(child)) {
                 const testItem = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
                 const range = new Range(new Position(child.lineno - 1, 0), new Position(child.lineno, 0));
-
                 testItem.canResolveChildren = false;
                 testItem.range = range;
                 testItem.tags = [RunTestTag, DebugTestTag];
-
                 testRoot!.children.add(testItem);
             } else {
                 let node = testController.items.get(child.path);
 
                 if (!node) {
-                    node = testController.createTestItem(child.path, child.name, Uri.file(child.path));
+                    // replace child.path with child.id_ (unique)
+                    node = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
 
                     node.canResolveChildren = true;
                     node.tags = [RunTestTag, DebugTestTag];
