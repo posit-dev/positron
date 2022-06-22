@@ -167,12 +167,11 @@ export type DiscoveredTestCommon = {
     name: string;
     // Trailing underscore to avoid collision with the 'type' Python keyword.
     type_: DiscoveredTestType;
+    id_: string;
 };
 
 export type DiscoveredTestItem = DiscoveredTestCommon & {
     lineno: number;
-    // Trailing underscore to avoid collision with the 'id' Python keyword.
-    id_: string;
 };
 
 export type DiscoveredTestNode = DiscoveredTestCommon & {
