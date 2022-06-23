@@ -3,14 +3,16 @@
 
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { ConfigurationChangeEvent, Disposable, Uri, WorkspaceFolder, WorkspaceFoldersChangeEvent } from 'vscode';
+import { ConfigurationChangeEvent, Uri, WorkspaceFolder, WorkspaceFoldersChangeEvent } from 'vscode';
 import { JediLanguageServerManager } from '../../client/activation/jedi/manager';
 import { LspNotebooksExperiment } from '../../client/activation/node/lspNotebooksExperiment';
 import { NodeLanguageServerManager } from '../../client/activation/node/manager';
 import { ILanguageServerOutputChannel, LanguageServerType } from '../../client/activation/types';
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../../client/common/application/types';
+import { AsyncDisposableRegistry } from '../../client/common/asyncDisposableRegistry';
 import { IFileSystem } from '../../client/common/platform/types';
 import {
+    IAsyncDisposableRegistry,
     IConfigurationService,
     IExperimentService,
     IExtensions,
@@ -23,15 +25,18 @@ import { IServiceContainer } from '../../client/ioc/types';
 import { JediLSExtensionManager } from '../../client/languageServer/jediLSExtensionManager';
 import { NoneLSExtensionManager } from '../../client/languageServer/noneLSExtensionManager';
 import { PylanceLSExtensionManager } from '../../client/languageServer/pylanceLSExtensionManager';
+import { ILanguageServerExtensionManager } from '../../client/languageServer/types';
 import { LanguageServerWatcher } from '../../client/languageServer/watcher';
 import * as Logging from '../../client/logging';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
 suite('Language server watcher', () => {
     let watcher: LanguageServerWatcher;
+    let disposables: IAsyncDisposableRegistry;
     const sandbox = sinon.createSandbox();
 
     setup(() => {
+        disposables = new AsyncDisposableRegistry();
         watcher = new LanguageServerWatcher(
             {} as IServiceContainer,
             {} as ILanguageServerOutputChannel,
@@ -77,7 +82,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
     });
 
@@ -86,8 +91,6 @@ suite('Language server watcher', () => {
     });
 
     test('The constructor should add a listener to onDidChange to the list of disposables if it is a trusted workspace', () => {
-        const disposables: Disposable[] = [];
-
         watcher = new LanguageServerWatcher(
             {} as IServiceContainer,
             {} as ILanguageServerOutputChannel,
@@ -130,12 +133,10 @@ suite('Language server watcher', () => {
             disposables,
         );
 
-        assert.strictEqual(disposables.length, 5);
+        assert.strictEqual(disposables.length(), 11);
     });
 
     test('The constructor should not add a listener to onDidChange to the list of disposables if it is not a trusted workspace', () => {
-        const disposables: Disposable[] = [];
-
         watcher = new LanguageServerWatcher(
             {} as IServiceContainer,
             {} as ILanguageServerOutputChannel,
@@ -178,15 +179,17 @@ suite('Language server watcher', () => {
             disposables,
         );
 
-        assert.strictEqual(disposables.length, 4);
+        assert.strictEqual(disposables.length(), 10);
     });
 
     test(`When starting the language server, the language server extension manager should not be undefined`, async () => {
         // First start
         await watcher.startLanguageServer(LanguageServerType.None);
-        const extensionManager = watcher.languageServerExtensionManager!;
+        // get should return the None LS (the noop LS).
+        // This LS is returned by the None LS manager in get().
+        const languageServer = await watcher.get();
 
-        assert.notStrictEqual(extensionManager, undefined);
+        assert.notStrictEqual(languageServer, undefined);
     });
 
     test(`If the interpreter changed, the existing language server should be stopped if there is one`, async () => {
@@ -250,13 +253,14 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         // First start, get the reference to the extension manager.
         await watcher.startLanguageServer(LanguageServerType.None);
 
-        const extensionManager = watcher.languageServerExtensionManager!;
+        // For None case the object implements both ILanguageServer and ILanguageServerManager.
+        const extensionManager = (await watcher.get()) as ILanguageServerExtensionManager;
         const stopLanguageServerSpy = sandbox.spy(extensionManager, 'stopLanguageServer');
 
         // Second start, check if the first server manager was stopped and disposed of.
@@ -325,7 +329,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         await watcher.startLanguageServer(LanguageServerType.None);
@@ -404,7 +408,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         const startLanguageServerSpy = sandbox.spy(watcher, 'startLanguageServer');
@@ -474,7 +478,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         // Use a fake here so we don't actually start up language servers.
@@ -537,7 +541,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         await watcher.startLanguageServer(LanguageServerType.Jedi);
@@ -601,7 +605,7 @@ suite('Language server watcher', () => {
                 showWarningMessage: () => Promise.resolve(undefined),
             } as unknown) as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         await watcher.startLanguageServer(LanguageServerType.Node);
@@ -659,7 +663,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         await watcher.startLanguageServer(LanguageServerType.Jedi);
@@ -748,7 +752,7 @@ suite('Language server watcher', () => {
                     showWarningMessage: () => Promise.resolve(undefined),
                 } as unknown) as IApplicationShell,
                 {} as LspNotebooksExperiment,
-                [] as Disposable[],
+                disposables,
             );
 
             await watcher.startLanguageServer(languageServer, Uri.parse('folder1'));
@@ -827,7 +831,7 @@ suite('Language server watcher', () => {
                     showWarningMessage: () => Promise.resolve(undefined),
                 } as unknown) as IApplicationShell,
                 {} as LspNotebooksExperiment,
-                [] as Disposable[],
+                disposables,
             );
 
             await watcher.startLanguageServer(languageServer, Uri.parse('workspace1'));
@@ -915,7 +919,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         const startLanguageServerSpy = sandbox.spy(watcher, 'startLanguageServer');
@@ -995,7 +999,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         const startLanguageServerSpy = sandbox.spy(watcher, 'startLanguageServer');
@@ -1078,7 +1082,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         const startLanguageServerSpy = sandbox.spy(watcher, 'startLanguageServer');
@@ -1161,7 +1165,7 @@ suite('Language server watcher', () => {
             } as unknown) as IExtensions,
             {} as IApplicationShell,
             {} as LspNotebooksExperiment,
-            [] as Disposable[],
+            disposables,
         );
 
         const startLanguageServerSpy = sandbox.spy(watcher, 'startLanguageServer');

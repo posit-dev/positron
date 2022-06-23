@@ -40,10 +40,10 @@ export function initializeGlobals(
     // This is stored in ExtensionState.
     context: IExtensionContext,
 ): ExtensionState {
+    const disposables: IDisposableRegistry = context.subscriptions;
     const cont = new Container({ skipBaseClassChecks: true });
     const serviceManager = new ServiceManager(cont);
     const serviceContainer = new ServiceContainer(cont);
-    const disposables: IDisposableRegistry = context.subscriptions;
 
     serviceManager.addSingletonInstance<IServiceContainer>(IServiceContainer, serviceContainer);
     serviceManager.addSingletonInstance<IServiceManager>(IServiceManager, serviceManager);
@@ -54,6 +54,7 @@ export function initializeGlobals(
     serviceManager.addSingletonInstance<IExtensionContext>(IExtensionContext, context);
 
     const standardOutputChannel = window.createOutputChannel(OutputChannelNames.python);
+    context.subscriptions.push(standardOutputChannel);
     context.subscriptions.push(registerLogger(new OutputChannelLogger(standardOutputChannel)));
 
     const workspaceService = new WorkspaceService();
@@ -62,6 +63,8 @@ export function initializeGlobals(
             ? // Do not create any test related output UI when using virtual workspaces.
               instance(mock<IOutputChannel>())
             : window.createOutputChannel(OutputChannelNames.pythonTest);
+    context.subscriptions.push(unitTestOutChannel);
+
     serviceManager.addSingletonInstance<OutputChannel>(IOutputChannel, standardOutputChannel, STANDARD_OUTPUT_CHANNEL);
     serviceManager.addSingletonInstance<OutputChannel>(IOutputChannel, unitTestOutChannel, TEST_OUTPUT_CHANNEL);
 
