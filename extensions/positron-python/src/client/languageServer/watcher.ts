@@ -16,8 +16,8 @@ import {
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../common/application/types';
 import { IFileSystem } from '../common/platform/types';
 import {
+    IAsyncDisposableRegistry,
     IConfigurationService,
-    IDisposableRegistry,
     IExperimentService,
     IExtensions,
     IInterpreterPathService,
@@ -76,7 +76,7 @@ export class LanguageServerWatcher
         @inject(IExtensions) private readonly extensions: IExtensions,
         @inject(IApplicationShell) readonly applicationShell: IApplicationShell,
         @inject(LspNotebooksExperiment) private readonly lspNotebooksExperiment: LspNotebooksExperiment,
-        @inject(IDisposableRegistry) readonly disposables: IDisposableRegistry,
+        @inject(IAsyncDisposableRegistry) readonly disposables: IAsyncDisposableRegistry,
     ) {
         this.workspaceInterpreters = new Map();
         this.workspaceLanguageServers = new Map();
@@ -88,10 +88,8 @@ export class LanguageServerWatcher
             this.workspaceService.onDidChangeWorkspaceFolders(this.onDidChangeWorkspaceFolders.bind(this)),
         );
 
-        this.interpreterService.onDidChangeInterpreterInformation(
-            this.onDidChangeInterpreterInformation,
-            this,
-            disposables,
+        disposables.push(
+            this.interpreterService.onDidChangeInterpreterInformation(this.onDidChangeInterpreterInformation, this),
         );
 
         if (this.workspaceService.isTrusted) {
@@ -222,9 +220,10 @@ export class LanguageServerWatcher
     }
 
     private createLanguageServer(languageServerType: LanguageServerType): ILanguageServerExtensionManager {
+        let lsManager: ILanguageServerExtensionManager;
         switch (languageServerType) {
             case LanguageServerType.Jedi:
-                this.languageServerExtensionManager = new JediLSExtensionManager(
+                lsManager = new JediLSExtensionManager(
                     this.serviceContainer,
                     this.lsOutputChannel,
                     this.experimentService,
@@ -237,7 +236,7 @@ export class LanguageServerWatcher
                 );
                 break;
             case LanguageServerType.Node:
-                this.languageServerExtensionManager = new PylanceLSExtensionManager(
+                lsManager = new PylanceLSExtensionManager(
                     this.serviceContainer,
                     this.lsOutputChannel,
                     this.experimentService,
@@ -255,11 +254,17 @@ export class LanguageServerWatcher
                 break;
             case LanguageServerType.None:
             default:
-                this.languageServerExtensionManager = new NoneLSExtensionManager();
+                lsManager = new NoneLSExtensionManager();
                 break;
         }
 
-        return this.languageServerExtensionManager;
+        this.disposables.push({
+            dispose: async () => {
+                await lsManager.stopLanguageServer();
+                lsManager.dispose();
+            },
+        });
+        return lsManager;
     }
 
     private async refreshLanguageServer(resource?: Resource): Promise<void> {
