@@ -3,7 +3,7 @@
 import { inject, injectable } from 'inversify';
 import * as semver from 'semver';
 import { Disposable, extensions } from 'vscode';
-import { IConfigurationService } from '../../common/types';
+import { IConfigurationService, IDisposableRegistry } from '../../common/types';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { JUPYTER_EXTENSION_ID, PYLANCE_EXTENSION_ID } from '../../common/constants';
@@ -28,16 +28,18 @@ export class LspNotebooksExperiment implements IExtensionSingleActivationService
     constructor(
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IConfigurationService) private readonly configurationService: IConfigurationService,
+        @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry,
         @inject(IJupyterExtensionDependencyManager) jupyterDependencyManager: IJupyterExtensionDependencyManager,
     ) {
-        if (!LspNotebooksExperiment.isPylanceInstalled()) {
-            this.pylanceExtensionChangeHandler = extensions.onDidChange(this.pylanceExtensionsChangeHandler.bind(this));
-        }
-
         this.isJupyterInstalled = jupyterDependencyManager.isJupyterExtensionInstalled;
     }
 
     public async activate(): Promise<void> {
+        if (!LspNotebooksExperiment.isPylanceInstalled()) {
+            this.pylanceExtensionChangeHandler = extensions.onDidChange(this.pylanceExtensionsChangeHandler.bind(this));
+            this.disposables.push(this.pylanceExtensionChangeHandler);
+        }
+
         this.updateExperimentSupport();
     }
 
