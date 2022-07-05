@@ -16,6 +16,7 @@ export type CommandsWithoutArgs = keyof ICommandNameWithoutArgumentTypeMapping;
  * @interface ICommandNameWithoutArgumentTypeMapping
  */
 interface ICommandNameWithoutArgumentTypeMapping {
+    [Commands.InstallPython]: [];
     [Commands.ClearWorkspaceInterpreter]: [];
     [Commands.Set_Interpreter]: [];
     [Commands.Set_ShebangInterpreter]: [];
@@ -40,7 +41,6 @@ interface ICommandNameWithoutArgumentTypeMapping {
     [Commands.PickLocalProcess]: [];
     [Commands.ClearStorage]: [];
     [Commands.ReportIssue]: [];
-    [Commands.CreateNewFile]: [];
     [Commands.RefreshTensorBoard]: [];
     [LSCommands.RestartLS]: [];
 }
@@ -57,6 +57,7 @@ export type AllCommands = keyof ICommandNameArgumentTypeMapping;
 export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgumentTypeMapping {
     ['vscode.openWith']: [Uri, string];
     ['workbench.action.quickOpen']: [string];
+    ['workbench.action.openWalkthrough']: [string | { category: string; step: string }, boolean | undefined];
     ['workbench.extensions.installExtension']: [
         Uri | 'ms-python.python',
         (
