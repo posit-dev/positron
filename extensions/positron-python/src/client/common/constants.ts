@@ -45,7 +45,6 @@ export namespace Commands {
     export const ViewOutput = 'python.viewOutput';
     export const Start_REPL = 'python.startREPL';
     export const Create_Terminal = 'python.createTerminal';
-    export const CreateNewFile = 'python.createNewFile';
     export const Set_Linter = 'python.setLinter';
     export const Enable_Linter = 'python.enableLinting';
     export const Run_Linter = 'python.runLinting';
@@ -57,6 +56,7 @@ export namespace Commands {
     export const LaunchTensorBoard = 'python.launchTensorBoard';
     export const RefreshTensorBoard = 'python.refreshTensorBoard';
     export const ReportIssue = 'python.reportIssue';
+    export const InstallPython = 'python.installPython';
 }
 
 // Look at https://microsoft.github.io/vscode-codicons/dist/codicon.html for other Octicon icon ids
@@ -72,6 +72,7 @@ export namespace Octicons {
     export const Star = '$(star-full)';
     export const Gear = '$(gear)';
     export const Warning = '$(warning)';
+    export const Error = '$(error)';
 }
 
 export const DEFAULT_INTERPRETER_SETTING = 'python';
