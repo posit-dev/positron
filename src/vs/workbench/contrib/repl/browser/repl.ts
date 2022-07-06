@@ -30,6 +30,9 @@ export interface IReplInstance {
  * A service that manages a set of REPL instances.
  */
 export interface IReplService {
+	/** Necessary to label as branded service for dependency injector */
+	readonly _serviceBrand: undefined;
+
 	/** An accessor returning the set of open REPLs */
 	readonly instances: readonly IReplInstance[];
 
