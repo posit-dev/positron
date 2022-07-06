@@ -32,7 +32,7 @@ $ yarn
 
 #### Iterating and Running
 
-Open a new Terminal and run the following commands. The `nvm use 16` is necessary since Code currently requires a Node 16 dev environment (latest is 18 but container has 14).
+Open a new Terminal and run the following commands. The `nvm use 16` is sometimes necessary since Code currently requires a Node 16 dev environment (latest is 18 but container has 14).
 
 ```bash
 $ nvm use 16
@@ -60,6 +60,14 @@ $ ./scripts/pull-upstream.sh
 ```
 
 Currently we merge frequently and stay right on the tip of the main branch, though this strategy may change when stabilization becomes a concern down the road.
+
+### Logging
+
+The Myriac overlays emit logs via VS Code's log service. When doing development work or reproducing bugs, it's useful to change the log level to `TRACE`.
+
+Use the *Developer: Set Log Level* command in the Command Palette to change the log level to `DEBUG` or `TRACE` as desired. The logs will appear in the **Console** tab of the Developer Tools in the browser.
+
+When writing code, avoid using `console.log` directly; instead, get an `ILogService` instance and use the symmetric methods (`logService.debug`, `logService.trace`, `logService.info`, etc.) This will allow the aforementioned configuration tools to control the logging of your feature.
 
 ### Related Repositories
 
