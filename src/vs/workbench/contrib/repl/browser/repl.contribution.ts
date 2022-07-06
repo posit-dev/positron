@@ -36,8 +36,8 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	canMoveView: true,
 	ctorDescriptor: new SyncDescriptor(ReplViewPane),
 	openCommandActionDescriptor: {
-		id: ReplCommandId.New,
-		mnemonicTitle: nls.localize({ key: 'miNewRepl', comment: ['&& denotes a mnemonic'] }, "&&Console"),
+		id: ReplCommandId.Open,
+		mnemonicTitle: nls.localize({ key: 'miOpenRepl', comment: ['&& denotes a mnemonic'] }, "&&Console"),
 		// TODO: Need a default keybinding for opening the REPL
 		keybindings: {},
 		order: 3
