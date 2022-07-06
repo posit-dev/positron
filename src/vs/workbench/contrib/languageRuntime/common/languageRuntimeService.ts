@@ -8,6 +8,7 @@ import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKe
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('ILanguageRuntimeService');
 
 export interface ILanguageRuntimeService {
+	readonly _serviceBrand: undefined;
 
 	/**
 	 * @param language The language being registered
