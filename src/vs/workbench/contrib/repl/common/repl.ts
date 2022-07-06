@@ -6,7 +6,8 @@ export const REPL_VIEW_ID = 'repl';
 import * as nls from 'vs/nls';
 
 export const enum ReplCommandId {
-	New = 'workbench.action.repl.new'
+	New = 'workbench.action.repl.new',
+	Open = 'workbench.action.repl.open'
 }
 
 export const REPL_ACTION_CATEGORY = nls.localize('replCategory', "Console");
