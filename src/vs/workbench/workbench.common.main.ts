@@ -358,5 +358,6 @@ import 'vs/workbench/contrib/audioCues/browser/audioCues.contribution';
 
 import 'vs/workbench/contrib/repl/browser/repl.contribution';
 import 'vs/workbench/contrib/repl/browser/replView';
+import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
 
 //#endregion
