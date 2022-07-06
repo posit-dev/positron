@@ -3,15 +3,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 
 /**
  * The implementation of ILanguageRuntimeService
  */
 export class LanguageRuntimeService implements ILanguageRuntimeService {
+	/** Needed for service branding in dependency injector */
 	declare readonly _serviceBrand: undefined;
 	private readonly _runtimes: Map<String, INotebookKernel> = new Map();
 	private _activeLanguage: string = '';
+
+	constructor(
+		@INotebookKernelService private _notebookKernelService: INotebookKernelService
+	) {
+		// Probably temporary: pull kernels from the notebook kernel service
+		this._notebookKernelService.onDidAddKernel((e: INotebookKernel) => {
+			console.debug('register kernel ' + e.id);
+			this.registerRuntime(e.supportedLanguages[0], e);
+		});
+	}
 
 	registerRuntime(language: string, kernel: INotebookKernel): void {
 		this._runtimes.set(language, kernel);
