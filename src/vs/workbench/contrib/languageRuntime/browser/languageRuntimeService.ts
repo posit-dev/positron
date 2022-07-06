@@ -9,6 +9,7 @@ import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKe
  * The implementation of ILanguageRuntimeService
  */
 export class LanguageRuntimeService implements ILanguageRuntimeService {
+	declare readonly _serviceBrand: undefined;
 	private readonly _runtimes: Map<String, INotebookKernel> = new Map();
 	private _activeLanguage: string = '';
 

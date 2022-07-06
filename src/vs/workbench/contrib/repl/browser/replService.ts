@@ -9,6 +9,8 @@ import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/co
  * The implementation of IReplService
  */
 export class ReplService implements IReplService {
+	declare readonly _serviceBrand: undefined;
+
 	private readonly _instances: Array<IReplInstance> = [];
 	private _maxInstanceId: number = 1;
 
