@@ -12,6 +12,7 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
+import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 
 /**
  * Holds the rendered REPL inside a ViewPane.
@@ -27,6 +28,7 @@ export class ReplViewPane extends ViewPane {
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@ITelemetryService telemetryService: ITelemetryService,
+		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService
 	) {
 		super(options,
 			keybindingService,
@@ -48,7 +50,12 @@ export class ReplViewPane extends ViewPane {
 	override renderBody(container: HTMLElement): void {
 		super.renderBody(container);
 		const t = document.createElement('h1');
-		t.innerText = 'Hello, world.';
+		const kernel = this._languageRuntimeService.getActiveRuntime(null);
+		if (kernel) {
+			t.innerText = kernel.label;
+		} else {
+			t.innerText = 'No kernel is active.';
+		}
 		container.appendChild(t);
 	}
 }
