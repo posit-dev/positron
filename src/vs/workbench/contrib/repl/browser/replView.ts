@@ -13,11 +13,15 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ReplInstanceView } from 'vs/workbench/contrib/repl/browser/replInstanceView';
 
 /**
  * Holds the rendered REPL inside a ViewPane.
  */
 export class ReplViewPane extends ViewPane {
+	// The REPL instance inside this view pane. Likely will be > 1 instance in the future.
+	private _instanceView?: ReplInstanceView;
+
 	constructor(options: IViewPaneOptions,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IContextMenuService contextMenuService: IContextMenuService,
@@ -28,7 +32,8 @@ export class ReplViewPane extends ViewPane {
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@ITelemetryService telemetryService: ITelemetryService,
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
 		super(options,
 			keybindingService,
@@ -52,10 +57,26 @@ export class ReplViewPane extends ViewPane {
 		const t = document.createElement('h1');
 		const kernel = this._languageRuntimeService.getActiveRuntime(null);
 		if (kernel) {
-			t.innerText = kernel.label;
+			this._instanceView = this._instantiationService.createInstance(
+				ReplInstanceView,
+				kernel,
+				container);
+			this._instanceView.render();
 		} else {
 			t.innerText = 'No kernel is active.';
 		}
 		container.appendChild(t);
+	}
+
+	/**
+	 * Teardown view pane
+	 */
+	override dispose() {
+		super.dispose();
+
+		// Clean up individual REPL instance if we have one
+		if (this._instanceView) {
+			this._instanceView.dispose();
+		}
 	}
 }
