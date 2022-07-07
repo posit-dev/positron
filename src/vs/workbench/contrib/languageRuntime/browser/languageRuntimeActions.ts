@@ -12,6 +12,8 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { Codicon } from 'vs/base/common/codicons';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
+import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 
 export function registerLanguageRuntimeActions() {
 	const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -43,14 +45,24 @@ export function registerLanguageRuntimeActions() {
 		 * @param accessor The service accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
+			// Retrieve services
+			const kernelService = accessor.get(INotebookKernelService);
+			const languageService = accessor.get(ILanguageRuntimeService);
+			const notificationService = accessor.get(INotificationService);
+			const pickService = accessor.get(IQuickInputService);
+
 			// Get all registered kernels. (TODO: This will eventually use the
 			// language runtime service instead of relying on registered
 			// notebook kernels)
-			const kernelService = accessor.get(INotebookKernelService);
 			const allKernels = kernelService.getMatchingKernel({
 				uri: URI.parse('repl:any'),
 				viewType: 'interactive'
 			}).all;
+
+			// Ensure we got at least one kernel to select from
+			if (allKernels.length < 1) {
+				throw new Error('No language runtimes are currently installed.');
+			}
 
 			// Map to quick-pick items for user selection
 			const selections = allKernels.map((k) => (<IQuickPickItem>{
@@ -60,13 +72,31 @@ export function registerLanguageRuntimeActions() {
 			}));
 
 			// Prompt the user to select a kernel/runtime
-			const pickService = accessor.get(IQuickInputService);
 			const selection = await pickService.pick(selections, {
 				canPickMany: false,
 				placeHolder: nls.localize('language runtime placeholder', 'Select Language Runtime')
 			});
 
-			throw new Error('Seems like you wanted this one: ' + selection?.id);
+			// Find the kernel the user selected and register it
+			if (selection) {
+				for (let i = 0; i < allKernels.length; i++) {
+					const kernel = allKernels[i];
+					if (selection.id === kernel.id) {
+						// Register the runtime with the runtime service
+						languageService.registerRuntime(kernel.supportedLanguages[0], kernel);
+
+						// Inform the user that we've made the change successfully
+						notificationService.notify({
+							severity: Severity.Info,
+							message: localize(
+								'language runtime registered',
+								"The active language runtime is now {0}",
+								kernel.label)
+						});
+						break;
+					}
+				}
+			}
 		}
 	});
 }
