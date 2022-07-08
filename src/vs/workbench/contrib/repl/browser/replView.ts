@@ -101,10 +101,19 @@ export class ReplViewPane extends ViewPane {
 	 * @param kernel The kernel to bind to the REPL instance.
 	 */
 	private createInstance(kernel: INotebookKernel) {
+		// Ensure we are attached to the DOM
+		if (!this._container) {
+			throw new Error('Cannot render REPL without parent container.');
+		}
+
+		// Clear the container's current contents
+		this._container.innerHTML = '';
+
+		// Replace with a fresh REPL instance
 		this._instanceView = this._instantiationService.createInstance(
 			ReplInstanceView,
 			kernel,
-			this._container!);
+			this._container);
 		this._register(this._instanceView);
 		this._instanceView.render();
 	}
