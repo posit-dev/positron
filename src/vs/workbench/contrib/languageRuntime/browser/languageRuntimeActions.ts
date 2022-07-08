@@ -85,6 +85,11 @@ export function registerLanguageRuntimeActions() {
 						// Register the runtime with the runtime service
 						languageService.registerRuntime(kernel.supportedLanguages[0], kernel);
 
+						// Start the runtime if there aren't any active
+						if (languageService.getActiveRuntimes().length < 1) {
+							languageService.startRuntime(kernel.id);
+						}
+
 						// Inform the user that we've made the change successfully
 						notificationService.notify({
 							severity: Severity.Info,
