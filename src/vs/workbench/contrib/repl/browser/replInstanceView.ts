@@ -5,6 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditorWidget';
+import { IEditorMinimapOptions, IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -48,7 +49,7 @@ export class ReplInstanceView extends Disposable {
 		);
 
 		// Create editor
-		const editorOptions = <IEditorConstructionOptions>{};
+		const editorConstructionOptions = <IEditorConstructionOptions>{};
 
 		const widgetOptions = <ICodeEditorWidgetOptions>{
 			isSimpleWidget: false
@@ -57,11 +58,24 @@ export class ReplInstanceView extends Disposable {
 		this._editor = this._instantiationService.createInstance(
 			CodeEditorWidget,
 			ed,
-			editorOptions,
+			editorConstructionOptions,
 			widgetOptions);
 
 		this._register(this._editor);
+
 		this._editor.setModel(textModel);
+
+		const editorOptions = <IEditorOptions>{
+			lineNumbers: 'off',
+			minimap: <IEditorMinimapOptions>{
+				enabled: false
+			},
+			overviewRuleBorder: false,
+			enableDropIntoEditor: false,
+			renderLineHighlight: 'none'
+		};
+
+		this._editor.updateOptions(editorOptions);
 
 		// Currently doesn't do anything since we don't have a text model to hook it up to
 		this._editor.layout();
