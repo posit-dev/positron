@@ -44,14 +44,14 @@ export class ReplInstanceView extends Disposable {
 		const textModel = this._modelService.createModel('', // initial value
 			languageSelection,  // language selection
 			undefined,          // resource URI
-			true                // mark for simple widget
+			false               // mark for simple widget
 		);
 
 		// Create editor
 		const editorOptions = <IEditorConstructionOptions>{};
 
 		const widgetOptions = <ICodeEditorWidgetOptions>{
-			isSimpleWidget: true
+			isSimpleWidget: false
 		};
 
 		this._editor = this._instantiationService.createInstance(
