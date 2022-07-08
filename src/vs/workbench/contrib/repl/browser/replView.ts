@@ -54,7 +54,14 @@ export class ReplViewPane extends ViewPane {
 	 */
 	override renderBody(container: HTMLElement): void {
 		super.renderBody(container);
-		const t = document.createElement('h1');
+
+		// If we already have an instance, just render it.
+		if (this._instanceView) {
+			this._instanceView.render();
+			return;
+		}
+
+		// If we don't, create one.
 		const kernel = this._languageRuntimeService.getActiveRuntime(null);
 		if (kernel) {
 			this._instanceView = this._instantiationService.createInstance(
@@ -63,9 +70,9 @@ export class ReplViewPane extends ViewPane {
 				container);
 			this._instanceView.render();
 		} else {
+			const t = document.createElement('h1');
 			t.innerText = 'No kernel is active.';
 		}
-		container.appendChild(t);
 	}
 
 	/**
