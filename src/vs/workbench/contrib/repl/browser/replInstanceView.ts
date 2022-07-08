@@ -5,6 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditorWidget';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
@@ -17,8 +18,9 @@ export class ReplInstanceView extends Disposable {
 
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
-		@IInstantiationService readonly _instantiationService: IInstantiationService,
-		@IModelService private readonly _modelService: IModelService) {
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IModelService private readonly _modelService: IModelService,
+		@ILanguageService private readonly _languageService: ILanguageService) {
 		super();
 	}
 
@@ -33,11 +35,16 @@ export class ReplInstanceView extends Disposable {
 		ed.style.height = '2em';
 		this._parentElement.appendChild(ed);
 
+		// Create language selector
+		const languageId = this._languageService.getLanguageIdByLanguageName(
+			this._kernel.supportedLanguages[0]);
+		const languageSelection = this._languageService.createById(languageId);
+
 		// Create text model
 		const textModel = this._modelService.createModel('', // initial value
-			null,      // language selection
-			undefined, // resource URI
-			true       // mark for simple widget
+			languageSelection,  // language selection
+			undefined,          // resource URI
+			true                // mark for simple widget
 		);
 
 		// Create editor
