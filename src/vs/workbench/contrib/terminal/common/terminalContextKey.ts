@@ -22,6 +22,7 @@ export const enum TerminalContextKeyStrings {
 	TabsMouse = 'terminalTabsMouse',
 	AltBufferActive = 'terminalAltBufferActive',
 	A11yTreeFocus = 'terminalA11yTreeFocus',
+	NavigationModeActive = 'terminalNavigationModeActive',
 	ViewShowing = 'terminalViewShowing',
 	TextSelected = 'terminalTextSelected',
 	FindVisible = 'terminalFindVisible',
@@ -30,6 +31,7 @@ export const enum TerminalContextKeyStrings {
 	TabsSingularSelection = 'terminalTabsSingularSelection',
 	SplitTerminal = 'terminalSplitTerminal',
 	ShellType = 'terminalShellType',
+	InTerminalRunCommandPicker = 'inTerminalRunCommandPicker',
 }
 
 export namespace TerminalContextKeys {
@@ -84,6 +86,11 @@ export namespace TerminalContextKeys {
 	/** Whether the user is navigating a terminal's the accessibility tree. */
 	export const a11yTreeFocus = new RawContextKey<boolean>(TerminalContextKeyStrings.A11yTreeFocus, false, true);
 
+	/**
+	 * Whether the user is currently in navigation mode
+	 */
+	export const navigationModeActive = new RawContextKey<boolean>(TerminalContextKeyStrings.NavigationModeActive, false, true);
+
 	/** Whether text is selected in the active terminal. */
 	export const textSelected = new RawContextKey<boolean>(TerminalContextKeyStrings.TextSelected, false, localize('terminalTextSelectedContextKey', "Whether text is selected in the active terminal."));
 
@@ -113,4 +120,7 @@ export namespace TerminalContextKeys {
 
 	/** Whether the focused tab's terminal is a split terminal. */
 	export const splitTerminal = new RawContextKey<boolean>(TerminalContextKeyStrings.SplitTerminal, false, localize('isSplitTerminalContextKey', "Whether the focused tab's terminal is a split terminal."));
+
+	/** Whether the terminal run command picker is currently open. */
+	export const inTerminalRunCommandPicker = new RawContextKey<boolean>(TerminalContextKeyStrings.InTerminalRunCommandPicker, false, localize('inTerminalRunCommandPickerContextKey', "Whether the terminal run command picker is currently open."));
 }

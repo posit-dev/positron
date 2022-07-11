@@ -32,6 +32,7 @@ import { getRemoteName } from 'vs/platform/remote/common/remoteHosts';
 import { IDownloadService } from 'vs/platform/download/common/download';
 import { DownloadServiceChannel } from 'vs/platform/download/common/downloadIpc';
 import { timeout } from 'vs/base/common/async';
+import { TerminalLogConstants } from 'vs/platform/terminal/common/terminal';
 
 export class LabelContribution implements IWorkbenchContribution {
 	constructor(
@@ -99,6 +100,7 @@ class RemoteLogOutputChannels implements IWorkbenchContribution {
 			if (remoteEnv) {
 				const outputChannelRegistry = Registry.as<IOutputChannelRegistry>(OutputExt.OutputChannels);
 				outputChannelRegistry.registerChannel({ id: 'remoteExtensionLog', label: localize('remoteExtensionLog', "Remote Server"), file: joinPath(remoteEnv.logsPath, `${RemoteExtensionLogFileName}.log`), log: true });
+				outputChannelRegistry.registerChannel({ id: 'remotePtyHostLog', label: localize('remotePtyHostLog', "Remote Pty Host"), file: joinPath(remoteEnv.logsPath, `${TerminalLogConstants.FileName}.log`), log: true });
 			}
 		});
 	}
@@ -351,7 +353,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 			},
 			'remote.autoForwardPortsSource': {
 				type: 'string',
-				markdownDescription: localize('remote.autoForwardPortsSource', "Sets the source from which ports are automatically forwarded when `remote.autoForwardPorts` is true. On Windows and Mac remotes, the `process` option has no effect and `output` will be used. Requires a reload to take effect."),
+				markdownDescription: localize('remote.autoForwardPortsSource', "Sets the source from which ports are automatically forwarded when {0} is true. On Windows and Mac remotes, the `process` option has no effect and `output` will be used. Requires a reload to take effect.", '`#remote.autoForwardPorts#`'),
 				enum: ['process', 'output'],
 				enumDescriptions: [
 					localize('remote.autoForwardPortsSource.process', "Ports will be automatically forwarded when discovered by watching for processes that are started and include a port."),
@@ -461,7 +463,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					}
 				},
 				defaultSnippets: [{ body: { onAutoForward: 'ignore' } }],
-				markdownDescription: localize('remote.portsAttributes.defaults', "Set default properties that are applied to all ports that don't get properties from the setting `remote.portsAttributes`. For example:\n\n```\n{\n  \"onAutoForward\": \"ignore\"\n}\n```"),
+				markdownDescription: localize('remote.portsAttributes.defaults', "Set default properties that are applied to all ports that don't get properties from the setting {0}. For example:\n\n```\n{\n  \"onAutoForward\": \"ignore\"\n}\n```", '`#remote.portsAttributes#`'),
 				additionalProperties: false
 			},
 			'remote.localPortHost': {
