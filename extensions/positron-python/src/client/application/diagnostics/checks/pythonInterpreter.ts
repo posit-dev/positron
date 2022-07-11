@@ -6,11 +6,10 @@ import { inject, injectable } from 'inversify';
 import { DiagnosticSeverity } from 'vscode';
 import '../../../common/extensions';
 import * as nls from 'vscode-nls';
+import * as path from 'path';
 import { IDisposableRegistry, Resource } from '../../../common/types';
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
-import { sendTelemetryEvent } from '../../../telemetry';
-import { EventName } from '../../../telemetry/constants';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
 import { IDiagnosticsCommandFactory } from '../commands/types';
 import { DiagnosticCodes } from '../constants';
@@ -23,28 +22,44 @@ import {
     IDiagnosticMessageOnCloseHandler,
 } from '../types';
 import { Common } from '../../../common/utils/localize';
+import { Commands } from '../../../common/constants';
+import { IWorkspaceService } from '../../../common/application/types';
+import { sendTelemetryEvent } from '../../../telemetry';
+import { EventName } from '../../../telemetry/constants';
 
 const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 const messages = {
     [DiagnosticCodes.NoPythonInterpretersDiagnostic]: localize(
         'DiagnosticCodes.NoPythonInterpretersDiagnostic',
-        'Python is not installed. Please download and install Python before using the extension.',
+        'No Python interpreter is selected. Please select a Python interpreter to enable features such as IntelliSense, linting, and debugging.',
     ),
-    [DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic]: localize(
+    [DiagnosticCodes.InvalidPythonInterpreterDiagnostic]: localize(
         'DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic',
-        'No Python interpreter is selected. You need to select a Python interpreter to enable features such as IntelliSense, linting, and debugging.',
+        'An Invalid Python interpreter is selected{0}, please try changing it to enable features such as IntelliSense, linting, and debugging.',
     ),
 };
 
 export class InvalidPythonInterpreterDiagnostic extends BaseDiagnostic {
     constructor(
-        code:
-            | DiagnosticCodes.NoPythonInterpretersDiagnostic
-            | DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic,
+        code: DiagnosticCodes.NoPythonInterpretersDiagnostic | DiagnosticCodes.InvalidPythonInterpreterDiagnostic,
         resource: Resource,
+        workspaceService: IWorkspaceService,
+        scope = DiagnosticScope.WorkspaceFolder,
     ) {
-        super(code, messages[code], DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder, resource);
+        let formatArg = '';
+        if (
+            workspaceService.workspaceFile &&
+            workspaceService.workspaceFolders &&
+            workspaceService.workspaceFolders?.length > 1
+        ) {
+            // Specify folder name in case of multiroot scenarios
+            const folder = workspaceService.getWorkspaceFolder(resource);
+            if (folder) {
+                formatArg = ` ${localize('Common.forWorkspace', 'for workspace')} ${path.basename(folder.uri.fsPath)}`;
+            }
+        }
+        super(code, messages[code].format(formatArg), DiagnosticSeverity.Error, scope, resource, undefined, 'always');
     }
 }
 
@@ -57,10 +72,7 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
         @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry,
     ) {
         super(
-            [
-                DiagnosticCodes.NoPythonInterpretersDiagnostic,
-                DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic,
-            ],
+            [DiagnosticCodes.NoPythonInterpretersDiagnostic, DiagnosticCodes.InvalidPythonInterpreterDiagnostic],
             serviceContainer,
             disposableRegistry,
             false,
@@ -68,24 +80,41 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
     }
 
     public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
+        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
         const hasInterpreters = await interpreterService.hasInterpreters();
 
         if (!hasInterpreters) {
-            return [new InvalidPythonInterpreterDiagnostic(DiagnosticCodes.NoPythonInterpretersDiagnostic, resource)];
+            return [
+                new InvalidPythonInterpreterDiagnostic(
+                    DiagnosticCodes.NoPythonInterpretersDiagnostic,
+                    resource,
+                    workspaceService,
+                    DiagnosticScope.Global,
+                ),
+            ];
         }
 
         const currentInterpreter = await interpreterService.getActiveInterpreter(resource);
         if (!currentInterpreter) {
             return [
                 new InvalidPythonInterpreterDiagnostic(
-                    DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic,
+                    DiagnosticCodes.InvalidPythonInterpreterDiagnostic,
                     resource,
+                    workspaceService,
                 ),
             ];
         }
-
         return [];
+    }
+
+    public async validateInterpreterPathInSettings(resource: Resource): Promise<boolean> {
+        const diagnostics = await this.diagnose(resource);
+        if (!diagnostics.length) {
+            return true;
+        }
+        this.handle(diagnostics).ignoreErrors();
+        return false;
     }
 
     protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
@@ -110,33 +139,15 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
 
     private getCommandPrompts(diagnostic: IDiagnostic): { prompt: string; command?: IDiagnosticCommand }[] {
         const commandFactory = this.serviceContainer.get<IDiagnosticsCommandFactory>(IDiagnosticsCommandFactory);
-        switch (diagnostic.code) {
-            case DiagnosticCodes.NoPythonInterpretersDiagnostic: {
-                return [
-                    {
-                        prompt: Common.download,
-                        command: commandFactory.createCommand(diagnostic, {
-                            type: 'launch',
-                            options: 'https://www.python.org/downloads',
-                        }),
-                    },
-                ];
-            }
-            case DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic: {
-                return [
-                    {
-                        prompt: Common.selectPythonInterpreter,
-                        command: commandFactory.createCommand(diagnostic, {
-                            type: 'executeVSCCommand',
-                            options: 'python.setInterpreter',
-                        }),
-                    },
-                ];
-            }
-            default: {
-                throw new Error("Invalid diagnostic for 'InvalidPythonInterpreterService'");
-            }
-        }
+        return [
+            {
+                prompt: Common.selectPythonInterpreter,
+                command: commandFactory.createCommand(diagnostic, {
+                    type: 'executeVSCCommand',
+                    options: Commands.Set_Interpreter,
+                }),
+            },
+        ];
     }
 }
 
