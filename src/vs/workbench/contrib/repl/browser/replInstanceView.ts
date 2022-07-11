@@ -13,7 +13,7 @@ import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
-import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { URI } from 'vs/base/common/uri';
 import { CellEditType, CellUri, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { Schemas } from 'vs/base/common/network';
@@ -44,6 +44,7 @@ export class ReplInstanceView extends Disposable {
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
+		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService) {
 		super();
 		this._language = _kernel.supportedLanguages[0];
@@ -95,6 +96,9 @@ export class ReplInstanceView extends Disposable {
 				transientDocumentMetadata: {}
 			} // options
 		);
+
+		// Bind the kernel we were given to the notebook text model we just created
+		this._notebookKernelService.selectKernelForNotebook(this._kernel, this._nbTextModel);
 
 		// Create editor
 		const editorConstructionOptions = <IEditorConstructionOptions>{};
