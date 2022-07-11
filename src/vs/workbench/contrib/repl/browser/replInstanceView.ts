@@ -15,6 +15,12 @@ import { INotificationService, Severity } from 'vs/platform/notification/common/
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { URI } from 'vs/base/common/uri';
+import { CellEditType, CellUri, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { Schemas } from 'vs/base/common/network';
+import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
+
+export const REPL_NOTEBOOK_SCHEME = 'repl';
 
 /**
  * The ReplInstanceView class is the view that hosts an individual REPL instance.
@@ -28,16 +34,20 @@ export class ReplInstanceView extends Disposable {
 	/** The URI of the virtual notebook powering this instance */
 	private readonly _uri: URI;
 
+	/** The notebook text model */
+	private _nbTextModel?: NotebookTextModel;
+
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IModelService private readonly _modelService: IModelService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService) {
+		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
+		@INotebookService private readonly _notebookService: INotebookService) {
 		super();
 		this._language = _kernel.supportedLanguages[0];
-		this._uri = URI.parse('repl:' + this._language);
+		this._uri = URI.parse('repl:///' + this._language);
 	}
 
 	render() {
@@ -55,11 +65,35 @@ export class ReplInstanceView extends Disposable {
 		const languageId = this._languageService.getLanguageIdByLanguageName(this._language);
 		const languageSelection = this._languageService.createById(languageId);
 
-		// Create text model
+		// Create text model; this is the backing store for the Monaco editor that receives
+		// the user's input
 		const textModel = this._modelService.createModel('', // initial value
 			languageSelection,  // language selection
 			undefined,          // resource URI
 			false               // mark for simple widget
+		);
+
+		// TODO: do we need to cache or store this?
+		this._nbTextModel = this._notebookService.createNotebookTextModel(
+			// TODO: do we need our own view type? seems ideal
+			'interactive',
+			this._uri,
+			{
+				cells: [{
+					source: '',
+					language: this._language,
+					mime: `text/${this._language}`,
+					cellKind: CellKind.Code,
+					outputs: [],
+					metadata: {}
+				}],
+				metadata: {}
+			}, // data
+			{
+				transientOutputs: false,
+				transientCellMetadata: {},
+				transientDocumentMetadata: {}
+			} // options
 		);
 
 		// Create editor
@@ -103,16 +137,43 @@ export class ReplInstanceView extends Disposable {
 	submit() {
 		const code = this._editor?.getValue();
 
-		// Create a CellExecution to track the execution of this input
-		const cell = this._notebookExecutionStateService.getCellExecution(this._uri);
-		if (!cell) {
-			throw new Error('Cannot create cell execution state for code: ' + code);
+		if (!code) {
+			throw new Error('Attempt to submit without code');
 		}
-		const exe = this._notebookExecutionStateService.createCellExecution(this._uri, cell.cellHandle);
+		const handle = 1;
+
+		// Replace the "cell" contents with what the user entered
+		this._nbTextModel?.applyEdits([{
+			editType: CellEditType.Replace,
+			cells: [{
+				source: code,
+				language: this._language,
+				mime: `text/${this._language}`,
+				cellKind: CellKind.Code,
+				outputs: [],
+				metadata: {}
+			}],
+			count: 1,
+			index: 1
+		}],
+			true, // Synchronous
+			undefined,
+			() => undefined,
+			undefined,
+			false);
+
+		// Generate a unique URI to track the execution of this cell
+		const cellUri = CellUri.generateCellUri(this._uri, handle, Schemas.vscodeNotebookCell);
+
+		// Create a CellExecution to track the execution of this input
+		const exe = this._notebookExecutionStateService.createCellExecution(this._uri, handle);
+		if (!exe) {
+			throw new Error(`Cannot create cell execution state for code: ${code}`);
+		}
 
 		this._notificationService.notify({
 			severity: Severity.Info,
-			message: `Submitting ${code} with handle ${exe.cellHandle}`
+			message: `Submitting ${code} in cell ${cellUri.toString()} with handle ${exe.cellHandle}`
 		});
 
 		// Ask the kernel to execute the cell
