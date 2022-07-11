@@ -2,6 +2,8 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
+import { KeyCode } from 'vs/base/common/keyCodes';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditorWidget';
@@ -9,7 +11,10 @@ import { IEditorMinimapOptions, IEditorOptions } from 'vs/editor/common/config/e
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * The ReplInstanceView class is the view that hosts an individual REPL instance.
@@ -17,12 +22,22 @@ import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKe
 export class ReplInstanceView extends Disposable {
 	private _editor?: CodeEditorWidget;
 
+	/** The language executed by this REPL */
+	private readonly _language: string;
+
+	/** The URI of the virtual notebook powering this instance */
+	private readonly _uri: URI;
+
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IModelService private readonly _modelService: IModelService,
-		@ILanguageService private readonly _languageService: ILanguageService) {
+		@ILanguageService private readonly _languageService: ILanguageService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService) {
 		super();
+		this._language = _kernel.supportedLanguages[0];
+		this._uri = URI.parse('repl:' + this._language);
 	}
 
 	render() {
@@ -37,8 +52,7 @@ export class ReplInstanceView extends Disposable {
 		this._parentElement.appendChild(ed);
 
 		// Create language selector
-		const languageId = this._languageService.getLanguageIdByLanguageName(
-			this._kernel.supportedLanguages[0]);
+		const languageId = this._languageService.getLanguageIdByLanguageName(this._language);
 		const languageSelection = this._languageService.createById(languageId);
 
 		// Create text model
@@ -64,7 +78,13 @@ export class ReplInstanceView extends Disposable {
 		this._register(this._editor);
 
 		this._editor.setModel(textModel);
+		this._editor.onKeyDown((e: IKeyboardEvent) => {
+			if (e.keyCode === KeyCode.Enter) {
+				this.submit();
+			}
+		});
 
+		// Turn off most editor chrome so we can host in the REPL
 		const editorOptions = <IEditorOptions>{
 			lineNumbers: 'off',
 			minimap: <IEditorMinimapOptions>{
@@ -74,10 +94,28 @@ export class ReplInstanceView extends Disposable {
 			enableDropIntoEditor: false,
 			renderLineHighlight: 'none'
 		};
-
 		this._editor.updateOptions(editorOptions);
 
-		// Currently doesn't do anything since we don't have a text model to hook it up to
+		// Lay out editor in DOM
 		this._editor.layout();
+	}
+
+	submit() {
+		const code = this._editor?.getValue();
+
+		// Create a CellExecution to track the execution of this input
+		const cell = this._notebookExecutionStateService.getCellExecution(this._uri);
+		if (!cell) {
+			throw new Error('Cannot create cell execution state for code: ' + code);
+		}
+		const exe = this._notebookExecutionStateService.createCellExecution(this._uri, cell.cellHandle);
+
+		this._notificationService.notify({
+			severity: Severity.Info,
+			message: `Submitting ${code} with handle ${exe.cellHandle}`
+		});
+
+		// Ask the kernel to execute the cell
+		this._kernel.executeNotebookCellsRequest(this._uri, [exe.cellHandle]);
 	}
 }
