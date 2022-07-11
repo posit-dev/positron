@@ -12,13 +12,14 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
-import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
+import { ICellExecutionStateChangedEvent, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { URI } from 'vs/base/common/uri';
 import { CellEditType, CellUri, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { Schemas } from 'vs/base/common/network';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
+import { ILogService } from 'vs/platform/log/common/log';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -37,6 +38,8 @@ export class ReplInstanceView extends Disposable {
 	/** The notebook text model */
 	private _nbTextModel?: NotebookTextModel;
 
+	private _output: HTMLElement;
+
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -45,16 +48,19 @@ export class ReplInstanceView extends Disposable {
 		@INotificationService private readonly _notificationService: INotificationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
-		@INotebookService private readonly _notebookService: INotebookService) {
+		@INotebookService private readonly _notebookService: INotebookService,
+		@ILogService private readonly _logService: ILogService) {
 		super();
 		this._language = _kernel.supportedLanguages[0];
 		this._uri = URI.parse('repl:///' + this._language);
+		this._output = document.createElement('div');
 	}
 
 	render() {
-		const h1 = document.createElement('h3');
-		h1.innerText = this._kernel.label;
-		this._parentElement.appendChild(h1);
+		const h3 = document.createElement('h3');
+		h3.innerText = this._kernel.label;
+		this._parentElement.appendChild(h3);
+		this._parentElement.appendChild(this._output);
 
 		const ed = document.createElement('div');
 
@@ -140,10 +146,16 @@ export class ReplInstanceView extends Disposable {
 
 	submit() {
 		const code = this._editor?.getValue();
-
 		if (!code) {
 			throw new Error('Attempt to submit without code');
 		}
+
+		// Clear the submitted code from the editor and place it in the execution region
+		this._editor?.setValue('');
+		const pre = document.createElement('pre');
+		pre.innerText = code;
+		this._output.appendChild(pre);
+
 		const handle = 1;
 
 		// Replace the "cell" contents with what the user entered
@@ -182,5 +194,8 @@ export class ReplInstanceView extends Disposable {
 
 		// Ask the kernel to execute the cell
 		this._kernel.executeNotebookCellsRequest(this._uri, [exe.cellHandle]);
+		this._notebookExecutionStateService.onDidChangeCellExecution((e: ICellExecutionStateChangedEvent) => {
+			this._logService.debug('Cell execution change: ', e);
+		});
 	}
 }
