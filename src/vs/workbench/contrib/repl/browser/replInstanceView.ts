@@ -2,6 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./media/repl';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -59,8 +60,7 @@ export class ReplInstanceView extends Disposable {
 		this._uri = URI.parse('repl:///' + this._language);
 
 		this._root = document.createElement('div');
-		this._root.style.overflow = 'scroll';
-		this._root.style.height = '100%';
+		this._root.classList.add('repl-root');
 
 		// Create output host element
 		this._output = document.createElement('div');
@@ -285,6 +285,6 @@ export class ReplInstanceView extends Disposable {
 	}
 
 	scrollToBottom() {
-		this._root.scrollTop = this._root.offsetHeight;
+		this._root.scrollTop = this._root.scrollHeight;
 	}
 }
