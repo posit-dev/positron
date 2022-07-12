@@ -11,12 +11,10 @@ import { IEditorMinimapOptions, IEditorOptions } from 'vs/editor/common/config/e
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
-import { ICellExecutionStateChangedEvent, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
+import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { URI } from 'vs/base/common/uri';
-import { CellEditType, CellUri, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { Schemas } from 'vs/base/common/network';
+import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -45,7 +43,6 @@ export class ReplInstanceView extends Disposable {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IModelService private readonly _modelService: IModelService,
 		@ILanguageService private readonly _languageService: ILanguageService,
-		@INotificationService private readonly _notificationService: INotificationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -156,8 +153,6 @@ export class ReplInstanceView extends Disposable {
 		pre.innerText = code;
 		this._output.appendChild(pre);
 
-		const handle = 1;
-
 		// Replace the "cell" contents with what the user entered
 		this._nbTextModel?.applyEdits([{
 			editType: CellEditType.Replace,
@@ -170,7 +165,7 @@ export class ReplInstanceView extends Disposable {
 				metadata: {}
 			}],
 			count: 1,
-			index: 1
+			index: 0
 		}],
 			true, // Synchronous
 			undefined,
@@ -178,24 +173,30 @@ export class ReplInstanceView extends Disposable {
 			undefined,
 			false);
 
-		// Generate a unique URI to track the execution of this cell
-		const cellUri = CellUri.generateCellUri(this._uri, handle, Schemas.vscodeNotebookCell);
+		const cell = this._nbTextModel?.cells[0]!;
+
+		cell.onDidChangeOutputs((e) => {
+			this._logService.debug('Cell changed output: ', e);
+			for (const output of e.newOutputs) {
+				for (const o of output.outputs) {
+					const p = document.createElement('pre');
+					if (o.mime.startsWith('text')) {
+						p.innerText = o.data.toString();
+					} else {
+						p.innerText = `Result type ${o.mime}`;
+					}
+					this._output.appendChild(p);
+				}
+			}
+		});
 
 		// Create a CellExecution to track the execution of this input
-		const exe = this._notebookExecutionStateService.createCellExecution(this._uri, handle);
+		const exe = this._notebookExecutionStateService.createCellExecution(this._uri, cell.handle);
 		if (!exe) {
 			throw new Error(`Cannot create cell execution state for code: ${code}`);
 		}
 
-		this._notificationService.notify({
-			severity: Severity.Info,
-			message: `Submitting ${code} in cell ${cellUri.toString()} with handle ${exe.cellHandle}`
-		});
-
 		// Ask the kernel to execute the cell
 		this._kernel.executeNotebookCellsRequest(this._uri, [exe.cellHandle]);
-		this._notebookExecutionStateService.onDidChangeCellExecution((e: ICellExecutionStateChangedEvent) => {
-			this._logService.debug('Cell execution change: ', e);
-		});
 	}
 }
