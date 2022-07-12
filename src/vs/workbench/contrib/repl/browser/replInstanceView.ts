@@ -36,7 +36,11 @@ export class ReplInstanceView extends Disposable {
 	/** The notebook text model */
 	private _nbTextModel?: NotebookTextModel;
 
+	/** The HTML element hosting the output area */
 	private _output: HTMLElement;
+
+	/** The HTML element hosting the Monaco editor instance */
+	private _editorHost: HTMLElement;
 
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
@@ -50,9 +54,33 @@ export class ReplInstanceView extends Disposable {
 		super();
 		this._language = _kernel.supportedLanguages[0];
 		this._uri = URI.parse('repl:///' + this._language);
+
+		// Create output host element
 		this._output = document.createElement('div');
 		this._output.style.position = 'relative';
 		this._output.style.left = '30px';
+
+		// Create editor host element
+		this._editorHost = document.createElement('div');
+		this._editorHost.style.position = 'relative';
+
+		// Listen for execution state changes
+		this._notebookExecutionStateService.onDidChangeCellExecution((e) => {
+			// When execution is complete, show the prompt again
+			if (e.affectsNotebook(this._uri)) {
+				if (typeof e.changed === 'undefined') {
+					this._logService.info(`Cell execution of ${e.cellHandle} complete`);
+					this._editorHost.style.display = 'block';
+					this._editor?.layout();
+
+					// TODO: this could steal focus; probably don't do it if
+					// focus is in another pane
+					this._editor?.focus();
+				} else {
+					this._logService.info(`Cell execution status: `, e.changed);
+				}
+			}
+		});
 	}
 
 	render() {
@@ -61,11 +89,10 @@ export class ReplInstanceView extends Disposable {
 		this._parentElement.appendChild(h3);
 		this._parentElement.appendChild(this._output);
 
-		const ed = document.createElement('div');
-
 		// TODO: do not hardcode this
-		ed.style.height = '2em';
-		this._parentElement.appendChild(ed);
+		this._editorHost.style.height = '2em';
+		this._editorHost.style.width = '100%';
+		this._parentElement.appendChild(this._editorHost);
 
 		// Create language selector
 		const languageId = this._languageService.getLanguageIdByLanguageName(this._language);
@@ -114,7 +141,7 @@ export class ReplInstanceView extends Disposable {
 
 		this._editor = this._instantiationService.createInstance(
 			CodeEditorWidget,
-			ed,
+			this._editorHost,
 			editorConstructionOptions,
 			widgetOptions);
 
@@ -157,10 +184,17 @@ export class ReplInstanceView extends Disposable {
 		this._editor.updateOptions(editorOptions);
 
 		this._editor.onDidContentSizeChange((e) => {
+			// Don't attempt to measure while input area is hidden
+			if (this._editorHost.style.display === 'none') {
+				return;
+			}
+
+			// Measure the size of the content and host and size the editor to fit them
+			const contentWidth = this._editorHost.offsetWidth;
 			const contentHeight = Math.min(500, this._editor!.getContentHeight());
-			ed.style.width = `400px`;
-			ed.style.height = `${contentHeight}px`;
-			this._editor!.layout({ width: 400, height: contentHeight });
+			this._editorHost.style.width = `${contentWidth}px`;
+			this._editorHost.style.height = `${contentHeight}px`;
+			this._editor!.layout({ width: contentWidth, height: contentHeight });
 		});
 
 		// Lay out editor in DOM
@@ -178,7 +212,11 @@ export class ReplInstanceView extends Disposable {
 		// Enter keystroke that triggered this doesn't add a new line to the
 		// editor)
 		window.setTimeout(() => {
+			// Clear the input and hide the prompt while the code is executing
+			this._editorHost.style.display = 'none';
 			this._editor?.setValue('');
+
+			// Append the submitted input to the output area
 			const pre = document.createElement('pre');
 			pre.innerText = `> ${code}`;
 			this._output.appendChild(pre);
