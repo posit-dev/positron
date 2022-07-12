@@ -127,13 +127,28 @@ export class ReplInstanceView extends Disposable {
 
 		// Turn off most editor chrome so we can host in the REPL
 		const editorOptions = <IEditorOptions>{
-			lineNumbers: 'off',
+			lineNumbers: (n: number) => {
+				// Render the prompt as > for the first line; do not render
+				// anything in the margin for following lines
+				if (n < 2) {
+					return '>';
+				}
+				return '';
+			},
 			minimap: <IEditorMinimapOptions>{
 				enabled: false
 			},
+			glyphMargin: false,
+			lineDecorationsWidth: 0,
 			overviewRuleBorder: false,
 			enableDropIntoEditor: false,
-			renderLineHighlight: 'none'
+			renderLineHighlight: 'none',
+			wordWrap: 'bounded',
+			renderOverviewRuler: false,
+			scrollbar: {
+				vertical: 'hidden',
+				useShadows: false
+			}
 		};
 		this._editor.updateOptions(editorOptions);
 
@@ -147,11 +162,16 @@ export class ReplInstanceView extends Disposable {
 			throw new Error('Attempt to submit without code');
 		}
 
-		// Clear the submitted code from the editor and place it in the execution region
-		this._editor?.setValue('');
-		const pre = document.createElement('pre');
-		pre.innerText = code;
-		this._output.appendChild(pre);
+		// Clear the submitted code from the editor and place it in the
+		// execution region (do this after the event loop completes so that the
+		// Enter keystroke that triggered this doesn't add a new line to the
+		// editor)
+		window.setTimeout(() => {
+			this._editor?.setValue('');
+			const pre = document.createElement('pre');
+			pre.innerText = `> ${code}`;
+			this._output.appendChild(pre);
+		});
 
 		// Replace the "cell" contents with what the user entered
 		this._nbTextModel?.applyEdits([{
@@ -188,6 +208,9 @@ export class ReplInstanceView extends Disposable {
 					this._output.appendChild(p);
 				}
 			}
+
+			// TODO: only do this if already scrolled to bottom
+			this.scrollToBottom();
 		});
 
 		// Create a CellExecution to track the execution of this input
@@ -198,5 +221,10 @@ export class ReplInstanceView extends Disposable {
 
 		// Ask the kernel to execute the cell
 		this._kernel.executeNotebookCellsRequest(this._uri, [exe.cellHandle]);
+		this.scrollToBottom();
+	}
+
+	scrollToBottom() {
+		this._parentElement.scrollTop = this._parentElement.offsetHeight;
 	}
 }
