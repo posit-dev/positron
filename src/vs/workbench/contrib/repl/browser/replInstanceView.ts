@@ -51,6 +51,8 @@ export class ReplInstanceView extends Disposable {
 		this._language = _kernel.supportedLanguages[0];
 		this._uri = URI.parse('repl:///' + this._language);
 		this._output = document.createElement('div');
+		this._output.style.position = 'relative';
+		this._output.style.left = '30px';
 	}
 
 	render() {
@@ -148,9 +150,18 @@ export class ReplInstanceView extends Disposable {
 			scrollbar: {
 				vertical: 'hidden',
 				useShadows: false
-			}
+			},
+			overviewRulerLanes: 0,
+			scrollBeyondLastLine: false,
 		};
 		this._editor.updateOptions(editorOptions);
+
+		this._editor.onDidContentSizeChange((e) => {
+			const contentHeight = Math.min(500, this._editor!.getContentHeight());
+			ed.style.width = `400px`;
+			ed.style.height = `${contentHeight}px`;
+			this._editor!.layout({ width: 400, height: contentHeight });
+		});
 
 		// Lay out editor in DOM
 		this._editor.layout();
