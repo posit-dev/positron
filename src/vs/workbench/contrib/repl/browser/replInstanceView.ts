@@ -42,6 +42,9 @@ export class ReplInstanceView extends Disposable {
 	/** The HTML element hosting the Monaco editor instance */
 	private _editorHost: HTMLElement;
 
+	/** The root container HTML element */
+	private _root: HTMLElement;
+
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -54,6 +57,10 @@ export class ReplInstanceView extends Disposable {
 		super();
 		this._language = _kernel.supportedLanguages[0];
 		this._uri = URI.parse('repl:///' + this._language);
+
+		this._root = document.createElement('div');
+		this._root.style.overflow = 'scroll';
+		this._root.style.height = '100%';
 
 		// Create output host element
 		this._output = document.createElement('div');
@@ -76,6 +83,8 @@ export class ReplInstanceView extends Disposable {
 					// TODO: this could steal focus; probably don't do it if
 					// focus is in another pane
 					this._editor?.focus();
+
+					this.scrollToBottom();
 				} else {
 					this._logService.info(`Cell execution status: `, e.changed);
 				}
@@ -84,15 +93,17 @@ export class ReplInstanceView extends Disposable {
 	}
 
 	render() {
+		this._parentElement.appendChild(this._root);
+
 		const h3 = document.createElement('h3');
 		h3.innerText = this._kernel.label;
-		this._parentElement.appendChild(h3);
-		this._parentElement.appendChild(this._output);
+		this._root.appendChild(h3);
+		this._root.appendChild(this._output);
 
 		// TODO: do not hardcode this
 		this._editorHost.style.height = '2em';
 		this._editorHost.style.width = '100%';
-		this._parentElement.appendChild(this._editorHost);
+		this._root.appendChild(this._editorHost);
 
 		// Create language selector
 		const languageId = this._languageService.getLanguageIdByLanguageName(this._language);
@@ -274,6 +285,6 @@ export class ReplInstanceView extends Disposable {
 	}
 
 	scrollToBottom() {
-		this._parentElement.scrollTop = this._parentElement.offsetHeight;
+		this._root.scrollTop = this._root.offsetHeight;
 	}
 }
