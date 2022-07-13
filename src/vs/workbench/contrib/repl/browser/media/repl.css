@@ -28,6 +28,10 @@
 	font-size: inherit;
 }
 
+.repl-output pre.error {
+	color: --vscode-errorForeground;
+}
+
 .repl-editor-hidden {
 	display: none;
 }
