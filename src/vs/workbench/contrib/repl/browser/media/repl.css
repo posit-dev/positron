@@ -19,6 +19,13 @@
 .repl-output {
 	position: relative;
 	left: 30px;
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.repl-output pre {
+	font-family: inherit;
+	font-size: inherit;
 }
 
 .repl-editor-hidden {
