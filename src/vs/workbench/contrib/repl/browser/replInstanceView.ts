@@ -64,12 +64,11 @@ export class ReplInstanceView extends Disposable {
 
 		// Create output host element
 		this._output = document.createElement('div');
-		this._output.style.position = 'relative';
-		this._output.style.left = '30px';
+		this._output.classList.add('repl-output');
 
 		// Create editor host element
 		this._editorHost = document.createElement('div');
-		this._editorHost.style.position = 'relative';
+		this._editorHost.classList.add('repl-editor-host');
 
 		// Listen for execution state changes
 		this._notebookExecutionStateService.onDidChangeCellExecution((e) => {
@@ -77,7 +76,7 @@ export class ReplInstanceView extends Disposable {
 			if (e.affectsNotebook(this._uri)) {
 				if (typeof e.changed === 'undefined') {
 					this._logService.info(`Cell execution of ${e.cellHandle} complete`);
-					this._editorHost.style.display = 'block';
+					this._editorHost.classList.remove('repl-editor-hidden');
 					this._editor?.layout();
 
 					// TODO: this could steal focus; probably don't do it if
@@ -101,8 +100,7 @@ export class ReplInstanceView extends Disposable {
 		this._root.appendChild(this._output);
 
 		// TODO: do not hardcode this
-		this._editorHost.style.height = '2em';
-		this._editorHost.style.width = '100%';
+		this._editorHost.classList.add('repl-editor');
 		this._root.appendChild(this._editorHost);
 
 		// Create language selector
@@ -196,7 +194,7 @@ export class ReplInstanceView extends Disposable {
 
 		this._editor.onDidContentSizeChange((e) => {
 			// Don't attempt to measure while input area is hidden
-			if (this._editorHost.style.display === 'none') {
+			if (this._editorHost.classList.contains('repl-editor-hidden')) {
 				return;
 			}
 
@@ -224,7 +222,7 @@ export class ReplInstanceView extends Disposable {
 		// editor)
 		window.setTimeout(() => {
 			// Clear the input and hide the prompt while the code is executing
-			this._editorHost.style.display = 'none';
+			this._editorHost.classList.add('repl-editor-hidden');
 			this._editor?.setValue('');
 
 			// Append the submitted input to the output area
