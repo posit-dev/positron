@@ -6,3 +6,21 @@
 	overflow: scroll;
 	height: 100%;
 }
+
+.repl-editor-host {
+	position: relative;
+}
+
+.repl-editor {
+	width: 100%;
+	height: 2em;
+}
+
+.repl-output {
+	position: relative;
+	left: 30px;
+}
+
+.repl-editor-hidden {
+	display: none;
+}
