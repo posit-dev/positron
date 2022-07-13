@@ -3,8 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .repl-root {
-	overflow: scroll;
-	height: 100%;
+	position: relative;
 }
 
 .repl-editor-host {
@@ -26,6 +25,7 @@
 .repl-output pre {
 	font-family: inherit;
 	font-size: inherit;
+	margin: 0.25em 0;
 }
 
 .repl-editor-hidden {
