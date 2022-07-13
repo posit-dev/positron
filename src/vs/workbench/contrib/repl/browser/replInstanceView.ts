@@ -70,7 +70,10 @@ export class ReplInstanceView extends Disposable {
 
 		this._root = document.createElement('div');
 		this._root.classList.add('repl-root');
-		this._scroller = new DomScrollableElement(this._root, {});
+		this._scroller = new DomScrollableElement(this._root, {
+			horizontal: ScrollbarVisibility.Hidden,
+			vertical: ScrollbarVisibility.Auto
+		});
 		this._scroller.getDomNode().appendChild(this._root);
 		this._scroller.getDomNode().style.height = '100%';
 
@@ -299,6 +302,11 @@ export class ReplInstanceView extends Disposable {
 					let error = false;
 					if (o.mime.startsWith('text')) {
 						output = o.data.toString();
+					} else if (o.mime === 'application/vnd.code.notebook.stdout') {
+						output = o.data.toString();
+					} else if (o.mime === 'application/vnd.code.notebook.stderr') {
+						output = o.data.toString();
+						error = true;
 					} else if (o.mime === 'application/vnd.code.notebook.error') {
 						output = o.data.toString();
 						error = true;
@@ -325,7 +333,7 @@ export class ReplInstanceView extends Disposable {
 	}
 
 	scrollToBottom() {
-		this._root.scrollTop = this._root.scrollHeight;
 		this._scroller.scanDomNode();
+		this._scroller.setScrollPosition({ scrollTop: this._root.scrollHeight });
 	}
 }
