@@ -222,9 +222,12 @@ export class ReplInstanceView extends Disposable {
 	 *
 	 * @param output The output to emit
 	 */
-	private emitOutput(output: string) {
+	private emitOutput(output: string, error: boolean | undefined) {
 		const pre = document.createElement('pre');
 		pre.innerText = output;
+		if (error) {
+			pre.classList.add('error');
+		}
 		this._output.appendChild(pre);
 	}
 
@@ -244,7 +247,7 @@ export class ReplInstanceView extends Disposable {
 			this._editor?.setValue('');
 
 			// Append the submitted input to the output area
-			this.emitOutput(`>  ${code}`);
+			this.emitOutput(`>  ${code}`, false);
 		});
 
 		// Replace the "cell" contents with what the user entered
@@ -274,12 +277,16 @@ export class ReplInstanceView extends Disposable {
 			for (const output of e.newOutputs) {
 				for (const o of output.outputs) {
 					let output = '';
+					let error = false;
 					if (o.mime.startsWith('text')) {
 						output = o.data.toString();
+					} else if (o.mime === 'application/vnd.code.notebook.error') {
+						output = o.data.toString();
+						error = true;
 					} else {
 						output = `Result type ${o.mime}`;
 					}
-					this.emitOutput(output);
+					this.emitOutput(output, error);
 				}
 			}
 
