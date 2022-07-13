@@ -20,6 +20,8 @@ import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookS
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ILogService } from 'vs/platform/log/common/log';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
+import { errorForeground } from 'vs/platform/theme/common/colorRegistry';
+import { IThemeService } from 'vs/platform/theme/common/themeService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -55,7 +57,8 @@ export class ReplInstanceView extends Disposable {
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@ILogService private readonly _logService: ILogService) {
+		@ILogService private readonly _logService: ILogService,
+		@IThemeService private readonly _themeService: IThemeService) {
 		super();
 		this._language = _kernel.supportedLanguages[0];
 		this._uri = URI.parse('repl:///' + this._language);
@@ -225,8 +228,12 @@ export class ReplInstanceView extends Disposable {
 	private emitOutput(output: string, error: boolean | undefined) {
 		const pre = document.createElement('pre');
 		pre.innerText = output;
+		// Apply error color to errors
 		if (error) {
-			pre.classList.add('error');
+			const errorColor = this._themeService.getColorTheme().getColor(errorForeground);
+			if (errorColor) {
+				pre.style.color = errorColor.toString();
+			}
 		}
 		this._output.appendChild(pre);
 	}
