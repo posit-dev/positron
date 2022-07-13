@@ -22,6 +22,8 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { errorForeground } from 'vs/platform/theme/common/colorRegistry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
+import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -49,6 +51,9 @@ export class ReplInstanceView extends Disposable {
 	/** The root container HTML element */
 	private _root: HTMLElement;
 
+	/** The scrolling element that hosts content */
+	private _scroller: DomScrollableElement;
+
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -64,7 +69,9 @@ export class ReplInstanceView extends Disposable {
 		this._uri = URI.parse('repl:///' + this._language);
 
 		this._root = document.createElement('div');
-		this._root.classList.add('repl-root');
+		this._scroller = new DomScrollableElement(this._root, {});
+		this._scroller.getDomNode().appendChild(this._root);
+		this._scroller.getDomNode().style.height = '100%';
 
 		// Create output host element
 		this._output = document.createElement('div');
@@ -96,7 +103,7 @@ export class ReplInstanceView extends Disposable {
 	}
 
 	render() {
-		this._parentElement.appendChild(this._root);
+		this._parentElement.appendChild(this._scroller.getDomNode());
 
 		const h3 = document.createElement('h3');
 		h3.innerText = this._kernel.label;
@@ -218,6 +225,9 @@ export class ReplInstanceView extends Disposable {
 
 		// Lay out editor in DOM
 		this._editor.layout();
+
+		// Recompute scrolling
+		this._scroller.scanDomNode();
 	}
 
 	/**
@@ -236,6 +246,7 @@ export class ReplInstanceView extends Disposable {
 			}
 		}
 		this._output.appendChild(pre);
+		this._scroller.scanDomNode();
 	}
 
 	submit() {
@@ -314,5 +325,6 @@ export class ReplInstanceView extends Disposable {
 
 	scrollToBottom() {
 		this._root.scrollTop = this._root.scrollHeight;
+		this._scroller.scanDomNode();
 	}
 }
