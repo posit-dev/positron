@@ -69,6 +69,7 @@ export class ReplInstanceView extends Disposable {
 		this._uri = URI.parse('repl:///' + this._language);
 
 		this._root = document.createElement('div');
+		this._root.classList.add('repl-root');
 		this._scroller = new DomScrollableElement(this._root, {});
 		this._scroller.getDomNode().appendChild(this._root);
 		this._scroller.getDomNode().style.height = '100%';
