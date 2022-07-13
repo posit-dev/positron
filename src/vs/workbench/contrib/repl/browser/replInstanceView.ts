@@ -80,6 +80,13 @@ export class ReplInstanceView extends Disposable {
 		// Create output host element
 		this._output = document.createElement('div');
 		this._output.classList.add('repl-output');
+		this._output.addEventListener('click', (ev) => {
+			// TODO: check for hidden editor
+			if (this._editor) {
+				this._editor.focus();
+				this.scrollToBottom();
+			}
+		});
 
 		// Create editor host element
 		this._editorHost = document.createElement('div');
@@ -242,15 +249,20 @@ export class ReplInstanceView extends Disposable {
 	private emitOutput(output: string, error: boolean | undefined) {
 		const pre = document.createElement('pre');
 		pre.innerText = output;
-		// Apply error color to errors
+
+		// Apply error color to errors. Gosh, it'd sure be nice if this was a
+		// CSS class we could just add.
 		if (error) {
 			const errorColor = this._themeService.getColorTheme().getColor(errorForeground);
 			if (errorColor) {
 				pre.style.color = errorColor.toString();
 			}
 		}
+
 		this._output.appendChild(pre);
-		this._scroller.scanDomNode();
+
+		// Scroll to the bottom to show the new output
+		this.scrollToBottom();
 	}
 
 	submit() {
@@ -332,6 +344,9 @@ export class ReplInstanceView extends Disposable {
 		this.scrollToBottom();
 	}
 
+	/**
+	 * Scrolls the REPL to the bottom, to show new output or the input prompt.
+	 */
 	scrollToBottom() {
 		this._scroller.scanDomNode();
 		this._scroller.setScrollPosition({ scrollTop: this._root.scrollHeight });
