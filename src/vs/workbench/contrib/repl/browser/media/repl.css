@@ -4,6 +4,7 @@
 
 .repl-root {
 	position: relative;
+	height: 100%;
 }
 
 .repl-editor-host {
