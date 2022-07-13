@@ -8,7 +8,7 @@ import { KeyCode } from 'vs/base/common/keyCodes';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditorWidget';
-import { IEditorMinimapOptions, IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { IEditorMinimapOptions, IEditorOptions, EditorOption } from 'vs/editor/common/config/editorOptions';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -19,6 +19,7 @@ import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/not
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ILogService } from 'vs/platform/log/common/log';
+import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -192,6 +193,8 @@ export class ReplInstanceView extends Disposable {
 		};
 		this._editor.updateOptions(editorOptions);
 
+		// Auto-grow the editor as the internal content size changes (i.e. make
+		// it grow vertically as the user enters additional lines of input)
 		this._editor.onDidContentSizeChange((e) => {
 			// Don't attempt to measure while input area is hidden
 			if (this._editorHost.classList.contains('repl-editor-hidden')) {
@@ -206,8 +209,23 @@ export class ReplInstanceView extends Disposable {
 			this._editor!.layout({ width: contentWidth, height: contentHeight });
 		});
 
+		// Copy the editor's font settings to the output area
+		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
+		applyFontInfo(this._output, fontInfo);
+
 		// Lay out editor in DOM
 		this._editor.layout();
+	}
+
+	/**
+	 * Emits preformatted text to the output area.
+	 *
+	 * @param output The output to emit
+	 */
+	private emitOutput(output: string) {
+		const pre = document.createElement('pre');
+		pre.innerText = output;
+		this._output.appendChild(pre);
 	}
 
 	submit() {
@@ -226,9 +244,7 @@ export class ReplInstanceView extends Disposable {
 			this._editor?.setValue('');
 
 			// Append the submitted input to the output area
-			const pre = document.createElement('pre');
-			pre.innerText = `> ${code}`;
-			this._output.appendChild(pre);
+			this.emitOutput(`>  ${code}`);
 		});
 
 		// Replace the "cell" contents with what the user entered
@@ -257,13 +273,13 @@ export class ReplInstanceView extends Disposable {
 			this._logService.debug('Cell changed output: ', e);
 			for (const output of e.newOutputs) {
 				for (const o of output.outputs) {
-					const p = document.createElement('pre');
+					let output = '';
 					if (o.mime.startsWith('text')) {
-						p.innerText = o.data.toString();
+						output = o.data.toString();
 					} else {
-						p.innerText = `Result type ${o.mime}`;
+						output = `Result type ${o.mime}`;
 					}
-					this._output.appendChild(p);
+					this.emitOutput(output);
 				}
 			}
 
