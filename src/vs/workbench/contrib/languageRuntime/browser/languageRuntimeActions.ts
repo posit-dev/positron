@@ -89,15 +89,6 @@ export function registerLanguageRuntimeActions() {
 						if (languageService.getActiveRuntimes().length < 1) {
 							languageService.startRuntime(kernel.id);
 						}
-
-						// Inform the user that we've made the change successfully
-						notificationService.notify({
-							severity: Severity.Info,
-							message: localize(
-								'language runtime registered',
-								"The active language runtime is now {0}",
-								kernel.label)
-						});
 						break;
 					}
 				}
