@@ -24,6 +24,7 @@ import { errorForeground } from 'vs/platform/theme/common/colorRegistry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
+import { ReplError } from 'vs/workbench/contrib/repl/browser/replError';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -260,9 +261,21 @@ export class ReplInstanceView extends Disposable {
 		}
 
 		this._output.appendChild(pre);
+	}
 
-		// Scroll to the bottom to show the new output
-		this.scrollToBottom();
+	/**
+	 * Emits an error to the output stream.
+	 *
+	 * @param error The error to emit; expected to be an Error JSON object, but
+	 * if not will be treated as text
+	 */
+	private emitError(error: string) {
+		const err: ReplError = this._instantiationService.createInstance(ReplError, error);
+		const errorColor = this._themeService.getColorTheme().getColor(errorForeground);
+		if (errorColor) {
+			err.getDomNode().style.color = errorColor.toString();
+		}
+		err.render(this._output);
 	}
 
 	submit() {
@@ -312,6 +325,7 @@ export class ReplInstanceView extends Disposable {
 				for (const o of output.outputs) {
 					let output = '';
 					let error = false;
+					let isText = true;
 					if (o.mime.startsWith('text')) {
 						output = o.data.toString();
 					} else if (o.mime === 'application/vnd.code.notebook.stdout') {
@@ -320,12 +334,13 @@ export class ReplInstanceView extends Disposable {
 						output = o.data.toString();
 						error = true;
 					} else if (o.mime === 'application/vnd.code.notebook.error') {
-						output = o.data.toString();
-						error = true;
+						this.emitError(o.data.toString());
 					} else {
 						output = `Result type ${o.mime}`;
 					}
-					this.emitOutput(output, error);
+					if (isText) {
+						this.emitOutput(output, error);
+					}
 				}
 			}
 
