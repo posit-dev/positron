@@ -7,6 +7,13 @@
 	height: 100%;
 }
 
+.repl-root h1 {
+	font-family: monospace;
+	font-size: 15px;
+	font-weight: normal;
+	margin-left: 30px;
+}
+
 .repl-editor-host {
 	position: relative;
 }

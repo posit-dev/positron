@@ -116,9 +116,9 @@ export class ReplInstanceView extends Disposable {
 	render() {
 		this._parentElement.appendChild(this._scroller.getDomNode());
 
-		const h3 = document.createElement('h3');
-		h3.innerText = this._kernel.label;
-		this._root.appendChild(h3);
+		const h1 = document.createElement('h1');
+		h1.innerText = this._kernel.label;
+		this._root.appendChild(h1);
 		this._root.appendChild(this._output);
 
 		// TODO: do not hardcode this
