@@ -308,6 +308,17 @@ export class ReplInstanceView extends Disposable {
 		err.render(this._output);
 	}
 
+	/**
+	 * Emit raw HTML to the output stream.
+	 *
+	 * @param html The raw HTML to emit
+	 */
+	private emitHtml(html: string) {
+		const container = document.createElement('div');
+		container.innerHTML = html;
+		this._output.appendChild(container);
+	}
+
 	submit() {
 		const code = this._editor?.getValue();
 		if (!code) {
@@ -356,7 +367,10 @@ export class ReplInstanceView extends Disposable {
 					let output = '';
 					let error = false;
 					let isText = true;
-					if (o.mime.startsWith('text')) {
+					if (o.mime === 'text/html') {
+						this.emitHtml(o.data.toString());
+						isText = false;
+					} else if (o.mime.startsWith('text')) {
 						output = o.data.toString();
 					} else if (o.mime === 'application/vnd.code.notebook.stdout') {
 						output = o.data.toString();
