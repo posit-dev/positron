@@ -4,6 +4,10 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
+import { handleANSIOutput } from 'vs/workbench/contrib/debug/browser/debugANSIHandling';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { LinkDetector } from 'vs/workbench/contrib/debug/browser/linkDetector';
 
 type ErrorLike = Partial<Error>;
 
@@ -16,7 +20,9 @@ export class ReplError extends Disposable {
 	private _ele: HTMLElement;
 
 	constructor(errText: string,
-		@ILogService logService: ILogService) {
+		@ILogService logService: ILogService,
+		@IThemeService private readonly _themeService: IThemeService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService) {
 		super();
 		try {
 			// Attempt to parse eror as JSON (treat all fields as optional)
@@ -62,11 +68,16 @@ export class ReplError extends Disposable {
 			this._ele.appendChild(message);
 		}
 
-		// Error stack: backtrace
+		// Error stack: backtrace. Can contain ANSI characters.
 		if (this._err.stack) {
 			const stack = document.createElement('div');
 			stack.classList.add('repl-error-stack');
-			stack.innerText = this._err.stack;
+			stack.appendChild(handleANSIOutput(
+				this._err.stack,
+				this._instantiationService.createInstance(LinkDetector),
+				this._themeService,
+				undefined
+			));
 			this._ele.appendChild(stack);
 		}
 
