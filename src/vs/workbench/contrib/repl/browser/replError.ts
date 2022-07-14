@@ -20,7 +20,7 @@ export class ReplError extends Disposable {
 	private _ele: HTMLElement;
 
 	constructor(errText: string,
-		@ILogService logService: ILogService,
+		@ILogService private readonly _logService: ILogService,
 		@IThemeService private readonly _themeService: IThemeService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService) {
 		super();
@@ -30,7 +30,7 @@ export class ReplError extends Disposable {
 		} catch (e) {
 			// If the error doesn't parse, maybe it's not JSON? (That's a
 			// problem but we'll deal by showing it raw)
-			logService.warn(`Not parseable as an error: ${errText}`);
+			this._logService.warn(`Not parseable as an error: ${errText}`);
 			this._err = {
 				message: errText,
 				name: 'Error',
@@ -70,7 +70,7 @@ export class ReplError extends Disposable {
 
 		// Error stack: backtrace. Can contain ANSI characters.
 		if (this._err.stack) {
-			const stack = document.createElement('div');
+			const stack = document.createElement('pre');
 			stack.classList.add('repl-error-stack');
 			stack.appendChild(handleANSIOutput(
 				this._err.stack,

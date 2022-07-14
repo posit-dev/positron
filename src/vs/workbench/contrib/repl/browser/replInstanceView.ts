@@ -20,7 +20,7 @@ import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookS
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ILogService } from 'vs/platform/log/common/log';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { errorForeground } from 'vs/platform/theme/common/colorRegistry';
+import { errorForeground, errorBackground } from 'vs/platform/theme/common/colorRegistry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
@@ -274,6 +274,10 @@ export class ReplInstanceView extends Disposable {
 		const errorColor = this._themeService.getColorTheme().getColor(errorForeground);
 		if (errorColor) {
 			err.getDomNode().style.color = errorColor.toString();
+		}
+		const errorBg = this._themeService.getColorTheme().getColor(errorBackground);
+		if (errorBg) {
+			err.getDomNode().style.backgroundColor = errorBg.toString();
 		}
 		err.render(this._output);
 	}
