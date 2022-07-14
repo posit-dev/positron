@@ -289,6 +289,13 @@ export class ReplInstanceView extends Disposable {
 		this._output.appendChild(pre);
 	}
 
+	private emitInput(input: string) {
+		const pre = document.createElement('pre');
+		pre.innerText = `>  ${input}`;
+		pre.classList.add('repl-input');
+		this._output.appendChild(pre);
+	}
+
 	/**
 	 * Emits an error to the output stream.
 	 *
@@ -335,7 +342,7 @@ export class ReplInstanceView extends Disposable {
 			this._editor?.setValue('');
 
 			// Append the submitted input to the output area
-			this.emitOutput(`>  ${code}`, false);
+			this.emitInput(code);
 		});
 
 		// Replace the "cell" contents with what the user entered
