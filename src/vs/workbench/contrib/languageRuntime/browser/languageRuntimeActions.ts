@@ -13,7 +13,6 @@ import { Codicon } from 'vs/base/common/codicons';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 
 export function registerLanguageRuntimeActions() {
 	const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -48,7 +47,6 @@ export function registerLanguageRuntimeActions() {
 			// Retrieve services
 			const kernelService = accessor.get(INotebookKernelService);
 			const languageService = accessor.get(ILanguageRuntimeService);
-			const notificationService = accessor.get(INotificationService);
 			const pickService = accessor.get(IQuickInputService);
 
 			// Get all registered kernels. (TODO: This will eventually use the
