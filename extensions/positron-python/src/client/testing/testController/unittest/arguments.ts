@@ -73,13 +73,29 @@ export function unittestGetTestPattern(args: string[]): string {
     return 'test*.py';
 }
 
+export function unittestGetTopLevelDirectory(args: string[]): string | null {
+    const shortValue = getOptionValues(args, '-t');
+    if (shortValue.length === 1) {
+        return shortValue[0];
+    }
+    const longValue = getOptionValues(args, '--top-level-directory');
+    if (longValue.length === 1) {
+        return longValue[0];
+    }
+    return null;
+}
+
 export function getTestRunArgs(args: string[]): string[] {
     const startTestDiscoveryDirectory = unittestGetTestFolders(args)[0];
     const pattern = unittestGetTestPattern(args);
+    const topLevelDir = unittestGetTopLevelDirectory(args);
 
     const failFast = args.some((arg) => arg.trim() === '-f' || arg.trim() === '--failfast');
     const verbosity = args.some((arg) => arg.trim().indexOf('-v') === 0) ? 2 : 1;
     const testArgs = [`--us=${startTestDiscoveryDirectory}`, `--up=${pattern}`, `--uvInt=${verbosity}`];
+    if (topLevelDir) {
+        testArgs.push(`--ut=${topLevelDir}`);
+    }
     if (failFast) {
         testArgs.push('--uf');
     }

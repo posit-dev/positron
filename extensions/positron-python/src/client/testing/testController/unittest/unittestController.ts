@@ -19,7 +19,7 @@ import {
     RawTestParent,
     TestData,
 } from '../common/types';
-import { unittestGetTestFolders, unittestGetTestPattern } from './arguments';
+import { unittestGetTestFolders, unittestGetTestPattern, unittestGetTopLevelDirectory } from './arguments';
 import {
     createErrorTestItem,
     createWorkspaceRootTestItem,
@@ -130,16 +130,20 @@ export class UnittestController implements ITestFrameworkController {
 
             const startDir = unittestGetTestFolders(options.args)[0];
             const pattern = unittestGetTestPattern(options.args);
+            const topLevelDir = unittestGetTopLevelDirectory(options.args);
             let testDir = startDir;
             if (path.isAbsolute(startDir)) {
                 const relative = path.relative(options.cwd, startDir);
                 testDir = relative.length > 0 ? relative : '.';
             }
 
+            const runOptionsArgs: string[] =
+                topLevelDir == null ? [startDir, pattern] : [startDir, pattern, topLevelDir];
+
             const runOptions: Options = {
                 // unittest needs to load modules in the workspace
                 // isolating it breaks unittest discovery
-                args: unittestDiscovery([startDir, pattern]),
+                args: unittestDiscovery(runOptionsArgs),
                 cwd: options.cwd,
                 workspaceFolder: options.workspaceFolder,
                 token: options.token,
