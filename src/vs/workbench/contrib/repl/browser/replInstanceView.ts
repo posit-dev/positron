@@ -20,11 +20,21 @@ import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookS
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ILogService } from 'vs/platform/log/common/log';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { errorForeground, errorBackground } from 'vs/platform/theme/common/colorRegistry';
+import { editorErrorForeground, editorErrorBackground } from 'vs/platform/theme/common/colorRegistry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplError } from 'vs/workbench/contrib/repl/browser/replError';
+import { Schemas } from 'vs/base/common/network';
+import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
+import { MenuPreventer } from 'vs/workbench/contrib/codeEditor/browser/menuPreventer';
+import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
+import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
+import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
+import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
+import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
+import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
+import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -130,14 +140,6 @@ export class ReplInstanceView extends Disposable {
 		const languageId = this._languageService.getLanguageIdByLanguageName(this._language);
 		const languageSelection = this._languageService.createById(languageId);
 
-		// Create text model; this is the backing store for the Monaco editor that receives
-		// the user's input
-		const textModel = this._modelService.createModel('', // initial value
-			languageSelection,  // language selection
-			undefined,          // resource URI
-			false               // mark for simple widget
-		);
-
 		// TODO: do we need to cache or store this?
 		this._nbTextModel = this._notebookService.createNotebookTextModel(
 			// TODO: do we need our own view type? seems ideal
@@ -147,7 +149,7 @@ export class ReplInstanceView extends Disposable {
 				cells: [{
 					source: '',
 					language: this._language,
-					mime: `text/${this._language}`,
+					mime: `application/${this._language}`,
 					cellKind: CellKind.Code,
 					outputs: [],
 					metadata: {}
@@ -168,7 +170,17 @@ export class ReplInstanceView extends Disposable {
 		const editorConstructionOptions = <IEditorConstructionOptions>{};
 
 		const widgetOptions = <ICodeEditorWidgetOptions>{
-			isSimpleWidget: false
+			isSimpleWidget: false,
+			contributions: EditorExtensionsRegistry.getSomeEditorContributions([
+				MenuPreventer.ID,
+				SelectionClipboardContributionID,
+				ContextMenuController.ID,
+				SuggestController.ID,
+				SnippetController2.ID,
+				TabCompletionController.ID,
+				ModesHoverController.ID,
+				MarkerController.ID,
+			])
 		};
 
 		this._editor = this._instantiationService.createInstance(
@@ -178,6 +190,20 @@ export class ReplInstanceView extends Disposable {
 			widgetOptions);
 
 		this._register(this._editor);
+
+		// Form URI for input control; copy from interactive window's URI scheme
+		const inputUri = URI.from({
+			scheme: Schemas.inMemory,
+			path: `/repl-${this._language}`
+		});
+
+		// Create text model; this is the backing store for the Monaco editor that receives
+		// the user's input
+		const textModel = this._modelService.createModel('', // initial value
+			languageSelection,  // language selection
+			inputUri,           // resource URI
+			false               // this widget is not simple
+		);
 
 		this._editor.setModel(textModel);
 		this._editor.onKeyDown((e: IKeyboardEvent) => {
@@ -254,7 +280,7 @@ export class ReplInstanceView extends Disposable {
 		// Apply error color to errors. Gosh, it'd sure be nice if this was a
 		// CSS class we could just add.
 		if (error) {
-			const errorColor = this._themeService.getColorTheme().getColor(errorForeground);
+			const errorColor = this._themeService.getColorTheme().getColor(editorErrorForeground);
 			if (errorColor) {
 				pre.style.color = errorColor.toString();
 			}
@@ -271,11 +297,11 @@ export class ReplInstanceView extends Disposable {
 	 */
 	private emitError(error: string) {
 		const err: ReplError = this._instantiationService.createInstance(ReplError, error);
-		const errorColor = this._themeService.getColorTheme().getColor(errorForeground);
+		const errorColor = this._themeService.getColorTheme().getColor(editorErrorForeground);
 		if (errorColor) {
 			err.getDomNode().style.color = errorColor.toString();
 		}
-		const errorBg = this._themeService.getColorTheme().getColor(errorBackground);
+		const errorBg = this._themeService.getColorTheme().getColor(editorErrorBackground);
 		if (errorBg) {
 			err.getDomNode().style.backgroundColor = errorBg.toString();
 		}
@@ -339,6 +365,7 @@ export class ReplInstanceView extends Disposable {
 						error = true;
 					} else if (o.mime === 'application/vnd.code.notebook.error') {
 						this.emitError(o.data.toString());
+						isText = false;
 					} else {
 						output = `Result type ${o.mime}`;
 					}
