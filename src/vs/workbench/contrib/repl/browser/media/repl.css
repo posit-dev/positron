@@ -40,3 +40,11 @@
 .repl-editor-hidden {
 	display: none;
 }
+
+.repl-cell {
+	border-top: 1px solid #e0e0e0;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+}
