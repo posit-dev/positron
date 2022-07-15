@@ -16,8 +16,8 @@ export class ReplOutput extends Disposable {
 
 	constructor(
 		private readonly _parentElement: HTMLElement,
-		private readonly _themeService: IThemeService,
-		private readonly _instantiationService: IInstantiationService) {
+		@IThemeService private readonly _themeService: IThemeService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService) {
 		super();
 
 		// Create our root output container

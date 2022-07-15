@@ -90,7 +90,7 @@ export class ReplCell extends Disposable {
 			ReplInput,
 			this._handle,
 			this._language,
-			this._parentElement);
+			this._container);
 		this._register(this._input);
 
 		// Copy the editor's font settings to the output area
