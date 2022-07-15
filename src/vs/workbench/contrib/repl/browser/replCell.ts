@@ -6,21 +6,51 @@ import { IReplInputSubmitEvent, ReplInput } from 'vs/workbench/contrib/repl/brow
 import { ReplOutput } from 'vs/workbench/contrib/repl/browser/replOutput';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { Event } from 'vs/base/common/event';
+import { Emitter, Event } from 'vs/base/common/event';
 import { NotebookCellOutputsSplice } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
+
+/**
+ * Legal states for the cell
+ */
+export enum ReplCellState {
+	/** The cell is awaiting user input. */
+	ReplCellInput,
+
+	/** The cell is currently executing the user input. */
+	ReplCellExecuting,
+
+	/** The cell has successfully completed execution. */
+	ReplCellCompletedOk,
+
+	/** The cell failed to execute. */
+	ReplCellCompletedFailure
+}
+
+/**
+ * Data for events representing state transitions
+ */
+export interface IReplCellStateChange {
+	oldState: ReplCellState;
+	newState: ReplCellState;
+}
 
 export class ReplCell extends Disposable {
 
 	readonly onDidSubmitInput: Event<IReplInputSubmitEvent>;
+	readonly onDidChangeCellState: Event<IReplCellStateChange>;
+	private readonly _onDidChangeCellState;
 
 	private _container: HTMLElement;
 
 	private _input: ReplInput;
+	private _inputContent: string;
 
 	private _output: ReplOutput;
 
 	private _handle: number;
+
+	private _state: ReplCellState;
 
 	private static _counter: number = 0;
 
@@ -30,6 +60,17 @@ export class ReplCell extends Disposable {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
 		super();
+
+		// Wire events
+		this._onDidChangeCellState = this._register(new Emitter<IReplCellStateChange>());
+		this.onDidChangeCellState = this._onDidChangeCellState.event;
+		this.onDidChangeCellState((e) => {
+			this.renderStateChange(e);
+		});
+
+		// Set intial state
+		this._state = ReplCellState.ReplCellInput;
+		this._inputContent = '';
 
 		// Create unique handle
 		this._handle = ReplCell._counter++;
@@ -58,6 +99,9 @@ export class ReplCell extends Disposable {
 
 		// Event forwarding for input submission
 		this.onDidSubmitInput = this._input.onDidSubmitInput;
+		this.onDidSubmitInput((e) => {
+			this._inputContent = e.code;
+		});
 
 		// Inject the input/output pair to the parent
 		this._parentElement.appendChild(this._container);
@@ -86,6 +130,7 @@ export class ReplCell extends Disposable {
 					error = true;
 				} else if (o.mime === 'application/vnd.code.notebook.error') {
 					this._output.emitError(o.data.toString());
+					this.setState(ReplCellState.ReplCellCompletedFailure);
 					isText = false;
 				} else {
 					output = `Result type ${o.mime}`;
@@ -102,5 +147,37 @@ export class ReplCell extends Disposable {
 	 */
 	focus() {
 		this._input.focus();
+	}
+
+	/**
+	 * Sets the cell's new state, and fires an event to listeners
+	 *
+	 * @param newState The new state
+	 */
+	setState(newState: ReplCellState) {
+		const oldState = this._state;
+		this._state = newState;
+		this._onDidChangeCellState.fire(<IReplCellStateChange>{
+			oldState: oldState,
+			newState: newState
+		});
+	}
+
+	getState(): ReplCellState {
+		return this._state;
+	}
+
+	/**
+	 * Redraws the cell to adapt to a change in state
+	 *
+	 * @param change The event that triggered the update
+	 */
+	private renderStateChange(change: IReplCellStateChange) {
+		if (change.newState === ReplCellState.ReplCellExecuting) {
+			// When the cell starts executing, replace the input control with
+			// rendered text
+			this._output.emitInput(this._inputContent);
+			this._input.getDomNode().classList.add('repl-editor-hidden');
+		}
 	}
 }

@@ -14,7 +14,7 @@ import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/no
 import { ILogService } from 'vs/platform/log/common/log';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
-import { ReplCell } from 'vs/workbench/contrib/repl/browser/replCell';
+import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -79,6 +79,11 @@ export class ReplInstanceView extends Disposable {
 			if (e.affectsNotebook(this._uri)) {
 				if (typeof e.changed === 'undefined') {
 					this._logService.info(`Cell execution of ${e.cellHandle} complete`);
+
+					// Mark the current cell execution as complete, if it is currently executing.
+					if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
+						this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
+					}
 
 					// Add a new cell and scroll to the bottom so the user can see it
 					this.addCell();
@@ -177,6 +182,11 @@ export class ReplInstanceView extends Disposable {
 
 		// Ask the kernel to execute the cell
 		this._kernel.executeNotebookCellsRequest(this._uri, [exe.cellHandle]);
+
+		// Mark the cell as executing
+		if (this._activeCell) {
+			this._activeCell.setState(ReplCellState.ReplCellExecuting);
+		}
 		this.scrollToBottom();
 	}
 
@@ -188,6 +198,9 @@ export class ReplInstanceView extends Disposable {
 		this._scroller.setScrollPosition({ scrollTop: this._root.scrollHeight });
 	}
 
+	/**
+	 * Adds a new cell to the end of the REPL, and makes it the primary cell
+	 */
 	addCell() {
 		// Create the new cell
 		const cell = this._instantiationService.createInstance(ReplCell,
@@ -201,5 +214,6 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		this._activeCell = cell;
+		cell.focus();
 	}
 }
