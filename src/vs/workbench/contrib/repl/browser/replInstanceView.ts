@@ -3,14 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/repl';
-import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
-import { KeyCode } from 'vs/base/common/keyCodes';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
-import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditorWidget';
-import { IEditorMinimapOptions, IEditorOptions, EditorOption } from 'vs/editor/common/config/editorOptions';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { IModelService } from 'vs/editor/common/services/model';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
@@ -19,22 +12,9 @@ import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/not
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ILogService } from 'vs/platform/log/common/log';
-import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { editorErrorForeground, editorErrorBackground } from 'vs/platform/theme/common/colorRegistry';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
-import { ReplError } from 'vs/workbench/contrib/repl/browser/replError';
-import { Schemas } from 'vs/base/common/network';
-import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
-import { MenuPreventer } from 'vs/workbench/contrib/codeEditor/browser/menuPreventer';
-import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
-import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
-import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
-import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
-import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
-import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
-import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
+import { ReplCell } from 'vs/workbench/contrib/repl/browser/replCell';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -42,7 +22,6 @@ export const REPL_NOTEBOOK_SCHEME = 'repl';
  * The ReplInstanceView class is the view that hosts an individual REPL instance.
  */
 export class ReplInstanceView extends Disposable {
-	private _editor?: CodeEditorWidget;
 
 	/** The language executed by this REPL */
 	private readonly _language: string;
@@ -53,28 +32,25 @@ export class ReplInstanceView extends Disposable {
 	/** The notebook text model */
 	private _nbTextModel?: NotebookTextModel;
 
-	/** The HTML element hosting the output area */
-	private _output: HTMLElement;
-
-	/** The HTML element hosting the Monaco editor instance */
-	private _editorHost: HTMLElement;
-
-	/** The root container HTML element */
-	private _root: HTMLElement;
-
 	/** The scrolling element that hosts content */
 	private _scroller: DomScrollableElement;
+
+	/** The root container HTML element (sits inside the scrollable area) */
+	private _root: HTMLElement;
+
+	/** The HTML element containing all of the REPL cells */
+	private _cellContainer: HTMLElement;
+
+	/** The currently active REPL cell */
+	private _activeCell?: ReplCell;
 
 	constructor(private readonly _kernel: INotebookKernel,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IModelService private readonly _modelService: IModelService,
-		@ILanguageService private readonly _languageService: ILanguageService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@ILogService private readonly _logService: ILogService,
-		@IThemeService private readonly _themeService: IThemeService) {
+		@ILogService private readonly _logService: ILogService) {
 		super();
 		this._language = _kernel.supportedLanguages[0];
 		this._uri = URI.parse('repl:///' + this._language);
@@ -88,20 +64,14 @@ export class ReplInstanceView extends Disposable {
 		this._scroller.getDomNode().appendChild(this._root);
 		this._scroller.getDomNode().style.height = '100%';
 
-		// Create output host element
-		this._output = document.createElement('div');
-		this._output.classList.add('repl-output');
-		this._output.addEventListener('click', (ev) => {
-			// TODO: check for hidden editor
-			if (this._editor) {
-				this._editor.focus();
-				this.scrollToBottom();
+		// Create cell host element
+		this._cellContainer = document.createElement('div');
+		this._cellContainer.classList.add('repl-cells');
+		this._cellContainer.addEventListener('click', (ev) => {
+			if (this._activeCell) {
+				this._activeCell.focus();
 			}
 		});
-
-		// Create editor host element
-		this._editorHost = document.createElement('div');
-		this._editorHost.classList.add('repl-editor-host');
 
 		// Listen for execution state changes
 		this._notebookExecutionStateService.onDidChangeCellExecution((e) => {
@@ -109,13 +79,9 @@ export class ReplInstanceView extends Disposable {
 			if (e.affectsNotebook(this._uri)) {
 				if (typeof e.changed === 'undefined') {
 					this._logService.info(`Cell execution of ${e.cellHandle} complete`);
-					this._editorHost.classList.remove('repl-editor-hidden');
-					this._editor?.layout();
 
-					// TODO: this could steal focus; probably don't do it if
-					// focus is in another pane
-					this._editor?.focus();
-
+					// Add a new cell and scroll to the bottom so the user can see it
+					this.addCell();
 					this.scrollToBottom();
 				} else {
 					this._logService.info(`Cell execution status: `, e.changed);
@@ -130,15 +96,10 @@ export class ReplInstanceView extends Disposable {
 		const h1 = document.createElement('h1');
 		h1.innerText = this._kernel.label;
 		this._root.appendChild(h1);
-		this._root.appendChild(this._output);
+		this._root.appendChild(this._cellContainer);
 
-		// TODO: do not hardcode this
-		this._editorHost.classList.add('repl-editor');
-		this._root.appendChild(this._editorHost);
-
-		// Create language selector
-		const languageId = this._languageService.getLanguageIdByLanguageName(this._language);
-		const languageSelection = this._languageService.createById(languageId);
+		// Create first cell
+		this.addCell();
 
 		// TODO: do we need to cache or store this?
 		this._nbTextModel = this._notebookService.createNotebookTextModel(
@@ -166,184 +127,16 @@ export class ReplInstanceView extends Disposable {
 		// Bind the kernel we were given to the notebook text model we just created
 		this._notebookKernelService.selectKernelForNotebook(this._kernel, this._nbTextModel);
 
-		// Create editor
-		const editorConstructionOptions = <IEditorConstructionOptions>{};
-
-		const widgetOptions = <ICodeEditorWidgetOptions>{
-			isSimpleWidget: false,
-			contributions: EditorExtensionsRegistry.getSomeEditorContributions([
-				MenuPreventer.ID,
-				SelectionClipboardContributionID,
-				ContextMenuController.ID,
-				SuggestController.ID,
-				SnippetController2.ID,
-				TabCompletionController.ID,
-				ModesHoverController.ID,
-				MarkerController.ID,
-			])
-		};
-
-		this._editor = this._instantiationService.createInstance(
-			CodeEditorWidget,
-			this._editorHost,
-			editorConstructionOptions,
-			widgetOptions);
-
-		this._register(this._editor);
-
-		// Form URI for input control; copy from interactive window's URI scheme
-		const inputUri = URI.from({
-			scheme: Schemas.inMemory,
-			path: `/repl-${this._language}`
-		});
-
-		// Create text model; this is the backing store for the Monaco editor that receives
-		// the user's input
-		const textModel = this._modelService.createModel('', // initial value
-			languageSelection,  // language selection
-			inputUri,           // resource URI
-			false               // this widget is not simple
-		);
-
-		this._editor.setModel(textModel);
-		this._editor.onKeyDown((e: IKeyboardEvent) => {
-			if (e.keyCode === KeyCode.Enter) {
-				this.submit();
-			}
-		});
-
-		// Turn off most editor chrome so we can host in the REPL
-		const editorOptions = <IEditorOptions>{
-			lineNumbers: (n: number) => {
-				// Render the prompt as > for the first line; do not render
-				// anything in the margin for following lines
-				if (n < 2) {
-					return '>';
-				}
-				return '';
-			},
-			minimap: <IEditorMinimapOptions>{
-				enabled: false
-			},
-			glyphMargin: false,
-			lineDecorationsWidth: 0,
-			overviewRuleBorder: false,
-			enableDropIntoEditor: false,
-			renderLineHighlight: 'none',
-			wordWrap: 'bounded',
-			renderOverviewRuler: false,
-			scrollbar: {
-				vertical: 'hidden',
-				useShadows: false
-			},
-			overviewRulerLanes: 0,
-			scrollBeyondLastLine: false,
-		};
-		this._editor.updateOptions(editorOptions);
-
-		// Auto-grow the editor as the internal content size changes (i.e. make
-		// it grow vertically as the user enters additional lines of input)
-		this._editor.onDidContentSizeChange((e) => {
-			// Don't attempt to measure while input area is hidden
-			if (this._editorHost.classList.contains('repl-editor-hidden')) {
-				return;
-			}
-
-			// Measure the size of the content and host and size the editor to fit them
-			const contentWidth = this._editorHost.offsetWidth;
-			const contentHeight = Math.min(500, this._editor!.getContentHeight());
-			this._editorHost.style.width = `${contentWidth}px`;
-			this._editorHost.style.height = `${contentHeight}px`;
-			this._editor!.layout({ width: contentWidth, height: contentHeight });
-		});
-
-		// Copy the editor's font settings to the output area
-		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
-		applyFontInfo(this._output, fontInfo);
-
-		// Lay out editor in DOM
-		this._editor.layout();
-
 		// Recompute scrolling
 		this._scroller.scanDomNode();
 	}
 
 	/**
-	 * Emits preformatted text to the output area.
+	 * Submits code in the REPL
 	 *
-	 * @param output The output to emit
+	 * @param code The code to submit
 	 */
-	private emitOutput(output: string, error: boolean | undefined) {
-		const pre = document.createElement('pre');
-		pre.innerText = output;
-
-		// Apply error color to errors. Gosh, it'd sure be nice if this was a
-		// CSS class we could just add.
-		if (error) {
-			const errorColor = this._themeService.getColorTheme().getColor(editorErrorForeground);
-			if (errorColor) {
-				pre.style.color = errorColor.toString();
-			}
-		}
-
-		this._output.appendChild(pre);
-	}
-
-	private emitInput(input: string) {
-		const pre = document.createElement('pre');
-		pre.innerText = `>  ${input}`;
-		pre.classList.add('repl-input');
-		this._output.appendChild(pre);
-	}
-
-	/**
-	 * Emits an error to the output stream.
-	 *
-	 * @param error The error to emit; expected to be an Error JSON object, but
-	 * if not will be treated as text
-	 */
-	private emitError(error: string) {
-		const err: ReplError = this._instantiationService.createInstance(ReplError, error);
-		const errorColor = this._themeService.getColorTheme().getColor(editorErrorForeground);
-		if (errorColor) {
-			err.getDomNode().style.color = errorColor.toString();
-		}
-		const errorBg = this._themeService.getColorTheme().getColor(editorErrorBackground);
-		if (errorBg) {
-			err.getDomNode().style.backgroundColor = errorBg.toString();
-		}
-		err.render(this._output);
-	}
-
-	/**
-	 * Emit raw HTML to the output stream.
-	 *
-	 * @param html The raw HTML to emit
-	 */
-	private emitHtml(html: string) {
-		const container = document.createElement('div');
-		container.innerHTML = html;
-		this._output.appendChild(container);
-	}
-
-	submit() {
-		const code = this._editor?.getValue();
-		if (!code) {
-			throw new Error('Attempt to submit without code');
-		}
-
-		// Clear the submitted code from the editor and place it in the
-		// execution region (do this after the event loop completes so that the
-		// Enter keystroke that triggered this doesn't add a new line to the
-		// editor)
-		window.setTimeout(() => {
-			// Clear the input and hide the prompt while the code is executing
-			this._editorHost.classList.add('repl-editor-hidden');
-			this._editor?.setValue('');
-
-			// Append the submitted input to the output area
-			this.emitInput(code);
-		});
+	submit(code: string) {
 
 		// Replace the "cell" contents with what the user entered
 		this._nbTextModel?.applyEdits([{
@@ -368,32 +161,8 @@ export class ReplInstanceView extends Disposable {
 		const cell = this._nbTextModel?.cells[0]!;
 
 		cell.onDidChangeOutputs((e) => {
-			this._logService.debug('Cell changed output: ', e);
-			for (const output of e.newOutputs) {
-				for (const o of output.outputs) {
-					let output = '';
-					let error = false;
-					let isText = true;
-					if (o.mime === 'text/html') {
-						this.emitHtml(o.data.toString());
-						isText = false;
-					} else if (o.mime.startsWith('text')) {
-						output = o.data.toString();
-					} else if (o.mime === 'application/vnd.code.notebook.stdout') {
-						output = o.data.toString();
-					} else if (o.mime === 'application/vnd.code.notebook.stderr') {
-						output = o.data.toString();
-						error = true;
-					} else if (o.mime === 'application/vnd.code.notebook.error') {
-						this.emitError(o.data.toString());
-						isText = false;
-					} else {
-						output = `Result type ${o.mime}`;
-					}
-					if (isText) {
-						this.emitOutput(output, error);
-					}
-				}
+			if (this._activeCell) {
+				this._activeCell.changeOutput(e);
 			}
 
 			// TODO: only do this if already scrolled to bottom
@@ -417,5 +186,20 @@ export class ReplInstanceView extends Disposable {
 	scrollToBottom() {
 		this._scroller.scanDomNode();
 		this._scroller.setScrollPosition({ scrollTop: this._root.scrollHeight });
+	}
+
+	addCell() {
+		// Create the new cell
+		const cell = this._instantiationService.createInstance(ReplCell,
+			this._language,
+			this._cellContainer);
+		this._register(cell);
+
+		// Hook up events
+		cell.onDidSubmitInput((e) => {
+			this.submit(e.code);
+		});
+
+		this._activeCell = cell;
 	}
 }
