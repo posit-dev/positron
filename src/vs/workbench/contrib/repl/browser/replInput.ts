@@ -188,4 +188,13 @@ export class ReplInput extends Disposable {
 	getFontInfo(): BareFontInfo {
 		return this._editor.getOption(EditorOption.fontInfo);
 	}
+
+	/**
+	 * Gets the HTML element hosting this control
+	 *
+	 * @returns The hosting element
+	 */
+	getDomNode(): HTMLElement {
+		return this._container;
+	}
 }
