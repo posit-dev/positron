@@ -4,6 +4,7 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { Event } from 'vs/base/common/event';
 
 // Create the decorator for the REPL service (used in dependency injection)
 export const IReplService = createDecorator<IReplService>('replService');
@@ -35,6 +36,9 @@ export interface IReplService {
 
 	/** An accessor returning the set of open REPLs */
 	readonly instances: readonly IReplInstance[];
+
+	/** Event fired when a REPL instance is created */
+	readonly onDidStartRepl: Event<IReplInstance>;
 
 	/**
 	 * Creates a new REPL instance and returns it.

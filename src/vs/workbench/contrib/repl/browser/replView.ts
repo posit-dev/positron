@@ -15,6 +15,7 @@ import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { ReplInstanceView } from 'vs/workbench/contrib/repl/browser/replInstanceView';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 
 /**
  * Holds the rendered REPL inside a ViewPane.
@@ -39,6 +40,7 @@ export class ReplViewPane extends ViewPane {
 		@ITelemetryService telemetryService: ITelemetryService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IReplService private readonly _replService: IReplService,
 	) {
 		super(options,
 			keybindingService,
@@ -51,7 +53,7 @@ export class ReplViewPane extends ViewPane {
 			themeService,
 			telemetryService);
 
-		this._languageRuntimeService.onDidStartRuntime((e: INotebookKernel) => {
+		this._replService.onDidStartRepl((e: IReplInstance) => {
 			// We already have a REPL instance, and don't currently support more than one
 			if (this._instanceView) {
 				return;
@@ -83,24 +85,14 @@ export class ReplViewPane extends ViewPane {
 			this._instanceView.render();
 			return;
 		}
-
-		// If we don't, create an instance for the active runtime, if any.
-		const kernels = this._languageRuntimeService.getActiveRuntimes();
-		if (kernels.length > 0) {
-			this.createInstance(kernels[0]);
-		} else {
-			const t = document.createElement('h1');
-			t.innerText = 'No kernel is active.';
-			container.appendChild(t);
-		}
 	}
 
 	/**
 	 * Create a new REPL instance view
 	 *
-	 * @param kernel The kernel to bind to the REPL instance.
+	 * @param instance The underlying REPL instance to show in the view
 	 */
-	private createInstance(kernel: INotebookKernel) {
+	private createInstance(instance: IReplInstance) {
 		// Ensure we are attached to the DOM
 		if (!this._container) {
 			throw new Error('Cannot render REPL without parent container.');
@@ -112,7 +104,7 @@ export class ReplViewPane extends ViewPane {
 		// Replace with a fresh REPL instance
 		this._instanceView = this._instantiationService.createInstance(
 			ReplInstanceView,
-			kernel,
+			instance,
 			this._container);
 		this._register(this._instanceView);
 		this._instanceView.render();
