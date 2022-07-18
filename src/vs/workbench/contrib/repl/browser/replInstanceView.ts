@@ -15,6 +15,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
+import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -44,7 +45,10 @@ export class ReplInstanceView extends Disposable {
 	/** The currently active REPL cell */
 	private _activeCell?: ReplCell;
 
-	constructor(private readonly _kernel: INotebookKernel,
+	/** The notebook kernel to which the REPL is bound */
+	private _kernel: INotebookKernel;
+
+	constructor(private readonly _instance: IReplInstance,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
@@ -52,7 +56,9 @@ export class ReplInstanceView extends Disposable {
 		@INotebookService private readonly _notebookService: INotebookService,
 		@ILogService private readonly _logService: ILogService) {
 		super();
-		this._language = _kernel.supportedLanguages[0];
+		this._kernel = this._instance.kernel;
+
+		this._language = this._kernel.supportedLanguages[0];
 		this._uri = URI.parse('repl:///' + this._language);
 
 		this._root = document.createElement('div');
