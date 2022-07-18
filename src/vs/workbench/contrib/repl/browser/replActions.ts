@@ -47,4 +47,31 @@ export function registerReplActions() {
 			await replService.createRepl(options);
 		}
 	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: ReplCommandId.Clear,
+				title: { value: localize('workbench.action.repl.clear', "Clear REPL"), original: 'Clear REPL' },
+				f1: true,
+				category,
+				icon: Codicon.plus,
+				description: {
+					description: 'workbench.action.repl.clear',
+					args: []
+				}
+			});
+		}
+
+		/**
+		 * Runs the repl.new command to create a new REPL instance.
+		 *
+		 * @param accessor The service accessor.
+		 * @param options The options for the new REPL instance.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const replService = accessor.get(IReplService);
+			await replService.clearActiveRepl();
+		}
+	});
 }
