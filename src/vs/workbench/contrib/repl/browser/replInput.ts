@@ -25,6 +25,7 @@ import { URI } from 'vs/base/common/uri';
 import { IModelService } from 'vs/editor/common/services/model';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
+import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
 
 /**
  * Event fired when the input is submitted
@@ -37,6 +38,7 @@ export class ReplInput extends Disposable {
 
 	private readonly _onDidSubmitInput;
 	readonly onDidSubmitInput: Event<IReplInputSubmitEvent>;
+	readonly onMouseWheel: Event<IMouseWheelEvent>;
 
 	private readonly _container: HTMLElement;
 
@@ -112,6 +114,8 @@ export class ReplInput extends Disposable {
 				this._onDidSubmitInput.fire(<IReplInputSubmitEvent>{
 					code: this._editor.getValue()
 				});
+				e.preventDefault();
+				e.stopPropagation();
 			}
 		});
 
@@ -141,6 +145,9 @@ export class ReplInput extends Disposable {
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
+			handleMouseWheel: false,
+			alwaysConsumeMouseWheel: false, // Note: Not currently respected in updateOptions
+			lineNumbersMinChars: 3,
 		};
 		this._editor.updateOptions(editorOptions);
 
@@ -159,6 +166,12 @@ export class ReplInput extends Disposable {
 			this._container.style.height = `${contentHeight}px`;
 			this._editor!.layout({ width: contentWidth, height: contentHeight });
 		});
+
+		// Forward mouse wheel events. We do this because it is not currently
+		// possible to prevent the editor from trapping scroll events, so
+		// instead we use this handle to forward the scroll events to the outer
+		// scrollable region (consisting of all REPL cells)
+		this.onMouseWheel = this._editor.onMouseWheel;
 
 		// Perform initial render
 		this._editor.layout();
@@ -196,5 +209,19 @@ export class ReplInput extends Disposable {
 	 */
 	getDomNode(): HTMLElement {
 		return this._container;
+	}
+
+	/**
+	 * Set the read-only state of the editor. Usually used after code has been
+	 * submitted to the runtime to prevent further edits.
+	 *
+	 * @param readOnly The new readonly state of the editor
+	 */
+	setReadOnly(readOnly: boolean) {
+		const options: IEditorOptions = {
+			readOnly: readOnly,
+			domReadOnly: readOnly
+		};
+		this._editor.updateOptions(options);
 	}
 }
