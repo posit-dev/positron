@@ -4,9 +4,11 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
+import { ReplInstance } from 'vs/workbench/contrib/repl/browser/replInstance';
 
 /**
  * The implementation of IReplService
@@ -28,7 +30,8 @@ export class ReplService extends Disposable implements IReplService {
 	 * Construct a new REPL service from injected services
 	 */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService
+		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@ILogService private _logService: ILogService
 	) {
 		super();
 
@@ -63,6 +66,17 @@ export class ReplService extends Disposable implements IReplService {
 	}
 
 	/**
+	 * Clears the currently active REPL instance.
+	 */
+	clearActiveRepl(): void {
+		if (this._instances.length === 0) {
+			this._logService.warn('Clear REPL command issued when no REPL is active; ignoring.');
+			return;
+		}
+		this._instances[0].clear();
+	}
+
+	/**
 	 * Starts a new REPL.
 	 *
 	 * @param kernel The kernel to bind to the new REPL
@@ -71,10 +85,7 @@ export class ReplService extends Disposable implements IReplService {
 	private startRepl(kernel: INotebookKernel): IReplInstance {
 		// Auto-generate an instance ID for this REPL
 		const id = this._maxInstanceId++;
-		const instance: IReplInstance = {
-			instanceId: id,
-			kernel: kernel
-		};
+		const instance = this._register(new ReplInstance(id, kernel));
 
 		// Store the instance and fire event to listeners
 		this._instances.push(instance);

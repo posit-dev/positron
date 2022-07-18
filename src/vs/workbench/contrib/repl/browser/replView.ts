@@ -12,9 +12,7 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
-import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { ReplInstanceView } from 'vs/workbench/contrib/repl/browser/replInstanceView';
-import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 
 /**
@@ -38,7 +36,6 @@ export class ReplViewPane extends ViewPane {
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@ITelemetryService telemetryService: ITelemetryService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IReplService private readonly _replService: IReplService,
 	) {

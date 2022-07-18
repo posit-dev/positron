@@ -25,6 +25,12 @@ export interface IReplInstance {
 
 	/** The notebook kernel to which the instance is bound */
 	readonly kernel: INotebookKernel;
+
+	/** Clear the REPL's contents */
+	clear(): void;
+
+	/** Event fired to clear the REPL's contents */
+	readonly onDidClearRepl: Event<void>;
 }
 
 /**
@@ -46,4 +52,9 @@ export interface IReplService {
 	 * @param options The REPL's settings.
 	 */
 	createRepl(options?: ICreateReplOptions): Promise<IReplInstance>;
+
+	/**
+	 * Clears the currently active REPL instance.
+	 */
+	clearActiveRepl(): void;
 }

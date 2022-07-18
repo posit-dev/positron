@@ -42,6 +42,9 @@ export class ReplInstanceView extends Disposable {
 	/** The HTML element containing all of the REPL cells */
 	private _cellContainer: HTMLElement;
 
+	/** An array of all REPL cells */
+	private _cells: Array<ReplCell> = [];
+
 	/** The currently active REPL cell */
 	private _activeCell?: ReplCell;
 
@@ -99,6 +102,30 @@ export class ReplInstanceView extends Disposable {
 				}
 			}
 		});
+
+		// Clear REPL when event signals the user has requested it
+		this._instance.onDidClearRepl(() => {
+			this.clear();
+		});
+	}
+
+	/**
+	 * Clears the REPL by removing all rendered content
+	 */
+	clear() {
+		// Dispose all existing cells and clear them from the DOM
+		for (const cell of this._cells) {
+			cell.dispose();
+		}
+		this._cells = [];
+		this._cellContainer.innerHTML = '';
+		this._activeCell = undefined;
+
+		// Create new active cell
+		this.addCell();
+
+		// Rescan DOM
+		this._scroller.scanDomNode();
 	}
 
 	render() {
@@ -212,6 +239,7 @@ export class ReplInstanceView extends Disposable {
 		const cell = this._instantiationService.createInstance(ReplCell,
 			this._language,
 			this._cellContainer);
+		this._cells.push(cell);
 		this._register(cell);
 
 		// Hook up events
