@@ -24,6 +24,9 @@ export class ReplOutput extends Disposable {
 		this._container = document.createElement('div');
 		this._container.classList.add('repl-output');
 		this._parentElement.appendChild(this._container);
+
+		// Make the container focusable
+		this._container.tabIndex = 0;
 	}
 
 	/**

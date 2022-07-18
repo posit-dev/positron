@@ -16,7 +16,6 @@
 
 .repl-editor-host {
 	position: relative;
-	padding-bottom: 15px;
 }
 
 .repl-editor {
@@ -38,13 +37,10 @@
 	margin: 0.25em 0;
 }
 
-.repl-editor-hidden {
-	display: none;
-}
-
 .repl-cells {
 	margin-right: 15px;
 	position: relative;
+	padding-bottom: 15px;
 }
 
 .repl-cell {
