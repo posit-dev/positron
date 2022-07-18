@@ -171,6 +171,10 @@ export class ReplCell extends Disposable {
 		return this._state;
 	}
 
+	executeInput(code: string) {
+		this._input.executeInput(code);
+	}
+
 	/**
 	 * Redraws the cell to adapt to a change in state
 	 *

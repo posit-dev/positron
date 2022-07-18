@@ -76,6 +76,13 @@ export class ReplService extends Disposable implements IReplService {
 		this._instances[0].clear();
 	}
 
+	executeCode(languageId: string, code: string): void {
+		// TODO: find the matching instance, or don't execute if we don't have one.
+		if (this._instances.length > 0) {
+			this._instances[0].executeCode(code);
+		}
+	}
+
 	/**
 	 * Starts a new REPL.
 	 *

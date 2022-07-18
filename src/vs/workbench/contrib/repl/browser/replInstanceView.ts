@@ -107,6 +107,15 @@ export class ReplInstanceView extends Disposable {
 		this._instance.onDidClearRepl(() => {
 			this.clear();
 		});
+
+		// Execute code when the user requests it
+		this._instance.onDidExecuteCode((code: string) => {
+			if (this._activeCell) {
+				this._activeCell.executeInput(code);
+			} else {
+				this._logService.warn(`Attempt to execute '${code}', but console is not able to receive input.`);
+			}
+		});
 	}
 
 	/**

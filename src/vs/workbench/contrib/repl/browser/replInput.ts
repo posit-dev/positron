@@ -224,4 +224,17 @@ export class ReplInput extends Disposable {
 		};
 		this._editor.updateOptions(options);
 	}
+
+	/**
+	 * Replace the input's contents with the given value, and submit it
+	 * immediately for execution.
+	 *
+	 * @param input The input to execute.
+	 */
+	executeInput(input: string) {
+		this._editor.setValue(input);
+		this._onDidSubmitInput.fire({
+			code: input
+		});
+	}
 }
