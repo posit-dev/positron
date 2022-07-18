@@ -29,8 +29,14 @@ export interface IReplInstance {
 	/** Clear the REPL's contents */
 	clear(): void;
 
+	/** Execute code in the REPL */
+	executeCode(code: string): void;
+
 	/** Event fired to clear the REPL's contents */
 	readonly onDidClearRepl: Event<void>;
+
+	/** Event fired to execute code in the REPL */
+	readonly onDidExecuteCode: Event<string>;
 }
 
 /**
@@ -57,4 +63,12 @@ export interface IReplService {
 	 * Clears the currently active REPL instance.
 	 */
 	clearActiveRepl(): void;
+
+	/**
+	 * Sends a code line or fragment to the REPL from the currently open editor.
+	 *
+	 * @param languageId The ID of the langguage for which to execute code
+	 * @param code The code to execute
+	 */
+	executeCode(languageId: string, code: string): void;
 }

@@ -12,6 +12,9 @@ export class ReplInstance extends Disposable implements IReplInstance {
 	private readonly _onDidClearRepl = this._register(new Emitter<void>);
 	readonly onDidClearRepl: Event<void> = this._onDidClearRepl.event;
 
+	private readonly _onDidExecuteCode = this._register(new Emitter<string>);
+	readonly onDidExecuteCode: Event<string> = this._onDidExecuteCode.event;
+
 	constructor(
 		readonly instanceId: number,
 		readonly kernel: INotebookKernel) {
@@ -20,5 +23,9 @@ export class ReplInstance extends Disposable implements IReplInstance {
 
 	clear(): void {
 		this._onDidClearRepl.fire();
+	}
+
+	executeCode(code: string): void {
+		this._onDidExecuteCode.fire(code);
 	}
 }
