@@ -9,6 +9,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { NotebookCellOutputsSplice } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
+import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
 
 /**
  * Legal states for the cell
@@ -35,16 +36,19 @@ export interface IReplCellStateChange {
 	newState: ReplCellState;
 }
 
+/**
+ * ReplCell represents a single iteration of a Read-Evaluate-Print-Loop (REPL).
+ */
 export class ReplCell extends Disposable {
 
 	readonly onDidSubmitInput: Event<IReplInputSubmitEvent>;
+	readonly onMouseWheel: Event<IMouseWheelEvent>;
 	readonly onDidChangeCellState: Event<IReplCellStateChange>;
 	private readonly _onDidChangeCellState;
 
 	private _container: HTMLElement;
 
 	private _input: ReplInput;
-	private _inputContent: string;
 
 	private _output: ReplOutput;
 
@@ -70,7 +74,6 @@ export class ReplCell extends Disposable {
 
 		// Set intial state
 		this._state = ReplCellState.ReplCellInput;
-		this._inputContent = '';
 
 		// Create unique handle
 		this._handle = ReplCell._counter++;
@@ -79,12 +82,6 @@ export class ReplCell extends Disposable {
 		this._container = document.createElement('div');
 		this._container.classList.add('repl-cell');
 
-		// Create output
-		this._output = this._instantiationService.createInstance(
-			ReplOutput,
-			this._container);
-		this._register(this._output);
-
 		// Create input
 		this._input = this._instantiationService.createInstance(
 			ReplInput,
@@ -92,6 +89,13 @@ export class ReplCell extends Disposable {
 			this._language,
 			this._container);
 		this._register(this._input);
+		this.onMouseWheel = this._input.onMouseWheel;
+
+		// Create output
+		this._output = this._instantiationService.createInstance(
+			ReplOutput,
+			this._container);
+		this._register(this._output);
 
 		// Copy the editor's font settings to the output area
 		const fontInfo = this._input.getFontInfo();
@@ -99,9 +103,6 @@ export class ReplCell extends Disposable {
 
 		// Event forwarding for input submission
 		this.onDidSubmitInput = this._input.onDidSubmitInput;
-		this.onDidSubmitInput((e) => {
-			this._inputContent = e.code;
-		});
 
 		// Inject the input/output pair to the parent
 		this._parentElement.appendChild(this._container);
@@ -174,10 +175,7 @@ export class ReplCell extends Disposable {
 	 */
 	private renderStateChange(change: IReplCellStateChange) {
 		if (change.newState === ReplCellState.ReplCellExecuting) {
-			// When the cell starts executing, replace the input control with
-			// rendered text
-			this._output.emitInput(this._inputContent);
-			this._input.getDomNode().classList.add('repl-editor-hidden');
+			this._input.setReadOnly(true);
 		}
 	}
 }

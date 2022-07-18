@@ -27,7 +27,7 @@
 
 .repl-output {
 	position: relative;
-	left: 30px;
+	margin-left: 12px;
 	user-select: text;
 	-webkit-user-select: text;
 }
