@@ -4,17 +4,17 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { IExtensionSingleActivationService } from '../../../../activation/types';
-import { ExtensionContextKey } from '../../../../common/application/contextKeys';
-import { ICommandManager, IContextKeyManager } from '../../../../common/application/types';
-import { PythonWelcome } from '../../../../common/application/walkThroughs';
-import { Commands, PVSC_EXTENSION_ID } from '../../../../common/constants';
-import { IBrowserService, IDisposableRegistry } from '../../../../common/types';
-import { IPlatformService } from '../../../../common/platform/types';
+import { IExtensionSingleActivationService } from '../../../../../activation/types';
+import { ExtensionContextKey } from '../../../../../common/application/contextKeys';
+import { ICommandManager, IContextKeyManager } from '../../../../../common/application/types';
+import { PythonWelcome } from '../../../../../common/application/walkThroughs';
+import { Commands, PVSC_EXTENSION_ID } from '../../../../../common/constants';
+import { IBrowserService, IDisposableRegistry } from '../../../../../common/types';
+import { IPlatformService } from '../../../../../common/platform/types';
 
 @injectable()
 export class InstallPythonCommand implements IExtensionSingleActivationService {
-    public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
+    public readonly supportedWorkspaceTypes = { untrustedWorkspace: true, virtualWorkspace: false };
 
     constructor(
         @inject(ICommandManager) private readonly commandManager: ICommandManager,
