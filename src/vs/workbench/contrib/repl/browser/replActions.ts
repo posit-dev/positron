@@ -120,13 +120,34 @@ export function registerReplActions() {
 
 			let code = '';
 			const selection = editor.getSelection();
+			const position = editor.getPosition();
 			const model = editor.getModel() as ITextModel;
 			if (selection) {
+				// If there is an active selection, use the contents of the
+				// selection to drive execution
 				code = model.getValueInRange(selection);
+				if (code.length === 0) {
+					// When there's no selection, the selection represents the
+					// cursor position; just get the line at the cursor point.
+					//
+					// TODO: This would benefit from a "Run Current Statement"
+					// behavior, but that requires deep knowledge of the
+					// language's grammar. Is this something we can fit into the
+					// LSP model or build into the language pack extensibility
+					// point?
+					code = model.getLineContent(selection.startLineNumber);
+					if (position) {
+						// Advance the cursor to the next line after executing
+						// the current one.
+						editor.setPosition(position.with(position.lineNumber + 1));
+					}
+				}
 			} else {
-				const position = editor.getPosition();
+				// Fallback for case wherein there is no selection; just use
+				// cursor position
 				if (position) {
 					code = model.getLineContent(position.lineNumber);
+					editor.setPosition(position.with(position.lineNumber + 1));
 				} else {
 					logService.warn('Cannot determine location of cursor for running current line');
 				}
