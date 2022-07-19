@@ -71,14 +71,6 @@ export class ReplOutput extends Disposable {
 	emitError(error: string) {
 		const err: ReplError = this._instantiationService.createInstance(ReplError, error);
 		this._register(err);
-		const errorColor = this._themeService.getColorTheme().getColor(editorErrorForeground);
-		if (errorColor) {
-			err.getDomNode().style.color = errorColor.toString();
-		}
-		const errorBg = this._themeService.getColorTheme().getColor(editorErrorBackground);
-		if (errorBg) {
-			err.getDomNode().style.backgroundColor = errorBg.toString();
-		}
 		err.render(this._container);
 	}
 
