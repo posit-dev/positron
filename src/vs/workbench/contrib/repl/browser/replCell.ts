@@ -176,6 +176,15 @@ export class ReplCell extends Disposable {
 	}
 
 	/**
+	 * Checks the focus state of the cell.
+	 *
+	 * @returns Whether the underlying input control is focused
+	 */
+	hasFocus(): boolean {
+		return this._input.hasFocus();
+	}
+
+	/**
 	 * Redraws the cell to adapt to a change in state
 	 *
 	 * @param change The event that triggered the update
