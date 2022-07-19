@@ -104,7 +104,10 @@ export class ReplCell extends Disposable {
 		// Event forwarding for input submission
 		this.onDidSubmitInput = this._input.onDidSubmitInput;
 		this._register(this.onDidSubmitInput((e) => {
-			this._output.getDomNode().focus();
+			// If the input had focus, drive it out
+			if (e.focus) {
+				this._output.getDomNode().focus();
+			}
 		}));
 
 		// Inject the input/output pair to the parent
