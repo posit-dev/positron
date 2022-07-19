@@ -90,7 +90,7 @@ export class ReplInstanceView extends Disposable {
 			// When execution is complete, show the prompt again
 			if (e.affectsNotebook(this._uri)) {
 				if (typeof e.changed === 'undefined') {
-					this._logService.info(`Cell execution of ${e.cellHandle} complete`);
+					this._logService.trace(`Cell execution of ${e.cellHandle} complete`);
 
 					// Mark the current cell execution as complete, if it is currently executing.
 					if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
@@ -103,7 +103,7 @@ export class ReplInstanceView extends Disposable {
 					this.addCell(this._hadFocus);
 					this.scrollToBottom();
 				} else {
-					this._logService.info(`Cell execution status: `, e.changed);
+					this._logService.trace(`Cell execution status: `, e.changed);
 				}
 			}
 		});
