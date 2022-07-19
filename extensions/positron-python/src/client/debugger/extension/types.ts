@@ -18,6 +18,10 @@ import { DebugConfigurationArguments } from '../types';
 
 export const IDebugConfigurationService = Symbol('IDebugConfigurationService');
 export interface IDebugConfigurationService extends DebugConfigurationProvider {}
+
+export const IDynamicDebugConfigurationService = Symbol('IDynamicDebugConfigurationService');
+export interface IDynamicDebugConfigurationService extends DebugConfigurationProvider {}
+
 export const IDebuggerBanner = Symbol('IDebuggerBanner');
 export interface IDebuggerBanner {
     initialize(): void;
