@@ -2,6 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./media/repl';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
@@ -9,11 +10,12 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
 import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { ReplInstanceView } from 'vs/workbench/contrib/repl/browser/replInstanceView';
 import { IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
+import { editorErrorBackground, editorErrorForeground } from 'vs/platform/theme/common/colorRegistry';
 
 /**
  * Holds the rendered REPL inside a ViewPane.
@@ -107,3 +109,14 @@ export class ReplViewPane extends ViewPane {
 		this._instanceView.render();
 	}
 }
+
+registerThemingParticipant((theme, collector) => {
+	const errorFg = theme.getColor(editorErrorForeground);
+	if (errorFg) {
+		collector.addRule(`.repl-error { color: ${errorFg} ; }`);
+	}
+	const errorBg = theme.getColor(editorErrorBackground);
+	if (errorBg) {
+		collector.addRule(`.repl-error { background-color: ${errorBg} ; }`);
+	}
+});
