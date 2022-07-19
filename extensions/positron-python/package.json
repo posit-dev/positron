@@ -62,6 +62,7 @@
     "activationEvents": [
         "onDebugInitialConfigurations",
         "onLanguage:python",
+        "onDebugDynamicConfigurations:python",
         "onDebugResolve:python",
         "onCommand:python.execInTerminal",
         "onCommand:python.debugInTerminal",

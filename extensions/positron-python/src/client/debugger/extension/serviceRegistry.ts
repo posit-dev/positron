@@ -14,6 +14,7 @@ import { AttachProcessProviderFactory } from './attachQuickPick/factory';
 import { IAttachProcessProviderFactory } from './attachQuickPick/types';
 import { DebuggerBanner } from './banner';
 import { PythonDebugConfigurationService } from './configuration/debugConfigurationService';
+import { DynamicPythonDebugConfigurationService } from './configuration/dynamicdebugConfigurationService';
 import { LaunchJsonCompletionProvider } from './configuration/launch.json/completionProvider';
 import { InterpreterPathCommand } from './configuration/launch.json/interpreterPathCommand';
 import { LaunchJsonReader } from './configuration/launch.json/launchJsonReader';
@@ -46,6 +47,7 @@ import {
     IDebugConfigurationService,
     IDebuggerBanner,
     IDebugSessionLoggingFactory,
+    IDynamicDebugConfigurationService,
     IOutdatedDebuggerPromptFactory,
 } from './types';
 
@@ -65,6 +67,10 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<IDebugConfigurationService>(
         IDebugConfigurationService,
         PythonDebugConfigurationService,
+    );
+    serviceManager.addSingleton<IDynamicDebugConfigurationService>(
+        IDynamicDebugConfigurationService,
+        DynamicPythonDebugConfigurationService,
     );
     serviceManager.addSingleton<IDebuggerBanner>(IDebuggerBanner, DebuggerBanner);
     serviceManager.addSingleton<IChildProcessAttachService>(IChildProcessAttachService, ChildProcessAttachService);

@@ -3,7 +3,15 @@
 
 'use strict';
 
-import { CodeActionKind, debug, DebugConfigurationProvider, languages, OutputChannel, window } from 'vscode';
+import {
+    CodeActionKind,
+    debug,
+    DebugConfigurationProvider,
+    DebugConfigurationProviderTriggerKind,
+    languages,
+    OutputChannel,
+    window,
+} from 'vscode';
 
 import { registerTypes as activationRegisterTypes } from './activation/serviceRegistry';
 import { IExtensionActivationManager } from './activation/types';
@@ -17,7 +25,11 @@ import { IConfigurationService, IDisposableRegistry, IExtensions, IOutputChannel
 import { noop } from './common/utils/misc';
 import { DebuggerTypeName } from './debugger/constants';
 import { registerTypes as debugConfigurationRegisterTypes } from './debugger/extension/serviceRegistry';
-import { IDebugConfigurationService, IDebuggerBanner } from './debugger/extension/types';
+import {
+    IDebugConfigurationService,
+    IDebuggerBanner,
+    IDynamicDebugConfigurationService,
+} from './debugger/extension/types';
 import { registerTypes as formattersRegisterTypes } from './formatters/serviceRegistry';
 import { IInterpreterService } from './interpreter/contracts';
 import { getLanguageConfiguration } from './language/languageConfiguration';
@@ -48,6 +60,7 @@ import { DebugService } from './common/application/debugService';
 import { DebugSessionEventDispatcher } from './debugger/extension/hooks/eventHandlerDispatcher';
 import { IDebugSessionEventHandlers } from './debugger/extension/hooks/types';
 import { WorkspaceService } from './common/application/workspace';
+import { DynamicPythonDebugConfigurationService } from './debugger/extension/configuration/dynamicdebugConfigurationService';
 
 export async function activateComponents(
     // `ext` is passed to any extra activation funcs.
@@ -136,6 +149,7 @@ async function activateLegacy(ext: ExtensionState): Promise<ActivationResult> {
     const disposables = serviceManager.get<IDisposableRegistry>(IDisposableRegistry);
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const cmdManager = serviceContainer.get<ICommandManager>(ICommandManager);
+
     languages.setLanguageConfiguration(PYTHON_LANGUAGE, getLanguageConfiguration());
     if (workspaceService.isTrusted) {
         const interpreterManager = serviceContainer.get<IInterpreterService>(IInterpreterService);
@@ -188,6 +202,15 @@ async function activateLegacy(ext: ExtensionState): Promise<ActivationResult> {
                 .forEach((debugConfigProvider) => {
                     disposables.push(debug.registerDebugConfigurationProvider(DebuggerTypeName, debugConfigProvider));
                 });
+
+            // register a dynamic configuration provider for 'python' debug type
+            context.subscriptions.push(
+                debug.registerDebugConfigurationProvider(
+                    DebuggerTypeName,
+                    serviceContainer.get<DynamicPythonDebugConfigurationService>(IDynamicDebugConfigurationService),
+                    DebugConfigurationProviderTriggerKind.Dynamic,
+                ),
+            );
 
             serviceContainer.get<IDebuggerBanner>(IDebuggerBanner).initialize();
         }
