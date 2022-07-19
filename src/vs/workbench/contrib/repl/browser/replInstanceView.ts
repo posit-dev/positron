@@ -51,6 +51,9 @@ export class ReplInstanceView extends Disposable {
 	/** The notebook kernel to which the REPL is bound */
 	private _kernel: INotebookKernel;
 
+	/** Whether we had focus when the last code execution occurred */
+	private _hadFocus: boolean = false;
+
 	constructor(private readonly _instance: IReplInstance,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -94,8 +97,10 @@ export class ReplInstanceView extends Disposable {
 						this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
 					}
 
-					// Add a new cell and scroll to the bottom so the user can see it
-					this.addCell();
+					// Add a new cell and scroll to the bottom so the user can
+					// see it; optionally focus it if we had focus when
+					// execution occurred
+					this.addCell(this._hadFocus);
 					this.scrollToBottom();
 				} else {
 					this._logService.info(`Cell execution status: `, e.changed);
@@ -122,6 +127,13 @@ export class ReplInstanceView extends Disposable {
 	 * Clears the REPL by removing all rendered content
 	 */
 	clear() {
+		// Check to see if the current cell has focus (so we can restore it
+		// after clearing if necessary)
+		let focus = false;
+		if (this._activeCell) {
+			focus = this._activeCell.hasFocus();
+		}
+
 		// Dispose all existing cells and clear them from the DOM
 		for (const cell of this._cells) {
 			cell.dispose();
@@ -130,8 +142,8 @@ export class ReplInstanceView extends Disposable {
 		this._cellContainer.innerHTML = '';
 		this._activeCell = undefined;
 
-		// Create new active cell
-		this.addCell();
+		// Create new active cell, restoring focus if we had it
+		this.addCell(focus);
 
 		// Rescan DOM
 		this._scroller.scanDomNode();
@@ -146,7 +158,7 @@ export class ReplInstanceView extends Disposable {
 		this._root.appendChild(this._cellContainer);
 
 		// Create first cell
-		this.addCell();
+		this.addCell(true);
 
 		// TODO: do we need to cache or store this?
 		this._nbTextModel = this._notebookService.createNotebookTextModel(
@@ -242,8 +254,10 @@ export class ReplInstanceView extends Disposable {
 
 	/**
 	 * Adds a new cell to the end of the REPL, and makes it the primary cell
+	 *
+	 * @param focus Whether to send focus to the newly added cell
 	 */
-	addCell() {
+	addCell(focus: boolean) {
 		// Create the new cell
 		const cell = this._instantiationService.createInstance(ReplCell,
 			this._language,
@@ -260,9 +274,12 @@ export class ReplInstanceView extends Disposable {
 		// Hook up events
 		cell.onDidSubmitInput((e) => {
 			this.submit(e.code);
+			this._hadFocus = e.focus;
 		});
 
 		this._activeCell = cell;
-		cell.focus();
+		if (focus) {
+			cell.focus();
+		}
 	}
 }

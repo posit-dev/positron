@@ -31,7 +31,11 @@ import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
  * Event fired when the input is submitted
  */
 export interface IReplInputSubmitEvent {
+	/** The code that the user submitted */
 	code: string;
+
+	/** Whether the input editor had focus when the code was submitted */
+	focus: boolean;
 }
 
 export class ReplInput extends Disposable {
@@ -112,7 +116,8 @@ export class ReplInput extends Disposable {
 		this._editor.onKeyDown((e: IKeyboardEvent) => {
 			if (e.keyCode === KeyCode.Enter) {
 				this._onDidSubmitInput.fire(<IReplInputSubmitEvent>{
-					code: this._editor.getValue()
+					code: this._editor.getValue(),
+					focus: this._editor.hasTextFocus()
 				});
 				e.preventDefault();
 				e.stopPropagation();
@@ -226,15 +231,26 @@ export class ReplInput extends Disposable {
 	}
 
 	/**
+	 * Gets the focus state of the underlying editor widget
+	 *
+	 * @returns The focus state of the editor.
+	 */
+	hasFocus(): boolean {
+		return this._editor.hasTextFocus();
+	}
+
+	/**
 	 * Replace the input's contents with the given value, and submit it
 	 * immediately for execution.
 	 *
 	 * @param input The input to execute.
 	 */
 	executeInput(input: string) {
+		const focus = this.hasFocus();
 		this._editor.setValue(input);
 		this._onDidSubmitInput.fire({
-			code: input
+			code: input,
+			focus: focus
 		});
 	}
 }
