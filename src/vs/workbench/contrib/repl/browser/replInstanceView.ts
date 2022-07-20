@@ -15,6 +15,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
+import { HistoryNavigator } from 'vs/base/common/history';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -53,6 +54,8 @@ export class ReplInstanceView extends Disposable {
 	/** Whether we had focus when the last code execution occurred */
 	private _hadFocus: boolean = false;
 
+	private _history: HistoryNavigator<string>;
+
 	constructor(private readonly _instance: IReplInstance,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -61,6 +64,7 @@ export class ReplInstanceView extends Disposable {
 		@INotebookService private readonly _notebookService: INotebookService,
 		@ILogService private readonly _logService: ILogService) {
 		super();
+		this._history = new HistoryNavigator([], 100);
 		this._kernel = this._instance.kernel;
 
 		this._language = this._kernel.supportedLanguages[0];
@@ -195,6 +199,8 @@ export class ReplInstanceView extends Disposable {
 	 * @param code The code to submit
 	 */
 	submit(code: string) {
+		// Push the submitted code into the history
+		this._history.add(code);
 
 		// Replace the "cell" contents with what the user entered
 		this._nbTextModel?.applyEdits([{
@@ -260,6 +266,7 @@ export class ReplInstanceView extends Disposable {
 		// Create the new cell
 		const cell = this._instantiationService.createInstance(ReplCell,
 			this._language,
+			this._history,
 			this._cellContainer);
 		this._cells.push(cell);
 		this._register(cell);
