@@ -84,9 +84,6 @@ export class ReplCell extends Disposable {
 		// Create host element
 		this._container = document.createElement('div');
 		this._container.classList.add('repl-cell');
-		if (this._state === ReplCellState.ReplCellPending) {
-			this._container.classList.add('repl-cell-pending');
-		}
 
 		// Create input
 		this._input = this._instantiationService.createInstance(
@@ -106,7 +103,8 @@ export class ReplCell extends Disposable {
 
 		// Create indicator (TODO: need to set ARIA decorative property)
 		this._indicator = document.createElement('div');
-		this._indicator.classList.add('repl-execution-indicator');
+		this._indicator.classList.add('repl-indicator');
+		this._container.appendChild(this._indicator);
 
 		// Copy the editor's font settings to the output area
 		const fontInfo = this._input.getFontInfo();
@@ -120,6 +118,11 @@ export class ReplCell extends Disposable {
 				this._output.getDomNode().focus();
 			}
 		}));
+
+		// Decorate with pending input state if cell is queued
+		if (this._state === ReplCellState.ReplCellPending) {
+			this._container.classList.add('repl-cell-pending');
+		}
 
 		// Inject the input/output pair to the parent
 		this._parentElement.appendChild(this._container);
@@ -217,10 +220,10 @@ export class ReplCell extends Disposable {
 		}
 		if (change.newState === ReplCellState.ReplCellExecuting) {
 			this._input.setReadOnly(true);
-			this._container.appendChild(this._indicator);
+			this._container.classList.add('repl-cell-executing');
 		}
 		else if (change.oldState === ReplCellState.ReplCellExecuting) {
-			this._container.removeChild(this._indicator);
+			this._container.classList.remove('repl-cell-executing');
 		}
 	}
 }

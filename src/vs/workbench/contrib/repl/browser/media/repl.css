@@ -56,7 +56,15 @@
 	opacity: 0.7;
 }
 
-.repl-execution-indicator {
+.repl-cell-pending .repl-indicator {
+	border: 1px solid #e0e0e0;
+	display: block;
+	width: 6px;
+	height: 6px;
+	opacity: 1;
+}
+
+.repl-indicator {
 	width: 8px;
 	height: 8px;
 	border-radius: 4px;
@@ -64,9 +72,14 @@
 	opacity: 0;
 	top: 10px;
 	right: 10px;
+	display: none;
 }
 
-.enable-motion .repl-execution-indicator {
+.repl-cell-executing .repl-indicator {
+	display: block;
+}
+
+.enable-motion .repl-cell-executing .repl-indicator {
 	animation: execution-intro 1s, execution 2s ease-in-out infinite;
 	animation-delay: 500ms, 1500ms;
 }
