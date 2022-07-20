@@ -117,6 +117,10 @@ export class ReplInput extends Disposable {
 		this._editor.setModel(textModel);
 		this._editor.onKeyDown((e: IKeyboardEvent) => {
 			if (e.keyCode === KeyCode.Enter) {
+				// If the user was holding down Shift, don't submit
+				if (e.shiftKey) {
+					return;
+				}
 				this._onDidSubmitInput.fire(<IReplInputSubmitEvent>{
 					code: this._editor.getValue(),
 					focus: this._editor.hasTextFocus()
