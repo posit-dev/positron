@@ -267,6 +267,24 @@ export class ReplInput extends Disposable {
 	}
 
 	/**
+	 * Replaces the contents of the editor with the given string.
+	 *
+	 * @param content The new contents of the editor
+	 */
+	setContent(content: string) {
+		this._editor.setValue(content);
+	}
+
+	/**
+	 * Get the current editor contents.
+	 *
+	 * @returns The current content of the editor
+	 */
+	getContent(): string {
+		return this._editor.getValue();
+	}
+
+	/**
 	 * Navigate forward or back in the history.
 	 *
 	 * @param forward Whether to navigate forward.
