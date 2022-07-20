@@ -125,6 +125,7 @@ registerThemingParticipant((theme, collector) => {
 	}
 	const icon = theme.getColor(iconForeground);
 	if (icon) {
-		collector.addRule(`.repl-execution-indicator { background-color: ${icon} ; }`);
+		collector.addRule(`.repl-cell-executing .repl-indicator { background-color: ${icon} ; }`);
+		collector.addRule(`.repl-cell-pending .repl-indicator { border: 1px solid ${icon} ; }`);
 	}
 });
