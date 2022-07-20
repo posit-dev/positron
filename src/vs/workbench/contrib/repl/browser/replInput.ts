@@ -26,6 +26,7 @@ import { IModelService } from 'vs/editor/common/services/model';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
+import { HistoryNavigator } from 'vs/base/common/history';
 
 /**
  * Event fired when the input is submitted
@@ -53,6 +54,7 @@ export class ReplInput extends Disposable {
 	constructor(
 		private readonly _handle: number,
 		private readonly _language: string,
+		private readonly _history: HistoryNavigator<string>,
 		private readonly _parentElement: HTMLElement,
 		@IModelService private readonly _modelService: IModelService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -121,6 +123,22 @@ export class ReplInput extends Disposable {
 				});
 				e.preventDefault();
 				e.stopPropagation();
+			} else if (e.keyCode === KeyCode.UpArrow) {
+				const h = this._history.previous();
+				if (h) {
+					this._editor.setValue(h);
+					this._editor.setPosition({ lineNumber: 1, column: h.length + 1 });
+					e.preventDefault();
+					e.stopPropagation();
+				}
+			} else if (e.keyCode === KeyCode.DownArrow) {
+				const h = this._history.next();
+				if (h) {
+					this._editor.setValue(h);
+					this._editor.setPosition({ lineNumber: 1, column: h.length + 1 });
+					e.preventDefault();
+					e.stopPropagation();
+				}
 			}
 		});
 

@@ -3,8 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { editorErrorBackground, editorErrorForeground } from 'vs/platform/theme/common/colorRegistry';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ReplError } from 'vs/workbench/contrib/repl/browser/replError';
 
@@ -16,7 +14,6 @@ export class ReplOutput extends Disposable {
 
 	constructor(
 		private readonly _parentElement: HTMLElement,
-		@IThemeService private readonly _themeService: IThemeService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService) {
 		super();
 
@@ -38,13 +35,9 @@ export class ReplOutput extends Disposable {
 		const pre = document.createElement('pre');
 		pre.innerText = output;
 
-		// Apply error color to errors. Gosh, it'd sure be nice if this was a
-		// CSS class we could just add.
+		// Apply error color to errors.
 		if (error) {
-			const errorColor = this._themeService.getColorTheme().getColor(editorErrorForeground);
-			if (errorColor) {
-				pre.style.color = errorColor.toString();
-			}
+			pre.classList.add('repl-error');
 		}
 
 		this._container.appendChild(pre);

@@ -10,6 +10,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { NotebookCellOutputsSplice } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
+import { HistoryNavigator } from 'vs/base/common/history';
 
 /**
  * Legal states for the cell
@@ -60,6 +61,7 @@ export class ReplCell extends Disposable {
 
 	constructor(
 		private readonly _language: string,
+		private readonly _history: HistoryNavigator<string>,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
@@ -87,6 +89,7 @@ export class ReplCell extends Disposable {
 			ReplInput,
 			this._handle,
 			this._language,
+			this._history,
 			this._container);
 		this._register(this._input);
 		this.onMouseWheel = this._input.onMouseWheel;
