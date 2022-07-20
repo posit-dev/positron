@@ -5,6 +5,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { Event } from 'vs/base/common/event';
+import { HistoryNavigator2 } from 'vs/base/common/history';
 
 // Create the decorator for the REPL service (used in dependency injection)
 export const IReplService = createDecorator<IReplService>('replService');
@@ -37,6 +38,9 @@ export interface IReplInstance {
 
 	/** Event fired to execute code in the REPL */
 	readonly onDidExecuteCode: Event<string>;
+
+	/** History of REPL commands */
+	readonly history: HistoryNavigator2<string>;
 }
 
 /**
