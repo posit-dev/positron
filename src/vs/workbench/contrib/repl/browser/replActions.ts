@@ -81,7 +81,7 @@ export function registerReplActions() {
 	registerAction2(class extends Action2 {
 		constructor() {
 			super({
-				id: ReplCommandId.Clear,
+				id: ReplCommandId.Send,
 				title: { value: localize('workbench.action.repl.send', "Send to REPL"), original: 'Send to REPL' },
 				f1: true,
 				category,
