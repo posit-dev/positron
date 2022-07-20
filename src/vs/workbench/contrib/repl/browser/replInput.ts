@@ -26,7 +26,7 @@ import { IModelService } from 'vs/editor/common/services/model';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
-import { HistoryNavigator } from 'vs/base/common/history';
+import { HistoryNavigator2 } from 'vs/base/common/history';
 
 /**
  * Event fired when the input is submitted
@@ -54,7 +54,7 @@ export class ReplInput extends Disposable {
 	constructor(
 		private readonly _handle: number,
 		private readonly _language: string,
-		private readonly _history: HistoryNavigator<string>,
+		private readonly _history: HistoryNavigator2<string>,
 		private readonly _parentElement: HTMLElement,
 		@IModelService private readonly _modelService: IModelService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -126,6 +126,12 @@ export class ReplInput extends Disposable {
 			} else if (e.keyCode === KeyCode.UpArrow) {
 				const h = this._history.previous();
 				if (h) {
+					// If we're at the end of the history, add the current value
+					// so we can go back to it
+					if (this._history.isAtEnd() &&
+						this._history.current() !== this._editor.getValue()) {
+						this._history.add(this._editor.getValue());
+					}
 					this._editor.setValue(h);
 					this._editor.setPosition({ lineNumber: 1, column: h.length + 1 });
 					e.preventDefault();
