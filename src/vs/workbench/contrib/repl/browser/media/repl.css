@@ -52,6 +52,10 @@
 	position: relative;
 }
 
+.repl-cell-pending {
+	opacity: 0.7;
+}
+
 .repl-execution-indicator {
 	width: 8px;
 	height: 8px;

@@ -44,6 +44,9 @@ export class ReplInstanceView extends Disposable {
 	/** An array of all REPL cells */
 	private _cells: Array<ReplCell> = [];
 
+	/** An array of REPL cells that are awaiting execution */
+	private _pendingCells: Array<ReplCell> = [];
+
 	/** The currently active REPL cell */
 	private _activeCell?: ReplCell;
 
@@ -96,10 +99,11 @@ export class ReplInstanceView extends Disposable {
 						this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
 					}
 
-					// Add a new cell and scroll to the bottom so the user can
-					// see it; optionally focus it if we had focus when
-					// execution occurred
-					this.addCell(this._hadFocus);
+					// First, try to process any pending input; if there is
+					// none, add a new cell.
+					if (!this.processQueue()) {
+						this.addCell(this._hadFocus);
+					}
 					this.scrollToBottom();
 				} else {
 					this._logService.trace(`Cell execution status: `, e.changed);
@@ -114,12 +118,52 @@ export class ReplInstanceView extends Disposable {
 
 		// Execute code when the user requests it
 		this._instance.onDidExecuteCode((code: string) => {
-			if (this._activeCell) {
+			this.execute(code);
+		});
+	}
+
+	/**
+	 *
+	 * @returns Whether any work was removed from the execution queue
+	 */
+	private processQueue(): boolean {
+		// No cells pending
+		if (this._pendingCells.length === 0) {
+			return false;
+		}
+
+		// Pull first pending cell off the list and tell it to run itself; move
+		// it from the set of pending cells to the set of running cells
+		const cell = this._pendingCells.shift()!;
+		this._cells.push(cell);
+		this._activeCell = cell;
+		cell.executeInput(cell.getInput());
+
+		return true;
+	}
+
+	/**
+	 * Executes code from an external source
+	 *
+	 * @param code The code to execute
+	 */
+	execute(code: string) {
+		if (this._activeCell) {
+			if (this._activeCell.getState() === ReplCellState.ReplCellInput) {
+				// If we have a cell awaiting input, then use it to execute the
+				// requested input.
+				//
+				// TODO: this obliterates any draft statement the user might
+				// have in the input. If the user has content in the cell, we
+				// should preserve it in some way.
 				this._activeCell.executeInput(code);
 			} else {
-				this._logService.warn(`Attempt to execute '${code}', but console is not able to receive input.`);
+				// We are likely executing code; wait until it's done.
+				this.addPendingCell(code);
 			}
-		});
+		} else {
+			this._logService.warn(`Attempt to execute '${code}', but console is not able to receive input.`);
+		}
 	}
 
 	/**
@@ -262,9 +306,37 @@ export class ReplInstanceView extends Disposable {
 		// Create the new cell
 		const cell = this._instantiationService.createInstance(ReplCell,
 			this._language,
+			ReplCellState.ReplCellInput,
 			this._instance.history,
 			this._cellContainer);
 		this._cells.push(cell);
+		this.registerCellEvents(cell);
+
+		// Reset the instance's history cursor so that navigating history in the
+		// new cell will start from the right place
+		this._instance.history.resetCursor();
+
+		this._activeCell = cell;
+		if (focus) {
+			cell.focus();
+		}
+	}
+
+	private addPendingCell(contents: string) {
+		// Create the new cell
+		const cell = this._instantiationService.createInstance(ReplCell,
+			this._language,
+			ReplCellState.ReplCellPending,
+			this._instance.history,
+			this._cellContainer);
+		cell.setContent(contents);
+		this._pendingCells.push(cell);
+		this.registerCellEvents(cell);
+		this.scrollToBottom();
+	}
+
+	private registerCellEvents(cell: ReplCell) {
+		// Register with disposable chain
 		this._register(cell);
 
 		// Forward scroll events from inside REPL cells into the outer scrolling
@@ -278,14 +350,5 @@ export class ReplInstanceView extends Disposable {
 			this.submit(e.code);
 			this._hadFocus = e.focus;
 		});
-
-		// Reset the instance's history cursor so that navigating history in the
-		// new cell will start from the right place
-		this._instance.history.resetCursor();
-
-		this._activeCell = cell;
-		if (focus) {
-			cell.focus();
-		}
 	}
 }

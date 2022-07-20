@@ -16,6 +16,9 @@ import { HistoryNavigator2 } from 'vs/base/common/history';
  * Legal states for the cell
  */
 export enum ReplCellState {
+	/** The cell is scheduled for execution, but has not executed yet. */
+	ReplCellPending,
+
 	/** The cell is awaiting user input. */
 	ReplCellInput,
 
@@ -55,14 +58,13 @@ export class ReplCell extends Disposable {
 
 	private _handle: number;
 
-	private _state: ReplCellState;
-
 	private _indicator: HTMLElement;
 
 	private static _counter: number = 0;
 
 	constructor(
 		private readonly _language: string,
+		private _state: ReplCellState,
 		private readonly _history: HistoryNavigator2<string>,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -76,15 +78,15 @@ export class ReplCell extends Disposable {
 			this.renderStateChange(e);
 		});
 
-		// Set intial state
-		this._state = ReplCellState.ReplCellInput;
-
 		// Create unique handle
 		this._handle = ReplCell._counter++;
 
 		// Create host element
 		this._container = document.createElement('div');
 		this._container.classList.add('repl-cell');
+		if (this._state === ReplCellState.ReplCellPending) {
+			this._container.classList.add('repl-cell-pending');
+		}
 
 		// Create input
 		this._input = this._instantiationService.createInstance(
@@ -183,6 +185,10 @@ export class ReplCell extends Disposable {
 		return this._state;
 	}
 
+	getInput(): string {
+		return this._input.getContent();
+	}
+
 	executeInput(code: string) {
 		this._input.executeInput(code);
 	}
@@ -196,12 +202,19 @@ export class ReplCell extends Disposable {
 		return this._input.hasFocus();
 	}
 
+	setContent(content: string) {
+		this._input.setContent(content);
+	}
+
 	/**
 	 * Redraws the cell to adapt to a change in state
 	 *
 	 * @param change The event that triggered the update
 	 */
 	private renderStateChange(change: IReplCellStateChange) {
+		if (change.oldState === ReplCellState.ReplCellPending) {
+			this._container.classList.remove('repl-cell-pending');
+		}
 		if (change.newState === ReplCellState.ReplCellExecuting) {
 			this._input.setReadOnly(true);
 			this._container.appendChild(this._indicator);
