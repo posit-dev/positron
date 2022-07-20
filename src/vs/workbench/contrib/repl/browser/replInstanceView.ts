@@ -279,6 +279,10 @@ export class ReplInstanceView extends Disposable {
 			this._hadFocus = e.focus;
 		});
 
+		// Reset the instance's history cursor so that navigating history in the
+		// new cell will start from the right place
+		this._instance.history.resetCursor();
+
 		this._activeCell = cell;
 		if (focus) {
 			cell.focus();

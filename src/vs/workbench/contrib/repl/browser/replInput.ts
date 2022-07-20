@@ -124,24 +124,12 @@ export class ReplInput extends Disposable {
 				e.preventDefault();
 				e.stopPropagation();
 			} else if (e.keyCode === KeyCode.UpArrow) {
-				const h = this._history.previous();
-				if (h) {
-					// If we're at the end of the history, add the current value
-					// so we can go back to it
-					if (this._history.isAtEnd() &&
-						this._history.current() !== this._editor.getValue()) {
-						this._history.add(this._editor.getValue());
-					}
-					this._editor.setValue(h);
-					this._editor.setPosition({ lineNumber: 1, column: h.length + 1 });
+				if (this.historyNavigate(false)) {
 					e.preventDefault();
 					e.stopPropagation();
 				}
 			} else if (e.keyCode === KeyCode.DownArrow) {
-				const h = this._history.next();
-				if (h) {
-					this._editor.setValue(h);
-					this._editor.setPosition({ lineNumber: 1, column: h.length + 1 });
+				if (this.historyNavigate(true)) {
 					e.preventDefault();
 					e.stopPropagation();
 				}
@@ -276,5 +264,38 @@ export class ReplInput extends Disposable {
 			code: input,
 			focus: focus
 		});
+	}
+
+	/**
+	 * Navigate forward or back in the history.
+	 *
+	 * @param forward Whether to navigate forward.
+	 * @returns Whether or not a navigation occurred
+	 */
+	historyNavigate(forward: boolean): boolean {
+
+		// If we're at the end of the history and going back, add the current
+		// value so we can go back to it (unless it is unchanged)
+		if (!forward &&
+			this._history.isAtEnd() &&
+			this._history.current() !== this._editor.getValue()) {
+			this._history.add(this._editor.getValue());
+		}
+
+		// Move cursor and get new history value
+		const h = forward ?
+			this._history.next() :
+			this._history.previous();
+
+		// No navigation possible (we're already at the end or beginning)
+		if (!h) {
+			return false;
+		}
+
+		// Load the value from the history into the editor
+		this._editor.setValue(h);
+		this._editor.setPosition({ lineNumber: 1, column: h.length + 1 });
+
+		return true;
 	}
 }
