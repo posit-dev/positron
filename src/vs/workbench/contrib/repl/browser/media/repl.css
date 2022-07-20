@@ -57,11 +57,14 @@
 	height: 8px;
 	border-radius: 4px;
 	position: absolute;
-	animation: execution-intro 1s, execution 2s ease-in-out infinite;
-	animation-delay: 500ms, 1500ms;
 	opacity: 0;
 	top: 10px;
 	right: 10px;
+}
+
+.enable-motion .repl-execution-indicator {
+	animation: execution-intro 1s, execution 2s ease-in-out infinite;
+	animation-delay: 500ms, 1500ms;
 }
 
 @keyframes execution-intro {
