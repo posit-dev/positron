@@ -51,3 +51,12 @@
 	padding-bottom: 5px;
 	position: relative;
 }
+
+.repl-execution-indicator {
+	width: 8px;
+	height: 8px;
+	border-radius: 4px;
+	position: absolute;
+	top: 10px;
+	right: 10px;
+}

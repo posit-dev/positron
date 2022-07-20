@@ -57,6 +57,8 @@ export class ReplCell extends Disposable {
 
 	private _state: ReplCellState;
 
+	private _indicator: HTMLElement;
+
 	private static _counter: number = 0;
 
 	constructor(
@@ -99,6 +101,10 @@ export class ReplCell extends Disposable {
 			ReplOutput,
 			this._container);
 		this._register(this._output);
+
+		// Create indicator (TODO: need to set ARIA decorative property)
+		this._indicator = document.createElement('div');
+		this._indicator.classList.add('repl-execution-indicator');
 
 		// Copy the editor's font settings to the output area
 		const fontInfo = this._input.getFontInfo();
@@ -198,6 +204,10 @@ export class ReplCell extends Disposable {
 	private renderStateChange(change: IReplCellStateChange) {
 		if (change.newState === ReplCellState.ReplCellExecuting) {
 			this._input.setReadOnly(true);
+			this._container.appendChild(this._indicator);
+		}
+		else if (change.oldState === ReplCellState.ReplCellExecuting) {
+			this._container.removeChild(this._indicator);
 		}
 	}
 }
