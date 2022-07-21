@@ -370,5 +370,9 @@ export class ReplInstanceView extends Disposable {
 			this.submit(e.code);
 			this._hadFocus = e.focus;
 		});
+
+		cell.onDidChangeHeight(() => {
+			this._scroller.scanDomNode();
+		});
 	}
 }
