@@ -98,7 +98,8 @@ export class ReplCell extends Disposable {
 		// Create output
 		this._output = this._instantiationService.createInstance(
 			ReplOutput,
-			this._container);
+			this._container,
+			this._input.getFontInfo());
 		this._register(this._output);
 
 		// Create indicator
@@ -108,8 +109,6 @@ export class ReplCell extends Disposable {
 		this._container.appendChild(this._indicator);
 
 		// Copy the editor's font settings to the output area
-		const fontInfo = this._input.getFontInfo();
-		applyFontInfo(this._output.getDomNode(), fontInfo);
 
 		// Event forwarding for input submission
 		this.onDidSubmitInput = this._input.onDidSubmitInput;

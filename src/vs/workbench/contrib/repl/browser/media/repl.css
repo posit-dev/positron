@@ -107,3 +107,8 @@
 		opacity: 0.5;
 	}
 }
+
+.repl-error-name {
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
