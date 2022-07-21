@@ -12,6 +12,7 @@ import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { Button, IButtonOptions } from 'vs/base/browser/ui/button/button';
 import { Codicon } from 'vs/base/common/codicons';
+import { Emitter, Event } from 'vs/base/common/event';
 
 type ErrorLike = Partial<Error>;
 
@@ -23,12 +24,18 @@ export class ReplError extends Disposable {
 
 	private _ele: HTMLElement;
 
+	private readonly _onDidChangeHeight;
+
+	/** Emitted when the error height changes (happens when traceback is toggled) */
+	readonly onDidChangeHeight: Event<void>;
+
 	constructor(readonly errText: string,
 		private readonly _errFont: BareFontInfo,
 		@ILogService private readonly _logService: ILogService,
 		@IThemeService private readonly _themeService: IThemeService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService) {
 		super();
+
 		try {
 			// Attempt to parse eror as JSON (treat all fields as optional)
 			this._err = <ErrorLike>JSON.parse(errText);
@@ -42,6 +49,10 @@ export class ReplError extends Disposable {
 				stack: ''
 			};
 		}
+
+		// Set up eventing
+		this._onDidChangeHeight = this._register(new Emitter<void>());
+		this.onDidChangeHeight = this._onDidChangeHeight.event;
 
 		// Create the root render element (unattached until rendered)
 		this._ele = document.createElement('div');
@@ -98,6 +109,7 @@ export class ReplError extends Disposable {
 				stack.classList.toggle('repl-error-collapsed');
 				button.icon = stack.classList.contains('repl-error-collapsed') ?
 					Codicon.dropDownButton : Codicon.chevronUp;
+				this._onDidChangeHeight.fire();
 			})));
 
 			this._ele.appendChild(stack);
