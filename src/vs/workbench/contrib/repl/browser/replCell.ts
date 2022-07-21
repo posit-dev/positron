@@ -101,9 +101,10 @@ export class ReplCell extends Disposable {
 			this._container);
 		this._register(this._output);
 
-		// Create indicator (TODO: need to set ARIA decorative property)
+		// Create indicator
 		this._indicator = document.createElement('div');
 		this._indicator.classList.add('repl-indicator');
+		this._indicator.setAttribute('role', 'presentation');
 		this._container.appendChild(this._indicator);
 
 		// Copy the editor's font settings to the output area
