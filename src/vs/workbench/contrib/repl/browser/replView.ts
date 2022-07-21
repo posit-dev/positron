@@ -15,7 +15,7 @@ import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/vie
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { ReplInstanceView } from 'vs/workbench/contrib/repl/browser/replInstanceView';
 import { IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
-import { editorErrorBackground, editorErrorForeground, textSeparatorForeground, iconForeground } from 'vs/platform/theme/common/colorRegistry';
+import { editorErrorBackground, editorErrorForeground, textSeparatorForeground, iconForeground, descriptionForeground } from 'vs/platform/theme/common/colorRegistry';
 
 /**
  * Holds the rendered REPL inside a ViewPane.
@@ -124,7 +124,11 @@ registerThemingParticipant((theme, collector) => {
 	}
 	const errorBg = theme.getColor(editorErrorBackground);
 	if (errorBg) {
-		collector.addRule(`.repl-error { background-color: ${errorBg} ; }`);
+		collector.addRule(`.repl-error-message { background-color: ${errorBg} ; }`);
+	}
+	const descFg = theme.getColor(descriptionForeground);
+	if (descFg) {
+		collector.addRule(`.repl-error-name { color: ${descFg} ; }`);
 	}
 	const sep = theme.getColor(textSeparatorForeground);
 	if (sep) {
