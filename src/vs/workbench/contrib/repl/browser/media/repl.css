@@ -108,9 +108,15 @@
 	}
 }
 
-.repl-error-name {
+.repl-error-name,
+.repl-error-message {
 	margin-top: 5px;
 	margin-bottom: 5px;
+}
+
+.repl-error-expander {
+	display: block;
+	cursor: pointer;
 }
 
 .repl-error-collapsed .repl-error-stack-frames {

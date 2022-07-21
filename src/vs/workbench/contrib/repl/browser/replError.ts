@@ -10,7 +10,6 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { LinkDetector } from 'vs/workbench/contrib/debug/browser/linkDetector';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { Button, IButtonOptions } from 'vs/base/browser/ui/button/button';
 import { Codicon } from 'vs/base/common/codicons';
 import { Emitter, Event } from 'vs/base/common/event';
 
@@ -85,32 +84,28 @@ export class ReplError extends Disposable {
 			stack.classList.add('repl-error-stack');
 			stack.classList.add('repl-error-collapsed');
 
+			const button = document.createElement('a');
+			button.classList.add('repl-error-expander');
+
 			// TODO: localization
-			const button = this._register(new Button(stack, <IButtonOptions>{
-				title: this._err.name ?? 'Traceback',
-				secondary: true,
-			}));
-			button.element.classList.add('monaco-dropdown-button');
-			button.icon = Codicon.chevronRight;
-			button.label = this._err.name ?? 'Traceback';
-			button.element.style.width = '300px';
+			button.innerText = this._err.name ?? 'Traceback';
+			button.addEventListener('click', (e) => {
+				stack.classList.toggle('repl-error-collapsed');
+				this._onDidChangeHeight.fire();
+			});
+			stack.appendChild(button);
 
 			const frames = document.createElement('div');
 			frames.classList.add('repl-error-stack-frames');
+			applyFontInfo(frames, this._errFont);
 			frames.appendChild(handleANSIOutput(
 				this._err.stack,
 				this._instantiationService.createInstance(LinkDetector),
 				this._themeService,
 				undefined
 			));
-			stack.appendChild(frames);
 
-			this._register(button.onDidClick(((e) => {
-				stack.classList.toggle('repl-error-collapsed');
-				button.icon = stack.classList.contains('repl-error-collapsed') ?
-					Codicon.dropDownButton : Codicon.chevronUp;
-				this._onDidChangeHeight.fire();
-			})));
+			stack.appendChild(frames);
 
 			this._ele.appendChild(stack);
 		} else if (this._err.name) {

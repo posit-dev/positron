@@ -129,6 +129,7 @@ registerThemingParticipant((theme, collector) => {
 	const descFg = theme.getColor(descriptionForeground);
 	if (descFg) {
 		collector.addRule(`.repl-error-name { color: ${descFg} ; }`);
+		collector.addRule(`.repl-error-expander { color: ${descFg} ; }`);
 	}
 	const sep = theme.getColor(textSeparatorForeground);
 	if (sep) {
