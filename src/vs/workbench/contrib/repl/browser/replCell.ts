@@ -47,6 +47,7 @@ export class ReplCell extends Disposable {
 	readonly onDidSubmitInput: Event<IReplInputSubmitEvent>;
 	readonly onMouseWheel: Event<IMouseWheelEvent>;
 	readonly onDidChangeCellState: Event<IReplCellStateChange>;
+	readonly onDidChangeHeight: Event<void>;
 	private readonly _onDidChangeCellState;
 
 	private _container: HTMLElement;
@@ -100,6 +101,7 @@ export class ReplCell extends Disposable {
 			this._container,
 			this._input.getFontInfo());
 		this._register(this._output);
+		this.onDidChangeHeight = this._output.onDidChangeHeight;
 
 		// Create indicator
 		this._indicator = document.createElement('div');
