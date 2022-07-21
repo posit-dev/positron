@@ -112,3 +112,7 @@
 	margin-top: 5px;
 	margin-bottom: 5px;
 }
+
+.repl-error-collapsed .repl-error-stack-frames {
+	display: none;
+}

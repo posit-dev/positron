@@ -10,6 +10,8 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { LinkDetector } from 'vs/workbench/contrib/debug/browser/linkDetector';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
+import { Button, IButtonOptions } from 'vs/base/browser/ui/button/button';
+import { Codicon } from 'vs/base/common/codicons';
 
 type ErrorLike = Partial<Error>;
 
@@ -56,12 +58,6 @@ export class ReplError extends Disposable {
 		// Error name: this is defined by the executing kernel (example:
 		// "NameError" for the Python kernel denotes the use of an undeclared
 		// variable)
-		if (this._err.name) {
-			const name = document.createElement('div');
-			name.classList.add('repl-error-name');
-			name.innerText = this._err.name;
-			this._ele.appendChild(name);
-		}
 
 		// Error message: full text of the error
 		if (this._err.message) {
@@ -76,13 +72,41 @@ export class ReplError extends Disposable {
 		if (this._err.stack) {
 			const stack = document.createElement('pre');
 			stack.classList.add('repl-error-stack');
-			stack.appendChild(handleANSIOutput(
+			stack.classList.add('repl-error-collapsed');
+
+			// TODO: localization
+			const button = this._register(new Button(stack, <IButtonOptions>{
+				title: this._err.name ?? 'Traceback',
+				secondary: true,
+			}));
+			button.element.classList.add('monaco-dropdown-button');
+			button.icon = Codicon.chevronRight;
+			button.label = this._err.name ?? 'Traceback';
+			button.element.style.width = '300px';
+
+			const frames = document.createElement('div');
+			frames.classList.add('repl-error-stack-frames');
+			frames.appendChild(handleANSIOutput(
 				this._err.stack,
 				this._instantiationService.createInstance(LinkDetector),
 				this._themeService,
 				undefined
 			));
+			stack.appendChild(frames);
+
+			this._register(button.onDidClick(((e) => {
+				stack.classList.toggle('repl-error-collapsed');
+				button.icon = stack.classList.contains('repl-error-collapsed') ?
+					Codicon.dropDownButton : Codicon.chevronUp;
+			})));
+
 			this._ele.appendChild(stack);
+		} else if (this._err.name) {
+			// No stack, just an error name
+			const name = document.createElement('div');
+			name.classList.add('repl-error-name');
+			name.innerText = this._err.name;
+			this._ele.appendChild(name);
 		}
 
 		parentElement.appendChild(this._ele);
