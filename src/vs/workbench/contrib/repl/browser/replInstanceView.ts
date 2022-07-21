@@ -177,18 +177,38 @@ export class ReplInstanceView extends Disposable {
 			focus = this._activeCell.hasFocus();
 		}
 
-		// Dispose all existing cells and clear them from the DOM
+		// Is the active cell currently executing code? If it is, we don't want
+		// to blow away a running computation.
+		const exeCell =
+			this._activeCell?.getState() === ReplCellState.ReplCellExecuting ?
+				this._activeCell : null;
+
+		// Dispose all existing cells, both those currently in the DOM and those
+		// that are pending.
 		for (const cell of this._cells) {
-			cell.dispose();
+			if (cell !== exeCell) {
+				cell.dispose();
+			}
 		}
 		this._cells = [];
+		for (const cell of this._pendingCells) {
+			cell.dispose();
+		}
+		this._pendingCells = [];
+
+		// Clear the DOM
 		this._cellContainer.innerHTML = '';
-		this._activeCell = undefined;
 
-		// Create new active cell, restoring focus if we had it
-		this.addCell(focus);
+		if (exeCell) {
+			// If we had an actively executing cell, put it back in the DOM
+			this._cellContainer.appendChild(exeCell.getDomNode());
+		} else {
+			// If we didn't, we no longer have any cells; add one.
+			this._activeCell = undefined;
+			this.addCell(focus);
+		}
 
-		// Rescan DOM
+		// Rescan DOM so scroll region adapts to new size of cell list
 		this._scroller.scanDomNode();
 	}
 

@@ -209,6 +209,10 @@ export class ReplCell extends Disposable {
 		this._input.setContent(content);
 	}
 
+	getDomNode(): HTMLElement {
+		return this._container;
+	}
+
 	/**
 	 * Redraws the cell to adapt to a change in state
 	 *
