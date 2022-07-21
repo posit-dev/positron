@@ -52,6 +52,13 @@ export class ReplViewPane extends ViewPane {
 			themeService,
 			telemetryService);
 
+		// If there is already a REPL instance running, load it into the view.
+		const instances = this._replService.instances;
+		if (instances.length > 0) {
+			this.createInstance(instances[0]);
+		}
+
+		// Listen for REPL instances to start.
 		this._replService.onDidStartRepl((e: IReplInstance) => {
 			// We already have a REPL instance, and don't currently support more than one
 			if (this._instanceView) {
