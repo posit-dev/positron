@@ -8,7 +8,6 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { NotebookCellOutputsSplice } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 
