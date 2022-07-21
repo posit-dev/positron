@@ -9,6 +9,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/co
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 import { ReplInstance } from 'vs/workbench/contrib/repl/browser/replInstance';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 
 /**
  * The implementation of IReplService
@@ -31,7 +32,8 @@ export class ReplService extends Disposable implements IReplService {
 	 */
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
-		@ILogService private _logService: ILogService
+		@ILogService private _logService: ILogService,
+		@ILanguageService private readonly _languageService: ILanguageService
 	) {
 		super();
 
@@ -73,13 +75,31 @@ export class ReplService extends Disposable implements IReplService {
 			this._logService.warn('Clear REPL command issued when no REPL is active; ignoring.');
 			return;
 		}
+
+		// TODO: We don't currently support multiple REPLs, so just clear the first one for now.
 		this._instances[0].clear();
 	}
 
+	/**
+	 * Executes code in the REPL active for the language
+	 *
+	 * @param languageId The language of the code
+	 * @param code The code to execute
+	 */
 	executeCode(languageId: string, code: string): void {
-		// TODO: find the matching instance, or don't execute if we don't have one.
-		if (this._instances.length > 0) {
-			this._instances[0].executeCode(code);
+
+		// Attempt to find a running REPL for the code
+		let hasRepl = false;
+		for (const instance of this._instances) {
+			if (instance.languageId === languageId) {
+				hasRepl = true;
+				instance.executeCode(code);
+				break;
+			}
+		}
+
+		if (!hasRepl) {
+			this._logService.warn(`Attempt to execute code fragment ${code} in language ${languageId}, but no REPL is active for that language.`);
 		}
 	}
 
@@ -90,9 +110,18 @@ export class ReplService extends Disposable implements IReplService {
 	 * @returns The new REPL instance
 	 */
 	private startRepl(kernel: INotebookKernel): IReplInstance {
+		// Look up supported language ID for this kernel
+		const languageId =
+			this._languageService.getLanguageIdByLanguageName(kernel.supportedLanguages[0]);
+		if (!languageId) {
+			throw new Error(`Could not find ID for kernel language ${kernel.supportedLanguages[0]}`)
+		}
+
 		// Auto-generate an instance ID for this REPL
 		const id = this._maxInstanceId++;
-		const instance = this._register(new ReplInstance(id, kernel));
+
+		// Register new REPL instance
+		const instance = this._register(new ReplInstance(id, languageId, kernel));
 
 		// Store the instance and fire event to listeners
 		this._instances.push(instance);
