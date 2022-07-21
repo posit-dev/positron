@@ -20,6 +20,7 @@ export class ReplInstance extends Disposable implements IReplInstance {
 
 	constructor(
 		readonly instanceId: number,
+		readonly languageId: string,
 		readonly kernel: INotebookKernel) {
 		super();
 	}

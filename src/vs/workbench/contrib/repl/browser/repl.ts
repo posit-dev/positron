@@ -24,6 +24,9 @@ export interface IReplInstance {
 	/** The REPL's instance identifier */
 	readonly instanceId: number;
 
+	/** The identifier of the language used by the REPL */
+	readonly languageId: string;
+
 	/** The notebook kernel to which the instance is bound */
 	readonly kernel: INotebookKernel;
 
