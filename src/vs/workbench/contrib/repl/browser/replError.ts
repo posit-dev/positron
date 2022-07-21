@@ -8,6 +8,8 @@ import { handleANSIOutput } from 'vs/workbench/contrib/debug/browser/debugANSIHa
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { LinkDetector } from 'vs/workbench/contrib/debug/browser/linkDetector';
+import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
+import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 
 type ErrorLike = Partial<Error>;
 
@@ -19,7 +21,8 @@ export class ReplError extends Disposable {
 
 	private _ele: HTMLElement;
 
-	constructor(errText: string,
+	constructor(readonly errText: string,
+		private readonly _errFont: BareFontInfo,
 		@ILogService private readonly _logService: ILogService,
 		@IThemeService private readonly _themeService: IThemeService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService) {
@@ -65,6 +68,7 @@ export class ReplError extends Disposable {
 			const message = document.createElement('div');
 			message.classList.add('repl-error-message');
 			message.innerText = this._err.message;
+			applyFontInfo(message, this._errFont);
 			this._ele.appendChild(message);
 		}
 
