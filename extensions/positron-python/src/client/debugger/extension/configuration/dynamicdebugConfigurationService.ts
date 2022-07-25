@@ -45,6 +45,23 @@ export class DynamicPythonDebugConfigurationService implements IDynamicDebugConf
             });
         }
 
+        const flaskPath = await this.getFlaskPath(folder);
+        if (flaskPath) {
+            providers.push({
+                name: 'Dynamic Python: Flask',
+                type: DebuggerTypeName,
+                request: 'launch',
+                module: 'flask',
+                env: {
+                    FLASK_APP: path.relative(folder.uri.fsPath, flaskPath),
+                    FLASK_ENV: 'development',
+                },
+                args: ['run', '--no-debugger'],
+                jinja: true,
+                justMyCode: true,
+            });
+        }
+
         let fastApiPath = await this.getFastApiPath(folder);
         if (fastApiPath) {
             fastApiPath = path
@@ -74,6 +91,23 @@ export class DynamicPythonDebugConfigurationService implements IDynamicDebugConf
     private async getFastApiPath(folder: WorkspaceFolder) {
         const possiblePaths = await this.getPossiblePaths(folder, ['main.py', 'app.py', '*/main.py', '*/app.py']);
         const regExpression = /app\s*=\s*FastAPI\(/;
+        const fastApiPaths = await asyncFilter(possiblePaths, async (possiblePath) =>
+            regExpression.exec((await this.fs.readFile(possiblePath)).toString()),
+        );
+
+        return fastApiPaths.length ? fastApiPaths[0] : null;
+    }
+
+    private async getFlaskPath(folder: WorkspaceFolder) {
+        const possiblePaths = await this.getPossiblePaths(folder, [
+            '__init__.py',
+            'app.py',
+            'wsgi.py',
+            '*/__init__.py',
+            '*/app.py',
+            '*/wsgi.py',
+        ]);
+        const regExpression = /app(?:lication)?\s*=\s*(?:flask\.)?Flask\(|def\s+(?:create|make)_app\(/;
         const flaskPaths = await asyncFilter(possiblePaths, async (possiblePath) =>
             regExpression.exec((await this.fs.readFile(possiblePath)).toString()),
         );
