@@ -83,47 +83,49 @@ export class DynamicPythonDebugConfigurationService implements IDynamicDebugConf
     }
 
     private async getDjangoPath(folder: WorkspaceFolder) {
-        const possiblePaths = await this.getPossiblePaths(folder, ['manage.py', '*/manage.py']);
-
+        const regExpression = /execute_from_command_line\(/;
+        const possiblePaths = await this.getPossiblePaths(
+            folder,
+            ['manage.py', '*/manage.py', 'app.py', '*/app.py'],
+            regExpression,
+        );
         return possiblePaths.length ? path.relative(folder.uri.fsPath, possiblePaths[0]) : null;
     }
 
     private async getFastApiPath(folder: WorkspaceFolder) {
-        const possiblePaths = await this.getPossiblePaths(folder, ['main.py', 'app.py', '*/main.py', '*/app.py']);
         const regExpression = /app\s*=\s*FastAPI\(/;
-        const fastApiPaths = await asyncFilter(possiblePaths, async (possiblePath) =>
-            regExpression.exec((await this.fs.readFile(possiblePath)).toString()),
+        const fastApiPaths = await this.getPossiblePaths(
+            folder,
+            ['main.py', 'app.py', '*/main.py', '*/app.py', '*/*/main.py', '*/*/app.py'],
+            regExpression,
         );
 
         return fastApiPaths.length ? fastApiPaths[0] : null;
     }
 
     private async getFlaskPath(folder: WorkspaceFolder) {
-        const possiblePaths = await this.getPossiblePaths(folder, [
-            '__init__.py',
-            'app.py',
-            'wsgi.py',
-            '*/__init__.py',
-            '*/app.py',
-            '*/wsgi.py',
-        ]);
         const regExpression = /app(?:lication)?\s*=\s*(?:flask\.)?Flask\(|def\s+(?:create|make)_app\(/;
-        const flaskPaths = await asyncFilter(possiblePaths, async (possiblePath) =>
-            regExpression.exec((await this.fs.readFile(possiblePath)).toString()),
+        const flaskPaths = await this.getPossiblePaths(
+            folder,
+            ['__init__.py', 'app.py', 'wsgi.py', '*/__init__.py', '*/app.py', '*/wsgi.py'],
+            regExpression,
         );
 
         return flaskPaths.length ? flaskPaths[0] : null;
     }
 
-    private async getPossiblePaths(folder: WorkspaceFolder, globPatterns: string[]): Promise<string[]> {
+    private async getPossiblePaths(folder: WorkspaceFolder, globPatterns: string[], regex: RegExp): Promise<string[]> {
         const foundPathsPromises = (await Promise.allSettled(
             globPatterns.map(
                 async (pattern): Promise<string[]> => this.fs.search(path.join(folder.uri.fsPath, pattern)),
             ),
         )) as { status: string; value: [] }[];
-        const results: string[] = [];
-        foundPathsPromises.forEach((result) => results.push(...result.value));
+        const possiblePaths: string[] = [];
+        foundPathsPromises.forEach((result) => possiblePaths.push(...result.value));
+        const finalPaths = await asyncFilter(possiblePaths, async (possiblePath) =>
+            regex.exec((await this.fs.readFile(possiblePath)).toString()),
+        );
 
-        return results;
+        return finalPaths;
     }
 }
