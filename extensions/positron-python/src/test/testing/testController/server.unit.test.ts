@@ -10,6 +10,7 @@ import { IPythonExecutionFactory, IPythonExecutionService } from '../../../clien
 import { createDeferred } from '../../../client/common/utils/async';
 import { PythonTestServer } from '../../../client/testing/testController/common/server';
 import * as logging from '../../../client/logging';
+import { ITestDebugLauncher } from '../../../client/testing/common/types';
 
 suite('Python Test Server', () => {
     const fakeUuid = 'fake-uuid';
@@ -21,6 +22,7 @@ suite('Python Test Server', () => {
     let execArgs: string[];
     let v4Stub: sinon.SinonStub;
     let traceLogStub: sinon.SinonStub;
+    let debugLauncher: ITestDebugLauncher;
 
     setup(() => {
         sandbox = sinon.createSandbox();
@@ -53,7 +55,7 @@ suite('Python Test Server', () => {
             cwd: '/foo/bar',
         };
 
-        server = new PythonTestServer(stubExecutionFactory);
+        server = new PythonTestServer(stubExecutionFactory, debugLauncher);
 
         await server.sendCommand(options);
         const { port } = server;
@@ -75,7 +77,7 @@ suite('Python Test Server', () => {
             outChannel,
         };
 
-        server = new PythonTestServer(stubExecutionFactory);
+        server = new PythonTestServer(stubExecutionFactory, debugLauncher);
 
         await server.sendCommand(options);
 
@@ -99,7 +101,7 @@ suite('Python Test Server', () => {
             cwd: '/foo/bar',
         };
 
-        server = new PythonTestServer(stubExecutionFactory);
+        server = new PythonTestServer(stubExecutionFactory, debugLauncher);
         server.onDataReceived(({ data }) => {
             eventData = JSON.parse(data);
         });
@@ -120,7 +122,7 @@ suite('Python Test Server', () => {
 
         let response;
 
-        server = new PythonTestServer(stubExecutionFactory);
+        server = new PythonTestServer(stubExecutionFactory, debugLauncher);
         server.onDataReceived(({ data }) => {
             response = data;
             deferred.resolve();
@@ -134,11 +136,13 @@ suite('Python Test Server', () => {
             hostname: 'localhost',
             method: 'POST',
             port,
+            headers: { 'Request-uuid': fakeUuid },
         };
 
         const request = http.request(requestOptions, (res) => {
             res.setEncoding('utf8');
         });
+
         const postData = JSON.stringify({ status: 'success', uuid: fakeUuid });
         request.write(postData);
         request.end();
@@ -157,7 +161,7 @@ suite('Python Test Server', () => {
 
         let response;
 
-        server = new PythonTestServer(stubExecutionFactory);
+        server = new PythonTestServer(stubExecutionFactory, debugLauncher);
         server.onDataReceived(({ data }) => {
             response = data;
             deferred.resolve();
@@ -171,6 +175,7 @@ suite('Python Test Server', () => {
             hostname: 'localhost',
             method: 'POST',
             port,
+            headers: { 'Request-uuid': fakeUuid },
         };
 
         const request = http.request(requestOptions, (res) => {
@@ -196,7 +201,7 @@ suite('Python Test Server', () => {
 
         let response;
 
-        server = new PythonTestServer(stubExecutionFactory);
+        server = new PythonTestServer(stubExecutionFactory, debugLauncher);
         server.onDataReceived(({ data }) => {
             response = data;
             deferred.resolve();
@@ -210,8 +215,9 @@ suite('Python Test Server', () => {
             hostname: 'localhost',
             method: 'POST',
             port,
+            headers: { 'Request-uuid': fakeUuid },
         };
-
+        // request.hasHeader()
         const request = http.request(requestOptions, (res) => {
             res.setEncoding('utf8');
         });
@@ -234,7 +240,7 @@ suite('Python Test Server', () => {
 
         let response;
 
-        server = new PythonTestServer(stubExecutionFactory);
+        server = new PythonTestServer(stubExecutionFactory, debugLauncher);
         server.onDataReceived(({ data }) => {
             response = data;
             deferred.resolve();
@@ -248,8 +254,14 @@ suite('Python Test Server', () => {
             hostname: 'localhost',
             method: 'POST',
             port,
+            headers: { 'Request-uuid': 'some-other-uuid' },
         };
-
+        const requestOptions2 = {
+            hostname: 'localhost',
+            method: 'POST',
+            port,
+            headers: { 'Request-uuid': fakeUuid },
+        };
         const requestOne = http.request(requestOptions, (res) => {
             res.setEncoding('utf8');
         });
@@ -257,7 +269,7 @@ suite('Python Test Server', () => {
         requestOne.write(postDataOne);
         requestOne.end();
 
-        const requestTwo = http.request(requestOptions, (res) => {
+        const requestTwo = http.request(requestOptions2, (res) => {
             res.setEncoding('utf8');
         });
         const postDataTwo = JSON.stringify({ status: 'success', uuid: fakeUuid, payload: 'foo' });
