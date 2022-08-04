@@ -6,24 +6,23 @@
 import { inject, injectable } from 'inversify';
 import { cloneDeep } from 'lodash';
 import * as path from 'path';
-import { QuickPick, QuickPickItem, QuickPickItemKind } from 'vscode';
+import { QuickPick, QuickPickItem, QuickPickItemKind, ThemeIcon } from 'vscode';
 import * as nls from 'vscode-nls';
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../../../../common/application/types';
-import { Commands, Octicons } from '../../../../common/constants';
+import { Commands, Octicons, ThemeIcons } from '../../../../common/constants';
 import { isParentPath } from '../../../../common/platform/fs-paths';
 import { IPlatformService } from '../../../../common/platform/types';
 import { IConfigurationService, IPathUtils, Resource } from '../../../../common/types';
-import { getIcon } from '../../../../common/utils/icons';
 import { Common, InterpreterQuickPickList } from '../../../../common/utils/localize';
 import { noop } from '../../../../common/utils/misc';
 import {
     IMultiStepInput,
     IMultiStepInputFactory,
+    InputFlowAction,
     InputStep,
     IQuickPickParameters,
 } from '../../../../common/utils/multiStepInput';
 import { SystemVariables } from '../../../../common/variables/systemVariables';
-import { REFRESH_BUTTON_ICON } from '../../../../debugger/extension/attachQuickPick/types';
 import { EnvironmentType } from '../../../../pythonEnvironments/info';
 import { captureTelemetry, sendTelemetryEvent } from '../../../../telemetry';
 import { EventName } from '../../../../telemetry/constants';
@@ -126,7 +125,11 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
         // If the list is refreshing, it's crucial to maintain sorting order at all
         // times so that the visible items do not change.
         const preserveOrderWhenFiltering = !!this.interpreterService.refreshPromise;
-        const suggestions = this.getItems(state.workspace);
+        const suggestions = this._getItems(state.workspace);
+        const refreshButton = {
+            iconPath: new ThemeIcon(ThemeIcons.Refresh),
+            tooltip: InterpreterQuickPickList.refreshInterpreterList,
+        };
         state.path = undefined;
         const currentInterpreterPathDisplay = this.pathUtils.getDisplayName(
             this.configurationService.getSettings(state.workspace).pythonPath,
@@ -146,11 +149,21 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
             matchOnDescription: true,
             title: InterpreterQuickPickList.browsePath.openButtonLabel,
             customButtonSetup: {
-                button: {
-                    iconPath: getIcon(REFRESH_BUTTON_ICON),
-                    tooltip: InterpreterQuickPickList.refreshInterpreterList,
+                button: refreshButton,
+                callback: (quickpickInput) => {
+                    quickpickInput.buttons = [
+                        {
+                            iconPath: new ThemeIcon(ThemeIcons.SpinningLoader),
+                            tooltip: InterpreterQuickPickList.refreshingInterpreterList,
+                        },
+                    ];
+                    this.interpreterService
+                        .triggerRefresh()
+                        .finally(() => {
+                            quickpickInput.buttons = [refreshButton];
+                        })
+                        .ignoreErrors();
                 },
-                callback: () => this.interpreterService.triggerRefresh().ignoreErrors(),
             },
             initialize: () => {
                 // Note discovery is no longer guranteed to be auto-triggered on extension load, so trigger it when
@@ -186,7 +199,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_SELECTED, undefined, { action: 'escape' });
         } else if (selection.label === this.manualEntrySuggestion.label) {
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_OR_FIND);
-            return this._enterOrBrowseInterpreterPath(input, state, suggestions);
+            return this._enterOrBrowseInterpreterPath.bind(this);
         } else if (selection.label === this.noPythonInstalled.label) {
             this.commandManager.executeCommand(Commands.InstallPython).then(noop, noop);
             this.wasNoPythonInstalledItemClicked = true;
@@ -199,7 +212,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
         return undefined;
     }
 
-    private getItems(resource: Resource) {
+    public _getItems(resource: Resource): QuickPickType[] {
         const suggestions: QuickPickType[] = [this.manualEntrySuggestion];
         const defaultInterpreterPathSuggestion = this.getDefaultInterpreterPathSuggestion(resource);
         if (defaultInterpreterPathSuggestion) {
@@ -406,7 +419,6 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
     public async _enterOrBrowseInterpreterPath(
         input: IMultiStepInput<InterpreterStateArgs>,
         state: InterpreterStateArgs,
-        suggestions: QuickPickType[],
     ): Promise<void | InputStep<InterpreterStateArgs>> {
         const items: QuickPickItem[] = [
             {
@@ -425,7 +437,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
             // User entered text in the filter box to enter path to python, store it
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'enter' });
             state.path = selection;
-            this.sendInterpreterEntryTelemetry(selection, state.workspace, suggestions);
+            this.sendInterpreterEntryTelemetry(selection, state.workspace);
         } else if (selection && selection.label === InterpreterQuickPickList.browsePath.label) {
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'browse' });
             const filtersKey = 'Executables';
@@ -439,9 +451,12 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
             });
             if (uris && uris.length > 0) {
                 state.path = uris[0].fsPath;
-                this.sendInterpreterEntryTelemetry(state.path!, state.workspace, suggestions);
+                this.sendInterpreterEntryTelemetry(state.path!, state.workspace);
+            } else {
+                return Promise.reject(InputFlowAction.resume);
             }
         }
+        return Promise.resolve();
     }
 
     @captureTelemetry(EventName.SELECT_INTERPRETER)
@@ -472,7 +487,8 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand {
      * @param selection Intepreter path that was either entered manually or picked by browsing through the filesystem.
      */
     // eslint-disable-next-line class-methods-use-this
-    private sendInterpreterEntryTelemetry(selection: string, workspace: Resource, suggestions: QuickPickType[]): void {
+    private sendInterpreterEntryTelemetry(selection: string, workspace: Resource): void {
+        const suggestions = this._getItems(workspace);
         let interpreterPath = path.normalize(untildify(selection));
 
         if (!path.isAbsolute(interpreterPath)) {
