@@ -12,7 +12,7 @@ import { IApplicationShell } from '../application/types';
 // Borrowed from https://github.com/Microsoft/vscode-extension-samples/blob/master/quickinput-sample/src/multiStepInput.ts
 // Why re-invent the wheel :)
 
-class InputFlowAction {
+export class InputFlowAction {
     public static back = new InputFlowAction();
 
     public static cancel = new InputFlowAction();
@@ -152,11 +152,8 @@ export class MultiStepInput<S> implements IMultiStepInput<S> {
                     input.onDidTriggerButton(async (item) => {
                         if (item === QuickInputButtons.Back) {
                             reject(InputFlowAction.back);
-                        } else if (item === customButtonSetup?.button) {
-                            await customButtonSetup.callback(input);
-                        } else {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            resolve(item as any);
+                        } else if (JSON.stringify(item) === JSON.stringify(customButtonSetup?.button)) {
+                            await customButtonSetup?.callback(input);
                         }
                     }),
                     input.onDidChangeSelection((selectedItems) => resolve(selectedItems[0])),
