@@ -10,7 +10,6 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { LinkDetector } from 'vs/workbench/contrib/debug/browser/linkDetector';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { Codicon } from 'vs/base/common/codicons';
 import { Emitter, Event } from 'vs/base/common/event';
 
 type ErrorLike = Partial<Error>;

@@ -267,15 +267,7 @@ export class WebClientServer {
 			return res.end();
 		}
 
-		const getFirstHeader = (headerName: string) => {
-			const val = req.headers[headerName];
-			return Array.isArray(val) ? val[0] : val;
-		};
-
-		const remoteAuthority = getFirstHeader('x-original-host') || getFirstHeader('x-forwarded-host') || req.headers.host;
-		if (!remoteAuthority) {
-			return serveError(req, res, 400, `Bad request.`);
-		}
+		const remoteAuthority = 'remote';
 
 		function asJSON(value: unknown): string {
 			return JSON.stringify(value).replace(/"/g, '&quot;');
@@ -299,6 +291,9 @@ export class WebClientServer {
 		} : undefined;
 
 
+		const base = relativeRoot(req.url!);
+		const vscodeBase = relativePath(req.url!);
+
 		const workbenchWebConfiguration = {
 			remoteAuthority,
 			_wrapWebWorkerExtHostInIframe,
@@ -309,6 +304,7 @@ export class WebClientServer {
 			workspaceUri: resolveWorkspaceURI(this._environmentService.args['default-workspace']),
 			productConfiguration: <Partial<IProductConfiguration>>{
 				embedderIdentifier: 'server-distro',
+				rootEndpoint: base,
 				extensionsGallery: this._webExtensionResourceUrlTemplate ? {
 					...this._productService.extensionsGallery,
 					'resourceUrlTemplate': this._webExtensionResourceUrlTemplate.with({
@@ -325,8 +321,10 @@ export class WebClientServer {
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
-			WORKBENCH_WEB_BASE_URL: this._staticRoute,
-			WORKBENCH_NLS_BASE_URL: nlsBaseUrl ? `${nlsBaseUrl}${!nlsBaseUrl.endsWith('/') ? '/' : ''}${this._productService.commit}/${this._productService.version}/` : '',
+			WORKBENCH_WEB_BASE_URL: vscodeBase + this._staticRoute,
+			WORKBENCH_NLS_BASE_URL: vscodeBase + (nlsBaseUrl ? `${nlsBaseUrl}${this._productService.commit}/${this._productService.version}/` : ''),
+			BASE: base,
+			VS_BASE: vscodeBase,
 		};
 
 
@@ -416,3 +414,61 @@ export class WebClientServer {
 		return res.end(data);
 	}
 }
+
+
+/**
+ * Remove extra slashes in a URL.
+ *
+ * This is meant to fill the job of `path.join` so you can concatenate paths and
+ * then normalize out any extra slashes.
+ *
+ * If you are using `path.join` you do not need this but note that `path` is for
+ * file system paths, not URLs.
+ */
+export const normalizeUrlPath = (url: string, keepTrailing = false): string => {
+	return url.replace(/\/\/+/g, '/').replace(/\/+$/, keepTrailing ? '/' : '');
+}
+
+/**
+ * Get the relative path that will get us to the root of the page. For each
+ * slash we need to go up a directory.  Will not have a trailing slash.
+ *
+ * For example:
+ *
+ * / => .
+ * /foo => .
+ * /foo/ => ./..
+ * /foo/bar => ./..
+ * /foo/bar/ => ./../..
+ *
+ * All paths must be relative in order to work behind a reverse proxy since we
+ * we do not know the base path.  Anything that needs to be absolute (for
+ * example cookies) must get the base path from the frontend.
+ *
+ * All relative paths must be prefixed with the relative root to ensure they
+ * work no matter the depth at which they happen to appear.
+ *
+ * For Express `req.originalUrl` should be used as they remove the base from the
+ * standard `url` property making it impossible to get the true depth.
+ */
+export const relativeRoot = (originalUrl: string): string => {
+	const depth = (originalUrl.split('?', 1)[0].match(/\//g) || []).length;
+	return normalizeUrlPath('./' + (depth > 1 ? '../'.repeat(depth - 1) : ''));
+};
+
+/**
+ * Get the relative path to the current resource.
+ *
+ * For example:
+ *
+ * / => .
+ * /foo => ./foo
+ * /foo/ => .
+ * /foo/bar => ./bar
+ * /foo/bar/ => .
+ */
+export const relativePath = (originalUrl: string): string => {
+	const parts = originalUrl.split('?', 1)[0].split('/');
+	return normalizeUrlPath('./' + parts[parts.length - 1]);
+};
+
