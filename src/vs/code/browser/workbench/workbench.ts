@@ -485,6 +485,7 @@ function doCreateUri(path: string, queryValues: Map<string, string>): URI {
 		});
 	}
 
+	path = (window.location.pathname + '/' + path).replace(/\/\/+/g, '/');
 	return URI.parse(window.location.href).with({ path, query });
 }
 
@@ -496,7 +497,7 @@ function doCreateUri(path: string, queryValues: Map<string, string>): URI {
 	if (!configElement || !configElementAttribute) {
 		throw new Error('Missing web configuration element');
 	}
-	const config: IWorkbenchConstructionOptions & { folderUri?: UriComponents; workspaceUri?: UriComponents; callbackRoute: string } = JSON.parse(configElementAttribute);
+	const config: IWorkbenchConstructionOptions & { folderUri?: UriComponents; workspaceUri?: UriComponents; callbackRoute: string } = { ...JSON.parse(configElementAttribute), remoteAuthority: location.host };
 
 	// Create workbench
 	create(document.body, {
