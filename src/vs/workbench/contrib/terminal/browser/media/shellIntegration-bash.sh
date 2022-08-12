@@ -33,14 +33,19 @@ if [ "$VSCODE_INJECTION" == "1" ]; then
 	builtin unset VSCODE_INJECTION
 fi
 
-# Disable shell integration if PROMPT_COMMAND is 2+ function calls since that is not handled.
-if [[ "$PROMPT_COMMAND" =~ .*(' '.*\;)|(\;.*' ').* ]]; then
-	builtin unset VSCODE_SHELL_INTEGRATION
+if [ -z "$VSCODE_SHELL_INTEGRATION" ]; then
 	builtin return
 fi
 
-if [ -z "$VSCODE_SHELL_INTEGRATION" ]; then
-	builtin return
+# Return for complex debug traps to avoid
+# issues like https://github.com/microsoft/vscode/issues/157851
+if [[ "$(trap -p DEBUG)" =~ .*\[\[.* ]]; then
+	builtin return;
+fi
+
+# Send the IsWindows property if the environment looks like Windows
+if [[ "$(uname -s)" =~ ^CYGWIN*|MINGW*|MSYS* ]]; then
+	builtin printf "\x1b]633;P;IsWindows=True\x07"
 fi
 
 __vsc_initialized=0
@@ -65,7 +70,7 @@ __vsc_update_cwd() {
 
 __vsc_command_output_start() {
 	builtin printf "\033]633;C\007"
-	builtin printf "\033]633;E;$__vsc_current_command\007"
+	builtin printf "\033]633;E;%s\007" "$__vsc_current_command"
 }
 
 __vsc_continuation_start() {
@@ -153,27 +158,23 @@ fi
 
 __vsc_update_prompt
 
+__vsc_restore_exit_code() {
+	return $1
+}
+
 __vsc_prompt_cmd_original() {
 	__vsc_status="$?"
-	if [[ ${IFS+set} ]]; then
-		__vsc_original_ifs="$IFS"
-	fi
-	if [[ "$__vsc_original_prompt_command" =~ .+\;.+ ]]; then
-		IFS=';'
+	# Evaluate the original PROMPT_COMMAND similarly to how bash would normally
+	# See https://unix.stackexchange.com/a/672843 for technique
+	if [[ ${#__vsc_original_prompt_command[@]} -gt 1 ]]; then
+		for cmd in "${__vsc_original_prompt_command[@]}"; do
+			__vsc_status="$?"
+			eval "${cmd:-}"
+		done
 	else
-		IFS=' '
+		__vsc_restore_exit_code "${__vsc_status}"
+		eval "${__vsc_original_prompt_command:-}"
 	fi
-	builtin read -ra ADDR <<<"$__vsc_original_prompt_command"
-	if [[ ${__vsc_original_ifs+set} ]]; then
-		IFS="$__vsc_original_ifs"
-		unset __vsc_original_ifs
-	else
-		unset IFS
-	fi
-	for ((i = 0; i < ${#ADDR[@]}; i++)); do
-		(exit ${__vsc_status})
-		builtin eval ${ADDR[i]}
-	done
 	__vsc_precmd
 }
 
@@ -182,13 +183,9 @@ __vsc_prompt_cmd() {
 	__vsc_precmd
 }
 
-if [[ "$PROMPT_COMMAND" =~ (.+\;.+) ]]; then
-	# item1;item2...
-	__vsc_original_prompt_command="$PROMPT_COMMAND"
-else
-	# (item1, item2...)
-	__vsc_original_prompt_command=${PROMPT_COMMAND[@]}
-fi
+# PROMPT_COMMAND arrays and strings seem to be handled the same (handling only the first entry of
+# the array?)
+__vsc_original_prompt_command=$PROMPT_COMMAND
 
 if [[ -z "${bash_preexec_imported:-}" ]]; then
 	if [[ -n "$__vsc_original_prompt_command" && "$__vsc_original_prompt_command" != "__vsc_prompt_cmd" ]]; then

@@ -18,7 +18,7 @@ import * as platform from 'vs/base/common/platform';
 import { basename, isEqual, joinPath } from 'vs/base/common/resources';
 import * as semver from 'vs/base/common/semver/semver';
 import Severity from 'vs/base/common/severity';
-import { isArray, isEmptyObject, isObject, isString } from 'vs/base/common/types';
+import { isEmptyObject, isObject, isString } from 'vs/base/common/types';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { IEnvironmentService } from 'vs/platform/environment/common/environment';
@@ -35,6 +35,7 @@ import { revive } from 'vs/base/common/marshalling';
 import { IExtensionsProfileScannerService, IScannedProfileExtension } from 'vs/platform/extensionManagement/common/extensionsProfileScannerService';
 import { IUserDataProfilesService } from 'vs/platform/userDataProfile/common/userDataProfile';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
+import { ILocalizedString } from 'vs/platform/action/common/action';
 
 export type IScannedExtensionManifest = IRelaxedExtensionManifest & { __metadata?: Metadata };
 
@@ -277,7 +278,7 @@ export abstract class AbstractExtensionsScannerService extends Disposable implem
 	}
 
 	private dedupExtensions(system: IScannedExtension[] | undefined, user: IScannedExtension[] | undefined, development: IScannedExtension[] | undefined, targetPlatform: TargetPlatform, pickLatest: boolean): IScannedExtension[] {
-		const pick = (existing: IScannedExtension, extension: IScannedExtension): boolean => {
+		const pick = (existing: IScannedExtension, extension: IScannedExtension, isDevelopment: boolean): boolean => {
 			if (existing.isValid && !extension.isValid) {
 				return false;
 			}
@@ -297,10 +298,10 @@ export abstract class AbstractExtensionsScannerService extends Disposable implem
 					}
 				}
 			}
-			if (existing.type === ExtensionType.System) {
-				this.logService.debug(`Overwriting system extension ${existing.location.path} with ${extension.location.path}.`);
-			} else {
+			if (isDevelopment) {
 				this.logService.warn(`Overwriting user extension ${existing.location.path} with ${extension.location.path}.`);
+			} else {
+				this.logService.debug(`Overwriting user extension ${existing.location.path} with ${extension.location.path}.`);
 			}
 			return true;
 		};
@@ -308,7 +309,7 @@ export abstract class AbstractExtensionsScannerService extends Disposable implem
 		system?.forEach((extension) => {
 			const extensionKey = ExtensionIdentifier.toKey(extension.identifier.id);
 			const existing = result.get(extensionKey);
-			if (!existing || pick(existing, extension)) {
+			if (!existing || pick(existing, extension, false)) {
 				result.set(extensionKey, extension);
 			}
 		});
@@ -319,14 +320,14 @@ export abstract class AbstractExtensionsScannerService extends Disposable implem
 				this.logService.debug(`Skipping obsolete system extension ${extension.location.path}.`);
 				return;
 			}
-			if (!existing || pick(existing, extension)) {
+			if (!existing || pick(existing, extension, false)) {
 				result.set(extensionKey, extension);
 			}
 		});
 		development?.forEach(extension => {
 			const extensionKey = ExtensionIdentifier.toKey(extension.identifier.id);
 			const existing = result.get(extensionKey);
-			if (!existing || pick(existing, extension)) {
+			if (!existing || pick(existing, extension, true)) {
 				result.set(extensionKey, extension);
 			}
 			result.set(extensionKey, extension);
@@ -793,13 +794,23 @@ class ExtensionsScanner extends Disposable {
 					if (translated === undefined && originalMessages) {
 						translated = originalMessages[messageKey];
 					}
-					let message: string | undefined = typeof translated === 'string' ? translated : (typeof translated?.message === 'string' ? translated.message : undefined);
+					let message: string | undefined = typeof translated === 'string' ? translated : translated.message;
 					if (message !== undefined) {
 						if (pseudo) {
 							// FF3B and FF3D is the Unicode zenkaku representation for [ and ]
 							message = '\uFF3B' + message.replace(/[aouei]/g, '$&$&') + '\uFF3D';
 						}
-						obj[key] = command && (key === 'title' || key === 'category') && originalMessages ? { value: message, original: originalMessages[messageKey] } : message;
+						// This branch returns ILocalizedString's instead of Strings so that the Command Palette can contain both the localized and the original value.
+						if (command && originalMessages && (key === 'title' || key === 'category')) {
+							const originalMessage = originalMessages[messageKey];
+							const localizedString: ILocalizedString = {
+								value: message,
+								original: typeof originalMessage === 'string' ? originalMessage : originalMessage?.message
+							};
+							obj[key] = localizedString;
+						} else {
+							obj[key] = message;
+						}
 					} else {
 						this.logService.warn(this.formatMessage(extensionLocation, localize('missingNLSKey', "Couldn't find message for key {0}.", messageKey)));
 					}
@@ -810,7 +821,7 @@ class ExtensionsScanner extends Disposable {
 						k === 'commands' ? processEntry(value, k, true) : processEntry(value, k, command);
 					}
 				}
-			} else if (isArray(value)) {
+			} else if (Array.isArray(value)) {
 				for (let i = 0; i < value.length; i++) {
 					processEntry(value, i, command);
 				}

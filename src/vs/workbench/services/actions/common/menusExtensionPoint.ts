@@ -161,6 +161,12 @@ const apiMenus: IAPIMenu[] = [
 		supportsSubmenus: false
 	},
 	{
+		key: 'comments/commentThread/title/context',
+		id: MenuId.CommentThreadTitleContext,
+		description: localize('commentThread.titleContext', "The contributed comment thread title's peek context menu, rendered as a right click menu on the comment thread's peek title."),
+		proposed: 'contribCommentPeekContext'
+	},
+	{
 		key: 'comments/comment/title',
 		id: MenuId.CommentTitle,
 		description: localize('comment.title', "The contributed comment title menu")
@@ -170,6 +176,12 @@ const apiMenus: IAPIMenu[] = [
 		id: MenuId.CommentActions,
 		description: localize('comment.actions', "The contributed comment context menu, rendered as buttons below the comment editor"),
 		supportsSubmenus: false
+	},
+	{
+		key: 'comments/commentThread/comment/context',
+		id: MenuId.CommentThreadCommentContext,
+		description: localize('comment.commentContext', "The contributed comment context menu, rendered as a right click menu on the an individual comment in the comment thread's peek view."),
+		proposed: 'contribCommentPeekContext'
 	},
 	{
 		key: 'notebook/toolbar',
@@ -272,7 +284,14 @@ const apiMenus: IAPIMenu[] = [
 		id: MenuId.MergeToolbar,
 		description: localize('merge.toolbar', "The prominent botton in the merge editor"),
 		proposed: 'contribMergeEditorToolbar'
-	}
+	},
+	{
+		key: 'webview/context',
+		id: MenuId.WebviewContext,
+		description: localize('webview.context', "The webview context menu"),
+		proposed: 'contribWebviewContext'
+	},
+
 ];
 
 namespace schema {
@@ -717,7 +736,7 @@ submenusExtensionPoint.setHandler(extensions => {
 			}
 
 			const item: IRegisteredSubmenu = {
-				id: new MenuId(`api:${submenuInfo.id}`),
+				id: MenuId.for(`api:${submenuInfo.id}`),
 				label: submenuInfo.label,
 				icon: absoluteIcon
 			};
@@ -729,7 +748,7 @@ submenusExtensionPoint.setHandler(extensions => {
 
 const _apiMenusByKey = new Map(Iterable.map(Iterable.from(apiMenus), menu => ([menu.key, menu])));
 const _menuRegistrations = new DisposableStore();
-const _submenuMenuItems = new Map<number /* menu id */, Set<number /* submenu id */>>();
+const _submenuMenuItems = new Map<string /* menu id */, Set<string /* submenu id */>>();
 
 const menusExtensionPoint = ExtensionsRegistry.registerExtensionPoint<{ [loc: string]: (schema.IUserFriendlyMenuItem | schema.IUserFriendlySubmenuItem)[] }>({
 	extensionPoint: 'menus',
@@ -768,7 +787,6 @@ menusExtensionPoint.setHandler(extensions => {
 			}
 
 			if (!menu) {
-				collector.info(localize('menuId.invalid', "`{0}` is not a valid menu identifier", entry[0]));
 				continue;
 			}
 

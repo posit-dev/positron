@@ -25,7 +25,7 @@ export async function resolveCommonProperties(
 	commit: string | undefined,
 	version: string | undefined,
 	machineId: string | undefined,
-	msftInternalDomains: string[] | undefined,
+	isInternalTelemetry: boolean,
 	installSourcePath: string,
 	product?: string
 ): Promise<{ [name: string]: string | boolean | undefined }> {
@@ -49,11 +49,12 @@ export async function resolveCommonProperties(
 	result['common.nodeArch'] = arch;
 	// __GDPR__COMMON__ "common.product" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 	result['common.product'] = product || 'desktop';
+	// __GDPR__COMMON__ "common.cli" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+	result['common.cli'] = !!env['VSCODE_CLI'];
 
-	const msftInternal = verifyMicrosoftInternalDomain(msftInternalDomains || []);
-	if (msftInternal) {
+	if (isInternalTelemetry) {
 		// __GDPR__COMMON__ "common.msftInternal" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true }
-		result['common.msftInternal'] = msftInternal;
+		result['common.msftInternal'] = isInternalTelemetry;
 	}
 
 	// dynamic properties which value differs on each call
