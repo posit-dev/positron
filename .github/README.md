@@ -32,12 +32,13 @@ $ yarn
 
 #### Iterating and Running
 
-Open a new Terminal and run the following commands. The `nvm use 16` is sometimes necessary since Code currently requires a Node 16 dev environment (latest is 18 but container has 14).
+Open a new Terminal and run the following command.
 
 ```bash
-$ nvm use 16
 $ yarn watch
 ```
+
+(Note: if you get an error about a Node version mismatch, you can use `nvm install 16.14` then `nvm use 16` to load the correct version of Node.)
 
 You'll know it's ready when you see `Finished compilation` in the terminal; the `yarn watch` command does not exit because it's watching for changes to build.
 
