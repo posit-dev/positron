@@ -27,7 +27,7 @@ const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainerExtensi
 	storageId: REPL_VIEW_ID,
 	hideIfEmpty: true,
 	order: 3,
-}, ViewContainerLocation.Panel, { donotRegisterOpenCommand: true, isDefault: true });
+}, ViewContainerLocation.Panel, { doNotRegisterOpenCommand: true, isDefault: true });
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: REPL_VIEW_ID,
 	name: nls.localize('repl', "Console"),
