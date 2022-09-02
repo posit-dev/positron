@@ -15,9 +15,10 @@ export interface ILanguageRuntimeService {
 
 	/**
 	 * @param language The language being registered
-	 * @param kernel The NotebookKernel for the language
+	 * @param kernel The NotebookKernel for the language; will be converted to a
+	 *   LanguageRuntime
 	 */
-	registerRuntime(language: string, kernel: INotebookKernel): void;
+	registerNotebookRuntime(language: string, kernel: INotebookKernel): void;
 
 	/**
 	 *
