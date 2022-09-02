@@ -16233,6 +16233,85 @@ declare module 'vscode' {
 		 */
 		close(tabGroup: TabGroup | readonly TabGroup[], preserveFocus?: boolean): Thenable<boolean>;
 	}
+
+	/**
+	 * LanguageRuntimeMessage is an interface that defines an event occurring in a
+	 * language runtime, such as outputting text or plots.
+	 */
+	interface LanguageRuntimeMessage {
+		/** The event ID */
+		id: string;
+
+		/** The ID of this event's parent (the event that caused it), if applicable */
+		parent_id: string;
+	}
+
+	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
+	interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
+		/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
+		data: Map<string, string>;
+	}
+
+	/** Possible states for the language runtime while online */
+	enum RuntimeOnlineState {
+		/** The runtime is starting up */
+		Starting = 'starting',
+
+		/** The runtime is currently processing an instruction or code fragment */
+		Busy = 'busy',
+
+		/** The runtime is idle */
+		Idle = 'idle',
+	}
+
+	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
+	interface LanguageRuntimeState extends LanguageRuntimeMessage {
+		/** The new state */
+		state: RuntimeOnlineState;
+	}
+
+	/** LanguageRuntimeError is a LanguageRuntimeMessage that represents a run-time error */
+	interface LanguageRuntimeError extends LanguageRuntimeMessage {
+		/** The error name */
+		name: string;
+
+		/** The error message */
+		message: string;
+
+		/** The error stack trace */
+		traceback: Array<string>;
+	}
+
+	/**
+	 * LanguageRuntime is an interface implemented by extensions that provide a
+	 * set of common tools for interacting with a language runtime, such as code
+	 * execution, LSP implementation, and plotting.
+	 */
+	interface LanguageRuntime {
+		/** The language identifier for this runtime. */
+		language: string;
+
+		/** The name of the runtime. */
+		name: string;
+
+		/** The version of the runtime. */
+		version: string;
+
+		/** An object that emits language runtime events */
+		messages: EventEmitter<LanguageRuntimeMessage>;
+
+		/** Execute code in the runtime; returns the ID of the code execution. */
+		execute(code: string): Thenable<string>;
+
+		/** Interrupt the runtime */
+		interrupt(): void;
+
+		/** Restart the runtime */
+		restart(): void;
+
+		/** Shut down the runtime */
+		shutdown(): void;
+	}
 }
 
 /**
