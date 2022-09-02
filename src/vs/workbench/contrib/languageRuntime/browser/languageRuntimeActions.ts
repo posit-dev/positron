@@ -81,7 +81,7 @@ export function registerLanguageRuntimeActions() {
 					const kernel = allKernels[i];
 					if (selection.id === kernel.id) {
 						// Register the runtime with the runtime service
-						languageService.registerRuntime(kernel.supportedLanguages[0], kernel);
+						languageService.registerNotebookRuntime(kernel.supportedLanguages[0], kernel);
 
 						// Start the runtime if there aren't any active
 						if (languageService.getActiveRuntimes().length < 1) {

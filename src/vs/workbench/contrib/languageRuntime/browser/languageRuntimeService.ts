@@ -29,11 +29,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// Probably temporary: pull kernels from the notebook kernel service
 		this._notebookKernelService.onDidAddKernel((e: INotebookKernel) => {
-			this.registerRuntime(e.supportedLanguages[0], e);
+			this.registerNotebookRuntime(e.supportedLanguages[0], e);
 		});
 	}
 
-	registerRuntime(language: string, kernel: INotebookKernel): void {
+	registerNotebookRuntime(language: string, kernel: INotebookKernel): void {
 		this._runtimes.set(language, kernel);
 
 		// pick up the active language if we haven't set one yet
