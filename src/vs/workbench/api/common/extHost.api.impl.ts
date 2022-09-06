@@ -94,6 +94,7 @@ import { checkProposedApiEnabled, ExtensionIdentifierSet, isProposedApiEnabled }
 import { DebugConfigurationProviderTriggerKind } from 'vs/workbench/contrib/debug/common/debug';
 import { equalsIgnoreCase } from 'vs/base/common/strings';
 import { IExtHostTelemetryLogService } from 'vs/workbench/api/common/extHostTelemetryLogService';
+import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/myriac/extHostLanguageRuntime';
 
 export interface IExtensionRegistries {
 	mine: ExtensionDescriptionRegistry;
@@ -169,6 +170,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostDiagnostics = rpcProtocol.set(ExtHostContext.ExtHostDiagnostics, new ExtHostDiagnostics(rpcProtocol, extHostLogService, extHostFileSystemInfo));
 	const extHostLanguages = rpcProtocol.set(ExtHostContext.ExtHostLanguages, new ExtHostLanguages(rpcProtocol, extHostDocuments, extHostCommands.converter, uriTransformer));
 	const extHostLanguageFeatures = rpcProtocol.set(ExtHostContext.ExtHostLanguageFeatures, new ExtHostLanguageFeatures(rpcProtocol, uriTransformer, extHostDocuments, extHostCommands, extHostDiagnostics, extHostLogService, extHostApiDeprecation));
+	const extHostLanguageRuntime = rpcProtocol.set(ExtHostContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime());
 	const extHostFileSystem = rpcProtocol.set(ExtHostContext.ExtHostFileSystem, new ExtHostFileSystem(rpcProtocol, extHostLanguageFeatures));
 	const extHostFileSystemEvent = rpcProtocol.set(ExtHostContext.ExtHostFileSystemEventService, new ExtHostFileSystemEventService(rpcProtocol, extHostLogService, extHostDocumentsAndEditors));
 	const extHostQuickOpen = rpcProtocol.set(ExtHostContext.ExtHostQuickOpen, createExtHostQuickOpen(rpcProtocol, extHostWorkspace, extHostCommands));
@@ -580,6 +582,12 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			},
 			registerDocumentDropEditProvider(selector: vscode.DocumentSelector, provider: vscode.DocumentDropEditProvider): vscode.Disposable {
 				return extHostLanguageFeatures.registerDocumentOnDropEditProvider(extension, selector, provider);
+			}
+		};
+
+		const myriac: typeof vscode.myriac = {
+			registerLanguageRuntime(runtime: vscode.LanguageRuntime): vscode.Disposable {
+				return extHostLanguageRuntime.registerLanguageRuntime(runtime);
 			}
 		};
 
@@ -1179,6 +1187,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			env,
 			extensions,
 			languages,
+			myriac,
 			notebooks,
 			scm,
 			tasks,
@@ -1307,6 +1316,8 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			Uri: URI,
 			ViewColumn: extHostTypes.ViewColumn,
 			WorkspaceEdit: extHostTypes.WorkspaceEdit,
+			// myriac types
+			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
 			// proposed api types
 			DocumentDropEdit: extHostTypes.DocumentDropEdit,
 			DocumentPasteEdit: extHostTypes.DocumentPasteEdit,

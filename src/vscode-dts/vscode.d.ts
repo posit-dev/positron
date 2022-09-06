@@ -16238,7 +16238,7 @@ declare module 'vscode' {
 	 * LanguageRuntimeMessage is an interface that defines an event occurring in a
 	 * language runtime, such as outputting text or plots.
 	 */
-	interface LanguageRuntimeMessage {
+	export interface LanguageRuntimeMessage {
 		/** The event ID */
 		id: string;
 
@@ -16247,13 +16247,13 @@ declare module 'vscode' {
 	}
 
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
-	interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
+	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Map<string, string>;
 	}
 
 	/** Possible states for the language runtime while online */
-	enum RuntimeOnlineState {
+	export enum RuntimeOnlineState {
 		/** The runtime is starting up */
 		Starting = 'starting',
 
@@ -16265,13 +16265,13 @@ declare module 'vscode' {
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
-	interface LanguageRuntimeState extends LanguageRuntimeMessage {
+	export interface LanguageRuntimeState extends LanguageRuntimeMessage {
 		/** The new state */
 		state: RuntimeOnlineState;
 	}
 
 	/** LanguageRuntimeError is a LanguageRuntimeMessage that represents a run-time error */
-	interface LanguageRuntimeError extends LanguageRuntimeMessage {
+	export interface LanguageRuntimeError extends LanguageRuntimeMessage {
 		/** The error name */
 		name: string;
 
@@ -16287,7 +16287,7 @@ declare module 'vscode' {
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
 	 */
-	interface LanguageRuntime {
+	export interface LanguageRuntime {
 		/** The language identifier for this runtime. */
 		language: string;
 
@@ -16311,6 +16311,12 @@ declare module 'vscode' {
 
 		/** Shut down the runtime */
 		shutdown(): void;
+	}
+
+	/** Namespace for Myriac extensions */
+	export namespace myriac {
+
+		export function registerLanguageRuntime(runtime: LanguageRuntime): Disposable;
 	}
 }
 
