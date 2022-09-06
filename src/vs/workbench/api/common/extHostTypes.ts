@@ -3827,3 +3827,19 @@ export class InteractiveWindowInput {
 	constructor(readonly uri: URI, readonly inputBoxUri: URI) { }
 }
 //#endregion
+
+//#region Myriac
+
+/** Possible states for the language runtime while online */
+export enum RuntimeOnlineState {
+	/** The runtime is starting up */
+	Starting = 'starting',
+
+	/** The runtime is currently processing an instruction or code fragment */
+	Busy = 'busy',
+
+	/** The runtime is idle */
+	Idle = 'idle',
+}
+
+//#endregion
