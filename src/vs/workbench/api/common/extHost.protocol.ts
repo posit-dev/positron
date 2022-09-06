@@ -408,6 +408,10 @@ export interface MainThreadLanguagesShape extends IDisposable {
 	$removeLanguageStatus(handle: number): void;
 }
 
+export interface MainThreadLanguageRuntimeShape extends IDisposable {
+	$registerLangaugeRuntime(runtime: ILanguageRuntime): IDisposable;
+}
+
 export interface MainThreadMessageOptions {
 	source?: { identifier: ExtensionIdentifier; label: string };
 	modal?: boolean;
@@ -2287,6 +2291,7 @@ export const MainContext = {
 	MainThreadDownloadService: createProxyIdentifier<MainThreadDownloadServiceShape>('MainThreadDownloadService'),
 	MainThreadKeytar: createProxyIdentifier<MainThreadKeytarShape>('MainThreadKeytar'),
 	MainThreadLanguageFeatures: createProxyIdentifier<MainThreadLanguageFeaturesShape>('MainThreadLanguageFeatures'),
+	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadLanguages: createProxyIdentifier<MainThreadLanguagesShape>('MainThreadLanguages'),
 	MainThreadLogger: createProxyIdentifier<MainThreadLoggerShape>('MainThreadLogger'),
 	MainThreadMessageService: createProxyIdentifier<MainThreadMessageServiceShape>('MainThreadMessageService'),
