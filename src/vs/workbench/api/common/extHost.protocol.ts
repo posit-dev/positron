@@ -70,6 +70,7 @@ import { ILanguageStatus } from 'vs/workbench/services/languageStatus/common/lan
 import { CandidatePort } from 'vs/workbench/services/remote/common/remoteExplorerService';
 import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/queryBuilder';
 import * as search from 'vs/workbench/services/search/common/search';
+import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 
 export interface IWorkspaceData extends IStaticWorkspaceData {
 	folders: { uri: UriComponents; name: string; index: number }[];
@@ -1775,6 +1776,7 @@ export interface ExtHostLanguageFeaturesShape {
 }
 
 export interface ExtHostLanguageRuntimeShape {
+	$registerLanguageRuntime(runtime: ILanguageRuntime): void;
 }
 
 export interface ExtHostQuickOpenShape {
