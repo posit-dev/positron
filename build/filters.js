@@ -78,6 +78,7 @@ module.exports.indentationFilter = [
 	'!build/ext.js',
 
 	// except specific folders
+	'!amalthea/**',
 	'!test/automation/out/**',
 	'!test/monaco/out/**',
 	'!test/smoke/out/**',
