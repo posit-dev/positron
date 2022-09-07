@@ -33,14 +33,14 @@ pub struct KernelSpec {
 
 impl KernelSpec {
     /// Install a kernel spec to disk.
-    pub fn install(&self, folder: String) -> Result<(), Error> {
+    pub fn install(&self, folder: String) -> Result<PathBuf, Error> {
         if let Some(kernel_dir) = kernel_dirs::jupyter_kernel_path() {
             return self.install_to(kernel_dir.join(folder));
         }
         return Err(Error::NoInstallDir);
     }
 
-    fn install_to(&self, path: PathBuf) -> Result<(), Error> {
+    fn install_to(&self, path: PathBuf) -> Result<PathBuf, Error> {
         // Ensure that the parent folder exists, and form a path to file we'll write
         if let Err(err) = fs::create_dir_all(&path) {
             return Err(Error::CreateDirFailed(err));
@@ -52,15 +52,16 @@ impl KernelSpec {
             Ok(contents) => {
                 // Install kernelspec to destination
                 trace!("Installing kernelspec JSON to {:?}: {}", dest, contents);
-                match File::create(dest) {
+                match File::create(&dest) {
                     Ok(mut f) => {
                         if let Err(err) = f.write_all(contents.as_bytes()) {
                             return Err(Error::WriteSpecFailed(err));
+                        } else {
+                            return Ok(dest);
                         }
                     }
                     Err(err) => return Err(Error::CreateSpecFailed(err)),
                 };
-                Ok(())
             }
             Err(err) => {
                 return Err(Error::JsonSerializeSpecFailed(err));
