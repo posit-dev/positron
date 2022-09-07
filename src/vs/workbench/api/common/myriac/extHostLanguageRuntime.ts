@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 import { ILanguageRuntime, ILanguageRuntimeMessage } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { Emitter } from 'vs/base/common/event';
 
@@ -48,6 +48,6 @@ export class ExtHostLanguageRuntime {
 	public $registerLanguageRuntime(
 		runtime: vscode.LanguageRuntime): vscode.Disposable {
 		const wrapper = new ExtHostLanguageWrapper(runtime);
-		return new vscode.Disposable(() => { wrapper.dispose(); });
+		return wrapper;
 	}
 }
