@@ -1,0 +1,8 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# Space indentation
+[*]
+indent_style = space
+trim_trailing_whitespace = true
+indent_size = 4
+
