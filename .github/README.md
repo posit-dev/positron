@@ -5,7 +5,7 @@ This repository hosts the source code for the Myriac IDE, a fork of [Visual Stud
 
 ### Development
 
-The easiest way to do development right now is in a [Development Container](https://code.visualstudio.com/docs/remote/containers).
+The easiest way to do development right now is in a [Development Container](https://code.visualstudio.com/docs/remote/containers), although it is possible to do local development by installing the correct dependencies.
 
 #### Prequisites
 
@@ -17,6 +17,10 @@ Install the following on your system:
 4. A local clone of this repository
 
 Optionally, from the repository root, establish an upstream remote to VS Code:
+
+```bash
+$ ./scripts/add-upstream-remote.sh
+```
 
 #### Setup
 
@@ -51,6 +55,14 @@ $ ./scripts/code-server.sh
 This will give you a URL that looks like http://localhost:9888/?tkn=14202de2-c716-437f-8c67-1c5166443e5a.
 
 Click the `Ports` tab and add port `9888` to the list, then open your browser and navigate to the URL. Myriac should then load in your browser; most changes you make in VS Code will be reflected after being picked up by the `yarn watch` window.
+
+### Committing
+
+Due to some aggressive `eslint.json` requirements, committing files that use the RStudio copyright header may trigger a pre-commit hook violation. If this happens, commit using:
+
+```
+$ git commit no-verify
+```
 
 ### Fork Management
 
