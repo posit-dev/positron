@@ -8,6 +8,7 @@
 #![allow(unused_unsafe)]
 
 use crate::control::Control;
+use crate::macros::unwrap;
 use crate::shell::Shell;
 use crate::version::detect_r;
 use amalthea::connection_file::ConnectionFile;
@@ -22,8 +23,8 @@ use std::sync::{Arc, Mutex};
 
 mod control;
 mod interface;
-mod lsp;
 mod kernel;
+mod lsp;
 mod macros;
 mod r;
 mod request;
@@ -76,28 +77,36 @@ fn install_kernel_spec() {
     );
 
     // Create the kernelspec
-    match env::current_exe() {
-        Ok(exe_path) => {
-            let spec = KernelSpec {
-                argv: vec![
-                    String::from(exe_path.to_string_lossy()),
-                    String::from("--connection_file"),
-                    String::from("{connection_file}"),
-                ],
-                language: String::from("R"),
-                display_name: String::from("Amalthea R Kernel (ARK)"),
-                env: env,
-            };
-            if let Err(err) = spec.install(String::from("ark")) {
-                eprintln!("Failed to install Ark's Jupyter kernelspec. {}", err);
-            } else {
-                println!("Successfully installed Ark Jupyter kernelspec for {}", r_version.r_home);
-            }
-        }
-        Err(err) => {
-            eprintln!("Failed to determine path to Ark. {}", err);
-        }
-    }
+    let exe_path = unwrap!(env::current_exe(), err {
+        eprintln!("Failed to determine path to Ark. {}", err);
+        return;
+    });
+
+    let spec = KernelSpec {
+        argv: vec![
+            String::from(exe_path.to_string_lossy()),
+            String::from("--connection_file"),
+            String::from("{connection_file}"),
+        ],
+        language: String::from("R"),
+        display_name: String::from("Amalthea R Kernel (ARK)"),
+        env: env,
+    };
+
+    let dest = unwrap!(spec.install(String::from("ark")), err {
+        eprintln!("Failed to install Ark's Jupyter kernelspec. {}", err);
+        return;
+    });
+
+    println!(
+        "Successfully installed Ark Jupyter kernelspec.
+
+    R:      {}
+    Kernel: {}
+    ",
+        r_version.r_home,
+        dest.to_string_lossy()
+    );
 }
 
 fn parse_file(connection_file: &String) {
@@ -131,7 +140,8 @@ Available options:
 --version                Print the version of Ark
 --install                Install the kernel spec for Ark
 --help                   Print this help message
-"#);
+"#
+    );
 }
 
 fn main() {
