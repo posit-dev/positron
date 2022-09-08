@@ -55,7 +55,12 @@ export interface IProductConfiguration {
 	readonly webEndpointUrlTemplate?: string;
 	readonly webviewContentExternalBaseUrlTemplate?: string;
 	readonly target?: string;
+
+	// --- Start Positron ---
+	// Adds support for serving at non-root paths.
+
 	readonly rootEndpoint?: string;
+	// --- End Positron ---
 
 	readonly settingsSearchBuildId?: number;
 	readonly settingsSearchUrl?: string;

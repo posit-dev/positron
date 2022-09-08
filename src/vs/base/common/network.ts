@@ -162,9 +162,11 @@ class RemoteAuthoritiesImpl {
 		return URI.from({
 			scheme: platform.isWeb ? this._preferredWebSchema : Schemas.vscodeRemoteResource,
 			authority: `${host}:${port}`,
+			// --- Start Positron ---
 			path: platform.isWeb
 				? (window.location.pathname + '/' + this._remoteResourcesPath).replace(/\/\/+/g, '/')
 				: this._remoteResourcesPath,
+			// --- End Positron ---
 			query
 		});
 	}

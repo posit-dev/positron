@@ -70,7 +70,10 @@ import { ILanguageStatus } from 'vs/workbench/services/languageStatus/common/lan
 import { CandidatePort } from 'vs/workbench/services/remote/common/remoteExplorerService';
 import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/queryBuilder';
 import * as search from 'vs/workbench/services/search/common/search';
+
+// --- Start Positron ---
 import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+// --- End Positron ---
 
 export interface IWorkspaceData extends IStaticWorkspaceData {
 	folders: { uri: UriComponents; name: string; index: number }[];
@@ -408,9 +411,11 @@ export interface MainThreadLanguagesShape extends IDisposable {
 	$removeLanguageStatus(handle: number): void;
 }
 
+// --- Start Positron ---
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLangaugeRuntime(runtime: ILanguageRuntime): IDisposable;
 }
+// --- End Positron ---
 
 export interface MainThreadMessageOptions {
 	source?: { identifier: ExtensionIdentifier; label: string };
@@ -1779,9 +1784,11 @@ export interface ExtHostLanguageFeaturesShape {
 	$provideDocumentOnDropEdits(handle: number, requestId: number, resource: UriComponents, position: IPosition, dataTransferDto: DataTransferDTO, token: CancellationToken): Promise<IDocumentOnDropEditDto | undefined>;
 }
 
+// --- Start Positron ---
 export interface ExtHostLanguageRuntimeShape {
 	$registerLanguageRuntime(runtime: ILanguageRuntime): void;
 }
+// --- End Positron ---
 
 export interface ExtHostQuickOpenShape {
 	$onItemSelected(handle: number): void;
@@ -2291,7 +2298,9 @@ export const MainContext = {
 	MainThreadDownloadService: createProxyIdentifier<MainThreadDownloadServiceShape>('MainThreadDownloadService'),
 	MainThreadKeytar: createProxyIdentifier<MainThreadKeytarShape>('MainThreadKeytar'),
 	MainThreadLanguageFeatures: createProxyIdentifier<MainThreadLanguageFeaturesShape>('MainThreadLanguageFeatures'),
+	// --- Start Positron ---
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
+	// --- End Positron ---
 	MainThreadLanguages: createProxyIdentifier<MainThreadLanguagesShape>('MainThreadLanguages'),
 	MainThreadLogger: createProxyIdentifier<MainThreadLoggerShape>('MainThreadLogger'),
 	MainThreadMessageService: createProxyIdentifier<MainThreadMessageServiceShape>('MainThreadMessageService'),
@@ -2346,7 +2355,9 @@ export const ExtHostContext = {
 	ExtHostFileSystemEventService: createProxyIdentifier<ExtHostFileSystemEventServiceShape>('ExtHostFileSystemEventService'),
 	ExtHostLanguages: createProxyIdentifier<ExtHostLanguagesShape>('ExtHostLanguages'),
 	ExtHostLanguageFeatures: createProxyIdentifier<ExtHostLanguageFeaturesShape>('ExtHostLanguageFeatures'),
+	// --- Start Positron ---
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
+	// --- End Positron ---
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
 	ExtHostExtensionService: createProxyIdentifier<ExtHostExtensionServiceShape>('ExtHostExtensionService'),
 	ExtHostLogLevelServiceShape: createProxyIdentifier<ExtHostLogLevelServiceShape>('ExtHostLogLevelServiceShape'),

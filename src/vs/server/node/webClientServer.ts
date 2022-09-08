@@ -267,7 +267,10 @@ export class WebClientServer {
 			return res.end();
 		}
 
+		// --- Start Positron ---
+		// Adds support for serving at non-root paths.
 		const remoteAuthority = 'remote';
+		// --- End Positron ---
 
 		function asJSON(value: unknown): string {
 			return JSON.stringify(value).replace(/"/g, '&quot;');
@@ -291,8 +294,11 @@ export class WebClientServer {
 		} : undefined;
 
 
+		// --- Start Positron ---
+		// Adds support for serving at non-root paths.
 		const base = relativeRoot(req.url!);
 		const vscodeBase = relativePath(req.url!);
+		// --- End Positron ---
 
 		const workbenchWebConfiguration = {
 			remoteAuthority,
@@ -304,7 +310,10 @@ export class WebClientServer {
 			workspaceUri: resolveWorkspaceURI(this._environmentService.args['default-workspace']),
 			productConfiguration: <Partial<IProductConfiguration>>{
 				embedderIdentifier: 'server-distro',
+				// --- Start Positron ---
+				// Adds support for serving at non-root paths.
 				rootEndpoint: base,
+				// --- End Positron ---
 				extensionsGallery: this._webExtensionResourceUrlTemplate ? {
 					...this._productService.extensionsGallery,
 					'resourceUrlTemplate': this._webExtensionResourceUrlTemplate.with({
@@ -321,8 +330,11 @@ export class WebClientServer {
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
+			// --- Start Positron ---
+			// Adds support for serving at non-root paths.
 			WORKBENCH_WEB_BASE_URL: vscodeBase + this._staticRoute,
 			WORKBENCH_NLS_BASE_URL: vscodeBase + (nlsBaseUrl ? `${nlsBaseUrl}${this._productService.commit}/${this._productService.version}/` : ''),
+			// --- End Positron ---
 			BASE: base,
 			VS_BASE: vscodeBase,
 		};
@@ -416,6 +428,8 @@ export class WebClientServer {
 }
 
 
+// --- Start Positron ---
+
 /**
  * Remove extra slashes in a URL.
  *
@@ -427,7 +441,7 @@ export class WebClientServer {
  */
 export const normalizeUrlPath = (url: string, keepTrailing = false): string => {
 	return url.replace(/\/\/+/g, '/').replace(/\/+$/, keepTrailing ? '/' : '');
-}
+};
 
 /**
  * Get the relative path that will get us to the root of the page. For each
@@ -472,3 +486,4 @@ export const relativePath = (originalUrl: string): string => {
 	return normalizeUrlPath('./' + parts[parts.length - 1]);
 };
 
+// --- End Positron ---

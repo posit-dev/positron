@@ -3828,7 +3828,7 @@ export class InteractiveWindowInput {
 }
 //#endregion
 
-//#region Myriac
+// --- Start Positron ---
 
 /** Possible states for the language runtime while online */
 export enum RuntimeOnlineState {
@@ -3842,4 +3842,4 @@ export enum RuntimeOnlineState {
 	Idle = 'idle',
 }
 
-//#endregion
+// --- End Positron ---
