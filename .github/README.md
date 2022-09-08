@@ -104,8 +104,8 @@ When writing code, avoid using `console.log` directly; instead, get an `ILogServ
 
 ### Related Repositories
 
-- [Amalthea](https://github.com/rstudio/amalthea), a Jupyter kernel framework written in Rust
-- [Myriac Console](https://github.com/rstudio/myriac-console), a prototype for a Jupyter-powered interactive console
+- [Amalthea](https://github.com/rstudio/amalthea), a Jupyter kernel framework written in Rust (**deprecated**, now embedded in this repository)
+- [Myriac Console](https://github.com/rstudio/myriac-console), a prototype for a Jupyter-powered interactive console (**deprecated**, code refactored and merged into this repository)
 - [Code - OSS](https://github.com/microsoft/vscode), the upstream VS Code OSS repository
 - [OpenVSCode Server](https://github.com/gitpod-io/openvscode-server), another fork of VS Code focused on running in the browser
 
