@@ -274,7 +274,12 @@ export class BrowserSocketFactory implements ISocketFactory {
 
 	connect(host: string, port: number, path: string, query: string, debugLabel: string, callback: IConnectCallback): void {
 		const webSocketSchema = (/^https:/.test(window.location.href) ? 'wss' : 'ws');
+
+		// --- Start Positron ---
+		// Adds support for serving at non-root paths.
 		path = (window.location.pathname + '/' + path).replace(/\/\/+/g, '/');
+		// --- End Positron ---
+
 		const socket = this._webSocketFactory.create(`${webSocketSchema}://${/:/.test(host) ? `[${host}]` : host}:${port}${path}?${query}&skipWebSocketFrames=false`, debugLabel);
 		const errorListener = socket.onError((err) => callback(err, undefined));
 		socket.onOpen(() => {

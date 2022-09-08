@@ -94,7 +94,10 @@ import { checkProposedApiEnabled, ExtensionIdentifierSet, isProposedApiEnabled }
 import { DebugConfigurationProviderTriggerKind } from 'vs/workbench/contrib/debug/common/debug';
 import { equalsIgnoreCase } from 'vs/base/common/strings';
 import { IExtHostTelemetryLogService } from 'vs/workbench/api/common/extHostTelemetryLogService';
+
+// --- Start Positron ---
 import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/myriac/extHostLanguageRuntime';
+// --- End Positron ---
 
 export interface IExtensionRegistries {
 	mine: ExtensionDescriptionRegistry;
@@ -170,7 +173,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostDiagnostics = rpcProtocol.set(ExtHostContext.ExtHostDiagnostics, new ExtHostDiagnostics(rpcProtocol, extHostLogService, extHostFileSystemInfo));
 	const extHostLanguages = rpcProtocol.set(ExtHostContext.ExtHostLanguages, new ExtHostLanguages(rpcProtocol, extHostDocuments, extHostCommands.converter, uriTransformer));
 	const extHostLanguageFeatures = rpcProtocol.set(ExtHostContext.ExtHostLanguageFeatures, new ExtHostLanguageFeatures(rpcProtocol, uriTransformer, extHostDocuments, extHostCommands, extHostDiagnostics, extHostLogService, extHostApiDeprecation));
-	const extHostLanguageRuntime = rpcProtocol.set(ExtHostContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime());
 	const extHostFileSystem = rpcProtocol.set(ExtHostContext.ExtHostFileSystem, new ExtHostFileSystem(rpcProtocol, extHostLanguageFeatures));
 	const extHostFileSystemEvent = rpcProtocol.set(ExtHostContext.ExtHostFileSystemEventService, new ExtHostFileSystemEventService(rpcProtocol, extHostLogService, extHostDocumentsAndEditors));
 	const extHostQuickOpen = rpcProtocol.set(ExtHostContext.ExtHostQuickOpen, createExtHostQuickOpen(rpcProtocol, extHostWorkspace, extHostCommands));
@@ -187,6 +189,11 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostWebviewViews = rpcProtocol.set(ExtHostContext.ExtHostWebviewViews, new ExtHostWebviewViews(rpcProtocol, extHostWebviews));
 	const extHostTesting = rpcProtocol.set(ExtHostContext.ExtHostTesting, new ExtHostTesting(rpcProtocol, extHostCommands));
 	const extHostUriOpeners = rpcProtocol.set(ExtHostContext.ExtHostUriOpeners, new ExtHostUriOpeners(rpcProtocol));
+
+	// --- Start Positron ---
+	const extHostLanguageRuntime = rpcProtocol.set(ExtHostContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime());
+	// --- End Positron ---
+
 	rpcProtocol.set(ExtHostContext.ExtHostInteractive, new ExtHostInteractive(rpcProtocol, extHostNotebook, extHostDocumentsAndEditors, extHostCommands, extHostLogService));
 
 	// Check that no named customers are missing
@@ -585,11 +592,13 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			}
 		};
 
+		// --- Start Positron ---
 		const myriac: typeof vscode.myriac = {
 			registerLanguageRuntime(runtime: vscode.LanguageRuntime): vscode.Disposable {
 				return extHostLanguageRuntime.$registerLanguageRuntime(runtime);
 			}
 		};
+		// --- End Positron ---
 
 		// namespace: window
 		const window: typeof vscode.window = {
@@ -1187,7 +1196,9 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			env,
 			extensions,
 			languages,
+			// --- Start Positron ---
 			myriac,
+			// --- End Positron ---
 			notebooks,
 			scm,
 			tasks,
@@ -1316,8 +1327,9 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			Uri: URI,
 			ViewColumn: extHostTypes.ViewColumn,
 			WorkspaceEdit: extHostTypes.WorkspaceEdit,
-			// myriac types
+			// --- Start Positron ---
 			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
+			// --- End Positron ---
 			// proposed api types
 			DocumentDropEdit: extHostTypes.DocumentDropEdit,
 			DocumentPasteEdit: extHostTypes.DocumentPasteEdit,
