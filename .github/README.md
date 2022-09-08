@@ -74,6 +74,26 @@ $ ./scripts/pull-upstream.sh
 
 Currently we merge frequently and stay right on the tip of the main branch, though this strategy may change when stabilization becomes a concern down the road.
 
+### Overlays and Merge Strategy
+
+In order to minimize conflicts with upstream, please use these techniques:
+
+**Put code in new files if possible**. Rather than amending or changing an existing file, create a new file to contain your new code.
+
+**Put new files in new directories if possible.** In the new directory, add an `.eslintrc.json` file [like this one](https://github.com/rstudio/myriac/blob/main/src/vs/workbench/contrib/repl/.eslintrc.json) so that files in the new directory can use RStudio's copyright header.
+
+**When changing existing files, fence your change with change-marker comments**. Use the following format:
+
+```typescript
+// --- Start Positron ---
+
+let change = "your change here";
+
+// --- End Positron ---
+```
+
+When our changes to existing files inevitably conflict with changes upstream, these demarcations help us sort through the changes; they are also useful for code navigation and for keeping changes isolated. If you're changing a file that already contains change markers, consider trying to add your code inside the fence rather than adding a new pair of markers.
+
 ### Logging
 
 The Myriac overlays emit logs via VS Code's log service. When doing development work or reproducing bugs, it's useful to change the log level to `TRACE`.
