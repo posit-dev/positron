@@ -16234,6 +16234,7 @@ declare module 'vscode' {
 		close(tabGroup: TabGroup | readonly TabGroup[], preserveFocus?: boolean): Thenable<boolean>;
 	}
 
+	// --- Start Positron ---
 	/**
 	 * LanguageRuntimeMessage is an interface that defines an event occurring in a
 	 * language runtime, such as outputting text or plots.
@@ -16318,6 +16319,7 @@ declare module 'vscode' {
 
 		export function registerLanguageRuntime(runtime: LanguageRuntime): Disposable;
 	}
+	// --- End Positron ---
 }
 
 /**

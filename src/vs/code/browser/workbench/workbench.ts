@@ -485,7 +485,11 @@ function doCreateUri(path: string, queryValues: Map<string, string>): URI {
 		});
 	}
 
+	// --- Start Positron ---
+	// Adds support for serving at non-root paths.
 	path = (window.location.pathname + '/' + path).replace(/\/\/+/g, '/');
+	// --- End Positron ---
+
 	return URI.parse(window.location.href).with({ path, query });
 }
 
@@ -494,10 +498,15 @@ function doCreateUri(path: string, queryValues: Map<string, string>): URI {
 	// Find config by checking for DOM
 	const configElement = document.getElementById('vscode-workbench-web-configuration');
 	const configElementAttribute = configElement ? configElement.getAttribute('data-settings') : undefined;
+
 	if (!configElement || !configElementAttribute) {
 		throw new Error('Missing web configuration element');
 	}
+
+	// --- Start Positron ---
+	// Adds support for serving at non-root paths.
 	const config: IWorkbenchConstructionOptions & { folderUri?: UriComponents; workspaceUri?: UriComponents; callbackRoute: string } = { ...JSON.parse(configElementAttribute), remoteAuthority: location.host };
+	// --- End Positron ---
 
 	// Create workbench
 	create(document.body, {
