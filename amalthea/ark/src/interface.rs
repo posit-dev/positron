@@ -21,6 +21,7 @@ use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
 use crate::macros::cargs;
 use crate::macros::cstr;
+use crate::r::lock::rlock;
 use crate::request::Request;
 
 // --- Globals ---
@@ -111,15 +112,16 @@ pub fn start_r(
 ) {
     use std::borrow::BorrowMut;
 
+    // Start building the channels + kernel objects
     let (console_send, console_recv) = channel::<Option<String>>();
     let (rprompt_send, rprompt_recv) = channel::<String>();
     let console = console_send.clone();
+    let kernel = Kernel::new(iopub, console, initializer);
 
     // Initialize kernel (ensure we only do this once!)
     INIT.call_once(|| unsafe {
         *CONSOLE_RECV.borrow_mut() = Some(Mutex::new(console_recv));
         *RPROMPT_SEND.borrow_mut() = Some(Mutex::new(rprompt_send));
-        let kernel = Kernel::new(iopub, console, initializer);
         *KERNEL.borrow_mut() = Some(Arc::new(Mutex::new(kernel)));
     });
 
@@ -152,11 +154,11 @@ pub fn start_r(
         Rf_initialize_R(args.len() as i32, args.as_mut_ptr() as *mut *mut c_char);
 
         // Disable stack checking; R doesn't know the starting point of the
-        // stack for threads other than the main thread. Consequently, it will 
+        // stack for threads other than the main thread. Consequently, it will
         // report a stack overflow if we don't disable it. This is a problem
         // on all platforms, but is most obvious on aarch64 Linux due to how
         // thread stacks are allocated on that platform.
-        // 
+        //
         // See https://cran.r-project.org/doc/manuals/R-exts.html#Threading-issues
         // for more information.
         R_CStackLimit = usize::MAX;
@@ -211,7 +213,7 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
         let kernel = mutex.lock().unwrap();
 
         // Figure out what the ordinary prompt looks like.
-        let default_prompt = match R!(getOption("prompt")) {
+        let default_prompt = match rlock! { R!(getOption("prompt")) } {
             Ok(prompt) => prompt.as_str(),
             Err(err) => {
                 warn!("Failed to get R prompt: {}", err);

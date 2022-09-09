@@ -25,6 +25,10 @@ module.exports.all = [
 	'!out*/**',
 	'!test/**/out/**',
 	'!**/node_modules/**',
+
+	// Start Positron Addition
+	'!amalthea/**/*',
+	// End Positron Addition
 ];
 
 module.exports.unicodeFilter = [
@@ -56,6 +60,10 @@ module.exports.unicodeFilter = [
 
 	'!src/vs/base/browser/dompurify/**',
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
+
+	// Start Positron Addition
+	'!amalthea/**/*',
+	// End Positron Addition
 ];
 
 module.exports.indentationFilter = [
@@ -78,7 +86,6 @@ module.exports.indentationFilter = [
 	'!build/ext.js',
 
 	// except specific folders
-	'!amalthea/**',
 	'!test/automation/out/**',
 	'!test/monaco/out/**',
 	'!test/smoke/out/**',
@@ -125,6 +132,10 @@ module.exports.indentationFilter = [
 	'!extensions/markdown-math/notebook-out/*.js',
 	'!extensions/notebook-renderers/renderer-out/*.js',
 	'!extensions/simple-browser/media/*.js',
+
+	// Start Positron Addition
+	'!amalthea/**/*',
+	// End Positron Addition
 ];
 
 module.exports.copyrightFilter = [
@@ -161,6 +172,10 @@ module.exports.copyrightFilter = [
 	'!extensions/html-language-features/server/src/modes/typescript/*',
 	'!extensions/*/server/bin/*',
 	'!src/vs/editor/test/node/classification/typescript-test.ts',
+
+	// Start Positron Addition
+	'!amalthea/**/*',
+	// End Positron Addition
 ];
 
 module.exports.tsFormattingFilter = [
@@ -178,6 +193,10 @@ module.exports.tsFormattingFilter = [
 	'!extensions/vscode-api-tests/testWorkspace2/**',
 	'!extensions/**/*.test.ts',
 	'!extensions/html-language-features/server/lib/jquery.d.ts',
+
+	// Start Positron Addition
+	'!amalthea/**/*',
+	// End Positron Addition
 ];
 
 module.exports.eslintFilter = [

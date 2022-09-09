@@ -10,16 +10,14 @@ use walkdir::WalkDir;
 
 use crate::r::exec::RFunction;
 use crate::r::exec::RFunctionExt;
-use crate::r::exec::RProtect;
 
 pub(crate) unsafe fn initialize() {
 
     // Ensure the 'tools:rstudio' environment has been initialized.
-    let mut protect = RProtect::new();
     let envir = RFunction::new("base", "attach")
         .param("what", R_NilValue)
         .param("name", "tools:rstudio")
-        .call(&mut protect);
+        .call();
 
     // Import all module files.
     // TODO: Need to select appropriate path for package builds.
@@ -28,7 +26,7 @@ pub(crate) unsafe fn initialize() {
         let path = file.path();
         if let Some(ext) = path.extension() {
             if ext == "R" {
-                import(path.to_str().unwrap(), envir);
+                import(path.to_str().unwrap(), *envir);
             }
         }
     }
@@ -37,10 +35,9 @@ pub(crate) unsafe fn initialize() {
 
 pub(crate) unsafe fn import(file: &str, envir: SEXP) {
 
-    let mut protect = RProtect::new();
     RFunction::new("base", "sys.source")
         .param("file", file)
         .param("envir", envir)
-        .call(&mut protect);
+        .call();
 
 }
