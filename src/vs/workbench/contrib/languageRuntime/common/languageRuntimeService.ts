@@ -5,6 +5,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { Emitter, Event } from 'vs/base/common/event';
+import { IDisposable } from 'vs/base/common/lifecycle';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('ILanguageRuntimeService');
 
@@ -90,6 +91,12 @@ export interface ILanguageRuntimeService {
 	 *   LanguageRuntime
 	 */
 	registerNotebookRuntime(language: string, kernel: INotebookKernel): void;
+
+	/**
+	 * @param runtime The LanguageRuntime to register
+	 * @returns A disposable that can be used to unregister the runtime
+	 */
+	registerRuntime(runtime: ILanguageRuntime): IDisposable;
 
 	/**
 	 *

@@ -114,7 +114,7 @@ export class ReplService extends Disposable implements IReplService {
 		const languageId =
 			this._languageService.getLanguageIdByLanguageName(kernel.supportedLanguages[0]);
 		if (!languageId) {
-			throw new Error(`Could not find ID for kernel language ${kernel.supportedLanguages[0]}`)
+			throw new Error(`Could not find ID for kernel language ${kernel.supportedLanguages[0]}`);
 		}
 
 		// Auto-generate an instance ID for this REPL
