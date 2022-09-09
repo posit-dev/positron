@@ -14,7 +14,6 @@ use std::sync::Mutex;
 use std::sync::mpsc::SyncSender;
 use std::time::Duration;
 
-use backtrace::Backtrace;
 use dashmap::DashMap;
 use serde_json::Value;
 use tokio::net::TcpStream;
@@ -330,14 +329,6 @@ impl LanguageServer for Backend {
 pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-
-    // Make it easier to get Rust backtraces.
-    std::panic::set_hook(Box::new(|_| {
-        let trace = format!("{:?}", Backtrace::new());
-        if let Ok(mut file) = File::create("/tmp/rust-panic.log") {
-            file.write(trace.as_bytes()).unwrap();
-        }
-    }));
 
     /*
     NOTE: The example LSP from tower-lsp uses a TcpListener, but we're using a
