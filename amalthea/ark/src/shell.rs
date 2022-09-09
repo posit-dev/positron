@@ -1,9 +1,9 @@
-// 
+//
 // shell.rs
-// 
+//
 // Copyright (C) 2022 by RStudio, PBC
-// 
-// 
+//
+//
 
 use crate::kernel::KernelInfo;
 use crate::lsp;
@@ -33,11 +33,18 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
+use libR_sys::R_GlobalContext;
 use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
+
+extern "C" {
+    #[no_mangle]
+    static R_Is_Running: i32;
+}
 
 pub struct Shell {
     req_sender: SyncSender<Request>,
@@ -79,7 +86,17 @@ impl Shell {
     fn start_lsp(&self, msg: lsp::comm::StartLsp) {
         let sender = self.request_sender();
         thread::spawn(move || {
+
+            // TODO: Surely there's a better way.
+            unsafe {
+               while R_Is_Running != 2 {
+                   std::thread::sleep(Duration::from_millis(200));
+               }
+            }
+
+            // R appears to be ready; start the backend.
             lsp::backend::start_lsp(msg.client_address, sender);
+
         });
     }
 }

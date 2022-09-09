@@ -6,6 +6,7 @@
 //
 
 use std::collections::HashSet;
+use std::ffi::CStr;
 
 use extendr_api::Robj;
 use extendr_api::Strings;
@@ -22,7 +23,6 @@ use tree_sitter::Point;
 
 use crate::lsp::indexer::IndexedSymbol;
 use crate::lsp::indexer::index_document;
-use crate::lsp::traits::node::NodeExt;
 use crate::macros::*;
 use crate::lsp::document::Document;
 use crate::lsp::logger::dlog;
@@ -31,11 +31,12 @@ use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::r::exec::geterrmessage;
 use crate::r::lock::rlock;
-use crate::r::macros::rstring;
-use crate::r::macros::rsymbol;
+use crate::r::macros::r_string;
+use crate::r::macros::r_symbol;
 use crate::r::exec::RFunction;
 use crate::r::exec::RFunctionExt;
-use crate::r::exec::RProtect;
+use crate::r::object::RObject;
+use crate::r::protect::RProtect;
 
 fn completion_item_from_identifier(node: &Node, source: &str) -> CompletionItem {
     let label = node.utf8_text(source.as_bytes()).expect("empty assignee");
@@ -86,16 +87,15 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
     // up-front. For that reason, we'll probably need to generate a
     // cache of help documentation, or implement some sort of LSP-side
     // filtering of completion results based on the current token.
-    let mut protect = RProtect::new();
     let documentation = RFunction::from(".rs.help.package")
         .add(package)
-        .call(&mut protect);
+        .call();
 
-    if TYPEOF(documentation) as u32 == VECSXP {
+    if TYPEOF(*documentation) as u32 == VECSXP {
 
         // TODO: Use safe extraction functions here
-        let doc_type = VECTOR_ELT(documentation, 0);
-        let doc_contents = VECTOR_ELT(documentation, 1);
+        let doc_type = VECTOR_ELT(*documentation, 0);
+        let doc_contents = VECTOR_ELT(*documentation, 1);
 
         if TYPEOF(doc_type) as u32 == STRSXP && TYPEOF(doc_contents) as u32 == STRSXP {
 
@@ -155,7 +155,7 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
 
 unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Option<CompletionItem> {
 
-    let symbol = rsymbol!(name);
+    let symbol = r_symbol!(name);
     let object = Rf_findVarInFrame(envir, symbol);
     if object == R_UnboundValue {
         return None;
@@ -314,24 +314,24 @@ fn append_function_parameters(node: &Node, data: &mut CompletionData, completion
 
 }
 
-unsafe fn list_namespace_exports(namespace: SEXP, protect: &mut RProtect) -> SEXP {
+unsafe fn list_namespace_exports(namespace: SEXP) -> RObject {
 
-    let ns = Rf_findVarInFrame(namespace, rsymbol!(".__NAMESPACE__."));
+    let ns = Rf_findVarInFrame(namespace, r_symbol!(".__NAMESPACE__."));
     if ns == R_UnboundValue {
-        return R_NilValue;
+        return RObject::null();
     }
 
-    let exports = Rf_findVarInFrame(ns, rsymbol!("exports"));
+    let exports = Rf_findVarInFrame(ns, r_symbol!("exports"));
     if exports == R_UnboundValue {
-        return R_NilValue;
+        return RObject::null();
     }
 
-    return protect.add(R_lsInternal(exports, 1));
+    return RObject::new(R_lsInternal(exports, 1));
 
 }
 
-unsafe fn list_namespace_symbols(namespace: SEXP, protect: &mut RProtect) -> SEXP {
-    return protect.add(R_lsInternal(namespace, 1));
+unsafe fn list_namespace_symbols(namespace: SEXP) -> RObject {
+    return RObject::new(R_lsInternal(namespace, 1));
 }
 
 unsafe fn append_parameter_completions(document: &Document, callee: &str, completions: &mut Vec<CompletionItem>) {
@@ -362,7 +362,7 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 
     // Parse the callee text. The text will be parsed as an R expression,
     // which is a vector of calls to be evaluated.
-    let string_sexp = protect.add(rstring!(callee));
+    let string_sexp = protect.add(r_string!(callee));
     let parsed_sexp = protect.add(R_ParseVector(string_sexp, 1, &mut status, R_NilValue));
 
     if status != ParseStatus_PARSE_OK {
@@ -391,16 +391,16 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 
         let names = RFunction::from(".rs.formalNames")
             .add(value)
-            .call(&mut protect);
+            .call();
 
-        if Rf_inherits(names, cstr!("error")) != 0 {
+        if Rf_inherits(*names, cstr!("error")) != 0 {
             return;
         }
 
         // Return the names of these formals.
-        let names = Robj::from_sexp(names);
-        if let Ok(strings) = Strings::try_from(names) {
-            for string in strings.iter() {
+        for i in 0..Rf_length(*names) {
+            let cstr = CStr::from_ptr(R_CHAR(STRING_ELT(*names, i as R_xlen_t)));
+            if let Ok(string) = cstr.to_str() {
                 let item = completion_item_from_parameter(string, callee);
                 completions.push(item);
             }
@@ -418,26 +418,26 @@ unsafe fn append_namespace_completions(package: &str, exports_only: bool, comple
     // Get the package namespace.
     let namespace = RFunction::new("base", "getNamespace")
         .add(package)
-        .call(&mut protect);
+        .call();
 
     let symbols = if package == "base" {
-        list_namespace_symbols(namespace, &mut protect)
+        list_namespace_symbols(*namespace)
     } else if exports_only {
-        list_namespace_exports(namespace, &mut protect)
+        list_namespace_exports(*namespace)
     } else {
-        list_namespace_symbols(namespace, &mut protect)
+        list_namespace_symbols(*namespace)
     };
 
-    if TYPEOF(symbols) as u32 != STRSXP {
-        dlog!("Unexpected SEXPTYPE {}", TYPEOF(symbols));
+    if TYPEOF(*symbols) as u32 != STRSXP {
+        dlog!("Unexpected SEXPTYPE {}", TYPEOF(*symbols));
         return;
     }
 
     // Create completion items for each.
-    let object = Robj::from_sexp(symbols);
+    let object = Robj::from_sexp(*symbols);
     if let Ok(strings) = Strings::try_from(object) {
         for string in strings.iter() {
-            if let Some(item) = completion_item_from_symbol(string, namespace) {
+            if let Some(item) = completion_item_from_symbol(string, *namespace) {
                 completions.push(item);
             }
         }
@@ -489,12 +489,11 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
 
     // Include installed packages as well.
     // TODO: This can be slow on NFS.
-    let mut protect = RProtect::new();
     let packages = RFunction::new("base", ".packages")
         .param("all.available", true)
-        .call(&mut protect);
+        .call();
 
-    let object = Robj::from_sexp(packages);
+    let object = Robj::from_sexp(*packages);
     if let Ok(strings) = Strings::try_from(object) {
         for string in strings.iter() {
             let item = completion_item_from_package(string);

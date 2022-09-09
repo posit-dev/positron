@@ -1,9 +1,9 @@
-// 
+//
 // kernel.rs
-// 
+//
 // Copyright (C) 2022 by RStudio, PBC
-// 
-// 
+//
+//
 
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::exception::Exception;
@@ -21,6 +21,7 @@ use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{Sender, SyncSender};
 
+use crate::r::lock::rlock;
 use crate::request::Request;
 
 /// Represents the Rust state of the R kernel
@@ -67,7 +68,7 @@ impl Kernel {
     /// Completes the kernel's initialization
     pub fn complete_intialization(&mut self) {
         if self.initializing {
-            let ver = R!(R.version.string).unwrap();
+            let ver = rlock! { R!(R.version.string).unwrap() };
             let ver_str = ver.as_str().unwrap().to_string();
             let kernel_info = KernelInfo {
                 version: ver_str.clone(),
@@ -248,7 +249,7 @@ impl Kernel {
         let mut data = serde_json::Map::new();
         data.insert("text/plain".to_string(), json!(output));
         trace!("Formatting value");
-        let last = R!(.Last.value).unwrap();
+        let last = rlock! { R!(.Last.value).unwrap() };
         if last.is_frame() {
             data.insert("text/html".to_string(), json!(Kernel::to_html(&last)));
         }
