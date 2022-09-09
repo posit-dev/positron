@@ -8,7 +8,7 @@
 // NOTE: We provide an API for Rf_install() as rust's strings are not
 // nul-terminated by default, and so we need to do the work to ensure
 // the strings we pass to Rf_install() are nul-terminated C strings.
-macro_rules! rsymbol {
+macro_rules! r_symbol {
 
     ($id:literal) => {{
         use std::os::raw::c_char;
@@ -23,15 +23,15 @@ macro_rules! rsymbol {
     }};
 
 }
-pub(crate) use rsymbol;
+pub(crate) use r_symbol;
 
-macro_rules! rstring {
+macro_rules! r_string {
 
     ($id:expr) => {{
         use std::os::raw::c_char;
         use libR_sys::*;
 
-        let mut protect = RProtect::new();
+        let mut protect = $crate::r::protect::RProtect::new();
         let value = &*$id;
         let string_sexp = protect.add(Rf_allocVector(STRSXP, 1));
         let char_sexp = Rf_mkCharLenCE(value.as_ptr() as *mut c_char, value.len() as i32, cetype_t_CE_UTF8);
@@ -40,7 +40,20 @@ macro_rules! rstring {
     }}
 
 }
-pub(crate) use rstring;
+pub(crate) use r_string;
+
+macro_rules! r_check_length {
+
+    ($object:expr, $expected:expr) => {{
+        let actual = Rf_length(*$object);
+        let expected = $expected;
+        if actual != expected {
+            return Err($crate::r::error::Error::UnexpectedLength(actual, expected));
+        }
+    }}
+
+}
+pub(crate) use r_check_length;
 
 // Mainly for debugging.
 macro_rules! rlog {
@@ -51,9 +64,9 @@ macro_rules! rlog {
         use libR_sys::*;
 
         let callee = Rf_protect(Rf_lang3(
-            rsymbol!("::"),
-            rsymbol!("base"),
-            rsymbol!("format"),
+            r_symbol!("::"),
+            r_symbol!("base"),
+            r_symbol!("format"),
         ));
 
         let mut errc = 0;

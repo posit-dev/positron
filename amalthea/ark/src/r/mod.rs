@@ -12,10 +12,13 @@
 // the R interpreter. 'rlock!' uses a recursive mutex, so re-entrant or
 // recursive calls to 'rlock!' can still be safe if necessary.
 
+pub mod error;
 pub mod exec;
-pub mod extract;
 pub mod lock;
 pub mod macros;
 pub mod modules;
+pub mod object;
+pub mod protect;
 pub mod test;
 pub mod traits;
+pub mod utils;
