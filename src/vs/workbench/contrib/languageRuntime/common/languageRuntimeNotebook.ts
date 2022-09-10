@@ -5,7 +5,8 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
-import { ILanguageRuntime, ILanguageRuntimeMessage } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILogService } from 'vs/platform/log/common/log';
+import { ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeState, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -23,17 +24,20 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	/** The URI for the "notebook" backing the kernel */
 	private _uri: URI;
 
+	/** The ID for the currently executing "cell" */
+	private _executingCellId?: string;
+
 	/** Counter for REPLs; used to generate unique URIs */
 	private static _replCounter = 0;
 
-	/** Counter for executions; used to generate unique execution IDs */
-	private static _executionCounter = 0;
+	/** Counter for messages; used to generate unique message IDs */
+	private static _msgCounter = 0;
 
 	constructor(private readonly _kernel: INotebookKernel,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
-	) {
+		@ILogService private readonly _logService: ILogService) {
 
 		// Initialize base disposable functionality
 		super();
@@ -79,6 +83,34 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 		// Bind the kernel we were given to the notebook text model we just created
 		this._notebookKernelService.selectKernelForNotebook(this._kernel, this._nbTextModel);
+
+		// Listen for execution state changes
+		this._notebookExecutionStateService.onDidChangeCellExecution((e) => {
+			// There's no way to subscribe to notifications for a particular notebook, so
+			// just ignore execution state changes for other notebooks.
+			if (!e.affectsNotebook(this._uri)) {
+				return;
+			}
+
+			// Ignore any execution state changes when we aren't tracking a cell execution
+			if (!this._executingCellId) {
+				return;
+			}
+
+			// The new state will be 'undefined' when the cell is no longer executing;
+			if (typeof e.changed === 'undefined') {
+				this._logService.trace(`Cell execution of ${e.cellHandle} (${this._executingCellId}) complete`);
+				this.messages.fire({
+					type: 'status',
+					id: 'status-' + NotebookLanguageRuntime._msgCounter++,
+					parent_id: this._executingCellId,
+					state: RuntimeOnlineState.Idle,
+				} as ILanguageRuntimeState);
+
+				// Clear the cell execution state
+				this._executingCellId = '';
+			}
+		});
 	}
 
 	language: string;
@@ -91,8 +123,14 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 	execute(code: string): Thenable<string> {
 
+		// Ensure we aren't already executing a cell
+		if (this._executingCellId) {
+			this._logService.error(`Cell execution of ${this._executingCellId} already in progress`);
+			throw new Error(`Cell execution of ${this._executingCellId}  already in progress`);
+		}
+
 		// Create a unique execution ID.
-		const id = 'cell-exe-' + NotebookLanguageRuntime._executionCounter++;
+		const id = 'cell-exe-' + NotebookLanguageRuntime._msgCounter++;
 
 		// Replace the "cell" contents with what the user entered
 		this._nbTextModel.applyEdits([{
@@ -127,6 +165,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		// Ask the kernel to execute the cell
 		this._kernel.executeNotebookCellsRequest(this._uri, [exe.cellHandle]);
 
+		// Save and return the ID for the cell execution
+		this._executingCellId = id;
 		return new Promise((resolve, reject) => {
 			resolve(id);
 		});
