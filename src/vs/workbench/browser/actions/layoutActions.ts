@@ -22,12 +22,20 @@ import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/b
 import { ToggleAuxiliaryBarAction } from 'vs/workbench/browser/parts/auxiliarybar/auxiliaryBarActions';
 import { TogglePanelAction } from 'vs/workbench/browser/parts/panel/panelActions';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { AuxiliaryBarVisibleContext, PanelAlignmentContext, PanelVisibleContext, SideBarVisibleContext, FocusedViewContext, InEditorZenModeContext, IsCenteredLayoutContext, EditorAreaVisibleContext, IsFullscreenContext, PanelPositionContext } from 'vs/workbench/common/contextkeys';
+// --- Start Positron ---
+// Add TopBarVisibleContext / AuxiliaryActivityBarVisibleContext to the import.
+// These have been placed at the beginning so they can be easily identified.
+import { TopBarVisibleContext, AuxiliaryActivityBarVisibleContext, AuxiliaryBarVisibleContext, PanelAlignmentContext, PanelVisibleContext, SideBarVisibleContext, FocusedViewContext, InEditorZenModeContext, IsCenteredLayoutContext, EditorAreaVisibleContext, IsFullscreenContext, PanelPositionContext } from 'vs/workbench/common/contextkeys';
+// --- End Positron ---
 import { Codicon } from 'vs/base/common/codicons';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { ThemeIcon } from 'vs/platform/theme/common/themeService';
 import { ICommandActionTitle } from 'vs/platform/action/common/action';
+// --- Start Positron ---
+import { ToggleTopBarVisibilityAction } from 'vs/workbench/browser/parts/topbar/topBarActions';
+import { ToggleAuxiliaryActivityBarVisibilityAction } from 'vs/workbench/browser/parts/auxiliaryactivitybar/auxiliaryActivityBarActions';
+// --- End Positron ---
 
 // Register Icons
 const menubarIcon = registerIcon('menuBar', Codicon.layoutMenubar, localize('menuBarIcon', "Represents the menu bar"));
@@ -1156,6 +1164,10 @@ if (!isMacintosh || !isNative) {
 }
 
 ToggleVisibilityActions.push(...[
+	// --- Start Positron ---
+	CreateToggleLayoutItem(ToggleTopBarVisibilityAction.ID, TopBarVisibleContext, localize('topBar', "Top Bar"), panelIcon), // TODO@softwarenerd change panelIcon
+	CreateToggleLayoutItem(ToggleAuxiliaryActivityBarVisibilityAction.ID, AuxiliaryActivityBarVisibleContext, localize('auxiliaryActivityBar', "Auxiliary Activity Bar"), panelIcon), // TODO@softwarenerd change panelIcon
+	// --- End Positron ---
 	CreateToggleLayoutItem(ToggleActivityBarVisibilityAction.ID, ContextKeyExpr.equals('config.workbench.activityBar.visible', true), localize('activityBar', "Activity Bar"), { whenA: ContextKeyExpr.equals('config.workbench.sideBar.location', 'left'), iconA: activityBarLeftIcon, iconB: activityBarRightIcon }),
 	CreateToggleLayoutItem(ToggleSidebarVisibilityAction.ID, SideBarVisibleContext, localize('sideBar', "Primary Side Bar"), { whenA: ContextKeyExpr.equals('config.workbench.sideBar.location', 'left'), iconA: panelLeftIcon, iconB: panelRightIcon }),
 	CreateToggleLayoutItem(ToggleAuxiliaryBarAction.ID, AuxiliaryBarVisibleContext, localize('secondarySideBar', "Secondary Side Bar"), { whenA: ContextKeyExpr.equals('config.workbench.sideBar.location', 'left'), iconA: panelRightIcon, iconB: panelLeftIcon }),
