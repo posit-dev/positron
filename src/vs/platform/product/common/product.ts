@@ -58,7 +58,7 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.67.0-dev',
+			version: '1.72.0-dev',
 			nameShort: 'Myriac',
 			nameLong: 'Myriac',
 			applicationName: 'myriac',
