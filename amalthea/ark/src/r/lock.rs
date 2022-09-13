@@ -48,6 +48,71 @@ pub static mut INIT_RECV: Option<Mutex<Receiver<()>>> = None;
 pub static mut FINI_SEND: Option<Mutex<Sender<()>>> = None;
 pub static mut FINI_RECV: Option<Mutex<Receiver<()>>> = None;
 
+pub struct RLockGuard {
+    polled_events: Option<unsafe extern "C" fn()>
+}
+
+impl RLockGuard {
+
+    pub fn lock() -> Self {
+
+        let mut this = Self { polled_events: None };
+        unsafe { this.lock_impl() };
+        return this;
+
+    }
+
+    unsafe fn lock_impl(&mut self) {
+
+        dlog!("Thread {:?} acquiring R lock", std::thread::current().id());
+
+        // Acquire the lock.
+        let _guard = LOCK.lock();
+
+        // Let the main thread know there's a task waiting to be executed.
+        TASKS_PENDING = true;
+
+        // Wait for a response from the main thread,
+        dlog!("Child thread waiting for response from main thread.");
+        let receiver = INIT_RECV.as_ref().unwrap();
+        let guard = receiver.try_lock().unwrap();
+        guard.recv_timeout(Duration::from_secs(5)).unwrap();
+
+        // Disable the polled event handler in this scope.
+        // This ensures that we don't try to recursively process polled events.
+        self.polled_events = R_PolledEvents;
+        R_PolledEvents = Some(r_polled_events_disabled);
+
+
+    }
+
+    unsafe fn drop_impl(&mut self) {
+
+        // Let the R session know we're done.
+        let sender = FINI_SEND.as_ref().unwrap();
+        let guard = sender.try_lock().unwrap();
+        guard.send(()).unwrap();
+        dlog!("Child thread has notified main thread it's finished.");
+
+        // Let front-end know we're done working.
+        TASKS_PENDING = false;
+
+        // Restore the polled event handler.
+        R_PolledEvents = self.polled_events;
+
+    }
+
+
+}
+
+impl Drop for RLockGuard {
+
+    fn drop(&mut self) {
+        unsafe { self.drop_impl() };
+    }
+
+}
+
 pub unsafe fn initialize() {
 
     let (sender, receiver) = channel();
@@ -60,60 +125,12 @@ pub unsafe fn initialize() {
 
 }
 
-pub unsafe fn with_r_lock<T, Callback: FnMut() -> T>(mut callback: Callback) -> T {
-
-    dlog!("Thread {:?} acquiring R lock", std::thread::current().id());
-
-    // Acquire the lock.
-    let _guard = LOCK.lock();
-
-    // If we already have the lock, we can run.
-    if TASKS_PENDING {
-        dlog!("Child thread already has lock; executing callback.");
-        return callback();
-    }
-
-    // Let the main thread know there's a task waiting to be executed.
-    TASKS_PENDING = true;
-
-    // Wait for a response from the main thread,
-    dlog!("Child thread waiting for response from main thread.");
-    let receiver = INIT_RECV.as_ref().unwrap();
-    let guard = receiver.try_lock().unwrap();
-    guard.recv_timeout(Duration::from_secs(5)).unwrap();
-
-    // Temporarily disable the polled event handler, so that we can avoid
-    // recursive attempts to handle polled events.
-    let polled_events = R_PolledEvents;
-    R_PolledEvents = Some(r_polled_events_disabled);
-
-    // Do some work.
-    let result = callback();
-
-    // Restore the polled event handler.
-    R_PolledEvents = polled_events;
-
-    // Let the R session know we're done.
-    let sender = FINI_SEND.as_ref().unwrap();
-    let guard = sender.try_lock().unwrap();
-    guard.send(()).unwrap();
-    dlog!("Child thread has notified main thread it's finished.");
-
-    // Let front-end know we're done working.
-    TASKS_PENDING = false;
-
-    // Return the result.
-    return result;
-
-}
-
 macro_rules! r_lock {
 
-    ($($expr:tt)*) => {
-        unsafe {
-            $crate::r::lock::with_r_lock(|| { $($expr)* })
-        }
-    }
+    ($($expr:tt)*) => {{
+        let _guard = $crate::r::lock::RLockGuard::lock();
+        unsafe { $($expr)* }
+    }}
 
 }
 pub(crate) use r_lock;

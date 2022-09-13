@@ -107,11 +107,10 @@ pub extern "C" fn r_read_console(
     // pump the event loop while waiting for console input.
     loop {
 
-        match receiver.recv_timeout(Duration::from_millis(200)) {
+        match receiver.recv_timeout(Duration::from_millis(10)) {
 
             Ok(response) => {
 
-                // TODO: Handle buffering issues.
                 if let Some(input) = response {
                     on_console_input(buf, buflen, input);
                 }
@@ -158,16 +157,14 @@ pub extern "C" fn r_write_console(buf: *const c_char, _buflen: i32, otype: i32) 
 #[no_mangle]
 pub unsafe extern "C" fn r_polled_events() {
 
-    // TODO: Try processing events for some duration of time.
-    r_polled_events_impl();
-
-}
-
-unsafe fn r_polled_events_impl() {
-
     // NOTE: Routines here (currently) panic intentionally if we cannot
     // unwrap or acquire the requisite locks, as these events basically
     // should never happen and we don't have a way to recover if they do.
+    //
+    // This routine is called very frequently when the console is idle,
+    // to ensure that the LSP has an opportunity to respond to completion
+    // requests. It's important that calls be as cheap as possible when
+    // the LSP does not require access to the R main thread.
     if !TASKS_PENDING {
         return;
     }
@@ -256,11 +253,13 @@ pub fn start_r(
         // Redirect console
         R_Consolefile = std::ptr::null_mut();
         R_Outputfile = std::ptr::null_mut();
-        R_PolledEvents = Some(r_polled_events);
 
         ptr_R_WriteConsole = None;
         ptr_R_WriteConsoleEx = Some(r_write_console);
         ptr_R_ReadConsole = Some(r_read_console);
+
+        // Listen for polled events
+        R_PolledEvents = Some(r_polled_events);
 
         // Does not return
         trace!("Entering R main loop");

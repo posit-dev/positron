@@ -85,7 +85,14 @@ impl Shell {
         let sender = self.request_sender();
         thread::spawn(move || {
 
-            // TODO: Surely there's a better way.
+            // Is there a better way? Perhaps we should initialize the LSP
+            // from one of the R callbacks; e.g. in R_ReadConsole. This
+            // is the strategy used by RStudio for detecting when the R
+            // session is "ready" for extension pieces to be loaded.
+            //
+            // Or perhaps we should be loading R extensions in the main
+            // thread, rather than asking the LSP to handle this during
+            // its own initialization.
             unsafe {
                while R_Is_Running != 2 {
                    std::thread::sleep(Duration::from_millis(200));
