@@ -1,0 +1,86 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.monaco-workbench .part.auxiliaryactivitybar {
+	box-sizing: border-box;
+	cursor: default;
+	width: 100%;
+	height: 100%;
+	font-size: 12px;
+	display: flex;
+	flex-direction: column;
+	overflow: visible;
+}
+
+/* Don't draw a focus outline. */
+.monaco-workbench .part.auxiliaryactivitybar:focus {
+	outline: none !important;
+}
+
+.monaco-workbench .part.auxiliaryactivitybar .action-bars-container {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	height: 100%;
+}
+
+.monaco-workbench
+	.part.auxiliaryactivitybar
+	.action-bars-container
+	.action-bar-container {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	padding: 0 0 0 0;
+}
+
+.monaco-workbench .part.auxiliaryactivitybar .actions-container {
+	display: inline;
+}
+
+.auxiliary-activity-bar-action-container {
+	width: 38px;
+	height: 38px;
+}
+
+.auxiliary-activity-bar-action-container.active {
+	background: #202020;
+}
+
+.auxiliary-activity-bar-action {
+	width: 100%;
+	height: 100%;
+	mask-size: 38px;
+	-webkit-mask-size: 38px;
+}
+
+.auxiliary-activity-bar-action.environment {
+	mask: url("./environment.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./environment.svg") no-repeat 50% 50%;
+}
+
+.auxiliary-activity-bar-action.preview {
+	mask: url("./preview.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./preview.svg") no-repeat 50% 50%;
+}
+
+.auxiliary-activity-bar-action.help {
+	mask: url("./help.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./help.svg") no-repeat 50% 50%;
+}
+
+.auxiliary-activity-bar-action.plot {
+	mask: url("./plot.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./plot.svg") no-repeat 50% 50%;
+}
+
+.auxiliary-activity-bar-action.viewer {
+	mask: url("./viewer.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./viewer.svg") no-repeat 50% 50%;
+}
+
+.auxiliary-activity-bar-action.presentation {
+	mask: url("./presentation.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./presentation.svg") no-repeat 50% 50%;
+}
