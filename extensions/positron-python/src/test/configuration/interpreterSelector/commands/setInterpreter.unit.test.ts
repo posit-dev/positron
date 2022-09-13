@@ -244,7 +244,6 @@ suite('Set Interpreter Command', () => {
             const expectedParameters: IQuickPickParameters<QuickPickItem> = {
                 placeholder: `Selected Interpreter: ${currentPythonPath}`,
                 items: suggestions,
-                activeItem: recommended,
                 matchOnDetail: true,
                 matchOnDescription: true,
                 title: InterpreterQuickPickList.browsePath.openButtonLabel,
@@ -267,6 +266,9 @@ suite('Set Interpreter Command', () => {
             delete actualParameters!.initialize;
             delete actualParameters!.customButtonSetups;
             delete actualParameters!.onChangeItem;
+            const activeItem = await actualParameters!.activeItem;
+            assert.deepStrictEqual(activeItem, recommended);
+            delete actualParameters!.activeItem;
             assert.deepStrictEqual(actualParameters, expectedParameters, 'Params not equal');
         });
 
@@ -281,7 +283,6 @@ suite('Set Interpreter Command', () => {
             const expectedParameters: IQuickPickParameters<QuickPickItem> = {
                 placeholder: `Selected Interpreter: ${currentPythonPath}`,
                 items: suggestions, // Verify suggestions
-                activeItem: noPythonInstalled, // Verify active item
                 matchOnDetail: true,
                 matchOnDescription: true,
                 title: InterpreterQuickPickList.browsePath.openButtonLabel,
@@ -308,6 +309,9 @@ suite('Set Interpreter Command', () => {
             delete actualParameters!.initialize;
             delete actualParameters!.customButtonSetups;
             delete actualParameters!.onChangeItem;
+            const activeItem = await actualParameters!.activeItem;
+            assert.deepStrictEqual(activeItem, noPythonInstalled);
+            delete actualParameters!.activeItem;
             assert.deepStrictEqual(actualParameters, expectedParameters, 'Params not equal');
         });
 
@@ -525,7 +529,6 @@ suite('Set Interpreter Command', () => {
             const expectedParameters: IQuickPickParameters<QuickPickItem> = {
                 placeholder: `Selected Interpreter: ${currentPythonPath}`,
                 items: suggestions,
-                activeItem: recommended,
                 matchOnDetail: true,
                 matchOnDescription: true,
                 title: InterpreterQuickPickList.browsePath.openButtonLabel,
@@ -549,6 +552,9 @@ suite('Set Interpreter Command', () => {
             delete actualParameters!.initialize;
             delete actualParameters!.customButtonSetups;
             delete actualParameters!.onChangeItem;
+            const activeItem = await actualParameters!.activeItem;
+            assert.deepStrictEqual(activeItem, recommended);
+            delete actualParameters!.activeItem;
 
             assert.deepStrictEqual(actualParameters, expectedParameters, 'Params not equal');
         });
