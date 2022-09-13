@@ -30,7 +30,7 @@ use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::r::exec::geterrmessage;
-use crate::r::lock::rlock;
+use crate::r::lock::r_lock;
 use crate::r::macros::r_string;
 use crate::r::macros::r_symbol;
 use crate::r::exec::RFunction;
@@ -413,7 +413,6 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 unsafe fn append_namespace_completions(package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) {
 
     dlog!("append_namespace_completions({:?}, {})", package, exports_only);
-    let mut protect = RProtect::new();
 
     // Get the package namespace.
     let namespace = RFunction::new("base", "getNamespace")
@@ -591,7 +590,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
                 if let Some(prev) = parent.prev_sibling() {
                     if matches!(prev.kind(), "identifier" | "string") {
                         let package = prev.utf8_text(source.as_bytes()).unwrap();
-                        rlock! { append_namespace_completions(package, exports_only, completions) }
+                        r_lock! { append_namespace_completions(package, exports_only, completions) }
                         return;
                     }
                 }
@@ -606,7 +605,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
         if node.kind() == "call" {
             if let Some(child) = node.child(0) {
                 let text = child.utf8_text(source.as_bytes()).unwrap();
-                rlock! { append_parameter_completions(document, &text, completions) }
+                r_lock! { append_parameter_completions(document, &text, completions) }
                 return;
             };
         }
@@ -618,7 +617,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
                 if let Some(colon_node) = node.child(1) {
                     let package = package_node.utf8_text(source.as_bytes()).unwrap();
                     let exports_only = colon_node.kind() == "::";
-                    rlock! { append_namespace_completions(package, exports_only, completions) }
+                    r_lock! { append_namespace_completions(package, exports_only, completions) }
                     return;
                 }
             }
@@ -639,7 +638,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
 
     // If we got here, then it's appropriate to return completions
     // for any packages + symbols on the search path.
-    rlock! { append_search_path_completions(completions) };
+    r_lock! { append_search_path_completions(completions) };
 
 }
 

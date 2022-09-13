@@ -10,19 +10,29 @@ use libR_sys::*;
 use libc::{c_char, c_int};
 use log::{debug, trace, warn};
 use std::ffi::{CStr, CString};
+use std::os::raw::c_uchar;
 use std::path::Path;
 use std::process::Command;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex, Once};
 use std::thread;
+use std::time::Duration;
 
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
+use crate::lsp::logger::dlog;
 use crate::macros::cargs;
 use crate::macros::cstr;
-use crate::r::lock::rlock;
+use crate::r::lock::LSP_EXECUTION_FINISHED_RECEIVER;
+use crate::r::lock::LSP_EXECUTION_START_RESPONSE_SENDER;
+use crate::r::lock::TASKS_PENDING;
 use crate::request::Request;
+
+extern "C" {
+    fn R_ProcessEvents();
+    pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
+}
 
 // --- Globals ---
 // These values must be global in order for them to be accessible from R
@@ -41,6 +51,16 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 /// Ensures that the kernel is only ever initialized once
 static INIT: Once = Once::new();
 
+fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {
+
+    input.push_str("\n");
+    let src = CString::new(input).unwrap();
+    unsafe {
+        libc::strcpy(buf as *mut c_char, src.as_ptr());
+    }
+
+}
+
 /// Invoked by R to read console input from the user.
 ///
 /// * `prompt` - The prompt shown to the user
@@ -51,7 +71,7 @@ static INIT: Once = Once::new();
 #[no_mangle]
 pub extern "C" fn r_read_console(
     prompt: *const c_char,
-    buf: *mut ::std::os::raw::c_uchar,
+    buf: *mut c_uchar,
     buflen: c_int,
     _hist: c_int,
 ) -> i32 {
@@ -75,26 +95,50 @@ pub extern "C" fn r_read_console(
         .unwrap();
 
     let mutex = unsafe { CONSOLE_RECV.as_ref().unwrap() };
-    let recv = mutex.lock().unwrap();
-    if let Some(mut input) = recv.recv().unwrap() {
-        trace!("Sending input to R: '{}'", input);
-        input.push_str("\n");
-        if input.len() < buflen.try_into().unwrap() {
-            let src = CString::new(input).unwrap();
-            unsafe {
-                libc::strcpy(buf as *mut c_char, src.as_ptr());
+    let receiver = mutex.lock().unwrap();
+
+    // Match with a timeout. Necessary because we need to
+    // pump the event loop while waiting for console input.
+    loop {
+
+        match receiver.recv_timeout(Duration::from_millis(200)) {
+
+            Ok(response) => {
+
+                // TODO: Handle buffering issues.
+                if let Some(input) = response {
+                    on_console_input(buf, buflen, input);
+                }
+
+                return 0;
+
             }
-        } else {
-            // Input doesn't fit in buffer
-            // TODO: need to allow next call to read the buffer
-            return 1;
+
+            Err(error) => {
+                use std::sync::mpsc::RecvTimeoutError::*;
+                match error {
+
+                    Timeout => {
+
+                        // Pump the event loop.
+                        unsafe { R_ProcessEvents() };
+
+                        // Keep waiting for console input.
+                        continue;
+
+                    }
+
+                    Disconnected => {
+
+                        return 1;
+
+                    }
+                }
+            }
         }
-    } else {
-        trace!("Exiting R from console reader");
-        return 0;
+
     }
-    // Nonzero return values indicate the end of input and cause R to exit
-    1
+
 }
 
 #[no_mangle]
@@ -103,6 +147,39 @@ pub extern "C" fn r_write_console(buf: *const c_char, _buflen: i32, otype: i32) 
     let mutex = unsafe { KERNEL.as_ref().unwrap() };
     let mut kernel = mutex.lock().unwrap();
     kernel.write_console(content.to_str().unwrap(), otype);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn r_polled_events() {
+
+    // TODO: Try processing events for some duration of time.
+    r_polled_events_impl();
+
+}
+
+unsafe fn r_polled_events_impl() {
+
+    // NOTE: Routines here (currently) panic intentionally if we cannot
+    // unwrap or acquire the requisite locks, as these events basically
+    // should never happen and we don't have a way to recover if they do.
+    if !TASKS_PENDING {
+        return;
+    }
+
+    // The LSP is asking for permission to do work; let it know it can start.
+    dlog!("Main thread is notifying LSP it can start working.");
+    let sender = LSP_EXECUTION_START_RESPONSE_SENDER.as_ref().unwrap();
+    let guard = sender.try_lock().unwrap();
+    guard.send(()).unwrap();
+
+    // Wait until the LSP lets us know we can proceed again.
+    dlog!("Main thread is waiting for LSP response.");
+    let receiver = LSP_EXECUTION_FINISHED_RECEIVER.as_ref().unwrap();
+    let guard = receiver.try_lock().unwrap();
+    guard.recv().unwrap();
+
+    dlog!("Main thread has received LSP response; continuing.");
+
 }
 
 pub fn start_r(
@@ -173,6 +250,8 @@ pub fn start_r(
         // Redirect console
         R_Consolefile = std::ptr::null_mut();
         R_Outputfile = std::ptr::null_mut();
+        R_PolledEvents = Some(r_polled_events);
+
         ptr_R_WriteConsole = None;
         ptr_R_WriteConsoleEx = Some(r_write_console);
         ptr_R_ReadConsole = Some(r_read_console);
@@ -213,7 +292,7 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
         let kernel = mutex.lock().unwrap();
 
         // Figure out what the ordinary prompt looks like.
-        let default_prompt = match rlock! { R!(getOption("prompt")) } {
+        let default_prompt = match{ R!(getOption("prompt")) } {
             Ok(prompt) => prompt.as_str(),
             Err(err) => {
                 warn!("Failed to get R prompt: {}", err);

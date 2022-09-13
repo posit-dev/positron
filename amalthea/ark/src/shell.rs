@@ -33,7 +33,6 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
-use libR_sys::R_GlobalContext;
 use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
@@ -42,8 +41,7 @@ use std::thread;
 use std::time::Duration;
 
 extern "C" {
-    #[no_mangle]
-    static R_Is_Running: i32;
+static R_Is_Running: i32;
 }
 
 pub struct Shell {

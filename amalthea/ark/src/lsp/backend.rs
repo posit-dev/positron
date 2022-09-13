@@ -6,8 +6,6 @@
 //
 
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -29,7 +27,8 @@ use crate::lsp::completions::append_document_completions;
 use crate::lsp::document::Document;
 use crate::lsp::logger::dlog;
 use crate::r;
-use crate::r::lock::rlock;
+use crate::r::lock::r_lock;
+use crate::r::lock::with_r_lock;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -129,19 +128,20 @@ impl LanguageServer for Backend {
         // start a task to periodically flush logs
         // TODO: let dlog! notify the task so that logs can be flushed immediately,
         // instead of just polling
-        let runtime = Handle::current();
-        let client = self.client.clone();
-        runtime.spawn(async move {
-            loop {
-                std::thread::sleep(Duration::from_secs(1));
-                crate::lsp::logger::flush(&client).await;
+        std::thread::spawn({
+            let client = self.client.clone();
+            move || async move {
+                loop {
+                    std::thread::sleep(Duration::from_secs(1));
+                    crate::lsp::logger::flush(&client).await;
+                }
             }
         });
 
         // initialize our support functions
-        rlock! {
-            r::modules::initialize();
-        }
+        dlog!("> r::modules::initialized()");
+        r_lock! { r::modules::initialize() };
+        dlog!("< r::modules::initialized()");
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -327,6 +327,9 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
+
+    dlog!("start_lsp()");
+
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 

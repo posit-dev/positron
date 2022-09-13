@@ -11,7 +11,7 @@ use libR_sys::*;
 
 use crate::lsp::logger::dlog;
 use crate::macros::cstr;
-use crate::r::lock::rlock;
+use crate::r::lock::r_lock;
 use crate::r::macros::r_symbol;
 use crate::r::object::RObject;
 use crate::r::protect::RProtect;
@@ -66,11 +66,7 @@ impl RFunction {
         self
     }
 
-    pub fn call(&mut self) -> RObject {
-        rlock! { self.call_impl() }
-    }
-
-    fn call_impl(&mut self) -> RObject { unsafe {
+    pub unsafe fn call(&mut self) -> RObject {
 
         let mut protect = RProtect::new();
 
@@ -123,7 +119,7 @@ impl RFunction {
         // - should we allow the caller to decide how errors are handled?
         return RObject::new(result);
 
-    } }
+    }
 
 }
 
@@ -218,7 +214,7 @@ mod tests {
         for _i in 1..10 {
             let handle = std::thread::spawn(|| {
                 for _j in 1..10 {
-                    let result = rlock! {
+                    let result = r_lock! {
                         let mut protect = RProtect::new();
                         let code = protect.add(Rf_lang2(r_symbol!("rnorm"), Rf_ScalarInteger(N)));
                         Rf_eval(code, R_GlobalEnv)

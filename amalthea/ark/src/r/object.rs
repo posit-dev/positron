@@ -14,22 +14,18 @@ use std::os::raw::c_int;
 
 use libR_sys::*;
 
-use crate::r::lock::rlock;
+use crate::r::lock::r_lock;
 use crate::r::macros::r_check_length;
 
-fn protect(object: &mut RObject) {
-    rlock! {
-        if object.data != R_NilValue {
-            R_PreserveObject(object.data);
-        }
+unsafe fn protect(object: &mut RObject) {
+    if object.data != R_NilValue {
+        R_PreserveObject(object.data);
     }
 }
 
-fn unprotect(object: &mut RObject) {
-    rlock! {
-        if object.data != R_NilValue {
-            R_ReleaseObject(object.data);
-        }
+unsafe fn unprotect(object: &mut RObject) {
+    if object.data != R_NilValue {
+        R_ReleaseObject(object.data);
     }
 }
 
@@ -53,7 +49,7 @@ impl RObject {
 
 impl Drop for RObject {
     fn drop(&mut self) {
-        unprotect(self);
+        unsafe { unprotect(self) };
     }
 }
 
@@ -73,13 +69,13 @@ impl DerefMut for RObject {
 /// <T> -> RObject
 impl From<SEXP> for RObject {
     fn from(value: SEXP) -> Self {
-        rlock! { RObject::new(value) }
+        unsafe { RObject::new(value) }
     }
 }
 
 impl From<bool> for RObject {
     fn from(value: bool) -> Self {
-        rlock! {
+        unsafe {
             let value = Rf_ScalarLogical(value as c_int);
             return RObject::new(value);
         }
@@ -88,7 +84,7 @@ impl From<bool> for RObject {
 
 impl From<i32> for RObject {
     fn from(value: i32) -> Self {
-        rlock! {
+        unsafe {
             let value = Rf_ScalarInteger(value as c_int);
             return RObject::new(value);
         }
@@ -97,7 +93,7 @@ impl From<i32> for RObject {
 
 impl From<f64> for RObject {
     fn from(value: f64) -> Self {
-        rlock! {
+        unsafe {
             let value = Rf_ScalarReal(value);
             return RObject::new(value);
         }
@@ -106,7 +102,7 @@ impl From<f64> for RObject {
 
 impl From<&str> for RObject {
     fn from(value: &str) -> Self {
-        rlock! {
+        unsafe {
             let vector = Rf_protect(Rf_allocVector(STRSXP, 1));
             let element = Rf_mkCharLenCE(value.as_ptr() as *mut c_char, value.len() as i32, cetype_t_CE_UTF8);
             SET_STRING_ELT(vector, 0, element);
@@ -126,7 +122,7 @@ impl From<String> for RObject {
 impl TryFrom<RObject> for bool {
     type Error = crate::r::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
-        rlock! {
+        unsafe {
             // r_check_type!(value, LGLSXP);
             r_check_length!(value, 1);
             // r_check_na
@@ -138,7 +134,7 @@ impl TryFrom<RObject> for bool {
 impl TryFrom<RObject> for String {
     type Error = crate::r::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
-        rlock! {
+        unsafe {
             r_check_length!(value, 1);
             let cstr = R_CHAR(STRING_ELT(*value, 0));
             return Ok(CStr::from_ptr(cstr).to_str().unwrap().to_string());

@@ -32,9 +32,12 @@ mod shell;
 mod version;
 
 fn start_kernel(connection_file: ConnectionFile) {
+
+    // Initialize various pieces of machinery.
+    unsafe { crate::r::lock::initialize() };
+
     // This channel delivers execution status and other iopub messages from
     // other threads to the iopub thread
-
     let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);
 
     let shell_sender = iopub_sender.clone();
@@ -145,7 +148,8 @@ Available options:
 }
 
 fn main() {
-    // Initialize logging system; the env_logger lets you configure loggign with
+
+    // Initialize logging system; the env_logger lets you configure logging with
     // the RUST_LOG env var
     env_logger::init();
 

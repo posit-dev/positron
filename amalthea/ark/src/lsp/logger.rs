@@ -1,9 +1,9 @@
-// 
+//
 // logger.rs
-// 
+//
 // Copyright (C) 2022 by RStudio, PBC
-// 
-// 
+//
+//
 
 use std::sync::Mutex;
 use lazy_static::lazy_static;
@@ -18,14 +18,14 @@ pub(crate) struct Logger {
 
 #[doc(hidden)]
 pub(crate) async fn flush(client: &Client) {
-    
+
     let mut messages = Vec::new();
 
     if let Ok(mut logger) = LOGGER.lock() {
         messages = logger.messages.clone();
         logger.messages.clear();
     }
-    
+
     for message in messages {
         client.log_message(MessageType::INFO, message).await;
     }
@@ -42,9 +42,26 @@ pub(crate) fn append(message: String) {
 macro_rules! dlog {
 
     ($($rest:expr),*) => {{
+
+        use std::io::prelude::*;
+
+        // Create line to be logged.
         let prefix = format!("{}:{}:{}:", file!(), line!(), column!());
         let suffix = format!($($rest, )*);
-        crate::lsp::logger::append(format!("{} {}", prefix, suffix));
+        let line = format!("{} {}", prefix, suffix);
+
+        // Log with the LSP.
+        crate::lsp::logger::append(line.clone());
+
+        // Also log to file (for debugging when the LSP isn't responsive)
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open("/tmp/ark.log")
+            .unwrap();
+
+        writeln!(file, "{}", line).unwrap();
+
     }};
 
 }
