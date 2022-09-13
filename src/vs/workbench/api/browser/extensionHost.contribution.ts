@@ -76,7 +76,7 @@ import './mainThreadTesting';
 import './mainThreadSecretState';
 
 // --- Begin Positron ---
-import './mainThreadLanguageRuntime';
+import './myriac/mainThreadLanguageRuntime';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {
