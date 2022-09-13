@@ -75,6 +75,10 @@ import './mainThreadTimeline';
 import './mainThreadTesting';
 import './mainThreadSecretState';
 
+// --- Begin Positron ---
+import './mainThreadLanguageRuntime';
+// --- End Positron ---
+
 export class ExtensionPoints implements IWorkbenchContribution {
 
 	constructor(
