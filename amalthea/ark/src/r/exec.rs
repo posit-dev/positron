@@ -191,7 +191,6 @@ mod tests {
 
         start_r();
 
-        let mut protect = RProtect::new();
         let result = RFunction::new("stats", "rnorm")
             .add(1.0)
             .param("mean", 10)

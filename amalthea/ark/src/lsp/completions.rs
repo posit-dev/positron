@@ -99,7 +99,7 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
 
         if TYPEOF(doc_type) as u32 == STRSXP && TYPEOF(doc_contents) as u32 == STRSXP {
 
-            let doc_type = Robj::from_sexp(doc_type).as_str().unwrap();
+            let _doc_type = Robj::from_sexp(doc_type).as_str().unwrap();
             let doc_contents = Robj::from_sexp(doc_contents).as_str().unwrap();
 
             item.documentation = Some(Documentation::MarkupContent(MarkupContent {
