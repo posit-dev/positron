@@ -5,11 +5,13 @@
 //
 //
 
-// NOTE: All execution of R code should first attempt to acquire
-// this lock before execution. The Ark LSP's execution model allows
-// arbitrary threads and tasks to communicate with the R session,
-// and we mediate that via synchronization using a pair of channels
-// used to signal the start + end of code execution in a thread.
+// The R lock is to be used by threads which wish to access the R runtime. The
+// main thread owns access to the R runtime by default, but it can yield access
+// to other threads through the use of the facilities in this module.
+//
+// Threads will then be given an opportunity to execute code in the next call
+// made by R to the R_PolledEvents event handler, which happens quite frequently
+// (usually via R_ProcessEvents).
 
 use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
@@ -30,12 +32,14 @@ extern "C" fn r_polled_events_disabled() {
 
 }
 
-// The thread currently holding the runtime lock.
+// A re-entrant mutex, to ensure only one thread can access
+// the R runtime at a time.
 static mut LOCK : ReentrantMutex<()> = ReentrantMutex::new(());
 
-// Child threads can set this to notify the main thread
-// that there is work to be done that requires access
-// to the R runtime.
+// Child threads can set this to notify the main thread that there is work to be
+// done that requires access to the R runtime. The main thread will check this
+// flag when R_ProcessEvents is called, and if set, the main thread will then
+// yield control to the child thread requesting access.
 pub static mut TASKS_PENDING: bool = false;
 
 // Channels used by the main thread to notify a child thread
@@ -55,16 +59,14 @@ pub struct RLockGuard {
 impl RLockGuard {
 
     pub fn lock() -> Self {
-
         let mut this = Self { polled_events: None };
         unsafe { this.lock_impl() };
         return this;
-
     }
 
     unsafe fn lock_impl(&mut self) {
 
-        dlog!("Thread {:?} acquiring R lock", std::thread::current().id());
+        dlog!("Thread {:?} acquiring R lock.", std::thread::current().id());
 
         // Acquire the lock.
         let _guard = LOCK.lock();
@@ -83,10 +85,11 @@ impl RLockGuard {
         self.polled_events = R_PolledEvents;
         R_PolledEvents = Some(r_polled_events_disabled);
 
-
     }
 
     unsafe fn drop_impl(&mut self) {
+
+        dlog!("Thread {:?} dropping R lock.", std::thread::current().id());
 
         // Let the R session know we're done.
         let sender = FINI_SEND.as_ref().unwrap();
