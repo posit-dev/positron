@@ -8,8 +8,8 @@
 // NOTE: All execution of R code should first attempt to acquire
 // this lock before execution. The Ark LSP's execution model allows
 // arbitrary threads and tasks to communicate with the R session,
-// and we mediate that through a global execution lock which must be
-// held when interacting with R.
+// and we mediate that via synchronization using a pair of channels
+// used to signal the start + end of code execution in a thread.
 
 use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
@@ -18,7 +18,8 @@ use std::sync::mpsc::channel;
 use std::time::Duration;
 
 use parking_lot::ReentrantMutex;
-use lazy_static::lazy_static;
+
+use crate::lsp::logger::dlog;
 
 extern "C" {
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
@@ -29,31 +30,33 @@ extern "C" fn r_polled_events_disabled() {
 
 }
 
-// Does the LSP have some tasks that it wants to execute?
-// The main thread uses this flag to decide whether to
-// yield execution to the LSP thread for some time.
+// The thread currently holding the runtime lock.
+static mut LOCK : ReentrantMutex<()> = ReentrantMutex::new(());
+
+// Child threads can set this to notify the main thread
+// that there is work to be done that requires access
+// to the R runtime.
 pub static mut TASKS_PENDING: bool = false;
 
-static mut LOCK_ACQUIRED: bool = false;
+// Channels used by the main thread to notify a child thread
+// that is can now safely use the R runtime.
+pub static mut INIT_SEND: Option<Mutex<Sender<()>>> = None;
+pub static mut INIT_RECV: Option<Mutex<Receiver<()>>> = None;
 
-// Used by the main thread to notify the LSP when it's safe to start working.
-pub static mut LSP_EXECUTION_START_RESPONSE_SENDER: Option<Mutex<Sender<()>>> = None;
-pub static mut LSP_EXECUTION_START_RESPONSE_RECEIVER: Option<Mutex<Receiver<()>>> = None;
-
-// Used by the LSP to notify the main thread when we've finished a job.
-pub static mut LSP_EXECUTION_FINISHED_SENDER: Option<Mutex<Sender<()>>> = None;
-pub static mut LSP_EXECUTION_FINISHED_RECEIVER: Option<Mutex<Receiver<()>>> = None;
+// Channels used by the child threads to notify the main
+// thread that it can now resume control.
+pub static mut FINI_SEND: Option<Mutex<Sender<()>>> = None;
+pub static mut FINI_RECV: Option<Mutex<Receiver<()>>> = None;
 
 pub unsafe fn initialize() {
 
-    // Used by the LSP to receive a response that we can start working.
     let (sender, receiver) = channel();
-    LSP_EXECUTION_START_RESPONSE_SENDER = Some(Mutex::new(sender));
-    LSP_EXECUTION_START_RESPONSE_RECEIVER = Some(Mutex::new(receiver));
+    INIT_SEND = Some(Mutex::new(sender));
+    INIT_RECV = Some(Mutex::new(receiver));
 
     let (sender, receiver) = channel();
-    LSP_EXECUTION_FINISHED_SENDER = Some(Mutex::new(sender));
-    LSP_EXECUTION_FINISHED_RECEIVER = Some(Mutex::new(receiver));
+    FINI_SEND = Some(Mutex::new(sender));
+    FINI_RECV = Some(Mutex::new(receiver));
 
 }
 
@@ -61,19 +64,21 @@ pub unsafe fn with_r_lock<T, Callback: FnMut() -> T>(mut callback: Callback) -> 
 
     dlog!("Thread {:?} acquiring R lock", std::thread::current().id());
 
+    // Acquire the lock.
+    let _guard = LOCK.lock();
+
     // If we already have the lock, we can run.
-    if LOCK_ACQUIRED {
-        dlog!("LSP already has lock; executing callback.");
+    if TASKS_PENDING {
+        dlog!("Child thread already has lock; executing callback.");
         return callback();
     }
 
     // Let the main thread know there's a task waiting to be executed.
-    dlog!("Setting TASKS_PENDING = true.");
     TASKS_PENDING = true;
 
     // Wait for a response from the main thread,
-    dlog!("LSP waiting for response from main thread.");
-    let receiver = LSP_EXECUTION_START_RESPONSE_RECEIVER.as_ref().unwrap();
+    dlog!("Child thread waiting for response from main thread.");
+    let receiver = INIT_RECV.as_ref().unwrap();
     let guard = receiver.try_lock().unwrap();
     guard.recv_timeout(Duration::from_secs(5)).unwrap();
 
@@ -82,28 +87,19 @@ pub unsafe fn with_r_lock<T, Callback: FnMut() -> T>(mut callback: Callback) -> 
     let polled_events = R_PolledEvents;
     R_PolledEvents = Some(r_polled_events_disabled);
 
-    // Mark the lock as acquired.
-    LOCK_ACQUIRED = true;
-
     // Do some work.
-    dlog!("LSP received response; about to do work.");
     let result = callback();
-    dlog!("LSP finished doing work.");
-
-    // Release the lock.
-    LOCK_ACQUIRED = false;
 
     // Restore the polled event handler.
     R_PolledEvents = polled_events;
 
     // Let the R session know we're done.
-    let sender = LSP_EXECUTION_FINISHED_SENDER.as_ref().unwrap();
+    let sender = FINI_SEND.as_ref().unwrap();
     let guard = sender.try_lock().unwrap();
     guard.send(()).unwrap();
-    dlog!("LSP has notified main thread it's finished.");
+    dlog!("Child thread has notified main thread it's finished.");
 
     // Let front-end know we're done working.
-    dlog!("Setting TASKS_PENDING = false.");
     TASKS_PENDING = false;
 
     // Return the result.
@@ -121,16 +117,3 @@ macro_rules! r_lock {
 
 }
 pub(crate) use r_lock;
-
-use crate::lsp::logger::dlog;
-
-lazy_static! {
-
-    // A lock, controlling threaded access to the R interpreter.
-    //
-    // Needed because the LSP might execute different tasks concurrently
-    // on different threads, but we want to make sure only one task can
-    // interact with the interpreter at a time.
-    pub static ref LOCK: ReentrantMutex<()> = ReentrantMutex::new(());
-
-}

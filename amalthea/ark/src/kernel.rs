@@ -21,7 +21,6 @@ use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{Sender, SyncSender};
 
-use crate::r::lock::r_lock;
 use crate::request::Request;
 
 /// Represents the Rust state of the R kernel

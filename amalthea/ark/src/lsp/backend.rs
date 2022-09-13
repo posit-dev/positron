@@ -15,7 +15,6 @@ use std::time::Duration;
 use dashmap::DashMap;
 use serde_json::Value;
 use tokio::net::TcpStream;
-use tokio::runtime::Handle;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -28,7 +27,6 @@ use crate::lsp::document::Document;
 use crate::lsp::logger::dlog;
 use crate::r;
 use crate::r::lock::r_lock;
-use crate::r::lock::with_r_lock;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -139,9 +137,9 @@ impl LanguageServer for Backend {
         });
 
         // initialize our support functions
-        dlog!("> r::modules::initialized()");
+        dlog!("Entering r::modules::initialized()");
         r_lock! { r::modules::initialize() };
-        dlog!("< r::modules::initialized()");
+        dlog!("Exiting r::modules::initialized()");
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -327,8 +325,6 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
-
-    dlog!("start_lsp()");
 
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};

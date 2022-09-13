@@ -14,7 +14,6 @@ use std::os::raw::c_int;
 
 use libR_sys::*;
 
-use crate::r::lock::r_lock;
 use crate::r::macros::r_check_length;
 
 unsafe fn protect(object: &mut RObject) {

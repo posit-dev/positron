@@ -24,8 +24,8 @@ use crate::kernel::KernelInfo;
 use crate::lsp::logger::dlog;
 use crate::macros::cargs;
 use crate::macros::cstr;
-use crate::r::lock::LSP_EXECUTION_FINISHED_RECEIVER;
-use crate::r::lock::LSP_EXECUTION_START_RESPONSE_SENDER;
+use crate::r::lock::INIT_SEND;
+use crate::r::lock::FINI_RECV;
 use crate::r::lock::TASKS_PENDING;
 use crate::request::Request;
 
@@ -53,7 +53,13 @@ static INIT: Once = Once::new();
 
 fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {
 
+    // TODO: What if the input is too large for the buffer?
     input.push_str("\n");
+    if input.len() > buflen as usize {
+        dlog!("Error: input too large for buffer.");
+        return;
+    }
+
     let src = CString::new(input).unwrap();
     unsafe {
         libc::strcpy(buf as *mut c_char, src.as_ptr());
@@ -168,13 +174,13 @@ unsafe fn r_polled_events_impl() {
 
     // The LSP is asking for permission to do work; let it know it can start.
     dlog!("Main thread is notifying LSP it can start working.");
-    let sender = LSP_EXECUTION_START_RESPONSE_SENDER.as_ref().unwrap();
+    let sender = INIT_SEND.as_ref().unwrap();
     let guard = sender.try_lock().unwrap();
     guard.send(()).unwrap();
 
     // Wait until the LSP lets us know we can proceed again.
     dlog!("Main thread is waiting for LSP response.");
-    let receiver = LSP_EXECUTION_FINISHED_RECEIVER.as_ref().unwrap();
+    let receiver = FINI_RECV.as_ref().unwrap();
     let guard = receiver.try_lock().unwrap();
     guard.recv().unwrap();
 

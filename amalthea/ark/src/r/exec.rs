@@ -11,7 +11,6 @@ use libR_sys::*;
 
 use crate::lsp::logger::dlog;
 use crate::macros::cstr;
-use crate::r::lock::r_lock;
 use crate::r::macros::r_symbol;
 use crate::r::object::RObject;
 use crate::r::protect::RProtect;
@@ -144,6 +143,7 @@ pub unsafe fn geterrmessage() -> String {
 #[cfg(test)]
 mod tests {
 
+    use crate::r::lock::r_lock;
     use crate::r::test::start_r;
 
     use super::*;

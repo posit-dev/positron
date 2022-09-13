@@ -12,7 +12,7 @@ use tower_lsp::Client;
 use tower_lsp::lsp_types::MessageType;
 
 #[derive(Default)]
-pub(crate) struct Logger {
+pub struct Logger {
     messages: Vec<String>,
 }
 
@@ -53,6 +53,9 @@ macro_rules! dlog {
         // Log with the LSP.
         crate::lsp::logger::append(line.clone());
 
+        // Acquire logging lock.
+        let _guard = $crate::lsp::logger::LOGGER.lock().unwrap();
+
         // Also log to file (for debugging when the LSP isn't responsive)
         let mut file = std::fs::OpenOptions::new()
             .write(true)
@@ -68,5 +71,5 @@ macro_rules! dlog {
 pub(crate) use dlog;
 
 lazy_static! {
-    static ref LOGGER : Mutex<Logger> = Mutex::new(Logger::default());
+    pub static ref LOGGER : Mutex<Logger> = Mutex::new(Logger::default());
 }
