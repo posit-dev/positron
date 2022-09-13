@@ -401,6 +401,56 @@ export const PANEL_SECTION_BORDER = registerColor('panelSection.border', {
 	hcLight: PANEL_BORDER
 }, localize('panelSectionBorder', "Panel section border color used when multiple views are stacked horizontally in the panel. Panels are shown below the editor area and contain views like output and integrated terminal. Panel sections are views nested within the panels."));
 
+// --- Start Positron ---
+// < --- Top Bar --- >
+
+export const TOP_BAR_BACKGROUND = registerColor('topBar.background', {
+	dark: '#3b4144',
+	light: '#f5f7fa',
+	hcDark: Color.black,
+	hcLight: Color.white
+}, localize('topBar.background', "Top bar background color. The top bar is shown under the title bar of the window."));
+
+export const TOP_BAR_FOREGROUND = registerColor('topBar.foreground', {
+	dark: Color.white,
+	light: Color.white,
+	hcDark: Color.white,
+	hcLight: Color.white
+}, localize('topBar.foreground', "Top bar foreground color. The top bar is shown under the title bar of the window."));
+
+export const TOP_BAR_ICON_FOREGROUND = registerColor('topBar.iconForeground', {
+	dark: editorInfoForeground,
+	light: editorInfoForeground,
+	hcDark: editorInfoForeground,
+	hcLight: editorInfoForeground
+}, localize('topBar.iconForeground', "Top bar icon color. The top bar is shown under the title bar of the window."));
+
+// < --- Auxiliary Activity Bar --- >
+
+export const AUXILIARY_ACTIVITY_BAR_BACKGROUND = registerColor('auxiliaryActivityBar.background', {
+	dark: '#32485b',
+	light: '#3a78b1',
+	hcDark: '#000000',
+	hcLight: '#FFFFFF'
+}, localize('auxiliaryActivityBar.background', "Auxiliary activity bar background color. The auxiliary activity bar is shown on the right of the window."));
+
+export const AUXILIARY_ACTIVITY_BAR_ICON_FOREGROUND = registerColor('auxiliaryActivityBar.iconForeground', {
+	dark: '#c1c9d1',
+	light: '#75828d',
+	hcDark: editorInfoForeground,
+	hcLight: editorInfoForeground
+}, localize('auxiliaryActivityBar.iconForeground', "Auxiliary activity bar icon color. The auxiliary activity bar is shown on the right of the window."));
+
+export const AUXILIARY_ACTIVITY_BAR_ICON_FOREGROUND_HOVER = registerColor('auxiliaryActivityBar.iconForegroundHover', {
+	dark: Color.white,
+	light: Color.black,
+	hcDark: editorInfoForeground,
+	hcLight: editorInfoForeground
+}, localize('auxiliaryActivityBar.iconForegroundHover', "Auxiliary activity bar icon color. The auxiliary activity bar is shown on the right of the window."));
+
+
+// --- End Positron ---
+
 // < --- Banner --- >
 
 export const BANNER_BACKGROUND = registerColor('banner.background', {

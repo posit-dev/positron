@@ -76,7 +76,13 @@ export const LayoutStateKeys = {
 	PANEL_ALIGNMENT: new RuntimeStateKey<PanelAlignment>('panel.alignment', StorageScope.PROFILE, StorageTarget.USER, 'center'),
 
 	// Part Visibility
+	// --- Start Positron ---
+	TOPBAR_HIDDEN: new RuntimeStateKey<boolean>('topBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
+	// --- End Positron ---
 	ACTIVITYBAR_HIDDEN: new RuntimeStateKey<boolean>('activityBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
+	// --- Start Positron ---
+	AUXILIARYACTIVITYBAR_HIDDEN: new RuntimeStateKey<boolean>('auxiliaryActivityBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
+	// --- End Positron ---
 	SIDEBAR_HIDDEN: new RuntimeStateKey<boolean>('sideBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false),
 	EDITOR_HIDDEN: new RuntimeStateKey<boolean>('editor.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false),
 	PANEL_HIDDEN: new RuntimeStateKey<boolean>('panel.hidden', StorageScope.WORKSPACE, StorageTarget.USER, true),
