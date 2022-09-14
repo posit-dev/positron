@@ -150,8 +150,7 @@ function hygiene(some, linting = true) {
 				.pipe(filter(eslintFilter))
 				.pipe(
 					gulpeslint({
-						configFile: '.eslintrc.json',
-						rulePaths: ['./build/lib/eslint'],
+						configFile: '.eslintrc.json'
 					})
 				)
 				.pipe(gulpeslint.formatEach('compact'))
