@@ -26,7 +26,7 @@
 	"linuxIconName": "com.visualstudio.code.oss",
 	"licenseFileName": "LICENSE.txt",
 	"reportIssueUrl": "https://github.com/rstudio/myriac/issues/new",
-	"urlProtocol": "code-oss",
+	"urlProtocol": "myriac",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"builtInExtensions": [
 		{
