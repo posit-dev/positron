@@ -6,7 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeState, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeOutput, ILanguageRuntimeState, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -154,9 +154,27 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 		const cell = this._nbTextModel?.cells[0]!;
 		cell.onDidChangeOutputs((e) => {
-			// TODO: handle output changes
+			const data = new Map<string, string>();
+
+			// Build map of all outputs
+			for (const output of e.newOutputs) {
+				for (const o of output.outputs) {
+					// TODO: should we really be converting from VSBuffer to a
+					// string?
+					data.set(o.mime, o.data.toString());
+				}
+			}
+
+			// Emit a message describing the outputs
+			this.messages.fire({
+				type: 'output',
+				id: 'output-' + NotebookLanguageRuntime._msgCounter++,
+				parent_id: id,
+				data: data
+			} as ILanguageRuntimeOutput);
 		});
 
+		// Create a cell execution to track the execution of this code fragment
 		const exe = this._notebookExecutionStateService.createCellExecution(this._uri, cell.handle);
 		if (!exe) {
 			throw new Error(`Cannot create cell execution state for code: ${code}`);
