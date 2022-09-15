@@ -4,12 +4,10 @@
 'use strict';
 
 import { expect } from 'chai';
-import { instance, mock } from 'ts-mockito';
 import * as typemoq from 'typemoq';
 import { Uri } from 'vscode';
-import { IMultiStepInput, IMultiStepInputFactory } from '../../../../client/common/utils/multiStepInput';
+import { IMultiStepInputFactory, MultiStepInput } from '../../../../client/common/utils/multiStepInput';
 import { PythonDebugConfigurationService } from '../../../../client/debugger/extension/configuration/debugConfigurationService';
-import { DebugConfigurationProviderFactory } from '../../../../client/debugger/extension/configuration/providers/providerFactory';
 import { IDebugConfigurationResolver } from '../../../../client/debugger/extension/configuration/types';
 import { DebugConfigurationState } from '../../../../client/debugger/extension/types';
 import { AttachRequestArguments, LaunchRequestArguments } from '../../../../client/debugger/types';
@@ -19,11 +17,10 @@ suite('Debugging - Configuration Service', () => {
     let launchResolver: typemoq.IMock<IDebugConfigurationResolver<LaunchRequestArguments>>;
     let configService: TestPythonDebugConfigurationService;
     let multiStepFactory: typemoq.IMock<IMultiStepInputFactory>;
-    let providerFactory: DebugConfigurationProviderFactory;
 
     class TestPythonDebugConfigurationService extends PythonDebugConfigurationService {
         public async pickDebugConfiguration(
-            input: IMultiStepInput<DebugConfigurationState>,
+            input: MultiStepInput<DebugConfigurationState>,
             state: DebugConfigurationState,
         ) {
             return super.pickDebugConfiguration(input, state);
@@ -33,12 +30,10 @@ suite('Debugging - Configuration Service', () => {
         attachResolver = typemoq.Mock.ofType<IDebugConfigurationResolver<AttachRequestArguments>>();
         launchResolver = typemoq.Mock.ofType<IDebugConfigurationResolver<LaunchRequestArguments>>();
         multiStepFactory = typemoq.Mock.ofType<IMultiStepInputFactory>();
-        providerFactory = mock(DebugConfigurationProviderFactory);
 
         configService = new TestPythonDebugConfigurationService(
             attachResolver.object,
             launchResolver.object,
-            instance(providerFactory),
             multiStepFactory.object,
         );
     });
@@ -93,7 +88,7 @@ suite('Debugging - Configuration Service', () => {
     });
     test('Picker should be displayed', async () => {
         const state = ({ configs: [], folder: {}, token: undefined } as any) as DebugConfigurationState;
-        const multiStepInput = typemoq.Mock.ofType<IMultiStepInput<DebugConfigurationState>>();
+        const multiStepInput = typemoq.Mock.ofType<MultiStepInput<DebugConfigurationState>>();
         multiStepInput
             .setup((i) => i.showQuickPick(typemoq.It.isAny()))
             .returns(() => Promise.resolve(undefined as any))
@@ -105,7 +100,7 @@ suite('Debugging - Configuration Service', () => {
     });
     test('Existing Configuration items must be removed before displaying picker', async () => {
         const state = ({ configs: [1, 2, 3], folder: {}, token: undefined } as any) as DebugConfigurationState;
-        const multiStepInput = typemoq.Mock.ofType<IMultiStepInput<DebugConfigurationState>>();
+        const multiStepInput = typemoq.Mock.ofType<MultiStepInput<DebugConfigurationState>>();
         multiStepInput
             .setup((i) => i.showQuickPick(typemoq.It.isAny()))
             .returns(() => Promise.resolve(undefined as any))

@@ -10,14 +10,10 @@ import { Uri } from 'vscode';
 import { DebugConfigStrings } from '../../../../../client/common/utils/localize';
 import { MultiStepInput } from '../../../../../client/common/utils/multiStepInput';
 import { DebuggerTypeName } from '../../../../../client/debugger/constants';
-import { ModuleLaunchDebugConfigurationProvider } from '../../../../../client/debugger/extension/configuration/providers/moduleLaunch';
+import { buildModuleLaunchConfiguration } from '../../../../../client/debugger/extension/configuration/providers/moduleLaunch';
 import { DebugConfigurationState } from '../../../../../client/debugger/extension/types';
 
 suite('Debugging - Configuration Provider Module', () => {
-    let provider: ModuleLaunchDebugConfigurationProvider;
-    setup(() => {
-        provider = new ModuleLaunchDebugConfigurationProvider();
-    });
     test('Launch JSON with default module name', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
         const state = { config: {}, folder };
@@ -25,7 +21,7 @@ suite('Debugging - Configuration Provider Module', () => {
 
         when(input.showInputBox(anything())).thenResolve();
 
-        await provider.buildConfiguration(instance(input), state);
+        await buildModuleLaunchConfiguration(instance(input), state);
 
         const config = {
             name: DebugConfigStrings.module.snippet.name,
@@ -44,7 +40,7 @@ suite('Debugging - Configuration Provider Module', () => {
 
         when(input.showInputBox(anything())).thenResolve('hello');
 
-        await provider.buildConfiguration(instance(input), state);
+        await buildModuleLaunchConfiguration(instance(input), state);
 
         const config = {
             name: DebugConfigStrings.module.snippet.name,

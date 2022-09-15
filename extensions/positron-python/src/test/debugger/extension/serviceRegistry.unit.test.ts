@@ -17,31 +17,16 @@ import { LaunchJsonCompletionProvider } from '../../../client/debugger/extension
 import { InterpreterPathCommand } from '../../../client/debugger/extension/configuration/launch.json/interpreterPathCommand';
 import { LaunchJsonReader } from '../../../client/debugger/extension/configuration/launch.json/launchJsonReader';
 import { LaunchJsonUpdaterService } from '../../../client/debugger/extension/configuration/launch.json/updaterService';
-import { DjangoLaunchDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/djangoLaunch';
-import { FastAPILaunchDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/fastapiLaunch';
-import { FileLaunchDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/fileLaunch';
-import { FlaskLaunchDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/flaskLaunch';
-import { ModuleLaunchDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/moduleLaunch';
-import { PidAttachDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/pidAttach';
-import { DebugConfigurationProviderFactory } from '../../../client/debugger/extension/configuration/providers/providerFactory';
-import { PyramidLaunchDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/pyramidLaunch';
-import { RemoteAttachDebugConfigurationProvider } from '../../../client/debugger/extension/configuration/providers/remoteAttach';
 import { AttachConfigurationResolver } from '../../../client/debugger/extension/configuration/resolvers/attach';
 import { LaunchConfigurationResolver } from '../../../client/debugger/extension/configuration/resolvers/launch';
-import {
-    IDebugConfigurationProviderFactory,
-    IDebugConfigurationResolver,
-    ILaunchJsonReader,
-} from '../../../client/debugger/extension/configuration/types';
+import { IDebugConfigurationResolver, ILaunchJsonReader } from '../../../client/debugger/extension/configuration/types';
 import { DebugCommands } from '../../../client/debugger/extension/debugCommands';
 import { ChildProcessAttachEventHandler } from '../../../client/debugger/extension/hooks/childProcessAttachHandler';
 import { ChildProcessAttachService } from '../../../client/debugger/extension/hooks/childProcessAttachService';
 import { IChildProcessAttachService, IDebugSessionEventHandlers } from '../../../client/debugger/extension/hooks/types';
 import { registerTypes } from '../../../client/debugger/extension/serviceRegistry';
 import {
-    DebugConfigurationType,
     IDebugAdapterDescriptorFactory,
-    IDebugConfigurationProvider,
     IDebugConfigurationService,
     IDebuggerBanner,
     IDebugSessionLoggingFactory,
@@ -123,69 +108,6 @@ suite('Debugging - Service Registry', () => {
                 'attach',
             ),
         ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProviderFactory>(
-                IDebugConfigurationProviderFactory,
-                DebugConfigurationProviderFactory,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                FileLaunchDebugConfigurationProvider,
-                DebugConfigurationType.launchFile,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                DjangoLaunchDebugConfigurationProvider,
-                DebugConfigurationType.launchDjango,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                FastAPILaunchDebugConfigurationProvider,
-                DebugConfigurationType.launchFastAPI,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                FlaskLaunchDebugConfigurationProvider,
-                DebugConfigurationType.launchFlask,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                RemoteAttachDebugConfigurationProvider,
-                DebugConfigurationType.remoteAttach,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                ModuleLaunchDebugConfigurationProvider,
-                DebugConfigurationType.launchModule,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                PyramidLaunchDebugConfigurationProvider,
-                DebugConfigurationType.launchPyramid,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationProvider>(
-                IDebugConfigurationProvider,
-                PidAttachDebugConfigurationProvider,
-                DebugConfigurationType.pidAttach,
-            ),
-        ).once();
-
         verify(
             serviceManager.addSingleton<IExtensionSingleActivationService>(
                 IExtensionSingleActivationService,

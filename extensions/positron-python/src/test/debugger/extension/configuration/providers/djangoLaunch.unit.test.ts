@@ -3,153 +3,104 @@
 
 'use strict';
 
+import { Uri } from 'vscode';
 import { expect } from 'chai';
 import * as path from 'path';
+import * as fs from 'fs-extra';
+import * as sinon from 'sinon';
 import { anything, instance, mock, when } from 'ts-mockito';
-import { Uri, WorkspaceFolder } from 'vscode';
-import { IWorkspaceService } from '../../../../../client/common/application/types';
-import { WorkspaceService } from '../../../../../client/common/application/workspace';
-import { FileSystem } from '../../../../../client/common/platform/fileSystem';
-import { PathUtils } from '../../../../../client/common/platform/pathUtils';
-import { IFileSystem } from '../../../../../client/common/platform/types';
-import { IPathUtils } from '../../../../../client/common/types';
 import { DebugConfigStrings } from '../../../../../client/common/utils/localize';
 import { MultiStepInput } from '../../../../../client/common/utils/multiStepInput';
 import { DebuggerTypeName } from '../../../../../client/debugger/constants';
-import { DjangoLaunchDebugConfigurationProvider } from '../../../../../client/debugger/extension/configuration/providers/djangoLaunch';
 import { DebugConfigurationState } from '../../../../../client/debugger/extension/types';
+import { resolveVariables } from '../../../../../client/debugger/extension/configuration/utils/common';
+import * as workspaceFolder from '../../../../../client/debugger/extension/configuration/utils/workspaceFolder';
+import * as djangoLaunch from '../../../../../client/debugger/extension/configuration/providers/djangoLaunch';
 
 suite('Debugging - Configuration Provider Django', () => {
-    let fs: IFileSystem;
-    let workspaceService: IWorkspaceService;
-    let pathUtils: IPathUtils;
-    let provider: TestDjangoLaunchDebugConfigurationProvider;
+    let pathExistsStub: sinon.SinonStub;
+    let pathSeparatorStub: sinon.SinonStub;
+    let workspaceStub: sinon.SinonStub;
     let input: MultiStepInput<DebugConfigurationState>;
-    class TestDjangoLaunchDebugConfigurationProvider extends DjangoLaunchDebugConfigurationProvider {
-        public resolveVariables(pythonPath: string, resource: Uri | undefined): string {
-            return super.resolveVariables(pythonPath, resource);
-        }
 
-        public async getManagePyPath(folder: WorkspaceFolder): Promise<string | undefined> {
-            return super.getManagePyPath(folder);
-        }
-    }
     setup(() => {
-        fs = mock(FileSystem);
-        workspaceService = mock(WorkspaceService);
-        pathUtils = mock(PathUtils);
         input = mock<MultiStepInput<DebugConfigurationState>>(MultiStepInput);
-        provider = new TestDjangoLaunchDebugConfigurationProvider(
-            instance(fs),
-            instance(workspaceService),
-            instance(pathUtils),
-        );
+        pathExistsStub = sinon.stub(fs, 'pathExists');
+        pathSeparatorStub = sinon.stub(path, 'sep');
+        workspaceStub = sinon.stub(workspaceFolder, 'getWorkspaceFolder');
+    });
+    teardown(() => {
+        sinon.restore();
     });
     test("getManagePyPath should return undefined if file doesn't exist", async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
         const managePyPath = path.join(folder.uri.fsPath, 'manage.py');
-        when(fs.fileExists(managePyPath)).thenResolve(false);
-
-        const file = await provider.getManagePyPath(folder);
+        pathExistsStub.withArgs(managePyPath).resolves(false);
+        const file = await djangoLaunch.getManagePyPath(folder);
 
         expect(file).to.be.equal(undefined, 'Should return undefined');
     });
     test('getManagePyPath should file path', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
         const managePyPath = path.join(folder.uri.fsPath, 'manage.py');
-
-        when(pathUtils.separator).thenReturn('-');
-        when(fs.fileExists(managePyPath)).thenResolve(true);
-
-        const file = await provider.getManagePyPath(folder);
+        pathExistsStub.withArgs(managePyPath).resolves(true);
+        pathSeparatorStub.value('-');
+        const file = await djangoLaunch.getManagePyPath(folder);
 
         expect(file).to.be.equal('${workspaceFolder}-manage.py');
     });
     test('Resolve variables (with resource)', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-        when(workspaceService.getWorkspaceFolder(anything())).thenReturn(folder);
-
-        const resolvedPath = provider.resolveVariables('${workspaceFolder}/one.py', Uri.file(''));
+        workspaceStub.returns(folder);
+        const resolvedPath = resolveVariables('${workspaceFolder}/one.py', undefined, folder);
 
         expect(resolvedPath).to.be.equal(`${folder.uri.fsPath}/one.py`);
     });
     test('Validation of path should return errors if path is undefined', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-
-        const error = await provider.validateManagePy(folder, '');
+        const error = await djangoLaunch.validateManagePy(folder, '');
 
         expect(error).to.be.length.greaterThan(1);
     });
     test('Validation of path should return errors if path is empty', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-
-        const error = await provider.validateManagePy(folder, '', '');
+        const error = await djangoLaunch.validateManagePy(folder, '', '');
 
         expect(error).to.be.length.greaterThan(1);
     });
     test('Validation of path should return errors if resolved path is empty', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-        provider.resolveVariables = () => '';
-
-        const error = await provider.validateManagePy(folder, '', 'x');
+        const error = await djangoLaunch.validateManagePy(folder, '', 'x');
 
         expect(error).to.be.length.greaterThan(1);
     });
     test("Validation of path should return errors if resolved path doesn't exist", async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-        provider.resolveVariables = () => 'xyz';
-
-        when(fs.fileExists('xyz')).thenResolve(false);
-        const error = await provider.validateManagePy(folder, '', 'x');
+        pathExistsStub.withArgs('xyz').resolves(false);
+        const error = await djangoLaunch.validateManagePy(folder, '', 'x');
 
         expect(error).to.be.length.greaterThan(1);
     });
     test('Validation of path should return errors if resolved path is non-python', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-        provider.resolveVariables = () => 'xyz.txt';
-
-        when(fs.fileExists('xyz.txt')).thenResolve(true);
-        const error = await provider.validateManagePy(folder, '', 'x');
+        pathExistsStub.withArgs('xyz.txt').resolves(true);
+        const error = await djangoLaunch.validateManagePy(folder, '', 'x');
 
         expect(error).to.be.length.greaterThan(1);
     });
     test('Validation of path should return errors if resolved path is python', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-        provider.resolveVariables = () => 'xyz.py';
-
-        when(fs.fileExists('xyz.py')).thenResolve(true);
-        const error = await provider.validateManagePy(folder, '', 'x');
+        pathExistsStub.withArgs('xyz.py').resolves(true);
+        const error = await djangoLaunch.validateManagePy(folder, '', 'xyz.py');
 
         expect(error).to.be.equal(undefined, 'should not have errors');
-    });
-    test('Launch JSON with valid python path', async () => {
-        const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
-        const state = { config: {}, folder };
-        provider.getManagePyPath = () => Promise.resolve('xyz.py');
-        when(pathUtils.separator).thenReturn('-');
-
-        await provider.buildConfiguration(instance(input), state);
-
-        const config = {
-            name: DebugConfigStrings.django.snippet.name,
-            type: DebuggerTypeName,
-            request: 'launch',
-            program: 'xyz.py',
-            args: ['runserver'],
-            django: true,
-            justMyCode: true,
-        };
-
-        expect(state.config).to.be.deep.equal(config);
     });
     test('Launch JSON with selected managepy path', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
         const state = { config: {}, folder };
-        provider.getManagePyPath = () => Promise.resolve(undefined);
-        when(pathUtils.separator).thenReturn('-');
+        pathSeparatorStub.value('-');
         when(input.showInputBox(anything())).thenResolve('hello');
-
-        await provider.buildConfiguration(instance(input), state);
+        await djangoLaunch.buildDjangoLaunchDebugConfiguration(instance(input), state);
 
         const config = {
             name: DebugConfigStrings.django.snippet.name,
@@ -166,14 +117,11 @@ suite('Debugging - Configuration Provider Django', () => {
     test('Launch JSON with default managepy path', async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
         const state = { config: {}, folder };
-        provider.getManagePyPath = () => Promise.resolve(undefined);
         const workspaceFolderToken = '${workspaceFolder}';
         const defaultProgram = `${workspaceFolderToken}-manage.py`;
-
-        when(pathUtils.separator).thenReturn('-');
+        pathSeparatorStub.value('-');
         when(input.showInputBox(anything())).thenResolve();
-
-        await provider.buildConfiguration(instance(input), state);
+        await djangoLaunch.buildDjangoLaunchDebugConfiguration(instance(input), state);
 
         const config = {
             name: DebugConfigStrings.django.snippet.name,
