@@ -21,6 +21,7 @@ import { PythonPathUpdaterService } from './configuration/pythonPathUpdaterServi
 import { PythonPathUpdaterServiceFactory } from './configuration/pythonPathUpdaterServiceFactory';
 import {
     IInterpreterComparer,
+    IInterpreterQuickPick,
     IInterpreterSelector,
     IPythonPathUpdaterServiceFactory,
     IPythonPathUpdaterServiceManager,
@@ -62,6 +63,7 @@ export function registerInterpreterTypes(serviceManager: IServiceManager): void 
         IExtensionSingleActivationService,
         SetShebangInterpreterCommand,
     );
+    serviceManager.addSingleton(IInterpreterQuickPick, SetInterpreterCommand);
 
     serviceManager.addSingleton<IExtensionActivationService>(IExtensionActivationService, VirtualEnvironmentPrompt);
 
