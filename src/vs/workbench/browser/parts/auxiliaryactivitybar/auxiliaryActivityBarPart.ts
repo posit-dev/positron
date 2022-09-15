@@ -15,7 +15,7 @@ import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryact
 import { AUXILIARY_ACTIVITY_BAR_BACKGROUND, TOP_BAR_FOREGROUND, AUXILIARY_ACTIVITY_BAR_ICON_FOREGROUND, AUXILIARY_ACTIVITY_BAR_ICON_FOREGROUND_HOVER } from 'vs/workbench/common/theme';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { AuxiliaryActivityBarFocused } from 'vs/workbench/common/contextkeys';
-import { ToggleAction, ToggleActionBar } from 'vs/base/browser/ui/toggleactionbar/toggleActionBar';
+import { ToggleAction, ToggleActionBar } from 'vs/base/browser/ui/toggleActionBar/toggleActionBar';
 import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 
 // Theme support
