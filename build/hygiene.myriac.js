@@ -155,7 +155,6 @@ function hygiene(some, linting = true) {
 							// the header/header message fires for headers with
 							// RStudio copyright headers, which is unavoidable
 							// without forking the eslintrc
-							console.log(msg);
 							if (msg.ruleId === 'header/header') {
 								return false;
 							}
