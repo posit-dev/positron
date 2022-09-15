@@ -150,7 +150,17 @@ function hygiene(some, linting = true) {
 				.pipe(filter(eslintFilter))
 				.pipe(
 					gulpeslint({
-						configFile: '.eslintrc.json'
+						configFile: '.eslintrc.json',
+						quiet: (msg, idx, list) => {
+							// the header/header message fires for headers with
+							// RStudio copyright headers, which is unavoidable
+							// without forking the eslintrc
+							console.log(msg);
+							if (msg.ruleId === 'header/header') {
+								return false;
+							}
+							return true;
+						}
 					})
 				)
 				.pipe(gulpeslint.formatEach('compact'))
