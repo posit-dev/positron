@@ -102,10 +102,9 @@
 			2,
 			"block",
 			[
-				"---------------------------------------------------------------------------------------------",
-				" *  Copyright (c) Microsoft Corporation. All rights reserved.",
-				" *  Licensed under the MIT License. See License.txt in the project root for license information.",
-				" *--------------------------------------------------------------------------------------------"
+				{
+					"pattern": "-{93}\n [*] {2}((Copyright [(]c[)] Microsoft Corporation. All rights reserved.\n [*] {2}Licensed under the MIT License. See License.txt in the project root for license information.)|(Copyright [(]c[)] RStudio[,] PBC[.]))\n [*]-{92}"
+				}
 			]
 		]
 	},
