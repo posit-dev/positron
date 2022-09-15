@@ -5,34 +5,29 @@
 
 import { expect } from 'chai';
 import * as path from 'path';
+import * as sinon from 'sinon';
 import { anything, instance, mock, verify, when } from 'ts-mockito';
 import { Uri } from 'vscode';
 import { DebugConfigStrings } from '../../../../../client/common/utils/localize';
 import { MultiStepInput } from '../../../../../client/common/utils/multiStepInput';
 import { DebuggerTypeName } from '../../../../../client/debugger/constants';
-import { RemoteAttachDebugConfigurationProvider } from '../../../../../client/debugger/extension/configuration/providers/remoteAttach';
+import * as configuration from '../../../../../client/debugger/extension/configuration/utils/configuration';
+import * as remoteAttach from '../../../../../client/debugger/extension/configuration/providers/remoteAttach';
 import { DebugConfigurationState } from '../../../../../client/debugger/extension/types';
-import { AttachRequestArguments } from '../../../../../client/debugger/types';
 
 suite('Debugging - Configuration Provider Remote Attach', () => {
-    let provider: TestRemoteAttachDebugConfigurationProvider;
     let input: MultiStepInput<DebugConfigurationState>;
-    class TestRemoteAttachDebugConfigurationProvider extends RemoteAttachDebugConfigurationProvider {
-        public async configurePort(
-            i: MultiStepInput<DebugConfigurationState>,
-            config: Partial<AttachRequestArguments>,
-        ) {
-            return super.configurePort(i, config);
-        }
-    }
+
     setup(() => {
         input = mock<MultiStepInput<DebugConfigurationState>>(MultiStepInput);
-        provider = new TestRemoteAttachDebugConfigurationProvider();
+    });
+    teardown(() => {
+        sinon.restore();
     });
     test('Configure port will display prompt', async () => {
         when(input.showInputBox(anything())).thenResolve();
 
-        await provider.configurePort(instance(input), {});
+        await configuration.configurePort(instance(input), {});
 
         verify(input.showInputBox(anything())).once();
     });
@@ -40,7 +35,7 @@ suite('Debugging - Configuration Provider Remote Attach', () => {
         const config: { connect?: { port?: number } } = {};
         when(input.showInputBox(anything())).thenResolve('xyz');
 
-        await provider.configurePort(instance(input), config);
+        await configuration.configurePort(instance(input), config);
 
         verify(input.showInputBox(anything())).once();
         expect(config).to.be.deep.equal({ connect: { port: 5678 } });
@@ -49,7 +44,7 @@ suite('Debugging - Configuration Provider Remote Attach', () => {
         const config: { connect?: { port?: number } } = {};
         when(input.showInputBox(anything())).thenResolve();
 
-        await provider.configurePort(instance(input), config);
+        await configuration.configurePort(instance(input), config);
 
         verify(input.showInputBox(anything())).once();
         expect(config).to.be.deep.equal({ connect: { port: 5678 } });
@@ -58,7 +53,7 @@ suite('Debugging - Configuration Provider Remote Attach', () => {
         const config: { connect?: { port?: number } } = {};
         when(input.showInputBox(anything())).thenResolve('1234');
 
-        await provider.configurePort(instance(input), config);
+        await configuration.configurePort(instance(input), config);
 
         verify(input.showInputBox(anything())).once();
         expect(config).to.be.deep.equal({ connect: { port: 1234 } });
@@ -68,12 +63,12 @@ suite('Debugging - Configuration Provider Remote Attach', () => {
         const state = { config: {}, folder };
         let portConfigured = false;
         when(input.showInputBox(anything())).thenResolve();
-        provider.configurePort = () => {
-            portConfigured = true;
-            return Promise.resolve();
-        };
 
-        const configurePort = await provider.buildConfiguration(instance(input), state);
+        sinon.stub(configuration, 'configurePort').callsFake(async () => {
+            portConfigured = true;
+        });
+
+        const configurePort = await remoteAttach.buildRemoteAttachConfiguration(instance(input), state);
         if (configurePort) {
             await configurePort!(input, state);
         }
@@ -103,13 +98,11 @@ suite('Debugging - Configuration Provider Remote Attach', () => {
         const state = { config: {}, folder };
         let portConfigured = false;
         when(input.showInputBox(anything())).thenResolve('Hello');
-        provider.configurePort = (_, cfg) => {
+        sinon.stub(configuration, 'configurePort').callsFake(async (_, cfg) => {
             portConfigured = true;
             cfg.connect!.port = 9999;
-            return Promise.resolve();
-        };
-
-        const configurePort = await provider.buildConfiguration(instance(input), state);
+        });
+        const configurePort = await remoteAttach.buildRemoteAttachConfiguration(instance(input), state);
         if (configurePort) {
             await configurePort(input, state);
         }

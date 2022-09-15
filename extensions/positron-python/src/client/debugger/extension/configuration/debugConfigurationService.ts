@@ -8,14 +8,22 @@ import { cloneDeep } from 'lodash';
 import { CancellationToken, DebugConfiguration, QuickPickItem, WorkspaceFolder } from 'vscode';
 import { DebugConfigStrings } from '../../../common/utils/localize';
 import {
-    IMultiStepInput,
     IMultiStepInputFactory,
     InputStep,
     IQuickPickParameters,
+    MultiStepInput,
 } from '../../../common/utils/multiStepInput';
 import { AttachRequestArguments, DebugConfigurationArguments, LaunchRequestArguments } from '../../types';
 import { DebugConfigurationState, DebugConfigurationType, IDebugConfigurationService } from '../types';
-import { IDebugConfigurationProviderFactory, IDebugConfigurationResolver } from './types';
+import { buildDjangoLaunchDebugConfiguration } from './providers/djangoLaunch';
+import { buildFastAPILaunchDebugConfiguration } from './providers/fastapiLaunch';
+import { buildFileLaunchDebugConfiguration } from './providers/fileLaunch';
+import { buildFlaskLaunchDebugConfiguration } from './providers/flaskLaunch';
+import { buildModuleLaunchConfiguration } from './providers/moduleLaunch';
+import { buildPidAttachConfiguration } from './providers/pidAttach';
+import { buildPyramidLaunchConfiguration } from './providers/pyramidLaunch';
+import { buildRemoteAttachConfiguration } from './providers/remoteAttach';
+import { IDebugConfigurationResolver } from './types';
 
 @injectable()
 export class PythonDebugConfigurationService implements IDebugConfigurationService {
@@ -27,8 +35,6 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
         @inject(IDebugConfigurationResolver)
         @named('launch')
         private readonly launchResolver: IDebugConfigurationResolver<LaunchRequestArguments>,
-        @inject(IDebugConfigurationProviderFactory)
-        private readonly providerFactory: IDebugConfigurationProviderFactory,
         @inject(IMultiStepInputFactory) private readonly multiStepFactory: IMultiStepInputFactory,
     ) {}
 
@@ -102,7 +108,7 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
     }
 
     protected async pickDebugConfiguration(
-        input: IMultiStepInput<DebugConfigurationState>,
+        input: MultiStepInput<DebugConfigurationState>,
         state: DebugConfigurationState,
     ): Promise<InputStep<DebugConfigurationState> | void> {
         type DebugConfigurationQuickPickItem = QuickPickItem & { type: DebugConfigurationType };
@@ -148,6 +154,22 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
                 description: DebugConfigStrings.pyramid.selectConfiguration.description,
             },
         ];
+        const debugConfigurations = new Map<
+            DebugConfigurationType,
+            (
+                input: MultiStepInput<DebugConfigurationState>,
+                state: DebugConfigurationState,
+            ) => Promise<void | InputStep<DebugConfigurationState>>
+        >();
+        debugConfigurations.set(DebugConfigurationType.launchDjango, buildDjangoLaunchDebugConfiguration);
+        debugConfigurations.set(DebugConfigurationType.launchFastAPI, buildFastAPILaunchDebugConfiguration);
+        debugConfigurations.set(DebugConfigurationType.launchFile, buildFileLaunchDebugConfiguration);
+        debugConfigurations.set(DebugConfigurationType.launchFlask, buildFlaskLaunchDebugConfiguration);
+        debugConfigurations.set(DebugConfigurationType.launchModule, buildModuleLaunchConfiguration);
+        debugConfigurations.set(DebugConfigurationType.pidAttach, buildPidAttachConfiguration);
+        debugConfigurations.set(DebugConfigurationType.remoteAttach, buildRemoteAttachConfiguration);
+        debugConfigurations.set(DebugConfigurationType.launchPyramid, buildPyramidLaunchConfiguration);
+
         state.config = {};
         const pick = await input.showQuickPick<
             DebugConfigurationQuickPickItem,
@@ -159,8 +181,8 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
             items: items,
         });
         if (pick) {
-            const provider = this.providerFactory.create(pick.type);
-            return provider.buildConfiguration.bind(provider);
+            const pickedDebugConfiguration = debugConfigurations.get(pick.type)!;
+            return pickedDebugConfiguration(input, state);
         }
     }
 }
