@@ -49,8 +49,8 @@ import 'vs/workbench/browser/parts/views/viewsService';
 
 // --- Start Positron ---
 // This loads Positron's top bar and auxiliary activity bar.
-import 'vs/workbench/browser/parts/topbar/topBarPart';
-import 'vs/workbench/browser/parts/auxiliaryactivitybar/auxiliaryActivityBarPart';
+import 'vs/workbench/browser/parts/topBar/topBarPart';
+import 'vs/workbench/browser/parts/auxiliaryActivityBar/auxiliaryActivityBarPart';
 // --- End Positron ---
 
 //#endregion

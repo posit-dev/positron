@@ -7,7 +7,7 @@ import { localize } from 'vs/nls';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { CATEGORIES } from 'vs/workbench/common/actions';
 import { AuxiliaryActivityBarVisibleContext } from 'vs/workbench/common/contextkeys';
-import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryactivitybar/browser/auxiliaryActivityBarService';
+import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
 export class ToggleAuxiliaryActivityBarVisibilityAction extends Action2 {
