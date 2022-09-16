@@ -12,7 +12,7 @@ import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/com
 import { Part } from 'vs/workbench/browser/part';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { Emitter } from 'vs/base/common/event';
-import { ITopBarService } from 'vs/workbench/services/topbar/browser/topBarService';
+import { ITopBarService } from 'vs/workbench/services/topBar/browser/topBarService';
 import { TOP_BAR_BACKGROUND, TOP_BAR_FOREGROUND, TOP_BAR_ICON_FOREGROUND } from 'vs/workbench/common/theme';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { KeyCode } from 'vs/base/common/keyCodes';

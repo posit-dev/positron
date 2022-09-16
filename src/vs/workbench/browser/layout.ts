@@ -50,7 +50,7 @@ import { AuxiliaryBarPart } from 'vs/workbench/browser/parts/auxiliarybar/auxili
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { LayoutStateKeys, LayoutStateModel, WorkbenchLayoutSettings } from 'vs/workbench/browser/layoutState';
 // --- Start Positron ---
-import { ITopBarService } from 'vs/workbench/services/topbar/browser/topBarService';
+import { ITopBarService } from 'vs/workbench/services/topBar/browser/topBarService';
 import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 // --- End Positron ---
 
