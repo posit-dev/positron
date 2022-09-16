@@ -56,6 +56,7 @@ macro_rules! r_check_length {
 pub(crate) use r_check_length;
 
 // Mainly for debugging.
+#[allow(unused_macros)]
 macro_rules! rlog {
 
     ($x:expr) => {{
@@ -88,5 +89,7 @@ macro_rules! rlog {
     }}
 
 }
+
+#[allow(unused_imports)]
 pub(crate) use rlog;
 
