@@ -1,11 +1,11 @@
-// 
+//
 // test.rs
-// 
+//
 // Copyright (C) 2022 by RStudio, PBC
-// 
-// 
+//
+//
 
-// Helper functions for ensuring R is runing before running tests
+// Helper functions for ensuring R is running before running tests
 // that rely on an R session being available.
 
 // TODO: Rust isn't smart enough to see that these methods are used in tests?
@@ -49,5 +49,5 @@ pub fn start_r() {
             setup_Rmainloop();
         }
     });
-    
+
 }

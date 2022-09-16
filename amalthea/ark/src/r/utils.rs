@@ -15,6 +15,7 @@ use std::ffi::CStr;
 
 use libR_sys::*;
 
+#[allow(dead_code)]
 pub unsafe fn type2char(object: SEXP) -> String {
     let kind = Rf_type2char(TYPEOF(object) as u32);
     let cstr = CStr::from_ptr(kind);
