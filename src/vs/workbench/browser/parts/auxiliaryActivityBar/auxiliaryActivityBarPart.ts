@@ -11,7 +11,7 @@ import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/com
 import { Part } from 'vs/workbench/browser/part';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { Emitter } from 'vs/base/common/event';
-import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryactivitybar/browser/auxiliaryActivityBarService';
+import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 import { AUXILIARY_ACTIVITY_BAR_BACKGROUND, TOP_BAR_FOREGROUND, AUXILIARY_ACTIVITY_BAR_ICON_FOREGROUND, AUXILIARY_ACTIVITY_BAR_ICON_FOREGROUND_HOVER } from 'vs/workbench/common/theme';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { AuxiliaryActivityBarFocused } from 'vs/workbench/common/contextkeys';

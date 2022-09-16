@@ -33,8 +33,8 @@ import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { ThemeIcon } from 'vs/platform/theme/common/themeService';
 import { ICommandActionTitle } from 'vs/platform/action/common/action';
 // --- Start Positron ---
-import { ToggleTopBarVisibilityAction } from 'vs/workbench/browser/parts/topbar/topBarActions';
-import { ToggleAuxiliaryActivityBarVisibilityAction } from 'vs/workbench/browser/parts/auxiliaryactivitybar/auxiliaryActivityBarActions';
+import { ToggleTopBarVisibilityAction } from 'vs/workbench/browser/parts/topBar/topBarActions';
+import { ToggleAuxiliaryActivityBarVisibilityAction } from 'vs/workbench/browser/parts/auxiliaryActivityBar/auxiliaryActivityBarActions';
 // --- End Positron ---
 
 // Register Icons
