@@ -33,9 +33,6 @@ mod version;
 
 fn start_kernel(connection_file: ConnectionFile) {
 
-    // Initialize various pieces of machinery.
-    unsafe { crate::r::lock::initialize() };
-
     // This channel delivers execution status and other iopub messages from
     // other threads to the iopub thread
     let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);

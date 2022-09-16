@@ -18,15 +18,16 @@ use std::sync::mpsc::{Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex, Once};
 use std::thread;
 use std::time::Duration;
+use std::time::SystemTime;
 
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
 use crate::lsp::logger::dlog;
 use crate::macros::cargs;
 use crate::macros::cstr;
-use crate::r::lock::INIT_SEND;
-use crate::r::lock::FINI_RECV;
-use crate::r::lock::TASKS_PENDING;
+use crate::r::lock::R_RUNTIME_LOCK;
+use crate::r::lock::R_RUNTIME_LOCK_GUARD;
+use crate::r::lock::R_RUNTIME_TASKS_PENDING;
 use crate::request::Request;
 
 extern "C" {
@@ -107,9 +108,15 @@ pub extern "C" fn r_read_console(
     // pump the event loop while waiting for console input.
     loop {
 
-        match receiver.recv_timeout(Duration::from_millis(10)) {
+        // Release the R runtime lock while we're waiting for input
+        unsafe { R_RUNTIME_LOCK_GUARD = None };
+
+        match receiver.recv_timeout(Duration::from_millis(200)) {
 
             Ok(response) => {
+
+                // Take back the lock after we've received some console input.
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
                 if let Some(input) = response {
                     on_console_input(buf, buflen, input);
@@ -120,7 +127,10 @@ pub extern "C" fn r_read_console(
             }
 
             Err(error) => {
+
                 use std::sync::mpsc::RecvTimeoutError::*;
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+
                 match error {
 
                     Timeout => {
@@ -165,23 +175,18 @@ pub unsafe extern "C" fn r_polled_events() {
     // to ensure that the LSP has an opportunity to respond to completion
     // requests. It's important that calls be as cheap as possible when
     // the LSP does not require access to the R main thread.
-    if !TASKS_PENDING {
+    if !R_RUNTIME_TASKS_PENDING {
         return;
     }
 
-    // The LSP is asking for permission to do work; let it know it can start.
-    dlog!("Main thread is notifying LSP it can start working.");
-    let sender = INIT_SEND.as_ref().unwrap();
-    let guard = sender.try_lock().unwrap();
-    guard.send(()).unwrap();
+    // Release the runtime lock.
+    dlog!("Tasks are pending; the main thread is releasing the R runtime lock.");
+    let now = SystemTime::now();
+    unsafe { R_RUNTIME_LOCK_GUARD = None };
 
-    // Wait until the LSP lets us know we can proceed again.
-    dlog!("Main thread is waiting for LSP response.");
-    let receiver = FINI_RECV.as_ref().unwrap();
-    let guard = receiver.try_lock().unwrap();
-    guard.recv().unwrap();
-
-    dlog!("Main thread has received LSP response; continuing.");
+    // Take back the runtime lock.
+    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+    dlog!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
 
 }
 
@@ -191,6 +196,10 @@ pub fn start_r(
     initializer: Sender<KernelInfo>,
 ) {
     use std::borrow::BorrowMut;
+
+    // The main thread owns the R runtime lock by default, but releases
+    // it when appropriate to give other threads a chance to execute.
+    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
     // Start building the channels + kernel objects
     let (console_send, console_recv) = channel::<Option<String>>();
