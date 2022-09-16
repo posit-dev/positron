@@ -1,0 +1,30 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.monaco-modal-dialog-modal-block {
+	position: fixed;
+	height: 100%;
+	width: 100%;
+	left:0;
+	top:0;
+	z-index: 2600;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.monaco-modal-dialog-modal-block.dimmed {
+	background: rgba(0, 0, 0, 0.3);
+}
+
+.monaco-modal-dialog-box {
+	display: flex;
+	flex-direction: column-reverse;
+	width: min-content;
+	min-width: 500px;
+	max-width: 90vw;
+	min-height: 75px;
+	padding: 10px;
+	transform: translate3d(0px, 0px, 0px);
+}
