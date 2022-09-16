@@ -16,6 +16,8 @@
 use parking_lot::ReentrantMutex;
 use parking_lot::ReentrantMutexGuard;
 
+use crate::lsp::logger::dlog;
+
 extern "C" {
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
 }
@@ -98,4 +100,3 @@ macro_rules! r_lock {
 }
 pub(crate) use r_lock;
 
-use crate::lsp::logger::dlog;
