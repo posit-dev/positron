@@ -23,7 +23,7 @@ export const enum Parts {
 	PANEL_PART = 'workbench.parts.panel',
 	AUXILIARYBAR_PART = 'workbench.parts.auxiliarybar',
 	// --- Start Positron ---
-	AUXILIARYACTIVITYBAR_PART = 'workbench.parts.auxiliaryactivitybar',
+	AUXILIARYACTIVITYBAR_PART = 'workbench.parts.auxiliary-activity-bar',
 	// --- End Positron ---
 	EDITOR_PART = 'workbench.parts.editor',
 	STATUSBAR_PART = 'workbench.parts.statusbar'

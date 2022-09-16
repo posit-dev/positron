@@ -341,7 +341,7 @@ export class Workbench extends Layout {
 			{ id: Parts.BANNER_PART, role: 'banner', classes: ['banner'] },
 			{ id: Parts.ACTIVITYBAR_PART, role: 'none', classes: ['activitybar', this.getSideBarPosition() === Position.LEFT ? 'left' : 'right'] }, // Use role 'none' for some parts to make screen readers less chatty #114892
 			// --- Start Positron ---
-			{ id: Parts.AUXILIARYACTIVITYBAR_PART, role: 'appbar', classes: ['auxiliaryactivitybar'] },
+			{ id: Parts.AUXILIARYACTIVITYBAR_PART, role: 'appbar', classes: ['auxiliary-activity-bar'] },
 			// --- End Positron ---
 			{ id: Parts.SIDEBAR_PART, role: 'none', classes: ['sidebar', this.getSideBarPosition() === Position.LEFT ? 'left' : 'right'] },
 			{ id: Parts.EDITOR_PART, role: 'main', classes: ['editor'], options: { restorePreviousState: this.willRestoreEditors() } },
