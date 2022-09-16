@@ -11,7 +11,6 @@ use libR_sys::*;
 
 use crate::lsp::logger::dlog;
 use crate::macros::cstr;
-use crate::r::lock::rlock;
 use crate::r::macros::r_symbol;
 use crate::r::object::RObject;
 use crate::r::protect::RProtect;
@@ -66,11 +65,7 @@ impl RFunction {
         self
     }
 
-    pub fn call(&mut self) -> RObject {
-        rlock! { self.call_impl() }
-    }
-
-    fn call_impl(&mut self) -> RObject { unsafe {
+    pub unsafe fn call(&mut self) -> RObject {
 
         let mut protect = RProtect::new();
 
@@ -123,7 +118,7 @@ impl RFunction {
         // - should we allow the caller to decide how errors are handled?
         return RObject::new(result);
 
-    } }
+    }
 
 }
 
@@ -148,6 +143,9 @@ pub unsafe fn geterrmessage() -> String {
 #[cfg(test)]
 mod tests {
 
+    use log::info;
+
+    use crate::r::lock::r_lock;
     use crate::r::test::start_r;
 
     use super::*;
@@ -195,7 +193,6 @@ mod tests {
 
         start_r();
 
-        let mut protect = RProtect::new();
         let result = RFunction::new("stats", "rnorm")
             .add(1.0)
             .param("mean", 10)
@@ -215,15 +212,15 @@ mod tests {
 
         // Spawn a bunch of threads that try to interact with R.
         let mut handles : Vec<_> = Vec::new();
-        for _i in 1..10 {
-            let handle = std::thread::spawn(|| {
+        for i in 1..100 {
+            let handle = std::thread::spawn(move || {
                 for _j in 1..10 {
-                    let result = rlock! {
+                    r_lock! {
                         let mut protect = RProtect::new();
                         let code = protect.add(Rf_lang2(r_symbol!("rnorm"), Rf_ScalarInteger(N)));
-                        Rf_eval(code, R_GlobalEnv)
+                        let result = Rf_eval(code, R_GlobalEnv);
+                        assert!(Rf_length(result) == N);
                     };
-                    assert!(Rf_length(result) == N);
                 }
             });
             handles.push(handle);
