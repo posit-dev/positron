@@ -143,6 +143,8 @@ pub unsafe fn geterrmessage() -> String {
 #[cfg(test)]
 mod tests {
 
+    use log::info;
+
     use crate::r::lock::r_lock;
     use crate::r::test::start_r;
 
@@ -210,15 +212,15 @@ mod tests {
 
         // Spawn a bunch of threads that try to interact with R.
         let mut handles : Vec<_> = Vec::new();
-        for _i in 1..10 {
-            let handle = std::thread::spawn(|| {
+        for i in 1..100 {
+            let handle = std::thread::spawn(move || {
                 for _j in 1..10 {
-                    let result = r_lock! {
+                    r_lock! {
                         let mut protect = RProtect::new();
                         let code = protect.add(Rf_lang2(r_symbol!("rnorm"), Rf_ScalarInteger(N)));
-                        Rf_eval(code, R_GlobalEnv)
+                        let result = Rf_eval(code, R_GlobalEnv);
+                        assert!(Rf_length(result) == N);
                     };
-                    assert!(Rf_length(result) == N);
                 }
             });
             handles.push(handle);
