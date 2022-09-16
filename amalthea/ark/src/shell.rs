@@ -33,7 +33,6 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
-use libR_sys::R_GlobalContext;
 use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
@@ -42,8 +41,7 @@ use std::thread;
 use std::time::Duration;
 
 extern "C" {
-    #[no_mangle]
-    static R_Is_Running: i32;
+static R_Is_Running: i32;
 }
 
 pub struct Shell {
@@ -87,7 +85,14 @@ impl Shell {
         let sender = self.request_sender();
         thread::spawn(move || {
 
-            // TODO: Surely there's a better way.
+            // Is there a better way? Perhaps we should initialize the LSP
+            // from one of the R callbacks; e.g. in R_ReadConsole. This
+            // is the strategy used by RStudio for detecting when the R
+            // session is "ready" for extension pieces to be loaded.
+            //
+            // Or perhaps we should be loading R extensions in the main
+            // thread, rather than asking the LSP to handle this during
+            // its own initialization.
             unsafe {
                while R_Is_Running != 2 {
                    std::thread::sleep(Duration::from_millis(200));
