@@ -16,11 +16,16 @@ use amalthea::wire::execute_result::ExecuteResult;
 use amalthea::wire::input_request::InputRequest;
 use amalthea::wire::input_request::ShellInputRequest;
 use amalthea::wire::jupyter_message::Status;
-use extendr_api::prelude::*;
+use libR_sys::*;
 use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{Sender, SyncSender};
 
+use crate::r::exec::RFunction;
+use crate::r::exec::RFunctionExt;
+use crate::r::macros::r_symbol;
+use crate::r::object::RObject;
+use crate::r::utils::r_inherits;
 use crate::request::Request;
 
 /// Represents the Rust state of the R kernel
@@ -67,13 +72,18 @@ impl Kernel {
     /// Completes the kernel's initialization
     pub fn complete_intialization(&mut self) {
         if self.initializing {
-            let ver = { R!(R.version.string).unwrap() };
-            let ver_str = ver.as_str().unwrap().to_string();
+
+            let version = unsafe {
+                let version = Rf_findVarInFrame(R_BaseNamespace, r_symbol!("R.version.string"));
+                RObject::new(version).to::<String>().unwrap()
+            };
+
             let kernel_info = KernelInfo {
-                version: ver_str.clone(),
+                version: version.clone(),
                 banner: self.banner.clone(),
             };
-            debug!("Sending kernel info: {}", ver_str);
+
+            debug!("Sending kernel info: {}", version);
             self.initializer.send(kernel_info).unwrap();
             self.initializing = false;
         } else {
@@ -132,35 +142,17 @@ impl Kernel {
     }
 
     /// Converts a data frame to HTML
-    pub fn to_html(frame: &Robj) -> String {
-        let names = frame.names().unwrap();
-        let mut th = String::from("<tr>");
-        for i in names {
-            let h = format!("<th>{}</th>", i);
-            th.push_str(h.as_str());
+    pub fn to_html(frame: SEXP) -> String {
+
+        unsafe {
+            RFunction::from(".rs.format.toHtml")
+                .add(frame)
+                .call()
+                .unwrap()
+                .to::<String>()
+                .unwrap()
         }
-        th.push_str("</tr>");
-        let mut body = String::new();
-        for i in 1..5 {
-            body.push_str("<tr>");
-            for j in 1..(frame.len() + 1) {
-                trace!("formatting value at {}, {}", i, j);
-                if let Ok(col) = frame.index(i) {
-                    if let Ok(val) = col.index(j) {
-                        if let Ok(s) = call!("toString", val) {
-                            body.push_str(
-                                format!("<td>{}</td>", String::from_robj(&s).unwrap()).as_str(),
-                            )
-                        }
-                    }
-                }
-            }
-            body.push_str("</tr>");
-        }
-        format!(
-            "<table><thead>{}</thead><tbody>{}</tbody></table>",
-            th, body
-        )
+
     }
 
     /// Report an incomplete request to the front end
@@ -248,9 +240,10 @@ impl Kernel {
         let mut data = serde_json::Map::new();
         data.insert("text/plain".to_string(), json!(output));
         trace!("Formatting value");
-        let last = { R!(.Last.value).unwrap() };
-        if last.is_frame() {
-            data.insert("text/html".to_string(), json!(Kernel::to_html(&last)));
+
+        let value = unsafe { Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv) };
+        if r_inherits(value, "data.frame") {
+            data.insert("text/html".to_string(), json!(Kernel::to_html(value)));
         }
 
         trace!("Sending kernel output: {}", self.output);
