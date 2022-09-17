@@ -25,9 +25,11 @@ use crate::kernel::KernelInfo;
 use crate::lsp::logger::dlog;
 use crate::macros::cargs;
 use crate::macros::cstr;
+use crate::macros::unwrap;
 use crate::r::lock::R_RUNTIME_LOCK;
 use crate::r::lock::R_RUNTIME_LOCK_GUARD;
 use crate::r::lock::R_RUNTIME_TASKS_PENDING;
+use crate::r::utils::r_get_option;
 use crate::request::Request;
 
 extern "C" {
@@ -293,57 +295,47 @@ fn handle_r_request(req: &Request, prompt_recv: &Receiver<String>) {
 }
 
 fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
-    use extendr_api::prelude::*;
     let mutex = unsafe { KERNEL.as_ref().unwrap() };
 
     // Wait for R to prompt us again. This signals that the
     // execution is finished and R is ready for input again.
     trace!("Waiting for R prompt signaling completion of execution...");
     let prompt = prompt_recv.recv().unwrap();
+    let kernel = mutex.lock().unwrap();
 
-    // Tell the kernel to complete the execution request.
-    {
-        let kernel = mutex.lock().unwrap();
-
-        // Figure out what the ordinary prompt looks like.
-        let default_prompt = match{ R!(getOption("prompt")) } {
-            Ok(prompt) => prompt.as_str(),
-            Err(err) => {
-                warn!("Failed to get R prompt: {}", err);
-                None
-            }
-        };
-
-        if prompt.starts_with("+") {
-            // if the prompt is '+', we need to tell the kernel to emit an error
-            trace!("Got R prompt '{}', marking request incomplete", prompt);
-            kernel.report_incomplete_request(&req);
-        } else {
-            if let Some(default) = default_prompt {
-                if prompt != default {
-                    // if the prompt isn't the default, then it's likely a prompt from
-                    // R's `readline()` or similar; request input from the user.
-                    trace!("Got R prompt '{}', asking user for input", prompt);
-                    if let Request::ExecuteCode(_, originator, _) = req {
-                        kernel.request_input(originator, &prompt);
-                    } else {
-                        warn!("No originator for input request, omitting");
-                        let originator: Vec<u8> = Vec::new();
-                        kernel.request_input(&originator, &prompt);
-                    }
-                    trace!("Input requested, waiting for reply...");
-                } else {
-                    // Default prompt, finishing request
-                    trace!("Got R prompt '{}', completing execution", prompt);
-                    kernel.finish_request()
-                }
-            } else {
-                // for all other prompts, we can assume the request is complete
-                trace!("Got R prompt '{}', finishing execution request", prompt);
-                kernel.finish_request()
-            }
-        }
+    // if the prompt is '+', we need to tell the kernel the request is incomplete
+    if prompt.starts_with("+") {
+        trace!("Got R prompt '{}', marking request incomplete", prompt);
+        return kernel.report_incomplete_request(&req);
     }
+
+    // Figure out what the default prompt looks like.
+    let default_prompt = unwrap!(r_get_option::<String>("prompt"), error {
+        warn!("Failed to read R prompt: {}", error);
+        return kernel.finish_request();
+    });
+
+    // If the current prompt doesn't match the default prompt, assume that
+    // we're reading use input, e.g. via 'readline()'.
+    if prompt != default_prompt {
+
+        trace!("Got R prompt '{}', asking user for input", prompt);
+        if let Request::ExecuteCode(_, originator, _) = req {
+            kernel.request_input(originator, &prompt);
+        } else {
+            warn!("No originator for input request, omitting");
+            let originator: Vec<u8> = Vec::new();
+            kernel.request_input(&originator, &prompt);
+        }
+
+        trace!("Input requested, waiting for reply...");
+        return;
+    }
+
+    // Default prompt, finishing request
+    trace!("Got R prompt '{}', completing execution", prompt);
+    return kernel.finish_request();
+
 }
 
 pub fn listen(exec_recv: Receiver<Request>, prompt_recv: Receiver<String>) {

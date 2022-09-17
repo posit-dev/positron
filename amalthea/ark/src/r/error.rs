@@ -7,10 +7,12 @@
 
 use std::fmt;
 
+use crate::r::utils::r_type2char;
+
 #[derive(Debug)]
 pub enum Error {
-    UnexpectedLength(i32, i32),
-    UnexpectedType(String, String),
+    UnexpectedLength(u32, u32),
+    UnexpectedType(u32, u32),
 }
 
 impl fmt::Display for Error {
@@ -22,6 +24,8 @@ impl fmt::Display for Error {
             }
 
             Error::UnexpectedType(expected, actual) => {
+                let expected = unsafe { r_type2char(*expected) };
+                let actual   = unsafe { r_type2char(*actual) };
                 write!(f, "Unexpected vector type (expected {}; got {})", expected, actual)
             }
 

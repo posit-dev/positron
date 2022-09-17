@@ -10,10 +10,10 @@ use std::ffi::CStr;
 use libR_sys::*;
 
 use crate::lsp::logger::dlog;
-use crate::macros::cstr;
 use crate::r::macros::r_symbol;
 use crate::r::object::RObject;
 use crate::r::protect::RProtect;
+use crate::r::utils::r_inherits;
 
 struct RArgument {
     name: String,
@@ -101,7 +101,7 @@ impl RFunction {
         let envir = if self.package.is_empty() { R_GlobalEnv } else { R_BaseEnv };
         let result = protect.add(Rf_eval(call, envir));
 
-        if Rf_inherits(result, cstr!("error")) != 0 {
+        if r_inherits(result, "error") {
 
             let qualified_name = if self.package.is_empty() {
                 self.function.clone()
