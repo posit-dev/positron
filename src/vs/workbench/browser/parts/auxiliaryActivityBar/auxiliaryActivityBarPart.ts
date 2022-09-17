@@ -67,7 +67,9 @@ registerThemingParticipant((theme, collector) => {
 	}
 });
 
-// AuxiliaryActivityBarPart class.
+/**
+ * AuxiliaryActivityBarPart class.
+ */
 export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivityBarService {
 
 	declare readonly _serviceBrand: undefined;
@@ -114,13 +116,20 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 	//#region Class Initialization
 
+	/**
+	 * Initializes a new instance of the AuxiliaryActivityBarPart class.
+	 * @param themeService The theme service.
+	 * @param workbenchLayoutService The workbench layout service.
+	 * @param storageService The storage service.
+	 * @param contextKeyService The context key service.
+	 */
 	constructor(
 		@IThemeService themeService: IThemeService,
-		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
+		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
 		@IStorageService storageService: IStorageService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService
 	) {
-		super(Parts.AUXILIARYACTIVITYBAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
+		super(Parts.AUXILIARYACTIVITYBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
 	}
 
 	//#endregion Class Initialization
