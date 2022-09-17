@@ -11,29 +11,105 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::os::raw::c_char;
 use std::os::raw::c_int;
+use std::sync::Once;
 
 use libR_sys::*;
 
+use crate::lsp::logger::dlog;
 use crate::r::error::Error;
 use crate::r::utils::r_check_length;
 use crate::r::utils::r_check_type;
 use crate::r::utils::r_typeof;
 
+// Objects are protected using a doubly-linked list,
+// allowing for quick insertion and removal of objects.
+static PRECIOUS_LIST_ONCE: Once = Once::new();
+static mut PRECIOUS_LIST : Option<SEXP> = None;
+
+unsafe fn protect(object: SEXP) -> SEXP {
+
+    PRECIOUS_LIST_ONCE.call_once(|| {
+        let precious_list = Rf_cons(R_NilValue, R_NilValue);
+        R_PreserveObject(precious_list);
+        PRECIOUS_LIST = Some(precious_list);
+    });
+
+    if object == R_NilValue {
+        return R_NilValue;
+    }
+
+    // Protect the incoming object, just in case.
+    Rf_protect(object);
+
+    let precious_list = PRECIOUS_LIST.unwrap_unchecked();
+
+    // Get references to the head, tail of the current precious list.
+    let head = precious_list;
+    let tail = CDR(precious_list);
+
+    // The new cell will be inserted between the existing head and tail,
+    // so create a new cell referencing the head and tail of the list.
+    let cell = Rf_protect(Rf_cons(head, tail));
+
+    // Set the TAG on the cell so the object is protected.
+    SET_TAG(cell, object);
+
+    // Point the CDR of the current head to the newly-created cell.
+    SETCDR(head, cell);
+
+    // Poin the CAR of the current tail to the newly-created cell.
+    if tail != R_NilValue {
+        SETCAR(tail, cell);
+    }
+
+    // Clean up the protect stack and return.
+    Rf_unprotect(2);
+
+    dlog!("Protecting cell:   {:?}", cell);
+    return cell;
+
+}
+
+unsafe fn unprotect(cell: SEXP) {
+
+    if cell == R_NilValue {
+        return;
+    }
+
+    dlog!("Unprotecting cell: {:?}", cell);
+
+    // We need to remove the cell from the precious list.
+    // The CAR of the cell points to the previous cell in the precious list.
+    // The CDR of the cell points to the next cell in the precious list.
+    let head = CAR(cell);
+    let tail = CDR(cell);
+
+    // Point the head back at the tail.
+    SETCDR(head, tail);
+
+    // Point the tail back at the head.
+    if tail != R_NilValue {
+        SETCAR(tail, head);
+    }
+
+    // There should now be no references to the cell above, allowing it
+    // (and the object it contains) to be cleaned up.
+
+}
+
 pub struct RObject {
     pub data: SEXP,
+    pub cell: SEXP,
 }
 
 impl RObject {
 
     pub unsafe fn new(data: SEXP) -> Self {
-        if data != R_NilValue {
-            Rf_protect(data);
-        }
-        RObject { data }
+        RObject { data, cell: protect(data) }
     }
 
     pub unsafe fn null() -> Self {
-        RObject { data: R_NilValue }
+        RObject { data: R_NilValue, cell: R_NilValue }
     }
 
     // A helper function that makes '.try_into()' more ergonomic to use.
@@ -46,9 +122,7 @@ impl RObject {
 impl Drop for RObject {
     fn drop(&mut self) {
         unsafe {
-            if self.data != R_NilValue {
-                Rf_unprotect(1);
-            }
+            unprotect(self.cell);
         }
     }
 }

@@ -17,7 +17,8 @@ pub(crate) unsafe fn initialize() {
     let envir = RFunction::new("base", "attach")
         .param("what", R_NilValue)
         .param("name", "tools:rstudio")
-        .call();
+        .call()
+        .unwrap();
 
     // Import all module files.
     // TODO: Need to select appropriate path for package builds.
@@ -38,6 +39,7 @@ pub(crate) unsafe fn import(file: &str, envir: SEXP) {
     RFunction::new("base", "sys.source")
         .param("file", file)
         .param("envir", envir)
-        .call();
+        .call()
+        .unwrap();
 
 }

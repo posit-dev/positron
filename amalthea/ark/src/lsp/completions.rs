@@ -87,7 +87,8 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
     // filtering of completion results based on the current token.
     let documentation = RFunction::from(".rs.help.package")
         .add(package)
-        .call();
+        .call()
+        .unwrap();
 
     if TYPEOF(*documentation) as u32 == VECSXP {
 
@@ -389,7 +390,8 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 
         let names = RFunction::from(".rs.formalNames")
             .add(value)
-            .call();
+            .call()
+            .unwrap();
 
         if r_inherits(*names, "error") {
             return;
@@ -414,7 +416,8 @@ unsafe fn append_namespace_completions(package: &str, exports_only: bool, comple
     // Get the package namespace.
     let namespace = RFunction::new("base", "getNamespace")
         .add(package)
-        .call();
+        .call()
+        .unwrap();
 
     let symbols = if package == "base" {
         list_namespace_symbols(*namespace)
@@ -485,7 +488,8 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
     // TODO: This can be slow on NFS.
     let packages = RFunction::new("base", ".packages")
         .param("all.available", true)
-        .call();
+        .call()
+        .unwrap();
 
     if let Ok(strings) = packages.to::<Vec<String>>() {
         for string in strings.iter() {

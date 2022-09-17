@@ -148,6 +148,7 @@ impl Kernel {
             RFunction::from(".rs.format.toHtml")
                 .add(frame)
                 .call()
+                .unwrap()
                 .to::<String>()
                 .unwrap()
         }
