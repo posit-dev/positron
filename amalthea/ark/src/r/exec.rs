@@ -13,6 +13,7 @@ use crate::lsp::logger::dlog;
 use crate::r::macros::r_symbol;
 use crate::r::object::RObject;
 use crate::r::protect::RProtect;
+use crate::r::traits::SEXPExt;
 use crate::r::utils::r_inherits;
 
 struct RArgument {
@@ -101,7 +102,7 @@ impl RFunction {
         let envir = if self.package.is_empty() { R_GlobalEnv } else { R_BaseEnv };
         let result = protect.add(Rf_eval(call, envir));
 
-        if r_inherits(result, "error") {
+        if result.inherits("error") {
 
             let qualified_name = if self.package.is_empty() {
                 self.function.clone()
