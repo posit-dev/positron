@@ -7,6 +7,7 @@
 
 use crate::kernel::KernelInfo;
 use crate::lsp;
+use crate::r::object::RObject;
 use crate::request::Request;
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
@@ -33,6 +34,7 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
+use libR_sys::*;
 use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
@@ -177,26 +179,28 @@ impl ShellHandler for Shell {
     }
 
     /// Handle a request to test code for completion.
-    async fn handle_is_complete_request(
-        &self,
-        req: &IsCompleteRequest,
-    ) -> Result<IsCompleteReply, Exception> {
-        use extendr_api::prelude::*;
-        let code = req.code.clone();
-        if let Err(err) = call!("parse", text = code) {
-            debug!("Parse error: {:?}", err);
-            // TODO: We should distinguish between incomplete code and invalid code.
-            Ok(IsCompleteReply {
-                status: IsComplete::Incomplete,
-                indent: String::from("+"),
-            })
-        } else {
-            // Code parses
+    async fn handle_is_complete_request(&self, req: &IsCompleteRequest,) -> Result<IsCompleteReply, Exception> {
+
+        // Test if the code can be successfully parsed.
+        let mut ps : ParseStatus = 0;
+        unsafe {
+            let code = RObject::from(req.code.as_str());
+            R_ParseVector(*code, 1, &mut ps, R_NilValue);
+        }
+
+        // TODO: Handle incomplete parse, etc.
+        if ps == ParseStatus_PARSE_OK {
             Ok(IsCompleteReply {
                 status: IsComplete::Complete,
                 indent: String::from(""),
             })
+        } else {
+            Ok(IsCompleteReply {
+                status: IsComplete::Incomplete,
+                indent: String::from("+"),
+            })
         }
+
     }
 
     /// Handles an ExecuteRequest by sending the code to the R execution thread

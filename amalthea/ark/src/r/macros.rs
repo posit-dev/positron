@@ -42,19 +42,6 @@ macro_rules! r_string {
 }
 pub(crate) use r_string;
 
-macro_rules! r_check_length {
-
-    ($object:expr, $expected:expr) => {{
-        let actual = Rf_length(*$object);
-        let expected = $expected;
-        if actual != expected {
-            return Err($crate::r::error::Error::UnexpectedLength(actual, expected));
-        }
-    }}
-
-}
-pub(crate) use r_check_length;
-
 // Mainly for debugging.
 #[allow(unused_macros)]
 macro_rules! rlog {
@@ -74,11 +61,9 @@ macro_rules! rlog {
         let call = Rf_protect(Rf_lang2(callee, $x));
         let result = R_tryEvalSilent(call, R_GlobalEnv, &mut errc);
         if errc != 0 {
-            let robj = extendr_api::Robj::from_sexp(result);
-            if let Ok(strings) = extendr_api::Strings::try_from(robj) {
-                for string in strings.iter() {
-                    dlog!("{}", string);
-                }
+            let strings : Vec<String> = RObject::new(result).into();
+            for string in strings.iter() {
+                dlog!("{}", string);
             }
         } else {
             dlog!("Error logging value '{}'", stringify!($x));

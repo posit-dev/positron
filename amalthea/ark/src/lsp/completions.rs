@@ -6,10 +6,7 @@
 //
 
 use std::collections::HashSet;
-use std::ffi::CStr;
 
-use extendr_api::Robj;
-use extendr_api::Strings;
 use libR_sys::*;
 use tower_lsp::lsp_types::CompletionItem;
 use tower_lsp::lsp_types::CompletionItemKind;
@@ -37,6 +34,7 @@ use crate::r::exec::RFunction;
 use crate::r::exec::RFunctionExt;
 use crate::r::object::RObject;
 use crate::r::protect::RProtect;
+use crate::r::utils::r_inherits;
 
 fn completion_item_from_identifier(node: &Node, source: &str) -> CompletionItem {
     let label = node.utf8_text(source.as_bytes()).expect("empty assignee");
@@ -89,7 +87,8 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
     // filtering of completion results based on the current token.
     let documentation = RFunction::from(".rs.help.package")
         .add(package)
-        .call();
+        .call()
+        .unwrap();
 
     if TYPEOF(*documentation) as u32 == VECSXP {
 
@@ -99,8 +98,8 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
 
         if TYPEOF(doc_type) as u32 == STRSXP && TYPEOF(doc_contents) as u32 == STRSXP {
 
-            let _doc_type = Robj::from_sexp(doc_type).as_str().unwrap();
-            let doc_contents = Robj::from_sexp(doc_contents).as_str().unwrap();
+            let doc_type = RObject::new(doc_type).to::<String>().unwrap();
+            let doc_contents = RObject::new(doc_contents).to::<String>().unwrap();
 
             item.documentation = Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
@@ -391,16 +390,16 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 
         let names = RFunction::from(".rs.formalNames")
             .add(value)
-            .call();
+            .call()
+            .unwrap();
 
-        if Rf_inherits(*names, cstr!("error")) != 0 {
+        if r_inherits(*names, "error") {
             return;
         }
 
         // Return the names of these formals.
-        for i in 0..Rf_length(*names) {
-            let cstr = CStr::from_ptr(R_CHAR(STRING_ELT(*names, i as R_xlen_t)));
-            if let Ok(string) = cstr.to_str() {
+        if let Ok(strings) = names.to::<Vec<String>>() {
+            for string in strings.iter() {
                 let item = completion_item_from_parameter(string, callee);
                 completions.push(item);
             }
@@ -417,7 +416,8 @@ unsafe fn append_namespace_completions(package: &str, exports_only: bool, comple
     // Get the package namespace.
     let namespace = RFunction::new("base", "getNamespace")
         .add(package)
-        .call();
+        .call()
+        .unwrap();
 
     let symbols = if package == "base" {
         list_namespace_symbols(*namespace)
@@ -433,8 +433,7 @@ unsafe fn append_namespace_completions(package: &str, exports_only: bool, comple
     }
 
     // Create completion items for each.
-    let object = Robj::from_sexp(*symbols);
-    if let Ok(strings) = Strings::try_from(object) {
+    if let Ok(strings) = symbols.to::<Vec<String>>() {
         for string in strings.iter() {
             if let Some(item) = completion_item_from_symbol(string, *namespace) {
                 completions.push(item);
@@ -472,8 +471,7 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
         let symbols = R_lsInternal(envir, 1);
 
         // Create completion items for each.
-        let object = Robj::from_sexp(symbols);
-        if let Ok(strings) = Strings::try_from(object) {
+        if let Ok(strings) = RObject::new(symbols).to::<Vec<String>>() {
             for string in strings.iter() {
                 if let Some(item) = completion_item_from_symbol(string, envir) {
                     completions.push(item);
@@ -490,10 +488,10 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
     // TODO: This can be slow on NFS.
     let packages = RFunction::new("base", ".packages")
         .param("all.available", true)
-        .call();
+        .call()
+        .unwrap();
 
-    let object = Robj::from_sexp(*packages);
-    if let Ok(strings) = Strings::try_from(object) {
+    if let Ok(strings) = packages.to::<Vec<String>>() {
         for string in strings.iter() {
             let item = completion_item_from_package(string);
             completions.push(item);
