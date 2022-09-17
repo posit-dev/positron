@@ -5,6 +5,7 @@
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
+import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
 import { CATEGORIES } from 'vs/workbench/common/actions';
 import { AuxiliaryActivityBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
@@ -192,5 +193,28 @@ registerAction2(class ShowPresentationAuxiliaryActivityAction extends Action2 {
 	run(accessor: ServicesAccessor): void {
 		const auxiliaryActivityBarService = accessor.get(IAuxiliaryActivityBarService);
 		auxiliaryActivityBarService.showPresentationAuxiliaryActivity();
+	}
+});
+
+//
+registerAction2(class ShowTimeAction extends Action2 {
+
+	static readonly ID = 'workbench.action.showTime';
+
+	constructor() {
+		super({
+			id: ShowTimeAction.ID,
+			title: {
+				value: localize('showTime', "Shows Time"),
+				original: 'Shows Time'
+			},
+			category: CATEGORIES.View,
+			f1: true
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const modalDialogsService = accessor.get(IModalDialogsService);
+		await modalDialogsService.showTimeModalDialog();
 	}
 });
