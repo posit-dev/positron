@@ -9,11 +9,12 @@ use std::ffi::CStr;
 
 use libR_sys::*;
 
-use crate::lsp::logger::dlog;
-use crate::macros::cstr;
+use crate::r::error::Error;
+use crate::r::error::Result;
 use crate::r::macros::r_symbol;
 use crate::r::object::RObject;
 use crate::r::protect::RProtect;
+use crate::r::utils::r_inherits;
 
 struct RArgument {
     name: String,
@@ -57,7 +58,7 @@ impl RFunction {
 
     }
 
-    pub fn _add(&mut self, name: &str, value: RObject) -> &mut Self {
+    fn _add(&mut self, name: &str, value: RObject) -> &mut Self {
         self.arguments.push(RArgument {
             name: name.to_string(),
             value: value,
@@ -65,7 +66,7 @@ impl RFunction {
         self
     }
 
-    pub unsafe fn call(&mut self) -> RObject {
+    pub unsafe fn call(&mut self) -> Result<RObject> {
 
         let mut protect = RProtect::new();
 
@@ -93,15 +94,16 @@ impl RFunction {
 
         // now, wrap call in tryCatch, so that errors don't longjmp
         let try_catch = protect.add(Rf_lang3(r_symbol!("::"), r_symbol!("base"), r_symbol!("tryCatch")));
-        let call = protect.add(Rf_lang3(try_catch, call, r_symbol!("identity")));
+        let call = protect.add(Rf_lang4(try_catch, call, r_symbol!("identity"), r_symbol!("identity")));
         SET_TAG(call, R_NilValue);
         SET_TAG(CDDR(call), r_symbol!("error"));
+        SET_TAG(CDDDR(call), r_symbol!("interrupt"));
 
         // evaluate the call
         let envir = if self.package.is_empty() { R_GlobalEnv } else { R_BaseEnv };
         let result = protect.add(Rf_eval(call, envir));
 
-        if Rf_inherits(result, cstr!("error")) != 0 {
+        if r_inherits(result, "error") {
 
             let qualified_name = if self.package.is_empty() {
                 self.function.clone()
@@ -109,14 +111,11 @@ impl RFunction {
                 format!("{}::{}", self.package, self.function)
             };
 
-            dlog!("Error executing {}: {}", qualified_name, geterrmessage());
+            return Err(Error::EvaluationError(qualified_name, geterrmessage()));
+
         }
 
-        // TODO:
-        // - check for errors?
-        // - consider using a result type here?
-        // - should we allow the caller to decide how errors are handled?
-        return RObject::new(result);
+        return Ok(RObject::new(result));
 
     }
 
@@ -159,7 +158,8 @@ mod tests {
         let result = RFunction::new("", "+")
             .add(2)
             .add(2)
-            .call();
+            .call()
+            .unwrap();
 
         // check the result
         assert!(Rf_isInteger(*result) != 0);
@@ -176,7 +176,8 @@ mod tests {
         let result = RFunction::new("base", "paste")
             .add("世界")
             .add("您好".to_string())
-            .call();
+            .call()
+            .unwrap();
 
         assert!(Rf_isString(*result) != 0);
 
@@ -197,7 +198,8 @@ mod tests {
             .add(1.0)
             .param("mean", 10)
             .param("sd", 0)
-            .call();
+            .call()
+            .unwrap();
 
         assert!(Rf_isNumeric(*result) != 0);
         assert!(Rf_asInteger(*result) == 10);
@@ -212,7 +214,7 @@ mod tests {
 
         // Spawn a bunch of threads that try to interact with R.
         let mut handles : Vec<_> = Vec::new();
-        for i in 1..100 {
+        for _i in 1..100 {
             let handle = std::thread::spawn(move || {
                 for _j in 1..10 {
                     r_lock! {

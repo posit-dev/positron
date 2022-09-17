@@ -13,5 +13,4 @@ pub mod modules;
 pub mod object;
 pub mod protect;
 pub mod test;
-pub mod traits;
 pub mod utils;
