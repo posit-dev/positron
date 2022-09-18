@@ -28,7 +28,9 @@ export class ModalDialogs implements IModalDialogsService {
 	async showTimeModalDialog(): Promise<void> {
 
 		console.log('We are here');
-		const ddd = new ModalDialog(this.layoutService.container);
+		const ddd = new ModalDialog(this.layoutService.container, {
+			title: 'Current Time'
+		});
 		await ddd.show();
 	}
 }

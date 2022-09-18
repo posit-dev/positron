@@ -2,6 +2,11 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+@keyframes fade-in {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
 .monaco-modal-dialog-modal-block {
 	position: fixed;
 	height: 100%;
@@ -12,13 +17,19 @@
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	animation: fade-in 0.25s;
 }
 
 .monaco-modal-dialog-modal-block.dimmed {
-	background: rgba(0, 0, 0, 0.3);
+	background: rgba(0, 0, 0, 0.2);
+}
+
+.modal-dialog-shadow-container {
+	background: transparent;
 }
 
 .monaco-modal-dialog-box {
+	outline: none !important;
 	display: flex;
 	flex-direction: column-reverse;
 	width: min-content;
@@ -26,12 +37,14 @@
 	max-width: 90vw;
 	min-height: 75px;
 	padding: 10px;
-	transform: translate3d(0px, 0px, 0px);
+	transform: translate3d(0px, 0px, 0px); /* Makes some devices run their hardware acceleration. */
+	animation: fade-in 0.25s;
 }
 
 /* Placeholder... */
-.monaco-modal-dialog-box-content {
+.monaco-modal-dialog-box-body {
 	border-radius: 15px 15px 5px 5px;
+	overflow: hidden;
 	width: 100%;
 	height: 400px;
 	background: #f1f3f5;
@@ -40,4 +53,64 @@
 	align-items: center;
 	justify-content: center;
 	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+	border: 1px solid #d6dce2;
+	position: relative;
+}
+
+.monaco-modal-dialog-box-body .title-bar {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 32px;
+	background: #dee1e5;
+	display: flex;
+	align-items: center;
+	padding: 0 16px;
+}
+
+.monaco-modal-dialog-box-body .title-bar .title-bar-title {
+	color: black;
+	overflow: hidden;
+}
+
+.monaco-modal-dialog-box-body .actions-bar {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 64px;
+	background: #f1f3f5;
+	display: flex;
+	justify-content: end;
+	align-items: center;
+	padding: 0 0px;
+	margin: 0 16px;
+}
+
+.monaco-modal-dialog-box-body .actions-bar.top {
+	border-top: 1px solid #dee1e5;
+}
+
+
+a.push-button {
+	border-radius: 5px;
+	background: #dee1e5;
+	height: 32px;
+	width: 80px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+a.push-button:hover {
+	filter: brightness(95%);
+}
+
+a.push-button:active {
+	filter: brightness(90%);
+}
+
+.monaco-modal-dialog-box-body .foo {
+	background: transparent;
 }
