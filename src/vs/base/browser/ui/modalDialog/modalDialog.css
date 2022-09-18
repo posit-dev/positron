@@ -74,6 +74,15 @@
 	overflow: hidden;
 }
 
+.monaco-modal-dialog-box-body .content-area {
+	position: absolute;
+	top: 32px;
+	left: 0;
+	right: 0;
+	bottom: 64px;
+	padding: 16px;
+}
+
 .monaco-modal-dialog-box-body .actions-bar {
 	position: absolute;
 	bottom: 0;
@@ -92,7 +101,6 @@
 	border-top: 1px solid #dee1e5;
 }
 
-
 a.push-button {
 	border-radius: 5px;
 	background: #dee1e5;
@@ -109,8 +117,4 @@ a.push-button:hover {
 
 a.push-button:active {
 	filter: brightness(90%);
-}
-
-.monaco-modal-dialog-box-body .foo {
-	background: transparent;
 }
