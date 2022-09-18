@@ -11,6 +11,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
  */
 export interface IModalDialogOptions {
 	readonly title: string;
+	readonly renderBody?: (container: HTMLElement) => void;
 }
 
 /**
@@ -25,8 +26,10 @@ export class ModalDialog extends Disposable {
 	private readonly dialogBoxBodyElement: HTMLElement;
 	private readonly titleBarElement: HTMLElement;
 	private readonly titleElement: HTMLElement;
-	private readonly actionsBarElement: HTMLElement;
 
+	private readonly contentAreaElement: HTMLElement;
+
+	private readonly actionsBarElement: HTMLElement;
 	private readonly okButtonElement: HTMLElement | undefined;
 
 	//#endregion Private Member Variables
@@ -56,23 +59,25 @@ export class ModalDialog extends Disposable {
 		this.titleElement = this.titleBarElement.appendChild(DOM.$('.title-bar-title'));
 		this.titleElement.innerText = modalDialogOptions.title;
 
+		// Create the content area.
+		this.contentAreaElement = this.dialogBoxBodyElement.appendChild(DOM.$('.content-area'));
+
+		// Render the body into content area.
+		if (modalDialogOptions.renderBody) {
+			modalDialogOptions.renderBody(this.contentAreaElement);
+		}
+
 		// Create the actions bar and actions.
 		this.actionsBarElement = this.dialogBoxBodyElement.appendChild(DOM.$('.actions-bar.top'));
 
+		// Add the OK button.
 		this.okButtonElement = DOM.$('a');
 		this.okButtonElement = document.createElement('a');
 		this.okButtonElement.classList.add('push-button');
 		this.okButtonElement.tabIndex = 0;
 		this.okButtonElement.setAttribute('role', 'button');
 		this.okButtonElement.innerText = 'OK';
-		this.okButtonElement.onclick = () => {
-			console.log('YAYA!');
-		};
 		this.actionsBarElement.appendChild(this.okButtonElement);
-
-		// Placeholder.
-		const divie = this.dialogBoxBodyElement.appendChild(DOM.$('.foo'));
-		divie.innerText = 'This is a modal dialog box.';
 
 		// Hide the dialog box element until it's shown.
 		DOM.hide(this.dialogBoxElement);
@@ -98,8 +103,17 @@ export class ModalDialog extends Disposable {
 	async show(): Promise<void> {
 		//const focusToReturn = document.activeElement as HTMLElement;
 
-		DOM.show(this.dialogBoxElement);
-		this.dialogBoxElement.focus();
+		return new Promise<void>((resolve) => {
+			DOM.show(this.dialogBoxElement);
+			this.dialogBoxElement.focus();
+
+			if (this.okButtonElement) {
+				this.okButtonElement.onclick = () => {
+					console.log('YAYA!');
+					resolve();
+				};
+			}
+		});
 	}
 
 	//#endregion Class Initialization
