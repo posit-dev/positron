@@ -205,10 +205,10 @@ registerAction2(class ShowTimeAction extends Action2 {
 		super({
 			id: ShowTimeAction.ID,
 			title: {
-				value: localize('showTime', "Shows Time"),
-				original: 'Shows Time'
+				value: localize('showTime', "Show Current Time"),
+				original: 'Show Current Time'
 			},
-			category: CATEGORIES.View,
+			category: CATEGORIES.Test,
 			f1: true
 		});
 	}
