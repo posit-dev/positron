@@ -1,6 +1,7 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"jsx": "react",
 		"removeComments": false,
 		"preserveConstEnums": true,
 		"sourceMap": false,
