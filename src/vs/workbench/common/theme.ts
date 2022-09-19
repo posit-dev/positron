@@ -401,79 +401,6 @@ export const PANEL_SECTION_BORDER = registerColor('panelSection.border', {
 	hcLight: PANEL_BORDER
 }, localize('panelSectionBorder', "Panel section border color used when multiple views are stacked horizontally in the panel. Panels are shown below the editor area and contain views like output and integrated terminal. Panel sections are views nested within the panels."));
 
-// --- Start Positron ---
-// < --- Top Bar --- >
-
-export const TOP_BAR_BACKGROUND = registerColor('topBar.background', {
-	dark: '#3b4144',
-	light: '#f5f7fa',
-	hcDark: Color.black,
-	hcLight: Color.white
-}, localize('topBar.background', "Top bar background color. The top bar is shown under the title bar of the window."));
-
-export const TOP_BAR_FOREGROUND = registerColor('topBar.foreground', {
-	dark: Color.white,
-	light: Color.white,
-	hcDark: Color.white,
-	hcLight: Color.white
-}, localize('topBar.foreground', "Top bar foreground color. The top bar is shown under the title bar of the window."));
-
-export const TOP_BAR_ICON_FOREGROUND = registerColor('topBar.iconForeground', {
-	dark: editorInfoForeground,
-	light: editorInfoForeground,
-	hcDark: editorInfoForeground,
-	hcLight: editorInfoForeground
-}, localize('topBar.iconForeground', "Top bar icon color. The top bar is shown under the title bar of the window."));
-
-// < --- Auxiliary Activity Bar --- >
-
-// The auxiliary activity bar background color.
-const AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID = 'auxiliaryActivityBar.background';
-export const AUXILIARY_ACTIVITY_BAR_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID, {
-	dark: '#32485b',
-	light: '#3a78b1',
-	hcDark: '#000000',
-	hcLight: '#FFFFFF'
-}, localize(AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID, "Auxiliary activity bar background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
-
-// The auxiliary activity bar action container on background color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID = 'auxiliaryActivityBar.actionContainerToggledBackground';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, {
-	dark: '#202020',
-	light: '#FFFFFF',
-	hcDark: '#000000',
-	hcLight: '#FFFFFF'
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, "Auxiliary activity bar action container toggled background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
-
-// The auxiliary activity bar action icon background color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID = 'auxiliaryActivityBar.actionIconBackground';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID, {
-	dark: '#c1c9d1',
-	light: '#d9dfe5',
-	hcDark: '#000000',
-	hcLight: '#FFFFFF'
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID, "Auxiliary activity bar action icon background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
-
-// The auxiliary activity bar action icon background toggled color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID = 'auxiliaryActivityBar.actionIconBackgroundToggled';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, {
-	dark: '#3a78b1',
-	light: '#3a78b1',
-	hcDark: '#000000',
-	hcLight: '#FFFFFF'
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, "Auxiliary activity bar action icon background toggled color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
-
-// The auxiliary activity bar action icon background hover color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID = 'auxiliaryActivityBar.actionIconBackgroundHover';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, {
-	dark: '#ffffff',
-	light: '#ffffff',
-	hcDark: editorInfoForeground,
-	hcLight: editorInfoForeground
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, "Auxiliary activity bar action icon color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
-
-// --- End Positron ---
-
 // < --- Banner --- >
 
 export const BANNER_BACKGROUND = registerColor('banner.background', {
@@ -515,10 +442,10 @@ export const STATUS_BAR_NO_FOLDER_FOREGROUND = registerColor('statusBar.noFolder
 
 export const STATUS_BAR_BACKGROUND = registerColor('statusBar.background', {
 	// --- Start Positron ---
-	dark: '#3b4144',
-	light: '#f5f7fa',
 	// dark: '#007ACC',
 	// light: '#007ACC',
+	dark: '#3b4144',
+	light: '#f5f7fa',
 	// --- End Positron ---
 	hcDark: null,
 	hcLight: null,
@@ -949,3 +876,77 @@ export const WINDOW_INACTIVE_BORDER = registerColor('window.inactiveBorder', {
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('windowInactiveBorder', "The color used for the border of the window when it is inactive. Only supported in the macOS and Linux desktop client when using the custom title bar."));
+
+// --- Start Positron ---
+
+// < --- Top Bar --- >
+
+export const TOP_BAR_BACKGROUND = registerColor('topBar.background', {
+	dark: '#3b4144',
+	light: '#f5f7fa',
+	hcDark: Color.black,
+	hcLight: Color.white
+}, localize('topBar.background', "Top bar background color. The top bar is shown under the title bar of the window."));
+
+export const TOP_BAR_FOREGROUND = registerColor('topBar.foreground', {
+	dark: Color.white,
+	light: Color.white,
+	hcDark: Color.white,
+	hcLight: Color.white
+}, localize('topBar.foreground', "Top bar foreground color. The top bar is shown under the title bar of the window."));
+
+export const TOP_BAR_ICON_FOREGROUND = registerColor('topBar.iconForeground', {
+	dark: editorInfoForeground,
+	light: editorInfoForeground,
+	hcDark: editorInfoForeground,
+	hcLight: editorInfoForeground
+}, localize('topBar.iconForeground', "Top bar icon color. The top bar is shown under the title bar of the window."));
+
+// < --- Auxiliary Activity Bar --- >
+
+// The auxiliary activity bar background color.
+const AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID = 'auxiliaryActivityBar.background';
+export const AUXILIARY_ACTIVITY_BAR_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID, {
+	dark: '#32485b',
+	light: '#3a78b1',
+	hcDark: '#000000',
+	hcLight: '#FFFFFF'
+}, localize(AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID, "Auxiliary activity bar background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+
+// The auxiliary activity bar action container on background color.
+const AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID = 'auxiliaryActivityBar.actionContainerToggledBackground';
+export const AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, {
+	dark: '#202020',
+	light: '#FFFFFF',
+	hcDark: '#000000',
+	hcLight: '#FFFFFF'
+}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, "Auxiliary activity bar action container toggled background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+
+// The auxiliary activity bar action icon background color.
+const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID = 'auxiliaryActivityBar.actionIconBackground';
+export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID, {
+	dark: '#c1c9d1',
+	light: '#d9dfe5',
+	hcDark: '#000000',
+	hcLight: '#FFFFFF'
+}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID, "Auxiliary activity bar action icon background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+
+// The auxiliary activity bar action icon background toggled color.
+const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID = 'auxiliaryActivityBar.actionIconBackgroundToggled';
+export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, {
+	dark: '#3a78b1',
+	light: '#3a78b1',
+	hcDark: '#000000',
+	hcLight: '#FFFFFF'
+}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, "Auxiliary activity bar action icon background toggled color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+
+// The auxiliary activity bar action icon background hover color.
+const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID = 'auxiliaryActivityBar.actionIconBackgroundHover';
+export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, {
+	dark: '#ffffff',
+	light: '#ffffff',
+	hcDark: editorInfoForeground,
+	hcLight: editorInfoForeground
+}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, "Auxiliary activity bar action icon color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+
+// --- End Positron ---
