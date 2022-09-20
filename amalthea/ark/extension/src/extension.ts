@@ -22,11 +22,15 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Locate the Myriac Console extension, which supplies the other side of the language server.
 	let ext = vscode.extensions.getExtension("RStudio.myriac-console");
-	if (!ext) {
-		vscode.window.showErrorMessage("Could not find Myriac Console extension; please install it.\n\n" +
-			"R language server will not be available.");
-		return null;
+	if (ext) {
+		return activateVscode(ext, context);
+	} else {
+		return activateLsp(null, context);
 	}
+
+}
+
+function activateVscode(ext: vscode.Extension<any>, context: vscode.ExtensionContext) {
 
 	// Ensure that the extension is active, so that it can receive the request
 	// to start the language server.
@@ -37,17 +41,18 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log("Activating Myriac Console extension...");
 		ext.activate().then(() => {
 			console.log("Myriac Console extension activated, starting language server");
-			activateLsp(ext!, context);
+			activateLsp(ext, context);
 		});
 	}
+
 }
 
 /**
  * Activate the language server.
- * 
+ *
  * @param context The extension context
  */
-function activateLsp(ext: vscode.Extension<any>, context: vscode.ExtensionContext) {
+function activateLsp(ext: vscode.Extension<any> | null, context: vscode.ExtensionContext) {
 
 	let serverOptions = () => {
 		// Find an open port for the language server to listen on.
