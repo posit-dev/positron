@@ -5,16 +5,13 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
-import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { URI } from 'vs/base/common/uri';
-import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ILogService } from 'vs/platform/log/common/log';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
+import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -28,9 +25,6 @@ export class ReplInstanceView extends Disposable {
 
 	/** The URI of the virtual notebook powering this instance */
 	private readonly _uri: URI;
-
-	/** The notebook text model */
-	private _nbTextModel?: NotebookTextModel;
 
 	/** The scrolling element that hosts content */
 	private _scroller: DomScrollableElement;
@@ -50,8 +44,8 @@ export class ReplInstanceView extends Disposable {
 	/** The currently active REPL cell */
 	private _activeCell?: ReplCell;
 
-	/** The notebook kernel to which the REPL is bound */
-	private _kernel: INotebookKernel;
+	/** The language runtime kernel to which the REPL is bound */
+	private _kernel: ILanguageRuntime;
 
 	/** Whether we had focus when the last code execution occurred */
 	private _hadFocus: boolean = false;
@@ -60,13 +54,11 @@ export class ReplInstanceView extends Disposable {
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
-		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
-		@INotebookService private readonly _notebookService: INotebookService,
 		@ILogService private readonly _logService: ILogService) {
 		super();
 		this._kernel = this._instance.kernel;
 
-		this._language = this._kernel.supportedLanguages[0];
+		this._language = this._kernel.language;
 		this._uri = URI.parse('repl:///' + this._language);
 
 		this._root = document.createElement('div');
@@ -88,27 +80,25 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		// Listen for execution state changes
-		this._notebookExecutionStateService.onDidChangeCellExecution((e) => {
-			// When execution is complete, show the prompt again
-			if (e.affectsNotebook(this._uri)) {
-				if (typeof e.changed === 'undefined') {
-					this._logService.trace(`Cell execution of ${e.cellHandle} complete`);
-
-					// Mark the current cell execution as complete, if it is currently executing.
-					if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
-						this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
-					}
-
-					// First, try to process any pending input; if there is
-					// none, add a new cell.
-					if (!this.processQueue()) {
-						this.addCell(this._hadFocus);
-					}
-					this.scrollToBottom();
-				} else {
-					this._logService.trace(`Cell execution status: `, e.changed);
-				}
+		this._kernel.messages.event((msg) => {
+			// If the active cell isn't executing, ignore this execution state change
+			if (this._activeCell?.getState() !== ReplCellState.ReplCellExecuting) {
+				return;
 			}
+
+			this._logService.trace(`Cell execution of ${e.cellHandle} complete`);
+
+			// Mark the current cell execution as complete, if it is currently executing.
+			if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
+				this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
+			}
+
+			// First, try to process any pending input; if there is
+			// none, add a new cell.
+			if (!this.processQueue()) {
+				this.addCell(this._hadFocus);
+			}
+			this.scrollToBottom();
 		});
 
 		// Clear REPL when event signals the user has requested it
@@ -196,8 +186,12 @@ export class ReplInstanceView extends Disposable {
 		}
 		this._pendingCells = [];
 
-		// Clear the DOM
-		this._cellContainer.innerHTML = '';
+		// Clear the DOM by removing all child elements. Note that we can't just
+		// set innerHTML to an empty string, because Electron requires the
+		// TrustedHTML claim to be set for innerHTML.
+		for (let i = this._cellContainer.children.length - 1; i >= 0; i--) {
+			this._cellContainer.removeChild(this._cellContainer.children[i]);
+		}
 
 		if (exeCell) {
 			// If we had an actively executing cell, put it back in the DOM
@@ -216,41 +210,24 @@ export class ReplInstanceView extends Disposable {
 		this._parentElement.appendChild(this._scroller.getDomNode());
 
 		const h1 = document.createElement('h1');
-		h1.innerText = this._kernel.label;
+		h1.innerText = this._kernel.name;
 		this._root.appendChild(h1);
 		this._root.appendChild(this._cellContainer);
 
 		// Create first cell
 		this.addCell(true);
 
-		// TODO: do we need to cache or store this?
-		this._nbTextModel = this._notebookService.createNotebookTextModel(
-			// TODO: do we need our own view type? seems ideal
-			'interactive',
-			this._uri,
-			{
-				cells: [{
-					source: '',
-					language: this._language,
-					mime: `application/${this._language}`,
-					cellKind: CellKind.Code,
-					outputs: [],
-					metadata: {}
-				}],
-				metadata: {}
-			}, // data
-			{
-				transientOutputs: false,
-				transientCellMetadata: {},
-				transientDocumentMetadata: {}
-			} // options
-		);
-
-		// Bind the kernel we were given to the notebook text model we just created
-		this._notebookKernelService.selectKernelForNotebook(this._kernel, this._nbTextModel);
-
 		// Recompute scrolling
 		this._scroller.scanDomNode();
+
+		this._kernel.messages.event(msg => {
+			if (msg.header.msg_type === 'execute_result') {
+				this._activeCell?.appendOutput(msg.content);
+			}
+			if (this._activeCell) {
+				this._activeCell.changeOutput(msg);
+			}
+		});
 	}
 
 	/**
@@ -262,28 +239,6 @@ export class ReplInstanceView extends Disposable {
 		// Push the submitted code into the history
 		this._instance.history.add(code);
 
-		// Replace the "cell" contents with what the user entered
-		this._nbTextModel?.applyEdits([{
-			editType: CellEditType.Replace,
-			cells: [{
-				source: code,
-				language: this._language,
-				mime: `text/${this._language}`,
-				cellKind: CellKind.Code,
-				outputs: [],
-				metadata: {}
-			}],
-			count: 1,
-			index: 0
-		}],
-			true, // Synchronous
-			undefined,
-			() => undefined,
-			undefined,
-			false);
-
-		const cell = this._nbTextModel?.cells[0]!;
-
 		cell.onDidChangeOutputs((e) => {
 			if (this._activeCell) {
 				this._activeCell.changeOutput(e);
@@ -293,14 +248,8 @@ export class ReplInstanceView extends Disposable {
 			this.scrollToBottom();
 		});
 
-		// Create a CellExecution to track the execution of this input
-		const exe = this._notebookExecutionStateService.createCellExecution(this._uri, cell.handle);
-		if (!exe) {
-			throw new Error(`Cannot create cell execution state for code: ${code}`);
-		}
-
-		// Ask the kernel to execute the cell
-		this._kernel.executeNotebookCellsRequest(this._uri, [exe.cellHandle]);
+		// Ask the kernel to execute the code
+		this._kernel.execute(code);
 
 		// Mark the cell as executing
 		if (this._activeCell) {

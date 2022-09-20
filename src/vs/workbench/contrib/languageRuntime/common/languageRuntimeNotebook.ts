@@ -51,6 +51,9 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 		this.messages = this._register(new Emitter<ILanguageRuntimeMessage>());
 
+		// Copy the kernel's ID as the runtime's ID
+		this.id = this._kernel.id;
+
 		// Create a unique URI for the notebook backing the kernel. Looks like:
 		//  repl://python-1,
 		//  repl://python-2, etc.
@@ -98,6 +101,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			}
 
 			// The new state will be 'undefined' when the cell is no longer executing;
+			// set the language runtime state to 'idle' in that case.
 			if (typeof e.changed === 'undefined') {
 				this._logService.trace(`Cell execution of ${e.cellHandle} (${this._executingCellId}) complete`);
 				this.messages.fire({
@@ -120,6 +124,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	version: string;
 
 	messages: Emitter<ILanguageRuntimeMessage>;
+
+	id: string;
 
 	execute(code: string): Thenable<string> {
 

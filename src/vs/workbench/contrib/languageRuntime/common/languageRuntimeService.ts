@@ -58,6 +58,9 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 }
 
 export interface ILanguageRuntime {
+	/** A unique identifer for this language runtime */
+	id: string;
+
 	/** The language identifier for this runtime. */
 	language: string;
 
@@ -86,7 +89,7 @@ export interface ILanguageRuntime {
 export interface ILanguageRuntimeService {
 	readonly _serviceBrand: undefined;
 
-	readonly onDidStartRuntime: Event<INotebookKernel>;
+	readonly onDidStartRuntime: Event<ILanguageRuntime>;
 
 	/**
 	 * @param language The language being registered
@@ -106,7 +109,7 @@ export interface ILanguageRuntimeService {
 	 * @param language The specific language runtime to retrieve, or `null` to
 	 *   retrieve the default
 	 */
-	getActiveRuntime(language: string | null): INotebookKernel | undefined;
+	getActiveRuntime(language: string | null): ILanguageRuntime | undefined;
 
 	/**
 	 * Selects the active language runtime
@@ -118,7 +121,7 @@ export interface ILanguageRuntimeService {
 	/**
 	 * Gets the set of active runtimes
 	 */
-	getActiveRuntimes(): Array<INotebookKernel>;
+	getActiveRuntimes(): Array<ILanguageRuntime>;
 
 	/**
 	 * Starts a language runtime

@@ -16470,6 +16470,9 @@ declare module 'vscode' {
 	 * execution, LSP implementation, and plotting.
 	 */
 	export interface LanguageRuntime {
+		/** A unique identifier for this runtime */
+		id: string;
+
 		/** The language identifier for this runtime. */
 		language: string;
 
