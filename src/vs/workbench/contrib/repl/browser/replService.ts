@@ -5,8 +5,7 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 import { ReplInstance } from 'vs/workbench/contrib/repl/browser/replInstance';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -109,12 +108,12 @@ export class ReplService extends Disposable implements IReplService {
 	 * @param kernel The kernel to bind to the new REPL
 	 * @returns The new REPL instance
 	 */
-	private startRepl(kernel: INotebookKernel): IReplInstance {
+	private startRepl(kernel: ILanguageRuntime): IReplInstance {
 		// Look up supported language ID for this kernel
 		const languageId =
-			this._languageService.getLanguageIdByLanguageName(kernel.supportedLanguages[0]);
+			this._languageService.getLanguageIdByLanguageName(kernel.language);
 		if (!languageId) {
-			throw new Error(`Could not find ID for kernel language ${kernel.supportedLanguages[0]}`);
+			throw new Error(`Could not find ID for kernel language ${kernel.language}`);
 		}
 
 		// Auto-generate an instance ID for this REPL

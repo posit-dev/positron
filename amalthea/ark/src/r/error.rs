@@ -15,7 +15,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     EvaluationError(String, String),
     UnexpectedLength(u32, u32),
-    UnexpectedType(u32, u32),
+    UnexpectedType(u32, Vec<u32>),
 }
 
 impl fmt::Display for Error {
@@ -26,14 +26,16 @@ impl fmt::Display for Error {
                 write!(f, "Error evaluating {}: {}", expression, message)
             }
 
-            Error::UnexpectedLength(expected, actual) => {
+            Error::UnexpectedLength(actual, expected) => {
                 write!(f, "Unexpected vector length (expected {}; got {})", expected, actual)
             }
 
-            Error::UnexpectedType(expected, actual) => {
-                let expected = unsafe { r_type2char(*expected) };
-                let actual   = unsafe { r_type2char(*actual) };
-                write!(f, "Unexpected vector type (expected {}; got {})", expected, actual)
+            Error::UnexpectedType(actual, expected) => {
+                unsafe {
+                    let actual = r_type2char(*actual);
+                    let expected = expected.iter().map(|value| r_type2char(*value)).collect::<Vec<_>>().join(" | ");
+                    write!(f, "Unexpected vector type (expected {}; got {})", expected, actual)
+                }
             }
 
         }

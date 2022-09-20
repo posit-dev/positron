@@ -104,8 +104,12 @@ export class ReplViewPane extends ViewPane {
 			throw new Error('Cannot render REPL without parent container.');
 		}
 
-		// Clear the container's current contents
-		this._container.innerHTML = '';
+		// Clear the DOM by removing all child elements. Note that we can't just
+		// set innerHTML to an empty string, because Electron requires the
+		// TrustedHTML claim to be set for innerHTML.
+		for (let i = this._container.children.length - 1; i >= 0; i--) {
+			this._container.removeChild(this._container.children[i]);
+		}
 
 		// Replace with a fresh REPL instance
 		this._instanceView = this._instantiationService.createInstance(
