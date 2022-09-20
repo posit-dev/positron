@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
 import { Emitter, Event } from 'vs/base/common/event';
 import { HistoryNavigator2 } from 'vs/base/common/history';
+import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 
 export class ReplInstance extends Disposable implements IReplInstance {
 
@@ -21,7 +21,7 @@ export class ReplInstance extends Disposable implements IReplInstance {
 	constructor(
 		readonly instanceId: number,
 		readonly languageId: string,
-		readonly kernel: INotebookKernel) {
+		readonly kernel: ILanguageRuntime) {
 		super();
 	}
 
