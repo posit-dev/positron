@@ -29,7 +29,7 @@ static mut PRECIOUS_LIST : Option<SEXP> = None;
 unsafe fn protect(object: SEXP) -> SEXP {
 
     PRECIOUS_LIST_ONCE.call_once(|| {
-        let precious_list = Rf_cons(R_NilValue, R_NilValue);
+        let precious_list = Rf_cons(R_NilValue, Rf_cons(R_NilValue, R_NilValue));
         R_PreserveObject(precious_list);
         PRECIOUS_LIST = Some(precious_list);
     });
@@ -57,10 +57,8 @@ unsafe fn protect(object: SEXP) -> SEXP {
     // Point the CDR of the current head to the newly-created cell.
     SETCDR(head, cell);
 
-    // Poin the CAR of the current tail to the newly-created cell.
-    if tail != R_NilValue {
-        SETCAR(tail, cell);
-    }
+    // Point the CAR of the current tail to the newly-created cell.
+    SETCAR(tail, cell);
 
     // Clean up the protect stack and return.
     Rf_unprotect(2);
@@ -88,9 +86,7 @@ unsafe fn unprotect(cell: SEXP) {
     SETCDR(head, tail);
 
     // Point the tail back at the head.
-    if tail != R_NilValue {
-        SETCAR(tail, head);
-    }
+    SETCAR(tail, head);
 
     // There should now be no references to the cell above, allowing it
     // (and the object it contains) to be cleaned up.
@@ -263,7 +259,7 @@ impl TryFrom<RObject> for i32 {
             match r_typeof(*value) {
                 INTSXP => { Ok((*INTEGER(*value)) as i32) }
                 REALSXP => { Ok((*REAL(*value)) as i32) }
-                _ => { Err(Error::UnexpectedType(r_typeof(*value), REALSXP)) }
+                _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![INTSXP])) }
             }
         }
     }

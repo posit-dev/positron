@@ -12,6 +12,7 @@ class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
 		this.language = _runtime.language;
 		this.name = _runtime.name;
 		this.version = _runtime.version;
+		this.id = _runtime.id;
 		this.messages = new Emitter<ILanguageRuntimeMessage>();
 		_runtime.messages.event(e => this.messages.fire(e));
 	}
@@ -25,6 +26,8 @@ class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
 	name: string;
 
 	version: string;
+
+	id: string;
 
 	messages: Emitter<ILanguageRuntimeMessage>;
 

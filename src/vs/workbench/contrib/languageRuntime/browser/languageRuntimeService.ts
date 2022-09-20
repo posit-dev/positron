@@ -4,6 +4,8 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { NotebookLanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeNotebook';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 
@@ -14,17 +16,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/** Needed for service branding in dependency injector */
 	declare readonly _serviceBrand: undefined;
 
-	private readonly _notebookRuntimes: Map<String, INotebookKernel> = new Map();
 	private readonly _runtimes: Map<String, ILanguageRuntime> = new Map();
-	private readonly _activeRuntimes: Array<INotebookKernel> = new Array();
+	private readonly _activeRuntimes: Array<ILanguageRuntime> = new Array();
 
-	private readonly _onDidStartRuntime = this._register(new Emitter<INotebookKernel>);
+	private readonly _onDidStartRuntime = this._register(new Emitter<ILanguageRuntime>);
 	readonly onDidStartRuntime = this._onDidStartRuntime.event;
 
 	private _activeLanguage: string = '';
 
 	constructor(
-		@INotebookKernelService private _notebookKernelService: INotebookKernelService
+		@INotebookKernelService private _notebookKernelService: INotebookKernelService,
+		@IInstantiationService private _instantiationService: IInstantiationService
 	) {
 		super();
 
@@ -45,7 +47,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	registerNotebookRuntime(language: string, kernel: INotebookKernel): void {
-		this._notebookRuntimes.set(language, kernel);
+		// Create a language runtime from the notebook kernel; this triggers the
+		// creation of a NotebookLanguageRuntime object that wraps the kernel in
+		// the ILanguageRuntime interface.
+		this.registerRuntime(this._instantiationService.createInstance(
+			NotebookLanguageRuntime,
+			kernel));
 
 		// pick up the active language if we haven't set one yet
 		if (this._activeLanguage === '') {
@@ -53,11 +60,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 	}
 
-	getActiveRuntime(language: string | null): INotebookKernel | undefined {
+	getActiveRuntime(language: string | null): ILanguageRuntime | undefined {
 		if (typeof language === 'string') {
-			return this._notebookRuntimes.get(language);
+			return this._runtimes.get(language);
 		}
-		return this._notebookRuntimes.get(this._activeLanguage);
+		return this._runtimes.get(this._activeLanguage);
 	}
 
 	setActiveRuntime(language: string): void {
@@ -65,7 +72,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	startRuntime(id: string): void {
-		const kernels = this._notebookRuntimes.values();
+		const kernels = this._runtimes.values();
 		for (const kernel of kernels) {
 			if (kernel.id === id) {
 				// TODO: this is where we start the kernel
@@ -77,7 +84,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		throw new Error('No runtime with id ' + id + ' was found.');
 	}
 
-	getActiveRuntimes(): Array<INotebookKernel> {
+	getActiveRuntimes(): Array<ILanguageRuntime> {
 		return this._activeRuntimes;
 	}
 }

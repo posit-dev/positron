@@ -3908,4 +3908,13 @@ export enum RuntimeOnlineState {
 	Idle = 'idle',
 }
 
+/** The set of possible language runtime messages */
+export enum LanguageRuntimeMessageType {
+	/** A message representing output (text, plots, etc.) */
+	Output = 'output',
+
+	/** A message representing a change in the runtime's online state */
+	State = 'state',
+}
+
 // --- End Positron ---
