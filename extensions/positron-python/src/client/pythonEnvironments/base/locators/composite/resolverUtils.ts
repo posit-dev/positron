@@ -4,7 +4,14 @@
 import * as path from 'path';
 import { Uri } from 'vscode';
 import { uniq } from 'lodash';
-import { PythonEnvInfo, PythonEnvKind, PythonEnvSource, UNKNOWN_PYTHON_VERSION, virtualEnvKinds } from '../../info';
+import {
+    PythonEnvInfo,
+    PythonEnvKind,
+    PythonEnvSource,
+    PythonEnvType,
+    UNKNOWN_PYTHON_VERSION,
+    virtualEnvKinds,
+} from '../../info';
 import {
     buildEnvInfo,
     comparePythonVersionSpecificity,
@@ -26,6 +33,7 @@ import { getRegistryInterpreters, getRegistryInterpretersSync } from '../../../c
 import { BasicEnvInfo } from '../../locator';
 import { parseVersionFromExecutable } from '../../info/executable';
 import { traceError, traceWarn } from '../../../../logging';
+import { isVirtualEnvironment } from '../../../common/environmentManagers/simplevirtualenvs';
 
 function getResolvers(): Map<PythonEnvKind, (env: BasicEnvInfo, useCache?: boolean) => Promise<PythonEnvInfo>> {
     const resolvers = new Map<PythonEnvKind, (_: BasicEnvInfo, useCache?: boolean) => Promise<PythonEnvInfo>>();
@@ -62,7 +70,24 @@ export async function resolveBasicEnv(env: BasicEnvInfo, useCache = false): Prom
     const { ctime, mtime } = await getFileInfo(resolvedEnv.executable.filename);
     resolvedEnv.executable.ctime = ctime;
     resolvedEnv.executable.mtime = mtime;
+    const type = await getEnvType(resolvedEnv);
+    if (type) {
+        resolvedEnv.type = type;
+    }
     return resolvedEnv;
+}
+
+async function getEnvType(env: PythonEnvInfo) {
+    if (env.type) {
+        return env.type;
+    }
+    if (await isVirtualEnvironment(env.executable.filename)) {
+        return PythonEnvType.Virtual;
+    }
+    if (await isCondaEnvironment(env.executable.filename)) {
+        return PythonEnvType.Conda;
+    }
+    return undefined;
 }
 
 function getSearchLocation(env: PythonEnvInfo): Uri | undefined {
@@ -131,6 +156,7 @@ async function resolveSimpleEnv(env: BasicEnvInfo): Promise<PythonEnvInfo> {
         kind,
         version: await getPythonVersionFromPath(executablePath),
         executable: executablePath,
+        type: PythonEnvType.Virtual,
     });
     const location = getEnvironmentDirFromPath(executablePath);
     envInfo.location = location;
@@ -161,6 +187,7 @@ async function resolveCondaEnv(env: BasicEnvInfo, useCache?: boolean): Promise<P
                 location: prefix,
                 source: [],
                 version: executable ? await getPythonVersionFromPath(executable) : undefined,
+                type: PythonEnvType.Conda,
             });
             if (name) {
                 info.name = name;
@@ -175,7 +202,9 @@ async function resolveCondaEnv(env: BasicEnvInfo, useCache?: boolean): Promise<P
     );
     // Environment could still be valid, resolve as a simple env.
     env.kind = PythonEnvKind.Unknown;
-    return resolveSimpleEnv(env);
+    const envInfo = await resolveSimpleEnv(env);
+    envInfo.type = PythonEnvType.Conda;
+    return envInfo;
 }
 
 async function resolvePyenvEnv(env: BasicEnvInfo): Promise<PythonEnvInfo> {
