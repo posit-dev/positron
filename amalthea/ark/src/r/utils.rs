@@ -24,7 +24,7 @@ pub unsafe fn r_check_type(object: SEXP, expected: u32) -> Result<(), Error> {
 
     let actual = TYPEOF(object) as u32;
     if actual != expected {
-        return Err(Error::UnexpectedType(actual, expected));
+        return Err(Error::UnexpectedType(actual, vec![expected]));
     }
 
     Ok(())
