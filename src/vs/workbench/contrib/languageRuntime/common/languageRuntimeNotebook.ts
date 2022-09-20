@@ -80,7 +80,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			{
 				transientOutputs: false,
 				transientCellMetadata: {},
-				transientDocumentMetadata: {}
+				transientDocumentMetadata: {},
+				cellContentMetadata: {}
 			} // options
 		);
 
