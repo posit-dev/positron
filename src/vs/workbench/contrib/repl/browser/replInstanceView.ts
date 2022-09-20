@@ -4,14 +4,12 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeOutput, ILanguageRuntimeState, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
+import { ILanguageRuntime, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -50,7 +48,6 @@ export class ReplInstanceView extends Disposable {
 	constructor(private readonly _instance: IReplInstance,
 		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@ILogService private readonly _logService: ILogService) {
 		super();
 		this._kernel = this._instance.kernel;

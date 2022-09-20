@@ -6,7 +6,6 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('ILanguageRuntimeService');
 
@@ -40,6 +39,15 @@ export enum RuntimeOnlineState {
 
 	/** The runtime is idle */
 	Idle = 'idle',
+}
+
+/** The set of possible language runtime messages */
+export enum LanguageRuntimeMessageType {
+	/** A message representing output (text, plots, etc.) */
+	Output = 'output',
+
+	/** A message representing a change in the runtime's online state */
+	State = 'state',
 }
 
 export interface ILanguageRuntimeState extends ILanguageRuntimeMessage {
