@@ -9,10 +9,10 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 
 //import * as DOM from 'vs/base/browser/dom';
 //import * as React from 'react';
-// eslint-disable-next-line local/code-import-patterns
-// import * as ReactDOM from 'react-dom';
 
-// import Header from 'vs/base/browser/ui/components/header'
+// eslint-disable-next-line local/code-import-patterns
+import * as ReactDOM from 'react-dom';
+import Header from 'vs/base/browser/ui/components/header';
 
 /**
  * ModalDialogs class.
@@ -39,7 +39,7 @@ export class ModalDialogs implements IModalDialogsService {
 			title: 'Current Time',
 			renderBody: (container: HTMLElement) => {
 
-				// ReactDOM.render(Header(), container);
+				ReactDOM.render(Header(), container);
 
 				// // Placeholder.
 				// const placeholderElement = container.appendChild(DOM.$('.placeholder'));
