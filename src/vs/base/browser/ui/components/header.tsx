@@ -2,15 +2,24 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./header';
 import * as React from 'react';
 
+const doo = '';
+console.log(doo);
+
+// HeaderTitleProps interface.
+interface HeaderProps {
+	message: string;
+}
+
 // Header component.
-const Header = () => {
+const Header = (props: HeaderProps) => {
 	// Render.
 	return (
 		<>
-			<div className='ss'>
-				This is SPARTA!
+			<div className='header-thing' >
+				This is output from React!! The message is: {props.message} !!!
 			</div>
 		</>
 	);

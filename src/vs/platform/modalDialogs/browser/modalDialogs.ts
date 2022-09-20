@@ -38,18 +38,13 @@ export class ModalDialogs implements IModalDialogsService {
 		const modalDialog = new ModalDialog(this.layoutService.container, {
 			title: 'Current Time',
 			renderBody: (container: HTMLElement) => {
+				// Render the initial state.
+				ReactDOM.render(Header({ message: new Date().toLocaleString() }), container);
 
-				ReactDOM.render(Header(), container);
-
-				// // Placeholder.
-				// const placeholderElement = container.appendChild(DOM.$('.placeholder'));
-				// placeholderElement.innerText = new Date().toLocaleString();
-
-				// // I know this is going to leak when the dialog is closed. It's just test code.
-				// setInterval(() => {
-				// 	placeholderElement.innerText = new Date().toLocaleString();
-				// }, 1000);
-
+				// I know this is going to leak when the dialog is closed. It's just test code.
+				setInterval(() => {
+					ReactDOM.render(Header({ message: new Date().toLocaleString() }), container);
+				}, 1000);
 			}
 		});
 
