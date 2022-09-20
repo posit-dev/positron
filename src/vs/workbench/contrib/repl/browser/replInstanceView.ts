@@ -242,7 +242,8 @@ export class ReplInstanceView extends Disposable {
 			{
 				transientOutputs: false,
 				transientCellMetadata: {},
-				transientDocumentMetadata: {}
+				transientDocumentMetadata: {},
+				cellContentMetadata: {}
 			} // options
 		);
 
