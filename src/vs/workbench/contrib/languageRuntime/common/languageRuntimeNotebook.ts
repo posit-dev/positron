@@ -6,6 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
+import { LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 import { ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeOutput, ILanguageRuntimeState, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
@@ -106,7 +107,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			if (typeof e.changed === 'undefined') {
 				this._logService.trace(`Cell execution of ${e.cellHandle} (${this._executingCellId}) complete`);
 				this.messages.fire({
-					type: 'status',
+					type: LanguageRuntimeMessageType.State,
 					id: 'status-' + NotebookLanguageRuntime._msgCounter++,
 					parent_id: this._executingCellId,
 					state: RuntimeOnlineState.Idle,

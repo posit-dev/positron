@@ -16413,6 +16413,16 @@ declare module 'vscode' {
 	}
 
 	// --- Start Positron ---
+
+	/** The set of possible language runtime messages */
+	export enum LanguageRuntimeMessageType {
+		/** A message representing output (text, plots, etc.) */
+		Output = 'output',
+
+		/** A message representing a change in the runtime's online state */
+		State = 'state',
+	}
+
 	/**
 	 * LanguageRuntimeMessage is an interface that defines an event occurring in a
 	 * language runtime, such as outputting text or plots.
@@ -16425,7 +16435,7 @@ declare module 'vscode' {
 		parent_id: string;
 
 		/** The type of event */
-		type: string;
+		type: LanguageRuntimeMessageType;
 	}
 
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */

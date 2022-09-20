@@ -5,13 +5,13 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
-import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeOutput, ILanguageRuntimeState, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -22,9 +22,6 @@ export class ReplInstanceView extends Disposable {
 
 	/** The language executed by this REPL */
 	private readonly _language: string;
-
-	/** The URI of the virtual notebook powering this instance */
-	private readonly _uri: URI;
 
 	/** The scrolling element that hosts content */
 	private _scroller: DomScrollableElement;
@@ -59,7 +56,6 @@ export class ReplInstanceView extends Disposable {
 		this._kernel = this._instance.kernel;
 
 		this._language = this._kernel.language;
-		this._uri = URI.parse('repl:///' + this._language);
 
 		this._root = document.createElement('div');
 		this._root.classList.add('repl-root');
@@ -81,23 +77,34 @@ export class ReplInstanceView extends Disposable {
 
 		// Listen for execution state changes
 		this._kernel.messages.event((msg) => {
-			// If the active cell isn't executing, ignore this execution state change
-			if (this._activeCell?.getState() !== ReplCellState.ReplCellExecuting) {
-				return;
+			if (msg.type === LanguageRuntimeMessageType.State) {
+				const stateMsg = msg as ILanguageRuntimeState;
+
+				// If the kernel is entering a busy state, ignore for now
+				if (stateMsg.state === RuntimeOnlineState.Busy) {
+					return;
+				}
+
+				// If the active cell isn't executing, ignore this execution state change
+				if (this._activeCell?.getState() !== ReplCellState.ReplCellExecuting) {
+					return;
+				}
+
+				// Mark the current cell execution as complete, if it is currently executing.
+				if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
+					this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
+				}
+
+				// Now that the cell execution is complete, try to process any
+				// pending input; if there is none, add a new cell.
+				if (!this.processQueue()) {
+					this.addCell(this._hadFocus);
+				}
+			} else if (msg.type === LanguageRuntimeMessageType.Output) {
+				const outputMsg = msg as ILanguageRuntimeOutput;
+				this._activeCell?.emitMimeOutput(outputMsg.data);
 			}
 
-			this._logService.trace(`Cell execution of ${e.cellHandle} complete`);
-
-			// Mark the current cell execution as complete, if it is currently executing.
-			if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
-				this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
-			}
-
-			// First, try to process any pending input; if there is
-			// none, add a new cell.
-			if (!this.processQueue()) {
-				this.addCell(this._hadFocus);
-			}
 			this.scrollToBottom();
 		});
 
@@ -221,12 +228,6 @@ export class ReplInstanceView extends Disposable {
 		this._scroller.scanDomNode();
 
 		this._kernel.messages.event(msg => {
-			if (msg.header.msg_type === 'execute_result') {
-				this._activeCell?.appendOutput(msg.content);
-			}
-			if (this._activeCell) {
-				this._activeCell.changeOutput(msg);
-			}
 		});
 	}
 
@@ -238,15 +239,6 @@ export class ReplInstanceView extends Disposable {
 	submit(code: string) {
 		// Push the submitted code into the history
 		this._instance.history.add(code);
-
-		cell.onDidChangeOutputs((e) => {
-			if (this._activeCell) {
-				this._activeCell.changeOutput(e);
-			}
-
-			// TODO: only do this if already scrolled to bottom
-			this.scrollToBottom();
-		});
 
 		// Ask the kernel to execute the code
 		this._kernel.execute(code);

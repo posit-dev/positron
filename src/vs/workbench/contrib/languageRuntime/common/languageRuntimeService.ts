@@ -6,6 +6,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('ILanguageRuntimeService');
 
@@ -21,7 +22,7 @@ export interface ILanguageRuntimeMessage {
 	parent_id: string;
 
 	/** The type of event */
-	type: string;
+	type: LanguageRuntimeMessageType;
 }
 
 /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */

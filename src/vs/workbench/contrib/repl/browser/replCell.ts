@@ -7,7 +7,6 @@ import { ReplOutput } from 'vs/workbench/contrib/repl/browser/replOutput';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { NotebookCellOutputsSplice } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IMouseWheelEvent } from 'vs/base/browser/mouseEvent';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 
@@ -130,36 +129,35 @@ export class ReplCell extends Disposable {
 	}
 
 	/**
-	 * Updates output in the cell
+	 * Emits output in the cell
 	 *
-	 * @param splice The cell output updates
+	 * @param data A map containing the output data to emit; keys are output
+	 *   mime types and values are the output data for that type
 	 */
-	changeOutput(splice: NotebookCellOutputsSplice) {
-		for (const output of splice.newOutputs) {
-			for (const o of output.outputs) {
-				let output = '';
-				let error = false;
-				let isText = true;
-				if (o.mime === 'text/html') {
-					this._output.emitHtml(o.data.toString());
-					isText = false;
-				} else if (o.mime.startsWith('text')) {
-					output = o.data.toString();
-				} else if (o.mime === 'application/vnd.code.notebook.stdout') {
-					output = o.data.toString();
-				} else if (o.mime === 'application/vnd.code.notebook.stderr') {
-					output = o.data.toString();
-					error = true;
-				} else if (o.mime === 'application/vnd.code.notebook.error') {
-					this._output.emitError(o.data.toString());
-					this.setState(ReplCellState.ReplCellCompletedFailure);
-					isText = false;
-				} else {
-					output = `Result type ${o.mime}`;
-				}
-				if (isText) {
-					this._output.emitOutput(output, error);
-				}
+	emitMimeOutput(data: Map<string, string>) {
+		for (const [mime, val] of data) {
+			let output = '';
+			let error = false;
+			let isText = true;
+			if (mime === 'text/html') {
+				this._output.emitHtml(val);
+				isText = false;
+			} else if (mime.startsWith('text')) {
+				output = val;
+			} else if (mime === 'application/vnd.code.notebook.stdout') {
+				output = val;
+			} else if (mime === 'application/vnd.code.notebook.stderr') {
+				output = val;
+				error = true;
+			} else if (mime === 'application/vnd.code.notebook.error') {
+				this._output.emitError(val);
+				this.setState(ReplCellState.ReplCellCompletedFailure);
+				isText = false;
+			} else {
+				output = `Result type ${mime}`;
+			}
+			if (isText) {
+				this._output.emitOutput(output, error);
 			}
 		}
 	}
