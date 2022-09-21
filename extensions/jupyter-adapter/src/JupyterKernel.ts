@@ -21,11 +21,11 @@ import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { JupyterMessage } from './JupyterMessage';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 import { JupyterCompleteRequest } from './JupyterCompleteRequest';
-import { JupyterMessagePacket, JupyterSockets } from '@internal/jupyter-wire';
+import { JupyterMessagePacket, JupyterSockets } from '.';
 import { JupyterCommOpen } from './JupyterCommOpen';
 import { v4 as uuidv4 } from 'uuid';
-import { JupyterShutdownRequest } from '@internal/jupyter-wire/JupyterShutdownRequest';
-import { JupyterInterruptRequest } from '@internal/jupyter-wire/JupyterInterruptRequest';
+import { JupyterShutdownRequest } from './JupyterShutdownRequest';
+import { JupyterInterruptRequest } from './JupyterInterruptRequest';
 
 export class JupyterKernel extends EventEmitter implements Disposable {
 	private readonly _spec: JupyterKernelSpec;
