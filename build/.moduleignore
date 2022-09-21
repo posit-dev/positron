@@ -140,6 +140,9 @@ prebuild-install/**/*
 **/CONTRIBUTING.md
 
 **/*.ts
+# --- Start Positron ---
+**/*.tsx
+# --- End Positron ---
 !typescript/**/*.d.ts
 
 jschardet/index.js
