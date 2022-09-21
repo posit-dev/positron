@@ -134,8 +134,10 @@ module.exports.indentationFilter = [
 	'!extensions/notebook-renderers/renderer-out/*.js',
 	'!extensions/simple-browser/media/*.js',
 
+	// --- Start Positron ---
 	'!src/react.js',
 	'!src/react-dom.js',
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	'!amalthea/**/*',
