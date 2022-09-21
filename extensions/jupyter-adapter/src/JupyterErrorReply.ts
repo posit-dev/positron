@@ -1,16 +1,13 @@
-/*
- * JupyterErrorReply.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Returned by many Jupyter methods when they fail.
- * 
- * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#request-reply 
+ *
+ * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#request-reply
  */
 export interface JupyterErrorReply extends JupyterMessageSpec {
     /** The status, always 'error' */

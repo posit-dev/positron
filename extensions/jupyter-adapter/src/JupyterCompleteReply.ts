@@ -1,9 +1,6 @@
-/*
- * JupyterCompleteReply.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 

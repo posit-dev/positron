@@ -1,9 +1,6 @@
-/*
- * JupyterKernelDiscovery.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import os = require('os');
 import fs = require('fs');
@@ -11,7 +8,7 @@ import path = require('path');
 
 /**
  * Gets metadata about the Jupyter kernel installed in the given directory.
- * 
+ *
  * @param dir The directory to search for kernels
  * @returns A promise, with either the kernel metadata or null if no kernel
  *   exists in the directory.
@@ -28,7 +25,7 @@ function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
                 // Not an error, just no kernel definition in this directory.
                 resolve(null);
             } else {
-                // Read and parse the contents of the definition. 
+                // Read and parse the contents of the definition.
                 fs.readFile(kerneljs, (err, data) => {
                     if (err) {
                         console.log('Couldn't read kernel definition at ' + kerneljs + ': ' + err.message);
@@ -49,8 +46,8 @@ function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
 
 /**
  * Discovers all Jupyter kernels in a folder that could contain several.
- * 
- * @param dir 
+ *
+ * @param dir
  */
 function discoverKernels(dir: string): Promise<Array<JupyterKernelSpec>> {
     return new Promise((resolve, reject) => {

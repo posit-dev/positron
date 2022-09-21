@@ -1,9 +1,6 @@
-/*
- * JupyterKernel.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { ChildProcess, exec, spawn } from 'child_process';
 import { Disposable } from 'vscode';
@@ -201,7 +198,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
     /**
      * Requests that the kernel start a Language Server Protocol server, and
      * connect it to the client with the given TCP address.
-     * 
+     *
      * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
      */
     public startLsp(clientAddress: string) {
@@ -221,7 +218,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
     /**
      * Get the kernel's display name
-     *  
+     *
      * @returns The kernel's display name
      */
     public displayName(): string {
@@ -230,7 +227,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
     /**
      * Gets the kernel's metadata (specification)
-     * 
+     *
      * @returns The kernel's metadata
      */
     public spec(): JupyterKernelSpec {
@@ -239,7 +236,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
     /**
      * Get the kernel's current status
-     * 
+     *
      * @returns The kernel's current status
      */
     public status(): string {
@@ -284,8 +281,8 @@ export class JupyterKernel extends EventEmitter implements Disposable {
     }
 
     /**
-     * Emits a message packet to the webview 
-     * 
+     * Emits a message packet to the webview
+     *
      * @param socket The socket on which the message was emitted
      * @param msg The message itself
      */
@@ -303,7 +300,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
     /**
      * Send a message to the kernel
-     * 
+     *
      * @param packet The message package
      */
     public sendMessage(packet: JupyterMessagePacket) {
@@ -365,7 +362,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
     /**
      * Sends a message to the kernel.
-     * 
+     *
      * @param id The unique ID of the message
      * @param type The type of the message
      * @param dest The socket to which the message should be sent
@@ -400,7 +397,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
     /**
      * Processes a heartbeat message from the kernel.
-     *  
+     *
      * @param msg The heartbeat received from the kernel
      */
     private onHeartbeat(msg: string) {
@@ -425,7 +422,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
     /**
      * Changes the kernel's status
-     *  
+     *
      * @param status The new status of the kernel
      */
     private setStatus(status: KernelStatus) {

@@ -1,16 +1,13 @@
-/*
- * JupyterMessage.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Represents a message from the front end to Jupyter.
- * 
+ *
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#a-full-message
  */
 export interface JupyterMessage {

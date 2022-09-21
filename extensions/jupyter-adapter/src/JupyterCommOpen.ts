@@ -1,9 +1,6 @@
-/*
- * JupyterCommOpen.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 /**
  * Represents a request to open a new comm (communications channel)

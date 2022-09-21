@@ -1,9 +1,6 @@
-/*
- * JupyterMessageSpec.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 /**
  * Base type for Jupyter messages; contains no data and exists only to provide

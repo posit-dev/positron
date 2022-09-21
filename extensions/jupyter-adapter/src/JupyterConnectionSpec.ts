@@ -1,13 +1,10 @@
-/*
- * JupyterConnectionSpec.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 /**
  * Represents the connection between a front end and a Jupyter kernel.
- * 
+ *
  * https://jupyter-client.readthedocs.io/en/stable/messaging.html
  */
 interface JupyterConnectionSpec {

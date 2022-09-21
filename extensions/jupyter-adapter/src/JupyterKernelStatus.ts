@@ -1,15 +1,12 @@
-/*
- * JupyterStreamOutput.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Sent from the kernel to the front end to represent the kernel's status
- * 
+ *
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-status
  */
 export interface JupyterKernelStatus extends JupyterMessageSpec {

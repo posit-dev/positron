@@ -1,9 +1,6 @@
-/*
- * ConsolePanel.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import { JupyterMessagePacket } from '@internal/jupyter-wire';

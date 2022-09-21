@@ -1,14 +1,11 @@
-/*
- * JupyterLanguageInfo.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 /**
  * Represents metadata associated with the language supported by the kernel.
  *
- * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info 
+ * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info
  */
 export interface JupyterLanguageInfo  {
     /** The name of the programming language the kernel implements */

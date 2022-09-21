@@ -1,9 +1,7 @@
-/*
- * extension.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 import { JupyterKernel } from './JupyterKernel';
 import { discoverAllKernels } from './JupyterKernelDiscovery';

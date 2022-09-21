@@ -1,9 +1,6 @@
-/*
- * Api.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vscode';
 import * as vscode from 'vscode';
@@ -160,7 +157,7 @@ export class Api extends Disposable {
     /**
      * Starts an LSP for a given language. If a kernel for the language is
      * already running, ask it to start an LSP; if not, start a new kernel.
-     * 
+     *
      * @param language The language to start an LSP for
      * @param address The client address to connect to
      */
@@ -202,8 +199,8 @@ export class Api extends Disposable {
     }
 
     /**
-     * Creates a new console panel 
-     * 
+     * Creates a new console panel
+     *
      * @param kernel The kernel to create a panel for
      */
     private createPanel(kernel: JupyterKernel) {

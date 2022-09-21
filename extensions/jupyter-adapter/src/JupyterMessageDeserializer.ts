@@ -1,9 +1,6 @@
-/*
- * JupyterMessageDeserializer.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { createHmac } from 'crypto';
 import { MessageLike } from 'zeromq';

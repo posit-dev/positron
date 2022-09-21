@@ -1,9 +1,6 @@
-/*
- * JupyterMessageSerializer.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { createHmac } from 'crypto';
 import { MessageLike } from 'zeromq';
@@ -11,7 +8,7 @@ import { JupyterMessage } from '@internal/jupyter-wire';
 
 export function serializeJupyterMessage(message: JupyterMessage, key: string): MessageLike[] {
     let payload: Array<Buffer> = [];
-    
+
     // The delimiter separating the ZeroMQ socket identities from the message body
     payload.push(Buffer.from('<IDS|MSG>'));
 

@@ -1,15 +1,12 @@
-/*
- * JupyterIsCompleteReply.ts
- *
- * Copyright (C) 2022 by RStudio, PBC
- *
- */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
 
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Represents a is_complete_reply from the kernel.
- * 
+ *
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#code-completeness
  */
 export interface JupyterIsCompleteReply extends JupyterMessageSpec {
