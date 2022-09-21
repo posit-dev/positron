@@ -2,28 +2,29 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./header';
+import 'vs/css!./testComponent';
+// eslint-disable-next-line local/code-import-patterns
 import * as React from 'react';
 
 const doo = '';
 console.log(doo);
 
-// HeaderTitleProps interface.
-interface HeaderProps {
+// TestComponentProps interface.
+interface TestComponentProps {
 	message: string;
 }
 
-// Header component.
-const Header = (props: HeaderProps) => {
+// TestComponent component.
+const TestComponent = (props: TestComponentProps) => {
 	// Render.
 	return (
 		<>
-			<div className='header-thing' >
+			<div className='test' >
 				This is output from a React component. {props.message}
 			</div>
 		</>
 	);
 };
 
-// Export the Header component.
-export default Header;
+// Export the TestComponent component.
+export default TestComponent;

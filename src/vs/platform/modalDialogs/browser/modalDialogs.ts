@@ -7,12 +7,9 @@ import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialo
 import { ModalDialog } from 'vs/base/browser/ui/modalDialog/modalDialog';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 
-//import * as DOM from 'vs/base/browser/dom';
-//import * as React from 'react';
-
 // eslint-disable-next-line local/code-import-patterns
 import * as ReactDOM from 'react-dom';
-import Header from 'vs/base/browser/ui/components/header';
+import TestComponent from 'vs/base/browser/ui/components/testComponent';
 
 /**
  * ModalDialogs class.
@@ -39,11 +36,11 @@ export class ModalDialogs implements IModalDialogsService {
 			title: 'Current Time',
 			renderBody: (container: HTMLElement) => {
 				// Render the initial state.
-				ReactDOM.render(Header({ message: new Date().toLocaleString() }), container);
+				ReactDOM.render(TestComponent({ message: new Date().toLocaleString() }), container);
 
 				// I know this is going to leak when the dialog is closed. It's just test code.
 				setInterval(() => {
-					ReactDOM.render(Header({ message: new Date().toLocaleString() }), container);
+					ReactDOM.render(TestComponent({ message: new Date().toLocaleString() }), container);
 				}, 1000);
 			}
 		});
