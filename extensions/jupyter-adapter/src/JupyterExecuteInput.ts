@@ -5,7 +5,7 @@
  *
  */
 
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
+import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Represents an execute_input message on the iopub channel

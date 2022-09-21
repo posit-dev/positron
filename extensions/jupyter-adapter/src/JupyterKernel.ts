@@ -5,30 +5,30 @@
  *
  */
 
-import { ChildProcess, exec, spawn } from "child_process";
-import { Disposable } from "vscode";
+import { ChildProcess, exec, spawn } from 'child_process';
+import { Disposable } from 'vscode';
 import * as vscode from 'vscode';
 
 import zmq = require('zeromq/v5-compat');
 import fs = require('fs');
 import os = require('os');
-import { JupyterSocket } from "./JupyterSocket";
-import path = require("path");
-import crypto = require("crypto");
-import { serializeJupyterMessage } from "./JupyterMessageSerializer";
-import { deserializeJupyterMessage } from "./JupyterMessageDeserializer";
-import { MessageLike } from "zeromq";
-import EventEmitter = require("events");
-import { JupyterExecuteRequest } from "./JupyterExecuteRequest";
-import { JupyterMessageHeader } from "./JupyterMessageHeader";
-import { JupyterMessage } from "./JupyterMessage";
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
-import { JupyterCompleteRequest } from "./JupyterCompleteRequest";
-import { JupyterMessagePacket, JupyterSockets } from "@internal/jupyter-wire";
-import { JupyterCommOpen } from "./JupyterCommOpen";
+import { JupyterSocket } from './JupyterSocket';
+import path = require('path');
+import crypto = require('crypto');
+import { serializeJupyterMessage } from './JupyterMessageSerializer';
+import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
+import { MessageLike } from 'zeromq';
+import EventEmitter = require('events');
+import { JupyterExecuteRequest } from './JupyterExecuteRequest';
+import { JupyterMessageHeader } from './JupyterMessageHeader';
+import { JupyterMessage } from './JupyterMessage';
+import { JupyterMessageSpec } from './JupyterMessageSpec';
+import { JupyterCompleteRequest } from './JupyterCompleteRequest';
+import { JupyterMessagePacket, JupyterSockets } from '@internal/jupyter-wire';
+import { JupyterCommOpen } from './JupyterCommOpen';
 import { v4 as uuidv4 } from 'uuid';
-import { JupyterShutdownRequest } from "@internal/jupyter-wire/JupyterShutdownRequest";
-import { JupyterInterruptRequest } from "@internal/jupyter-wire/JupyterInterruptRequest";
+import { JupyterShutdownRequest } from '@internal/jupyter-wire/JupyterShutdownRequest';
+import { JupyterInterruptRequest } from '@internal/jupyter-wire/JupyterInterruptRequest';
 
 export class JupyterKernel extends EventEmitter implements Disposable {
     private readonly _spec: JupyterKernelSpec;
@@ -70,20 +70,20 @@ export class JupyterKernel extends EventEmitter implements Disposable {
         this._heartbeatTimer = null;
         this._lastHeartbeat = 0;
 
-        this._status = "Uninitialized";
-        this._key = crypto.randomBytes(16).toString("hex");
-        this._sessionId = crypto.randomBytes(16).toString("hex");
+        this._status = 'Uninitialized';
+        this._key = crypto.randomBytes(16).toString('hex');
+        this._sessionId = crypto.randomBytes(16).toString('hex');
     }
 
     public async start() {
 
 
         // Create ZeroMQ sockets
-        this._control = new JupyterSocket("Control", zmq.socket('dealer'));
-        this._shell = new JupyterSocket("Shell", zmq.socket('dealer'));
-        this._stdin = new JupyterSocket("Stdin", zmq.socket('dealer'));
-        this._iopub = new JupyterSocket("I/O", zmq.socket('sub'));
-        this._heartbeat = new JupyterSocket("Heartbeat", zmq.socket('req'));
+        this._control = new JupyterSocket('Control', zmq.socket('dealer'));
+        this._shell = new JupyterSocket('Shell', zmq.socket('dealer'));
+        this._stdin = new JupyterSocket('Stdin', zmq.socket('dealer'));
+        this._iopub = new JupyterSocket('I/O', zmq.socket('sub'));
+        this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'));
 
         // Create a random ZeroMQ identity for the shell and stdin sockets
         let shellId = crypto.randomBytes(16);
@@ -107,92 +107,92 @@ export class JupyterKernel extends EventEmitter implements Disposable {
             stdin_port: this._stdin.port(),      // eslint-disable-line
             iopub_port: this._iopub.port(),      // eslint-disable-line
             hb_port: this._heartbeat.port(),     // eslint-disable-line
-            signature_scheme: "hmac-sha256",     // eslint-disable-line
-            ip: "127.0.0.1",
-            transport: "tcp",
+            signature_scheme: 'hmac-sha256',     // eslint-disable-line
+            ip: '127.0.0.1',
+            transport: 'tcp',
             key: this._key
         };
 
         // Write connection definition to a file
         let tempdir = os.tmpdir();
         let sep = path.sep;
-        this._file = path.join(fs.mkdtempSync(`${tempdir}${sep}kernel-`), "connection.json");
+        this._file = path.join(fs.mkdtempSync(`${tempdir}${sep}kernel-`), 'connection.json');
         fs.writeFileSync(this._file, JSON.stringify(conn));
 
         // Replace the {connection_file} argument with our connection file
         let args = this._spec.argv.map((arg, idx) => {
-            if (arg === "{connection_file}") {
+            if (arg === '{connection_file}') {
                 return this._file;
             }
             return arg;
         }) as Array<string>;
 
-        let command = args.join(" ");
+        let command = args.join(' ');
 
         // If environment variables were provided in the kernel spec, apply them
         let options = {};
         if (this._spec.env) {
             options = {
-                "env": this._spec.env
+                'env': this._spec.env
             };
         }
 
         this.setStatus(KernelStatus.starting);
 
         let output = vscode.window.createOutputChannel(this._spec.display_name);
-        output.appendLine("Starting " + this._spec.display_name + " kernel: " + command + "...");
+        output.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
         this._process = spawn(args[0], args.slice(1), options);
-        this._process.stdout?.on("data", (data) => {
+        this._process.stdout?.on('data', (data) => {
             output.append(data.toString());
         });
-        this._process.stderr?.on("data", (data) => {
+        this._process.stderr?.on('data', (data) => {
             output.append(data.toString());
         });
-        this._process.on("close", (code) => {
+        this._process.on('close', (code) => {
             this.setStatus(KernelStatus.exited);
-            output.appendLine(this._spec.display_name + " kernel exited with status " + code);
+            output.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
         });
-        this._process.once("spawn", () => {
+        this._process.once('spawn', () => {
             console.log(`${this._spec.display_name} kernel started`);
-            this._heartbeat?.socket().once("message", (msg: string) => {
+            this._heartbeat?.socket().once('message', (msg: string) => {
 
-                console.log("Receieved initial heartbeat: " + msg);
+                console.log('Receieved initial heartbeat: ' + msg);
                 this.setStatus(KernelStatus.ready);
 
-                let seconds = vscode.workspace.getConfiguration("myriac").get("heartbeat") as number;
+                let seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
                 if (seconds > 0) {
                     console.info(`Starting heartbeat check at ${seconds} second intervals...`);
                     this.heartbeat();
-                    this._heartbeat?.socket().on("message", (msg: string) => {
+                    this._heartbeat?.socket().on('message', (msg: string) => {
                         this.onHeartbeat(msg);
                     });
                 } else {
                     console.info(`Heartbeat check disabled via configuration.`);
                 }
             });
-            this._heartbeat?.socket().send(["hello"]);
+            this._heartbeat?.socket().send(['hello']);
         });
 
         // Subscribe to all topics
-        this._iopub.socket().subscribe("");
-        this._iopub.socket().on("message", (...args: MessageLike[]) => {
+        this._iopub.socket().subscribe('');
+        this._iopub.socket().on('message', (...args: MessageLike[]) => {
             let msg = deserializeJupyterMessage(args, this._key);
             if (msg !== null) {
-                console.log("iopub message: " + JSON.stringify(msg));
+                console.log('iopub message: ' + JSON.stringify(msg));
                 this.emitMessage(JupyterSockets.iopub, msg);
             }
         });
-        this._shell.socket().on("message", (...args: MessageLike[]) => {
+        this._shell.socket().on('message', (...args: MessageLike[]) => {
             let msg = deserializeJupyterMessage(args, this._key);
             if (msg !== null) {
-                console.log("shell message: " + JSON.stringify(msg));
+                console.log('shell message: ' + JSON.stringify(msg));
                 this.emitMessage(JupyterSockets.shell, msg);
             }
         });
-        this._stdin.socket().on("message", (...args: MessageLike[]) => {
+        this._stdin.socket().on('message', (...args: MessageLike[]) => {
             let msg = deserializeJupyterMessage(args, this._key);
             if (msg !== null) {
-                console.log("stdin message: " + JSON.stringify(msg));
+                console.log('stdin message: ' + JSON.stringify(msg));
                 this.emitMessage(JupyterSockets.stdin, msg);
             }
         });
@@ -202,7 +202,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
      * Requests that the kernel start a Language Server Protocol server, and
      * connect it to the client with the given TCP address.
      * 
-     * @param clientAddress The client's TCP address, e.g. "127.0.0.1:1234"
+     * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
      */
     public startLsp(clientAddress: string) {
         // TODO: Should we query the kernel to see if it can create an LSP
@@ -210,13 +210,13 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
         // Create the message to send to the kernel
         let msg: JupyterCommOpen = {
-            target_name: "Language Server Protocol",  // eslint-disable-line
-            comm_id: "C8C5265A-028C-4A3E-BA3F-D50A28E2B8E4",  // eslint-disable-line
+            target_name: 'Language Server Protocol',  // eslint-disable-line
+            comm_id: 'C8C5265A-028C-4A3E-BA3F-D50A28E2B8E4',  // eslint-disable-line
             data: {
                 client_address: clientAddress,  // eslint-disable-line
             }
         };
-        this.send(uuidv4(), "comm_open", this._shell!, msg);
+        this.send(uuidv4(), 'comm_open', this._shell!, msg);
     }
 
     /**
@@ -255,7 +255,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
         // Start the kernel again once the process finishes shutting down
         console.info(`Waiting for '${this._spec.display_name}' to shut down...`);
-        this._process?.on("exit", () => {
+        this._process?.on('exit', () => {
             console.info(`Waiting for '${this._spec.display_name}' to restart...`);
             this.start();
         });
@@ -266,11 +266,11 @@ export class JupyterKernel extends EventEmitter implements Disposable {
      */
     public shutdown(restart: boolean) {
         this.setStatus(KernelStatus.exiting);
-        console.info("Requesting shutdown of kernel: " + this._spec.display_name);
+        console.info('Requesting shutdown of kernel: ' + this._spec.display_name);
         let msg: JupyterShutdownRequest = {
             restart: restart
         };
-        this.send(uuidv4(), "shutdown_request", this._control!, msg);
+        this.send(uuidv4(), 'shutdown_request', this._control!, msg);
     }
 
     /**
@@ -278,9 +278,9 @@ export class JupyterKernel extends EventEmitter implements Disposable {
      */
     public interrupt() {
         this.setStatus(KernelStatus.interrupting);
-        console.info("Requesting interrupt of kernel: " + this._spec.display_name);
+        console.info('Requesting interrupt of kernel: ' + this._spec.display_name);
         let msg: JupyterInterruptRequest = {};
-        this.send(uuidv4(), "interrupt_request", this._control!, msg);
+        this.send(uuidv4(), 'interrupt_request', this._control!, msg);
     }
 
     /**
@@ -291,14 +291,14 @@ export class JupyterKernel extends EventEmitter implements Disposable {
      */
     private emitMessage(socket: JupyterSockets, msg: JupyterMessage) {
         let packet: JupyterMessagePacket = {
-            type: "jupyter-message",
+            type: 'jupyter-message',
             message: msg.content,
             msgId: msg.header.msg_id,
             msgType: msg.header.msg_type,
-            originId: msg.parent_header ? msg.parent_header.msg_id : "",
+            originId: msg.parent_header ? msg.parent_header.msg_id : '',
             socket: socket
         };
-        this.emit("message", packet);
+        this.emit('message', packet);
     }
 
     /**
@@ -348,7 +348,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
         this._heartbeat?.dispose();
         this._iopub?.dispose();
 
-        console.log("Shutting down " + this._spec.display_name + " kernel");
+        console.log('Shutting down ' + this._spec.display_name + ' kernel');
         this.shutdown(false);
     }
 
@@ -356,7 +356,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
         return {
             msg_id: id,            // eslint-disable-line
             msg_type: type,        // eslint-disable-line
-            version: "5.0",
+            version: '5.0',
             date: (new Date()).toISOString(),
             session: this._sessionId,
             username: os.userInfo().username
@@ -379,7 +379,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
             metadata: new Map(),
             parent_header: {} as JupyterMessageHeader // eslint-disable-line
         };
-        console.log("sending request: " + JSON.stringify(msg));
+        console.log('sending request: ' + JSON.stringify(msg));
         dest.socket().send(serializeJupyterMessage(msg, this._key));
     }
 
@@ -387,10 +387,10 @@ export class JupyterKernel extends EventEmitter implements Disposable {
      * Emits a heartbeat message and waits for the kernel to respond.
      */
     private heartbeat() {
-        let seconds = vscode.workspace.getConfiguration("myriac").get("heartbeat") as number;
-        console.info("Sent heartbeat message to kernel");
+        let seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
+        console.info('Sent heartbeat message to kernel');
         this._lastHeartbeat = new Date().getUTCMilliseconds();
-        this._heartbeat?.socket().send(["hello"]);
+        this._heartbeat?.socket().send(['hello']);
         this._heartbeatTimer = setTimeout(() => {
             // If the kernel hasn't responded in the given amount of time,
             // mark it as offline
@@ -417,7 +417,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
         }
 
         // Schedule the next heartbeat at the configured interval
-        let seconds = vscode.workspace.getConfiguration("myriac").get("heartbeat") as number;
+        let seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
         setTimeout(() => {
             this.heartbeat();
         }, seconds * 1000);
@@ -429,7 +429,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
      * @param status The new status of the kernel
      */
     private setStatus(status: KernelStatus) {
-        this.emit("status", status);
+        this.emit('status', status);
         this._status = status;
     }
 };
@@ -439,26 +439,26 @@ export class JupyterKernel extends EventEmitter implements Disposable {
  */
 export enum KernelStatus {
     /** The kernel is in the process of starting up. It isn't ready for messages. */
-    starting = "starting",
+    starting = 'starting',
 
     /** The kernel has a heartbeat and is ready for messages. */
-    ready = "ready",
+    ready = 'ready',
 
     /** The kernel is ready to execute code. */
-    idle = "idle",
+    idle = 'idle',
 
     /** The kernel is busy executing code. */
-    busy = "busy",
+    busy = 'busy',
 
     /** The kernel is in the process of shutting down. */
-    exiting = "exiting",
+    exiting = 'exiting',
 
     /** The kernel's host process has ended. */
-    exited = "exited",
+    exited = 'exited',
 
     /** The kernel is not responding to heartbeats and is presumed offline. */
-    offline = "offline",
+    offline = 'offline',
 
     /** The user has interrupted a busy kernel, but the kernel is not idle yet. */
-    interrupting = "interrupting",
+    interrupting = 'interrupting',
 }

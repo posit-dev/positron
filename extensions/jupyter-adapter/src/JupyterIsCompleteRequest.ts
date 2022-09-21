@@ -5,7 +5,7 @@
  *
  */
 
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
+import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Represents a is_complete_request from the Jupyter frontend to the kernel.

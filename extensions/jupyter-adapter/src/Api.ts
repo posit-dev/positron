@@ -5,12 +5,12 @@
  *
  */
 
-import { Disposable } from "vscode";
+import { Disposable } from 'vscode';
 import * as vscode from 'vscode';
 import { JupyterKernel, KernelStatus } from './JupyterKernel';
 import { discoverAllKernels } from './JupyterKernelDiscovery';
 import { JupyterMessage } from './JupyterMessage';
-import { MyriacConsolePanel } from "./ConsolePanel";
+import { MyriacConsolePanel } from './ConsolePanel';
 
 export class Api extends Disposable {
     private _kernels: Map<String, JupyterKernel>;
@@ -46,7 +46,7 @@ export class Api extends Disposable {
     public restartKernel() {
         if (this._kernels.size > 0) {
             let kernel: JupyterKernel = this._kernels.values().next().value;
-            if (kernel.status() === "exited") {
+            if (kernel.status() === 'exited') {
                 // The kernel is already exited; start it again
                 vscode.window.withProgress(
                     {
@@ -54,7 +54,7 @@ export class Api extends Disposable {
                         title: `Starting kernel '${kernel.displayName()}'...`
                     },
                     async (progress, token) => {
-                        progress.report({ message: "Restarting kernel..." });
+                        progress.report({ message: 'Restarting kernel...' });
                         return await kernel.start();
                     });
             } else {
@@ -65,12 +65,12 @@ export class Api extends Disposable {
                         title: `Restarting kernel '${kernel.displayName()}'...`
                     },
                     async (progress, token) => {
-                        progress.report({ message: "Shutting down kernel..." });
+                        progress.report({ message: 'Shutting down kernel...' });
                         return await kernel.restart();
                     });
             }
         } else {
-            vscode.window.showErrorMessage("No Myriac kernel is running.");
+            vscode.window.showErrorMessage('No Myriac kernel is running.');
         }
     }
 
@@ -88,8 +88,8 @@ export class Api extends Disposable {
                 async (progress, token) => {
                     return new Promise<void>((resolve, reject) => {
                         kernel.shutdown(false);
-                        progress.report({ message: "Awaiting shutdown..." });
-                        kernel.once("status", () => {
+                        progress.report({ message: 'Awaiting shutdown...' });
+                        kernel.once('status', () => {
                             // Resolve promise as soon as kernel status changes
                             resolve();
                         });
@@ -100,7 +100,7 @@ export class Api extends Disposable {
                     });
                 });
         } else {
-            vscode.window.showErrorMessage("Can't shut down; no Myriac kernel is running.");
+            vscode.window.showErrorMessage('Can't shut down; no Myriac kernel is running.');
         }
     }
 
@@ -109,7 +109,7 @@ export class Api extends Disposable {
             let kernel: JupyterKernel = this._kernels.values().next().value;
             kernel.interrupt();
         } else {
-            vscode.window.showErrorMessage("Can't interrupt; no Myriac kernel is running.");
+            vscode.window.showErrorMessage('Can't interrupt; no Myriac kernel is running.');
         }
     }
 
@@ -121,7 +121,7 @@ export class Api extends Disposable {
         if (this._kernels.size > 0) {
             let kernel = this._kernels.values().next().value;
             // Start the kernel if it isn't already running
-            if (kernel.status() === "exited") {
+            if (kernel.status() === 'exited') {
                 kernel.start();
             }
             this.createPanel(this._kernels.values().next().value);
@@ -131,7 +131,7 @@ export class Api extends Disposable {
         // Otherwise, start a new kernel of the user's choice
         discoverAllKernels().then(kernels => {
             if (kernels.length === 0) {
-                vscode.window.showErrorMessage("No Jupyter kernels were found.");
+                vscode.window.showErrorMessage('No Jupyter kernels were found.');
                 return;
             }
 
@@ -178,7 +178,7 @@ export class Api extends Disposable {
                 for (let k of kernels) {
                     if (k.language === language) {
                         let kernel = this.startKernel(k);
-                        kernel.on("status", (s: KernelStatus) => {
+                        kernel.on('status', (s: KernelStatus) => {
                             if (s === KernelStatus.ready) {
                                 console.info(`Kernel '${k.display_name}' is ready, invoking LSP.`);
                                 kernel.startLsp(address);

@@ -5,7 +5,7 @@
  *
  */
 
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
+import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Represents a shutdown_reply from the kernel.

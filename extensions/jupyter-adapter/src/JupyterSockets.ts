@@ -6,9 +6,9 @@
  */
 
 export enum JupyterSockets {
-    shell = "shell",
-    iopub = "iopub",
-    heartbeat = "heartbeat",
-    stdin = "stdin",
-    control = "control"
+    shell = 'shell',
+    iopub = 'iopub',
+    heartbeat = 'heartbeat',
+    stdin = 'stdin',
+    control = 'control'
 }

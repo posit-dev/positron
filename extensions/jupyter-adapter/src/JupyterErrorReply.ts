@@ -5,7 +5,7 @@
  *
  */
 
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
+import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Returned by many Jupyter methods when they fail.

@@ -8,8 +8,8 @@ import * as vscode from 'vscode';
 import { JupyterKernel } from './JupyterKernel';
 import { discoverAllKernels } from './JupyterKernelDiscovery';
 import { JupyterMessage } from './JupyterMessage';
-import { MyriacConsolePanel } from "./ConsolePanel";
-import { Api } from "./Api";
+import { MyriacConsolePanel } from './ConsolePanel';
+import { Api } from './Api';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -48,7 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 	TODO: for saving/restoring state across VS Code sessions (NYI)
 
 	if (vscode.window.registerWebviewPanelSerializer) {
-		vscode.window.registerWebviewPanelSerializer("myriacConsolePanel", {
+		vscode.window.registerWebviewPanelSerializer('myriacConsolePanel', {
 			async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
 				console.log(`NYI - attempting to deserialize from ${state}`);
 			}
@@ -58,5 +58,5 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-	console.log("Myriac Console deactivating");
+	console.log('Myriac Console deactivating');
 }

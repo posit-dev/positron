@@ -5,7 +5,7 @@
  *
  */
 
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
+import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 export interface JupyterStreamOutput extends JupyterMessageSpec {
     /** The stream the output belongs to, i.e. stdout/stderr */

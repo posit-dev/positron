@@ -18,7 +18,7 @@ import { JupyterInputReply } from '@internal/jupyter-wire/JupyterInputReply';
  * Myriac Console webview panel container
  */
 export class MyriacConsolePanel {
-    public static readonly viewType = "myriacConsolePanel";
+    public static readonly viewType = 'myriacConsolePanel';
 
     private readonly _panel: vscode.WebviewPanel;
     private readonly _extensionUri: vscode.Uri;
@@ -28,13 +28,13 @@ export class MyriacConsolePanel {
 
     public static create(kernel: JupyterKernel, extensionUri: vscode.Uri, extensionPath: string): MyriacConsolePanel {
         const panel = vscode.window.createWebviewPanel(
-            "myriacConsolePanel",
-            "Myriac Console",
+            'myriacConsolePanel',
+            'Myriac Console',
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
                 localResourceRoots: [
-                    vscode.Uri.file(path.join(extensionPath, "console"))
+                    vscode.Uri.file(path.join(extensionPath, 'console'))
                 ]
             }
         );
@@ -73,11 +73,11 @@ export class MyriacConsolePanel {
 
         // Forward Jupyter messages from the kernel into the webview
         this.onMessage = this.onMessage.bind(this);
-        this._kernel.addListener("message", this.onMessage);
+        this._kernel.addListener('message', this.onMessage);
 
         // Forward kernel status changes into the webview
         this.onStatus = this.onStatus.bind(this);
-        this._kernel.addListener("status", this.onStatus);
+        this._kernel.addListener('status', this.onStatus);
 
         // Update content when view state changes
         this._panel.onDidChangeViewState(
@@ -93,20 +93,20 @@ export class MyriacConsolePanel {
     }
 
     private onMessage(message: JupyterMessagePacket) {
-        if (message.msgType === "input_request") {
+        if (message.msgType === 'input_request') {
             let request = message.message as JupyterInputRequest;
             // Prompt the user for input using the VS Code api
             vscode.window.showInputBox({ prompt: request.prompt, password: request.password }).then(input => {
                 // Ensure the input is a string (if user cancels, input is
                 // undefined)
                 if (!input) {
-                    input = "";
+                    input = '';
                 }
 
                 // Create and send a reply to the kernel
                 this._kernel.sendMessage({
-                    type: "jupyter-message",
-                    msgType: "input_reply",
+                    type: 'jupyter-message',
+                    msgType: 'input_reply',
                     msgId: uuidv4(),
                     originId: message.msgId,
                     message: {
@@ -121,7 +121,7 @@ export class MyriacConsolePanel {
 
     private onStatus(status: KernelStatus) {
         this._panel.webview.postMessage(
-            { type: "kernel-status", status: status }
+            { type: 'kernel-status', status: status }
         );
     }
 
@@ -130,9 +130,9 @@ export class MyriacConsolePanel {
      */
     private _update() {
         const reactPath = vscode.Uri.file(
-            path.join(this._extensionPath, "console", "console.js")
+            path.join(this._extensionPath, 'console', 'console.js')
         );
-        const reactUri = reactPath.with({ scheme: "vscode-resource" });
+        const reactUri = reactPath.with({ scheme: 'vscode-resource' });
 
         // Add a JSON copy of the kernel status to the HTML
         const kernelStatus = {
@@ -142,8 +142,8 @@ export class MyriacConsolePanel {
         const kernelJson = JSON.stringify(kernelStatus);
 
         const kernelHtml = `<script>window.kernel = ${kernelJson}</script>`;
-        const reactHtml = `<script src="${reactUri}">`;
-        this._panel.webview.html = `${kernelHtml}<body><div id="root"></div></body>${reactHtml}`;
+        const reactHtml = `<script src='${reactUri}'>`;
+        this._panel.webview.html = `${kernelHtml}<body><div id='root'></div></body>${reactHtml}`;
         path.join(os.homedir());
     }
 
@@ -152,8 +152,8 @@ export class MyriacConsolePanel {
      */
     public dispose() {
         this._panel.dispose();
-        this._kernel.removeListener("message", this.onMessage);
-        this._kernel.removeListener("status", this.onStatus);
+        this._kernel.removeListener('message', this.onMessage);
+        this._kernel.removeListener('status', this.onStatus);
         while (this._disposables.length) {
             const x = this._disposables.pop();
             if (x) {

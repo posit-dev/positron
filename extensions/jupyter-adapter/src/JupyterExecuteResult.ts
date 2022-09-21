@@ -5,7 +5,7 @@
  *
  */
 
-import { JupyterDisplayData } from "./JupyterDisplayData";
+import { JupyterDisplayData } from './JupyterDisplayData';
 
 /**
  * Represents an execute_result from the Jupyter kernel to the front end; this

@@ -5,8 +5,8 @@
  *
  */
 
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
-import { JupyterSockets } from "./JupyterSockets";
+import { JupyterMessageSpec } from './JupyterMessageSpec';
+import { JupyterSockets } from './JupyterSockets';
 
 /**
  * Represents a serialized message packet. This plain data structure wraps the
@@ -16,12 +16,12 @@ import { JupyterSockets } from "./JupyterSockets";
 export interface JupyterMessagePacket {
     /** The type of the message packet; it's always `jupyter-message` to
      * distinguish this from other messages delivered across the window boundary */
-    type: "jupyter-message";
+    type: 'jupyter-message';
 
     /** The message's ID, a UUID */
     msgId: string;
 
-    /** The message's Jupyter message type, like "execute_request" */
+    /** The message's Jupyter message type, like 'execute_request' */
     msgType: string;
 
     /** The ID of the message that triggered this one */

@@ -5,9 +5,9 @@
  *
  */
 
-import { JupyterHelpLink } from "./JupyterHelpLink";
-import { JupyterLanguageInfo } from "./JupyterLanguageInfo";
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
+import { JupyterHelpLink } from './JupyterHelpLink';
+import { JupyterLanguageInfo } from './JupyterLanguageInfo';
+import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Represents an kernel_info_reply from the kernel.

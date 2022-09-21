@@ -17,7 +17,7 @@ interface JupyterConnectionSpec {
     /** ROUTER/DEALER: The port for shell messages (code execution, object info, etc.) */
     shell_port: number;  // eslint-disable-line
 
-    /** The network transport (e.g. "tcp") */
+    /** The network transport (e.g. 'tcp') */
     transport: string;
 
     /** The signature scheme, as in hmac-METHOD */

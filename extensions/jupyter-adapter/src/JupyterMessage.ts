@@ -5,8 +5,8 @@
  *
  */
 
-import { JupyterMessageHeader } from "./JupyterMessageHeader";
-import { JupyterMessageSpec } from "./JupyterMessageSpec";
+import { JupyterMessageHeader } from './JupyterMessageHeader';
+import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
  * Represents a message from the front end to Jupyter.

@@ -25,7 +25,7 @@ export class JupyterSocket implements Disposable {
         this._socket = socket;
         this._title = title;
 
-        this._addr = "";
+        this._addr = '';
         this._port = 0;
     }
 
@@ -37,7 +37,7 @@ export class JupyterSocket implements Disposable {
      *   (typically a UUID)
      */
     public setZmqIdentity(identity: Buffer): void {
-        this._socket.setsockopt("identity", identity);
+        this._socket.setsockopt('identity', identity);
     }
 
     /**
@@ -51,9 +51,9 @@ export class JupyterSocket implements Disposable {
         return new Promise((resolve, reject) => {
             this.findAvailablePort(excluding, maxTries).then((port: number) => {
                 this._port = port;
-                this._addr = "tcp://127.0.0.1:" + port.toString();
+                this._addr = 'tcp://127.0.0.1:' + port.toString();
                 this._socket.connect(this._addr);
-                console.log("Using available port " + port.toString() + " for " + this._title + " socket");
+                console.log('Using available port ' + port.toString() + ' for ' + this._title + ' socket');
                 resolve(port);
             })
                 .catch((err) => {
@@ -124,7 +124,7 @@ export class JupyterSocket implements Disposable {
                 // ... unless we've already tried too many times; likely there's
                 // a networking issue
                 if (maxTries < 1) {
-                    console.log("Could not find an available port for " + title + " socket");
+                    console.log('Could not find an available port for ' + title + ' socket');
                     reject(err);
                 }
 

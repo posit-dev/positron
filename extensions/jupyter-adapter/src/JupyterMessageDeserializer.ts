@@ -5,9 +5,9 @@
  *
  */
 
-import { createHmac } from "crypto";
-import { MessageLike } from "zeromq";
-import { JupyterMessage } from "./JupyterMessage";
+import { createHmac } from 'crypto';
+import { MessageLike } from 'zeromq';
+import { JupyterMessage } from './JupyterMessage';
 
 export function deserializeJupyterMessage(message: MessageLike[], key: string): JupyterMessage | null {
 
@@ -16,14 +16,14 @@ export function deserializeJupyterMessage(message: MessageLike[], key: string): 
     let found = false;
     while (message.length > 0) {
         const ele = message.splice(0, 1)[0];
-        if (ele?.toString() === "<IDS|MSG>") {
+        if (ele?.toString() === '<IDS|MSG>') {
             found = true;
             break;
         }
     }
 
     if (!found) {
-        console.warn("Message received from kernel with no header.");
+        console.warn('Message received from kernel with no header.');
         return null;
     }
 

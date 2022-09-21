@@ -5,9 +5,9 @@
  *
  */
 
-import os = require("os");
-import fs = require("fs");
-import path = require("path");
+import os = require('os');
+import fs = require('fs');
+import path = require('path');
 
 /**
  * Gets metadata about the Jupyter kernel installed in the given directory.
@@ -20,7 +20,7 @@ function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
     return new Promise((resolve, reject) => {
 
         // Form the path to the kernel defintion
-        let kerneljs = path.join(dir, "kernel.json");
+        let kerneljs = path.join(dir, 'kernel.json');
 
         // If the file exists and can be read...
         fs.access(kerneljs, fs.constants.R_OK, (err) => {
@@ -31,14 +31,14 @@ function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
                 // Read and parse the contents of the definition. 
                 fs.readFile(kerneljs, (err, data) => {
                     if (err) {
-                        console.log("Couldn't read kernel definition at " + kerneljs + ": " + err.message);
+                        console.log('Couldn't read kernel definition at ' + kerneljs + ': ' + err.message);
                         resolve(null);
                     }
                     try {
                         let kernel: JupyterKernelSpec = JSON.parse(data.toString());
                         resolve(kernel);
                     } catch (err) {
-                        console.log("Couldn't parse kernel definition at " + kerneljs + ": " + err);
+                        console.log('Couldn't parse kernel definition at ' + kerneljs + ': ' + err);
                         resolve(null);
                     }
                 });
@@ -57,7 +57,7 @@ function discoverKernels(dir: string): Promise<Array<JupyterKernelSpec>> {
         fs.readdir(dir, (err, files) => {
 
             if (err) {
-                console.warn("Couldn't read kernel metadata directory '" + dir + "': " + err.message);
+                console.warn('Couldn't read kernel metadata directory '' + dir + '': ' + err.message);
                 resolve([]);
             }
 
@@ -90,22 +90,22 @@ export function discoverAllKernels(): Promise<Array<JupyterKernelSpec>> {
         // Array of locations to search for installed kernels
         let dirs: Array<string> = [];
 
-        if (process.platform === "win32") {
+        if (process.platform === 'win32') {
             // TODO: these probably need to get expanded
-            dirs.push("%APPDATA%\\jupyter\\kernels");
-            dirs.push("%PROGRAMDATA%\\jupyter\\kernels");
+            dirs.push('%APPDATA%\\jupyter\\kernels');
+            dirs.push('%PROGRAMDATA%\\jupyter\\kernels');
         } else {
             // Common system locations on all Unix-like platforms
-            dirs.push("/usr/share/jupyter/kernels");
-            dirs.push("/usr/local/share/jupyter/kernels");
+            dirs.push('/usr/share/jupyter/kernels');
+            dirs.push('/usr/local/share/jupyter/kernels');
 
             // Per-user location
-            if (process.platform === "darwin") {
+            if (process.platform === 'darwin') {
                 // macOS
-                dirs.push(path.join(os.homedir(), "Library/Jupyter/kernels"));
+                dirs.push(path.join(os.homedir(), 'Library/Jupyter/kernels'));
             } else {
                 // Linux and all other Unix platforms
-                dirs.push(path.join(os.homedir(), ".local/share/jupyter/kernels"));
+                dirs.push(path.join(os.homedir(), '.local/share/jupyter/kernels'));
             }
         }
 
