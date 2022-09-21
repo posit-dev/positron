@@ -12,6 +12,6 @@ import { JupyterDisplayData } from './JupyterDisplayData';
  */
 export interface JupyterExecuteResult extends JupyterDisplayData {
 
-    /** Execution counter, monotonically increasing */
-    execution_count: number;  // eslint-disable-line
+	/** Execution counter, monotonically increasing */
+	execution_count: number;  // eslint-disable-line
 }

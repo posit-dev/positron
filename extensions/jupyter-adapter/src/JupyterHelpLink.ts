@@ -7,10 +7,10 @@
  *
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info
  */
-export interface JupyterHelpLink  {
-    /** The name to display for the help link */
-    text: string;
+export interface JupyterHelpLink {
+	/** The name to display for the help link */
+	text: string;
 
-    /** The location (URL) of the help link */
-    url: string;
+	/** The location (URL) of the help link */
+	url: string;
 }

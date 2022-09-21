@@ -11,7 +11,7 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#code-completeness
  */
 export interface JupyterIsCompleteRequest extends JupyterMessageSpec {
-    /** The code to test for completeness */
-    code: string;
+	/** The code to test for completeness */
+	code: string;
 }
 

@@ -12,24 +12,24 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#execute
  */
 export interface JupyterKernelInfoReply extends JupyterMessageSpec {
-    /** Execution status */
-    status: 'ok' | 'error';
+	/** Execution status */
+	status: 'ok' | 'error';
 
-    /** Version of messaging protocol */
-    protocol_version: string;  // eslint-disable-line
+	/** Version of messaging protocol */
+	protocol_version: string;  // eslint-disable-line
 
-    /** Implementation version number */
-    implementation_version: string;  // eslint-disable-line
+	/** Implementation version number */
+	implementation_version: string;  // eslint-disable-line
 
-    /** Information about the language the kernel supports */
-    language_info: JupyterLanguageInfo;  // eslint-disable-line
+	/** Information about the language the kernel supports */
+	language_info: JupyterLanguageInfo;  // eslint-disable-line
 
-    /** A startup banner */
-    banner: string;
+	/** A startup banner */
+	banner: string;
 
-    /** Whether debugging is supported */
-    debugger: boolean;
+	/** Whether debugging is supported */
+	debugger: boolean;
 
-    /** A list of help links */
-    help_links: Array<JupyterHelpLink>;  // eslint-disable-line
+	/** A list of help links */
+	help_links: Array<JupyterHelpLink>;  // eslint-disable-line
 }

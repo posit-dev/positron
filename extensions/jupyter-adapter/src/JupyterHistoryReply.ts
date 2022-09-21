@@ -10,7 +10,7 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#history
  */
 export interface JupyterHistoryReply extends JupyterMessageSpec {
-    /** The status of the request */
-    status: 'ok' | 'error';
+	/** The status of the request */
+	status: 'ok' | 'error';
 
 }

@@ -10,10 +10,10 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#code-completeness
  */
 export interface JupyterIsCompleteReply extends JupyterMessageSpec {
-    /** The status of the code that was tested for completeness */
-    status: 'complete' | 'incomplete' | 'invalid' | 'unknown';
+	/** The status of the code that was tested for completeness */
+	status: 'complete' | 'incomplete' | 'invalid' | 'unknown';
 
-    /** Characters to use to indent the next line (for 'incomplete' only) */
-    indent: string;
+	/** Characters to use to indent the next line (for 'incomplete' only) */
+	indent: string;
 }
 

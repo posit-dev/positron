@@ -12,18 +12,18 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  */
 export interface JupyterMessage {
 
-    /** The message header */
-    header: JupyterMessageHeader;
+	/** The message header */
+	header: JupyterMessageHeader;
 
-    /** The parent message (the one that caused this one), if any */
-    parent_header: JupyterMessageHeader;    // eslint-disable-line
+	/** The parent message (the one that caused this one), if any */
+	parent_header: JupyterMessageHeader;    // eslint-disable-line
 
-    /** Additional metadata, if any */
-    metadata: Map<any, any>;
+	/** Additional metadata, if any */
+	metadata: Map<any, any>;
 
-    /** The body of the message */
-    content: JupyterMessageSpec;
+	/** The body of the message */
+	content: JupyterMessageSpec;
 
-    /** Additional binary data */
-    buffers: Array<Buffer>;
+	/** Additional binary data */
+	buffers: Array<Buffer>;
 }

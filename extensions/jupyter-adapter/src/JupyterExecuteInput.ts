@@ -10,9 +10,9 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#code-inputs
  */
 export interface JupyterExecuteInput extends JupyterMessageSpec {
-    /** The code to be executed */
-    code: string;
+	/** The code to be executed */
+	code: string;
 
-    /** The count of executions */
-    execution_count: number;  // eslint-disable-line
+	/** The count of executions */
+	execution_count: number;  // eslint-disable-line
 }

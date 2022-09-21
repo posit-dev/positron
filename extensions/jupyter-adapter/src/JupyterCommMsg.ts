@@ -8,9 +8,9 @@
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#comm-messages
  */
 export interface JupyterCommMsg {
-    /** The ID of the comm to send the message to (as a GUID) */
-    comm_id: string;  // eslint-disable-line
+	/** The ID of the comm to send the message to (as a GUID) */
+	comm_id: string;  // eslint-disable-line
 
-    /** The message payload */
-    data: object;
+	/** The message payload */
+	data: object;
 }

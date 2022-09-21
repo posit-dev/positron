@@ -10,5 +10,5 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt
  */
 export interface JupyterInterruptReply extends JupyterMessageSpec {
-    status: 'ok' | 'error';
+	status: 'ok' | 'error';
 }

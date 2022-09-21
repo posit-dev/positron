@@ -10,12 +10,12 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#request-reply
  */
 export interface JupyterExecuteReply extends JupyterMessageSpec {
-    /** The status of the execution */
-    status: 'ok' | 'error';
+	/** The status of the execution */
+	status: 'ok' | 'error';
 
-    /** Execution counter, monotonically increasing */
-    execution_count: number;  // eslint-disable-line
+	/** Execution counter, monotonically increasing */
+	execution_count: number;  // eslint-disable-line
 
-    /** Results for user expressions */
-    user_expressions: Map<string, any>;  // eslint-disable-line
+	/** Results for user expressions */
+	user_expressions: Map<string, any>;  // eslint-disable-line
 }
