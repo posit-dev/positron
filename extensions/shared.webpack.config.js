@@ -83,7 +83,10 @@ function nodePlugins(context) {
 	return [
 		new CopyWebpackPlugin({
 			patterns: [
-				{ from: 'src', to: '.', globOptions: { ignore: ['**/test/**', '**/*.ts'] }, noErrorOnMissing: true }
+				// --- Start Positron ---
+				// Add '**/*.tsx'.
+				{ from: 'src', to: '.', globOptions: { ignore: ['**/test/**', '**/*.ts', '**/*.tsx'] }, noErrorOnMissing: true }
+				// --- Start Positron ---
 			]
 		}),
 		new NLSBundlePlugin(id)
@@ -175,7 +178,10 @@ function browserPlugins(context) {
 		}),
 		new CopyWebpackPlugin({
 			patterns: [
-				{ from: 'src', to: '.', globOptions: { ignore: ['**/test/**', '**/*.ts'] }, noErrorOnMissing: true }
+				// --- Start Positron ---
+				// Add '**/*.tsx'.
+				{ from: 'src', to: '.', globOptions: { ignore: ['**/test/**', '**/*.ts', '**/*.tsx'] }, noErrorOnMissing: true }
+				// --- End Positron ---
 			]
 		}),
 		new DefinePlugin({

@@ -197,7 +197,10 @@
 		},
 		{
 			"files": [
-				"src/**/*.ts"
+				// --- Start Positron ---
+				"src/**/*.ts",
+				"src/**/*.tsx"	// Added for Positron.
+				// --- End  Positron ---
 			],
 			"rules": {
 				"local/code-no-look-behind-regex": "warn",
