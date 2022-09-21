@@ -26,9 +26,9 @@ module.exports.all = [
 	'!test/**/out/**',
 	'!**/node_modules/**',
 
-	// Start Positron Addition
+	// --- Start Positron ---
 	'!amalthea/**/*',
-	// End Positron Addition
+	// --- End Positron ---
 ];
 
 module.exports.unicodeFilter = [
@@ -61,9 +61,9 @@ module.exports.unicodeFilter = [
 	'!src/vs/base/browser/dompurify/**',
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
 
-	// Start Positron Addition
+	// --- Start Positron ---
 	'!amalthea/**/*',
-	// End Positron Addition
+	// --- End Positron ---
 ];
 
 module.exports.indentationFilter = [
@@ -134,9 +134,9 @@ module.exports.indentationFilter = [
 	'!extensions/notebook-renderers/renderer-out/*.js',
 	'!extensions/simple-browser/media/*.js',
 
-	// Start Positron Addition
+	// --- Start Positron ---
 	'!amalthea/**/*',
-	// End Positron Addition
+	// --- End Positron ---
 ];
 
 module.exports.copyrightFilter = [
@@ -174,13 +174,16 @@ module.exports.copyrightFilter = [
 	'!extensions/*/server/bin/*',
 	'!src/vs/editor/test/node/classification/typescript-test.ts',
 
-	// Start Positron Addition
+	// --- Start Positron ---
 	'!amalthea/**/*',
-	// End Positron Addition
+	// --- End Positron ---
 ];
 
 module.exports.tsFormattingFilter = [
 	'src/**/*.ts',
+	// --- Start Positron ---
+	'src/**/*.tsx',
+	// --- End Positron ---
 	'test/**/*.ts',
 	'extensions/**/*.ts',
 	'!src/vs/*/**/*.d.ts',
@@ -195,14 +198,17 @@ module.exports.tsFormattingFilter = [
 	'!extensions/**/*.test.ts',
 	'!extensions/html-language-features/server/lib/jquery.d.ts',
 
-	// Start Positron Addition
+	// --- Start Positron ---
 	'!amalthea/**/*',
-	// End Positron Addition
+	// --- End Positron ---
 ];
 
 module.exports.eslintFilter = [
 	'**/*.js',
 	'**/*.ts',
+	// --- Start Positron ---
+	'**/*.tsx',
+	// --- End Positron ---
 	...readFileSync(join(__dirname, '../.eslintignore'))
 		.toString().split(/\r\n|\n/)
 		.filter(line => !line.startsWith('#'))

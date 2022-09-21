@@ -18,6 +18,9 @@
 	},
 	"include": [
 		"**/*.ts",
+		// --- Start Positron ---
+		"**/*.tsx",
+		// --- End Positron ---
 		"**/*.js"
 	],
 	"exclude": [
