@@ -19,7 +19,7 @@ const Header = (props: HeaderProps) => {
 	return (
 		<>
 			<div className='header-thing' >
-				This is output from React!! The message is: {props.message} !!!
+				This is output from a React component. {props.message}
 			</div>
 		</>
 	);
