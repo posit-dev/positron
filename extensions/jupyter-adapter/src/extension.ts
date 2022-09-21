@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { JupyterKernel } from './JupyterKernel';
 import { discoverAllKernels } from './JupyterKernelDiscovery';
-import { JupyterMessage } from './wire/JupyterMessage';
+import { JupyterMessage } from './JupyterMessage';
 import { MyriacConsolePanel } from "./ConsolePanel";
 import { Api } from "./Api";
 

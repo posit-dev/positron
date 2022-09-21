@@ -7,7 +7,7 @@
 
 import { createHmac } from "crypto";
 import { MessageLike } from "zeromq";
-import { JupyterMessage } from "./wire/JupyterMessage";
+import { JupyterMessage } from "./JupyterMessage";
 
 export function deserializeJupyterMessage(message: MessageLike[], key: string): JupyterMessage | null {
 

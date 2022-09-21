@@ -9,7 +9,7 @@ import { Disposable } from "vscode";
 import * as vscode from 'vscode';
 import { JupyterKernel, KernelStatus } from './JupyterKernel';
 import { discoverAllKernels } from './JupyterKernelDiscovery';
-import { JupyterMessage } from './wire/JupyterMessage';
+import { JupyterMessage } from './JupyterMessage';
 import { MyriacConsolePanel } from "./ConsolePanel";
 
 export class Api extends Disposable {
