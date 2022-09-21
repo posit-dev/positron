@@ -51,8 +51,11 @@ function createCompile(src, build, emitError, transpileOnly) {
     function pipeline(token) {
         const bom = require('gulp-bom');
         const utf8Filter = util.filter(data => /(\/|\\)test(\/|\\).*utf8/.test(data.path));
-        const tsFilter = util.filter(data => /\.ts$/.test(data.path));
-        const noDeclarationsFilter = util.filter(data => !(/\.d\.ts$/.test(data.path)));
+        // --- Start Positron ---
+        // Added x? to regexes so that .tsx files are compiled and updated in the same way as .ts files.
+        const tsFilter = util.filter(data => /\.tsx?$/.test(data.path));
+        const noDeclarationsFilter = util.filter(data => !(/\.d\.tsx?$/.test(data.path)));
+        // --- End Positron ---
         const input = es.through();
         const output = input
             .pipe(utf8Filter)
