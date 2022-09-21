@@ -58,10 +58,40 @@
 			}
 		},
 		{
+			"type": "npm",
+			"script": "watch-build-toolsd",
+			"label": "Build Tools - Build",
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never",
+				"group": "buildWatchers",
+				"close": false
+			},
+			"problemMatcher": {
+				"owner": "typescript",
+				"applyTo": "closedDocuments",
+				"fileLocation": [
+					"absolute"
+				],
+				"pattern": {
+					"regexp": "Error: ([^(]+)\\((\\d+|\\d+,\\d+|\\d+,\\d+,\\d+,\\d+)\\): (.*)$",
+					"file": 1,
+					"location": 2,
+					"message": 3
+				},
+				"background": {
+					"beginsPattern": "Starting compilation",
+					"endsPattern": "Finished compilation"
+				}
+			}
+		},
+
+		{
 			"label": "VS Code - Build",
 			"dependsOn": [
 				"Core - Build",
-				"Ext - Build"
+				"Ext - Build",
+				"Build Tools - Build"
 			],
 			"group": {
 				"kind": "build",
@@ -94,10 +124,23 @@
 			"problemMatcher": "$tsc"
 		},
 		{
+			"type": "npm",
+			"script": "kill-watch-build-toolsd",
+			"label": "Kill Build Tools - Build",
+			"group": "build",
+			"presentation": {
+				"reveal": "never",
+				"group": "buildKillers",
+				"close": true
+			},
+			"problemMatcher": "$tsc"
+		},
+		{
 			"label": "Kill VS Code - Build",
 			"dependsOn": [
 				"Kill Core - Build",
-				"Kill Ext - Build"
+				"Kill Ext - Build",
+				"Kill Build Tools - Build"
 			],
 			"group": "build",
 			"problemMatcher": []
