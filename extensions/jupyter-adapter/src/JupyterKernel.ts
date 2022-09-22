@@ -15,7 +15,7 @@ import crypto = require('crypto');
 import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
 import { MessageLike } from 'zeromq';
-import EventEmitter = require('events');
+import { EventEmitter } from 'events';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { JupyterMessage } from './JupyterMessage';
@@ -74,7 +74,6 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
 	public async start() {
 
-
 		// Create ZeroMQ sockets
 		this._control = new JupyterSocket('Control', zmq.socket('dealer'));
 		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'));
@@ -83,12 +82,12 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'));
 
 		// Create a random ZeroMQ identity for the shell and stdin sockets
-		let shellId = crypto.randomBytes(16);
+		const shellId = crypto.randomBytes(16);
 		this._shell.setZmqIdentity(shellId);
 		this._stdin.setZmqIdentity(shellId);
 
 		// Array of bound ports
-		let ports: Array<number> = [];
+		const ports: Array<number> = [];
 
 		// Find an available port to bind for each socket
 		ports.push(await this._control.bind(ports));
@@ -98,7 +97,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 		ports.push(await this._heartbeat.bind(ports));
 
 		// Create connection definition
-		let conn: JupyterConnectionSpec = {
+		const conn: JupyterConnectionSpec = {
 			control_port: this._control.port(),  // eslint-disable-line
 			shell_port: this._shell.port(),      // eslint-disable-line
 			stdin_port: this._stdin.port(),      // eslint-disable-line
@@ -111,20 +110,20 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 		};
 
 		// Write connection definition to a file
-		let tempdir = os.tmpdir();
-		let sep = path.sep;
+		const tempdir = os.tmpdir();
+		const sep = path.sep;
 		this._file = path.join(fs.mkdtempSync(`${tempdir}${sep}kernel-`), 'connection.json');
 		fs.writeFileSync(this._file, JSON.stringify(conn));
 
 		// Replace the {connection_file} argument with our connection file
-		let args = this._spec.argv.map((arg, idx) => {
+		const args = this._spec.argv.map((arg, idx) => {
 			if (arg === '{connection_file}') {
 				return this._file;
 			}
 			return arg;
 		}) as Array<string>;
 
-		let command = args.join(' ');
+		const command = args.join(' ');
 
 		// If environment variables were provided in the kernel spec, apply them
 		let options = {};
@@ -136,7 +135,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
 		this.setStatus(KernelStatus.starting);
 
-		let output = vscode.window.createOutputChannel(this._spec.display_name);
+		const output = vscode.window.createOutputChannel(this._spec.display_name);
 		output.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
 		this._process = spawn(args[0], args.slice(1), options);
 		this._process.stdout?.on('data', (data) => {
@@ -156,7 +155,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 				console.log('Receieved initial heartbeat: ' + msg);
 				this.setStatus(KernelStatus.ready);
 
-				let seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
+				const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
 				if (seconds > 0) {
 					console.info(`Starting heartbeat check at ${seconds} second intervals...`);
 					this.heartbeat();
@@ -173,21 +172,21 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 		// Subscribe to all topics
 		this._iopub.socket().subscribe('');
 		this._iopub.socket().on('message', (...args: MessageLike[]) => {
-			let msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
 				console.log('iopub message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.iopub, msg);
 			}
 		});
 		this._shell.socket().on('message', (...args: MessageLike[]) => {
-			let msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
 				console.log('shell message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.shell, msg);
 			}
 		});
 		this._stdin.socket().on('message', (...args: MessageLike[]) => {
-			let msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
 				console.log('stdin message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.stdin, msg);
@@ -206,7 +205,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 		// (QueryInterface style) instead of just demanding it?
 
 		// Create the message to send to the kernel
-		let msg: JupyterCommOpen = {
+		const msg: JupyterCommOpen = {
 			target_name: 'Language Server Protocol',  // eslint-disable-line
 			comm_id: 'C8C5265A-028C-4A3E-BA3F-D50A28E2B8E4',  // eslint-disable-line
 			data: {
@@ -264,7 +263,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 	public shutdown(restart: boolean) {
 		this.setStatus(KernelStatus.exiting);
 		console.info('Requesting shutdown of kernel: ' + this._spec.display_name);
-		let msg: JupyterShutdownRequest = {
+		const msg: JupyterShutdownRequest = {
 			restart: restart
 		};
 		this.send(uuidv4(), 'shutdown_request', this._control!, msg);
@@ -276,7 +275,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 	public interrupt() {
 		this.setStatus(KernelStatus.interrupting);
 		console.info('Requesting interrupt of kernel: ' + this._spec.display_name);
-		let msg: JupyterInterruptRequest = {};
+		const msg: JupyterInterruptRequest = {};
 		this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
 
@@ -287,7 +286,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 	 * @param msg The message itself
 	 */
 	private emitMessage(socket: JupyterSockets, msg: JupyterMessage) {
-		let packet: JupyterMessagePacket = {
+		const packet: JupyterMessagePacket = {
 			type: 'jupyter-message',
 			message: msg.content,
 			msgId: msg.header.msg_id,

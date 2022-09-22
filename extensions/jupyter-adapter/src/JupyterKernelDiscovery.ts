@@ -28,15 +28,15 @@ function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
 				// Read and parse the contents of the definition.
 				fs.readFile(kerneljs, (err, data) => {
 					if (err) {
-						console.log('Couldn't read kernel definition at ' + kerneljs + ': ' + err.message);
-                        resolve(null);
+						console.log('Couldn\'t read kernel definition at ' + kerneljs + ': ' + err.message);
+						resolve(null);
 					}
 					try {
 						let kernel: JupyterKernelSpec = JSON.parse(data.toString());
 						resolve(kernel);
 					} catch (err) {
-						console.log('Couldn't parse kernel definition at ' + kerneljs + ': ' + err);
-                        resolve(null);
+						console.log('Couldn\'t parse kernel definition at ' + kerneljs + ': ' + err);
+						resolve(null);
 					}
 				});
 			}
