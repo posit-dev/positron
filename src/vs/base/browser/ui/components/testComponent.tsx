@@ -3,26 +3,42 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./testComponent';
-// eslint-disable-next-line local/code-import-patterns
 import * as React from 'react';
-
-const doo = '';
-console.log(doo);
+// eslint-disable-next-line no-duplicate-imports
+import { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 
 // TestComponentProps interface.
 interface TestComponentProps {
 	message: string;
 }
 
+/**
+ * Renders the TestComonent into the specified container.
+ * @param container The container into which the TestComonent is rendered.
+ * @param props The properties for the comonent.
+ */
+export const renderTestComponent = (container: HTMLElement, props: TestComponentProps) => {
+	const root = createRoot(container);
+	root.render(<TestComponent {...props} />);
+};
+
 // TestComponent component.
 const TestComponent = (props: TestComponentProps) => {
+	// Hooks.
+	const [time, setTime] = useState<string>('Loading time...');
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setTime(new Date().toLocaleString());
+		}, 1000);
+		return () => clearInterval(interval);
+	}, []);
+
 	// Render.
 	return (
-		<>
-			<div className='test' >
-				This is output from a React component. {props.message}
-			</div>
-		</>
+		<div className='test' >
+			React: Message: {props.message} Time: {time}
+		</div>
 	);
 };
 
