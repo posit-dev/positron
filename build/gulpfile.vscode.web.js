@@ -203,10 +203,12 @@ function packageTask(sourceFolderName, destinationFolderName) {
 
 		const favicon = gulp.src('resources/server/favicon.ico', { base: 'resources/server' });
 		const manifest = gulp.src('resources/server/manifest.json', { base: 'resources/server' });
+		// --- Start Positron ---
 		const pwaicons = es.merge(
-			gulp.src('resources/server/code-192.png', { base: 'resources/server' }),
-			gulp.src('resources/server/code-512.png', { base: 'resources/server' })
+			gulp.src('resources/server/positron-192.png', { base: 'resources/server' }),
+			gulp.src('resources/server/positron-512.png', { base: 'resources/server' })
 		);
+		// --- End Positron ---
 
 		const all = es.merge(
 			packageJsonStream,

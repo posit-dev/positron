@@ -92,9 +92,11 @@ function darwinBundleDocumentTypes(types: { [name: string]: string | string[] },
 export const config = {
 	version: util.getElectronVersion(),
 	productAppName: product.nameLong,
-	companyName: 'Microsoft Corporation',
-	copyright: 'Copyright (C) 2022 Microsoft. All rights reserved',
-	darwinIcon: 'resources/darwin/code.icns',
+	// --- Start Positron ---
+	companyName: 'Posit Software',
+	copyright: 'Copyright (C) 2022 Posit Software, PBC. All rights reserved',
+	darwinIcon: 'resources/darwin/positron.icns',
+	// --- End Positron ---
 	darwinBundleIdentifier: product.darwinBundleIdentifier,
 	darwinApplicationCategoryType: 'public.app-category.developer-tools',
 	darwinHelpBookFolder: 'VS Code HelpBook',

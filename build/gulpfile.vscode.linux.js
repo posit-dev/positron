@@ -62,8 +62,10 @@ function prepareDebPackage(arch) {
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(rename('usr/share/mime/packages/' + product.applicationName + '-workspace.xml'));
 
-		const icon = gulp.src('resources/linux/code.png', { base: '.' })
+		// --- Start Positron ---
+		const icon = gulp.src('resources/linux/positron.png', { base: '.' })
 			.pipe(rename('usr/share/pixmaps/' + product.linuxIconName + '.png'));
+		// --- End Positron ---
 
 		const bash_completion = gulp.src('resources/completions/bash/code')
 			.pipe(replace('@@APPNAME@@', product.applicationName))
@@ -171,8 +173,10 @@ function prepareRpmPackage(arch) {
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(rename('BUILD/usr/share/mime/packages/' + product.applicationName + '-workspace.xml'));
 
-		const icon = gulp.src('resources/linux/code.png', { base: '.' })
+		// --- Start Positron ---
+		const icon = gulp.src('resources/linux/positron.png', { base: '.' })
 			.pipe(rename('BUILD/usr/share/pixmaps/' + product.linuxIconName + '.png'));
+		// --- End Positron ---
 
 		const bash_completion = gulp.src('resources/completions/bash/code')
 			.pipe(replace('@@APPNAME@@', product.applicationName))
@@ -255,9 +259,11 @@ function prepareSnapPackage(arch) {
 			.pipe(replace('@@ICON@@', `\${SNAP}/meta/gui/${product.linuxIconName}.png`))
 			.pipe(replace('@@URLPROTOCOL@@', product.urlProtocol));
 
+		// --- Start Positron ---
 		// An icon that is placed in snap/gui will be placed into meta/gui verbatim.
 		const icon = gulp.src('resources/linux/code.png', { base: '.' })
 			.pipe(rename(`snap/gui/${product.linuxIconName}.png`));
+		// --- End Positron ---
 
 		const code = gulp.src(binaryDir + '/**/*', { base: binaryDir })
 			.pipe(rename(function (p) { p.dirname = `usr/share/${product.applicationName}/${p.dirname}`; }));
