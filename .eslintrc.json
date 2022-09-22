@@ -213,7 +213,11 @@
 						// - electron-browser
 						"when": "hasBrowser",
 						"allow": [
-							"vs/css!./**/*"
+							"vs/css!./**/*",
+							// --- Start Positron ---
+							"react",
+							"react-dom/client"
+							// --- End Positron ---
 						]
 					},
 					{
