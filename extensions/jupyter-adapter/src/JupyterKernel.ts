@@ -6,12 +6,12 @@ import { ChildProcess, exec, spawn } from 'child_process';
 import { Disposable } from 'vscode';
 import * as vscode from 'vscode';
 
-import zmq = require('zeromq/v5-compat');
-import fs = require('fs');
-import os = require('os');
+import * as zmq from 'zmq/v5-compat';
+import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { JupyterSocket } from './JupyterSocket';
-import path = require('path');
-import crypto = require('crypto');
 import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
 import { MessageLike } from 'zeromq';
@@ -20,8 +20,7 @@ import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { JupyterMessage } from './JupyterMessage';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
-import { JupyterCompleteRequest } from './JupyterCompleteRequest';
-import { JupyterMessagePacket, JupyterSockets } from '.';
+import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommOpen } from './JupyterCommOpen';
 import { v4 as uuidv4 } from 'uuid';
 import { JupyterShutdownRequest } from './JupyterShutdownRequest';
@@ -383,7 +382,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 	 * Emits a heartbeat message and waits for the kernel to respond.
 	 */
 	private heartbeat() {
-		let seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
+		const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
 		console.info('Sent heartbeat message to kernel');
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this._heartbeat?.socket().send(['hello']);
