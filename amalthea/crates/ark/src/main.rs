@@ -26,7 +26,6 @@ mod interface;
 mod kernel;
 mod lsp;
 mod macros;
-mod r;
 mod request;
 mod shell;
 mod version;

@@ -7,7 +7,7 @@
 
 use std::fmt;
 
-use crate::r::utils::r_type2char;
+use crate::utils::r_type2char;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

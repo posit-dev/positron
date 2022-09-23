@@ -7,8 +7,8 @@
 
 use crate::kernel::KernelInfo;
 use crate::lsp;
-use crate::r::object::RObject;
 use crate::request::Request;
+
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::comm_info_reply::CommInfoReply;
@@ -34,6 +34,7 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
+use harp::object::RObject;
 use libR_sys::*;
 use log::{debug, trace, warn};
 use serde_json::json;

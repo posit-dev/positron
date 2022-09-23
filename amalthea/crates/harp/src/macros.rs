@@ -31,7 +31,7 @@ macro_rules! r_string {
         use std::os::raw::c_char;
         use libR_sys::*;
 
-        let mut protect = $crate::r::protect::RProtect::new();
+        let mut protect = $crate::protect::RProtect::new();
         let value = &*$id;
         let string_sexp = protect.add(Rf_allocVector(STRSXP, 1));
         let char_sexp = Rf_mkCharLenCE(value.as_ptr() as *mut c_char, value.len() as i32, cetype_t_CE_UTF8);
@@ -48,7 +48,7 @@ macro_rules! rlog {
 
     ($x:expr) => {{
 
-        use crate::r::macros::*;
+        use crate::macros::*;
         use libR_sys::*;
 
         let callee = Rf_protect(Rf_lang3(

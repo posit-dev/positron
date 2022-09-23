@@ -13,6 +13,7 @@ use std::sync::mpsc::SyncSender;
 use std::time::Duration;
 
 use dashmap::DashMap;
+use harp::r_lock;
 use serde_json::Value;
 use tokio::net::TcpStream;
 use tower_lsp::jsonrpc::Result;
@@ -25,8 +26,6 @@ use crate::macros::*;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::document::Document;
 use crate::lsp::logger::dlog;
-use crate::r;
-use crate::r::lock::r_lock;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -138,7 +137,7 @@ impl LanguageServer for Backend {
 
         // initialize our support functions
         dlog!("Entering r::modules::initialized()");
-        r_lock! { r::modules::initialize() };
+        r_lock! { harp::modules::initialize() };
         dlog!("Exiting r::modules::initialized()");
 
         Ok(InitializeResult {

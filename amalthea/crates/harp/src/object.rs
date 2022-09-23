@@ -14,12 +14,12 @@ use std::os::raw::c_int;
 use std::sync::Once;
 
 use libR_sys::*;
+use log::info;
 
-use crate::lsp::logger::dlog;
-use crate::r::error::Error;
-use crate::r::utils::r_check_length;
-use crate::r::utils::r_check_type;
-use crate::r::utils::r_typeof;
+use crate::error::Error;
+use crate::utils::r_check_length;
+use crate::utils::r_check_type;
+use crate::utils::r_typeof;
 
 // Objects are protected using a doubly-linked list,
 // allowing for quick insertion and removal of objects.
@@ -63,7 +63,7 @@ unsafe fn protect(object: SEXP) -> SEXP {
     // Clean up the protect stack and return.
     Rf_unprotect(2);
 
-    dlog!("Protecting cell:   {:?}", cell);
+    info!("Protecting cell:   {:?}", cell);
     return cell;
 
 }
@@ -74,7 +74,7 @@ unsafe fn unprotect(cell: SEXP) {
         return;
     }
 
-    dlog!("Unprotecting cell: {:?}", cell);
+    info!("Unprotecting cell: {:?}", cell);
 
     // We need to remove the cell from the precious list.
     // The CAR of the cell points to the previous cell in the precious list.
@@ -109,7 +109,7 @@ impl RObject {
     }
 
     // A helper function that makes '.try_into()' more ergonomic to use.
-    pub unsafe fn to<U: TryFrom<RObject, Error = crate::r::error::Error>>(self) -> Result<U, Error> {
+    pub unsafe fn to<U: TryFrom<RObject, Error = crate::error::Error>>(self) -> Result<U, Error> {
         TryInto::<U>::try_into(self)
     }
 
@@ -126,13 +126,13 @@ impl Drop for RObject {
 impl Deref for RObject {
     type Target = SEXP;
     fn deref(&self) -> &Self::Target {
-        unsafe { &self.data }
+        &self.data
     }
 }
 
 impl DerefMut for RObject {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut self.data }
+        &mut self.data
     }
 }
 
@@ -208,7 +208,7 @@ impl From<Vec<String>> for RObject {
 
 // TODO: Need to handle NA elements as well.
 impl TryFrom<RObject> for bool {
-    type Error = crate::r::error::Error;
+    type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
             r_check_type(*value, LGLSXP)?;
@@ -220,7 +220,7 @@ impl TryFrom<RObject> for bool {
 
 // TODO: Need to ensure strings are UTF-8 first.
 impl TryFrom<RObject> for String {
-    type Error = crate::r::error::Error;
+    type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
             r_check_type(*value, STRSXP)?;
@@ -233,7 +233,7 @@ impl TryFrom<RObject> for String {
 
 // TODO: Need to ensure strings are UTF-8 first.
 impl TryFrom<RObject> for Vec<String> {
-    type Error = crate::r::error::Error;
+    type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
             r_check_type(*value, STRSXP)?;
@@ -252,7 +252,7 @@ impl TryFrom<RObject> for Vec<String> {
 }
 
 impl TryFrom<RObject> for i32 {
-    type Error = crate::r::error::Error;
+    type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
             r_check_length(*value, 1)?;

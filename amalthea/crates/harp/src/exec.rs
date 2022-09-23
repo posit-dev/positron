@@ -9,25 +9,25 @@ use std::ffi::CStr;
 
 use libR_sys::*;
 
-use crate::r::error::Error;
-use crate::r::error::Result;
-use crate::r::macros::r_symbol;
-use crate::r::object::RObject;
-use crate::r::protect::RProtect;
-use crate::r::utils::r_inherits;
+use crate::error::Error;
+use crate::error::Result;
+use crate::object::RObject;
+use crate::protect::RProtect;
+use crate::r_symbol;
+use crate::utils::r_inherits;
 
-struct RArgument {
+pub struct RArgument {
     name: String,
     value: RObject,
 }
 
-pub(crate) struct RFunction {
+pub struct RFunction {
     package: String,
     function: String,
     arguments: Vec<RArgument>,
 }
 
-pub(crate) trait RFunctionExt<T> {
+pub trait RFunctionExt<T> {
     fn param(&mut self, name: &str, value: T) -> &mut Self;
     fn add(&mut self, value: T) -> &mut Self;
 }
@@ -142,10 +142,8 @@ pub unsafe fn geterrmessage() -> String {
 #[cfg(test)]
 mod tests {
 
-    use log::info;
-
-    use crate::r::lock::r_lock;
-    use crate::r::test::start_r;
+    use crate::r_lock;
+    use crate::test::start_r;
 
     use super::*;
 
@@ -207,7 +205,7 @@ mod tests {
     }}
 
     #[test]
-    fn test_threads() { unsafe {
+    fn test_threads() {
 
         const N : i32 = 1000000;
         start_r();
@@ -232,7 +230,7 @@ mod tests {
             handle.join().unwrap();
         }
 
-    }}
+    }
 
 }
 

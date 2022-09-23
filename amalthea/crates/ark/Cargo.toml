@@ -9,6 +9,7 @@ async-trait = "0.1.53"
 dashmap = "5.3.3"
 env_logger = "0.9.0"
 extendr-api = "0.3.1"
+harp = { path = "../harp" }
 lazy_static = "1.4.0"
 libR-sys = "0.3"
 libc = "0.2"
@@ -31,8 +32,8 @@ rpath = true
 # The libR-sys package doesn't currently provide bindings for R on aarch64
 # Linux platforms, so on those systems we need to add the use-bingen feature,
 # which causes the package to build its own bindings from scratch.
-# 
-# Note that this typically requires the `llvm` and `clang` packages to be 
+#
+# Note that this typically requires the `llvm` and `clang` packages to be
 # installed on the build host.
 [target.'cfg(all(target_os="linux", target_arch="aarch64"))'.dependencies]
 libR-sys = { version = "0.3", features = ["use-bindgen"] }

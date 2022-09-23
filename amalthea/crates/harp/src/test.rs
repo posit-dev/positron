@@ -17,9 +17,7 @@ use std::process::Command;
 use std::sync::Once;
 
 use libR_sys::*;
-
-use crate::macros::cargs;
-use crate::macros::cstr;
+use stdext::cargs;
 
 static INIT: Once = Once::new();
 

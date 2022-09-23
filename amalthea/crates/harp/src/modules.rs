@@ -8,10 +8,10 @@
 use libR_sys::*;
 use walkdir::WalkDir;
 
-use crate::r::exec::RFunction;
-use crate::r::exec::RFunctionExt;
+use crate::exec::RFunction;
+use crate::exec::RFunctionExt;
 
-pub(crate) unsafe fn initialize() {
+pub unsafe fn initialize() {
 
     // Ensure the 'tools:rstudio' environment has been initialized.
     let envir = RFunction::new("base", "attach")

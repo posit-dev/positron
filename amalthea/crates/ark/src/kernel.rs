@@ -16,16 +16,16 @@ use amalthea::wire::execute_result::ExecuteResult;
 use amalthea::wire::input_request::InputRequest;
 use amalthea::wire::input_request::ShellInputRequest;
 use amalthea::wire::jupyter_message::Status;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
+use harp::object::RObject;
+use harp::r_symbol;
+use harp::utils::r_inherits;
 use libR_sys::*;
 use log::{debug, trace, warn};
 use serde_json::json;
 use std::sync::mpsc::{Sender, SyncSender};
 
-use crate::r::exec::RFunction;
-use crate::r::exec::RFunctionExt;
-use crate::r::macros::r_symbol;
-use crate::r::object::RObject;
-use crate::r::utils::r_inherits;
 use crate::request::Request;
 
 /// Represents the Rust state of the R kernel

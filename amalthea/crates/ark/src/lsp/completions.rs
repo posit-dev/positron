@@ -7,6 +7,15 @@
 
 use std::collections::HashSet;
 
+use harp::exec::geterrmessage;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
+use harp::object::RObject;
+use harp::protect::RProtect;
+use harp::r_lock;
+use harp::r_string;
+use harp::r_symbol;
+use harp::utils::r_inherits;
 use libR_sys::*;
 use tower_lsp::lsp_types::CompletionItem;
 use tower_lsp::lsp_types::CompletionItemKind;
@@ -26,15 +35,6 @@ use crate::lsp::logger::dlog;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
-use crate::r::exec::geterrmessage;
-use crate::r::lock::r_lock;
-use crate::r::macros::r_string;
-use crate::r::macros::r_symbol;
-use crate::r::exec::RFunction;
-use crate::r::exec::RFunctionExt;
-use crate::r::object::RObject;
-use crate::r::protect::RProtect;
-use crate::r::utils::r_inherits;
 
 fn completion_item_from_identifier(node: &Node, source: &str) -> CompletionItem {
     let label = node.utf8_text(source.as_bytes()).expect("empty assignee");

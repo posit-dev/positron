@@ -26,10 +26,10 @@ use crate::lsp::logger::dlog;
 use crate::macros::cargs;
 use crate::macros::cstr;
 use crate::macros::unwrap;
-use crate::r::lock::R_RUNTIME_LOCK;
-use crate::r::lock::R_RUNTIME_LOCK_GUARD;
-use crate::r::lock::R_RUNTIME_TASKS_PENDING;
-use crate::r::utils::r_get_option;
+use harp::lock::R_RUNTIME_LOCK;
+use harp::lock::R_RUNTIME_LOCK_GUARD;
+use harp::lock::R_RUNTIME_TASKS_PENDING;
+use harp::utils::r_get_option;
 use crate::request::Request;
 
 extern "C" {
@@ -118,7 +118,7 @@ pub extern "C" fn r_read_console(
             Ok(response) => {
 
                 // Take back the lock after we've received some console input.
-                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
                 if let Some(input) = response {
                     on_console_input(buf, buflen, input);
@@ -131,7 +131,7 @@ pub extern "C" fn r_read_console(
             Err(error) => {
 
                 use std::sync::mpsc::RecvTimeoutError::*;
-                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
                 match error {
 
@@ -187,7 +187,7 @@ pub unsafe extern "C" fn r_polled_events() {
     unsafe { R_RUNTIME_LOCK_GUARD = None };
 
     // Take back the runtime lock.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
     dlog!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
 
 }
@@ -201,7 +201,7 @@ pub fn start_r(
 
     // The main thread owns the R runtime lock by default, but releases
     // it when appropriate to give other threads a chance to execute.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
     // Start building the channels + kernel objects
     let (console_send, console_recv) = channel::<Option<String>>();

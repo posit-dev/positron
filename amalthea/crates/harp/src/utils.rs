@@ -14,11 +14,11 @@
 use std::ffi::CStr;
 
 use libR_sys::*;
+use stdext::cstr;
 
-use crate::macros::cstr;
-use crate::r::error::Error;
-use crate::r::macros::r_symbol;
-use crate::r::object::RObject;
+use crate::error::Error;
+use crate::object::RObject;
+use crate::r_symbol;
 
 pub unsafe fn r_check_type(object: SEXP, expected: u32) -> Result<(), Error> {
 
