@@ -5,15 +5,15 @@
 //
 //
 
+use log::info;
 use ropey::Rope;
+use stdext::*;
 use tower_lsp::lsp_types::TextDocumentContentChangeEvent;
 use tree_sitter::InputEdit;
 use tree_sitter::Parser;
 use tree_sitter::Point;
 use tree_sitter::Tree;
 
-use crate::macros::unwrap;
-use crate::lsp::logger::dlog;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::rope::RopeExt;
 
@@ -87,7 +87,7 @@ impl Document {
         // state of the document (prior to the edit being applied) so that byte
         // offsets can be computed correctly.
         let ast = unwrap!(self.ast.as_mut(), {
-            dlog!("no AST available");
+            info!("no AST available");
             return;
         });
 

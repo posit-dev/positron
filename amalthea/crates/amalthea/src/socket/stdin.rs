@@ -85,7 +85,7 @@ impl Stdin {
                     continue;
                 }
             };
-            trace!("Received input reply from front end: {:?}", reply);
+            trace!("Received input reply from front-end: {:?}", reply);
 
             // Send the reply to the shell handler
             let handler = self.handler.lock().unwrap();

@@ -78,7 +78,7 @@ fn parse_file(connection_file: &String) {
     match ConnectionFile::from_file(connection_file) {
         Ok(connection) => {
             info!(
-                "Loaded connection information from front end in {}",
+                "Loaded connection information from front-end in {}",
                 connection_file
             );
             debug!("Connection data: {:?}", connection);

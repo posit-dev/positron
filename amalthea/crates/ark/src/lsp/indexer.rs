@@ -5,11 +5,11 @@
 //
 //
 
+use log::info;
+use stdext::*;
 use tree_sitter::Node;
 
 use crate::lsp::document::Document;
-use crate::lsp::logger::dlog;
-use crate::macros::unwrap;
 
 #[derive(Debug)]
 pub(crate) enum IndexedSymbol {
@@ -128,7 +128,7 @@ pub(crate) fn index_document(document: &Document) -> Vec<IndexedSymbol> {
     let mut index: Vec<IndexedSymbol> = Vec::new();
 
     let ast = unwrap!(document.ast.as_ref(), {
-        dlog!("error unwrapping ast");
+        info!("error unwrapping ast");
         return index;
     });
 

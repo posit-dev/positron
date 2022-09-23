@@ -6,9 +6,13 @@
 //
 
 use amalthea::socket::iopub::IOPubMessage;
+use harp::lock::R_RUNTIME_LOCK;
+use harp::lock::R_RUNTIME_LOCK_GUARD;
+use harp::lock::R_RUNTIME_TASKS_PENDING;
+use harp::utils::r_get_option;
 use libR_sys::*;
 use libc::{c_char, c_int};
-use log::{debug, trace, warn};
+use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
 use std::path::Path;
@@ -19,17 +23,10 @@ use std::sync::{Arc, Mutex, Once};
 use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
+use stdext::*;
 
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
-use crate::lsp::logger::dlog;
-use crate::macros::cargs;
-use crate::macros::cstr;
-use crate::macros::unwrap;
-use harp::lock::R_RUNTIME_LOCK;
-use harp::lock::R_RUNTIME_LOCK_GUARD;
-use harp::lock::R_RUNTIME_TASKS_PENDING;
-use harp::utils::r_get_option;
 use crate::request::Request;
 
 extern "C" {
@@ -59,7 +56,7 @@ fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {
     // TODO: What if the input is too large for the buffer?
     input.push_str("\n");
     if input.len() > buflen as usize {
-        dlog!("Error: input too large for buffer.");
+        info!("Error: input too large for buffer.");
         return;
     }
 
@@ -182,13 +179,13 @@ pub unsafe extern "C" fn r_polled_events() {
     }
 
     // Release the runtime lock.
-    dlog!("Tasks are pending; the main thread is releasing the R runtime lock.");
+    info!("Tasks are pending; the main thread is releasing the R runtime lock.");
     let now = SystemTime::now();
     unsafe { R_RUNTIME_LOCK_GUARD = None };
 
     // Take back the runtime lock.
     unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
-    dlog!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
+    info!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
 
 }
 
@@ -310,7 +307,8 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     }
 
     // Figure out what the default prompt looks like.
-    let default_prompt = unwrap!(r_get_option::<String>("prompt"), error {
+    let default_prompt = unsafe { r_get_option::<String>("prompt") };
+    let default_prompt = unwrap!(default_prompt, error {
         warn!("Failed to read R prompt: {}", error);
         return kernel.finish_request();
     });

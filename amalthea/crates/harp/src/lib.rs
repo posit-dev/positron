@@ -14,6 +14,10 @@ pub mod protect;
 pub mod test;
 pub mod utils;
 
+pub fn initialize() {
+    lock::initialize();
+}
+
 #[macro_export]
 macro_rules! r_symbol {
 

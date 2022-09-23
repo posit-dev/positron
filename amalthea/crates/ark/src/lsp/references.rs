@@ -1,12 +1,14 @@
-// 
+//
 // references.rs
-// 
+//
 // Copyright (C) 2022 by RStudio, PBC
-// 
-// 
+//
+//
 
 use std::path::Path;
 
+use log::info;
+use stdext::*;
 use tower_lsp::lsp_types::Location;
 use tower_lsp::lsp_types::Range;
 use tower_lsp::lsp_types::ReferenceParams;
@@ -17,15 +19,13 @@ use walkdir::DirEntry;
 use walkdir::WalkDir;
 
 use crate::lsp::traits::cursor::TreeCursorExt;
-use crate::macros::unwrap;
 use crate::lsp::backend::Backend;
 use crate::lsp::document::Document;
-use crate::lsp::logger::dlog;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 
 fn _filter_entry(entry: &DirEntry) -> bool {
-    
+
     // TODO: Figure out if we can read this from the front-end;
     // the user has likely defined a set of workspace file filters
     // that could control which files we search for references in.
@@ -34,7 +34,7 @@ fn _filter_entry(entry: &DirEntry) -> bool {
         ".git" | "node_modules" => false,
         _ => true,
     }
-    
+
 }
 
 enum ReferenceKind {
@@ -57,39 +57,39 @@ fn add_reference(node: &Node, path: &Path, locations: &mut Vec<Location>) {
 }
 
 fn found_match(node: &Node, contents: &str, context: &Context) -> bool {
-    
+
     if node.kind() != "identifier" {
         return false;
     }
-    
+
     let symbol = node.utf8_text(contents.as_bytes()).expect("contents");
     if symbol != context.symbol {
         return false;
     }
-    
+
     match context.kind {
-        
+
         ReferenceKind::DollarName => {
-            
+
             if let Some(sibling) = node.prev_sibling() {
                 if sibling.kind() == "$" {
                     return true;
                 }
             }
-            
+
         },
-        
+
         ReferenceKind::SlotName => {
-            
+
             if let Some(sibling) = node.prev_sibling() {
                 if sibling.kind() == "@" {
                     return true;
                 }
             }
         },
-        
+
         ReferenceKind::SymbolName => {
-            
+
             if let Some(sibling) = node.prev_sibling() {
                 if !matches!(sibling.kind(), "$" | "@") {
                     return true;
@@ -98,36 +98,36 @@ fn found_match(node: &Node, contents: &str, context: &Context) -> bool {
                 return true;
             }
         }
-        
+
     }
 
     return false;
-    
+
 }
 
 impl Backend {
-    
+
     fn build_context(&self, uri: &Url, point: Point) -> Result<Context, ()> {
-        
+
         // Unwrap the URL.
         let path = unwrap!(uri.to_file_path(), {
-            dlog!("URL {} not associated with a local file path", uri);
+            info!("URL {} not associated with a local file path", uri);
             return Err(());
         });
-        
+
         // Figure out the identifier we're looking for.
         let context = self.with_document(path.as_path(), |document| {
-            
+
             let ast = unwrap!(document.ast.as_ref(), {
-                dlog!("no ast associated with document {}", path.display());
+                info!("no ast associated with document {}", path.display());
                 return Err(());
             });
-            
+
             let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
-                dlog!("couldn't find node associated with point {:?}", point);
+                info!("couldn't find node associated with point {:?}", point);
                 return Err(());
             });
-            
+
             // Check and see if we got an identifier. If we didn't, we might need to use
             // some heuristics to look around. Unfortunately, it seems like if you double-click
             // to select an identifier, and then use Right Click -> Find All References, the
@@ -139,28 +139,28 @@ impl Backend {
             if node.kind() != "identifier" {
                 let point = Point::new(point.row, point.column - 1);
                 node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
-                    dlog!("couldn't find node associated with point {:?}", point);
+                    info!("couldn't find node associated with point {:?}", point);
                     return Err(());
                 });
             }
-            
+
             // double check that we found an identifier
             if node.kind() != "identifier" {
-                dlog!("couldn't find an identifier associated with point {:?}", point);
+                info!("couldn't find an identifier associated with point {:?}", point);
                 return Err(());
             }
-            
+
             // check this node's previous sibling; if this is the name of a slot
             // or dollar accessed item, we should mark it
             let kind = match node.prev_sibling() {
-                
+
                 None => {
-                    dlog!("node {:?} has no previous sibling", node);
+                    info!("node {:?} has no previous sibling", node);
                     ReferenceKind::SymbolName
                 },
 
                 Some(sibling) => {
-                    dlog!("found sibling {:?} ({})", sibling, sibling.kind());
+                    info!("found sibling {:?} ({})", sibling, sibling.kind());
                     match sibling.kind() {
                         "$" => ReferenceKind::DollarName,
                         "@" => ReferenceKind::SlotName,
@@ -169,98 +169,98 @@ impl Backend {
                 }
 
             };
-            
+
             // return identifier text contents
             let contents = document.contents.to_string();
             let symbol = node.utf8_text(contents.as_bytes()).expect("node contents");
-            
+
             Ok(Context {
                 kind: kind,
                 symbol: symbol.to_string(),
             })
-            
+
         });
-        
+
         return context;
-        
+
     }
-    
+
     fn find_references_in_folder(&self, context: &Context, path: &Path, locations: &mut Vec<Location>) {
-        
+
         let walker = WalkDir::new(path);
         for entry in walker.into_iter().filter_entry(|entry| _filter_entry(entry)) {
-            
+
             let entry = unwrap!(entry, { continue; });
             let path = entry.path();
             let ext = unwrap!(path.extension(), { continue; });
             if ext != "r" && ext != "R" { continue; }
-            
-            dlog!("found R file {}", path.display());
+
+            info!("found R file {}", path.display());
             let result = self.with_document(path, |document| {
                 self.find_references_in_document(context, path, document, locations);
                 return Ok(());
             });
-            
+
             match result {
                 Ok(result) => result,
                 Err(_error) => {
-                    dlog!("error retrieving document for path {}", path.display());
+                    info!("error retrieving document for path {}", path.display());
                     continue;
                 }
             }
-            
+
         }
-        
+
     }
-    
+
     fn find_references_in_document(&self, context: &Context, path: &Path, document: &Document, locations: &mut Vec<Location>) {
-        
+
         let ast = unwrap!(document.ast.as_ref(), {
-            dlog!("no ast available");
+            info!("no ast available");
             return;
         });
-        
+
         let contents = document.contents.to_string();
-        
+
         let mut cursor = ast.walk();
         cursor.recurse(|node| {
-            
+
             if found_match(&node, &contents, &context) {
                 add_reference(&node, path, locations);
             }
-            
+
             return true;
-            
+
         });
-        
+
     }
-    
+
     pub(crate) fn find_references(&self, params: ReferenceParams) -> Result<Vec<Location>, ()> {
-        
+
         // Create our locations vector.
         let mut locations : Vec<Location> = Vec::new();
-        
+
         // Extract relevant parameters.
         let uri = params.text_document_position.text_document.uri;
         let point = params.text_document_position.position.as_point();
-        
+
         // Figure out what we're looking for.
         let context = unwrap!(self.build_context(&uri, point), {
-            dlog!("failed to find build context at point {}", point);
+            info!("failed to find build context at point {}", point);
             return Err(());
         });
-        
+
         // Now, start searching through workspace folders for references to that identifier.
         if let Ok(workspace) = self.workspace.lock() {
             for folder in workspace.folders.iter() {
                 if let Ok(path) = folder.to_file_path() {
-                    dlog!("searching references in folder {}", path.display());
+                    info!("searching references in folder {}", path.display());
                     self.find_references_in_folder(&context, &path, &mut locations);
                 }
             }
         }
-        
+
         return Ok(locations);
-        
+
     }
 }

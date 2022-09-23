@@ -22,7 +22,7 @@ pub unsafe fn initialize() {
 
     // Import all module files.
     // TODO: Need to select appropriate path for package builds.
-    let root = format!("{}/src/r/modules", env!("CARGO_MANIFEST_DIR"));
+    let root = format!("{}/src/modules", env!("CARGO_MANIFEST_DIR"));
     for file in WalkDir::new(root).into_iter().filter_map(|file| file.ok()) {
         let path = file.path();
         if let Some(ext) = path.extension() {

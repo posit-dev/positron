@@ -43,14 +43,15 @@ pub static mut R_RUNTIME_LOCK_GUARD: Option<MutexGuard<()>> = None;
 // yield control to the child thread requesting access.
 pub static mut R_RUNTIME_TASKS_PENDING: bool = false;
 
-pub fn with_r_lock<T, F: FnMut() -> T>(mut callback: F) -> T {
-
-    // Perform one-time initialization of the runtime lock.
+pub fn initialize() {
     unsafe {
         R_RUNTIME_LOCK_ONCE.call_once(|| {
             R_RUNTIME_LOCK = Some(Mutex::new(()));
         });
     }
+}
+
+pub fn with_r_lock<T, F: FnMut() -> T>(mut callback: F) -> T {
 
     // Let the logger know we're taking the lock.
     let id = std::thread::current().id();

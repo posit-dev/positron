@@ -10,11 +10,13 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc::SyncSender;
-use std::time::Duration;
 
 use dashmap::DashMap;
 use harp::r_lock;
+use log::info;
+use log::trace;
 use serde_json::Value;
+use stdext::*;
 use tokio::net::TcpStream;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -22,10 +24,8 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::lsp::completions::append_session_completions;
 use crate::lsp::completions::can_provide_completions;
-use crate::macros::*;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::document::Document;
-use crate::lsp::logger::dlog;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -68,7 +68,7 @@ impl Backend {
         let mut fallback = || {
 
             let contents = unwrap!(std::fs::read_to_string(path), {
-                dlog!("reading from {:?} failed", path);
+                info!("reading from {:?} failed", path);
                 return Err(());
             });
 
@@ -82,13 +82,13 @@ impl Backend {
         // then use that; otherwise, try to read the document from the provided
         // path and use that instead.
         let uri = unwrap!(Url::from_file_path(path), {
-            dlog!("couldn't construct uri from {:?}; using fallback", path);
+            info!("couldn't construct uri from {:?}; using fallback", path);
             return fallback();
         });
 
 
         let document = unwrap!(self.documents.get(&uri), {
-            dlog!("no document for uri {:?}; using fallback", uri);
+            info!("no document for uri {:?}; using fallback", uri);
             return fallback();
         });
 
@@ -122,23 +122,10 @@ impl LanguageServer for Backend {
 
         }
 
-        // start a task to periodically flush logs
-        // TODO: let dlog! notify the task so that logs can be flushed immediately,
-        // instead of just polling
-        std::thread::spawn({
-            let client = self.client.clone();
-            move || async move {
-                loop {
-                    std::thread::sleep(Duration::from_secs(1));
-                    crate::lsp::logger::flush(&client).await;
-                }
-            }
-        });
-
         // initialize our support functions
-        dlog!("Entering r::modules::initialized()");
+        trace!("Entering r::modules::initialized()");
         r_lock! { harp::modules::initialize() };
-        dlog!("Exiting r::modules::initialized()");
+        trace!("Exiting r::modules::initialized()");
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {

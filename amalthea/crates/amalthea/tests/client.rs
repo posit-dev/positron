@@ -15,7 +15,6 @@ use amalthea::wire::jupyter_message::{Message, MessageType, Status};
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::status::{ExecutionState, KernelStatus};
 use amalthea::wire::wire_message::WireMessage;
-use env_logger;
 use log::info;
 use serde_json;
 use std::sync::mpsc::sync_channel;
@@ -26,20 +25,8 @@ mod control;
 mod frontend;
 mod shell;
 
-// One-time construction of the logging system.
-use std::sync::Once;
-static INIT: Once = Once::new();
-fn setup() {
-    INIT.call_once(|| {
-        env_logger::init();
-    });
-}
-
 #[test]
 fn test_kernel() {
-    // Set up test logger
-    setup();
-
     // This channel delivers execution status and other iopub messages from
     // other threads to the iopub thread
     let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);

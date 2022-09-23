@@ -5,12 +5,6 @@
 //
 //
 
-// These routines are wrappers to useful R APIs, which instead
-// produce results more easily consumable by Rust.
-//
-// All APIs here should be marked unsafe, so that callers are
-// required to hold an R lock when invoking these.
-
 use std::ffi::CStr;
 
 use libR_sys::*;
@@ -51,15 +45,11 @@ pub unsafe fn r_type2char(kind: u32) -> String {
     return cstr.to_str().unwrap().to_string();
 }
 
-pub fn r_get_option<T: TryFrom<RObject, Error = Error>>(name: &str) -> Result<T, Error> {
-    unsafe {
-        let result = Rf_GetOption1(r_symbol!(name));
-        return RObject::new(result).try_into();
-    }
+pub unsafe fn r_get_option<T: TryFrom<RObject, Error = Error>>(name: &str) -> Result<T, Error> {
+    let result = Rf_GetOption1(r_symbol!(name));
+    return RObject::new(result).try_into();
 }
 
-pub fn r_inherits(object: SEXP, class: &str) -> bool {
-    unsafe {
-        return Rf_inherits(object, cstr!(class)) != 0;
-    }
+pub unsafe fn r_inherits(object: SEXP, class: &str) -> bool {
+    return Rf_inherits(object, cstr!(class)) != 0;
 }

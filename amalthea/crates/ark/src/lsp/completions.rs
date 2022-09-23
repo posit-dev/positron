@@ -17,6 +17,8 @@ use harp::r_string;
 use harp::r_symbol;
 use harp::utils::r_inherits;
 use libR_sys::*;
+use log::info;
+use stdext::*;
 use tower_lsp::lsp_types::CompletionItem;
 use tower_lsp::lsp_types::CompletionItemKind;
 use tower_lsp::lsp_types::CompletionParams;
@@ -29,9 +31,7 @@ use tree_sitter::Point;
 
 use crate::lsp::indexer::IndexedSymbol;
 use crate::lsp::indexer::index_document;
-use crate::macros::*;
 use crate::lsp::document::Document;
-use crate::lsp::logger::dlog;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
@@ -98,7 +98,7 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
 
         if TYPEOF(doc_type) as u32 == STRSXP && TYPEOF(doc_contents) as u32 == STRSXP {
 
-            let doc_type = RObject::new(doc_type).to::<String>().unwrap();
+            let _doc_type = RObject::new(doc_type).to::<String>().unwrap();
             let doc_contents = RObject::new(doc_contents).to::<String>().unwrap();
 
             item.documentation = Some(Documentation::MarkupContent(MarkupContent {
@@ -137,7 +137,7 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
         let mut errc = 0;
         object = R_tryEvalSilent(object, envir, &mut errc);
         if errc != 0 {
-            dlog!("Error creating completion item: {}", geterrmessage());
+            info!("Error creating completion item: {}", geterrmessage());
             return None;
         }
     }
@@ -280,23 +280,23 @@ fn append_function_parameters(node: &Node, data: &mut CompletionData, completion
     let mut cursor = node.walk();
 
     if !cursor.goto_first_child() {
-        dlog!("goto_first_child() failed");
+        info!("goto_first_child() failed");
         return;
     }
 
     if !cursor.goto_next_sibling() {
-        dlog!("goto_next_sibling() failed");
+        info!("goto_next_sibling() failed");
         return;
     }
 
     let kind = cursor.node().kind();
     if kind != "formal_parameters" {
-        dlog!("unexpected node kind {}", kind);
+        info!("unexpected node kind {}", kind);
         return;
     }
 
     if !cursor.goto_first_child() {
-        dlog!("goto_first_child() failed");
+        info!("goto_first_child() failed");
         return;
     }
 
@@ -335,7 +335,7 @@ unsafe fn list_namespace_symbols(namespace: SEXP) -> RObject {
 
 unsafe fn append_parameter_completions(document: &Document, callee: &str, completions: &mut Vec<CompletionItem>) {
 
-    dlog!("append_parameter_completions({:?})", callee);
+    info!("append_parameter_completions({:?})", callee);
 
     // Check for a function defined in this document that can provide parameters.
     let index = index_document(document);
@@ -365,12 +365,14 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
     let parsed_sexp = protect.add(R_ParseVector(string_sexp, 1, &mut status, R_NilValue));
 
     if status != ParseStatus_PARSE_OK {
-        dlog!("Error parsing {} [status {}]", callee, status);
+        info!("Error parsing {} [status {}]", callee, status);
         return;
     }
 
     // Evaluate the text. We use evaluation here to make it easier to support
     // the lookup of complex left-hand expressions.
+    //
+    // TODO: Avoid evaluating function calls here.
     let mut value = R_NilValue;
     for i in 0..Rf_length(parsed_sexp) {
         let expr = VECTOR_ELT(parsed_sexp, i as isize);
@@ -411,7 +413,7 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 
 unsafe fn append_namespace_completions(package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) {
 
-    dlog!("append_namespace_completions({:?}, {})", package, exports_only);
+    info!("append_namespace_completions({:?}, {})", package, exports_only);
 
     // Get the package namespace.
     let namespace = RFunction::new("base", "getNamespace")
@@ -428,7 +430,7 @@ unsafe fn append_namespace_completions(package: &str, exports_only: bool, comple
     };
 
     if TYPEOF(*symbols) as u32 != STRSXP {
-        dlog!("Unexpected SEXPTYPE {}", TYPEOF(*symbols));
+        info!("Unexpected SEXPTYPE {}", TYPEOF(*symbols));
         return;
     }
 
@@ -537,7 +539,7 @@ pub(crate) fn can_provide_completions(document: &mut Document, params: &Completi
 
 pub(crate) fn append_session_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) {
 
-    dlog!("append_session_completions()");
+    info!("append_session_completions()");
 
     // get reference to AST
     let ast = unwrap!(document.ast.as_ref(), {
@@ -642,7 +644,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
 
 pub(crate) fn append_document_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) {
 
-    dlog!("append_document_completions()");
+    info!("append_document_completions()");
 
     // get reference to AST
     let ast = unwrap!(document.ast.as_ref(), {

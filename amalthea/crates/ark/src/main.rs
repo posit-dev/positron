@@ -8,7 +8,6 @@
 #![allow(unused_unsafe)]
 
 use crate::control::Control;
-use crate::macros::unwrap;
 use crate::shell::Shell;
 use crate::version::detect_r;
 use amalthea::connection_file::ConnectionFile;
@@ -20,12 +19,13 @@ use std::env;
 use std::io::stdin;
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
+use stdext::unwrap;
 
 mod control;
 mod interface;
 mod kernel;
+mod logger;
 mod lsp;
-mod macros;
 mod request;
 mod shell;
 mod version;
@@ -112,7 +112,7 @@ fn parse_file(connection_file: &String) {
     match ConnectionFile::from_file(connection_file) {
         Ok(connection) => {
             info!(
-                "Loaded connection information from front end in {}",
+                "Loaded connection information from front-end in {}",
                 connection_file
             );
             debug!("Connection data: {:?}", connection);
@@ -145,9 +145,11 @@ Available options:
 
 fn main() {
 
-    // Initialize logging system; the env_logger lets you configure logging with
-    // the RUST_LOG env var
-    env_logger::init();
+    // Initialize the logger.
+    logger::initialize();
+
+    // Initialize harp.
+    harp::initialize();
 
     // Get an iterator over all the command-line arguments
     let mut argv = std::env::args();

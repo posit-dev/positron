@@ -14,7 +14,7 @@ use std::os::raw::c_int;
 use std::sync::Once;
 
 use libR_sys::*;
-use log::info;
+use log::trace;
 
 use crate::error::Error;
 use crate::utils::r_check_length;
@@ -63,7 +63,7 @@ unsafe fn protect(object: SEXP) -> SEXP {
     // Clean up the protect stack and return.
     Rf_unprotect(2);
 
-    info!("Protecting cell:   {:?}", cell);
+    trace!("Protecting cell:   {:?}", cell);
     return cell;
 
 }
@@ -74,7 +74,7 @@ unsafe fn unprotect(cell: SEXP) {
         return;
     }
 
-    info!("Unprotecting cell: {:?}", cell);
+    trace!("Unprotecting cell: {:?}", cell);
 
     // We need to remove the cell from the precious list.
     // The CAR of the cell points to the previous cell in the precious list.
@@ -90,6 +90,7 @@ unsafe fn unprotect(cell: SEXP) {
 
     // There should now be no references to the cell above, allowing it
     // (and the object it contains) to be cleaned up.
+    SET_TAG(cell, R_NilValue);
 
 }
 
@@ -218,20 +219,19 @@ impl TryFrom<RObject> for bool {
     }
 }
 
-// TODO: Need to ensure strings are UTF-8 first.
 impl TryFrom<RObject> for String {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
             r_check_type(*value, STRSXP)?;
             r_check_length(*value, 1)?;
-            let cstr = R_CHAR(STRING_ELT(*value, 0));
+            let charsexp = STRING_ELT(*value, 0);
+            let cstr = Rf_translateCharUTF8(charsexp);
             return Ok(CStr::from_ptr(cstr).to_str().unwrap().to_string());
         }
     }
 }
 
-// TODO: Need to ensure strings are UTF-8 first.
 impl TryFrom<RObject> for Vec<String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
@@ -241,7 +241,8 @@ impl TryFrom<RObject> for Vec<String> {
             let mut result : Vec<String> = Vec::new();
             let n = Rf_length(*value);
             for i in 0..n {
-                let cstr = R_CHAR(STRING_ELT(*value, i as isize));
+                let charsexp = STRING_ELT(*value, i as isize);
+                let cstr = Rf_translateCharUTF8(charsexp);
                 let string = CStr::from_ptr(cstr);
                 result.push(string.to_str().unwrap().to_string());
             }

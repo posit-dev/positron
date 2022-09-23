@@ -189,7 +189,7 @@ impl Kernel {
     /// Requests input from the front end
     pub fn request_input(&self, originator: &Vec<u8>, prompt: &str) {
         if let Some(requestor) = &self.input_requestor {
-            trace!("Requesting input from front end for prompt: {}", prompt);
+            trace!("Requesting input from front-end for prompt: {}", prompt);
             requestor
                 .send(ShellInputRequest {
                     originator: originator.clone(),
@@ -241,10 +241,13 @@ impl Kernel {
         data.insert("text/plain".to_string(), json!(output));
         trace!("Formatting value");
 
-        let value = unsafe { Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv) };
-        if r_inherits(value, "data.frame") {
-            data.insert("text/html".to_string(), json!(Kernel::to_html(value)));
-        }
+        // Handle data.frame specially
+        unsafe {
+            let value = Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv);
+            if r_inherits(value, "data.frame") {
+                data.insert("text/html".to_string(), json!(Kernel::to_html(value)));
+            }
+        };
 
         trace!("Sending kernel output: {}", self.output);
         if let Err(err) = self.iopub.send(IOPubMessage::ExecuteResult(ExecuteResult {
