@@ -8,6 +8,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { NotebookLanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeNotebook';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -26,7 +27,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	constructor(
 		@INotebookKernelService private _notebookKernelService: INotebookKernelService,
-		@IInstantiationService private _instantiationService: IInstantiationService
+		@IInstantiationService private _instantiationService: IInstantiationService,
+		@ILogService private readonly _logService: ILogService
 	) {
 		super();
 
@@ -50,9 +52,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Create a language runtime from the notebook kernel; this triggers the
 		// creation of a NotebookLanguageRuntime object that wraps the kernel in
 		// the ILanguageRuntime interface.
-		this.registerRuntime(this._instantiationService.createInstance(
-			NotebookLanguageRuntime,
-			kernel));
+		try {
+			this.registerRuntime(this._instantiationService.createInstance(
+				NotebookLanguageRuntime,
+				kernel));
+		} catch (err) {
+			this._logService.error('Error registering notebook kernel: ' + err);
+		}
 
 		// pick up the active language if we haven't set one yet
 		if (this._activeLanguage === '') {

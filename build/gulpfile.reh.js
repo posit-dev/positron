@@ -277,8 +277,10 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		if (type === 'reh-web') {
 			web = [
 				'resources/server/favicon.ico',
-				'resources/server/code-192.png',
-				'resources/server/code-512.png',
+				// --- Start Positron ---
+				'resources/server/positron-192.png',
+				'resources/server/positron-512.png',
+				// --- End Positron ---
 				'resources/server/manifest.json'
 			].map(resource => gulp.src(resource, { base: '.' }).pipe(rename(resource)));
 		}
