@@ -91,7 +91,6 @@
 			"dependsOn": [
 				"Core - Build",
 				"Ext - Build",
-				"Build Tools - Build"
 			],
 			"group": {
 				"kind": "build",
