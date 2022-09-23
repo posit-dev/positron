@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./modalDialogs';
-import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
 import { ModalDialog } from 'vs/base/browser/ui/modalDialog/modalDialog';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { renderTestComponent } from 'vs/base/browser/ui/components/testComponent';
+import { renderTestComponent } from 'vs/base/browser/ui/testComponent/testComponent';
+import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
 
 /**
  * ModalDialogs class.
@@ -31,8 +31,10 @@ export class ModalDialogs implements IModalDialogsService {
 		// Create the time modal dialog.
 		const modalDialog = new ModalDialog(this.layoutService.container, {
 			title: 'Current Time',
-			renderBody: (container: HTMLElement) => {
-				renderTestComponent(container, { message: 'Message Value' });
+			renderContent: (container: HTMLElement) => {
+				// const testElement = container.appendChild(DOM.$('.some-class'));
+				// testElement.innerText = 'some text';
+				return renderTestComponent(container, { message: 'Message Value' });
 			}
 		});
 
