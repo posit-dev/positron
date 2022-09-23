@@ -1,17 +1,17 @@
 {
-	"name": "Code - OSS",
-	"short_name": "Code- OSS",
+	"name": "Myriac",
+	"short_name": "Myriac",
 	"start_url": "/",
 	"lang": "en-US",
 	"display": "standalone",
 	"icons": [
 		{
-			"src": "code-192.png",
+			"src": "positron-192.png",
 			"type": "image/png",
 			"sizes": "192x192"
 		},
 		{
-			"src": "code-512.png",
+			"src": "positron-512.png",
 			"type": "image/png",
 			"sizes": "512x512"
 		}

@@ -243,11 +243,13 @@ export class CodeWindow extends Disposable implements ICodeWindow {
 			// Apply icon to window
 			// Linux: always
 			// Windows: only when running out of sources, otherwise an icon is set by us on the executable
+			// --- Start Positron ---
 			if (isLinux) {
-				options.icon = join(this.environmentMainService.appRoot, 'resources/linux/code.png');
+				options.icon = join(this.environmentMainService.appRoot, 'resources/linux/positron.png');
 			} else if (isWindows && !this.environmentMainService.isBuilt) {
-				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/code_150x150.png');
+				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
 			}
+			// --- End Positron ---
 
 			if (isMacintosh && !this.useNativeFullScreen()) {
 				options.fullscreenable = false; // enables simple fullscreen mode

@@ -290,7 +290,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				'resources/win32/code_150x150.png'
 			], { base: '.' }));
 		} else if (platform === 'linux') {
-			all = es.merge(all, gulp.src('resources/linux/code.png', { base: '.' }));
+			// --- Start Positron ---
+			all = es.merge(all, gulp.src('resources/linux/positron.png', { base: '.' }));
+			// --- End Positron ---
 		} else if (platform === 'darwin') {
 			const shortcut = gulp.src('resources/darwin/bin/code.sh')
 				.pipe(replace('@@APPNAME@@', product.applicationName))
