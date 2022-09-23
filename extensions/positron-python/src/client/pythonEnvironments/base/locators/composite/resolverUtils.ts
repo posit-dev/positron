@@ -24,7 +24,7 @@ import {
     getInterpreterPathFromDir,
     getPythonVersionFromPath,
 } from '../../../common/commonUtils';
-import { arePathsSame, getFileInfo, getWorkspaceFolders, isParentPath } from '../../../common/externalDependencies';
+import { arePathsSame, getFileInfo, isParentPath } from '../../../common/externalDependencies';
 import { AnacondaCompanyName, Conda, isCondaEnvironment } from '../../../common/environmentManagers/conda';
 import { getPyenvVersionsDir, parsePyenvVersion } from '../../../common/environmentManagers/pyenv';
 import { Architecture, getOSType, OSType } from '../../../../common/utils/platform';
@@ -34,6 +34,7 @@ import { BasicEnvInfo } from '../../locator';
 import { parseVersionFromExecutable } from '../../info/executable';
 import { traceError, traceWarn } from '../../../../logging';
 import { isVirtualEnvironment } from '../../../common/environmentManagers/simplevirtualenvs';
+import { getWorkspaceFolderPaths } from '../../../../common/vscodeApis/workspaceApis';
 
 function getResolvers(): Map<PythonEnvKind, (env: BasicEnvInfo, useCache?: boolean) => Promise<PythonEnvInfo>> {
     const resolvers = new Map<PythonEnvKind, (_: BasicEnvInfo, useCache?: boolean) => Promise<PythonEnvInfo>>();
@@ -91,7 +92,7 @@ async function getEnvType(env: PythonEnvInfo) {
 }
 
 function getSearchLocation(env: PythonEnvInfo): Uri | undefined {
-    const folders = getWorkspaceFolders();
+    const folders = getWorkspaceFolderPaths();
     const isRootedEnv = folders.some((f) => isParentPath(env.executable.filename, f) || isParentPath(env.location, f));
     if (isRootedEnv) {
         // For environments inside roots, we need to set search location so they can be queried accordingly.
