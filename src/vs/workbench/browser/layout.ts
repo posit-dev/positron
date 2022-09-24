@@ -1625,14 +1625,14 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	getLayoutClasses(): string[] {
 		return coalesce([
 			// --- Start Positron ---
-			!this.isVisible(Parts.TOPBAR_PART) ? WorkbenchLayoutClasses.TOPBAR_HIDDEN : undefined,
+			!this.isVisible(Parts.TOPBAR_PART) ? LayoutClasses.TOPBAR_HIDDEN : undefined,
 			// --- End Positron ---
 			!this.isVisible(Parts.SIDEBAR_PART) ? LayoutClasses.SIDEBAR_HIDDEN : undefined,
 			!this.isVisible(Parts.EDITOR_PART) ? LayoutClasses.EDITOR_HIDDEN : undefined,
 			!this.isVisible(Parts.PANEL_PART) ? LayoutClasses.PANEL_HIDDEN : undefined,
 			!this.isVisible(Parts.AUXILIARYBAR_PART) ? LayoutClasses.AUXILIARYBAR_HIDDEN : undefined,
 			// --- Start Positron ---
-			!this.isVisible(Parts.AUXILIARYACTIVITYBAR_PART) ? WorkbenchLayoutClasses.AUXILIARYACTIVITYBAR_HIDDEN : undefined,
+			!this.isVisible(Parts.AUXILIARYACTIVITYBAR_PART) ? LayoutClasses.AUXILIARYACTIVITYBAR_HIDDEN : undefined,
 			// --- End Positron ---
 			!this.isVisible(Parts.STATUSBAR_PART) ? LayoutClasses.STATUSBAR_HIDDEN : undefined,
 			this.state.runtime.fullscreen ? LayoutClasses.FULLSCREEN : undefined
