@@ -19,6 +19,8 @@ use std::sync::Once;
 use libR_sys::*;
 use stdext::cargs;
 
+use crate::lock::with_r_lock;
+
 static INIT: Once = Once::new();
 
 pub fn start_r() {
@@ -31,6 +33,7 @@ pub fn start_r() {
         // 'ark' to have undefined symbols, and use the DYLD_INSERT_LIBRARIES
         // trick to insert the right version of R when 'ark' is launched,
         // but for now we just have this comment as a reminder.
+        crate::initialize();
 
         // Set up R_HOME if necessary.
         if let Err(_) = std::env::var("R_HOME") {
@@ -47,5 +50,35 @@ pub fn start_r() {
             setup_Rmainloop();
         }
     });
+
+}
+
+pub fn r_test_impl<F: FnMut()>(f: F) {
+    start_r();
+    with_r_lock(f);
+}
+
+pub fn r_test_unlocked_impl<F: FnMut()>(mut f: F) {
+    start_r();
+    f();
+}
+
+#[macro_export]
+macro_rules! r_test {
+
+    ($($expr:tt)*) => {
+        #[allow(unused_unsafe)]
+        $crate::test::r_test_impl(|| unsafe { $($expr)* })
+    }
+
+}
+
+#[macro_export]
+macro_rules! r_test_unlocked {
+
+    ($($expr:tt)*) => {
+        #[allow(unused_unsafe)]
+        $crate::test::r_test_unlocked_impl(|| unsafe { $($expr)* })
+    }
 
 }

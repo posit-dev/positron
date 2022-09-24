@@ -6,7 +6,6 @@
 //
 
 use std::sync::Mutex;
-use std::sync::MutexGuard;
 use std::sync::Once;
 
 use log::info;
@@ -28,14 +27,12 @@ pub extern "C" fn r_polled_events_disabled() {
 
 }
 
-// A re-entrant mutex, to ensure only one thread can access
-// the R runtime at a time.
+// A lock, used to ensure only one thread can access the R runtime at a time.
+//
+// TODO: Stop using a Once when const Mutex::new() is in std.  Or just using
+// parking_lot::Mutex?
 pub static mut R_RUNTIME_LOCK_ONCE : Once = Once::new();
 pub static mut R_RUNTIME_LOCK : Option<Mutex<()>> = None;
-
-// A global lock guard, to be used with R_RUNTIME_LOCK. Global because R
-// runtime methods need access.
-pub static mut R_RUNTIME_LOCK_GUARD: Option<MutexGuard<()>> = None;
 
 // Child threads can set this to notify the main thread that there is work to be
 // done that requires access to the R runtime. The main thread will check this
@@ -64,7 +61,7 @@ pub fn with_r_lock<T, F: FnMut() -> T>(mut callback: F) -> T {
     unsafe { R_RUNTIME_TASKS_PENDING = true };
 
     // Wait until we can get the runtime lock.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
+    let guard = unsafe { R_RUNTIME_LOCK.as_ref().unwrap().lock().unwrap() };
 
     // Log how long we were stuck waiting.
     let elapsed = now.elapsed().unwrap().as_millis();
@@ -82,7 +79,7 @@ pub fn with_r_lock<T, F: FnMut() -> T>(mut callback: F) -> T {
     unsafe { R_PolledEvents = polled_events };
 
     // Release the runtime lock.
-    unsafe { R_RUNTIME_LOCK_GUARD = None };
+    drop(guard);
 
     // Tasks are no longer pending.
     unsafe { R_RUNTIME_TASKS_PENDING = false };
