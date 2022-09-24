@@ -20,6 +20,14 @@ const copyrightHeaderLines = [
 	' *--------------------------------------------------------------------------------------------*/',
 ];
 
+// --- Start Positron ---
+const positCopyrightHeaderLines = [
+	'/*---------------------------------------------------------------------------------------------',
+	' *  Copyright (c) RStudio, PBC.',
+	' *--------------------------------------------------------------------------------------------*/',
+];
+// --- End Positron ---
+
 function hygiene(some, linting = true) {
 	const gulpeslint = require('gulp-eslint');
 	const tsfmt = require('typescript-formatter');
@@ -86,19 +94,42 @@ function hygiene(some, linting = true) {
 		this.emit('data', file);
 	});
 
+	// --- Start Positron ---
+	// const copyrights = es.through(function (file) {
+	// 	const lines = file.__lines;
+	//
+	// 	for (let i = 0; i < copyrightHeaderLines.length; i++) {
+	// 		if (lines[i] !== copyrightHeaderLines[i]) {
+	// 			console.error(file.relative + ': Missing or bad copyright statement');
+	// 			errorCount++;
+	// 			break;
+	// 		}
+	// 	}
+	//
+	// 	this.emit('data', file);
+	// });
+
 	const copyrights = es.through(function (file) {
 		const lines = file.__lines;
 
-		for (let i = 0; i < copyrightHeaderLines.length; i++) {
-			if (lines[i] !== copyrightHeaderLines[i]) {
-				console.error(file.relative + ': Missing or bad copyright statement');
-				errorCount++;
-				break;
+		const matchHeaderLines = (headerLines) => {
+			for (let i = 0; i < headerLines.length; i++) {
+				if (headerLines[i] !== lines[i]) {
+					return false;
+				}
 			}
+
+			return true;
+		};
+
+		if (!(matchHeaderLines(copyrightHeaderLines) || matchHeaderLines(positCopyrightHeaderLines))) {
+			console.error(file.relative + ': Missing or bad copyright statement');
+			errorCount++;
 		}
 
 		this.emit('data', file);
 	});
+	// --- End Positron ---
 
 	const formatting = es.map(function (file, cb) {
 		tsfmt
