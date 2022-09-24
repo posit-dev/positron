@@ -493,6 +493,14 @@
 							{
 								"when": "hasBrowser",
 								"pattern": "vs/workbench/workbench.web.main"
+							},
+							{
+								"when": "hasBrowser",
+								"pattern": "vs/workbench/~"
+							},
+							{
+								"when": "hasBrowser",
+								"pattern": "vs/workbench/services/*/~"
 							}
 						]
 					},
