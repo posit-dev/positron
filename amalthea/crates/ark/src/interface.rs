@@ -7,7 +7,6 @@
 
 use amalthea::socket::iopub::IOPubMessage;
 use harp::lock::R_RUNTIME_LOCK;
-use harp::lock::R_RUNTIME_LOCK_GUARD;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
 use harp::utils::r_get_option;
 use libR_sys::*;
@@ -17,6 +16,7 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
 use std::path::Path;
 use std::process::Command;
+use std::sync::MutexGuard;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex, Once};
@@ -38,8 +38,13 @@ extern "C" {
 // These values must be global in order for them to be accessible from R
 // callbacks, which do not have a facility for passing or returning context.
 
-/// The global R kernel state
+/// The global R kernel state.
 pub static mut KERNEL: Option<Arc<Mutex<Kernel>>> = None;
+
+/// A lock guard, used to manage access to the R runtime.  The main thread holds
+/// the lock by default, but releases it at opportune times to allow the LSP to
+/// access the R runtime where appropriate.
+pub static mut R_RUNTIME_LOCK_GUARD: Option<MutexGuard<()>> = None;
 
 /// A channel that sends prompts from R to the kernel
 static mut RPROMPT_SEND: Option<Mutex<Sender<String>>> = None;
@@ -107,7 +112,7 @@ pub extern "C" fn r_read_console(
     // pump the event loop while waiting for console input.
     loop {
 
-        // Release the R runtime lock while we're waiting for input
+        // Release the R runtime lock while we're waiting for input.
         unsafe { R_RUNTIME_LOCK_GUARD = None };
 
         match receiver.recv_timeout(Duration::from_millis(200)) {

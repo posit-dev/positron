@@ -56,7 +56,10 @@ macro_rules! r_string {
 macro_rules! r_lock {
 
     ($($expr:tt)*) => {{
-        $crate::lock::with_r_lock(|| { unsafe { $($expr)* } })
+        #[allow(unused_unsafe)]
+        $crate::lock::with_r_lock(|| {
+            unsafe { $($expr)* } }
+        )
     }}
 
 }
