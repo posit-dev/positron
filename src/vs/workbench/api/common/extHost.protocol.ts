@@ -2222,7 +2222,7 @@ export interface ExtHostLocalizationShape {
 
 export interface IStringDetails {
 	message: string;
-	args?: string[];
+	args?: any[];
 	comment?: string[];
 }
 
