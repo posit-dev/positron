@@ -7,7 +7,7 @@
  *
  * https://jupyter-client.readthedocs.io/en/stable/messaging.html
  */
-interface JupyterConnectionSpec {
+export interface JupyterConnectionSpec {
 	/** ROUTER/DEALER: The port for control messages (shutdown/restart) */
 	control_port: number;  // eslint-disable-line
 

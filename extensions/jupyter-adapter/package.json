@@ -19,7 +19,7 @@
       "type": "object",
       "title": "Jupyter Heartbeat Interval",
       "properties": {
-        "myriac.heartbeat": {
+        "positron.jupyter.heartbeat": {
           "scope": "window",
           "type": "number",
           "default": 10,
@@ -39,7 +39,8 @@
   },
   "dependencies": {
     "uuid": "^8.3.2",
-    "zeromq": "^6.0.0-beta.6"
+    "zeromq": "^6.0.0-beta.6",
+    "vscode-nls": "^5.2.0"
   },
   "repository": {
     "type": "git",

@@ -5,7 +5,7 @@
 /**
  * Represents a registered Jupyter Kernel.
  */
-interface JupyterKernelSpec {
+export interface JupyterKernelSpec {
 	/** Command used to start the kernel and an array of command line arguments */
 	argv: Array<string>;
 

@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ChildProcess, exec, spawn } from 'child_process';
-import { Disposable } from 'vscode';
 import * as vscode from 'vscode';
 
 import * as zmq from 'zmq/v5-compat';
@@ -16,7 +15,6 @@ import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
 import { MessageLike } from 'zeromq';
 import { EventEmitter } from 'events';
-import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { JupyterMessage } from './JupyterMessage';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
@@ -25,8 +23,11 @@ import { JupyterCommOpen } from './JupyterCommOpen';
 import { v4 as uuidv4 } from 'uuid';
 import { JupyterShutdownRequest } from './JupyterShutdownRequest';
 import { JupyterInterruptRequest } from './JupyterInterruptRequest';
+import { JupyterKernelSpec } from './JupyterKernelSpec';
+import { JupyterConnectionSpec } from './JupyterConnectionSpec';
+import { JupyterSockets } from './JupyterSockets';
 
-export class JupyterKernel extends EventEmitter implements Disposable {
+export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
 	private _process: ChildProcess | null;
 
@@ -406,13 +407,13 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 
 		// If we know how long the kernel took, log it
 		if (this._lastHeartbeat) {
-			let now = new Date().getUTCMilliseconds();
-			let diff = now - this._lastHeartbeat;
+			const now = new Date().getUTCMilliseconds();
+			const diff = now - this._lastHeartbeat;
 			console.info(`Heartbeat received from kernel in ${diff}ms`);
 		}
 
 		// Schedule the next heartbeat at the configured interval
-		let seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
+		const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
 		setTimeout(() => {
 			this.heartbeat();
 		}, seconds * 1000);
@@ -427,7 +428,7 @@ export class JupyterKernel extends EventEmitter implements Disposable {
 		this.emit('status', status);
 		this._status = status;
 	}
-};
+}
 
 /**
  * The set of possible statuses for a kernel
