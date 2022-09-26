@@ -292,7 +292,7 @@ export class ReplInstanceView extends Disposable {
 		// Forward scroll events from inside REPL cells into the outer scrolling
 		// container (so input editors inside cells do not create a scroll trap)
 		cell.onMouseWheel((e) => {
-			this._scroller.triggerScrollFromMouseWheelEvent(e);
+			this._scroller.delegateScrollFromMouseWheelEvent(e);
 		});
 
 		// Hook up events
