@@ -43,7 +43,7 @@ const TestComponent = (props: TestComponentProps) => {
 			<div>
 				TestComponent
 			</div>
-			<div className='test' >
+			<div className='test-component' >
 				Message: {props.message} Time: {time}
 			</div>
 			<TestSubcomponent {...props} />
