@@ -4,7 +4,6 @@
 
 import { ChildProcess, exec, spawn } from 'child_process';
 import * as vscode from 'vscode';
-
 import * as zmq from 'zeromq';
 import * as path from 'path';
 import * as os from 'os';
