@@ -3,10 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createHmac } from 'crypto';
-import { MessageLike } from 'zeromq';
 import { JupyterMessage } from './JupyterMessage';
 
-export function serializeJupyterMessage(message: JupyterMessage, key: string): MessageLike[] {
+export function serializeJupyterMessage(message: JupyterMessage, key: string): any[] {
 	const payload: Array<Buffer> = [];
 
 	// The delimiter separating the ZeroMQ socket identities from the message body

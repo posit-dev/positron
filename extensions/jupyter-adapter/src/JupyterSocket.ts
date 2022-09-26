@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vscode';
-import zmq = require('zeromq/v5-compat');
-import net = require('net');
+import * as zmq from 'zeromq';
+import * as net from 'net';
 
 export class JupyterSocket implements Disposable {
 	private readonly _socket: zmq.Socket;
@@ -34,7 +34,7 @@ export class JupyterSocket implements Disposable {
 	 *   (typically a UUID)
 	 */
 	public setZmqIdentity(identity: Buffer): void {
-		this._socket.setsockopt('identity', identity);
+		this._socket.setsockopt(zmq.ZMQ_IDENTITY, identity);
 	}
 
 	/**
@@ -104,8 +104,8 @@ export class JupyterSocket implements Disposable {
 
 		const portmin = 41952;
 		const portmax = 65536;
-		let nextPort = this.findAvailablePort;
-		let title = this._title;
+		const nextPort = this.findAvailablePort;
+		const title = this._title;
 
 		return new Promise((resolve, reject) => {
 			// Pick a random port not on the exclusion list
@@ -114,7 +114,7 @@ export class JupyterSocket implements Disposable {
 				candidate = Math.floor(Math.random() * (portmax - portmin) + portmin);
 			} while (excluding.includes(candidate));
 
-			let test = net.createServer();
+			const test = net.createServer();
 
 			// If we can't bind to the port, pick another random port
 			test.once('error', function (err) {

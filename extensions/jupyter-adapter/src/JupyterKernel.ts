@@ -5,7 +5,7 @@
 import { ChildProcess, exec, spawn } from 'child_process';
 import * as vscode from 'vscode';
 
-import * as zmq from 'zmq/v5-compat';
+import * as zmq from 'zeromq';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -13,7 +13,6 @@ import * as crypto from 'crypto';
 import { JupyterSocket } from './JupyterSocket';
 import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
-import { MessageLike } from 'zeromq';
 import { EventEmitter } from 'events';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { JupyterMessage } from './JupyterMessage';
@@ -171,21 +170,21 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Subscribe to all topics
 		this._iopub.socket().subscribe('');
-		this._iopub.socket().on('message', (...args: MessageLike[]) => {
+		this._iopub.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
 				console.log('iopub message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.iopub, msg);
 			}
 		});
-		this._shell.socket().on('message', (...args: MessageLike[]) => {
+		this._shell.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
 				console.log('shell message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.shell, msg);
 			}
 		});
-		this._stdin.socket().on('message', (...args: MessageLike[]) => {
+		this._stdin.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
 				console.log('stdin message: ' + JSON.stringify(msg));

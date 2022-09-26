@@ -3,10 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createHmac } from 'crypto';
-import { MessageLike } from 'zeromq';
 import { JupyterMessage } from './JupyterMessage';
 
-export function deserializeJupyterMessage(message: MessageLike[], key: string): JupyterMessage | null {
+export function deserializeJupyterMessage(message: any[], key: string): JupyterMessage | null {
 
 	// Discard the ZeroMQ socket identities, which are the elements of the array
 	// before the <IDS|MSG> token.
