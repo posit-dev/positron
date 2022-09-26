@@ -2,7 +2,12 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.test-component {
-	background: lightgray;
-	color: blue;
+.monaco-workbench .help-pane {
+	display: flex;
+	flex-direction: column;
+}
+
+.monaco-workbench .help-pane .help-container {
+	height: 100%;
+	background: red;
 }
