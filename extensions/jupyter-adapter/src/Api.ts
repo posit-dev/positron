@@ -2,17 +2,18 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
+
 import { JupyterKernelSpec } from './JupyterKernelSpec';
 
-export class Api extends vscode.Disposable {
+export class Api implements vscode.Disposable {
 	constructor() {
-		super(() => this.dispose());
 	}
 
-	adaptKernel(kernel: JupyterKernelSpec): vscode.LanguageRuntime {
+	adaptKernel(_kernel: JupyterKernelSpec): vscode.LanguageRuntime | null {
+		return null;
 	}
 
 	dispose() {
-		super.dispose();
 	}
 }

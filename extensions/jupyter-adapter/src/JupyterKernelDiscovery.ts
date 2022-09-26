@@ -2,9 +2,10 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import os = require('os');
-import fs = require('fs');
-import path = require('path');
+import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
+import { JupyterKernelSpec } from './JupyterKernelSpec';
 
 /**
  * Gets metadata about the Jupyter kernel installed in the given directory.
@@ -14,10 +15,10 @@ import path = require('path');
  *   exists in the directory.
  */
 function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve, _reject) => {
 
 		// Form the path to the kernel defintion
-		let kerneljs = path.join(dir, 'kernel.json');
+		const kerneljs = path.join(dir, 'kernel.json');
 
 		// If the file exists and can be read...
 		fs.access(kerneljs, fs.constants.R_OK, (err) => {
@@ -32,7 +33,7 @@ function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
 						resolve(null);
 					}
 					try {
-						let kernel: JupyterKernelSpec = JSON.parse(data.toString());
+						const kernel: JupyterKernelSpec = JSON.parse(data.toString());
 						resolve(kernel);
 					} catch (err) {
 						console.log('Couldn\'t parse kernel definition at ' + kerneljs + ': ' + err);
@@ -50,12 +51,12 @@ function getKernelMetadata(dir: string): Promise<JupyterKernelSpec | null> {
  * @param dir
  */
 function discoverKernels(dir: string): Promise<Array<JupyterKernelSpec>> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve, _reject) => {
 		fs.readdir(dir, (err, files) => {
 
 			if (err) {
-				console.warn('Couldn't read kernel metadata directory '' + dir + '': ' + err.message);
-                resolve([]);
+				console.warn('Could not read kernel metadata directory ' + dir + ': ' + err.message);
+				resolve([]);
 			}
 
 			// If no files are discovered, resolve with an empty array
@@ -63,7 +64,7 @@ function discoverKernels(dir: string): Promise<Array<JupyterKernelSpec>> {
 				resolve([]);
 			}
 
-			let promises: Array<Promise<JupyterKernelSpec | null>> = [];
+			const promises: Array<Promise<JupyterKernelSpec | null>> = [];
 			for (let i = 0; i < files.length; i++) {
 				promises.push(getKernelMetadata(path.join(dir, files[i])));
 			}
@@ -83,9 +84,9 @@ export function discoverAllKernels(): Promise<Array<JupyterKernelSpec>> {
 
 	// Source: https://jupyter-client.readthedocs.io/en/stable/kernels.html
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve, _reject) => {
 		// Array of locations to search for installed kernels
-		let dirs: Array<string> = [];
+		const dirs: Array<string> = [];
 
 		if (process.platform === 'win32') {
 			// TODO: these probably need to get expanded
@@ -106,7 +107,7 @@ export function discoverAllKernels(): Promise<Array<JupyterKernelSpec>> {
 			}
 		}
 
-		let promises: Array<Promise<Array<JupyterKernelSpec>>> = [];
+		const promises: Array<Promise<Array<JupyterKernelSpec>>> = [];
 		for (let i = 0; i < dirs.length; i++) {
 			promises.push(discoverKernels(path.resolve(dirs[i])));
 		}

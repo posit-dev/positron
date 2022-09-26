@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { Api } from './Api';
 
-export function activate(context: vscode.ExtensionContext): vscode.Disposable {
+export function activate(_context: vscode.ExtensionContext): vscode.Disposable {
 	console.log('Starting Jupyter Adapter extension');
 	return new Api();
 }

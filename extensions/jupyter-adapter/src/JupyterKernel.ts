@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChildProcess, exec, spawn } from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
 import * as vscode from 'vscode';
 import * as zmq from 'zeromq';
 import * as path from 'path';
@@ -114,7 +114,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		fs.writeFileSync(this._file, JSON.stringify(conn));
 
 		// Replace the {connection_file} argument with our connection file
-		const args = this._spec.argv.map((arg, idx) => {
+		const args = this._spec.argv.map((arg, _idx) => {
 			if (arg === '{connection_file}') {
 				return this._file;
 			}
@@ -407,7 +407,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (this._lastHeartbeat) {
 			const now = new Date().getUTCMilliseconds();
 			const diff = now - this._lastHeartbeat;
-			console.info(`Heartbeat received from kernel in ${diff}ms`);
+			console.info(`Heartbeat received from kernel in ${diff}ms: ${msg}`);
 		}
 
 		// Schedule the next heartbeat at the configured interval
