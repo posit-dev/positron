@@ -1,7 +1,9 @@
 [workspace]
 
 members = [
-    "amalthea",
-    "ark",
-    "echo"
+    "crates/amalthea",
+    "crates/ark",
+    "crates/echo",
+    "crates/harp",
+    "crates/stdext"
 ]

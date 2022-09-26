@@ -82,11 +82,6 @@ export class ReplInstanceView extends Disposable {
 					return;
 				}
 
-				// If the active cell isn't executing, ignore this execution state change
-				if (this._activeCell?.getState() !== ReplCellState.ReplCellExecuting) {
-					return;
-				}
-
 				// Mark the current cell execution as complete, if it is currently executing.
 				if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
 					this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
@@ -223,9 +218,6 @@ export class ReplInstanceView extends Disposable {
 
 		// Recompute scrolling
 		this._scroller.scanDomNode();
-
-		this._kernel.messages.event(msg => {
-		});
 	}
 
 	/**
@@ -300,7 +292,7 @@ export class ReplInstanceView extends Disposable {
 		// Forward scroll events from inside REPL cells into the outer scrolling
 		// container (so input editors inside cells do not create a scroll trap)
 		cell.onMouseWheel((e) => {
-			this._scroller.triggerScrollFromMouseWheelEvent(e);
+			this._scroller.delegateScrollFromMouseWheelEvent(e);
 		});
 
 		// Hook up events

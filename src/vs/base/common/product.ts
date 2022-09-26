@@ -76,6 +76,7 @@ export interface IProductConfiguration {
 
 	readonly extensionsGallery?: {
 		readonly serviceUrl: string;
+		readonly searchUrl?: string;
 		readonly itemUrl: string;
 		readonly publisherUrl: string;
 		readonly resourceUrlTemplate: string;

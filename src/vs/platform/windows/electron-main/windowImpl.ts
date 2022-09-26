@@ -243,11 +243,13 @@ export class CodeWindow extends Disposable implements ICodeWindow {
 			// Apply icon to window
 			// Linux: always
 			// Windows: only when running out of sources, otherwise an icon is set by us on the executable
+			// --- Start Positron ---
 			if (isLinux) {
-				options.icon = join(this.environmentMainService.appRoot, 'resources/linux/code.png');
+				options.icon = join(this.environmentMainService.appRoot, 'resources/linux/positron.png');
 			} else if (isWindows && !this.environmentMainService.isBuilt) {
-				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/code_150x150.png');
+				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
 			}
+			// --- End Positron ---
 
 			if (isMacintosh && !this.useNativeFullScreen()) {
 				options.fullscreenable = false; // enables simple fullscreen mode
@@ -877,7 +879,7 @@ export class CodeWindow extends Disposable implements ICodeWindow {
 		this.readyState = ReadyState.NAVIGATING;
 
 		// Load URL
-		this._win.loadURL(FileAccess.asBrowserUri('vs/code/electron-sandbox/workbench/workbench.html', require).toString(true));
+		this._win.loadURL(FileAccess.asBrowserUri(`vs/code/electron-sandbox/workbench/workbench${this.environmentMainService.isBuilt ? '' : '-dev'}.html`, require).toString(true));
 
 		// Remember that we did load
 		const wasLoaded = this.wasLoaded;
@@ -973,6 +975,7 @@ export class CodeWindow extends Disposable implements ICodeWindow {
 
 		configuration.isInitialStartup = false; // since this is a reload
 		configuration.policiesData = this.policyService.serialize(); // set policies data again
+		configuration.continueOn = this.environmentMainService.continueOn;
 		configuration.profiles = {
 			all: this.userDataProfilesService.profiles,
 			profile: this.profile || this.userDataProfilesService.defaultProfile

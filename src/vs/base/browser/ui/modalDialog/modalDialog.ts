@@ -4,14 +4,14 @@
 
 import 'vs/css!./modalDialog';
 import * as DOM from 'vs/base/browser/dom';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
 
 /**
  * IModalDialogOptions interface.
  */
 export interface IModalDialogOptions {
 	readonly title: string;
-	readonly renderBody?: (container: HTMLElement) => void;
+	readonly renderContent?: (container: HTMLElement) => IDisposable | undefined;
 }
 
 /**
@@ -26,9 +26,7 @@ export class ModalDialog extends Disposable {
 	private readonly dialogBoxBodyElement: HTMLElement;
 	private readonly titleBarElement: HTMLElement;
 	private readonly titleElement: HTMLElement;
-
 	private readonly contentAreaElement: HTMLElement;
-
 	private readonly actionsBarElement: HTMLElement;
 	private readonly okButtonElement: HTMLElement | undefined;
 
@@ -62,9 +60,13 @@ export class ModalDialog extends Disposable {
 		// Create the content area.
 		this.contentAreaElement = this.dialogBoxBodyElement.appendChild(DOM.$('.content-area'));
 
-		// Render the body into content area.
-		if (modalDialogOptions.renderBody) {
-			modalDialogOptions.renderBody(this.contentAreaElement);
+		// Render the content.
+		if (modalDialogOptions.renderContent) {
+			// Render the component and, if it's an IDisposable, register it.
+			const content = modalDialogOptions.renderContent(this.contentAreaElement);
+			if (content) {
+				this._register(content);
+			}
 		}
 
 		// Create the actions bar and actions.
@@ -87,14 +89,14 @@ export class ModalDialog extends Disposable {
 	 * Disposes the modal dialog box.
 	 */
 	override dispose(): void {
+		// Dispose super.
 		super.dispose();
 
+		// Remove the modal block element.
 		if (this.modalBlockElement) {
 			this.modalBlockElement.remove();
 			this.modalBlockElement = undefined;
 		}
-
-		// Return focus to focusToReturn...
 	}
 
 	/**
@@ -109,7 +111,6 @@ export class ModalDialog extends Disposable {
 
 			if (this.okButtonElement) {
 				this.okButtonElement.onclick = () => {
-					console.log('YAYA!');
 					resolve();
 				};
 			}
@@ -118,4 +119,3 @@ export class ModalDialog extends Disposable {
 
 	//#endregion Class Initialization
 }
-
