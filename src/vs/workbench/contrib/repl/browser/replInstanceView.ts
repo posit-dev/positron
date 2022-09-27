@@ -9,7 +9,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -230,7 +230,8 @@ export class ReplInstanceView extends Disposable {
 		this._instance.history.add(code);
 
 		// Ask the kernel to execute the code
-		this._kernel.execute(code);
+		this._kernel.execute(code, RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Stop);
 
 		// Mark the cell as executing
 		if (this._activeCell) {

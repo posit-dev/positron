@@ -3942,8 +3942,35 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing output (text, plots, etc.) */
 	Output = 'output',
 
+	/** A message representing echoed user input */
+	Input = 'input',
+
 	/** A message representing a change in the runtime's online state */
 	State = 'state',
 }
 
+/**
+ * Possible code execution modes for a language runtime
+ */
+export enum RuntimeCodeExecutionMode {
+	/** The code was entered interactively, and should be executed and stored in the runtime's history. */
+	Interactive = 'interactive',
+
+	/** The code should be executed but not stored in history. */
+	Transient = 'transient',
+
+	/** The code execution should be fully silent, neither displayed to the user nor stored in history. */
+	Silent = 'silent'
+}
+
+/**
+ * Possible error dispositions for a language runtime
+ */
+export enum RuntimeErrorBehavior {
+	/** The runtime should stop when an error is encountered. */
+	Stop = 'stop',
+
+	/** The runtime should continue execution when an error is encountered */
+	Continue = 'continue',
+}
 // --- End Positron ---
