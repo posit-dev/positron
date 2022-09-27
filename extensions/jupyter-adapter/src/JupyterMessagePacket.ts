@@ -25,8 +25,8 @@ export interface JupyterMessagePacket {
 	originId: string;
 
 	/** The message itself */
-	message: JupyterMessageSpec
+	message: JupyterMessageSpec;
 
 	/** The socket on which the message was received, or is to be sent */
-	socket: JupyterSockets
+	socket: JupyterSockets;
 }
