@@ -13,6 +13,7 @@ import {
 } from './deprecatedProposedApiTypes';
 import { IInterpreterService } from './interpreter/contracts';
 import { IServiceContainer } from './ioc/types';
+import { traceVerbose } from './logging';
 import { PythonEnvInfo } from './pythonEnvironments/base/info';
 import { getEnvPath } from './pythonEnvironments/base/info/env';
 import { GetRefreshEnvironmentsOptions, IDiscoveryAPI } from './pythonEnvironments/base/locator';
@@ -68,13 +69,13 @@ export function buildDeprecatedProposedApi(
         }
         extensions
             .determineExtensionFromCallStack()
-            .then((info) =>
+            .then((info) => {
                 sendTelemetryEvent(EventName.PYTHON_ENVIRONMENTS_API, undefined, {
                     apiName,
                     extensionId: info.extensionId,
-                    displayName: info.displayName,
-                }),
-            )
+                });
+                traceVerbose(`Extension ${info.extensionId} accessed ${apiName}`);
+            })
             .ignoreErrors();
     }
 
