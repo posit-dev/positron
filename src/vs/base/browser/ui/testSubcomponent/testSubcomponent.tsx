@@ -26,14 +26,14 @@ const TestSubcomponent = (props: TestSubcomponentProps) => {
 
 	// Render.
 	return (
-		<>
+		<div className='test-subcomponent' >
 			<div>
 				TestSubcomponent
 			</div>
-			<div className='test-subcomponent' >
+			<div>
 				Message: {props.message} Time: {time}
 			</div>
-		</>
+		</div>
 	);
 };
 
