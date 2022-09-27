@@ -8,6 +8,7 @@ import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterDisplayData } from './JupyterDisplayData';
 import { JupyterExecuteResult } from './JupyterExecuteResult';
+import { JupyterExecuteInput } from './JupyterExecuteInput';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -81,6 +82,9 @@ export class LanguageRuntimeAdapter
 			case 'execute_result':
 				this.onExecuteResult(msg, message as JupyterExecuteResult);
 				break;
+			case 'execute_input':
+				this.onExecuteInput(msg, message as JupyterExecuteInput);
+				break;
 		}
 	}
 
@@ -114,6 +118,22 @@ export class LanguageRuntimeAdapter
 			type: vscode.LanguageRuntimeMessageType.Output,
 			data: data.data as any
 		} as vscode.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Converts a Jupyter execute_input message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The execute_input message
+	 */
+	onExecuteInput(message: JupyterMessagePacket, data: JupyterExecuteInput) {
+		this.messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			type: vscode.LanguageRuntimeMessageType.Input,
+			code: data.code
+		} as vscode.LanguageRuntimeInput);
 	}
 
 	/**

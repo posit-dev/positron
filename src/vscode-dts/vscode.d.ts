@@ -16419,6 +16419,9 @@ declare module 'vscode' {
 		/** A message representing output (text, plots, etc.) */
 		Output = 'output',
 
+		/** A message representing echoed user input */
+		Input = 'input',
+
 		/** A message representing a change in the runtime's online state */
 		State = 'state',
 	}
@@ -16506,6 +16509,15 @@ declare module 'vscode' {
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Map<string, string>;
+	}
+
+	/** LanguageRuntimeInput is a LanguageRuntimeMessage representing echoed user input */
+	export interface LanguageRuntimeInput extends LanguageRuntimeMessage {
+		/** The code that was input */
+		code: string;
+
+		/** The execution count */
+		execution_count: number;
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
