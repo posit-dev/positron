@@ -16440,6 +16440,9 @@ declare module 'vscode' {
 	 * The set of possible statuses for a language runtime
 	 */
 	export enum RuntimeState {
+		/** The runtime has not been started or initialized yet. */
+		Uninitialized = 'uninitialized',
+
 		/** The runtime is in the process of starting up. It isn't ready for messages. */
 		Starting = 'starting',
 
@@ -16520,6 +16523,18 @@ declare module 'vscode' {
 		execution_count: number;
 	}
 
+	/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
+	export interface LanguageRuntimeInfo {
+		/** A startup banner */
+		banner: string;
+
+		/** The implementation version number */
+		implementation_version: string;
+
+		/** The language version number */
+		language_version: string;
+	}
+
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
 	export interface LanguageRuntimeState extends LanguageRuntimeMessage {
 		/** The new state */
@@ -16566,6 +16581,9 @@ declare module 'vscode' {
 		execute(code: string,
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): Thenable<string>;
+
+		/** Start the runtime; returns a Thenable that resolves with information about the runtime. */
+		start(): Thenable<LanguageRuntimeInfo>;
 
 		/** Interrupt the runtime */
 		interrupt(): void;
