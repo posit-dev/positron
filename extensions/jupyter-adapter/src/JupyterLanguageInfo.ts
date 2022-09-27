@@ -23,7 +23,7 @@ export interface JupyterLanguageInfo {
 	/** Pygments lexer (for highlighting), only needed if differs from name */
 	pygments_lexer: string; // eslint-disable-line
 
-	/** Codemirror mode (for editing), only ndeeded if differs from name  */
+	/** Codemirror mode (for editing), only needed if differs from name  */
 	codemirror_mode: string; // eslint-disable-line
 
 	/** Nbconvert exporter, if not default */

@@ -25,6 +25,7 @@ import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
+import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -34,7 +35,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _file: string | null;
 
 	/** The kernel's current state */
-	private _status: string;
+	private _status: vscode.RuntimeState;
 
 	/** The security key to use to sign messages to the kernel */
 	private readonly _key: string;
@@ -66,7 +67,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeatTimer = null;
 		this._lastHeartbeat = 0;
 
-		this._status = 'Uninitialized';
+		this._status = vscode.RuntimeState.Uninitialized;
 		this._key = crypto.randomBytes(16).toString('hex');
 		this._sessionId = crypto.randomBytes(16).toString('hex');
 	}
@@ -132,7 +133,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			};
 		}
 
-		this.setStatus(KernelStatus.starting);
+		this.setStatus(vscode.RuntimeState.Starting);
 
 		const output = vscode.window.createOutputChannel(this._spec.display_name);
 		output.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
@@ -144,7 +145,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			output.append(data.toString());
 		});
 		this._process.on('close', (code) => {
-			this.setStatus(KernelStatus.exited);
+			this.setStatus(vscode.RuntimeState.Exited);
 			output.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
 		});
 		this._process.once('spawn', () => {
@@ -152,7 +153,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._heartbeat?.socket().once('message', (msg: string) => {
 
 				console.log('Receieved initial heartbeat: ' + msg);
-				this.setStatus(KernelStatus.ready);
+				this.setStatus(vscode.RuntimeState.Ready);
 
 				const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
 				if (seconds > 0) {
@@ -237,7 +238,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @returns The kernel's current status
 	 */
-	public status(): string {
+	public status(): vscode.RuntimeState {
 		return this._status;
 	}
 
@@ -260,7 +261,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Tells the kernel to shut down
 	 */
 	public shutdown(restart: boolean) {
-		this.setStatus(KernelStatus.exiting);
+		this.setStatus(vscode.RuntimeState.Exiting);
 		console.info('Requesting shutdown of kernel: ' + this._spec.display_name);
 		const msg: JupyterShutdownRequest = {
 			restart: restart
@@ -272,7 +273,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Interrupts the kernel
 	 */
 	public interrupt() {
-		this.setStatus(KernelStatus.interrupting);
+		this.setStatus(vscode.RuntimeState.Interrupting);
 		console.info('Requesting interrupt of kernel: ' + this._spec.display_name);
 		const msg: JupyterInterruptRequest = {};
 		this.send(uuidv4(), 'interrupt_request', this._control!, msg);
@@ -294,6 +295,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			socket: socket
 		};
 		this.emit('message', packet);
+	}
+
+	/**
+	 * Sends a kernel information request to the kernel.
+	 */
+	public sendInfoRequest() {
+		const msg: JupyterKernelInfoRequest = {};
+		this.send(uuidv4(), 'kernel_info_request', this._shell!, msg);
 	}
 
 	/**
@@ -430,7 +439,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeatTimer = setTimeout(() => {
 			// If the kernel hasn't responded in the given amount of time,
 			// mark it as offline
-			this.setStatus(KernelStatus.offline);
+			this.setStatus(vscode.RuntimeState.Offline);
 		}, seconds * 1000);
 	}
 
@@ -464,37 +473,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @param status The new status of the kernel
 	 */
-	private setStatus(status: KernelStatus) {
+	private setStatus(status: vscode.RuntimeState) {
 		this.emit('status', status);
 		this._status = status;
 	}
-}
-
-/**
- * The set of possible statuses for a kernel
- */
-export enum KernelStatus {
-	/** The kernel is in the process of starting up. It isn't ready for messages. */
-	starting = 'starting',
-
-	/** The kernel has a heartbeat and is ready for messages. */
-	ready = 'ready',
-
-	/** The kernel is ready to execute code. */
-	idle = 'idle',
-
-	/** The kernel is busy executing code. */
-	busy = 'busy',
-
-	/** The kernel is in the process of shutting down. */
-	exiting = 'exiting',
-
-	/** The kernel's host process has ended. */
-	exited = 'exited',
-
-	/** The kernel is not responding to heartbeats and is presumed offline. */
-	offline = 'offline',
-
-	/** The user has interrupted a busy kernel, but the kernel is not idle yet. */
-	interrupting = 'interrupting',
 }

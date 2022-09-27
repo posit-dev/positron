@@ -3,12 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { JupyterKernel, KernelStatus } from './JupyterKernel';
+import { JupyterKernel } from './JupyterKernel';
 import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterDisplayData } from './JupyterDisplayData';
 import { JupyterExecuteResult } from './JupyterExecuteResult';
 import { JupyterExecuteInput } from './JupyterExecuteInput';
+import { JupyterKernelInfoReply } from './JupyterKernelInfoReply';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -62,6 +63,41 @@ export class LanguageRuntimeAdapter
 
 	interrupt(): void {
 		throw new Error('Method not implemented.');
+	}
+
+	/**
+	 * Starts a new instance of the language runtime.
+	 *
+	 * @returns A promise with information about the newly started runtime.
+	 */
+	start(): Thenable<vscode.LanguageRuntimeInfo> {
+		return new Promise<vscode.LanguageRuntimeInfo>((resolve, reject) => {
+			// Reject if the kernel is already running; only in the Unintialized state
+			// can we start the kernel
+			if (this._kernel.status() !== vscode.RuntimeState.Uninitialized) {
+				reject('Kernel is already running');
+			}
+
+			// Attempt to start the kernel
+			this._kernel.start().then(() => {
+				// Send a kernel_info_request to get the kernel info
+				this._kernel.sendInfoRequest();
+
+				// Wait for the kernel_info_reply to come back
+				this._kernel.once('message', (msg: JupyterMessagePacket) => {
+					if (msg.msgType === 'kernel_info_reply') {
+						const message = msg.message as JupyterKernelInfoReply;
+						resolve({
+							banner: message.banner,
+							implementation_version: message.implementation_version,
+							language_version: message.language_info.version,
+						} as vscode.LanguageRuntimeInfo);
+					} else {
+						reject('Unexpected message type: ' + msg.msgType);
+					}
+				});
+			});
+		});
 	}
 
 	restart(): void {
@@ -141,8 +177,8 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @param status The new status of the kernel
 	 */
-	onStatus(status: KernelStatus) {
-		this.state.fire(status as string as vscode.RuntimeState);
+	onStatus(status: vscode.RuntimeState) {
+		this.state.fire(status);
 	}
 
 	dispose() {

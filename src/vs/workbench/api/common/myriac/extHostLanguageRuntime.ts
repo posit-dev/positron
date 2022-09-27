@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as vscode from 'vscode';
-import { ILanguageRuntime, ILanguageRuntimeMessage, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { Emitter } from 'vs/base/common/event';
 import * as extHostProtocol from '../extHost.protocol';
 
@@ -40,12 +40,19 @@ class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
 		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
 		return this._runtime.execute(code, mode, errorBehavior);
 	}
+
+	start(): Thenable<ILanguageRuntimeInfo> {
+		return this._runtime.start();
+	}
+
 	interrupt(): void {
 		this._runtime.interrupt();
 	}
+
 	restart(): void {
 		this._runtime.restart();
 	}
+
 	shutdown(): void {
 		this._runtime.shutdown();
 	}

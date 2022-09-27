@@ -34,6 +34,9 @@ export interface ILanguageRuntimeOutput extends ILanguageRuntimeMessage {
  * The set of possible statuses for a language runtime
  */
 export enum RuntimeState {
+	/** The runtime has not been started or initialized yet. */
+	Uninitialized = 'uninitialized',
+
 	/** The runtime is in the process of starting up. It isn't ready for messages. */
 	Starting = 'starting',
 
@@ -71,6 +74,18 @@ export enum RuntimeCodeExecutionMode {
 
 	/** The code execution should be fully silent, neither displayed to the user nor stored in history. */
 	Silent = 'silent'
+}
+
+/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
+export interface ILanguageRuntimeInfo {
+	/** A startup banner */
+	banner: string;
+
+	/** The implementation version number */
+	implementation_version: string;
+
+	/** The language version number */
+	language_version: string;
 }
 
 /**
@@ -146,6 +161,8 @@ export interface ILanguageRuntime {
 	execute(code: string,
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior): Thenable<string>;
+
+	start(): Thenable<ILanguageRuntimeInfo>;
 
 	/** Interrupt the runtime */
 	interrupt(): void;
