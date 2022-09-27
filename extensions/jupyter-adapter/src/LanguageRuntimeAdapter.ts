@@ -43,16 +43,31 @@ export class LanguageRuntimeAdapter
 	version: string;
 	messages: vscode.EventEmitter<vscode.LanguageRuntimeMessage>;
 	state: vscode.EventEmitter<vscode.RuntimeState>;
-	execute(_code: string): Thenable<string> {
-		throw new Error('Method not implemented.');
+
+	/**
+	 * Executes a fragment of code in the kernel.
+	 *
+	 * @param code The code to execute.
+	 * @param mode The execution mode.
+	 * @param errorBehavior The error behavior.
+	 */
+	public execute(code: string,
+		mode: vscode.RuntimeCodeExecutionMode,
+		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
+
+		// Forward execution request to the kernel
+		return this._kernel.execute(code, mode, errorBehavior);
 	}
+
 	interrupt(): void {
 		throw new Error('Method not implemented.');
 	}
+
 	restart(): void {
 		this._kernel.shutdown(true);
 		this._kernel.start();
 	}
+
 	shutdown(): void {
 		this._kernel.shutdown(false);
 	}

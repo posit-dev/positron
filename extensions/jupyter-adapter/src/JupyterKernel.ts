@@ -24,6 +24,7 @@ import { JupyterInterruptRequest } from './JupyterInterruptRequest';
 import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
+import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -293,6 +294,47 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			socket: socket
 		};
 		this.emit('message', packet);
+	}
+
+	/**
+	 * Executes a fragment of code in the kernel.
+	 *
+	 * @param code The code to execute.
+	 * @param mode The execution mode.
+	 * @param errorBehavior The error behavior.
+	 */
+	public execute(code: string,
+		mode: vscode.RuntimeCodeExecutionMode,
+		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
+
+		// Create an identifier for the execution request
+		const executionId = uuidv4();
+
+		// Create the message to send to the kernel
+		const msg: JupyterExecuteRequest = {
+			// Pass code to be executed
+			code: code,
+
+			// Only allow stdin if we are executing interactively
+			allow_stdin: mode !== vscode.RuntimeCodeExecutionMode.Silent,
+
+			// Execute silently if requested
+			silent: mode === vscode.RuntimeCodeExecutionMode.Silent,
+
+			// Don't store history unless we are executing interactively
+			store_history: mode === vscode.RuntimeCodeExecutionMode.Interactive,
+
+			// Not currently supported
+			user_expressions: new Map(),
+
+			// Whether to stop execution on error
+			stop_on_error: errorBehavior === vscode.RuntimeErrorBehavior.Stop
+		};
+
+		// Send the execution request to the kernel
+		this.send(executionId, 'execute_request', this._shell!, msg);
+
+		return Promise.resolve(executionId);
 	}
 
 	/**

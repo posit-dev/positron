@@ -16463,6 +16463,31 @@ declare module 'vscode' {
 	}
 
 	/**
+	 * Possible code execution modes for a language runtime
+	 */
+	export enum RuntimeCodeExecutionMode {
+		/** The code was entered interactively, and should be executed and stored in the runtime's history. */
+		Interactive = 'interactive',
+
+		/** The code should be executed but not stored in history. */
+		Transient = 'transient',
+
+		/** The code execution should be fully silent, neither displayed to the user nor stored in history. */
+		Silent = 'silent'
+	}
+
+	/**
+	 * Possible error dispositions for a language runtime
+	 */
+	export enum RuntimeErrorBehavior {
+		/** The runtime should stop when an error is encountered. */
+		Stop = 'stop',
+
+		/** The runtime should continue execution when an error is encountered */
+		Continue = 'continue',
+	}
+
+	/**
 	 * LanguageRuntimeMessage is an interface that defines an event occurring in a
 	 * language runtime, such as outputting text or plots.
 	 */
@@ -16526,7 +16551,9 @@ declare module 'vscode' {
 		state: EventEmitter<RuntimeState>;
 
 		/** Execute code in the runtime; returns the ID of the code execution. */
-		execute(code: string): Thenable<string>;
+		execute(code: string,
+			mode: RuntimeCodeExecutionMode,
+			errorBehavior: RuntimeErrorBehavior): Thenable<string>;
 
 		/** Interrupt the runtime */
 		interrupt(): void;
