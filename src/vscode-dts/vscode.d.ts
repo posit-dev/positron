@@ -16422,6 +16422,45 @@ declare module 'vscode' {
 		/** A message representing a change in the runtime's online state */
 		State = 'state',
 	}
+	/**
+	 * The set of possible statuses for a language runtime while online
+	 */
+	export enum RuntimeOnlineState {
+		/** The runtime is ready to execute code. */
+		Idle = 'idle',
+
+		/** The runtime is busy executing code. */
+		Busy = 'busy',
+	}
+
+	/**
+	 * The set of possible statuses for a language runtime
+	 */
+	export enum RuntimeState {
+		/** The runtime is in the process of starting up. It isn't ready for messages. */
+		Starting = 'starting',
+
+		/** The runtime has a heartbeat and is ready for messages. */
+		Ready = 'ready',
+
+		/** The runtime is ready to execute code. */
+		Idle = 'idle',
+
+		/** The runtime is busy executing code. */
+		Busy = 'busy',
+
+		/** The runtime is in the process of shutting down. */
+		Exiting = 'exiting',
+
+		/** The runtime's host process has ended. */
+		Exited = 'exited',
+
+		/** The runtime is not responding to heartbeats and is presumed offline. */
+		Offline = 'offline',
+
+		/** The user has interrupted a busy runtime, but the runtime is not idle yet. */
+		Interrupting = 'interrupting',
+	}
 
 	/**
 	 * LanguageRuntimeMessage is an interface that defines an event occurring in a
@@ -16442,18 +16481,6 @@ declare module 'vscode' {
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Map<string, string>;
-	}
-
-	/** Possible states for the language runtime while online */
-	export enum RuntimeOnlineState {
-		/** The runtime is starting up */
-		Starting = 'starting',
-
-		/** The runtime is currently processing an instruction or code fragment */
-		Busy = 'busy',
-
-		/** The runtime is idle */
-		Idle = 'idle',
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
@@ -16494,6 +16521,9 @@ declare module 'vscode' {
 
 		/** An object that emits language runtime events */
 		messages: EventEmitter<LanguageRuntimeMessage>;
+
+		/** An object that emits he current state of the runtime */
+		state: EventEmitter<RuntimeState>;
 
 		/** Execute code in the runtime; returns the ID of the code execution. */
 		execute(code: string): Thenable<string>;
