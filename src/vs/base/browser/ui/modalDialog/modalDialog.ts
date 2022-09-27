@@ -11,7 +11,7 @@ import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
  */
 export interface IModalDialogOptions {
 	readonly title: string;
-	readonly renderContent?: (container: HTMLElement) => IDisposable | undefined;
+	readonly renderContent?: (container: HTMLElement) => IDisposable | void;
 }
 
 /**

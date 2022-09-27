@@ -40,11 +40,13 @@ const TestComponent = (props: TestComponentProps) => {
 	// Render.
 	return (
 		<>
-			<div>
-				TestComponent
-			</div>
 			<div className='test-component' >
-				Message: {props.message} Time: {time}
+				<div>
+					TestComponent
+				</div>
+				<div>
+					Message: {props.message} Time: {time}
+				</div>
 			</div>
 			<TestSubcomponent {...props} />
 		</>
