@@ -3,6 +3,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .test-component {
-	background: lightgray;
-	color: blue;
+	color: var(--vscode-modalDialog-foreground);
 }

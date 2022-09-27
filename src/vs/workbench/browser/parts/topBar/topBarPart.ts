@@ -13,7 +13,7 @@ import { Part } from 'vs/workbench/browser/part';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { Emitter } from 'vs/base/common/event';
 import { ITopBarService } from 'vs/workbench/services/topBar/browser/topBarService';
-import { TOP_BAR_BACKGROUND, TOP_BAR_FOREGROUND, TOP_BAR_ICON_FOREGROUND } from 'vs/workbench/common/theme';
+import { TOP_BAR_BACKGROUND } from 'vs/workbench/common/theme';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -28,22 +28,6 @@ registerThemingParticipant((theme, collector) => {
 	const backgroundColor = theme.getColor(TOP_BAR_BACKGROUND);
 	if (backgroundColor) {
 		collector.addRule(`.monaco-workbench .part.topbar { background-color: ${backgroundColor}; }`);
-	}
-
-	const foregroundColor = theme.getColor(TOP_BAR_FOREGROUND);
-	if (foregroundColor) {
-		collector.addRule(`
-			.monaco-workbench .part.topbar,
-			.monaco-workbench .part.topbar .action-container .codicon,
-			.monaco-workbench .part.topbar .message-actions-container .monaco-link,
-			.monaco-workbench .part.topbar .message-container a
-			{ color: ${foregroundColor}; }
-		`);
-	}
-
-	const iconForegroundColor = theme.getColor(TOP_BAR_ICON_FOREGROUND);
-	if (iconForegroundColor) {
-		collector.addRule(`.monaco-workbench .part.topbar .icon-container .codicon { color: ${iconForegroundColor} }`);
 	}
 });
 
