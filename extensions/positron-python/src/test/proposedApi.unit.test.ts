@@ -26,12 +26,13 @@ import { sleep } from './core';
 import { PythonEnvKind, PythonEnvSource } from '../client/pythonEnvironments/base/info';
 import { Architecture } from '../client/common/utils/platform';
 import { PythonEnvCollectionChangedEvent } from '../client/pythonEnvironments/base/watcher';
-import {
-    ProposedExtensionAPI,
-    ActiveEnvironmentIdChangeEvent,
-    EnvironmentsChangeEvent,
-} from '../client/proposedApiTypes';
 import { normCasePath } from '../client/common/platform/fs-paths';
+import {
+    ActiveEnvironmentPathChangeEvent,
+    EnvironmentPath,
+    EnvironmentsChangeEvent,
+    ProposedExtensionAPI,
+} from '../client/proposedApiTypes';
 
 suite('Proposed Extension API', () => {
     let serviceContainer: typemoq.IMock<IServiceContainer>;
@@ -74,8 +75,8 @@ suite('Proposed Extension API', () => {
     });
 
     test('Provide an event to track when active environment details change', async () => {
-        const events: ActiveEnvironmentIdChangeEvent[] = [];
-        proposed.environment.onDidChangeActiveEnvironmentId((e) => {
+        const events: ActiveEnvironmentPathChangeEvent[] = [];
+        proposed.environment.onDidChangeActiveEnvironmentPath((e) => {
             events.push(e);
         });
         reportActiveInterpreterChanged({ path: 'path/to/environment', resource: undefined });
@@ -85,32 +86,44 @@ suite('Proposed Extension API', () => {
         ]);
     });
 
-    test('getActiveEnvironmentId: No resource', () => {
+    test('getActiveEnvironmentPath: No resource', () => {
         const pythonPath = 'this/is/a/test/path';
         configService
             .setup((c) => c.getSettings(undefined))
             .returns(() => (({ pythonPath } as unknown) as IPythonSettings));
-        const actual = proposed.environment.getActiveEnvironmentId();
-        assert.deepEqual(actual, { id: normCasePath(pythonPath), path: pythonPath });
+        const actual = proposed.environment.getActiveEnvironmentPath();
+        assert.deepEqual(actual, ({
+            id: normCasePath(pythonPath),
+            path: pythonPath,
+            pathType: 'interpreterPath',
+        } as unknown) as EnvironmentPath);
     });
 
-    test('getActiveEnvironmentId: default python', () => {
+    test('getActiveEnvironmentPath: default python', () => {
         const pythonPath = 'python';
         configService
             .setup((c) => c.getSettings(undefined))
             .returns(() => (({ pythonPath } as unknown) as IPythonSettings));
-        const actual = proposed.environment.getActiveEnvironmentId();
-        assert.deepEqual(actual, { id: 'DEFAULT_PYTHON', path: pythonPath });
+        const actual = proposed.environment.getActiveEnvironmentPath();
+        assert.deepEqual(actual, ({
+            id: 'DEFAULT_PYTHON',
+            path: pythonPath,
+            pathType: 'interpreterPath',
+        } as unknown) as EnvironmentPath);
     });
 
-    test('getActiveEnvironmentId: With resource', () => {
+    test('getActiveEnvironmentPath: With resource', () => {
         const pythonPath = 'this/is/a/test/path';
         const resource = Uri.file(__filename);
         configService
             .setup((c) => c.getSettings(resource))
             .returns(() => (({ pythonPath } as unknown) as IPythonSettings));
-        const actual = proposed.environment.getActiveEnvironmentId(resource);
-        assert.deepEqual(actual, { id: normCasePath(pythonPath), path: pythonPath });
+        const actual = proposed.environment.getActiveEnvironmentPath(resource);
+        assert.deepEqual(actual, ({
+            id: normCasePath(pythonPath),
+            path: pythonPath,
+            pathType: 'interpreterPath',
+        } as unknown) as EnvironmentPath);
     });
 
     test('resolveEnvironment: invalid environment (when passed as string)', async () => {
@@ -317,24 +330,24 @@ suite('Proposed Extension API', () => {
         assert.deepEqual(eventValues, expectedEvents);
     });
 
-    test('updateActiveEnvironmentId: no resource', async () => {
+    test('updateActiveEnvironmentPath: no resource', async () => {
         interpreterPathService
             .setup((i) => i.update(undefined, ConfigurationTarget.WorkspaceFolder, 'this/is/a/test/python/path'))
             .returns(() => Promise.resolve())
             .verifiable(typemoq.Times.once());
 
-        await proposed.environment.updateActiveEnvironmentId('this/is/a/test/python/path');
+        await proposed.environment.updateActiveEnvironmentPath('this/is/a/test/python/path');
 
         interpreterPathService.verifyAll();
     });
 
-    test('updateActiveEnvironmentId: passed as Environment', async () => {
+    test('updateActiveEnvironmentPath: passed as Environment', async () => {
         interpreterPathService
             .setup((i) => i.update(undefined, ConfigurationTarget.WorkspaceFolder, 'this/is/a/test/python/path'))
             .returns(() => Promise.resolve())
             .verifiable(typemoq.Times.once());
 
-        await proposed.environment.updateActiveEnvironmentId({
+        await proposed.environment.updateActiveEnvironmentPath({
             id: normCasePath('this/is/a/test/python/path'),
             path: 'this/is/a/test/python/path',
         });
@@ -342,19 +355,19 @@ suite('Proposed Extension API', () => {
         interpreterPathService.verifyAll();
     });
 
-    test('updateActiveEnvironmentId: with uri', async () => {
+    test('updateActiveEnvironmentPath: with uri', async () => {
         const uri = Uri.parse('a');
         interpreterPathService
             .setup((i) => i.update(uri, ConfigurationTarget.WorkspaceFolder, 'this/is/a/test/python/path'))
             .returns(() => Promise.resolve())
             .verifiable(typemoq.Times.once());
 
-        await proposed.environment.updateActiveEnvironmentId('this/is/a/test/python/path', uri);
+        await proposed.environment.updateActiveEnvironmentPath('this/is/a/test/python/path', uri);
 
         interpreterPathService.verifyAll();
     });
 
-    test('updateActiveEnvironmentId: with workspace folder', async () => {
+    test('updateActiveEnvironmentPath: with workspace folder', async () => {
         const uri = Uri.parse('a');
         interpreterPathService
             .setup((i) => i.update(uri, ConfigurationTarget.WorkspaceFolder, 'this/is/a/test/python/path'))
@@ -366,7 +379,7 @@ suite('Proposed Extension API', () => {
             index: 0,
         };
 
-        await proposed.environment.updateActiveEnvironmentId('this/is/a/test/python/path', workspace);
+        await proposed.environment.updateActiveEnvironmentPath('this/is/a/test/python/path', workspace);
 
         interpreterPathService.verifyAll();
     });
