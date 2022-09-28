@@ -1,0 +1,83 @@
+{
+    "comments": {
+        "lineComment": "//",
+    },
+    "brackets": [
+        ["{", "}"],
+        ["(", ")"],
+        ["[", "]"]
+    ],
+    "autoClosingPairs": [
+        { "open": "{", "close": "}" },
+        { "open": "(", "close": ")" },
+        { "open": "[", "close": "]" },
+        { "open": "'", "close": "'", "notIn": ["string", "comment"] },
+        { "open": "\"", "close": "\"", "notIn": ["string"] },
+        { "open": "`", "close": "`", "notIn": ["string", "comment"] }
+    ],
+    "autoCloseBefore": ";:.,=}])>` \n\t",
+    "surroundingPairs": [
+        ["{", "}"],
+        ["[", "]"],
+        ["(", ")"],
+        ["'", "'"],
+        ["\"", "\""],
+        ["`", "`"]
+    ],
+    "folding": {
+        "markers": {
+            "start": "^\\s*//\\s*#?region\\b",
+            "end": "^\\s*//\\s*#?endregion\\b"
+        }
+    },
+    "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+    "indentationRules": {
+        "increaseIndentPattern": {
+            "pattern": "^[^#]*[\\{\\(\\[]\\s*(?:#|$)"
+        },
+        "decreaseIndentPattern": {
+            "pattern": "^\\s*[\\}\\)\\]].*$"
+        },
+    },
+    "onEnterRules": [
+        {
+            "beforeText": "\\{",
+            "afterText":  "\\}",
+            "action": { "indent": "indentOutdent" }
+        },
+        {
+            "beforeText": "\\(",
+            "afterText":  "\\)",
+            "action": { "indent": "indentOutdent" }
+        },
+        {
+            "beforeText": "\\[",
+            "afterText":  "\\]",
+            "action": { "indent": "indentOutdent" }
+        },
+        {
+            "beforeText":       "^\\s*(?:#|$)",
+            "action":           { "indent": "none" }
+        },
+        {
+            "previousLineText": "^\\s*(?:#|$)",
+            "beforeText":       "^\\s*[^#]+[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "action":           { "indent": "indent" }
+        },
+        {
+            "previousLineText": "^\\s*[^#]+[\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "beforeText":       "^\\s*[^#]+[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "action":           { "indent": "indent" }
+        },
+        {
+            "previousLineText": "^[^#]*[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "beforeText":       "^[^#]*[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "action":           { "indent": "none" }
+        },
+        {
+            "previousLineText": "^[^#]*[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "beforeText":       "^[^#]*[\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "action":           { "indent": "outdent" }
+        }
+    ]
+}
