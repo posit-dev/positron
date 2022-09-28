@@ -19,8 +19,8 @@ export class LanguageRuntimeAdapter
 
 	private readonly _kernel: JupyterKernel;
 
-	constructor(private readonly _spec: JupyterKernelSpec) {
-		this._kernel = new JupyterKernel(this._spec);
+	constructor(private readonly _spec: JupyterKernelSpec, integratedLsp: boolean) {
+		this._kernel = new JupyterKernel(this._spec, integratedLsp);
 		this.language = this._spec.language;
 		this.name = this._spec.display_name;
 
