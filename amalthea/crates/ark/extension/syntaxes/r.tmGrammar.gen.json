@@ -7,42 +7,16 @@
     "foldingStartMarker": "\\{\\s*(?:#|$)",
     "foldingStopMarker": "^\\s*\\}",
     "variables": {
+        "bracket": "keyword.operator",
         "identifier": "constant.other",
         "latex": "keyword.other",
         "operator": "keyword.operator",
+        "parameter": "entity.name.tag",
         "roxygen-tag": "keyword.other"
     },
     "patterns": [
         {
-            "name": "markup.heading",
-            "begin": "(^\\s*#+')\\s*(@examples)\\s*$",
-            "beginCaptures": {
-                "1": { "name": "comment.line" },
-                "2": { "name": "keyword.other" }
-            },
-            "end": "(^\\s*#+')\\s*(@\\w*)",
-            "endCaptures": {
-                "1": { "name": "comment.line" },
-                "2": { "name": "keyword.other" }
-            },
-            "patterns": [
-                {
-                    "name": "comment.line",
-                    "match": "^\\s*#+'"
-                },
-                {
-                    "include": "#latex"
-                },
-                {
-                    "include": "#roxygen-tokens"
-                },
-                {
-                    "include": "#basic"
-                }
-            ]
-        },
-        {
-            "include": "#roxygen"
+            "include": "#roxygen-example"
         },
         {
             "include": "#basic"
@@ -52,25 +26,64 @@
         "basic": {
             "patterns": [
                 {
+                    "include": "#roxygen"
+                },
+                {
                     "include": "#comment"
                 },
                 {
-                    "include": "#strings"
+                    "include": "#expression"
+                }
+            ]
+        },
+        "basic-roxygen-example": {
+            "patterns": [
+                {
+                    "name": "comment.line",
+                    "match": "^\\s*#+'"
                 },
                 {
-                    "include": "#keywords"
+                    "include": "#expression"
+                }
+            ]
+        },
+        "brackets": {
+            "patterns": [
+                {
+                    "name": "keyword.operator",
+                    "begin": "\\{",
+                    "end": "\\}",
+                    "patterns": [
+                        {
+                            "include": "#basic"
+                        }
+                    ]
                 },
                 {
-                    "include": "#functions"
+                    "name": "keyword.operator",
+                    "begin": "\\[",
+                    "end": "\\]",
+                    "patterns": [
+                        {
+                            "include": "#basic"
+                        }
+                    ]
                 },
                 {
-                    "include": "#identifiers"
-                },
-                {
-                    "include": "#numbers"
-                },
-                {
-                    "include": "#operators"
+                    "name": "keyword.operator",
+                    "begin": "\\(",
+                    "end": "\\)",
+                    "patterns": [
+                        {
+                            "match": "([\\w.]+)\\s*(?==)",
+                            "captures": {
+                                "1": { "name": "entity.name.tag"}
+                            }
+                        },
+                        {
+                            "include": "#basic"
+                        }
+                    ]
                 }
             ]
         },
@@ -103,9 +116,66 @@
             "name": "constant.character.escape",
             "match": "\\\\."
         },
-        "functions": {
+        "expression": {
+            "patterns": [
+                {
+                    "include": "#brackets"
+                },
+                {
+                    "include": "#strings"
+                },
+                {
+                    "include": "#function-definition"
+                },
+                {
+                    "include": "#keywords"
+                },
+                {
+                    "include": "#function-call"
+                },
+                {
+                    "include": "#identifiers"
+                },
+                {
+                    "include": "#numbers"
+                },
+                {
+                    "include": "#operators"
+                }
+            ]
+        },
+        "function-call": {
             "name": "entity.name.function",
             "match": "([\\w.]+)(?=\\()"
+        },
+        "function-definition": {
+            "name": "keyword",
+            "begin": "(function)\\s*(\\()",
+            "beginCaptures": {
+                "1": { "name": "keyword" },
+                "2": { "name": "keyword.operator" }
+            },
+            "end": "(\\))",
+            "endCaptures": {
+                "1": { "name": "keyword.operator" }
+            },
+            "patterns": [
+                {
+                    "begin": "([\\w.]+)",
+                    "beginCaptures": {
+                        "1": { "name": "entity.name.tag" }
+                    },
+                    "end": "(?=[,)])",
+                    "patterns": [
+                        {
+                            "include": "#basic"
+                        }
+                    ]
+                },
+                {
+                    "include": "#basic"
+                }
+            ]
         },
         "identifiers": {
             "patterns": [
@@ -211,7 +281,7 @@
             ]
         },
         "roxygen": {
-            "name": "comment.line",
+            "name": "comment.line.roxygen",
             "begin": "^\\s*#+'",
             "end": "$",
             "patterns": [
@@ -224,6 +294,38 @@
                 {
                     "name": "comment.line",
                     "match": "[^@\\\\]*"
+                }
+            ]
+        },
+        "roxygen-example": {
+            "name": "markup.heading",
+            "begin": "(^\\s*#+')\\s*(@examples)\\s*$",
+            "beginCaptures": {
+                "1": { "name": "comment.line" },
+                "2": { "name": "keyword.other" }
+            },
+            "end": "(^\\s*#+')\\s*(@\\w*)",
+            "endCaptures": {
+                "1": { "name": "comment.line" },
+                "2": { "name": "keyword.other" }
+            },
+            "patterns": [
+                {
+                    "name": "comment.line",
+                    "match": "^\\s*#+'"
+                },
+                {
+                    "name": "keyword.operator",
+                    "match": "[\\[\\(\\{\\}\\)\\]]"
+                },
+                {
+                    "include": "#latex"
+                },
+                {
+                    "include": "#roxygen-tokens"
+                },
+                {
+                    "include": "#basic-roxygen-example"
                 }
             ]
         },
@@ -241,7 +343,7 @@
                     "end": "(?:\\s|$)",
                     "patterns": [
                         {
-                            "name": "constant.other",
+                            "name": "entity.name.tag",
                             "match": "([\\w.]+)"
                         },
                         {
