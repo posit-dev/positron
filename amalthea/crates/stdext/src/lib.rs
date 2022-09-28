@@ -28,7 +28,7 @@ macro_rules! cargs {
 
     ($($expr:expr),*) => {{
         use stdext::cstr;
-        vec![$(cstr!($expr)),*]
+        std::vec![$($crate::cstr!($expr)),*]
     }};
 
 }
@@ -36,9 +36,10 @@ macro_rules! cargs {
 
 #[macro_export]
 macro_rules! cstr {
+
     ($value:literal) => {{
         use std::os::raw::c_char;
-        let value = concat!($value, "\0");
+        let value = std::concat!($value, "\0");
         value.as_ptr() as *mut c_char
     }};
 
