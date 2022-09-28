@@ -4,7 +4,7 @@
 
 import { Disposable } from 'vscode';
 import * as zmq from 'zeromq';
-import * as net from 'net';
+import { findAvailablePort } from './PortFinder';
 
 export class JupyterSocket implements Disposable {
 	private readonly _socket: zmq.Socket;
@@ -46,7 +46,7 @@ export class JupyterSocket implements Disposable {
 	public async bind(excluding: Array<number>): Promise<number> {
 		const maxTries = 25;
 		return new Promise((resolve, reject) => {
-			this.findAvailablePort(excluding, maxTries).then((port: number) => {
+			findAvailablePort(excluding, maxTries).then((port: number) => {
 				this._port = port;
 				this._addr = 'tcp://127.0.0.1:' + port.toString();
 				this._socket.connect(this._addr);
@@ -91,55 +91,5 @@ export class JupyterSocket implements Disposable {
 	 */
 	public dispose(): void {
 		this._socket.disconnect(this._addr);
-	}
-
-	/**
-	 * Finds an available TCP port for a server
-	 *
-	 * @param excluding A list of ports to exclude from the search
-	 * @param maxTries The maximum number of attempts
-	 * @returns An available TCP port
-	 */
-	private async findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
-
-		const portmin = 41952;
-		const portmax = 65536;
-		const nextPort = this.findAvailablePort;
-		const title = this._title;
-
-		return new Promise((resolve, reject) => {
-			// Pick a random port not on the exclusion list
-			let candidate = 0;
-			do {
-				candidate = Math.floor(Math.random() * (portmax - portmin) + portmin);
-			} while (excluding.includes(candidate));
-
-			const test = net.createServer();
-
-			// If we can't bind to the port, pick another random port
-			test.once('error', function (err) {
-				// ... unless we've already tried too many times; likely there's
-				// a networking issue
-				if (maxTries < 1) {
-					console.log('Could not find an available port for ' + title + ' socket');
-					reject(err);
-				}
-
-				//  Try again
-				resolve(nextPort(excluding, maxTries - 1));
-			});
-
-			// If we CAN bind to the port, shutdown the server and return the
-			// port when it's available
-			test.once('listening', function () {
-				test.once('close', function () {
-					resolve(candidate);
-				});
-				test.close();
-			});
-
-			// Begin attempting to listen on the candidate port
-			test.listen(candidate);
-		});
 	}
 }
