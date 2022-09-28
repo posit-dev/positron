@@ -1,4 +1,5 @@
 {
+    // =|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?
     "comments": {
         "lineComment": "//",
     },
@@ -39,45 +40,64 @@
         "decreaseIndentPattern": {
             "pattern": "^\\s*[\\}\\)\\]].*$"
         },
+        "indentNextLinePattern": {
+            "pattern": "^\\s*(?:if|else|for|while|repeat)\\s*(?:\\(.*?\\))?\\s*(?:#|$)"
+        }
     },
     "onEnterRules": [
+
+        // Handle indent-outdent for '{}'.
         {
             "beforeText": "\\{",
             "afterText":  "\\}",
             "action": { "indent": "indentOutdent" }
         },
+
+        // Handle indent-outdent for '()'.
         {
             "beforeText": "\\(",
             "afterText":  "\\)",
             "action": { "indent": "indentOutdent" }
         },
+
+        // Handle indent-outdent for '[]'.
         {
             "beforeText": "\\[",
             "afterText":  "\\]",
             "action": { "indent": "indentOutdent" }
         },
+
+        // An empty line.
         {
-            "beforeText":       "^\\s*(?:#|$)",
-            "action":           { "indent": "none" }
+            "beforeText": "^\\s*(?:#|$)",
+            "action": { "indent": "none" }
         },
+
+        // A line ending with an operator, preceded by a blank line.
         {
             "previousLineText": "^\\s*(?:#|$)",
-            "beforeText":       "^\\s*[^#]+[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "beforeText":       "^\\s*[^#]+[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?]\\s*(?:#|$)",
             "action":           { "indent": "indent" }
         },
+
+        // A line with an operator, preceded by a line not containing any operator.
         {
-            "previousLineText": "^\\s*[^#]+[\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
-            "beforeText":       "^\\s*[^#]+[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "previousLineText": "^\\s*[^#]+[^=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?]\\s*(?:#|$)",
+            "beforeText":       "^\\s*[^#]+[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?]\\s*(?:#|$)",
             "action":           { "indent": "indent" }
         },
+
+        // A line with an operator, preceded by a line with an operator.
         {
-            "previousLineText": "^[^#]*[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
-            "beforeText":       "^[^#]*[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "previousLineText": "^[^#]*[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?]\\s*(?:#|$)",
+            "beforeText":       "^[^#]*[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?]\\s*(?:#|$)",
             "action":           { "indent": "none" }
         },
+
+        // A line without an operator, preceded by a line with an operator.
         {
-            "previousLineText": "^[^#]*[^\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
-            "beforeText":       "^[^#]*[\\w\\d\\s\\}\\)\\]'\"`.]\\s*(?:#|$)",
+            "previousLineText": "^[^#]*[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?]\\s*(?:#|$)",
+            "beforeText":       "^[^#]*[^=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|\\$|:|@|\\?]\\s*(?:#|$)",
             "action":           { "indent": "outdent" }
         }
     ]

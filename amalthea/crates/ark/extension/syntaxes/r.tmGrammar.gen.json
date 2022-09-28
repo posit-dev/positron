@@ -235,15 +235,15 @@
         },
         "keywords-control": {
             "name": "keyword",
-            "match": "\\\\|function|if|else|in|break|next|repeat|for|while\\b"
+            "match": "(?:\\\\|function|if|else|in|break|next|repeat|for|while)\\b"
         },
         "keywords-builtin": {
             "name": "keyword.other",
-            "match": "setGroupGeneric|setRefClass|setGeneric|NextMethod|setMethod|UseMethod|tryCatch|setClass|warning|require|library|R6Class|return|switch|attach|detach|source|stop|try"
+            "match": "(?:setGroupGeneric|setRefClass|setGeneric|NextMethod|setMethod|UseMethod|tryCatch|setClass|warning|require|library|R6Class|return|switch|attach|detach|source|stop|try)\\b"
         },
         "keywords-constant": {
             "name": "constant.language",
-            "match": "NA_character_|NA_integer_|NA_complex_|NA_real_|FALSE|NULL|TRUE|Inf|NaN|NA|T|F"
+            "match": "(?:NA_character_|NA_integer_|NA_complex_|NA_real_|TRUE|FALSE|NULL|Inf|NaN|NA|T|F)\\b"
         },
         "numbers": {
             "name": "constant.numeric",
