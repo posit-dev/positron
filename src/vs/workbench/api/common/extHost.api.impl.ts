@@ -1354,8 +1354,11 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			ViewColumn: extHostTypes.ViewColumn,
 			WorkspaceEdit: extHostTypes.WorkspaceEdit,
 			// --- Start Positron ---
-			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
+			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
+			RuntimeErrorBehavior: extHostTypes.RuntimeErrorBehavior,
+			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
+			RuntimeState: extHostTypes.RuntimeState,
 			// --- End Positron ---
 			// proposed api types
 			DocumentDropEdit: extHostTypes.DocumentDropEdit,

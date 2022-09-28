@@ -6,7 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeOnlineState, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -50,6 +50,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		this.version = '1.0';
 
 		this.messages = this._register(new Emitter<ILanguageRuntimeMessage>());
+
+		this.state = this._register(new Emitter<RuntimeState>());
 
 		// Copy the kernel's ID as the runtime's ID
 		this.id = this._kernel.id;
@@ -104,6 +106,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			// The new state will be 'undefined' when the cell is no longer executing;
 			// set the language runtime state to 'idle' in that case.
 			if (typeof e.changed === 'undefined') {
+				this.state.fire(RuntimeState.Idle);
 				this._logService.trace(`Cell execution of ${e.cellHandle} (${this._executingCellId}) complete`);
 				this.messages.fire({
 					type: LanguageRuntimeMessageType.State,
@@ -114,9 +117,13 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 				// Clear the cell execution state
 				this._executingCellId = '';
+			} else {
+				this.state.fire(RuntimeState.Busy);
 			}
 		});
 	}
+
+	state: Emitter<RuntimeState>;
 
 	language: string;
 
@@ -127,6 +134,22 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	messages: Emitter<ILanguageRuntimeMessage>;
 
 	id: string;
+
+	/**
+	 * "Starts" the notebook kernel
+	 * @returns Promise that resolves when the kernel is ready to execute code (immediately)
+	 */
+	start(): Thenable<ILanguageRuntimeInfo> {
+		// We don't have the ability to start/stop the notebook kernel; it's all
+		// managed (invisibly) in the notebook kernel service, so just return a
+		// resolved promise. The kernel will be started when the notebook is first
+		// asked to execute code.
+		return Promise.resolve({
+			banner: '',
+			language_version: this.version,
+			implementation_version: '1.0',
+		} as ILanguageRuntimeInfo);
+	}
 
 	execute(code: string): Thenable<string> {
 
