@@ -7,9 +7,11 @@
 
 use crate::kernel::KernelInfo;
 use crate::lsp;
+use crate::lsp::handler::Lsp;
 use crate::request::Request;
 
 use amalthea::language::shell_handler::ShellHandler;
+use amalthea::language::lsp_handler::LspHandler;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::comm_info_reply::CommInfoReply;
 use amalthea::wire::comm_info_request::CommInfoRequest;
@@ -41,16 +43,12 @@ use serde_json::json;
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
-
-extern "C" {
-static R_Is_Running: i32;
-}
 
 pub struct Shell {
     req_sender: SyncSender<Request>,
     init_receiver: Arc<Mutex<Receiver<KernelInfo>>>,
     kernel_info: Option<KernelInfo>,
+    lsp: Lsp
 }
 
 impl Shell {
@@ -61,9 +59,10 @@ impl Shell {
         let (init_sender, init_receiver) = channel::<KernelInfo>();
         thread::spawn(move || Self::execution_thread(iopub_sender, req_receiver, init_sender));
         Self {
-            req_sender: req_sender,
+            req_sender: req_sender.clone(),
             init_receiver: Arc::new(Mutex::new(init_receiver)),
             kernel_info: None,
+            lsp: Lsp::new(req_sender)
         }
     }
 
@@ -85,27 +84,7 @@ impl Shell {
 
     /// Starts the Language Server Protocol server thread
     pub fn start_lsp(&self, client_address: String) {
-        let sender = self.request_sender();
-        thread::spawn(move || {
-
-            // Is there a better way? Perhaps we should initialize the LSP
-            // from one of the R callbacks; e.g. in R_ReadConsole. This
-            // is the strategy used by RStudio for detecting when the R
-            // session is "ready" for extension pieces to be loaded.
-            //
-            // Or perhaps we should be loading R extensions in the main
-            // thread, rather than asking the LSP to handle this during
-            // its own initialization.
-            unsafe {
-               while R_Is_Running != 2 {
-                   std::thread::sleep(Duration::from_millis(200));
-               }
-            }
-
-            // R appears to be ready; start the backend.
-            lsp::backend::start_lsp(client_address, sender);
-
-        });
+        self.lsp.start(client_address).unwrap();
     }
 }
 
