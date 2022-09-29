@@ -8,7 +8,7 @@
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;
-use crate::language::lsp_handler;
+use crate::language::lsp_handler::LspHandler;
 use crate::language::shell_handler::ShellHandler;
 use crate::session::Session;
 use crate::socket::control::Control;
@@ -49,7 +49,7 @@ impl Kernel {
         &self,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         control_handler: Arc<Mutex<dyn ControlHandler>>,
-        lsp_handler: Option<Arc<Mutex<dyn lsp_handler::LspHandler>>>,
+        lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
         iopub_sender: SyncSender<IOPubMessage>,
         iopub_receiver: Receiver<IOPubMessage>,
     ) -> Result<(), Error> {

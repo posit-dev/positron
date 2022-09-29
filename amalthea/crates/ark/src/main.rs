@@ -38,13 +38,24 @@ fn start_kernel(connection_file: ConnectionFile) {
 
     let shell_sender = iopub_sender.clone();
 
+    // Create the shell handler; this is the main entry point for the kernel
     let shell = Shell::new(shell_sender);
-    let control = Arc::new(Mutex::new(Control::new(shell.request_sender())));
-    let shell = Arc::new(Mutex::new(shell));
 
+    // Create the LSP client; not all Amalthea kernels provide one, but ARK
+    // does. It must be able to deliver messages to the shell channel directly.
+    let lsp = Arc::new(Mutex::new(lsp::handler::Lsp::new(
+        shell.request_sender(),
+    )));
+
+    // Create the control handler; this is used to handle shutdown/interrupt and
+    // related requests
+    let control = Arc::new(Mutex::new(Control::new(shell.request_sender())));
+
+    // Create the kernel
+    let shell = Arc::new(Mutex::new(shell));
     let kernel = Kernel::new(connection_file);
     match kernel {
-        Ok(k) => match k.connect(shell, control, None, iopub_sender, iopub_receiver) {
+        Ok(k) => match k.connect(shell, control, Some(lsp), iopub_sender, iopub_receiver) {
             Ok(()) => {
                 let mut s = String::new();
                 println!("R Kernel exiting.");
