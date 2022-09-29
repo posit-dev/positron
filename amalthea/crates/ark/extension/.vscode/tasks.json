@@ -8,6 +8,7 @@
 			"script": "watch",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
+            "dependsOn": "Make",
 			"presentation": {
 				"reveal": "never"
 			},
@@ -15,6 +16,15 @@
 				"kind": "build",
 				"isDefault": true
 			}
-		}
+		},
+        {
+            "type": "process",
+            "command": "make",
+            "label": "Make",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
 	]
 }
