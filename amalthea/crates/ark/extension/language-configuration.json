@@ -51,6 +51,12 @@
             "action": { "indent": "none", "appendText": "#' " }
         },
 
+        // Quarto comments.
+        {
+            "beforeText": "^\\s*#+|",
+            "action": { "indent": "none", "appendText": "#| " }
+        },
+
         // Handle indent-outdent for '{}'.
         {
             "beforeText": "\\{",
