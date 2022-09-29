@@ -2,13 +2,13 @@
 	"name": "ark",
 	"displayName": "ark",
 	"description": "Language Features for the Amalthea R Kernel",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"publisher": "RStudio",
 	"engines": {
 		"vscode": "^1.65.0"
 	},
 	"categories": [
-		"Other"
+		"Programming Languages"
 	],
 	"activationEvents": [
 		"onLanguage:r"
@@ -37,7 +37,30 @@
 					"description": "Traces the communication between VS Code and the language server."
 				}
 			}
-		}
+		},
+        "languages": [
+            {
+                "id": "r",
+                "extensions": [
+                    ".R",
+                    ".r",
+                    ".rprofile"
+                ],
+                "aliases": [
+                    "R",
+                    "r"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+
+        ],
+        "grammars": [
+            {
+                "language": "r",
+                "scopeName": "source.r",
+                "path": "./syntaxes/r.tmGrammar.gen.json"
+            }
+        ]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -52,7 +75,6 @@
 		"@types/glob": "^7.2.0",
 		"@types/mocha": "^9.1.0",
 		"@types/node": "14.x",
-		"@types/vscode": "^1.65.0",
 		"@typescript-eslint/eslint-plugin": "^5.12.1",
 		"@typescript-eslint/parser": "^5.12.1",
 		"@vscode/test-electron": "^2.1.2",
