@@ -32,7 +32,7 @@ export class ModalDialogs implements IModalDialogsService {
 
 	/**
 	 * Shows the example modal dialog.
-	 * @returns A Promise<void> that will resolve when the example modal dialog is done.
+	 * @returns A Promise<void> that resolves when the example modal dialog is done.
 	 */
 	async showExampleModalDialog(): Promise<void> {
 		return new Promise<void>((resolve) => {
@@ -52,7 +52,6 @@ export class ModalDialogs implements IModalDialogsService {
 			);
 		});
 	}
-
 
 	/**
 	 * Shows the example modal dialog.
