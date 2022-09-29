@@ -44,7 +44,7 @@ fn start_kernel(connection_file: ConnectionFile) {
 
     let kernel = Kernel::new(connection_file);
     match kernel {
-        Ok(k) => match k.connect(shell, control, iopub_sender, iopub_receiver) {
+        Ok(k) => match k.connect(shell, control, None, iopub_sender, iopub_receiver) {
             Ok(()) => {
                 let mut s = String::new();
                 println!("R Kernel exiting.");

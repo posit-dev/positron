@@ -8,6 +8,7 @@
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;
+use crate::language::lsp_handler;
 use crate::language::shell_handler::ShellHandler;
 use crate::session::Session;
 use crate::socket::control::Control;
@@ -20,6 +21,7 @@ use crate::socket::stdin::Stdin;
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use log::warn;
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
 /// execution and messaging threads.
@@ -47,6 +49,7 @@ impl Kernel {
         &self,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         control_handler: Arc<Mutex<dyn ControlHandler>>,
+        lsp_handler: Option<Arc<Mutex<dyn lsp_handler::LspHandler>>>,
         iopub_sender: SyncSender<IOPubMessage>,
         iopub_receiver: Receiver<IOPubMessage>,
     ) -> Result<(), Error> {
@@ -113,6 +116,15 @@ impl Kernel {
             None,
             self.connection.endpoint(self.connection.control_port),
         )?;
+
+        // If we have an LSP handler, start it
+        if let Some(lsp_handler) = lsp_handler {
+            if let Some(lsp_port) = self.connection.lsp_port {
+                lsp_handler.lock().unwrap().start(self.connection.endpoint(lsp_port))?;
+            } else {
+                warn!("LSP handler supplied, but LSP port not specified in connection file. Not starting LSP server.");
+            }
+        }
 
         // TODO: thread/join thread? Exiting this thread will cause the whole
         // kernel to exit.

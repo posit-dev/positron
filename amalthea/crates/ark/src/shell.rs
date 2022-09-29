@@ -84,7 +84,7 @@ impl Shell {
     }
 
     /// Starts the Language Server Protocol server thread
-    fn start_lsp(&self, msg: lsp::comm::StartLsp) {
+    pub fn start_lsp(&self, client_address: String) {
         let sender = self.request_sender();
         thread::spawn(move || {
 
@@ -103,7 +103,7 @@ impl Shell {
             }
 
             // R appears to be ready; start the backend.
-            lsp::backend::start_lsp(msg.client_address, sender);
+            lsp::backend::start_lsp(client_address, sender);
 
         });
     }
@@ -265,7 +265,7 @@ impl ShellHandler for Shell {
                         "Received request to start LSP and connect to client at {}",
                         msg.client_address
                     );
-                    self.start_lsp(msg)
+                    self.start_lsp(msg.client_address);
                 }
                 Err(err) => {
                     warn!("Unexpected data for LSP comm: {:?} ({})", req.data, err);
