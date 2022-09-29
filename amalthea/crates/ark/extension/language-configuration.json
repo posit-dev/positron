@@ -45,6 +45,12 @@
     },
     "onEnterRules": [
 
+        // Roxygen comments.
+        {
+            "beforeText": "^\\s*#+'",
+            "action": { "indent": "none", "appendText": "#' " }
+        },
+
         // Handle indent-outdent for '{}'.
         {
             "beforeText": "\\{",
