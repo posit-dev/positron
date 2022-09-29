@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.monaco-modal-dialog-box-frame .title-bar {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 32px;
+	background: var(--vscode-modalDialog-titleBarBackground);
+	color: var(--vscode-modalDialog-foreground);
+	display: flex;
+	align-items: center;
+	padding: 0 16px;
+}
+
+.monaco-modal-dialog-box-frame .title-bar .title-bar-title {
+	color: var(--vscode-modalDialog-titleBarForeground);
+	overflow: hidden;
+}
