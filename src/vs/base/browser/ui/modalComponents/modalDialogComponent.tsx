@@ -7,23 +7,23 @@ const React = require('react');
 import { useCallback, useEffect } from 'react';
 
 /**
- * ModalDialogComponentProps interface.
- */
-export interface ModalDialogComponentProps<T> {
-	escapeCancels: boolean;
-	enterAccepts: boolean;
-	cancel: () => void;
-	result: (result: T) => void;
-}
-
-/**
  * Grossness.
  */
 interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
 
+/**
+ * ModalDialogComponentProps interface.
+ */
+export interface ModalDialogComponentProps<T> {
+	enableEscape: boolean;
+	enableEnter: boolean;
+	cancel: () => void;
+	result: (result: T) => void;
+}
+
 interface ModalDialogProps {
 	escape: () => void;
-	accept: () => void;
+	enter: () => void;
 	children: React.ReactNode;
 }
 
@@ -35,14 +35,14 @@ export function ModalDialogComponent<T>(props: ModalDialogComponentProps<T> & Mo
 	// Hooks.
 	const keyboardHandler = useCallback((event: DocumentKeyboardEvent) => {
 		if (event.key === 'Escape') {
-			if (props.escapeCancels) {
+			if (props.enableEscape) {
 				event.stopPropagation();
 				props.escape();
 			}
 		} else if (event.key === 'Enter') {
-			if (props.enterAccepts) {
+			if (props.enableEnter) {
 				event.stopPropagation();
-				props.accept();
+				props.enter();
 			}
 		}
 	}, []);

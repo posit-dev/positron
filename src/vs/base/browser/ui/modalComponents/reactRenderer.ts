@@ -7,9 +7,10 @@ import * as DOM from 'vs/base/browser/dom';
 import { createRoot, Root } from 'react-dom/client';
 
 /**
- * ModalDialogPresenter class.
+ * ReactRenderer class.
+ * Manages rendering a React component in the specified container HTMLElement.
  */
-export class ModalDialogPresenter {
+export class ReactRenderer {
 
 	private _modalBlockElement?: HTMLElement;
 	private _root?: Root;
@@ -22,10 +23,14 @@ export class ModalDialogPresenter {
 		this._modalBlockElement = container.appendChild(DOM.$(`.monaco-modal-dialog-modal-block.dimmed`));
 	}
 
-	public present(dialog: React.ReactNode) {
+	/**
+	 * Renders the specified ReactElement.
+	 * @param reactElement
+	 */
+	public render(reactElement: React.ReactElement) {
 		if (this._modalBlockElement) {
 			this._root = createRoot(this._modalBlockElement);
-			this._root.render(dialog);
+			this._root.render(reactElement);
 		}
 	}
 

@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.monaco-modal-dialog-box-frame .actions-bar {
+.monaco-modal-dialog-box-frame .ok-action-bar {
 	position: absolute;
 	bottom: 0;
 	left: 0;
@@ -15,7 +15,7 @@
 	margin: 0 16px;
 }
 
-.monaco-modal-dialog-box-frame .actions-bar.top-separator {
+.monaco-modal-dialog-box-frame .ok-action-bar.top-separator {
 	border-top: 1px solid var(--vscode-modalDialog-separator);
 }
 
