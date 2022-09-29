@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 import * as path from 'path';
 
@@ -20,14 +24,24 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(disposable);
 
-	// Locate the Myriac Console extension, which supplies the other side of the language server.
-	let ext = vscode.extensions.getExtension("RStudio.myriac-console");
-	if (ext) {
-		return activateVscode(ext, context);
-	} else {
-		return activateLsp(null, context);
-	}
-
+    // Check to see whether the Jupyter Adapter extension is installed
+    // and active. If so, we can start the language server.
+    let ext = vscode.extensions.getExtension("posit.jupyter-adapter");
+    if (ext) {
+        // We're in Positron, so need to create a language runtime.
+        // TODO: This needs to pass a JupyterKernelSpec describing the location
+        // of the R kernel.
+        return ext.exports.adaptKernel();
+    }
+    else {
+        // Locate the Myriac Console extension, which supplies the other side of the language server.
+        let ext = vscode.extensions.getExtension("RStudio.myriac-console");
+        if (ext) {
+            return activateVscode(ext, context);
+        } else {
+            return activateLsp(null, context);
+        }
+    }
 }
 
 function activateVscode(ext: vscode.Extension<any>, context: vscode.ExtensionContext) {
