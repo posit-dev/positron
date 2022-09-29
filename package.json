@@ -121,6 +121,7 @@
     "@types/sinon": "^10.0.2",
     "@types/sinon-test": "^2.4.2",
     "@types/trusted-types": "^1.0.6",
+    "@types/uuid": "^8.3.4",
     "@types/vscode-notebook-renderer": "^1.72.0",
     "@types/webpack": "^4.41.25",
     "@types/wicg-file-system-access": "^2020.9.5",
@@ -130,6 +131,7 @@
     "@types/winreg": "^1.2.30",
     "@types/yauzl": "^2.9.1",
     "@types/yazl": "^2.4.2",
+    "@types/zeromq": "^5.2.1",
     "@typescript-eslint/eslint-plugin": "^5.10.0",
     "@typescript-eslint/experimental-utils": "^5.10.0",
     "@typescript-eslint/parser": "^5.10.0",
@@ -217,6 +219,7 @@
     "typescript-formatter": "7.1.0",
     "underscore": "^1.12.1",
     "util": "^0.12.4",
+    "uuid": "^9.0.0",
     "vinyl": "^2.0.0",
     "vinyl-fs": "^3.0.0",
     "vscode-nls-dev": "^3.3.1",
@@ -224,7 +227,8 @@
     "webpack-cli": "^4.7.2",
     "webpack-stream": "^6.1.2",
     "xml2js": "^0.4.17",
-    "yaserver": "^0.2.0"
+    "yaserver": "^0.2.0",
+    "zeromq": "^5.2.8"
   },
   "repository": {
     "type": "git",
