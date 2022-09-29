@@ -6,7 +6,7 @@ import 'vs/css!./modalDialogs';
 const React = require('react');
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
-import ModalDialogComponent from 'vs/base/browser/ui/modalDialog/modalDialogComponent';
+import { ModalDialogComponent, ModalDialogComponentProps } from 'vs/base/browser/ui/modalDialog/modalDialogComponent';
 import { ModalDialogPresenter } from 'vs/base/browser/ui/modalDialog/modalDialogPresenter';
 import { TestComponent } from 'vs/base/browser/ui/testComponent/testComponent';
 import { SimpleTitleBarComponent } from 'vs/base/browser/ui/modalDialog/parts/titleBarComponent';
@@ -33,29 +33,41 @@ export class ModalDialogs implements IModalDialogsService {
 	 * @returns A Promise<void> that will resolve when the time modal dialog is dismissed.
 	 */
 	async showTimeModalDialog(): Promise<void> {
+
 		return new Promise<void>((resolve) => {
 			const modalDialogPresenter = new ModalDialogPresenter(this.layoutService.container);
-			modalDialogPresenter.present(<TimeModalDialogComponent done={() => {
+			const destroy = () => {
 				modalDialogPresenter.destroy();
 				resolve();
-			}} />);
+			};
+			const modalDialogComponentProps: ModalDialogComponentProps<void> = {
+				enterAccepts: true,
+				escapeCancels: true,
+				result: destroy,
+				cancel: destroy
+			};
+			modalDialogPresenter.present(<TimeModalDialogComponent {...modalDialogComponentProps} />);
 		});
 	}
 }
 
-interface TimeModalDialogComponentProps {
-	done: () => void;
-}
+const TimeModalDialogComponent = (props: ModalDialogComponentProps<void>) => {
+	// Handlers.
+	const escapeHandler = () => {
+		props.result();
+	};
+	const acceptHandler = () => {
+		props.result();
+	};
 
-const TimeModalDialogComponent = (props: TimeModalDialogComponentProps) => {
 	// Render.
 	return (
-		<ModalDialogComponent {...props}>
+		<ModalDialogComponent {...props} escape={escapeHandler} accept={acceptHandler}>
 			<SimpleTitleBarComponent title='Show Time' />
 			<div className='content-area'>
 				<TestComponent message='TEST' />
 			</div>
-			<ActionsBarComponent {...props} />
+			<ActionsBarComponent done={acceptHandler} />
 		</ModalDialogComponent>
 	);
 };

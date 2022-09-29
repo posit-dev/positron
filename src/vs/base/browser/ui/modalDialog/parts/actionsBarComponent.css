@@ -29,6 +29,7 @@ a.push-button {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	cursor: pointer;
 }
 
 a.push-button:hover {
