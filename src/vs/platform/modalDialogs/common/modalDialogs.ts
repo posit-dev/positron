@@ -14,7 +14,12 @@ export interface IModalDialogsService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Shows the time modal dialog.
+	 * Shows the example modal dialog.
 	 */
-	showTimeModalDialog(): Promise<void>;
+	showExampleModalDialog(): Promise<void>;
+
+	/**
+	 * Shows the select time modal dialog.
+	 */
+	showSelectTimeModalDialog(): Promise<Date | void>;
 }

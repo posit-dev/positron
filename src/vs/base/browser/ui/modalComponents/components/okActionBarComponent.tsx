@@ -2,24 +2,24 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionsBarComponent';
+import 'vs/css!./okActionBarComponent';
 const React = require('react');
 
 /**
- * ActionsBarComponentProps interface.
+ * OKActionBarComponentProps interface.
  */
-interface ActionsBarComponentProps {
+interface OKActionBarComponentProps {
 	done: () => void | undefined;
 }
 
 /**
- * ActionsBarComponent component.
- * @param props An ActionsBarComponentProps that contains the properties for the actions bar.
+ * OKActionBarComponent component.
+ * @param props An OKActionBarComponentProps that contains the properties for the action bar.
  */
-export const ActionsBarComponent = (props: ActionsBarComponentProps) => {
+export const OKActionBarComponent = (props: OKActionBarComponentProps) => {
 	// Render.
 	return (
-		<div className='actions-bar top-separator'>
+		<div className='ok-action-bar top-separator'>
 			<a className='push-button' tabIndex={0} role='button' onClick={() => props.done()}>
 				OK
 			</a>
