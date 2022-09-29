@@ -1,0 +1,58 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) RStudio, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+@keyframes fade-in {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
+.monaco-modal-dialog-modal-block {
+	position: fixed;
+	height: 100%;
+	width: 100%;
+	left:0;
+	top:0;
+	z-index: 2600;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	animation: fade-in 0.25s;
+}
+
+.monaco-modal-dialog-modal-block.dimmed {
+	background: rgba(0, 0, 0, 0.2);
+}
+
+.monaco-modal-dialog-shadow-container {
+	background: transparent;
+}
+
+.monaco-modal-dialog-box {
+	outline: none !important;
+	display: flex;
+	flex-direction: column-reverse;
+	width: min-content;
+	min-width: 500px;
+	max-width: 90vw;
+	min-height: 75px;
+	padding: 10px;
+	transform: translate3d(0px, 0px, 0px); /* Makes some devices run their hardware acceleration. */
+	animation: fade-in 0.25s;
+}
+
+/* Placeholder... */
+.monaco-modal-dialog-box-frame {
+	border-radius: 15px 15px 5px 5px;
+	overflow: hidden;
+	width: 100%;
+	height: 400px;
+	background: var(--vscode-modalDialog-background);
+	color: var(--vscode-modalDialog-foreground);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+	border: 1px solid var(--vscode-modalDialog-border);
+	position: relative;
+}

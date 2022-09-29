@@ -12,7 +12,7 @@ interface TestSubcomponentProps {
 }
 
 // TestSubcomponent component.
-const TestSubcomponent = (props: TestSubcomponentProps) => {
+export const TestSubcomponent = (props: TestSubcomponentProps) => {
 	// Hooks.
 	const [time, setTime] = useState<string>('Loading time...');
 	useEffect(() => {
@@ -36,6 +36,3 @@ const TestSubcomponent = (props: TestSubcomponentProps) => {
 		</div>
 	);
 };
-
-// Export the TestSubcomponent component.
-export default TestSubcomponent;
