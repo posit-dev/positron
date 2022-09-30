@@ -37,7 +37,13 @@ export function activate(context: vscode.ExtensionContext) {
             // We have a kernel path; use the VS Code file system API to see if it exists on disk.
             let fs = require('fs');
             if (fs.existsSync(kernelPath)) {
-                return startArkKernel(ext, context, kernelPath as string);
+				if (ext.isActive) {
+					return startArkKernel(ext, context, kernelPath as string);
+				} else {
+					ext.activate().then(() => {
+						return startArkKernel(ext!, context, kernelPath as string);
+					});
+				}
             } else {
                 vscode.window.showErrorMessage("ARK kernel path specified in 'ark.kernel.path' setting does not exist: " + kernelPath);
                 return;

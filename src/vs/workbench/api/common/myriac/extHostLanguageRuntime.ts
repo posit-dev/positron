@@ -6,6 +6,7 @@ import type * as vscode from 'vscode';
 import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { Emitter } from 'vs/base/common/event';
 import * as extHostProtocol from '../extHost.protocol';
+import { IDisposable } from 'vs/base/common/lifecycle';
 
 class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
 	constructor(private readonly _runtime: vscode.LanguageRuntime) {
@@ -59,16 +60,20 @@ class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
 }
 
 export class ExtHostLanguageRuntime {
+
+	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
+
 	constructor(
 		mainContext: extHostProtocol.IMainContext,
 	) {
 		// Trigger creation of the proxy
-		mainContext.getProxy(extHostProtocol.MainContext.MainThreadLanguageRuntime);
+		this._proxy = mainContext.getProxy(extHostProtocol.MainContext.MainThreadLanguageRuntime);
 	}
 
 	public $registerLanguageRuntime(
-		runtime: vscode.LanguageRuntime): vscode.Disposable {
+		runtime: vscode.LanguageRuntime): IDisposable {
 		const wrapper = new ExtHostLanguageWrapper(runtime);
+		this._proxy.$registerLanguageRuntimeAdapter(wrapper);
 		return wrapper;
 	}
 }
