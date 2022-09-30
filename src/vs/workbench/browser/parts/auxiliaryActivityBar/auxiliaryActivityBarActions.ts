@@ -196,16 +196,17 @@ registerAction2(class ShowPresentationAuxiliaryActivityAction extends Action2 {
 	}
 });
 
-//
-registerAction2(class ShowTimeAction extends Action2 {
+// TEST COMMANDS.
 
-	static readonly ID = 'workbench.action.showTime';
+registerAction2(class ShowExampleModalDialogAction extends Action2 {
+
+	static readonly ID = 'workbench.action.showExampleModalDialog';
 
 	constructor() {
 		super({
-			id: ShowTimeAction.ID,
+			id: ShowExampleModalDialogAction.ID,
 			title: {
-				value: localize('showTime', "Show Example Modal Dialog"),
+				value: localize('showExampleModalDialog', "Show Example Modal Dialog"),
 				original: 'Show Example Modal Dialog'
 			},
 			category: CATEGORIES.Test,
@@ -215,6 +216,30 @@ registerAction2(class ShowTimeAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const modalDialogsService = accessor.get(IModalDialogsService);
-		return await modalDialogsService.showExampleModalDialog();
+		return await modalDialogsService.showExampleModalDialog('Example Modal Dialog');
+	}
+});
+
+registerAction2(class ShowExampleConfirmationModalDialogAction extends Action2 {
+
+	static readonly ID = 'workbench.action.showExampleConfirmationModalDialog';
+
+	constructor() {
+		super({
+			id: ShowExampleConfirmationModalDialogAction.ID,
+			title: {
+				value: localize('showTime', "Show Example Confirmation Modal Dialog"),
+				original: 'Show Example Confirmation Modal Dialog'
+			},
+			category: CATEGORIES.Test,
+			f1: true
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<boolean> {
+		const modalDialogsService = accessor.get(IModalDialogsService);
+		const result = await modalDialogsService.showExampleConfirmationModalDialog();
+		console.log(`The of showExampleConfirmationModalDialog was ${result}`);
+		return result;
 	}
 });

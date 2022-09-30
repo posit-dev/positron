@@ -3,17 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./contentAreaComponent';
-const React = require('react');
-import { useEffect } from 'react';
+require('react');
+import * as React from 'react';
 
 /**
  * ContentAreaComponent component.
  */
 export const ContentAreaComponent = ({ children }: { children: React.ReactNode }) => {
-	// Hooks.
-	useEffect(() => {
-	}, []);
-
 	// Render.
 	return (
 		<div className='content-area'>

@@ -16,7 +16,7 @@ export interface IModalDialogsService {
 	/**
 	 * Shows the example modal dialog.
 	 */
-	showExampleModalDialog(): Promise<void>;
+	showExampleModalDialog(title: string): Promise<void>;
 
 	/**
 	 * Shows the example modal dialog.

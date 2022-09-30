@@ -3,14 +3,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./okActionBarComponent';
-const React = require('react');
-import { useEffect } from 'react';
+require('react');
+import * as React from 'react';
+
 
 /**
  * OKActionBarComponentProps interface.
  */
 interface OKActionBarComponentProps {
-	done: () => void | undefined;
+	ok: () => void | undefined;
 }
 
 /**
@@ -18,14 +19,10 @@ interface OKActionBarComponentProps {
  * @param props An OKActionBarComponentProps that contains the properties for the action bar.
  */
 export const OKActionBarComponent = (props: OKActionBarComponentProps) => {
-	// Hooks.
-	useEffect(() => {
-	}, []);
-
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
-			<a className='push-button default' tabIndex={0} role='button' onClick={() => props.done()}>
+			<a className='push-button default' tabIndex={0} role='button' onClick={props.ok}>
 				OK
 			</a>
 		</div>
