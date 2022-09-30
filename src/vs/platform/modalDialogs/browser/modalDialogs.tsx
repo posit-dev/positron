@@ -12,6 +12,7 @@ import { ReactRenderer } from 'vs/base/browser/ui/modalComponents/reactRenderer'
 import { TestComponent } from 'vs/base/browser/ui/testComponent/testComponent';
 import { SimpleTitleBarComponent } from 'vs/base/browser/ui/modalComponents/components/titleBarComponent';
 import { OKActionBarComponent } from 'vs/base/browser/ui/modalComponents/components/okActionBarComponent';
+import { OKCancelActionBarComponent } from 'vs/base/browser/ui/modalComponents/components/okCancelActionBarComponent';
 import { ContentAreaComponent } from 'vs/base/browser/ui/modalComponents/components/contentAreaComponent';
 
 /**
@@ -55,6 +56,55 @@ export class ModalDialogs implements IModalDialogsService {
 
 	/**
 	 * Shows the example modal dialog.
+	 */
+	async showExampleConfirmationModalDialog(): Promise<boolean> {
+		return new Promise<boolean>((resolve) => {
+			const reactRenderer = new ReactRenderer(this.layoutService.container);
+
+			const props: ModalDialogComponentProps<boolean> = {
+				enableEnter: true,
+				enableEscape: true,
+				cancel: () => {
+					reactRenderer.destroy();
+					resolve(false);
+				},
+				accept: (result: boolean) => {
+					reactRenderer.destroy();
+					resolve(result);
+				},
+			};
+
+			const ExampleConfirmationModalDialogComponent = (props: ModalDialogComponentProps<boolean>) => {
+				// Handlers.
+				const escapeHandler = () => {
+					props.cancel();
+				};
+				const enterHandler = () => {
+					props.accept(true);
+				};
+
+				// Render.
+				return (
+					<ModalDialogComponent {...props} escape={escapeHandler} enter={enterHandler}>
+						<SimpleTitleBarComponent title='Example Modal Dialog' />
+						<div className='content-area'>
+							<TestComponent message='Example' />
+						</div>
+						<OKCancelActionBarComponent done={enterHandler} />
+					</ModalDialogComponent>
+				);
+			};
+
+			reactRenderer.render(<ExampleConfirmationModalDialogComponent {...props} />);
+
+		});
+	}
+
+
+
+
+	/**
+	 * Shows the example modal dialog.
 	 * @returns A Promise<void> that will resolve when the example modal dialog is dismissed.
 	 */
 	async showExampleModalDialog2(): Promise<void> {
@@ -67,7 +117,7 @@ export class ModalDialogs implements IModalDialogsService {
 			const modalDialogComponentProps: ModalDialogComponentProps<void> = {
 				enableEnter: true,
 				enableEscape: true,
-				result: destroy,
+				accept: destroy,
 				cancel: destroy
 			};
 
@@ -77,7 +127,7 @@ export class ModalDialogs implements IModalDialogsService {
 					props.cancel();
 				};
 				const acceptHandler = () => {
-					props.result();
+					props.accept();
 				};
 
 				// Render.
@@ -87,6 +137,7 @@ export class ModalDialogs implements IModalDialogsService {
 						<div className='content-area'>
 							<TestComponent message='Example' />
 						</div>
+						{/* <OKActionBarComponent done={acceptHandler} /> */}
 						<OKActionBarComponent done={acceptHandler} />
 					</ModalDialogComponent>
 				);
@@ -106,7 +157,7 @@ export class ModalDialogs implements IModalDialogsService {
 			const modalDialogComponentProps: ModalDialogComponentProps<Date> = {
 				enableEnter: true,
 				enableEscape: true,
-				result: (date: Date) => {
+				accept: (date: Date) => {
 					modalDialogPresenter.destroy();
 					resolve(date);
 				},
@@ -123,7 +174,7 @@ export class ModalDialogs implements IModalDialogsService {
 					props.cancel();
 				};
 				const acceptHandler = () => {
-					props.result(new Date());
+					props.accept(new Date());
 				};
 
 				// Render.
