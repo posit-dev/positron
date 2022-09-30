@@ -4,6 +4,7 @@
 
 import 'vs/css!./contentAreaComponent';
 const React = require('react');
+import * as _ from 'react';
 
 /**
  * ContentAreaComponent component.
