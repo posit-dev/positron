@@ -4,6 +4,7 @@
 
 import 'vs/css!./okActionBarComponent';
 const React = require('react');
+import { useEffect } from 'react';
 
 /**
  * OKActionBarComponentProps interface.
@@ -17,6 +18,8 @@ interface OKActionBarComponentProps {
  * @param props An OKActionBarComponentProps that contains the properties for the action bar.
  */
 export const OKActionBarComponent = (props: OKActionBarComponentProps) => {
+	useEffect(() => {
+	}, []);
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
