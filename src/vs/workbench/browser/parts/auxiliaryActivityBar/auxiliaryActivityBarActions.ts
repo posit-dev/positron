@@ -205,8 +205,8 @@ registerAction2(class ShowTimeAction extends Action2 {
 		super({
 			id: ShowTimeAction.ID,
 			title: {
-				value: localize('showTime', "Show Current Time"),
-				original: 'Show Current Time'
+				value: localize('showTime', "Show Example Modal Dialog"),
+				original: 'Show Example Modal Dialog'
 			},
 			category: CATEGORIES.Test,
 			f1: true
@@ -215,6 +215,6 @@ registerAction2(class ShowTimeAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const modalDialogsService = accessor.get(IModalDialogsService);
-		await modalDialogsService.showTimeModalDialog();
+		return await modalDialogsService.showExampleModalDialog();
 	}
 });

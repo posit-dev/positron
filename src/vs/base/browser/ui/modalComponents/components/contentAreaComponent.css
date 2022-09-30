@@ -2,6 +2,11 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.test-component {
-	color: var(--vscode-modalDialog-foreground);
+.monaco-modal-dialog-box-frame .content-area {
+	position: absolute;
+	top: 32px;
+	left: 0;
+	right: 0;
+	bottom: 64px;
+	padding: 16px;
 }

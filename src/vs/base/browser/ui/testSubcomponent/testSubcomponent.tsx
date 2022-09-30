@@ -12,7 +12,7 @@ interface TestSubcomponentProps {
 }
 
 // TestSubcomponent component.
-const TestSubcomponent = (props: TestSubcomponentProps) => {
+export const TestSubcomponent = (props: TestSubcomponentProps) => {
 	// Hooks.
 	const [time, setTime] = useState<string>('Loading time...');
 	useEffect(() => {
@@ -26,16 +26,13 @@ const TestSubcomponent = (props: TestSubcomponentProps) => {
 
 	// Render.
 	return (
-		<>
+		<div className='test-subcomponent' >
 			<div>
 				TestSubcomponent
 			</div>
-			<div className='test' >
+			<div>
 				Message: {props.message} Time: {time}
 			</div>
-		</>
+		</div>
 	);
 };
-
-// Export the TestSubcomponent component.
-export default TestSubcomponent;

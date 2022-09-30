@@ -2,7 +2,6 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.test {
-	background: lightgray;
-	color: blue;
+.test-subcomponent {
+	color: var(--vscode-modalDialog-foreground);
 }
