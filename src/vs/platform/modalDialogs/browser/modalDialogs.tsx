@@ -4,6 +4,7 @@
 
 import 'vs/css!./modalDialogs';
 const React = require('react');
+import * as _ from 'react';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
 import { ModalDisplayDialogComponent } from 'vs/base/browser/ui/modalComponents/modalDisplayDialogComponent';

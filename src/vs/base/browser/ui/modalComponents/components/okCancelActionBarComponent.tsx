@@ -4,6 +4,7 @@
 
 import 'vs/css!./okCancelActionBarComponent';
 const React = require('react');
+import { useEffect } from 'react';
 
 /**
  * OKCancelActionBarComponentProps interface.
@@ -17,6 +18,9 @@ interface OKCancelActionBarComponentProps {
  * @param props An OKCancelActionBarComponentProps that contains the properties for the action bar.
  */
 export const OKCancelActionBarComponent = (props: OKCancelActionBarComponentProps) => {
+	useEffect(() => {
+	}, []);
+
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
