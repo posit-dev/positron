@@ -3,14 +3,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./okCancelActionBarComponent';
-const React = require('react');
-import { useEffect } from 'react';
+require('react');
+import * as React from 'react';
 
 /**
  * OKCancelActionBarComponentProps interface.
  */
 interface OKCancelActionBarComponentProps {
-	done: () => void | undefined;
+	cancel: () => void;
+	ok: () => void;
 }
 
 /**
@@ -18,17 +19,13 @@ interface OKCancelActionBarComponentProps {
  * @param props An OKCancelActionBarComponentProps that contains the properties for the action bar.
  */
 export const OKCancelActionBarComponent = (props: OKCancelActionBarComponentProps) => {
-	// Hooks.
-	useEffect(() => {
-	}, []);
-
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
-			<a className='push-button default' tabIndex={0} role='button' onClick={() => props.done()}>
+			<a className='push-button default' tabIndex={0} role='button' onClick={props.ok}>
 				OK
 			</a>
-			<a className='push-button' tabIndex={0} role='button' onClick={() => props.done()}>
+			<a className='push-button' tabIndex={0} role='button' onClick={props.cancel}>
 				Cancel
 			</a>
 		</div>

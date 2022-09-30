@@ -12,7 +12,14 @@ import { createRoot, Root } from 'react-dom/client';
  */
 export class ReactRenderer {
 
+	/**
+	 * The modal block element where the React element will be rendered.
+	 */
 	private _modalBlockElement?: HTMLElement;
+
+	/**
+	 * The root where the  React element will be rendered.
+	 */
 	private _root?: Root;
 
 	/**
@@ -24,17 +31,23 @@ export class ReactRenderer {
 	}
 
 	/**
-	 * Renders the specified ReactElement.
-	 * @param reactElement
+	 * Renders the ReactElement that was supplied.
+	 * @param reactElement The ReactElement to render.
 	 */
 	public render(reactElement: React.ReactElement) {
+		const dd = window.onbeforeunload;
+		console.log(dd);
 		if (this._modalBlockElement) {
 			this._root = createRoot(this._modalBlockElement);
 			this._root.render(reactElement);
 		}
 	}
 
+	/**
+	 *
+	 */
 	public destroy() {
+		// Unmount the root.
 		if (this._root) {
 			this._root.unmount();
 			this._root = undefined;
