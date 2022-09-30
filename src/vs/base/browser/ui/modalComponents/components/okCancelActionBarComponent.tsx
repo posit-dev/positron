@@ -2,26 +2,29 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./okActionBarComponent';
+import 'vs/css!./okCancelActionBarComponent';
 const React = require('react');
 
 /**
- * OKActionBarComponentProps interface.
+ * OKCancelActionBarComponentProps interface.
  */
-interface OKActionBarComponentProps {
+interface OKCancelActionBarComponentProps {
 	done: () => void | undefined;
 }
 
 /**
- * OKActionBarComponent component.
- * @param props An OKActionBarComponentProps that contains the properties for the action bar.
+ * OKCancelActionBarComponent component.
+ * @param props An OKCancelActionBarComponentProps that contains the properties for the action bar.
  */
-export const OKActionBarComponent = (props: OKActionBarComponentProps) => {
+export const OKCancelActionBarComponent = (props: OKCancelActionBarComponentProps) => {
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
 			<a className='push-button default' tabIndex={0} role='button' onClick={() => props.done()}>
 				OK
+			</a>
+			<a className='push-button' tabIndex={0} role='button' onClick={() => props.done()}>
+				Cancel
 			</a>
 		</div>
 	);

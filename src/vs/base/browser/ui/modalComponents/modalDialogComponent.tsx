@@ -18,7 +18,7 @@ export interface ModalDialogComponentProps<T> {
 	enableEscape: boolean;
 	enableEnter: boolean;
 	cancel: () => void;
-	result: (result: T) => void;
+	accept: (result: T) => void;
 }
 
 interface ModalDialogProps {

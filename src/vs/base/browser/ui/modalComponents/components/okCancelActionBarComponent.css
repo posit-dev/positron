@@ -9,6 +9,7 @@
 	right: 0;
 	height: 64px;
 	display: flex;
+	gap: 10px;
 	justify-content: end;
 	align-items: center;
 	padding: 0 0px;
