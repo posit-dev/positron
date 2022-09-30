@@ -70,6 +70,10 @@ import { CandidatePort } from 'vs/workbench/services/remote/common/remoteExplore
 import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/queryBuilder';
 import * as search from 'vs/workbench/services/search/common/search';
 
+/// --- Start Positron ---
+import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+/// --- End Positron ---
+
 export interface IWorkspaceData extends IStaticWorkspaceData {
 	folders: { uri: UriComponents; name: string; index: number }[];
 }
@@ -408,7 +412,7 @@ export interface MainThreadLanguagesShape extends IDisposable {
 
 // --- Start Positron ---
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
-	$registerLanguageRuntimeAdapter(runtime: any): void;
+	$registerLanguageRuntimeAdapter(runtime: ILanguageRuntime): Promise<void>;
 }
 // --- End Positron ---
 

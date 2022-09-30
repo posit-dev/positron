@@ -16572,10 +16572,10 @@ declare module 'vscode' {
 		version: string;
 
 		/** An object that emits language runtime events */
-		messages: EventEmitter<LanguageRuntimeMessage>;
+		onDidReceiveRuntimeMessage: Event<LanguageRuntimeMessage>;
 
 		/** An object that emits he current state of the runtime */
-		state: EventEmitter<RuntimeState>;
+		onDidChangeRuntimeState: Event<RuntimeState>;
 
 		/** Execute code in the runtime; returns the ID of the code execution. */
 		execute(code: string,

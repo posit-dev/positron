@@ -73,7 +73,7 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		// Listen for execution state changes
-		this._kernel.messages.event((msg) => {
+		this._kernel.onDidReceiveRuntimeMessage((msg) => {
 			if (msg.type === LanguageRuntimeMessageType.State) {
 				const stateMsg = msg as ILanguageRuntimeState;
 

@@ -18,6 +18,8 @@ export class LanguageRuntimeAdapter
 	implements vscode.Disposable, vscode.LanguageRuntime {
 
 	private readonly _kernel: JupyterKernel;
+	private readonly _messages: vscode.EventEmitter<vscode.LanguageRuntimeMessage>;
+	private readonly _state: vscode.EventEmitter<vscode.RuntimeState>;
 
 	constructor(private readonly _spec: JupyterKernelSpec, integratedLsp: boolean) {
 		this._kernel = new JupyterKernel(this._spec, integratedLsp);
@@ -29,8 +31,10 @@ export class LanguageRuntimeAdapter
 		this.id = '';
 
 		// Create emitter for LanguageRuntime messages and state changes
-		this.messages = new vscode.EventEmitter<vscode.LanguageRuntimeMessage>();
-		this.state = new vscode.EventEmitter<vscode.RuntimeState>();
+		this._messages = new vscode.EventEmitter<vscode.LanguageRuntimeMessage>();
+		this._state = new vscode.EventEmitter<vscode.RuntimeState>();
+		this.onDidReceiveRuntimeMessage = this._messages.event;
+		this.onDidChangeRuntimeState = this._state.event;
 
 		// Bind to message stream from kernel
 		this._kernel.addListener('message', this.onMessage);
@@ -43,8 +47,8 @@ export class LanguageRuntimeAdapter
 	language: string;
 	name: string;
 	version: string;
-	messages: vscode.EventEmitter<vscode.LanguageRuntimeMessage>;
-	state: vscode.EventEmitter<vscode.RuntimeState>;
+	onDidReceiveRuntimeMessage: vscode.Event<vscode.LanguageRuntimeMessage>;
+	onDidChangeRuntimeState: vscode.Event<vscode.RuntimeState>;
 
 	/**
 	 * Executes a fragment of code in the kernel.
@@ -132,7 +136,7 @@ export class LanguageRuntimeAdapter
 	 * @param data The display_data message
 	 */
 	onDisplayData(message: JupyterMessagePacket, data: JupyterDisplayData) {
-		this.messages.fire({
+		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
 			type: vscode.LanguageRuntimeMessageType.Output,
@@ -148,7 +152,7 @@ export class LanguageRuntimeAdapter
 	 * @param data The execute_result message
 	 */
 	onExecuteResult(message: JupyterMessagePacket, data: JupyterExecuteResult) {
-		this.messages.fire({
+		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
 			type: vscode.LanguageRuntimeMessageType.Output,
@@ -164,7 +168,7 @@ export class LanguageRuntimeAdapter
 	 * @param data The execute_input message
 	 */
 	onExecuteInput(message: JupyterMessagePacket, data: JupyterExecuteInput) {
-		this.messages.fire({
+		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
 			type: vscode.LanguageRuntimeMessageType.Input,
@@ -178,7 +182,7 @@ export class LanguageRuntimeAdapter
 	 * @param status The new status of the kernel
 	 */
 	onStatus(status: vscode.RuntimeState) {
-		this.state.fire(status);
+		this._state.fire(status);
 	}
 
 	dispose() {

@@ -4,7 +4,7 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { Emitter, Event } from 'vs/base/common/event';
+import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('ILanguageRuntimeService');
@@ -152,10 +152,10 @@ export interface ILanguageRuntime {
 	version: string;
 
 	/** An object that emits language runtime events */
-	messages: Emitter<ILanguageRuntimeMessage>;
+	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
 	/** The current state of the runtime */
-	state: Emitter<RuntimeState>;
+	onDidChangeRuntimeState: Event<RuntimeState>;
 
 	/** Execute code in the runtime; returns the ID of the code execution. */
 	execute(code: string,

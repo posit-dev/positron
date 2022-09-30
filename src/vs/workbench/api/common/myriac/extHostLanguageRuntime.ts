@@ -4,24 +4,29 @@
 
 import type * as vscode from 'vscode';
 import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { Emitter } from 'vs/base/common/event';
+import { Event, Emitter } from 'vs/base/common/event';
 import * as extHostProtocol from '../extHost.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 
 class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
+	private readonly _messagesEmitter: Emitter<ILanguageRuntimeMessage>;
+	private readonly _stateEmitter: Emitter<RuntimeState>;
 	constructor(private readonly _runtime: vscode.LanguageRuntime) {
 		this.language = _runtime.language;
 		this.name = _runtime.name;
 		this.version = _runtime.version;
 		this.id = _runtime.id;
-		this.messages = new Emitter<ILanguageRuntimeMessage>();
-		this.state = new Emitter<RuntimeState>();
-		_runtime.messages.event(e => this.messages.fire(e));
-		_runtime.state.event(e => this.state.fire(e));
+		this._messagesEmitter = new Emitter<ILanguageRuntimeMessage>();
+		this._stateEmitter = new Emitter<RuntimeState>();
+		this.onDidReceiveRuntimeMessage = this._messagesEmitter.event;
+		this.onDidChangeRuntimeState = this._stateEmitter.event;
+		_runtime.onDidReceiveRuntimeMessage(e => this._messagesEmitter.fire(e));
+		_runtime.onDidChangeRuntimeState(e => this._stateEmitter.fire(e));
 	}
 
 	dispose() {
-		this.messages.dispose();
+		this._messagesEmitter.dispose();
+		this._stateEmitter.dispose();
 	}
 
 	language: string;
@@ -32,9 +37,9 @@ class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
 
 	id: string;
 
-	state: Emitter<RuntimeState>;
+	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
-	messages: Emitter<ILanguageRuntimeMessage>;
+	onDidChangeRuntimeState: Event<RuntimeState>;
 
 	execute(code: string,
 		mode: vscode.RuntimeCodeExecutionMode,
