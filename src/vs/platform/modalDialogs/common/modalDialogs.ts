@@ -19,7 +19,7 @@ export interface IModalDialogsService {
 	showExampleModalDialog(): Promise<void>;
 
 	/**
-	 * Shows the select time modal dialog.
+	 * Shows the example modal dialog.
 	 */
-	showSelectTimeModalDialog(): Promise<Date | void>;
+	showExampleConfirmationModalDialog(): Promise<boolean>;
 }
