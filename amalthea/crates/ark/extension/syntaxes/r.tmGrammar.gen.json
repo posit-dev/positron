@@ -46,6 +46,9 @@
                     "match": "^\\s*#+'"
                 },
                 {
+                    "include": "#comment"
+                },
+                {
                     "include": "#expression"
                 }
             ]
