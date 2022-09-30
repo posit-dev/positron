@@ -53,7 +53,7 @@
 
         // Quarto comments.
         {
-            "beforeText": "^\\s*#+|",
+            "beforeText": "^\\s*#+\\|",
             "action": { "indent": "none", "appendText": "#| " }
         },
 
