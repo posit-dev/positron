@@ -34,7 +34,8 @@
   },
   "devDependencies": {
     "@types/uuid": "^8.3.3",
-    "@types/zeromq": "^5.2.1"
+    "@types/zeromq": "^5.2.1",
+    "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
     "uuid": "^8.3.2",
