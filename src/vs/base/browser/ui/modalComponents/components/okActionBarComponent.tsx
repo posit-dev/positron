@@ -18,8 +18,10 @@ interface OKActionBarComponentProps {
  * @param props An OKActionBarComponentProps that contains the properties for the action bar.
  */
 export const OKActionBarComponent = (props: OKActionBarComponentProps) => {
+	// Hooks.
 	useEffect(() => {
 	}, []);
+
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>

@@ -18,8 +18,10 @@ interface SimpleTitleBarProps {
  * @param props A SimpleTitleBarProps that contains the properties for the simple title bar.
  */
 export const SimpleTitleBarComponent = (props: SimpleTitleBarProps) => {
+	// Hooks.
 	useEffect(() => {
 	}, []);
+
 	// Render.
 	return (
 		<div className='title-bar' >
