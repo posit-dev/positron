@@ -17,7 +17,6 @@ interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
 export interface ModalDialogComponentProps<T> {
 	enableEscape: boolean;
 	enableEnter: boolean;
-	cancel: () => void;
 	accept: (result: T) => void;
 }
 

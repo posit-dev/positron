@@ -7,7 +7,7 @@ const React = require('react');
 import * as _ from 'react';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
-import { ModalDisplayDialogComponent } from 'vs/base/browser/ui/modalComponents/modalDisplayDialogComponent';
+import { ModalDisplayDialogComponent, ModalDisplayDialogComponentProps } from 'vs/base/browser/ui/modalComponents/modalDisplayDialogComponent';
 import { ModalDialogComponent, ModalDialogComponentProps } from 'vs/base/browser/ui/modalComponents/modalDialogComponent';
 import { ReactRenderer } from 'vs/base/browser/ui/modalComponents/reactRenderer';
 import { TestComponent } from 'vs/base/browser/ui/testComponent/testComponent';
@@ -36,22 +36,33 @@ export class ModalDialogs implements IModalDialogsService {
 	 * Shows the example modal dialog.
 	 * @returns A Promise<void> that resolves when the example modal dialog is done.
 	 */
-	async showExampleModalDialog(): Promise<void> {
+	async showExampleModalDialog(title: string): Promise<void> {
 		return new Promise<void>((resolve) => {
+			// Create the react renderer.
 			const reactRenderer = new ReactRenderer(this.layoutService.container);
-			const done = () => {
-				reactRenderer.destroy();
-				resolve();
+
+			const props: ModalDisplayDialogComponentProps = {
+				enableEnter: true,
+				enableEscape: true,
+				done: () => {
+					reactRenderer.destroy();
+					resolve();
+				},
 			};
-			reactRenderer.render(
-				<ModalDisplayDialogComponent enableEscape={true} enableEnter={true} done={done}>
-					<SimpleTitleBarComponent title='Example Modal Dialog' />
-					<ContentAreaComponent>
-						<TestComponent message='Example' />
-					</ContentAreaComponent>
-					<OKActionBarComponent done={done} />
-				</ModalDisplayDialogComponent>
-			);
+
+			const ExampleModalDialogComponent = (props: ModalDisplayDialogComponentProps) => {
+				return (
+					<ModalDisplayDialogComponent enableEscape={true} enableEnter={true} done={props.done}>
+						<SimpleTitleBarComponent title={title} />
+						<ContentAreaComponent>
+							<TestComponent message='Example' />
+						</ContentAreaComponent>
+						<OKActionBarComponent ok={props.done} />
+					</ModalDisplayDialogComponent>
+				);
+			};
+
+			reactRenderer.render(<ExampleModalDialogComponent {...props} />);
 		});
 	}
 
@@ -65,10 +76,6 @@ export class ModalDialogs implements IModalDialogsService {
 			const props: ModalDialogComponentProps<boolean> = {
 				enableEnter: true,
 				enableEscape: true,
-				cancel: () => {
-					reactRenderer.destroy();
-					resolve(false);
-				},
 				accept: (result: boolean) => {
 					reactRenderer.destroy();
 					resolve(result);
@@ -76,121 +83,19 @@ export class ModalDialogs implements IModalDialogsService {
 			};
 
 			const ExampleConfirmationModalDialogComponent = (props: ModalDialogComponentProps<boolean>) => {
-				// Handlers.
-				const escapeHandler = () => {
-					props.cancel();
-				};
-				const enterHandler = () => {
-					props.accept(true);
-				};
-
 				// Render.
 				return (
-					<ModalDialogComponent {...props} escape={escapeHandler} enter={enterHandler}>
+					<ModalDialogComponent {...props} escape={() => props.accept(false)} enter={() => props.accept(true)}>
 						<SimpleTitleBarComponent title='Example Modal Dialog' />
 						<div className='content-area'>
 							<TestComponent message='Example' />
 						</div>
-						<OKCancelActionBarComponent done={enterHandler} />
+						<OKCancelActionBarComponent cancel={() => props.accept(false)} ok={() => props.accept(true)} />
 					</ModalDialogComponent>
 				);
 			};
 
 			reactRenderer.render(<ExampleConfirmationModalDialogComponent {...props} />);
-
-		});
-	}
-
-
-
-
-	/**
-	 * Shows the example modal dialog.
-	 * @returns A Promise<void> that will resolve when the example modal dialog is dismissed.
-	 */
-	async showExampleModalDialog2(): Promise<void> {
-		return new Promise<void>((resolve) => {
-			const reactRenderer = new ReactRenderer(this.layoutService.container);
-			const destroy = () => {
-				reactRenderer.destroy();
-				resolve();
-			};
-			const modalDialogComponentProps: ModalDialogComponentProps<void> = {
-				enableEnter: true,
-				enableEscape: true,
-				accept: destroy,
-				cancel: destroy
-			};
-
-			const ExampleModalDialogComponent = (props: ModalDialogComponentProps<void>) => {
-				// Handlers.
-				const escapeHandler = () => {
-					props.cancel();
-				};
-				const acceptHandler = () => {
-					props.accept();
-				};
-
-				// Render.
-				return (
-					<ModalDialogComponent {...props} escape={escapeHandler} enter={acceptHandler}>
-						<SimpleTitleBarComponent title='Example Modal Dialog' />
-						<div className='content-area'>
-							<TestComponent message='Example' />
-						</div>
-						{/* <OKActionBarComponent done={acceptHandler} /> */}
-						<OKActionBarComponent done={acceptHandler} />
-					</ModalDialogComponent>
-				);
-			};
-
-			reactRenderer.render(<ExampleModalDialogComponent {...modalDialogComponentProps} />);
-		});
-	}
-
-	/**
-	 * Shows the select time modal dialog.
-	 * @returns A Promise<void> that will resolve when the time modal dialog is dismissed.
-	 */
-	async showSelectTimeModalDialog(): Promise<Date | void> {
-		return new Promise<Date | void>((resolve) => {
-			const modalDialogPresenter = new ReactRenderer(this.layoutService.container);
-			const modalDialogComponentProps: ModalDialogComponentProps<Date> = {
-				enableEnter: true,
-				enableEscape: true,
-				accept: (date: Date) => {
-					modalDialogPresenter.destroy();
-					resolve(date);
-				},
-				cancel: () => {
-					modalDialogPresenter.destroy();
-					resolve();
-				}
-			};
-
-			const SelectTimeModalDialogComponent = (props: ModalDialogComponentProps<Date>) => {
-
-				// Handlers.
-				const escapeHandler = () => {
-					props.cancel();
-				};
-				const acceptHandler = () => {
-					props.accept(new Date());
-				};
-
-				// Render.
-				return (
-					<ModalDialogComponent {...props} escape={escapeHandler} enter={acceptHandler}>
-						<SimpleTitleBarComponent title='Show Time' />
-						<div className='content-area'>
-							<TestComponent message='TEST' />
-						</div>
-						<OKActionBarComponent done={acceptHandler} />
-					</ModalDialogComponent>
-				);
-			};
-
-			modalDialogPresenter.render(<SelectTimeModalDialogComponent {...modalDialogComponentProps} />);
 		});
 	}
 }
