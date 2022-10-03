@@ -25,6 +25,14 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
 
+	emitMessage(message: ILanguageRuntimeMessage): void {
+		this._messageEmitter.fire(message);
+	}
+
+	emitState(state: RuntimeState): void {
+		this._stateEmitter.fire(state);
+	}
+
 	execute(code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Thenable<string> {
 		throw new Error('Method not implemented.');
 	}
@@ -50,6 +58,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	private readonly _proxy: ExtHostLanguageRuntimeShape;
 
+	private readonly _runtimes: Map<number, ExtHostLanguageRuntimeAdapter> = new Map();
+
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService
@@ -57,15 +67,33 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostLanguageRuntime);
 	}
 
+	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
+		const runtime = this._runtimes.get(handle);
+		if (runtime) {
+			runtime.emitMessage(message);
+		} else {
+			throw new Error(`Unknown language runtime handle: ${handle}`);
+		}
+	}
+
+	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void {
+		const runtime = this._runtimes.get(handle);
+		if (runtime) {
+			runtime.emitState(state);
+		} else {
+			throw new Error(`Unknown language runtime handle: ${handle}`);
+		}
+	}
+
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
-		this._languageRuntimeService.registerRuntime(
-			new ExtHostLanguageRuntimeAdapter(handle, metadata, this._proxy)
-		);
+		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, this._proxy);
+		this._runtimes.set(handle, adapter);
+		this._languageRuntimeService.registerRuntime(adapter);
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
-		throw new Error('Method not implemented.');
+		this._runtimes.delete(handle);
 	}
 
 	public dispose(): void {

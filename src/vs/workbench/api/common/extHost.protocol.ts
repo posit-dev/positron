@@ -71,7 +71,7 @@ import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/qu
 import * as search from 'vs/workbench/services/search/common/search';
 
 /// --- Start Positron ---
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 /// --- End Positron ---
 
 export interface IWorkspaceData extends IStaticWorkspaceData {
@@ -415,6 +415,8 @@ export interface MainThreadLanguagesShape extends IDisposable {
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
 	$unregisterLanguageRuntime(handle: number): void;
+	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
+	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void;
 }
 // --- End Positron ---
 
