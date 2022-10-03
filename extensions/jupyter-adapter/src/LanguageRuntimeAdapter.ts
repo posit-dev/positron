@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { v4 as uuidv4 } from 'uuid';
 import { JupyterKernel } from './JupyterKernel';
 import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
@@ -26,9 +27,11 @@ export class LanguageRuntimeAdapter
 		this.language = this._spec.language;
 		this.name = this._spec.display_name;
 
-		// TODO
-		this.version = '';
-		this.id = '';
+		// Placeholder until the kernel is started
+		this.version = '0.0.1';
+
+		// Generate a UUID for the kernel
+		this.id = uuidv4();
 
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<vscode.LanguageRuntimeMessage>();

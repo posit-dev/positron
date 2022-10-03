@@ -41,25 +41,25 @@ class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
 
-	execute(code: string,
+	public execute(code: string,
 		mode: vscode.RuntimeCodeExecutionMode,
 		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
 		return this._runtime.execute(code, mode, errorBehavior);
 	}
 
-	start(): Thenable<ILanguageRuntimeInfo> {
+	public start(): Thenable<ILanguageRuntimeInfo> {
 		return this._runtime.start();
 	}
 
-	interrupt(): void {
+	public interrupt(): void {
 		this._runtime.interrupt();
 	}
 
-	restart(): void {
+	public restart(): void {
 		this._runtime.restart();
 	}
 
-	shutdown(): void {
+	public shutdown(): void {
 		this._runtime.shutdown();
 	}
 }
