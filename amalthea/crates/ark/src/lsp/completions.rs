@@ -6,6 +6,7 @@
 //
 
 use std::collections::HashSet;
+use std::path::Path;
 
 use harp::exec::geterrmessage;
 use harp::exec::RFunction;
@@ -18,6 +19,8 @@ use harp::r_symbol;
 use harp::utils::r_inherits;
 use libR_sys::*;
 use log::info;
+use regex::Captures;
+use regex::Regex;
 use stdext::*;
 use tower_lsp::lsp_types::CompletionItem;
 use tower_lsp::lsp_types::CompletionItemKind;
@@ -28,6 +31,7 @@ use tower_lsp::lsp_types::MarkupContent;
 use tower_lsp::lsp_types::MarkupKind;
 use tree_sitter::Node;
 use tree_sitter::Point;
+use yaml_rust::YamlLoader;
 
 use crate::lsp::indexer::IndexedSymbol;
 use crate::lsp::indexer::index_document;
@@ -503,6 +507,73 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
 
 }
 
+unsafe fn append_roxygen_completions(token: &str, completions: &mut Vec<CompletionItem>) {
+
+    // TODO: cache these?
+    // TODO: use an indexer to build the tag list?
+    let tags = RFunction::new("base", "system.file")
+        .param("package", "roxygen2")
+        .add("roxygen2-tags.yml")
+        .call()
+        .unwrap()
+        .to::<String>()
+        .unwrap();
+
+    if tags.is_empty() {
+        return;
+    }
+
+    let tags = Path::new(&tags);
+    if !tags.exists() {
+        return;
+    }
+
+    let contents = std::fs::read_to_string(tags).unwrap();
+    let docs = YamlLoader::load_from_str(contents.as_str()).unwrap();
+    let doc = &docs[0];
+
+    let items = doc.as_vec().unwrap();
+    for entry in items.iter() {
+
+        let name = unwrap!(entry["name"].as_str(), {
+            continue;
+        });
+
+        let label = name.to_string();
+        let mut item = CompletionItem {
+            label: label.clone(),
+            ..Default::default()
+        };
+
+        // TODO: What is the appropriate icon for us to use here?
+        if let Some(template) = entry["template"].as_str() {
+            let text = format!("{}{}", name, template);
+            let pattern = Regex::new(r"\{([^}]+)\}").unwrap();
+
+            let mut count = 0;
+            let text = pattern.replace_all(&text, |caps: &Captures| {
+                count += 1;
+                let capture = caps.get(1).map_or("", |m| m.as_str());
+                format!("${{{}:{}}}", count, capture)
+            });
+
+            item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+            item.insert_text = Some(text.to_string());
+        } else {
+            item.insert_text = Some(format!("@{}", label.as_str()));
+        }
+
+        if let Some(description) = entry["description"].as_str() {
+            item.detail = Some(format!("@{}", name));
+            item.documentation = Some(Documentation::String(description.to_string()));
+        }
+
+        completions.push(item);
+
+    }
+
+}
+
 pub(crate) fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> bool {
 
     // get reference to AST
@@ -558,6 +629,25 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
     let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
         return;
     });
+
+    info!("Node: {:?}", node);
+
+    // check for completion within a comment -- in such a case, we usually
+    // want to complete things like roxygen tags
+    //
+    // TODO: should some of this token processing happen in treesitter?
+    if node.kind() == "comment" {
+        let pattern = Regex::new(r"^.*\s").unwrap();
+        let contents = node.utf8_text(source.as_bytes()).unwrap();
+        let token = pattern.replace(contents, "");
+        info!("Token: {:?}", token);
+        if token.starts_with('@') {
+            r_lock! { append_roxygen_completions(&token[1..], completions) };
+            return;
+        } else {
+            return;
+        }
+    }
 
     // check to see if we're completing a symbol from a namespace,
     // via code like:
@@ -656,6 +746,11 @@ pub(crate) fn append_document_completions(document: &mut Document, params: &Comp
     let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
         return;
     });
+
+    // skip comments
+    if node.kind() == "comment" {
+        return;
+    }
 
     // build completion data
     let mut data = CompletionData {

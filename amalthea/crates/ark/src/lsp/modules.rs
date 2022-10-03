@@ -5,11 +5,14 @@
 //
 //
 
+use std::path::Path;
+
 use libR_sys::*;
+use log::info;
 use walkdir::WalkDir;
 
-use crate::exec::RFunction;
-use crate::exec::RFunctionExt;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
 
 pub unsafe fn initialize() {
 
@@ -22,11 +25,13 @@ pub unsafe fn initialize() {
 
     // Import all module files.
     // TODO: Need to select appropriate path for package builds.
-    let root = format!("{}/src/modules", env!("CARGO_MANIFEST_DIR"));
+    let root = format!("{}/src/lsp/modules", env!("CARGO_MANIFEST_DIR"));
+    info!("Loading modules from directory: {}", root);
     for file in WalkDir::new(root).into_iter().filter_map(|file| file.ok()) {
         let path = file.path();
         if let Some(ext) = path.extension() {
             if ext == "R" {
+                info!("Loading module: {:?}", path);
                 import(path.to_str().unwrap(), *envir);
             }
         }

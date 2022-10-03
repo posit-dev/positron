@@ -14,7 +14,6 @@ use std::sync::mpsc::SyncSender;
 use dashmap::DashMap;
 use harp::r_lock;
 use log::info;
-use log::trace;
 use serde_json::Value;
 use stdext::*;
 use tokio::net::TcpStream;
@@ -26,6 +25,7 @@ use crate::lsp::completions::append_session_completions;
 use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::document::Document;
+use crate::lsp::modules;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -123,9 +123,7 @@ impl LanguageServer for Backend {
         }
 
         // initialize our support functions
-        trace!("Entering r::modules::initialized()");
-        r_lock! { harp::modules::initialize() };
-        trace!("Exiting r::modules::initialized()");
+        r_lock! { modules::initialize() };
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
