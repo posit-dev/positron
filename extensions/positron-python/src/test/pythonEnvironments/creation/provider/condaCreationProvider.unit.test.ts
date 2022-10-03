@@ -5,29 +5,35 @@ import * as chaiAsPromised from 'chai-as-promised';
 import * as path from 'path';
 import { assert, use as chaiUse } from 'chai';
 import * as sinon from 'sinon';
-import { Uri } from 'vscode';
-import { CreateEnvironmentProvider } from '../../../../client/pythonEnvironments/creation/types';
+import * as typemoq from 'typemoq';
+import { CancellationToken, ProgressOptions, Uri } from 'vscode';
 import {
-    condaCreationProvider,
-    CONDA_ENV_CREATED_MARKER,
-} from '../../../../client/pythonEnvironments/creation/provider/condaCreationProvider';
+    CreateEnvironmentProgress,
+    CreateEnvironmentProvider,
+    CreateEnvironmentResult,
+} from '../../../../client/pythonEnvironments/creation/types';
+import { condaCreationProvider } from '../../../../client/pythonEnvironments/creation/provider/condaCreationProvider';
 import * as wsSelect from '../../../../client/pythonEnvironments/creation/common/workspaceSelection';
+import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import * as condaUtils from '../../../../client/pythonEnvironments/creation/provider/condaUtils';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 import * as rawProcessApis from '../../../../client/common/process/rawProcessApis';
 import { Output } from '../../../../client/common/process/types';
 import { createDeferred } from '../../../../client/common/utils/async';
 import * as commonUtils from '../../../../client/pythonEnvironments/creation/common/commonUtils';
+import { CONDA_ENV_CREATED_MARKER } from '../../../../client/pythonEnvironments/creation/provider/condaProgressAndTelemetry';
+import { CreateEnv } from '../../../../client/common/utils/localize';
 
 chaiUse(chaiAsPromised);
 
 suite('Conda Creation provider tests', () => {
     let condaProvider: CreateEnvironmentProvider;
+    let progressMock: typemoq.IMock<CreateEnvironmentProgress>;
     let getCondaStub: sinon.SinonStub;
     let pickPythonVersionStub: sinon.SinonStub;
     let pickWorkspaceFolderStub: sinon.SinonStub;
     let execObservableStub: sinon.SinonStub;
-
+    let withProgressStub: sinon.SinonStub;
     let showErrorMessageWithLogsStub: sinon.SinonStub;
 
     setup(() => {
@@ -35,9 +41,12 @@ suite('Conda Creation provider tests', () => {
         getCondaStub = sinon.stub(condaUtils, 'getConda');
         pickPythonVersionStub = sinon.stub(condaUtils, 'pickPythonVersion');
         execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
+        withProgressStub = sinon.stub(windowApis, 'withProgress');
+
         showErrorMessageWithLogsStub = sinon.stub(commonUtils, 'showErrorMessageWithLogs');
         showErrorMessageWithLogsStub.resolves();
 
+        progressMock = typemoq.Mock.ofType<CreateEnvironmentProgress>();
         condaProvider = condaCreationProvider();
     });
 
@@ -72,11 +81,12 @@ suite('Conda Creation provider tests', () => {
 
     test('Create conda environment', async () => {
         getCondaStub.resolves('/usr/bin/conda/conda_bin/conda');
-        pickWorkspaceFolderStub.resolves({
+        const workspace1 = {
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
             name: 'workspace1',
             index: 0,
-        });
+        };
+        pickWorkspaceFolderStub.resolves(workspace1);
         pickPythonVersionStub.resolves('3.10');
 
         const deferred = createDeferred();
@@ -100,6 +110,18 @@ suite('Conda Creation provider tests', () => {
             };
         });
 
+        progressMock.setup((p) => p.report({ message: CreateEnv.statusStarting })).verifiable(typemoq.Times.once());
+
+        withProgressStub.callsFake(
+            (
+                _options: ProgressOptions,
+                task: (
+                    progress: CreateEnvironmentProgress,
+                    token?: CancellationToken,
+                ) => Thenable<CreateEnvironmentResult>,
+            ) => task(progressMock.object),
+        );
+
         const promise = condaProvider.createEnvironment();
         await deferred.promise;
         assert.isDefined(_next);
@@ -107,7 +129,8 @@ suite('Conda Creation provider tests', () => {
 
         _next!({ out: `${CONDA_ENV_CREATED_MARKER}new_environment`, source: 'stdout' });
         _complete!();
-        assert.strictEqual(await promise, 'new_environment');
+        assert.deepStrictEqual(await promise, { path: 'new_environment', uri: workspace1.uri });
+        assert.isTrue(showErrorMessageWithLogsStub.notCalled);
     });
 
     test('Create conda environment failed', async () => {
@@ -140,11 +163,24 @@ suite('Conda Creation provider tests', () => {
             };
         });
 
+        progressMock.setup((p) => p.report({ message: CreateEnv.statusStarting })).verifiable(typemoq.Times.once());
+
+        withProgressStub.callsFake(
+            (
+                _options: ProgressOptions,
+                task: (
+                    progress: CreateEnvironmentProgress,
+                    token?: CancellationToken,
+                ) => Thenable<CreateEnvironmentResult>,
+            ) => task(progressMock.object),
+        );
+
         const promise = condaProvider.createEnvironment();
         await deferred.promise;
         assert.isDefined(_error);
         _error!('bad arguments');
         _complete!();
         await assert.isRejected(promise);
+        assert.isTrue(showErrorMessageWithLogsStub.calledOnce);
     });
 });
