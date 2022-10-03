@@ -16554,12 +16554,10 @@ declare module 'vscode' {
 		traceback: Array<string>;
 	}
 
-	/**
-	 * LanguageRuntime is an interface implemented by extensions that provide a
-	 * set of common tools for interacting with a language runtime, such as code
-	 * execution, LSP implementation, and plotting.
+	/** LanguageRuntimeMetadata contains information about a language runtime that is known
+	 * before the runtime is started.
 	 */
-	export interface LanguageRuntime {
+	export interface LanguageRuntimeMetadata {
 		/** A unique identifier for this runtime */
 		id: string;
 
@@ -16571,6 +16569,16 @@ declare module 'vscode' {
 
 		/** The version of the runtime. */
 		version: string;
+	}
+
+	/**
+	 * LanguageRuntime is an interface implemented by extensions that provide a
+	 * set of common tools for interacting with a language runtime, such as code
+	 * execution, LSP implementation, and plotting.
+	 */
+	export interface LanguageRuntime {
+		/** An object supplying metadata about the runtime */
+		readonly metadata: LanguageRuntimeMetadata;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: Event<LanguageRuntimeMessage>;

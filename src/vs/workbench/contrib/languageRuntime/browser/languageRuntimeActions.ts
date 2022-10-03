@@ -55,9 +55,9 @@ export function registerLanguageRuntimeActions() {
 
 			// Map to quick-pick items for user selection
 			const selections = allRuntimes.map((k) => (<IQuickPickItem>{
-				id: k.id,
-				label: k.name,
-				description: k.version
+				id: k.metadata.id,
+				label: k.metadata.name,
+				description: k.metadata.version
 			}));
 
 			// Prompt the user to select a kernel/runtime
@@ -70,10 +70,10 @@ export function registerLanguageRuntimeActions() {
 			if (selection) {
 				for (let i = 0; i < allRuntimes.length; i++) {
 					const runtime = allRuntimes[i];
-					if (selection.id === runtime.id) {
+					if (selection.id === runtime.metadata.id) {
 						// Start the runtime if there aren't any active
 						if (languageService.getActiveRuntimes().length < 1) {
-							languageService.startRuntime(runtime.id);
+							languageService.startRuntime(runtime.metadata.id);
 						}
 						break;
 					}

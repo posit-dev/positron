@@ -71,7 +71,7 @@ import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/qu
 import * as search from 'vs/workbench/services/search/common/search';
 
 /// --- Start Positron ---
-import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 /// --- End Positron ---
 
 export interface IWorkspaceData extends IStaticWorkspaceData {
@@ -411,8 +411,10 @@ export interface MainThreadLanguagesShape extends IDisposable {
 }
 
 // --- Start Positron ---
+// This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
-	$registerLanguageRuntimeAdapter(runtime: ILanguageRuntime): Promise<void>;
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
+	$unregisterLanguageRuntime(handle: number): void;
 }
 // --- End Positron ---
 
@@ -1781,8 +1783,9 @@ export interface ExtHostLanguageFeaturesShape {
 }
 
 // --- Start Positron ---
+// The interface to the main thread exposed by the extension host
 export interface ExtHostLanguageRuntimeShape {
-	$registerLanguageRuntime(runtime: any): void;
+	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 }
 // --- End Positron ---
 

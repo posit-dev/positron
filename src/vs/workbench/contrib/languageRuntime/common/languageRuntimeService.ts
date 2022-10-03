@@ -138,8 +138,11 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 	traceback: Array<string>;
 }
 
-export interface ILanguageRuntime {
-	/** A unique identifer for this language runtime */
+/* ILanguageRuntimeMetadata contains information about a language runtime that is known
+ * before the runtime is started.
+ */
+export interface ILanguageRuntimeMetadata {
+	/** A unique identifier for this runtime */
 	id: string;
 
 	/** The language identifier for this runtime. */
@@ -150,6 +153,11 @@ export interface ILanguageRuntime {
 
 	/** The version of the runtime. */
 	version: string;
+}
+
+export interface ILanguageRuntime {
+	/** The language runtime's static metadata */
+	metadata: ILanguageRuntimeMetadata;
 
 	/** An object that emits language runtime events */
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;

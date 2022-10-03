@@ -21,17 +21,18 @@ export class LanguageRuntimeAdapter
 	private readonly _kernel: JupyterKernel;
 	private readonly _messages: vscode.EventEmitter<vscode.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<vscode.RuntimeState>;
+	readonly metadata: vscode.LanguageRuntimeMetadata;
 
 	constructor(private readonly _spec: JupyterKernelSpec, integratedLsp: boolean) {
 		this._kernel = new JupyterKernel(this._spec, integratedLsp);
-		this.language = this._spec.language;
-		this.name = this._spec.display_name;
 
-		// Placeholder until the kernel is started
-		this.version = '0.0.1';
-
-		// Generate a UUID for the kernel
-		this.id = uuidv4();
+		// Generate kernel metadata and ID
+		this.metadata = {
+			language: this._spec.language,
+			name: this._spec.display_name,
+			version: '0.0.1',
+			id: uuidv4(),
+		};
 
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<vscode.LanguageRuntimeMessage>();
@@ -46,10 +47,6 @@ export class LanguageRuntimeAdapter
 		this._kernel.addListener('status', this.onStatus);
 	}
 
-	id: string;
-	language: string;
-	name: string;
-	version: string;
 	onDidReceiveRuntimeMessage: vscode.Event<vscode.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<vscode.RuntimeState>;
 

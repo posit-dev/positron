@@ -40,13 +40,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	registerRuntime(runtime: ILanguageRuntime): IDisposable {
-		if (this._runtimes.has(runtime.language)) {
-			throw new Error('A runtime for the language ' + runtime.language + ' is already registered.');
+		if (this._runtimes.has(runtime.metadata.language)) {
+			throw new Error('A runtime for the language ' + runtime.metadata.language + ' is already registered.');
 		}
-		this._runtimes.set(runtime.language, runtime);
-		this._logService.trace(`Added new language runtime: ${runtime.language} (${runtime.id})`);
+		this._runtimes.set(runtime.metadata.language, runtime);
+		this._logService.trace(`Added new language runtime: ${runtime.metadata.language} (${runtime.metadata.id})`);
 		return toDisposable(() => {
-			this._runtimes.delete(runtime.language);
+			this._runtimes.delete(runtime.metadata.language);
 		});
 	}
 
@@ -90,7 +90,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._logService.trace(`Starting language runtime: '${id}'`);
 		const runtimes = this._runtimes.values();
 		for (const runtime of runtimes) {
-			if (runtime.id === id) {
+			if (runtime.metadata.id === id) {
 				runtime.start().then(() => {
 					this._onDidStartRuntime.fire(runtime);
 					this._activeRuntimes.push(runtime);

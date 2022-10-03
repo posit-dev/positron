@@ -3,70 +3,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as vscode from 'vscode';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { Event, Emitter } from 'vs/base/common/event';
+import { ILanguageRuntimeInfo } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from '../extHost.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { Disposable } from 'vs/workbench/api/common/extHostTypes';
 
-class ExtHostLanguageWrapper implements ILanguageRuntime, vscode.Disposable {
-	private readonly _messagesEmitter: Emitter<ILanguageRuntimeMessage>;
-	private readonly _stateEmitter: Emitter<RuntimeState>;
-	constructor(private readonly _runtime: vscode.LanguageRuntime) {
-		this.language = _runtime.language;
-		this.name = _runtime.name;
-		this.version = _runtime.version;
-		this.id = _runtime.id;
-		this._messagesEmitter = new Emitter<ILanguageRuntimeMessage>();
-		this._stateEmitter = new Emitter<RuntimeState>();
-		this.onDidReceiveRuntimeMessage = this._messagesEmitter.event;
-		this.onDidChangeRuntimeState = this._stateEmitter.event;
-		_runtime.onDidReceiveRuntimeMessage(e => this._messagesEmitter.fire(e));
-		_runtime.onDidChangeRuntimeState(e => this._stateEmitter.fire(e));
-	}
-
-	dispose() {
-		this._messagesEmitter.dispose();
-		this._stateEmitter.dispose();
-	}
-
-	language: string;
-
-	name: string;
-
-	version: string;
-
-	id: string;
-
-	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
-
-	onDidChangeRuntimeState: Event<RuntimeState>;
-
-	public execute(code: string,
-		mode: vscode.RuntimeCodeExecutionMode,
-		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
-		return this._runtime.execute(code, mode, errorBehavior);
-	}
-
-	public start(): Thenable<ILanguageRuntimeInfo> {
-		return this._runtime.start();
-	}
-
-	public interrupt(): void {
-		this._runtime.interrupt();
-	}
-
-	public restart(): void {
-		this._runtime.restart();
-	}
-
-	public shutdown(): void {
-		this._runtime.shutdown();
-	}
-}
-
-export class ExtHostLanguageRuntime {
+export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
+
+	private readonly _runtimes = new Array<vscode.LanguageRuntime>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainContext,
@@ -75,10 +21,28 @@ export class ExtHostLanguageRuntime {
 		this._proxy = mainContext.getProxy(extHostProtocol.MainContext.MainThreadLanguageRuntime);
 	}
 
-	public $registerLanguageRuntime(
+	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo> {
+		return new Promise((resolve, reject) => {
+			if (handle >= this._runtimes.length) {
+				return reject(new Error(`Language runtime handle '${handle}' not found or no longer valid.`));
+			}
+			this._runtimes[handle].start().then(info => {
+				resolve(info);
+			});
+		});
+	}
+
+	public registerLanguageRuntime(
 		runtime: vscode.LanguageRuntime): IDisposable {
-		const wrapper = new ExtHostLanguageWrapper(runtime);
-		this._proxy.$registerLanguageRuntimeAdapter(wrapper);
-		return wrapper;
+
+		// Register the runtime
+		this._runtimes.push(runtime);
+
+		// Create a handle and register the runtime with the main thread
+		const handle = this._runtimes.length;
+		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
+		return new Disposable(() => {
+			this._proxy.$unregisterLanguageRuntime(handle);
+		});
 	}
 }

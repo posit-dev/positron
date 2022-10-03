@@ -595,7 +595,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 		// --- Start Positron ---
 		const myriac: typeof vscode.myriac = {
 			registerLanguageRuntime(runtime: vscode.LanguageRuntime): vscode.Disposable {
-				return extHostLanguageRuntime.$registerLanguageRuntime(runtime);
+				return extHostLanguageRuntime.registerLanguageRuntime(runtime);
 			}
 		};
 		// --- End Positron ---
