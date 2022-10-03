@@ -35,6 +35,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Probably temporary: pull kernels from the notebook kernel service
 		this._notebookKernelService.onDidAddKernel((e: INotebookKernel) => {
 			this.registerNotebookRuntime(e.supportedLanguages[0], e);
+			this._logService.trace(`Added language runtime from notebook kernel service: ${e.label} (${e.id})`);
 		});
 	}
 
@@ -43,6 +44,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			throw new Error('A runtime for the language ' + runtime.language + ' is already registered.');
 		}
 		this._runtimes.set(runtime.language, runtime);
+		this._logService.trace(`Added new language runtime: ${runtime.language} (${runtime.id})`);
 		return toDisposable(() => {
 			this._runtimes.delete(runtime.language);
 		});
@@ -85,6 +87,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	startRuntime(id: string): void {
+		this._logService.trace(`Starting language runtime: '${id}'`);
 		const runtimes = this._runtimes.values();
 		for (const runtime of runtimes) {
 			if (runtime.id === id) {
@@ -95,7 +98,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				return;
 			}
 		}
-		throw new Error('No runtime with id ' + id + ' was found.');
+		throw new Error(`No runtime with id '${id}' was found.`);
 	}
 
 	getActiveRuntimes(): Array<ILanguageRuntime> {
