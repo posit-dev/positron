@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as vscode from 'vscode';
-import { ILanguageRuntimeInfo } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from '../extHost.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable } from 'vs/workbench/api/common/extHostTypes';
@@ -28,6 +28,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 			this._runtimes[handle].start().then(info => {
 				resolve(info);
+			});
+		});
+	}
+
+	$executeCode(handle: number, code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string> {
+		return new Promise((resolve, reject) => {
+			if (handle >= this._runtimes.length) {
+				return reject(new Error(`Language runtime handle '${handle}' not found or no longer valid.`));
+			}
+			this._runtimes[handle].execute(code, mode, errorBehavior).then(result => {
+				resolve(result);
 			});
 		});
 	}

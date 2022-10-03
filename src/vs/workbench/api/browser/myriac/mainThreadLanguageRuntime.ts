@@ -33,15 +33,18 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._stateEmitter.fire(state);
 	}
 
-	execute(code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Thenable<string> {
-		throw new Error('Method not implemented.');
+	execute(code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string> {
+		return this._proxy.$executeCode(this.handle, code, mode, errorBehavior);
 	}
+
 	interrupt(): void {
 		throw new Error('Method not implemented.');
 	}
+
 	restart(): void {
 		throw new Error('Method not implemented.');
 	}
+
 	shutdown(): void {
 		throw new Error('Method not implemented.');
 	}
