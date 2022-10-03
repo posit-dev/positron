@@ -546,7 +546,8 @@ unsafe fn append_roxygen_completions(token: &str, completions: &mut Vec<Completi
         };
 
         // TODO: What is the appropriate icon for us to use here?
-        if let Some(template) = entry["template"].as_str() {
+        let template = entry["template"].as_str();
+        if let Some(template) = template {
             let text = format!("{}{}", name, template);
             let pattern = Regex::new(r"\{([^}]+)\}").unwrap();
 
@@ -563,9 +564,13 @@ unsafe fn append_roxygen_completions(token: &str, completions: &mut Vec<Completi
             item.insert_text = Some(format!("@{}", label.as_str()));
         }
 
+        item.detail = Some(format!("@{}{}", name, template.unwrap_or("")));
         if let Some(description) = entry["description"].as_str() {
-            item.detail = Some(format!("@{}", name));
-            item.documentation = Some(Documentation::String(description.to_string()));
+            let markup = MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: description.to_string(),
+            };
+            item.documentation = Some(Documentation::MarkupContent(markup));
         }
 
         completions.push(item);
