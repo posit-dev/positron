@@ -65,7 +65,7 @@ export class LanguageRuntimeAdapter
 		return this._kernel.execute(code, mode, errorBehavior);
 	}
 
-	interrupt(): void {
+	public interrupt(): void {
 		throw new Error('Method not implemented.');
 	}
 
@@ -74,7 +74,7 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @returns A promise with information about the newly started runtime.
 	 */
-	start(): Thenable<vscode.LanguageRuntimeInfo> {
+	public start(): Thenable<vscode.LanguageRuntimeInfo> {
 		return new Promise<vscode.LanguageRuntimeInfo>((resolve, reject) => {
 			// Reject if the kernel is already running; only in the Unintialized state
 			// can we start the kernel
@@ -104,12 +104,12 @@ export class LanguageRuntimeAdapter
 		});
 	}
 
-	restart(): void {
+	public restart(): void {
 		this._kernel.shutdown(true);
 		this._kernel.start();
 	}
 
-	shutdown(): void {
+	public shutdown(): void {
 		this._kernel.shutdown(false);
 	}
 
@@ -185,7 +185,7 @@ export class LanguageRuntimeAdapter
 		this._state.fire(status);
 	}
 
-	dispose() {
+	public dispose() {
 		this.shutdown();
 	}
 }
