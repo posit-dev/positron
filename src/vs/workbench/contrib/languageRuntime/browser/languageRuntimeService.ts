@@ -48,6 +48,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		});
 	}
 
+	/**
+	 * Returns the list of all registered runtimes
+	 */
+	getAllRuntimes(): Array<ILanguageRuntime> {
+		return Array.from(this._runtimes.values());
+	}
+
 	registerNotebookRuntime(language: string, kernel: INotebookKernel): void {
 		// Create a language runtime from the notebook kernel; this triggers the
 		// creation of a NotebookLanguageRuntime object that wraps the kernel in
@@ -78,12 +85,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	startRuntime(id: string): void {
-		const kernels = this._runtimes.values();
-		for (const kernel of kernels) {
-			if (kernel.id === id) {
-				// TODO: this is where we start the kernel
-				this._onDidStartRuntime.fire(kernel);
-				this._activeRuntimes.push(kernel);
+		const runtimes = this._runtimes.values();
+		for (const runtime of runtimes) {
+			if (runtime.id === id) {
+				runtime.start().then(() => {
+					this._onDidStartRuntime.fire(runtime);
+					this._activeRuntimes.push(runtime);
+				});
 				return;
 			}
 		}

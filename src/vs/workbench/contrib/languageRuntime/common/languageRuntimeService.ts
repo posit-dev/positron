@@ -187,10 +187,17 @@ export interface ILanguageRuntimeService {
 	registerNotebookRuntime(language: string, kernel: INotebookKernel): void;
 
 	/**
+	 * Register a new language runtime
+	 *
 	 * @param runtime The LanguageRuntime to register
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntime): IDisposable;
+
+	/**
+	 * Returns the list of all registered runtimes
+	 */
+	getAllRuntimes(): Array<ILanguageRuntime>;
 
 	/**
 	 *
