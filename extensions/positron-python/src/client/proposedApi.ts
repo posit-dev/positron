@@ -151,7 +151,7 @@ export function buildProposedApi(
     );
 
     /**
-     * @deprecated Will be removed soon. Use {@link ProposedExtensionAPI.environment} instead.
+     * @deprecated Will be removed soon. Use {@link ProposedExtensionAPI.environments} instead.
      */
     let deprecatedEnvironmentsApi;
     try {
@@ -163,7 +163,7 @@ export function buildProposedApi(
     }
 
     const proposed: ProposedExtensionAPI = {
-        environment: {
+        environments: {
             getActiveEnvironmentPath(resource?: Resource) {
                 sendApiTelemetry('getActiveEnvironmentPath');
                 resource = resource && 'uri' in resource ? resource.uri : resource;
@@ -213,8 +213,8 @@ export function buildProposedApi(
                 sendApiTelemetry('resolveEnvironment');
                 return resolveEnvironment(path, discoveryApi);
             },
-            get all(): Environment[] {
-                sendApiTelemetry('all');
+            get known(): Environment[] {
+                sendApiTelemetry('known');
                 return discoveryApi.getEnvs().map((e) => convertEnvInfoAndGetReference(e));
             },
             async refreshEnvironments(options?: RefreshOptions) {
@@ -227,8 +227,8 @@ export function buildProposedApi(
                 sendApiTelemetry('onDidChangeEnvironments');
                 return onEnvironmentsChanged.event;
             },
-            ...deprecatedEnvironmentsApi,
         },
+        ...deprecatedEnvironmentsApi,
     };
     return proposed;
 }
