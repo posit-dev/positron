@@ -507,7 +507,7 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
 
 }
 
-unsafe fn append_roxygen_completions(token: &str, completions: &mut Vec<CompletionItem>) {
+unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<CompletionItem>) {
 
     // TODO: cache these?
     // TODO: use an indexer to build the tag list?

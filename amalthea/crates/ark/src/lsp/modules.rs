@@ -5,8 +5,6 @@
 //
 //
 
-use std::path::Path;
-
 use libR_sys::*;
 use log::info;
 use walkdir::WalkDir;
