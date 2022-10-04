@@ -5,9 +5,8 @@
 //
 //
 
-use log::info;
+use anyhow::*;
 use ropey::Rope;
-use stdext::*;
 use tower_lsp::lsp_types::TextDocumentContentChangeEvent;
 use tree_sitter::InputEdit;
 use tree_sitter::Parser;
@@ -74,22 +73,23 @@ impl Document {
         Self { contents: document, parser, ast }
     }
 
-    pub fn update(&mut self, change: &TextDocumentContentChangeEvent) {
+    pub fn ast(&self) -> Result<&Tree> {
+        self.ast.as_ref().context("internal error: document has no AST")
+    }
+
+    pub fn update(&mut self, change: &TextDocumentContentChangeEvent) -> Result<()> {
 
         // Extract edit range. Nothing to do if there wasn't an edit.
         let range = match change.range {
             Some(r) => r,
-            None => return,
+            None => return Ok(()),
         };
 
         // Update the AST. We do this before updating the underlying document
         // contents, because edit computations need to be done using the current
         // state of the document (prior to the edit being applied) so that byte
         // offsets can be computed correctly.
-        let ast = unwrap!(self.ast.as_mut(), {
-            info!("no AST available");
-            return;
-        });
+        let ast = self.ast.as_mut().context("internal error: document has no AST")?;
 
         let start_byte = self.contents.position_to_byte(range.start);
         let start_position = range.start.as_point();
@@ -117,6 +117,8 @@ impl Document {
 
         // We've edited the AST, and updated the document. We can now re-parse.
         self.ast = self.parser.parse(self.contents.to_string(), Some(&ast));
+
+        Ok(())
 
     }
 

@@ -11,12 +11,15 @@ use crate::utils::r_type2char;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Error {
     EvaluationError(String, String),
     UnexpectedLength(u32, u32),
     UnexpectedType(u32, Vec<u32>),
 }
+
+// empty implementation required for 'anyhow'
+impl std::error::Error for Error {}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

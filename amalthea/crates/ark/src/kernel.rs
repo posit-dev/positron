@@ -16,14 +16,17 @@ use amalthea::wire::execute_result::ExecuteResult;
 use amalthea::wire::input_request::InputRequest;
 use amalthea::wire::input_request::ShellInputRequest;
 use amalthea::wire::jupyter_message::Status;
+use anyhow::*;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::utils::r_inherits;
 use libR_sys::*;
-use log::{debug, trace, warn};
+use log::*;
 use serde_json::json;
+use std::result::Result::Ok;
+use std::result::Result::Err;
 use std::sync::mpsc::{Sender, SyncSender};
 
 use crate::request::Request;
@@ -142,15 +145,14 @@ impl Kernel {
     }
 
     /// Converts a data frame to HTML
-    pub fn to_html(frame: SEXP) -> String {
+    pub fn to_html(frame: SEXP) -> Result<String> {
 
         unsafe {
-            RFunction::from(".rs.format.toHtml")
+            let result = RFunction::from(".rs.format.toHtml")
                 .add(frame)
-                .call()
-                .unwrap()
-                .to::<String>()
-                .unwrap()
+                .call()?
+                .to::<String>()?;
+            Ok(result)
         }
 
     }
@@ -242,12 +244,14 @@ impl Kernel {
         trace!("Formatting value");
 
         // Handle data.frame specially
-        unsafe {
-            let value = Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv);
-            if r_inherits(value, "data.frame") {
-                data.insert("text/html".to_string(), json!(Kernel::to_html(value)));
-            }
-        };
+        let value = unsafe { Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv) };
+        let is_data_frame = unsafe { r_inherits(value, "data.frame") };
+        if is_data_frame {
+            match Kernel::to_html(value) {
+                Ok(html) => data.insert("text/html".to_string(), json!(html)),
+                Err(error) => { error!("{}", error); None },
+            };
+        }
 
         trace!("Sending kernel output: {}", self.output);
         if let Err(err) = self.iopub.send(IOPubMessage::ExecuteResult(ExecuteResult {
