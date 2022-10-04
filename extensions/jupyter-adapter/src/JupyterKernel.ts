@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import * as vscode from 'vscode';
 import * as zmq from 'zeromq';
 import * as path from 'path';
@@ -139,26 +139,33 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		let options = {};
 		if (this._spec.env) {
 			options = {
-				'env': this._spec.env
-			};
+				// The environment variables are passed in as Map, which
+				// Typescript doesn't think is compatible with
+				// NodeJS.ProcessEnv. But it totally is.
+				env: this._spec.env as any
+			} as SpawnOptions;
 		}
 
 		this.setStatus(vscode.RuntimeState.Starting);
 
 		this._channel.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
+		if (this._spec.env) {
+			this._channel.appendLine('Environment: ' + JSON.stringify(this._spec.env));
+		}
 
 		// Create separate output channel to show standard output from the kernel
 		const output = vscode.window.createOutputChannel(this._spec.display_name);
 		this._process = spawn(args[0], args.slice(1), options);
-		this._process.stdout?.on('data', (data) => {
+		this._process.stderr?.on('data', (data) => {
 			output.append(data.toString());
 		});
-		this._process.stderr?.on('data', (data) => {
+		this._process.stdout?.on('data', (data) => {
 			output.append(data.toString());
 		});
 		this._process.on('close', (code) => {
 			this.setStatus(vscode.RuntimeState.Exited);
 			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
+			output.dispose();
 		});
 		this._process.once('spawn', () => {
 			this._channel.appendLine(`${this._spec.display_name} kernel started`);
@@ -302,7 +309,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			originId: msg.parent_header ? msg.parent_header.msg_id : '',
 			socket: socket
 		};
-		this._channel.appendLine(`RECV ${socket}: ${JSON.stringify(msg)}`);
+		this._channel.appendLine(`RECV ${msg.header.msg_type} from ${socket}: ${JSON.stringify(msg)}`);
 		this.emit('message', packet);
 	}
 
@@ -433,7 +440,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			metadata: new Map(),
 			parent_header: {} as JupyterMessageHeader // eslint-disable-line
 		};
-		this._channel.appendLine(`SEND ${dest.title()}: ${JSON.stringify(msg)}`);
+		this._channel.appendLine(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
 		dest.socket().send(serializeJupyterMessage(msg, this._key));
 	}
 

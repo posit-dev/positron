@@ -163,7 +163,8 @@ export function startArkKernel(ext: vscode.Extension<any>,
         "language": "R",
         "env": {
             "RUST_LOG": "trace", // eslint-disable-line
-            "R_HOME": "/Library/Frameworks/R.framework/Resources" // eslint-disable-line
+            "R_HOME": "/Library/Frameworks/R.framework/Resources", // eslint-disable-line
+			"RUST_BACKTRACE": "1" // eslint-disable-line
         }
     };
 
