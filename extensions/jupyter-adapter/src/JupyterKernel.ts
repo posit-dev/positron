@@ -27,6 +27,7 @@ import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { findAvailablePort } from './PortFinder';
+import { StringDecoder } from 'string_decoder';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -155,12 +156,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Create separate output channel to show standard output from the kernel
 		const output = vscode.window.createOutputChannel(this._spec.display_name);
+		const decoder = new StringDecoder('utf8');
 		this._process = spawn(args[0], args.slice(1), options);
 		this._process.stderr?.on('data', (data) => {
-			output.append(data.toString());
+			output.append(decoder.write(data));
 		});
 		this._process.stdout?.on('data', (data) => {
-			output.append(data.toString());
+			output.append(decoder.write(data));
 		});
 		this._process.on('close', (code) => {
 			this.setStatus(vscode.RuntimeState.Exited);
