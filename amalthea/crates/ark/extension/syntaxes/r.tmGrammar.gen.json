@@ -210,22 +210,6 @@
                 }
             ]
         },
-        "latex": {
-            "patterns": [
-                {
-                    "name": "comment.line",
-                    "begin": "(\\\\\\w+)(\\{)",
-                    "beginCaptures": {
-                        "1": { "name": "keyword.other" },
-                        "2": { "name": "keyword.operator" }
-                    },
-                    "end": "(\\})",
-                    "endCaptures": {
-                        "1": { "name": "keyword.other" }
-                    }
-                }
-            ]
-        },
         "keywords": {
             "patterns": [
                 {
@@ -245,11 +229,80 @@
         },
         "keywords-builtin": {
             "name": "keyword.other",
-            "match": "(?:setGroupGeneric|setRefClass|setGeneric|NextMethod|setMethod|UseMethod|tryCatch|setClass|warning|require|library|R6Class|return|switch|attach|detach|source|stop|try)\\b"
+            "match": "(?:setGroupGeneric|setRefClass|setGeneric|NextMethod|setMethod|UseMethod|tryCatch|setClass|warning|require|library|R6Class|return|switch|attach|detach|source|stop|try)(?=\\()"
         },
         "keywords-constant": {
             "name": "constant.language",
             "match": "(?:NA_character_|NA_integer_|NA_complex_|NA_real_|TRUE|FALSE|NULL|Inf|NaN|NA|T|F)\\b"
+        },
+        "latex": {
+            "patterns": [
+                {
+                    "name": "keyword.other",
+                    "match": "\\\\\\w+"
+                }
+            ]
+        },
+        "markdown": {
+            "patterns": [
+                {
+                    "begin": "([`]{3,})\\s*(.*)",
+                    "beginCaptures": {
+                        "1": { "name": "comment.line" },
+                        "2": { "name": "entity.name.section" }
+                    },
+                    "end": "(\\1)",
+                    "endCaptures": {
+                        "1": { "name": "comment.line" }
+                    },
+                    "patterns": [
+                        {
+                            "name": "comment.line",
+                            "match": "^\\s*#+'"
+                        }
+                    ]
+                },
+                {
+                    "match": "(\\[)(?:(\\w+)(:{2,3}))?(\\w+)(\\(\\))?(\\])",
+                    "captures": {
+                        "1": { "name": "keyword.operator" },
+                        "2": { "name": "constant.other" },
+                        "3": { "name": "keyword.operator" },
+                        "4": { "name": "entity.name.function" },
+                        "5": { "name": "keyword.operator" },
+                        "6": { "name": "keyword.operator" }
+                    }
+                },
+                {
+                    "name": "markup.bold",
+                    "begin": "[*][*]",
+                    "end": "[*][*]"
+                },
+                {
+                    "name": "markup.bold",
+                    "begin": "__",
+                    "end": "__"
+                },
+                {
+                    "name": "markup.italic",
+                    "begin": "[*]",
+                    "end": "[*]"
+                },
+                {
+                    "name": "markup.italic",
+                    "begin": "_",
+                    "end": "_"
+                },
+                {
+                    "name": "markup.quote",
+                    "begin": "`",
+                    "end": "`"
+                },
+                {
+                    "name": "markup.underline.link",
+                    "match": "(<)([^>]*)(>)"
+                }
+            ]
         },
         "numbers": {
             "name": "constant.numeric",
@@ -325,10 +378,15 @@
             ]
         },
         "roxygen": {
-            "name": "comment.line.roxygen",
-            "begin": "^\\s*#+'",
+            "begin": "(^\\s*#+')",
+            "beginCaptures": {
+                "1": { "name": "comment.line.roxygen" }
+            },
             "end": "$",
             "patterns": [
+                {
+                    "include": "#markdown"
+                },
                 {
                     "include": "#roxygen-tokens"
                 },
@@ -337,7 +395,7 @@
                 },
                 {
                     "name": "comment.line",
-                    "match": "[^@\\\\]*"
+                    "match": "."
                 }
             ]
         },
