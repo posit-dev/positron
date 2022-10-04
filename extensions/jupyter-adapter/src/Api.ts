@@ -8,11 +8,18 @@ import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { LanguageRuntimeAdapter } from './LanguageRuntimeAdapter';
 
 export class Api implements vscode.Disposable {
-	constructor() {
+	constructor(private readonly _channel: vscode.OutputChannel) {
 	}
 
-	adaptKernel(kernel: JupyterKernelSpec): vscode.LanguageRuntime {
-		return new LanguageRuntimeAdapter(kernel);
+	/**
+	 * Create an adapter for a Jupyter-compatible kernel.
+	 *
+	 * @param kernel A Jupyter kernel spec containing the information needed to start the kernel.
+	 * @param integratedLsp  Whether the kernel is using an integrated language server.
+	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
+	 */
+	adaptKernel(kernel: JupyterKernelSpec, integratedLsp: boolean): vscode.LanguageRuntime {
+		return new LanguageRuntimeAdapter(kernel, integratedLsp, this._channel);
 	}
 
 	dispose() {

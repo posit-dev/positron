@@ -1,0 +1,49 @@
+{
+  "name": "jupyter-adapter",
+  "displayName": "Positron Jupyter Adapter",
+  "description": "Jupyter Kernel Protocol adapter for Positron Language Runtime",
+  "publisher": "posit",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.61.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Jupyter Heartbeat Interval",
+      "properties": {
+        "positron.jupyter.heartbeat": {
+          "scope": "window",
+          "type": "number",
+          "default": 10,
+          "description": "The interval between kernel heartbeat requests (0 to disable heartbeat checks)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:jupyter-adapter",
+    "watch": "gulp watch-extension:jupyter-adapter"
+  },
+  "devDependencies": {
+    "@types/uuid": "^8.3.3",
+    "@types/zeromq": "^5.2.1",
+    "electron-rebuild": "^3.2.9"
+  },
+  "dependencies": {
+    "uuid": "^8.3.2",
+    "vscode-nls": "^5.2.0",
+    "zeromq": "^5.2.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rstudio/myriac"
+  }
+}

@@ -14,3 +14,5 @@ pub mod modules;
 pub mod references;
 pub mod traits;
 pub mod util;
+pub mod handler;
+

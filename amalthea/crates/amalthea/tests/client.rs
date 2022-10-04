@@ -41,7 +41,11 @@ fn test_kernel() {
     thread::spawn(move || {
         let kernel = Kernel::new(connection_file).unwrap();
         kernel
-            .connect(shell, control, iopub_sender, iopub_receiver)
+            .connect(shell,
+                control,
+                None, // No LSP in test kernel
+                iopub_sender,
+                iopub_receiver)
             .unwrap();
     });
 

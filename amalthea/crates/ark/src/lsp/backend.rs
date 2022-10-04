@@ -13,6 +13,7 @@ use std::sync::mpsc::SyncSender;
 
 use dashmap::DashMap;
 use harp::r_lock;
+use log::debug;
 use log::info;
 use serde_json::Value;
 use stdext::*;
@@ -316,15 +317,16 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     /*
     NOTE: The example LSP from tower-lsp uses a TcpListener, but we're using a
     TcpStream because -- according to LSP docs -- the client and server roles
-    are reversed in terms of opening ports: the client listens, and the server a
-    connection to it. The client and server can't BOTH listen on the port, so we
-    let the client do it and connect to it here.
+    are reversed in terms of opening ports: the client listens, and the server
+    opens a connection to it. The client and server can't BOTH listen on the port,
+    so we let the client do it and connect to it here.
 
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
         .await
         .unwrap();
     let (stream, _) = listener.accept().await.unwrap();
     */
+    debug!("Connecting to LSP client at '{}'", address);
     let stream = TcpStream::connect(address).await.unwrap();
     let (read, write) = tokio::io::split(stream);
     #[cfg(feature = "runtime-agnostic")]

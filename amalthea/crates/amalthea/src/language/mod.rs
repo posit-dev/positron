@@ -7,3 +7,4 @@
 
 pub mod control_handler;
 pub mod shell_handler;
+pub mod lsp_handler;

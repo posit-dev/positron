@@ -35,17 +35,26 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Probably temporary: pull kernels from the notebook kernel service
 		this._notebookKernelService.onDidAddKernel((e: INotebookKernel) => {
 			this.registerNotebookRuntime(e.supportedLanguages[0], e);
+			this._logService.trace(`Added language runtime from notebook kernel service: ${e.label} (${e.id})`);
 		});
 	}
 
 	registerRuntime(runtime: ILanguageRuntime): IDisposable {
-		if (this._runtimes.has(runtime.language)) {
-			throw new Error('A runtime for the language ' + runtime.language + ' is already registered.');
+		if (this._runtimes.has(runtime.metadata.language)) {
+			throw new Error('A runtime for the language ' + runtime.metadata.language + ' is already registered.');
 		}
-		this._runtimes.set(runtime.language, runtime);
+		this._runtimes.set(runtime.metadata.language, runtime);
+		this._logService.trace(`Added new language runtime: ${runtime.metadata.language} (${runtime.metadata.id})`);
 		return toDisposable(() => {
-			this._runtimes.delete(runtime.language);
+			this._runtimes.delete(runtime.metadata.language);
 		});
+	}
+
+	/**
+	 * Returns the list of all registered runtimes
+	 */
+	getAllRuntimes(): Array<ILanguageRuntime> {
+		return Array.from(this._runtimes.values());
 	}
 
 	registerNotebookRuntime(language: string, kernel: INotebookKernel): void {
@@ -78,16 +87,18 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	startRuntime(id: string): void {
-		const kernels = this._runtimes.values();
-		for (const kernel of kernels) {
-			if (kernel.id === id) {
-				// TODO: this is where we start the kernel
-				this._onDidStartRuntime.fire(kernel);
-				this._activeRuntimes.push(kernel);
+		this._logService.trace(`Starting language runtime: '${id}'`);
+		const runtimes = this._runtimes.values();
+		for (const runtime of runtimes) {
+			if (runtime.metadata.id === id) {
+				runtime.start().then(() => {
+					this._onDidStartRuntime.fire(runtime);
+					this._activeRuntimes.push(runtime);
+				});
 				return;
 			}
 		}
-		throw new Error('No runtime with id ' + id + ' was found.');
+		throw new Error(`No runtime with id '${id}' was found.`);
 	}
 
 	getActiveRuntimes(): Array<ILanguageRuntime> {
