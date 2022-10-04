@@ -148,6 +148,7 @@ Available options:
 --connection_file FILE   Start the kernel with the given JSON connection file
                          (see the Jupyter kernel documentation for details)
 --version                Print the version of Ark
+--log FILE               Log to the given file
 --install                Install the kernel spec for Ark
 --help                   Print this help message
 "#
@@ -156,46 +157,77 @@ Available options:
 
 fn main() {
 
-    // Initialize the logger.
-    logger::initialize();
-
-    // Initialize harp.
-    harp::initialize();
-
     // Get an iterator over all the command-line arguments
     let mut argv = std::env::args();
 
     // Skip the first "argument" as it's the path/name to this executable
     argv.next();
 
+    let mut connection_file: Option<String> = None;
+    let mut log_file: Option<String> = None;
+    let mut has_action = false;
+
     // Process remaining arguments. TODO: Need an argument that can passthrough args to R
-    match argv.next() {
-        Some(arg) => {
-            match arg.as_str() {
-                "--connection_file" => {
-                    if let Some(file) = argv.next() {
-                        parse_file(&file);
-                    } else {
-                        eprintln!("A connection file must be specified with the --connection_file argument.");
-                    }
-                }
-                "--version" => {
-                    println!("Ark {}", env!("CARGO_PKG_VERSION"));
-                }
-                "--install" => {
-                    install_kernel_spec();
-                }
-                "--help" => {
-                    print_usage();
-                }
-                other => {
-                    eprintln!("Argument '{}' unknown", other);
+    while let Some(arg) = argv.next() {
+        match arg.as_str() {
+            "--connection_file" => {
+                if let Some(file) = argv.next() {
+                    connection_file = Some(file);
+                    has_action = true;
+                } else {
+                    eprintln!("A connection file must be specified with the --connection_file argument.");
+                    break;
                 }
             }
+            "--version" => {
+                println!("Ark {}", env!("CARGO_PKG_VERSION"));
+                has_action = true;
+            }
+            "--install" => {
+                install_kernel_spec();
+                has_action = true;
+            }
+            "--help" => {
+                print_usage();
+                has_action = true;
+            }
+            "--log" => {
+                if let Some(file) = argv.next() {
+                    log_file = Some(file);
+                } else {
+                    eprintln!("A log file must be specified with the --log argument.");
+                    break;
+                }
+            }
+            other => {
+                eprintln!("Argument '{}' unknown", other);
+                break;
+            }
         }
-        None => {
-            // No arguments, print usage and exit
-            print_usage();
-        }
+    }
+
+    // If the user didn't specify an action, print the usage instructions and
+    // exit
+    if !has_action  {
+        print_usage();
+        return;
+    }
+
+    if let Some(log) = log_file {
+        // Initialize the internal file-based logger when a log file is
+        // specified
+        logger::initialize(log.as_str());
+    } else {
+        // Otherwise, log to standard out with the log level determined
+        // by the RUST_LOG environment variable.
+        env_logger::init();
+    }
+
+    // Initialize harp.
+    harp::initialize();
+
+    // Parse the connection file and start the kernel
+    if let Some(connection) = connection_file {
+        parse_file(&connection);
     }
 }
