@@ -120,7 +120,8 @@ impl Kernel {
         // If we have an LSP handler, start it
         if let Some(lsp_handler) = lsp_handler {
             if let Some(lsp_port) = self.connection.lsp_port {
-                lsp_handler.lock().unwrap().start(self.connection.endpoint(lsp_port))?;
+                let client_address = format!("{}:{}", self.connection.ip, lsp_port);
+                lsp_handler.lock().unwrap().start(client_address)?;
             } else {
                 warn!("LSP handler supplied, but LSP port not specified in connection file. Not starting LSP server.");
             }
