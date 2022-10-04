@@ -41,9 +41,11 @@ export class LanguageRuntimeAdapter
 		this.onDidChangeRuntimeState = this._state.event;
 
 		// Bind to message stream from kernel
+		this.onMessage = this.onMessage.bind(this);
 		this._kernel.addListener('message', this.onMessage);
 
 		// Bind to status stream from kernel
+		this.onStatus = this.onStatus.bind(this);
 		this._kernel.addListener('status', this.onStatus);
 	}
 
