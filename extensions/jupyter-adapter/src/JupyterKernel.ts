@@ -26,7 +26,6 @@ import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
-import { findAvailablePort } from './PortFinder';
 import { StringDecoder } from 'string_decoder';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
@@ -52,11 +51,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _iopub: JupyterSocket | null;
 	private _heartbeat: JupyterSocket | null;
 
+	/** The LSP port (if the LSP has been started) */
+	private _lspClientPort: number | null;
+
 	private _heartbeatTimer: NodeJS.Timeout | null;
 	private _lastHeartbeat: number;
 
 	constructor(spec: JupyterKernelSpec,
-		private readonly _integratedLsp: boolean,
 		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
@@ -70,13 +71,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeat = null;
 		this._heartbeatTimer = null;
 		this._lastHeartbeat = 0;
+		this._lspClientPort = null;
 
 		this._status = vscode.RuntimeState.Uninitialized;
 		this._key = crypto.randomBytes(16).toString('hex');
 		this._sessionId = crypto.randomBytes(16).toString('hex');
 	}
 
-	public async start() {
+	public async start(lspClientPort: number) {
 
 		// Create ZeroMQ sockets
 		this._control = new JupyterSocket('Control', zmq.socket('dealer'));
@@ -100,11 +102,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		ports.push(await this._iopub.bind(ports));
 		ports.push(await this._heartbeat.bind(ports));
 
-		// If there is an integrated LSP, find a port for it
-		let lspPort = 0;
-		if (this._integratedLsp) {
-			lspPort = await findAvailablePort(ports, 25);
-		}
+		// Save LSP port so we can rebind in the case of a restart
+		this._lspClientPort = lspClientPort;
 
 		// Create connection definition
 		const conn: JupyterConnectionSpec = {
@@ -113,7 +112,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			stdin_port: this._stdin.port(),      // eslint-disable-line
 			iopub_port: this._iopub.port(),      // eslint-disable-line
 			hb_port: this._heartbeat.port(),     // eslint-disable-line
-			lsp_port: this._integratedLsp ? lspPort : undefined,  //eslint-disable-line
+			lsp_port: lspClientPort > 0 ? lspClientPort : undefined,  //eslint-disable-line
 			signature_scheme: 'hmac-sha256',     // eslint-disable-line
 			ip: '127.0.0.1',
 			transport: 'tcp',
@@ -272,7 +271,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Start the kernel again once the process finishes shutting down
 		this._process?.on('exit', () => {
 			this._channel.appendLine(`Waiting for '${this._spec.display_name}' to restart...`);
-			this.start();
+			// Start the kernel again, rebinding to the LSP client if we have
+			// one
+			this.start(this._lspClientPort ?? 0);
 		});
 	}
 

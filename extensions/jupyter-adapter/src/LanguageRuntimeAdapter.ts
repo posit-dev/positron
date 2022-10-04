@@ -21,12 +21,13 @@ export class LanguageRuntimeAdapter
 	private readonly _kernel: JupyterKernel;
 	private readonly _messages: vscode.EventEmitter<vscode.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<vscode.RuntimeState>;
+	private _lspPort: number | null = null;
 	readonly metadata: vscode.LanguageRuntimeMetadata;
 
 	constructor(private readonly _spec: JupyterKernelSpec,
-		integratedLsp: boolean,
+		private readonly _lsp: () => Promise<number> | null,
 		private readonly _channel: vscode.OutputChannel) {
-		this._kernel = new JupyterKernel(this._spec, integratedLsp, this._channel);
+		this._kernel = new JupyterKernel(this._spec, this._channel);
 
 		// Generate kernel metadata and ID
 		this.metadata = {
@@ -36,6 +37,9 @@ export class LanguageRuntimeAdapter
 			id: uuidv4(),
 		};
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
+
+		// No LSP port has been emitted yet
+		this._lspPort = null;
 
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<vscode.LanguageRuntimeMessage>();
@@ -86,40 +90,64 @@ export class LanguageRuntimeAdapter
 	public start(): Thenable<vscode.LanguageRuntimeInfo> {
 		this._channel.appendLine(`Starting ${this.metadata.language}...`);
 
+		// Reject if the kernel is already running; only in the Unintialized state
+		// can we start the kernel
+		if (this._kernel.status() !== vscode.RuntimeState.Uninitialized) {
+			this._channel.appendLine(`Not started (already running)`);
+			Promise.reject('Kernel is already running');
+		}
+
 		return new Promise<vscode.LanguageRuntimeInfo>((resolve, reject) => {
-			// Reject if the kernel is already running; only in the Unintialized state
-			// can we start the kernel
-			if (this._kernel.status() !== vscode.RuntimeState.Uninitialized) {
-				this._channel.appendLine(`Not started (already running)`);
-				reject('Kernel is already running');
-			}
-
-			// Attempt to start the kernel
-			this._kernel.start().then(() => {
-				this._channel.appendLine(`Sending info request to ${this.metadata.language}`);
-				// Send a kernel_info_request to get the kernel info
-				this._kernel.sendInfoRequest();
-
-				// Wait for the kernel_info_reply to come back
-				this._kernel.once('message', (msg: JupyterMessagePacket) => {
-					if (msg.msgType === 'kernel_info_reply') {
-						const message = msg.message as JupyterKernelInfoReply;
-						resolve({
-							banner: message.banner,
-							implementation_version: message.implementation_version,
-							language_version: message.language_info.version,
-						} as vscode.LanguageRuntimeInfo);
-					} else {
-						reject('Unexpected message type: ' + msg.msgType);
-					}
+			if (this._lsp) {
+				// If we have an LSP, start it, then start the kernel
+				this._lsp()!.then((port) => {
+					// Save the LSP port for use on restarts
+					this._lspPort = port;
+					return this.startKernel(port);
+				}).then((info) => {
+					resolve(info);
+				}).catch((err) => {
+					reject(err);
 				});
+			} else {
+				// Otherwise, just start the kernel
+				this.startKernel(0).then(info => {
+					resolve(info);
+				});
+			}
+		});
+	}
+
+	private async startKernel(lspPort: number): Promise<vscode.LanguageRuntimeInfo> {
+		await this._kernel.start(lspPort);
+		return await this.getKernelInfo();
+	}
+
+	private getKernelInfo(): Promise<vscode.LanguageRuntimeInfo> {
+		// Send a kernel_info_request to get the kernel info
+		this._channel.appendLine(`Sending info request to ${this.metadata.language}`);
+		this._kernel.sendInfoRequest();
+
+		return new Promise<vscode.LanguageRuntimeInfo>((resolve, reject) => {
+			// Wait for the kernel_info_reply to come back
+			this._kernel.once('message', (msg: JupyterMessagePacket) => {
+				if (msg.msgType === 'kernel_info_reply') {
+					const message = msg.message as JupyterKernelInfoReply;
+					resolve({
+						banner: message.banner,
+						implementation_version: message.implementation_version,
+						language_version: message.language_info.version,
+					} as vscode.LanguageRuntimeInfo);
+				} else {
+					reject('Unexpected message type: ' + msg.msgType);
+				}
 			});
 		});
 	}
 
 	public restart(): void {
 		this._kernel.shutdown(true);
-		this._kernel.start();
+		this._kernel.start(this._lspPort ?? 0);
 	}
 
 	public shutdown(): void {
