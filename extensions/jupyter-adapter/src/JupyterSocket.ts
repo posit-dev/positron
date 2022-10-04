@@ -87,6 +87,15 @@ export class JupyterSocket implements Disposable {
 	}
 
 	/**
+	 * Gets the title of the socket (for debugging purposes)
+	 *
+	 * @returns The title of the socket
+	 */
+	public title(): string {
+		return this._title;
+	}
+
+	/**
 	 * Cleans up the socket.
 	 */
 	public dispose(): void {

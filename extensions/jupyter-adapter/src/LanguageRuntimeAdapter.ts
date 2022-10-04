@@ -23,8 +23,10 @@ export class LanguageRuntimeAdapter
 	private readonly _state: vscode.EventEmitter<vscode.RuntimeState>;
 	readonly metadata: vscode.LanguageRuntimeMetadata;
 
-	constructor(private readonly _spec: JupyterKernelSpec, integratedLsp: boolean) {
-		this._kernel = new JupyterKernel(this._spec, integratedLsp);
+	constructor(private readonly _spec: JupyterKernelSpec,
+		integratedLsp: boolean,
+		private readonly _channel: vscode.OutputChannel) {
+		this._kernel = new JupyterKernel(this._spec, integratedLsp, this._channel);
 
 		// Generate kernel metadata and ID
 		this.metadata = {
@@ -33,6 +35,7 @@ export class LanguageRuntimeAdapter
 			version: '0.0.1',
 			id: uuidv4(),
 		};
+		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
 
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<vscode.LanguageRuntimeMessage>();
@@ -63,11 +66,15 @@ export class LanguageRuntimeAdapter
 		mode: vscode.RuntimeCodeExecutionMode,
 		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
 
+		this._channel.appendLine(`Sending code to ${this.metadata.language}: ${code}`);
+
 		// Forward execution request to the kernel
 		return this._kernel.execute(code, mode, errorBehavior);
 	}
 
 	public interrupt(): void {
+		this._channel.appendLine(`Interrupting ${this.metadata.language}`);
+
 		throw new Error('Method not implemented.');
 	}
 
@@ -77,15 +84,19 @@ export class LanguageRuntimeAdapter
 	 * @returns A promise with information about the newly started runtime.
 	 */
 	public start(): Thenable<vscode.LanguageRuntimeInfo> {
+		this._channel.appendLine(`Starting ${this.metadata.language}...`);
+
 		return new Promise<vscode.LanguageRuntimeInfo>((resolve, reject) => {
 			// Reject if the kernel is already running; only in the Unintialized state
 			// can we start the kernel
 			if (this._kernel.status() !== vscode.RuntimeState.Uninitialized) {
+				this._channel.appendLine(`Not started (already running)`);
 				reject('Kernel is already running');
 			}
 
 			// Attempt to start the kernel
 			this._kernel.start().then(() => {
+				this._channel.appendLine(`Sending info request to ${this.metadata.language}`);
 				// Send a kernel_info_request to get the kernel info
 				this._kernel.sendInfoRequest();
 

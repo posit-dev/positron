@@ -54,7 +54,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _heartbeatTimer: NodeJS.Timeout | null;
 	private _lastHeartbeat: number;
 
-	constructor(spec: JupyterKernelSpec, private readonly _integratedLsp: boolean) {
+	constructor(spec: JupyterKernelSpec,
+		private readonly _integratedLsp: boolean,
+		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
 		this._process = null;
@@ -143,8 +145,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		this.setStatus(vscode.RuntimeState.Starting);
 
+		this._channel.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
+
+		// Create separate output channel to show standard output from the kernel
 		const output = vscode.window.createOutputChannel(this._spec.display_name);
-		output.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
 		this._process = spawn(args[0], args.slice(1), options);
 		this._process.stdout?.on('data', (data) => {
 			output.append(data.toString());
@@ -154,24 +158,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		});
 		this._process.on('close', (code) => {
 			this.setStatus(vscode.RuntimeState.Exited);
-			output.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
+			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
 		});
 		this._process.once('spawn', () => {
-			console.log(`${this._spec.display_name} kernel started`);
+			this._channel.appendLine(`${this._spec.display_name} kernel started`);
 			this._heartbeat?.socket().once('message', (msg: string) => {
 
-				console.log('Receieved initial heartbeat: ' + msg);
+				this._channel.appendLine('Receieved initial heartbeat: ' + msg);
 				this.setStatus(vscode.RuntimeState.Ready);
 
 				const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
 				if (seconds > 0) {
-					console.info(`Starting heartbeat check at ${seconds} second intervals...`);
+					this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
 					this.heartbeat();
 					this._heartbeat?.socket().on('message', (msg: string) => {
 						this.onHeartbeat(msg);
 					});
 				} else {
-					console.info(`Heartbeat check disabled via configuration.`);
+					this._channel.appendLine(`Heartbeat check disabled via configuration.`);
 				}
 			});
 			this._heartbeat?.socket().send(['hello']);
@@ -182,21 +186,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._iopub.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
-				console.log('iopub message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.iopub, msg);
 			}
 		});
 		this._shell.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
-				console.log('shell message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.shell, msg);
 			}
 		});
 		this._stdin.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._key);
 			if (msg !== null) {
-				console.log('stdin message: ' + JSON.stringify(msg));
 				this.emitMessage(JupyterSockets.stdin, msg);
 			}
 		});
@@ -211,6 +212,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	public startLsp(clientAddress: string) {
 		// TODO: Should we query the kernel to see if it can create an LSP
 		// (QueryInterface style) instead of just demanding it?
+
+		this._channel.appendLine(`Starting LSP server for ${clientAddress}`);
 
 		// Create the message to send to the kernel
 		const msg: JupyterCommOpen = {
@@ -258,9 +261,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.shutdown(true);
 
 		// Start the kernel again once the process finishes shutting down
-		console.info(`Waiting for '${this._spec.display_name}' to shut down...`);
 		this._process?.on('exit', () => {
-			console.info(`Waiting for '${this._spec.display_name}' to restart...`);
+			this._channel.appendLine(`Waiting for '${this._spec.display_name}' to restart...`);
 			this.start();
 		});
 	}
@@ -270,7 +272,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public shutdown(restart: boolean) {
 		this.setStatus(vscode.RuntimeState.Exiting);
-		console.info('Requesting shutdown of kernel: ' + this._spec.display_name);
 		const msg: JupyterShutdownRequest = {
 			restart: restart
 		};
@@ -282,7 +283,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public interrupt() {
 		this.setStatus(vscode.RuntimeState.Interrupting);
-		console.info('Requesting interrupt of kernel: ' + this._spec.display_name);
 		const msg: JupyterInterruptRequest = {};
 		this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
@@ -302,6 +302,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			originId: msg.parent_header ? msg.parent_header.msg_id : '',
 			socket: socket
 		};
+		this._channel.appendLine(`RECV ${socket}: ${JSON.stringify(msg)}`);
 		this.emit('message', packet);
 	}
 
@@ -381,7 +382,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		}
 
 		if (socket === null) {
-			console.warn(`No socket ${packet.socket} found.`);
+			this._channel.appendLine(`No socket ${packet.socket} found.`);
 			return;
 		}
 
@@ -401,7 +402,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeat?.dispose();
 		this._iopub?.dispose();
 
-		console.log('Shutting down ' + this._spec.display_name + ' kernel');
+		this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
 		this.shutdown(false);
 	}
 
@@ -432,7 +433,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			metadata: new Map(),
 			parent_header: {} as JupyterMessageHeader // eslint-disable-line
 		};
-		console.log('sending request: ' + JSON.stringify(msg));
+		this._channel.appendLine(`SEND ${dest.title()}: ${JSON.stringify(msg)}`);
 		dest.socket().send(serializeJupyterMessage(msg, this._key));
 	}
 
@@ -441,8 +442,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private heartbeat() {
 		const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
-		console.info('Sent heartbeat message to kernel');
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
+		this._channel.appendLine(`SEND heartbeat`);
 		this._heartbeat?.socket().send(['hello']);
 		this._heartbeatTimer = setTimeout(() => {
 			// If the kernel hasn't responded in the given amount of time,
@@ -466,7 +467,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (this._lastHeartbeat) {
 			const now = new Date().getUTCMilliseconds();
 			const diff = now - this._lastHeartbeat;
-			console.info(`Heartbeat received from kernel in ${diff}ms: ${msg}`);
+			this._channel.appendLine(`Heartbeat received in ${diff}ms: ${msg}`);
 		}
 
 		// Schedule the next heartbeat at the configured interval
