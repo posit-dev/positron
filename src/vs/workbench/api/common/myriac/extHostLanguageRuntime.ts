@@ -46,11 +46,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public registerLanguageRuntime(
 		runtime: vscode.LanguageRuntime): IDisposable {
 
+		// Create a handle and register the runtime with the main thread
+		const handle = this._runtimes.length;
+
 		// Register the runtime
 		this._runtimes.push(runtime);
 
-		// Create a handle and register the runtime with the main thread
-		const handle = this._runtimes.length;
 		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
