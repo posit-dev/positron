@@ -192,19 +192,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Subscribe to all topics
 		this._iopub.socket().subscribe('');
 		this._iopub.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.iopub, msg);
 			}
 		});
 		this._shell.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.shell, msg);
 			}
 		});
 		this._stdin.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.stdin, msg);
 			}
@@ -360,7 +360,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Send the execution request to the kernel
-		this.send(executionId, 'execute_request', this._shell!, msg);
+		return new Promise<string>((resolve, reject) => {
+			this.send(executionId, 'execute_request', this._shell!, msg)
+				.then(() => {
+					// Return the execution request ID after successful
+					// submission
+					resolve(executionId);
+				}).catch((err) => {
+					// Fail if we couldn't connect to the socket
+					reject(err);
+				});
+		});
+
 
 		return Promise.resolve(executionId);
 	}
@@ -435,7 +446,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param dest The socket to which the message should be sent
 	 * @param message The body of the message
 	 */
-	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec) {
+	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec): Promise<void> {
 		const msg: JupyterMessage = {
 			buffers: [],
 			content: message,
@@ -444,7 +455,17 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			parent_header: {} as JupyterMessageHeader // eslint-disable-line
 		};
 		this._channel.appendLine(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
-		dest.socket().send(serializeJupyterMessage(msg, this._key));
+		return new Promise<void>((resolve, reject) => {
+			dest.socket().send(serializeJupyterMessage(msg, this._key), 0, (err) => {
+				if (err) {
+					this._channel.appendLine(`SEND ${msg.header.msg_type}: ERR: ${err}`);
+					reject(err);
+				} else {
+					this._channel.appendLine(`SEND ${msg.header.msg_type}: OK`);
+					resolve();
+				}
+			});
+		});
 	}
 
 	/**
