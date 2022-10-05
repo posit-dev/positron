@@ -49,16 +49,24 @@ export class JupyterSocket implements vscode.Disposable {
 		const maxTries = 25;
 
 		// Tracing for successful connections
-		this._socket.on('connect', () => {
-			this._channel.appendLine(`${this._title} socket accepted connection to ${this._addr}`);
+		this._socket.on('connect', (_evt, addr) => {
+			this._channel.appendLine(`${this._title} socket accepted connection to ${addr}`);
 		});
 
 		// Tracing for failed connections
-		this._socket.on('connect_delay', () => {
-			this._channel.appendLine(`${this._title} socket connection synchronous delay`);
+		this._socket.on('connect_delay', (evt, addr) => {
+			this._channel.appendLine(`${this._title} socket connection could not connect to ${addr}: ${evt}`);
 		});
-		this._socket.on('connect_retry', () => {
-			this._channel.appendLine(`${this._title} socket connection timed out; retrying`);
+		this._socket.on('connect_retry', (evt, addr, error) => {
+			this._channel.appendLine(`${this._title} socket connection retrying to ${addr}: ${evt} (${error})`);
+		});
+
+		// Trace socket close events
+		this._socket.on('close', (evt, addr) => {
+			this._channel.appendLine(`${this._title} socket connection to ${addr} closed: ${evt}`);
+		});
+		this._socket.on('close_error', (evt, addr, error) => {
+			this._channel.appendLine(`${this._title} socket failed to close connection to ${addr}: ${evt} (${error})`);
 		});
 
 		return new Promise((resolve, reject) => {
