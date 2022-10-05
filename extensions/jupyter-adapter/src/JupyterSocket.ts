@@ -47,12 +47,36 @@ export class JupyterSocket implements vscode.Disposable {
 	 */
 	public async bind(excluding: Array<number>): Promise<number> {
 		const maxTries = 25;
+
+		// Tracing for successful connections
+		this._socket.on('connect', () => {
+			this._channel.appendLine(`${this._title} socket accepted connection to ${this._addr}`);
+		});
+
+		// Tracing for failed connections
+		this._socket.on('connect_delay', () => {
+			this._channel.appendLine(`${this._title} socket connection synchronous delay`);
+		});
+		this._socket.on('connect_retry', () => {
+			this._channel.appendLine(`${this._title} socket connection timed out; retrying`);
+		});
+
 		return new Promise((resolve, reject) => {
 			findAvailablePort(excluding, maxTries).then((port: number) => {
 				this._port = port;
 				this._addr = 'tcp://127.0.0.1:' + port.toString();
+				this._channel.appendLine(`${this._title} socket connecting to ${this._addr}...`);
+
+				// Ensure we retry if the connection times out; otherwise
+				// retries don't happen and the socket waits forever
+				this._socket.setsockopt(zmq.ZMQ_CONNECT_TIMEOUT, 2000);
+
+				// Monitor the socket for events; this is necessary to
+				// get events like `connect` to fire (otherwise we just
+				// get `message` events from the socket)
+				this._socket.monitor();
+
 				this._socket.connect(this._addr);
-				this._channel.appendLine(`${this._title} socket connected to ${this._addr}`);
 				resolve(port);
 			})
 				.catch((err) => {
