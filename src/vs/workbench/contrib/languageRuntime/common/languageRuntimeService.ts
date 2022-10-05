@@ -218,13 +218,6 @@ export interface ILanguageRuntimeService {
 	getActiveRuntime(language: string | null): ILanguageRuntime | undefined;
 
 	/**
-	 * Selects the active language runtime
-	 *
-	 * @param language The language to select
-	 */
-	setActiveRuntime(language: string): void;
-
-	/**
 	 * Gets the set of active runtimes
 	 */
 	getActiveRuntimes(): Array<ILanguageRuntime>;
