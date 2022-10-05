@@ -162,8 +162,11 @@ export interface ILanguageRuntime {
 	/** An object that emits language runtime events */
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
-	/** The current state of the runtime */
+	/** An object that emits events when the runtime state changes */
 	onDidChangeRuntimeState: Event<RuntimeState>;
+
+	/** The current state of the runtime (tracks events above) */
+	getRuntimeState(): RuntimeState;
 
 	/** Execute code in the runtime; returns the ID of the code execution. */
 	execute(code: string,
