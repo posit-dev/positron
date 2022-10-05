@@ -49,6 +49,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Create a handle and register the runtime with the main thread
 		const handle = this._runtimes.length;
 
+		// Wire event handlers for state changes and messages
+		runtime.onDidChangeRuntimeState(state =>
+			this._proxy.$emitLanguageRuntimeState(handle, state));
+		runtime.onDidReceiveRuntimeMessage(message =>
+			this._proxy.$emitLanguageRuntimeMessage(handle, message));
+
 		// Register the runtime
 		this._runtimes.push(runtime);
 

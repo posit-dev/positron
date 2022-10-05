@@ -223,6 +223,7 @@ export class LanguageRuntimeAdapter
 	 * @param status The new status of the kernel
 	 */
 	onStatus(status: vscode.RuntimeState) {
+		this._channel.appendLine(`Kernel status changed to ${status}`);
 		this._state.fire(status);
 	}
 
