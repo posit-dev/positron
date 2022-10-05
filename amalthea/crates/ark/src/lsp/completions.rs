@@ -8,6 +8,9 @@
 use std::collections::HashSet;
 use std::path::Path;
 
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::bail;
 use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -16,9 +19,8 @@ use harp::protect::RProtect;
 use harp::r_lock;
 use harp::r_string;
 use harp::r_symbol;
-use harp::utils::r_inherits;
 use libR_sys::*;
-use log::info;
+use log::*;
 use regex::Captures;
 use regex::Regex;
 use stdext::*;
@@ -39,20 +41,20 @@ use crate::lsp::document::Document;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
+use crate::lsp::traits::tree::TreeExt;
 
-fn completion_item_from_identifier(node: &Node, source: &str) -> CompletionItem {
-    let label = node.utf8_text(source.as_bytes()).expect("empty assignee");
+fn completion_item_from_identifier(node: &Node, source: &str) -> Result<CompletionItem> {
+    let label = node.utf8_text(source.as_bytes())?;
     let detail = format!("Defined on line {}", node.start_position().row + 1);
-    return CompletionItem::new_simple(label.to_string(), detail);
+    return Ok(CompletionItem::new_simple(label.to_string(), detail));
 }
 
+fn completion_item_from_assignment(node: &Node, source: &str) -> Result<CompletionItem> {
 
-fn completion_item_from_assignment(node: &Node, source: &str) -> Option<CompletionItem> {
+    let lhs = node.child(0).context("unexpected missing assignment name")?;
+    let rhs = node.child(2).context("unexpected missing assignment value")?;
 
-    let lhs = unwrap!(node.child(0), { return None; });
-    let rhs = unwrap!(node.child(2), { return None; });
-
-    let label = lhs.utf8_text(source.as_bytes()).expect("empty assignee");
+    let label = lhs.utf8_text(source.as_bytes())?;
     let detail = format!("Defined on line {}", lhs.start_position().row + 1);
 
     let mut item = CompletionItem::new_simple(format!("{}()", label), detail);
@@ -63,7 +65,8 @@ fn completion_item_from_assignment(node: &Node, source: &str) -> Option<Completi
         item.insert_text = Some(format!("{}($0)", label));
     }
 
-    return Some(item);
+    return Ok(item);
+
 }
 
 struct CompletionData {
@@ -72,7 +75,7 @@ struct CompletionData {
     visited: HashSet<usize>,
 }
 
-unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
+unsafe fn completion_item_from_package(package: &str) -> Result<CompletionItem> {
 
     let mut item = CompletionItem {
         label: package.to_string(),
@@ -91,8 +94,7 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
     // filtering of completion results based on the current token.
     let documentation = RFunction::from(".rs.help.package")
         .add(package)
-        .call()
-        .unwrap();
+        .call()?;
 
     if TYPEOF(*documentation) as u32 == VECSXP {
 
@@ -113,11 +115,11 @@ unsafe fn completion_item_from_package(package: &str) -> CompletionItem {
 
     }
 
-    return item;
+    return Ok(item);
 
 }
 
-unsafe fn completion_item_from_function(name: &str) -> CompletionItem {
+unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
 
     let label = format!("{}()", name);
     let detail = "(Function)";
@@ -131,44 +133,43 @@ unsafe fn completion_item_from_function(name: &str) -> CompletionItem {
     // TODO: Include 'detail' based on the function signature?
     // TODO: Include help documentation?
 
-    return item;
+    return Ok(item);
 }
 
-unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP) -> Option<CompletionItem> {
+unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP) -> Result<CompletionItem> {
 
     // TODO: Can we figure out the object type without forcing promise evaluation?
     if TYPEOF(object) as u32 == PROMSXP {
         let mut errc = 0;
         object = R_tryEvalSilent(object, envir, &mut errc);
         if errc != 0 {
-            info!("Error creating completion item: {}", geterrmessage());
-            return None;
+            bail!("Error creating completion item: {}", geterrmessage());
         }
     }
 
     if Rf_isFunction(object) != 0 {
-        return Some(completion_item_from_function(name));
+        return completion_item_from_function(name);
     }
 
     let mut item = CompletionItem::new_simple(name.to_string(), "(Object)".to_string());
     item.kind = Some(CompletionItemKind::STRUCT);
-    return Some(item);
+    return Ok(item);
 
 }
 
-unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Option<CompletionItem> {
+unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<CompletionItem> {
 
     let symbol = r_symbol!(name);
     let object = Rf_findVarInFrame(envir, symbol);
     if object == R_UnboundValue {
-        return None;
+        bail!("Object '{}' not defined in environment {:?}", name, envir);
     }
 
     return completion_item_from_object(name, object, envir);
 
 }
 
-unsafe fn completion_item_from_parameter(string: impl ToString, callee: impl ToString) -> CompletionItem {
+unsafe fn completion_item_from_parameter(string: impl ToString, callee: impl ToString) -> Result<CompletionItem> {
 
     let mut item = CompletionItem::new_simple(string.to_string(), callee.to_string());
     item.kind = Some(CompletionItemKind::FIELD);
@@ -189,7 +190,7 @@ unsafe fn completion_item_from_parameter(string: impl ToString, callee: impl ToS
         value: "# This is some Markdown.".to_string(),
     }));
 
-    return item;
+    return Ok(item);
 
 }
 
@@ -238,8 +239,9 @@ fn append_defined_variables(node: &Node, data: &mut CompletionData, completions:
             "left_assignment" | "super_assignment" | "equals_assignment" => {
 
                 // check for a valid completion
-                if let Some(completion) = completion_item_from_assignment(&node, &data.source) {
-                    completions.push(completion);
+                match completion_item_from_assignment(&node, &data.source) {
+                    Ok(item) => completions.push(item),
+                    Err(error) => error!("{}", error),
                 }
 
                 // return true in case we have nested assignments
@@ -279,29 +281,25 @@ fn append_defined_variables(node: &Node, data: &mut CompletionData, completions:
 
 }
 
-fn append_function_parameters(node: &Node, data: &mut CompletionData, completions: &mut Vec<CompletionItem>) {
+fn append_function_parameters(node: &Node, data: &mut CompletionData, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     let mut cursor = node.walk();
 
     if !cursor.goto_first_child() {
-        info!("goto_first_child() failed");
-        return;
+        bail!("goto_first_child() failed");
     }
 
     if !cursor.goto_next_sibling() {
-        info!("goto_next_sibling() failed");
-        return;
+        bail!("goto_next_sibling() failed");
     }
 
     let kind = cursor.node().kind();
     if kind != "formal_parameters" {
-        info!("unexpected node kind {}", kind);
-        return;
+        bail!("unexpected node kind {}", kind);
     }
 
     if !cursor.goto_first_child() {
-        info!("goto_first_child() failed");
-        return;
+        bail!("goto_first_child() failed");
     }
 
     // The R tree-sitter grammar doesn't parse an R function's formals list into
@@ -311,9 +309,14 @@ fn append_function_parameters(node: &Node, data: &mut CompletionData, completion
     while cursor.goto_next_sibling() {
         let node = cursor.node();
         if node.kind() == "identifier" {
-            completions.push(completion_item_from_identifier(&node, &data.source));
+            match completion_item_from_identifier(&node, &data.source) {
+                Ok(item) => completions.push(item),
+                Err(error) => error!("{}", error),
+            }
         }
     }
+
+    Ok(())
 
 }
 
@@ -337,7 +340,7 @@ unsafe fn list_namespace_symbols(namespace: SEXP) -> RObject {
     return RObject::new(R_lsInternal(namespace, 1));
 }
 
-unsafe fn append_parameter_completions(document: &Document, callee: &str, completions: &mut Vec<CompletionItem>) {
+unsafe fn append_parameter_completions(document: &Document, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_parameter_completions({:?})", callee);
 
@@ -348,10 +351,12 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
             IndexedSymbol::Function { name, arguments } => {
                 if name == callee {
                     for argument in arguments {
-                        let item = completion_item_from_parameter(argument, name.clone());
-                        completions.push(item);
+                        match completion_item_from_parameter(argument, name.clone()) {
+                            Ok(item) => completions.push(item),
+                            Err(error) => error!("{}", error),
+                        }
                     }
-                    return;
+                    return Ok(());
                 }
             }
         }
@@ -369,8 +374,7 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
     let parsed_sexp = protect.add(R_ParseVector(string_sexp, 1, &mut status, R_NilValue));
 
     if status != ParseStatus_PARSE_OK {
-        info!("Error parsing {} [status {}]", callee, status);
-        return;
+        bail!("Error parsing {} [status {}]", callee, status);
     }
 
     // Evaluate the text. We use evaluation here to make it easier to support
@@ -383,8 +387,7 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
         let mut errc : i32 = 0;
         value = R_tryEvalSilent(expr, R_GlobalEnv, &mut errc);
         if errc != 0 {
-            dbg!("Error evaluating {}", callee);
-            return;
+            bail!("Error evaluating {}: {}", callee, geterrmessage());
         }
     }
 
@@ -394,36 +397,33 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 
     if Rf_isFunction(value) != 0 {
 
-        let names = RFunction::from(".rs.formalNames")
+        let strings = RFunction::from(".rs.formalNames")
             .add(value)
-            .call()
-            .unwrap();
-
-        if r_inherits(*names, "error") {
-            return;
-        }
+            .call()?
+            .to::<Vec<String>>()?;
 
         // Return the names of these formals.
-        if let Ok(strings) = names.to::<Vec<String>>() {
-            for string in strings.iter() {
-                let item = completion_item_from_parameter(string, callee);
-                completions.push(item);
+        for string in strings.iter() {
+            match completion_item_from_parameter(string, callee) {
+                Ok(item) => completions.push(item),
+                Err(error) => error!("{}", error),
             }
         }
 
     }
 
+    Ok(())
+
 }
 
-unsafe fn append_namespace_completions(package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) {
+unsafe fn append_namespace_completions(package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_namespace_completions({:?}, {})", package, exports_only);
 
     // Get the package namespace.
     let namespace = RFunction::new("base", "getNamespace")
         .add(package)
-        .call()
-        .unwrap();
+        .call()?;
 
     let symbols = if package == "base" {
         list_namespace_symbols(*namespace)
@@ -433,19 +433,14 @@ unsafe fn append_namespace_completions(package: &str, exports_only: bool, comple
         list_namespace_symbols(*namespace)
     };
 
-    if TYPEOF(*symbols) as u32 != STRSXP {
-        info!("Unexpected SEXPTYPE {}", TYPEOF(*symbols));
-        return;
-    }
-
-    // Create completion items for each.
-    if let Ok(strings) = symbols.to::<Vec<String>>() {
-        for string in strings.iter() {
-            if let Some(item) = completion_item_from_symbol(string, *namespace) {
-                completions.push(item);
-            }
+    let strings = symbols.to::<Vec<String>>()?;
+    for string in strings.iter() {
+        if let Ok(item) = completion_item_from_symbol(string, *namespace) {
+            completions.push(item);
         }
     }
+
+    Ok(())
 
 }
 
@@ -466,7 +461,7 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
 
 }
 
-unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) {
+unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     // Iterate through environments starting from the global environment.
     let mut envir = R_GlobalEnv;
@@ -477,11 +472,10 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
         let symbols = R_lsInternal(envir, 1);
 
         // Create completion items for each.
-        if let Ok(strings) = RObject::new(symbols).to::<Vec<String>>() {
-            for string in strings.iter() {
-                if let Some(item) = completion_item_from_symbol(string, envir) {
-                    completions.push(item);
-                }
+        let strings = RObject::new(symbols).to::<Vec<String>>()?;
+        for string in strings.iter() {
+            if let Ok(item) = completion_item_from_symbol(string, envir) {
+                completions.push(item);
             }
         }
 
@@ -494,38 +488,35 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
     // TODO: This can be slow on NFS.
     let packages = RFunction::new("base", ".packages")
         .param("all.available", true)
-        .call()
-        .unwrap();
+        .call()?;
 
-    if let Ok(strings) = packages.to::<Vec<String>>() {
-        for string in strings.iter() {
-            let item = completion_item_from_package(string);
-            completions.push(item);
-        }
+    let strings = packages.to::<Vec<String>>()?;
+    for string in strings.iter() {
+        let item = completion_item_from_package(string)?;
+        completions.push(item);
     }
 
+    Ok(())
 
 }
 
-unsafe fn append_roxygen_completions(token: &str, completions: &mut Vec<CompletionItem>) {
+unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     // TODO: cache these?
     // TODO: use an indexer to build the tag list?
     let tags = RFunction::new("base", "system.file")
         .param("package", "roxygen2")
         .add("roxygen2-tags.yml")
-        .call()
-        .unwrap()
-        .to::<String>()
-        .unwrap();
+        .call()?
+        .to::<String>()?;
 
     if tags.is_empty() {
-        return;
+        return Ok(());
     }
 
     let tags = Path::new(&tags);
     if !tags.exists() {
-        return;
+        return Ok(());
     }
 
     let contents = std::fs::read_to_string(tags).unwrap();
@@ -577,6 +568,8 @@ unsafe fn append_roxygen_completions(token: &str, completions: &mut Vec<Completi
 
     }
 
+    return Ok(());
+
 }
 
 pub(crate) fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> bool {
@@ -613,13 +606,13 @@ pub(crate) fn can_provide_completions(document: &mut Document, params: &Completi
 
 }
 
-pub(crate) fn append_session_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) {
+pub(crate) fn append_session_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_session_completions()");
 
     // get reference to AST
     let ast = unwrap!(document.ast.as_ref(), {
-        return;
+        bail!("Error retrieving document AST")
     });
 
     // get document source
@@ -632,10 +625,8 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
     if point.column > 1 { point.column -= 1; }
 
     let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
-        return;
+        bail!("Error finding node at point {:?}", point);
     });
-
-    info!("Node: {:?}", node);
 
     // check for completion within a comment -- in such a case, we usually
     // want to complete things like roxygen tags
@@ -647,11 +638,11 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
         let token = pattern.replace(contents, "");
         info!("Token: {:?}", token);
         if token.starts_with('@') {
-            r_lock! { append_roxygen_completions(&token[1..], completions) };
-            return;
+            return r_lock! { append_roxygen_completions(&token[1..], completions) };
         } else {
-            return;
+            return Ok(());
         }
+
     }
 
     // check to see if we're completing a symbol from a namespace,
@@ -685,8 +676,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
                 if let Some(prev) = parent.prev_sibling() {
                     if matches!(prev.kind(), "identifier" | "string") {
                         let package = prev.utf8_text(source.as_bytes()).unwrap();
-                        r_lock! { append_namespace_completions(package, exports_only, completions) }
-                        return;
+                        return r_lock! { append_namespace_completions(package, exports_only, completions) };
                     }
                 }
             }
@@ -699,9 +689,8 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
         // for the associated callee if possible.
         if node.kind() == "call" {
             if let Some(child) = node.child(0) {
-                let text = child.utf8_text(source.as_bytes()).unwrap();
-                r_lock! { append_parameter_completions(document, &text, completions) }
-                return;
+                let text = child.utf8_text(source.as_bytes())?;
+                return r_lock! { append_parameter_completions(document, &text, completions) };
             };
         }
 
@@ -712,8 +701,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
                 if let Some(colon_node) = node.child(1) {
                     let package = package_node.utf8_text(source.as_bytes()).unwrap();
                     let exports_only = colon_node.kind() == "::";
-                    r_lock! { append_namespace_completions(package, exports_only, completions) }
-                    return;
+                    return r_lock! { append_namespace_completions(package, exports_only, completions) };
                 }
             }
         }
@@ -733,28 +721,25 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
 
     // If we got here, then it's appropriate to return completions
     // for any packages + symbols on the search path.
-    r_lock! { append_search_path_completions(completions) };
+    return r_lock! { append_search_path_completions(completions) };
 
 }
 
-pub(crate) fn append_document_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) {
+pub(crate) fn append_document_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_document_completions()");
 
     // get reference to AST
-    let ast = unwrap!(document.ast.as_ref(), {
-        return;
-    });
+    let ast = document.ast()?;
 
     // try to find child for point
     let point = params.text_document_position.position.as_point();
-    let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
-        return;
-    });
+    let mut node = ast.node_at_point(point)?;
 
     // skip comments
     if node.kind() == "comment" {
-        return;
+        trace!("cursor position lies within R comment; not providing document completions");
+        return Ok(());
     }
 
     // build completion data
@@ -773,7 +758,10 @@ pub(crate) fn append_document_completions(document: &mut Document, params: &Comp
 
         // If this is a function definition, add parameter names.
         if node.kind() == "function_definition" {
-            append_function_parameters(&node, &mut data, completions);
+            let result = append_function_parameters(&node, &mut data, completions);
+            if let Err(error) = result {
+                error!("{}", error);
+            }
         }
 
         // Mark this node as visited.
@@ -786,5 +774,7 @@ pub(crate) fn append_document_completions(document: &mut Document, params: &Comp
         };
 
     }
+
+    Ok(())
 
 }

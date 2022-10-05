@@ -224,7 +224,9 @@ impl LanguageServer for Backend {
 
         // update the document
         for change in params.content_changes.iter() {
-            doc.update(change);
+            if let Err(error) = doc.update(change) {
+                backend_trace!(self, "doc.update(): unexpected error {}", error);
+            }
         }
 
     }
@@ -265,10 +267,16 @@ impl LanguageServer for Backend {
         // 'visible' to the user.
 
         // add session completions
-        append_session_completions(document.value_mut(), &params, &mut completions);
+        let result = append_session_completions(document.value_mut(), &params, &mut completions);
+        if let Err(error) = result {
+            backend_trace!(self, "append_session_completions(): unexpected error {}", error);
+        }
 
         // add context-relevant completions
-        append_document_completions(document.value_mut(), &params, &mut completions);
+        let result = append_document_completions(document.value_mut(), &params, &mut completions);
+        if let Err(error) = result {
+            backend_trace!(self, "append_session_completions(): unexpected error {}", error);
+        }
 
         // remove duplicates
         let mut uniques = HashSet::new();

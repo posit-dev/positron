@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 amalthea = { path = "../amalthea" }
+anyhow = "1.0.65"
 async-trait = "0.1.53"
 chrono = "0.4.22"
 dashmap = "5.3.3"
