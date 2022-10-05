@@ -81,11 +81,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	public async start(lspClientPort: number) {
 
 		// Create ZeroMQ sockets
-		this._control = new JupyterSocket('Control', zmq.socket('dealer'));
-		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'));
-		this._stdin = new JupyterSocket('Stdin', zmq.socket('dealer'));
-		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'));
-		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'));
+		this._control = new JupyterSocket('Control', zmq.socket('dealer'), this._channel);
+		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), this._channel);
+		this._stdin = new JupyterSocket('Stdin', zmq.socket('dealer'), this._channel);
+		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'), this._channel);
+		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'), this._channel);
 
 		// Create a random ZeroMQ identity for the shell and stdin sockets
 		const shellId = crypto.randomBytes(16);
@@ -371,9 +371,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					reject(err);
 				});
 		});
-
-
-		return Promise.resolve(executionId);
 	}
 
 	/**

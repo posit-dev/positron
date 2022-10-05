@@ -2,11 +2,11 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vscode';
 import * as zmq from 'zeromq';
 import { findAvailablePort } from './PortFinder';
+import * as vscode from 'vscode';
 
-export class JupyterSocket implements Disposable {
+export class JupyterSocket implements vscode.Disposable {
 	private readonly _socket: zmq.Socket;
 	private readonly _title: string;
 	private _addr: string;
@@ -17,8 +17,10 @@ export class JupyterSocket implements Disposable {
 	 *
 	 * @param title The title of the socket
 	 * @param socket The underlying ZeroMQ socket
+	 * @param _channel The output channel to use for debugging
 	 */
-	constructor(title: string, socket: zmq.Socket) {
+	constructor(title: string, socket: zmq.Socket,
+		private readonly _channel: vscode.OutputChannel) {
 		this._socket = socket;
 		this._title = title;
 
@@ -50,7 +52,7 @@ export class JupyterSocket implements Disposable {
 				this._port = port;
 				this._addr = 'tcp://127.0.0.1:' + port.toString();
 				this._socket.connect(this._addr);
-				console.log('Using available port ' + port.toString() + ' for ' + this._title + ' socket');
+				this._channel.appendLine(`${this._title} socket connected to ${this._addr}`);
 				resolve(port);
 			})
 				.catch((err) => {
