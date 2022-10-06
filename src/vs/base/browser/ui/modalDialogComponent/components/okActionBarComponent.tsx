@@ -10,12 +10,12 @@ import * as React from 'react';
  * OKActionBarComponentProps interface.
  */
 interface OKActionBarComponentProps {
-	ok: () => void | undefined;
+	ok: () => void;
 }
 
 /**
  * OKActionBarComponent component.
- * @param props An OKActionBarComponentProps that contains the properties for the action bar.
+ * @param props An OKActionBarComponentProps that contains the properties for the component.
  */
 export const OKActionBarComponent = (props: OKActionBarComponentProps) => {
 	// Render.

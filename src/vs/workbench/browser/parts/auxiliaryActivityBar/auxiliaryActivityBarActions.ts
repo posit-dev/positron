@@ -198,16 +198,16 @@ registerAction2(class ShowPresentationAuxiliaryActivityAction extends Action2 {
 
 // TEST COMMANDS.
 
-registerAction2(class ShowExampleModalDialogAction extends Action2 {
+registerAction2(class ShowExampleModalDialogAction1 extends Action2 {
 
-	static readonly ID = 'workbench.action.showExampleModalDisplayDialog';
+	static readonly ID = 'workbench.action.showExampleModalDialog1';
 
 	constructor() {
 		super({
-			id: ShowExampleModalDialogAction.ID,
+			id: ShowExampleModalDialogAction1.ID,
 			title: {
-				value: localize('showExampleModalDisplayDialog', "Show Example Modal Display Dialog"),
-				original: 'Show Example Modal Display Dialog'
+				value: localize('showExampleModalDialog1', "Show Example Modal Dialog 1"),
+				original: 'Show Example Modal Dialog 1'
 			},
 			category: CATEGORIES.Test,
 			f1: true
@@ -216,20 +216,20 @@ registerAction2(class ShowExampleModalDialogAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const modalDialogsService = accessor.get(IModalDialogsService);
-		await modalDialogsService.showExampleModalDisplayDialog('Example Modal Display Dialog');
+		await modalDialogsService.showExampleModalDialog1('Example Modal Dialog 1 Title');
 	}
 });
 
-registerAction2(class ShowExampleConfirmationModalDialogAction extends Action2 {
+registerAction2(class ShowExampleModalDialogAction2 extends Action2 {
 
-	static readonly ID = 'workbench.action.showExampleModalDialog';
+	static readonly ID = 'workbench.action.showExampleModalDialog2';
 
 	constructor() {
 		super({
-			id: ShowExampleConfirmationModalDialogAction.ID,
+			id: ShowExampleModalDialogAction2.ID,
 			title: {
-				value: localize('showExampleModalDialog', "Show Example Modal Dialog"),
-				original: 'Show Example Modal Dialog'
+				value: localize('showExampleModalDialog2', "Show Example Modal Dialog 2"),
+				original: 'Show Example Modal Dialog 2'
 			},
 			category: CATEGORIES.Test,
 			f1: true
@@ -238,7 +238,7 @@ registerAction2(class ShowExampleConfirmationModalDialogAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const modalDialogsService = accessor.get(IModalDialogsService);
-		const result = await modalDialogsService.showExampleModalDialog();
-		console.log(`The result of showExampleModalDialog was ${result}`);
+		const result = await modalDialogsService.showExampleModalDialog2('Example Modal Dialog 2 Title');
+		console.log(`The result of showExampleModalDialog2 was ${result}`);
 	}
 });
