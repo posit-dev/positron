@@ -87,9 +87,9 @@ export class ModalDialogs implements IModalDialogsService {
 				return (
 					<ModalDialogComponent {...props} escape={() => props.accept(false)} enter={() => props.accept(true)}>
 						<SimpleTitleBarComponent title='Example Modal Dialog' />
-						<div className='content-area'>
+						<ContentAreaComponent>
 							<TestComponent message='Example' />
-						</div>
+						</ContentAreaComponent>
 						<OKCancelActionBarComponent cancel={() => props.accept(false)} ok={() => props.accept(true)} />
 					</ModalDialogComponent>
 				);
