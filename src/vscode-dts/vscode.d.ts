@@ -15818,9 +15818,9 @@ declare module 'vscode' {
 
 	/**
 	 * A TestRunRequest is a precursor to a {@link TestRun}, which in turn is
-	 * created by passing a request to {@link tests.runTests}. The TestRunRequest
-	 * contains information about which tests should be run, which should not be
-	 * run, and how they are run (via the {@link TestRunRequest.profile profile}).
+	 * created by passing a request to {@link TestController.createTestRun}. The
+	 * TestRunRequest contains information about which tests should be run, which
+	 * should not be run, and how they are run (via the {@link TestRunRequest.profile profile}).
 	 *
 	 * In general, TestRunRequests are created by the editor and pass to
 	 * {@link TestRunProfile.runHandler}, however you can also create test
@@ -15863,7 +15863,8 @@ declare module 'vscode' {
 	}
 
 	/**
-	 * Options given to {@link TestController.runTests}
+	 * A TestRun represents an in-progress or completed test run and
+	 * provides methods to report the state of individual tests in the run.
 	 */
 	export interface TestRun {
 		/**
@@ -16553,12 +16554,10 @@ declare module 'vscode' {
 		traceback: Array<string>;
 	}
 
-	/**
-	 * LanguageRuntime is an interface implemented by extensions that provide a
-	 * set of common tools for interacting with a language runtime, such as code
-	 * execution, LSP implementation, and plotting.
+	/** LanguageRuntimeMetadata contains information about a language runtime that is known
+	 * before the runtime is started.
 	 */
-	export interface LanguageRuntime {
+	export interface LanguageRuntimeMetadata {
 		/** A unique identifier for this runtime */
 		id: string;
 
@@ -16570,12 +16569,22 @@ declare module 'vscode' {
 
 		/** The version of the runtime. */
 		version: string;
+	}
+
+	/**
+	 * LanguageRuntime is an interface implemented by extensions that provide a
+	 * set of common tools for interacting with a language runtime, such as code
+	 * execution, LSP implementation, and plotting.
+	 */
+	export interface LanguageRuntime {
+		/** An object supplying metadata about the runtime */
+		readonly metadata: LanguageRuntimeMetadata;
 
 		/** An object that emits language runtime events */
-		messages: EventEmitter<LanguageRuntimeMessage>;
+		onDidReceiveRuntimeMessage: Event<LanguageRuntimeMessage>;
 
 		/** An object that emits he current state of the runtime */
-		state: EventEmitter<RuntimeState>;
+		onDidChangeRuntimeState: Event<RuntimeState>;
 
 		/** Execute code in the runtime; returns the ID of the code execution. */
 		execute(code: string,

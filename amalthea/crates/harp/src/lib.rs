@@ -8,7 +8,6 @@
 pub mod error;
 pub mod exec;
 pub mod lock;
-pub mod modules;
 pub mod object;
 pub mod protect;
 pub mod test;

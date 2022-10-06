@@ -4,7 +4,7 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { Emitter, Event } from 'vs/base/common/event';
+import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('ILanguageRuntimeService');
@@ -138,8 +138,11 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 	traceback: Array<string>;
 }
 
-export interface ILanguageRuntime {
-	/** A unique identifer for this language runtime */
+/* ILanguageRuntimeMetadata contains information about a language runtime that is known
+ * before the runtime is started.
+ */
+export interface ILanguageRuntimeMetadata {
+	/** A unique identifier for this runtime */
 	id: string;
 
 	/** The language identifier for this runtime. */
@@ -150,12 +153,17 @@ export interface ILanguageRuntime {
 
 	/** The version of the runtime. */
 	version: string;
+}
+
+export interface ILanguageRuntime {
+	/** The language runtime's static metadata */
+	metadata: ILanguageRuntimeMetadata;
 
 	/** An object that emits language runtime events */
-	messages: Emitter<ILanguageRuntimeMessage>;
+	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
 	/** The current state of the runtime */
-	state: Emitter<RuntimeState>;
+	onDidChangeRuntimeState: Event<RuntimeState>;
 
 	/** Execute code in the runtime; returns the ID of the code execution. */
 	execute(code: string,
@@ -187,10 +195,17 @@ export interface ILanguageRuntimeService {
 	registerNotebookRuntime(language: string, kernel: INotebookKernel): void;
 
 	/**
+	 * Register a new language runtime
+	 *
 	 * @param runtime The LanguageRuntime to register
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntime): IDisposable;
+
+	/**
+	 * Returns the list of all registered runtimes
+	 */
+	getAllRuntimes(): Array<ILanguageRuntime>;
 
 	/**
 	 *

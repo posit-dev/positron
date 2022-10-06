@@ -30,6 +30,10 @@ pub struct ConnectionFile {
     /// ZeroMQ port: Heartbeat messages (echo)
     pub hb_port: u16,
 
+    /// LSP port: Language Server Protocol (LSP) port (optional)
+    /// This is not part of the Jupyter spec, but is used by Positron
+    pub lsp_port: Option<u16>,
+
     /// The transport type to use for ZeroMQ; generally "tcp"
     pub transport: String,
 

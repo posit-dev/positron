@@ -39,8 +39,8 @@ pub unsafe fn r_typeof(object: SEXP) -> u32 {
     TYPEOF(object) as u32
 }
 
-pub unsafe fn r_type2char(kind: u32) -> String {
-    let kind = Rf_type2char(kind);
+pub unsafe fn r_type2char<T: Into<u32>>(kind: T) -> String {
+    let kind = Rf_type2char(kind.into());
     let cstr = CStr::from_ptr(kind);
     return cstr.to_str().unwrap().to_string();
 }
