@@ -15,11 +15,11 @@ export class Api implements vscode.Disposable {
 	 * Create an adapter for a Jupyter-compatible kernel.
 	 *
 	 * @param kernel A Jupyter kernel spec containing the information needed to start the kernel.
-	 * @param integratedLsp  Whether the kernel is using an integrated language server.
+	 * @param lsp An optional function that returns a client port number for the LSP server to connect to.
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
-	adaptKernel(kernel: JupyterKernelSpec, integratedLsp: boolean): vscode.LanguageRuntime {
-		return new LanguageRuntimeAdapter(kernel, integratedLsp, this._channel);
+	adaptKernel(kernel: JupyterKernelSpec, lsp: () => Promise<number> | null): vscode.LanguageRuntime {
+		return new LanguageRuntimeAdapter(kernel, lsp, this._channel);
 	}
 
 	dispose() {
