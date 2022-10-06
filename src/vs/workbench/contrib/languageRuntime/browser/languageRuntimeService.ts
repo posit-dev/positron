@@ -86,14 +86,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	startRuntime(id: string): void {
-		this._logService.trace(`Starting language runtime: '${id}'`);
 		const runtimes = this._runtimes.values();
 		for (const runtime of runtimes) {
 			if (runtime.metadata.id === id) {
-				runtime.start().then(() => {
-					this._logService.trace(`Language runtime started: '${id}'`);
-					this._onDidStartRuntime.fire(runtime);
-				});
+				this._logService.trace(`Language runtime starting: '${id}'`);
+				runtime.start();
+				this._onDidStartRuntime.fire(runtime);
 				return;
 			}
 		}
