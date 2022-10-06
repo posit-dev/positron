@@ -126,7 +126,7 @@ pub extern "C" fn r_read_console(
                     on_console_input(buf, buflen, input);
                 }
 
-                return 0;
+                return 1;
 
             }
 
