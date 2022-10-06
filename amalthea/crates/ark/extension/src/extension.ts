@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 import {
 	LanguageClient,
@@ -13,10 +12,14 @@ import {
 	createClientSocketTransport
 } from 'vscode-languageclient/node';
 
+// A global instance of the LSP language client provided by this language pack
 let client: LanguageClient;
-export function activate(context: vscode.ExtensionContext) {
 
-	console.log('Activating ARK language server extension');
+// A global instance of the language runtime (and LSP language server) provided
+// by this language pack
+let arkRuntime: vscode.LanguageRuntime;
+
+export function activate(context: vscode.ExtensionContext) {
 
 	let disposable = vscode.commands.registerCommand('ark.helloWorld', () => {
 		vscode.window.showInformationMessage('Hello World from ark!');
@@ -28,6 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
     // and active. If so, we can start the language server.
     let ext = vscode.extensions.getExtension("posit.jupyter-adapter");
     if (!ext) {
+		vscode.window.showErrorMessage("Could not find Jupyter Adapter extension; can't register ARK.");
 		return;
 	}
 
@@ -42,10 +46,10 @@ export function activate(context: vscode.ExtensionContext) {
 		let fs = require('fs');
 		if (fs.existsSync(kernelPath)) {
 			if (ext.isActive) {
-				return startArkKernel(ext, context, kernelPath as string);
+				return registerArkKernel(ext, context, kernelPath as string);
 			} else {
 				ext.activate().then(() => {
-					return startArkKernel(ext!, context, kernelPath as string);
+					return registerArkKernel(ext!, context, kernelPath as string);
 				});
 			}
 		} else {
@@ -56,9 +60,6 @@ export function activate(context: vscode.ExtensionContext) {
 		// No kernel path specified; show an error message.
 		vscode.window.showErrorMessage("No path to the ARK kernel set. Please set the ark.kernel.path setting.");
 	}
-	// TODO: This needs to pass a JupyterKernelSpec describing the location
-	// of the R kernel.
-	return ext.exports.adaptKernel();
 }
 
 /**
@@ -141,7 +142,7 @@ export function deactivate(): Thenable<void> | undefined {
 	return client.stop();
 }
 
-export function startArkKernel(ext: vscode.Extension<any>,
+export function registerArkKernel(ext: vscode.Extension<any>,
     context: vscode.ExtensionContext,
     kernelPath: string): vscode.Disposable {
 
@@ -157,7 +158,7 @@ export function startArkKernel(ext: vscode.Extension<any>,
     };
 
     // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-    let kernel = ext.exports.adaptKernel(
+    arkRuntime = ext.exports.adaptKernel(
         kernelSpec,
         () => {
 			return activateLsp(ext, context);
@@ -165,5 +166,5 @@ export function startArkKernel(ext: vscode.Extension<any>,
     );
 
     // Register a language runtime provider for the ARK kernel.
-    return vscode.myriac.registerLanguageRuntime(kernel);
+    return vscode.myriac.registerLanguageRuntime(arkRuntime);
 }
