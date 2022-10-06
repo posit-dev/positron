@@ -26,7 +26,6 @@ import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
-import { findAvailablePort } from './PortFinder';
 import { StringDecoder } from 'string_decoder';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
@@ -52,11 +51,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _iopub: JupyterSocket | null;
 	private _heartbeat: JupyterSocket | null;
 
+	/** The LSP port (if the LSP has been started) */
+	private _lspClientPort: number | null;
+
 	private _heartbeatTimer: NodeJS.Timeout | null;
 	private _lastHeartbeat: number;
 
 	constructor(spec: JupyterKernelSpec,
-		private readonly _integratedLsp: boolean,
 		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
@@ -70,20 +71,27 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeat = null;
 		this._heartbeatTimer = null;
 		this._lastHeartbeat = 0;
+		this._lspClientPort = null;
 
 		this._status = vscode.RuntimeState.Uninitialized;
 		this._key = crypto.randomBytes(16).toString('hex');
 		this._sessionId = crypto.randomBytes(16).toString('hex');
 	}
 
-	public async start() {
+	/**
+	 * Starts the Jupyter kernel.
+	 *
+	 * @param lspClientPort The port that the LSP client is listening on, or 0
+	 *   if no LSP is started
+	 */
+	public async start(lspClientPort: number) {
 
 		// Create ZeroMQ sockets
-		this._control = new JupyterSocket('Control', zmq.socket('dealer'));
-		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'));
-		this._stdin = new JupyterSocket('Stdin', zmq.socket('dealer'));
-		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'));
-		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'));
+		this._control = new JupyterSocket('Control', zmq.socket('dealer'), this._channel);
+		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), this._channel);
+		this._stdin = new JupyterSocket('Stdin', zmq.socket('dealer'), this._channel);
+		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'), this._channel);
+		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'), this._channel);
 
 		// Create a random ZeroMQ identity for the shell and stdin sockets
 		const shellId = crypto.randomBytes(16);
@@ -100,11 +108,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		ports.push(await this._iopub.bind(ports));
 		ports.push(await this._heartbeat.bind(ports));
 
-		// If there is an integrated LSP, find a port for it
-		let lspPort = 0;
-		if (this._integratedLsp) {
-			lspPort = await findAvailablePort(ports, 25);
-		}
+		// Save LSP port so we can rebind in the case of a restart
+		this._lspClientPort = lspClientPort;
 
 		// Create connection definition
 		const conn: JupyterConnectionSpec = {
@@ -113,7 +118,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			stdin_port: this._stdin.port(),      // eslint-disable-line
 			iopub_port: this._iopub.port(),      // eslint-disable-line
 			hb_port: this._heartbeat.port(),     // eslint-disable-line
-			lsp_port: this._integratedLsp ? lspPort : undefined,  //eslint-disable-line
+			lsp_port: lspClientPort > 0 ? lspClientPort : undefined,  //eslint-disable-line
 			signature_scheme: 'hmac-sha256',     // eslint-disable-line
 			ip: '127.0.0.1',
 			transport: 'tcp',
@@ -193,19 +198,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Subscribe to all topics
 		this._iopub.socket().subscribe('');
 		this._iopub.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.iopub, msg);
 			}
 		});
 		this._shell.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.shell, msg);
 			}
 		});
 		this._stdin.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key);
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.stdin, msg);
 			}
@@ -215,6 +220,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Requests that the kernel start a Language Server Protocol server, and
 	 * connect it to the client with the given TCP address.
+	 *
+	 * Note: This is only useful if the kernel hasn't already started an LSP
+	 * server.
 	 *
 	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
 	 */
@@ -272,7 +280,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Start the kernel again once the process finishes shutting down
 		this._process?.on('exit', () => {
 			this._channel.appendLine(`Waiting for '${this._spec.display_name}' to restart...`);
-			this.start();
+			// Start the kernel again, rebinding to the LSP client if we have
+			// one
+			this.start(this._lspClientPort ?? 0);
 		});
 	}
 
@@ -359,9 +369,17 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Send the execution request to the kernel
-		this.send(executionId, 'execute_request', this._shell!, msg);
-
-		return Promise.resolve(executionId);
+		return new Promise<string>((resolve, reject) => {
+			this.send(executionId, 'execute_request', this._shell!, msg)
+				.then(() => {
+					// Return the execution request ID after successful
+					// submission
+					resolve(executionId);
+				}).catch((err) => {
+					// Fail if we couldn't connect to the socket
+					reject(err);
+				});
+		});
 	}
 
 	/**
@@ -434,7 +452,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param dest The socket to which the message should be sent
 	 * @param message The body of the message
 	 */
-	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec) {
+	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec): Promise<void> {
 		const msg: JupyterMessage = {
 			buffers: [],
 			content: message,
@@ -443,7 +461,17 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			parent_header: {} as JupyterMessageHeader // eslint-disable-line
 		};
 		this._channel.appendLine(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
-		dest.socket().send(serializeJupyterMessage(msg, this._key));
+		return new Promise<void>((resolve, reject) => {
+			dest.socket().send(serializeJupyterMessage(msg, this._key), 0, (err) => {
+				if (err) {
+					this._channel.appendLine(`SEND ${msg.header.msg_type}: ERR: ${err}`);
+					reject(err);
+				} else {
+					this._channel.appendLine(`SEND ${msg.header.msg_type}: OK`);
+					resolve();
+				}
+			});
+		});
 	}
 
 	/**

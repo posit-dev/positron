@@ -1789,6 +1789,7 @@ export interface ExtHostLanguageFeaturesShape {
 export interface ExtHostLanguageRuntimeShape {
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$executeCode(handle: number, code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string>;
+	$interruptLanguageRuntime(handle: number): void;
 }
 // --- End Positron ---
 
