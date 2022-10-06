@@ -19,11 +19,13 @@ use harp::protect::RProtect;
 use harp::r_lock;
 use harp::r_string;
 use harp::r_symbol;
+use lazy_static::lazy_static;
 use libR_sys::*;
 use log::*;
 use regex::Captures;
 use regex::Regex;
 use stdext::*;
+use tower_lsp::lsp_types::Command;
 use tower_lsp::lsp_types::CompletionItem;
 use tower_lsp::lsp_types::CompletionItemKind;
 use tower_lsp::lsp_types::CompletionParams;
@@ -75,7 +77,18 @@ struct CompletionData {
     visited: HashSet<usize>,
 }
 
-unsafe fn completion_item_from_package(package: &str) -> Result<CompletionItem> {
+lazy_static! {
+    // NOTE: Regex::new() is quite slow to compile, so it's much better to keep
+    // a single singleton pattern and use that repeatedly for matches.
+    static ref RE_SYNTACTIC_IDENTIFIER : Regex =
+        Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap();
+}
+
+fn is_syntactic(name: &str) -> bool {
+    return RE_SYNTACTIC_IDENTIFIER.is_match(name);
+}
+
+unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Result<CompletionItem> {
 
     let mut item = CompletionItem {
         label: package.to_string(),
@@ -84,36 +97,46 @@ unsafe fn completion_item_from_package(package: &str) -> Result<CompletionItem> 
 
     item.kind = Some(CompletionItemKind::MODULE);
 
-    // generate package documentation
-    //
-    // TODO: This is fairly slow so we disable this for now.
-    // It'd be nice if we could defer help generation until the time
-    // the user asks for it, but it seems like we need to provide it
-    // up-front. For that reason, we'll probably need to generate a
-    // cache of help documentation, or implement some sort of LSP-side
-    // filtering of completion results based on the current token.
-    let documentation = RFunction::from(".rs.help.package")
-        .add(package)
-        .call()?;
-
-    if TYPEOF(*documentation) as u32 == VECSXP {
-
-        // TODO: Use safe extraction functions here
-        let doc_type = VECTOR_ELT(*documentation, 0);
-        let doc_contents = VECTOR_ELT(*documentation, 1);
-
-        if TYPEOF(doc_type) as u32 == STRSXP && TYPEOF(doc_contents) as u32 == STRSXP {
-
-            let _doc_type = RObject::new(doc_type).to::<String>().unwrap();
-            let doc_contents = RObject::new(doc_contents).to::<String>().unwrap();
-
-            item.documentation = Some(Documentation::MarkupContent(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: doc_contents.to_string()
-            }));
-        }
-
+    if append_colons {
+        item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+        item.insert_text = Some(format!("{}::", package));
+        item.command = Some(Command {
+            title: "Trigger Suggest".to_string(),
+            command: "editor.action.triggerSuggest".to_string(),
+            ..Default::default()
+        });
     }
+
+    // // generate package documentation
+    // //
+    // // TODO: This is fairly slow so we disable this for now.
+    // // It'd be nice if we could defer help generation until the time
+    // // the user asks for it, but it seems like we need to provide it
+    // // up-front. For that reason, we'll probably need to generate a
+    // // cache of help documentation, or implement some sort of LSP-side
+    // // filtering of completion results based on the current token.
+    // let documentation = RFunction::from(".rs.help.package")
+    //     .add(package)
+    //     .call()?;
+
+    // if TYPEOF(*documentation) as u32 == VECSXP {
+
+    //     // TODO: Use safe extraction functions here
+    //     let doc_type = VECTOR_ELT(*documentation, 0);
+    //     let doc_contents = VECTOR_ELT(*documentation, 1);
+
+    //     if TYPEOF(doc_type) as u32 == STRSXP && TYPEOF(doc_contents) as u32 == STRSXP {
+
+    //         let _doc_type = RObject::new(doc_type).to::<String>().unwrap();
+    //         let doc_contents = RObject::new(doc_contents).to::<String>().unwrap();
+
+    //         item.documentation = Some(Documentation::MarkupContent(MarkupContent {
+    //             kind: MarkupKind::Markdown,
+    //             value: doc_contents.to_string()
+    //         }));
+    //     }
+
+    // }
 
     return Ok(item);
 
@@ -121,14 +144,20 @@ unsafe fn completion_item_from_package(package: &str) -> Result<CompletionItem> 
 
 unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
 
-    let label = format!("{}()", name);
-    let detail = "(Function)";
-    let mut item = CompletionItem::new_simple(label.to_string(), detail.to_string());
+    let mut item = CompletionItem {
+        label: format!("{}()", name),
+        ..Default::default()
+    };
 
+    item.detail = Some("(Function)".to_string());
     item.kind = Some(CompletionItemKind::FUNCTION);
 
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-    item.insert_text = Some(format!("{}($0)", name));
+    item.insert_text = if is_syntactic(name) {
+        Some(format!("{}($0)", name))
+    } else {
+        Some(format!("`{}`()", name))
+    };
 
     // TODO: Include 'detail' based on the function signature?
     // TODO: Include help documentation?
@@ -492,7 +521,7 @@ unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) 
 
     let strings = packages.to::<Vec<String>>()?;
     for string in strings.iter() {
-        let item = completion_item_from_package(string)?;
+        let item = completion_item_from_package(string, true)?;
         completions.push(item);
     }
 
