@@ -216,7 +216,7 @@ registerAction2(class ShowExampleModalDialogAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const modalDialogsService = accessor.get(IModalDialogsService);
-		return await modalDialogsService.showExampleModalDialog('Example Modal Dialog');
+		await modalDialogsService.showExampleModalDialog('Example Modal Dialog');
 	}
 });
 
@@ -236,10 +236,9 @@ registerAction2(class ShowExampleConfirmationModalDialogAction extends Action2 {
 		});
 	}
 
-	async run(accessor: ServicesAccessor): Promise<boolean> {
+	async run(accessor: ServicesAccessor): Promise<void> {
 		const modalDialogsService = accessor.get(IModalDialogsService);
 		const result = await modalDialogsService.showExampleConfirmationModalDialog();
-		console.log(`The of showExampleConfirmationModalDialog was ${result}`);
-		return result;
+		console.log(`The result of showExampleConfirmationModalDialog was ${result}`);
 	}
 });
