@@ -10,8 +10,8 @@ import * as React from 'react';
  * OKCancelActionBarComponentProps interface.
  */
 interface OKCancelActionBarComponentProps {
-	cancel: () => void;
 	ok: () => void;
+	cancel: () => void;
 }
 
 /**

@@ -7,14 +7,13 @@ const React = require('react');
 import * as _ from 'react';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
-import { ModalDisplayDialogComponent, ModalDisplayDialogComponentProps } from 'vs/base/browser/ui/modalComponents/modalDisplayDialogComponent';
-import { ModalDialogComponent, ModalDialogComponentProps } from 'vs/base/browser/ui/modalComponents/modalDialogComponent';
-import { ReactRenderer } from 'vs/base/browser/ui/modalComponents/reactRenderer';
+import { ModalDialogComponent } from 'vs/base/browser/ui/modalDialogComponent/modalDialogComponent';
+import { ReactRenderer } from 'vs/base/browser/ui/modalDialogComponent/reactRenderer';
 import { TestComponent } from 'vs/base/browser/ui/testComponent/testComponent';
-import { SimpleTitleBarComponent } from 'vs/base/browser/ui/modalComponents/components/titleBarComponent';
-import { OKActionBarComponent } from 'vs/base/browser/ui/modalComponents/components/okActionBarComponent';
-import { OKCancelActionBarComponent } from 'vs/base/browser/ui/modalComponents/components/okCancelActionBarComponent';
-import { ContentAreaComponent } from 'vs/base/browser/ui/modalComponents/components/contentAreaComponent';
+import { SimpleTitleBarComponent } from 'vs/base/browser/ui/modalDialogComponent/components/simpleTitleBarComponent';
+import { OKActionBarComponent } from 'vs/base/browser/ui/modalDialogComponent/components/okActionBarComponent';
+import { OKCancelActionBarComponent } from 'vs/base/browser/ui/modalDialogComponent/components/okCancelActionBarComponent';
+import { ContentAreaComponent } from 'vs/base/browser/ui/modalDialogComponent/components/contentAreaComponent';
 
 /**
  * ModalDialogs class.
@@ -33,69 +32,70 @@ export class ModalDialogs implements IModalDialogsService {
 	}
 
 	/**
-	 * Shows the example modal dialog.
-	 * @returns A Promise<void> that resolves when the example modal dialog is done.
+	 * Shows an example modal dialog.
+	 * @returns A Promise<void> that resolves when the example modal display dialog is done.
 	 */
-	async showExampleModalDialog(title: string): Promise<void> {
+	async showExampleModalDisplayDialog(title: string): Promise<void> {
+		// Return a promise that resolves when the example modal display dialog is done.
 		return new Promise<void>((resolve) => {
-			// Create the react renderer.
+			// Create the react renderer that will be used to render the example modal display dialog component.
 			const reactRenderer = new ReactRenderer(this.layoutService.container);
 
-			const props: ModalDisplayDialogComponentProps = {
-				enableEnter: true,
-				enableEscape: true,
-				done: () => {
-					reactRenderer.destroy();
-					resolve();
-				},
+			// The accept handler.
+			const acceptHandler = () => {
+				reactRenderer.destroy();
+				resolve();
 			};
 
-			const ExampleModalDialogComponent = (props: ModalDisplayDialogComponentProps) => {
+			// Create example modal display dialog component.
+			const ExampleModalDialogComponent = () => {
 				return (
-					<ModalDisplayDialogComponent enableEscape={true} enableEnter={true} done={props.done}>
+					<ModalDialogComponent enter={acceptHandler} escape={acceptHandler}>
 						<SimpleTitleBarComponent title={title} />
 						<ContentAreaComponent>
 							<TestComponent message='Example' />
 						</ContentAreaComponent>
-						<OKActionBarComponent ok={props.done} />
-					</ModalDisplayDialogComponent>
-				);
-			};
-
-			reactRenderer.render(<ExampleModalDialogComponent {...props} />);
-		});
-	}
-
-	/**
-	 * Shows the example modal dialog.
-	 */
-	async showExampleConfirmationModalDialog(): Promise<boolean> {
-		return new Promise<boolean>((resolve) => {
-			const reactRenderer = new ReactRenderer(this.layoutService.container);
-
-			const props: ModalDialogComponentProps<boolean> = {
-				enableEnter: true,
-				enableEscape: true,
-				accept: (result: boolean) => {
-					reactRenderer.destroy();
-					resolve(result);
-				},
-			};
-
-			const ExampleConfirmationModalDialogComponent = (props: ModalDialogComponentProps<boolean>) => {
-				// Render.
-				return (
-					<ModalDialogComponent {...props} escape={() => props.accept(false)} enter={() => props.accept(true)}>
-						<SimpleTitleBarComponent title='Example Modal Dialog' />
-						<ContentAreaComponent>
-							<TestComponent message='Example' />
-						</ContentAreaComponent>
-						<OKCancelActionBarComponent cancel={() => props.accept(false)} ok={() => props.accept(true)} />
+						<OKActionBarComponent ok={acceptHandler} />
 					</ModalDialogComponent>
 				);
 			};
 
-			reactRenderer.render(<ExampleConfirmationModalDialogComponent {...props} />);
+			// Render the example modal display dialog component.
+			reactRenderer.render(<ExampleModalDialogComponent />);
+		});
+	}
+
+	/**
+	 * Shows an example modal dialog.
+	 * @returns A Promise<boolean> that resolves when the example modal dialog is done.
+	 */
+	async showExampleModalDialog(): Promise<boolean> {
+		return new Promise<boolean>((resolve) => {
+			// Create the react renderer thar will be used to render the example modal dialog component.
+			const reactRenderer = new ReactRenderer(this.layoutService.container);
+
+			// The accept handler.
+			const acceptHandler = (result: boolean) => {
+				reactRenderer.destroy();
+				resolve(result);
+			};
+
+			// Create example modal dialog component.
+			const ExampleModalDialogComponent = () => {
+				// Render.
+				return (
+					<ModalDialogComponent enter={() => acceptHandler(true)} escape={() => acceptHandler(false)}>
+						<SimpleTitleBarComponent title='Example Modal Dialog' />
+						<ContentAreaComponent>
+							<TestComponent message='Example' />
+						</ContentAreaComponent>
+						<OKCancelActionBarComponent ok={() => acceptHandler(true)} cancel={() => acceptHandler(false)} />
+					</ModalDialogComponent>
+				);
+			};
+
+			// Render the example modal dialog component.
+			reactRenderer.render(<ExampleModalDialogComponent />);
 		});
 	}
 }

@@ -35,8 +35,6 @@ export class ReactRenderer {
 	 * @param reactElement The ReactElement to render.
 	 */
 	public render(reactElement: React.ReactElement) {
-		const dd = window.onbeforeunload;
-		console.log(dd);
 		if (this._modalBlockElement) {
 			this._root = createRoot(this._modalBlockElement);
 			this._root.render(reactElement);
@@ -44,7 +42,7 @@ export class ReactRenderer {
 	}
 
 	/**
-	 *
+	 * Destroys the ReactRenderer.
 	 */
 	public destroy() {
 		// Unmount the root.
