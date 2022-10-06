@@ -16,10 +16,10 @@ export interface IModalDialogsService {
 	/**
 	 * Shows the example modal dialog.
 	 */
-	showExampleModalDialog(title: string): Promise<void>;
+	showExampleModalDisplayDialog(title: string): Promise<void>;
 
 	/**
 	 * Shows the example modal dialog.
 	 */
-	showExampleConfirmationModalDialog(): Promise<boolean>;
+	showExampleModalDialog(): Promise<boolean>;
 }

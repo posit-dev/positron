@@ -7,9 +7,9 @@ require('react');
 import * as React from 'react';
 
 /**
- * SimpleTitleBarProps interface.
+ * SimpleTitleBarComponentProps interface.
  */
-interface SimpleTitleBarProps {
+interface SimpleTitleBarComponentProps {
 	title: string;
 }
 
@@ -17,7 +17,7 @@ interface SimpleTitleBarProps {
  * SimpleTitleBarComponent component.
  * @param props A SimpleTitleBarProps that contains the properties for the simple title bar.
  */
-export const SimpleTitleBarComponent = (props: SimpleTitleBarProps) => {
+export const SimpleTitleBarComponent = (props: SimpleTitleBarComponentProps) => {
 	// Render.
 	return (
 		<div className='title-bar' >

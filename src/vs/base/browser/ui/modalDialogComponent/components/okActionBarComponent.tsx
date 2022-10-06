@@ -6,7 +6,6 @@ import 'vs/css!./okActionBarComponent';
 require('react');
 import * as React from 'react';
 
-
 /**
  * OKActionBarComponentProps interface.
  */
