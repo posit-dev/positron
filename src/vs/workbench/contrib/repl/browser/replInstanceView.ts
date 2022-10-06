@@ -46,7 +46,6 @@ export class ReplInstanceView extends Disposable {
 	private _hadFocus: boolean = false;
 
 	constructor(private readonly _instance: IReplInstance,
-		private readonly _parentElement: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService) {
 		super();
@@ -205,8 +204,13 @@ export class ReplInstanceView extends Disposable {
 		this._scroller.scanDomNode();
 	}
 
-	render() {
-		this._parentElement.appendChild(this._scroller.getDomNode());
+	/**
+	 * Renders the REPL into the provided container
+	 *
+	 * @param parent The parent element to which the REPL should be attached
+	 */
+	public render(parent: HTMLElement): void {
+		parent.appendChild(this._scroller.getDomNode());
 
 		const h1 = document.createElement('h1');
 		h1.innerText = this._kernel.metadata.name;

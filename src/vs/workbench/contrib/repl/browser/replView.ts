@@ -55,23 +55,18 @@ export class ReplViewPane extends ViewPane {
 		// If there is already a REPL instance running, load it into the view.
 		const instances = this._replService.instances;
 		if (instances.length > 0) {
-			this.createInstance(instances[0]);
+			this.createInstanceView(instances[0]);
 		}
 
-		// Listen for REPL instances to start.
+		// Listen for new REPL instances to start.
 		this._replService.onDidStartRepl((e: IReplInstance) => {
 			// We already have a REPL instance, and don't currently support more than one
 			if (this._instanceView) {
 				return;
 			}
 
-			// We haven't been rendered yet
-			if (!this._container) {
-				return;
-			}
-
 			// Create the instance!
-			this.createInstance(e);
+			this.createInstanceView(e);
 		});
 	}
 
@@ -81,43 +76,45 @@ export class ReplViewPane extends ViewPane {
 	 * @param container The HTML element hosting the REPL pane
 	 */
 	override renderBody(container: HTMLElement): void {
+		// Clear the DOM by removing all child elements. Note that we can't just
+		// set innerHTML to an empty string, because Electron requires the
+		// TrustedHTML claim to be set for innerHTML.
+		for (let i = container.children.length - 1; i >= 0; i--) {
+			container.removeChild(container.children[i]);
+		}
+
 		super.renderBody(container);
 
 		// Save container
 		this._container = container;
 
-		// If we already have an instance, just render it.
+		// If we already have an instance, render it immediately
 		if (this._instanceView) {
-			this._instanceView.render();
+			this._instanceView.render(container);
 			return;
 		}
 	}
 
 	/**
-	 * Create a new REPL instance view
+	 * Create a new REPL instance view, and renders it into the view pane if
+	 * the view pane is already rendered.
 	 *
 	 * @param instance The underlying REPL instance to show in the view
 	 */
-	private createInstance(instance: IReplInstance) {
-		// Ensure we are attached to the DOM
-		if (!this._container) {
-			throw new Error('Cannot render REPL without parent container.');
-		}
+	private createInstanceView(instance: IReplInstance) {
 
-		// Clear the DOM by removing all child elements. Note that we can't just
-		// set innerHTML to an empty string, because Electron requires the
-		// TrustedHTML claim to be set for innerHTML.
-		for (let i = this._container.children.length - 1; i >= 0; i--) {
-			this._container.removeChild(this._container.children[i]);
-		}
-
-		// Replace with a fresh REPL instance
+		// Create a new instance view
 		this._instanceView = this._instantiationService.createInstance(
 			ReplInstanceView,
-			instance,
-			this._container);
+			instance);
+
+		// Ensure the instance is disposed when the view is disposed
 		this._register(this._instanceView);
-		this._instanceView.render();
+
+		// Render the instance view if the view pane is already rendered
+		if (this._container) {
+			this._instanceView.render(this._container);
+		}
 	}
 }
 
