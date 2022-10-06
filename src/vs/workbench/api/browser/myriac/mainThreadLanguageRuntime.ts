@@ -52,7 +52,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	interrupt(): void {
-		throw new Error('Method not implemented.');
+		return this._proxy.$interruptLanguageRuntime(this.handle);
 	}
 
 	restart(): void {

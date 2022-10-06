@@ -76,10 +76,12 @@ export class LanguageRuntimeAdapter
 		return this._kernel.execute(code, mode, errorBehavior);
 	}
 
+	/**
+	 * Interrupts the kernel.
+	 */
 	public interrupt(): void {
 		this._channel.appendLine(`Interrupting ${this.metadata.language}`);
-
-		throw new Error('Method not implemented.');
+		return this._kernel.interrupt();
 	}
 
 	/**

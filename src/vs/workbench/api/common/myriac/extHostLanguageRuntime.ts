@@ -24,12 +24,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo> {
 		return new Promise((resolve, reject) => {
 			if (handle >= this._runtimes.length) {
-				return reject(new Error(`Language runtime handle '${handle}' not found or no longer valid.`));
+				return reject(new Error(`Cannot start runtime: language runtime handle '${handle}' not found or no longer valid.`));
 			}
 			this._runtimes[handle].start().then(info => {
 				resolve(info);
 			});
 		});
+	}
+
+	$interruptLanguageRuntime(handle: number): void {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot interrupt runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		this._runtimes[handle].interrupt();
 	}
 
 	$executeCode(handle: number, code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string> {

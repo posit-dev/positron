@@ -78,6 +78,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._sessionId = crypto.randomBytes(16).toString('hex');
 	}
 
+	/**
+	 * Starts the Jupyter kernel.
+	 *
+	 * @param lspClientPort The port that the LSP client is listening on, or 0
+	 *   if no LSP is started
+	 */
 	public async start(lspClientPort: number) {
 
 		// Create ZeroMQ sockets
@@ -214,6 +220,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Requests that the kernel start a Language Server Protocol server, and
 	 * connect it to the client with the given TCP address.
+	 *
+	 * Note: This is only useful if the kernel hasn't already started an LSP
+	 * server.
 	 *
 	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
 	 */
