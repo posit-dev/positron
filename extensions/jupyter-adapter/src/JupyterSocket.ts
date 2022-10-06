@@ -78,7 +78,7 @@ export class JupyterSocket implements vscode.Disposable {
 				// Monitor the socket for events; this is necessary to
 				// get events like `connect` to fire (otherwise we just
 				// get `message` events from the socket)
-				this._socket.monitor(100, 1);
+				this._socket.monitor(1000, 1);
 
 				this._socket.connect(this._addr);
 				resolve(port);

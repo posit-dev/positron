@@ -171,8 +171,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		});
 		this._process.on('close', (code) => {
 			this.setStatus(vscode.RuntimeState.Exited);
+
+			// Dispose all sockets so they don't try to connect to the
+			// now-defunct kernel
+			this.disposeAllSockets();
+
 			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
-			output.dispose();
 		});
 		this._process.once('spawn', () => {
 			this._channel.appendLine(`${this._spec.display_name} kernel started`);
@@ -423,14 +427,31 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		}
 
 		// Close sockets
+		this.disposeAllSockets();
+
+		// If kernel isn't already shut down (or shutting down), shut it down
+		if (this.status() !== vscode.RuntimeState.Exiting &&
+			this.status() !== vscode.RuntimeState.Exited) {
+			this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
+			this.shutdown(false);
+		}
+	}
+
+	/**
+	 * Dispose all sockets
+	 */
+	private disposeAllSockets() {
 		this._control?.dispose();
 		this._shell?.dispose();
 		this._stdin?.dispose();
 		this._heartbeat?.dispose();
 		this._iopub?.dispose();
 
-		this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
-		this.shutdown(false);
+		this._control = null;
+		this._shell = null;
+		this._stdin = null;
+		this._heartbeat = null;
+		this._iopub = null;
 	}
 
 	private generateMessageHeader(id: string, type: string): JupyterMessageHeader {
