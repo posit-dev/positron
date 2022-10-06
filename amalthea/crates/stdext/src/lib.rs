@@ -69,3 +69,14 @@ macro_rules! unwrap {
 
 }
 
+#[macro_export]
+macro_rules! log_error {
+
+    ($($tokens:tt)*) => {{
+        let result = { $($tokens)* };
+        if let Err(error) = result {
+            ::log::error!("{}", error);
+        }
+    }}
+
+}

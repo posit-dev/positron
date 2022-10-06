@@ -13,8 +13,8 @@ use std::sync::mpsc::SyncSender;
 
 use dashmap::DashMap;
 use harp::r_lock;
+use log::debug;
 use log::info;
-use log::trace;
 use serde_json::Value;
 use stdext::*;
 use tokio::net::TcpStream;
@@ -26,6 +26,7 @@ use crate::lsp::completions::append_session_completions;
 use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::document::Document;
+use crate::lsp::modules;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -123,9 +124,7 @@ impl LanguageServer for Backend {
         }
 
         // initialize our support functions
-        trace!("Entering r::modules::initialized()");
-        r_lock! { harp::modules::initialize() };
-        trace!("Exiting r::modules::initialized()");
+        r_lock! { modules::initialize() };
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -225,7 +224,9 @@ impl LanguageServer for Backend {
 
         // update the document
         for change in params.content_changes.iter() {
-            doc.update(change);
+            if let Err(error) = doc.update(change) {
+                backend_trace!(self, "doc.update(): unexpected error {}", error);
+            }
         }
 
     }
@@ -266,10 +267,16 @@ impl LanguageServer for Backend {
         // 'visible' to the user.
 
         // add session completions
-        append_session_completions(document.value_mut(), &params, &mut completions);
+        let result = append_session_completions(document.value_mut(), &params, &mut completions);
+        if let Err(error) = result {
+            backend_trace!(self, "append_session_completions(): unexpected error {}", error);
+        }
 
         // add context-relevant completions
-        append_document_completions(document.value_mut(), &params, &mut completions);
+        let result = append_document_completions(document.value_mut(), &params, &mut completions);
+        if let Err(error) = result {
+            backend_trace!(self, "append_session_completions(): unexpected error {}", error);
+        }
 
         // remove duplicates
         let mut uniques = HashSet::new();
@@ -318,15 +325,16 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     /*
     NOTE: The example LSP from tower-lsp uses a TcpListener, but we're using a
     TcpStream because -- according to LSP docs -- the client and server roles
-    are reversed in terms of opening ports: the client listens, and the server a
-    connection to it. The client and server can't BOTH listen on the port, so we
-    let the client do it and connect to it here.
+    are reversed in terms of opening ports: the client listens, and the server
+    opens a connection to it. The client and server can't BOTH listen on the port,
+    so we let the client do it and connect to it here.
 
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
         .await
         .unwrap();
     let (stream, _) = listener.accept().await.unwrap();
     */
+    debug!("Connecting to LSP client at '{}'", address);
     let stream = TcpStream::connect(address).await.unwrap();
     let (read, write) = tokio::io::split(stream);
     #[cfg(feature = "runtime-agnostic")]

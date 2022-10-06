@@ -52,7 +52,7 @@ export class ReplInstanceView extends Disposable {
 		super();
 		this._kernel = this._instance.kernel;
 
-		this._language = this._kernel.language;
+		this._language = this._kernel.metadata.language;
 
 		this._root = document.createElement('div');
 		this._root.classList.add('repl-root');
@@ -73,7 +73,7 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		// Listen for execution state changes
-		this._kernel.messages.event((msg) => {
+		this._kernel.onDidReceiveRuntimeMessage((msg) => {
 			if (msg.type === LanguageRuntimeMessageType.State) {
 				const stateMsg = msg as ILanguageRuntimeState;
 
@@ -209,7 +209,7 @@ export class ReplInstanceView extends Disposable {
 		this._parentElement.appendChild(this._scroller.getDomNode());
 
 		const h1 = document.createElement('h1');
-		h1.innerText = this._kernel.name;
+		h1.innerText = this._kernel.metadata.name;
 		this._root.appendChild(h1);
 		this._root.appendChild(this._cellContainer);
 

@@ -22,13 +22,13 @@ struct Logger {
 
 impl Logger {
 
-    fn initialize(&mut self) {
+    fn initialize(&mut self, log_file: &str) {
 
         let file = std::fs::OpenOptions::new()
             .write(true)
             .append(true)
             .create(true)
-            .open("/tmp/ark.log")
+            .open(log_file)
             .unwrap();
 
         self.mutex = Some(Mutex::new(file));
@@ -75,12 +75,12 @@ impl log::Log for Logger {
 }
 
 
-pub fn initialize() {
+pub fn initialize(log_file: &str) {
 
     ONCE.call_once(|| unsafe {
 
         // Set up the logger.
-        LOGGER.initialize();
+        LOGGER.initialize(log_file);
         log::set_logger(&LOGGER).unwrap();
 
         // Set the log level.
