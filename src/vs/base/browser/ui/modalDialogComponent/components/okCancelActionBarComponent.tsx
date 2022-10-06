@@ -16,7 +16,7 @@ interface OKCancelActionBarComponentProps {
 
 /**
  * OKCancelActionBarComponent component.
- * @param props An OKCancelActionBarComponentProps that contains the properties for the action bar.
+ * @param props An OKCancelActionBarComponentProps that contains the properties for the component.
  */
 export const OKCancelActionBarComponent = (props: OKCancelActionBarComponentProps) => {
 	// Render.

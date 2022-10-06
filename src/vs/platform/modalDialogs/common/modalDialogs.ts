@@ -14,12 +14,12 @@ export interface IModalDialogsService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Shows the example modal dialog.
+	 * Shows example modal dialog 1.
 	 */
-	showExampleModalDisplayDialog(title: string): Promise<void>;
+	showExampleModalDialog1(title: string): Promise<void>;
 
 	/**
-	 * Shows the example modal dialog.
+	 * Shows example modal dialog 2.
 	 */
-	showExampleModalDialog(): Promise<boolean>;
+	showExampleModalDialog2(title: string): Promise<boolean>;
 }

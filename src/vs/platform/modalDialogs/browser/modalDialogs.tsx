@@ -32,10 +32,10 @@ export class ModalDialogs implements IModalDialogsService {
 	}
 
 	/**
-	 * Shows an example modal dialog.
+	 * Shows example modal dialog 1.
 	 * @returns A Promise<void> that resolves when the example modal display dialog is done.
 	 */
-	async showExampleModalDisplayDialog(title: string): Promise<void> {
+	async showExampleModalDialog1(title: string): Promise<void> {
 		// Return a promise that resolves when the example modal display dialog is done.
 		return new Promise<void>((resolve) => {
 			// Create the react renderer that will be used to render the example modal display dialog component.
@@ -50,7 +50,7 @@ export class ModalDialogs implements IModalDialogsService {
 			// Create example modal display dialog component.
 			const ExampleModalDialogComponent = () => {
 				return (
-					<ModalDialogComponent enter={acceptHandler} escape={acceptHandler}>
+					<ModalDialogComponent width={400} height={300} enter={acceptHandler} escape={acceptHandler}>
 						<SimpleTitleBarComponent title={title} />
 						<ContentAreaComponent>
 							<TestComponent message='Example' />
@@ -66,10 +66,10 @@ export class ModalDialogs implements IModalDialogsService {
 	}
 
 	/**
-	 * Shows an example modal dialog.
+	 * Shows example modal dialog 2.
 	 * @returns A Promise<boolean> that resolves when the example modal dialog is done.
 	 */
-	async showExampleModalDialog(): Promise<boolean> {
+	async showExampleModalDialog2(title: string): Promise<boolean> {
 		return new Promise<boolean>((resolve) => {
 			// Create the react renderer thar will be used to render the example modal dialog component.
 			const reactRenderer = new ReactRenderer(this.layoutService.container);
@@ -84,8 +84,8 @@ export class ModalDialogs implements IModalDialogsService {
 			const ExampleModalDialogComponent = () => {
 				// Render.
 				return (
-					<ModalDialogComponent enter={() => acceptHandler(true)} escape={() => acceptHandler(false)}>
-						<SimpleTitleBarComponent title='Example Modal Dialog' />
+					<ModalDialogComponent width={400} height={300} enter={() => acceptHandler(true)} escape={() => acceptHandler(false)}>
+						<SimpleTitleBarComponent title={title} />
 						<ContentAreaComponent>
 							<TestComponent message='Example' />
 						</ContentAreaComponent>
