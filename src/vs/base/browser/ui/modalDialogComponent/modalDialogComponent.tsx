@@ -14,42 +14,38 @@ interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
 /**
  * ModalDialogComponentProps interface.
  */
-export interface ModalDialogComponentProps<T> {
-	enableEscape: boolean;
-	enableEnter: boolean;
-	accept: (result: T) => void;
-}
-
-interface ModalDialogProps {
-	escape: () => void;
-	enter: () => void;
-	children: React.ReactNode;
+export interface ModalDialogComponentProps {
+	enter?: () => void;
+	escape?: () => void;
 }
 
 /**
  * ModalDialogComponent component.
  * @param props A ModalDialogComponentProps that contains the modal dialog component properties.
  */
-export function ModalDialogComponent<T>(props: ModalDialogComponentProps<T> & ModalDialogProps) {
-	// Hooks.
-	const keyboardHandler = useCallback((event: DocumentKeyboardEvent) => {
-		if (event.key === 'Escape') {
-			if (props.enableEscape) {
-				event.stopPropagation();
-				props.escape();
-			}
-		} else if (event.key === 'Enter') {
-			if (props.enableEnter) {
-				event.stopPropagation();
-				props.enter();
-			}
+export function ModalDialogComponent<T>(props: ModalDialogComponentProps & { children: React.ReactNode }) {
+	// Memoize the keydown event handler.
+	const keydownHandler = useCallback((event: DocumentKeyboardEvent) => {
+		// Eat all keydown events.
+		event.preventDefault();
+		event.stopPropagation();
+
+		// Handle the event.
+		switch (event.key) {
+			case 'Enter':
+				props.enter?.();
+				break;
+			case 'Escape':
+				props.escape?.();
+				break;
 		}
 	}, []);
 
+	// Add the keydown event listener.
 	useEffect(() => {
-		document.addEventListener('keydown', keyboardHandler, false);
+		document.addEventListener('keydown', keydownHandler, false);
 		return () => {
-			document.removeEventListener('keydown', keyboardHandler, false);
+			document.removeEventListener('keydown', keydownHandler, false);
 		};
 	}, []);
 
