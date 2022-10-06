@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./titleBarComponent';
+import 'vs/css!./simpleTitleBarComponent';
 require('react');
 import * as React from 'react';
 
@@ -15,13 +15,13 @@ interface SimpleTitleBarComponentProps {
 
 /**
  * SimpleTitleBarComponent component.
- * @param props A SimpleTitleBarProps that contains the properties for the simple title bar.
+ * @param props A SimpleTitleBarComponentProps that contains the properties for the component.
  */
 export const SimpleTitleBarComponent = (props: SimpleTitleBarComponentProps) => {
 	// Render.
 	return (
-		<div className='title-bar' >
-			<div className='title-bar-title'>
+		<div className='simple-title-bar' >
+			<div className='simple-title-bar-title'>
 				{props.title}
 			</div>
 		</div>

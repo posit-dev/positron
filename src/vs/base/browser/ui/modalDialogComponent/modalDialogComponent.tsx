@@ -15,6 +15,8 @@ interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
  * ModalDialogComponentProps interface.
  */
 export interface ModalDialogComponentProps {
+	width: number;
+	height: number;
 	enter?: () => void;
 	escape?: () => void;
 }
@@ -43,9 +45,10 @@ export function ModalDialogComponent<T>(props: ModalDialogComponentProps & { chi
 
 	// Add the keydown event listener.
 	useEffect(() => {
-		document.addEventListener('keydown', keydownHandler, false);
+		const KEYDOWN = 'keydown';
+		document.addEventListener(KEYDOWN, keydownHandler, false);
 		return () => {
-			document.removeEventListener('keydown', keydownHandler, false);
+			document.removeEventListener(KEYDOWN, keydownHandler, false);
 		};
 	}, []);
 
@@ -53,7 +56,7 @@ export function ModalDialogComponent<T>(props: ModalDialogComponentProps & { chi
 	return (
 		<div className='monaco-modal-dialog-shadow-container'>
 			<div className='monaco-modal-dialog-box' role='dialog' tabIndex={-1}>
-				<div className='monaco-modal-dialog-box-frame'>
+				<div className='monaco-modal-dialog-box-frame' style={{ width: props.width, height: props.height }}>
 					{props.children}
 				</div>
 			</div>
