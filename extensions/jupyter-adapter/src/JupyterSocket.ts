@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import * as zmq from 'zeromq';
+import * as zmq from 'zeromq/v5-compat';
 import { findAvailablePort } from './PortFinder';
 import * as vscode from 'vscode';
 
@@ -36,7 +36,7 @@ export class JupyterSocket implements vscode.Disposable {
 	 *   (typically a UUID)
 	 */
 	public setZmqIdentity(identity: Buffer): void {
-		this._socket.setsockopt(zmq.ZMQ_IDENTITY, identity);
+		this._socket.setsockopt('identity', identity);
 	}
 
 	/**
@@ -75,14 +75,10 @@ export class JupyterSocket implements vscode.Disposable {
 				this._addr = 'tcp://127.0.0.1:' + port.toString();
 				this._channel.appendLine(`${this._title} socket connecting to ${this._addr}...`);
 
-				// Ensure we retry if the connection times out; otherwise
-				// retries don't happen and the socket waits forever
-				this._socket.setsockopt(zmq.ZMQ_CONNECT_TIMEOUT, 2000);
-
 				// Monitor the socket for events; this is necessary to
 				// get events like `connect` to fire (otherwise we just
 				// get `message` events from the socket)
-				this._socket.monitor();
+				this._socket.monitor(100, 1);
 
 				this._socket.connect(this._addr);
 				resolve(port);
