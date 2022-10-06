@@ -94,4 +94,4 @@ export class ExtensionPoints implements IWorkbenchContribution {
 	}
 }
 
-Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(ExtensionPoints, 'ExtensionPoints', LifecyclePhase.Starting);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(ExtensionPoints, LifecyclePhase.Starting);

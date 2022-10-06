@@ -6,11 +6,11 @@
 import { Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IContextKeyService, IContextKey } from 'vs/platform/contextkey/common/contextkey';
-import { InputFocusedContext, IsMacContext, IsLinuxContext, IsWindowsContext, IsWebContext, IsMacNativeContext, IsDevelopmentContext, IsIOSContext, ProductQualityContext } from 'vs/platform/contextkey/common/contextkeys';
+import { InputFocusedContext, IsMacContext, IsLinuxContext, IsWindowsContext, IsWebContext, IsMacNativeContext, IsDevelopmentContext, IsIOSContext, ProductQualityContext, IsMobileContext } from 'vs/platform/contextkey/common/contextkeys';
 // --- Start Positron ---
-// Add TopBarVisibleContext, AuxiliaryActivityBarVisibleContext, TemporaryWorkspaceContext to the import.
+// Add TopBarVisibleContext, AuxiliaryActivityBarVisibleContext to the import.
 // These have been placed at the beginning so they can be easily identified.
-import { TopBarVisibleContext, AuxiliaryActivityBarVisibleContext, TemporaryWorkspaceContext, SplitEditorsVertically, InEditorZenModeContext, ActiveEditorCanRevertContext, ActiveEditorGroupLockedContext, ActiveEditorCanSplitInGroupContext, SideBySideEditorActiveContext, AuxiliaryBarVisibleContext, SideBarVisibleContext, PanelAlignmentContext, PanelMaximizedContext, PanelVisibleContext, ActiveEditorContext, EditorsVisibleContext, TextCompareEditorVisibleContext, TextCompareEditorActiveContext, ActiveEditorGroupEmptyContext, MultipleEditorGroupsContext, EditorTabsVisibleContext, IsCenteredLayoutContext, ActiveEditorGroupIndexContext, ActiveEditorGroupLastContext, ActiveEditorReadonlyContext, EditorAreaVisibleContext, ActiveEditorAvailableEditorIdsContext, DirtyWorkingCopiesContext, EmptyWorkspaceSupportContext, EnterMultiRootWorkspaceSupportContext, HasWebFileSystemAccess, IsFullscreenContext, OpenFolderWorkspaceSupportContext, RemoteNameContext, VirtualWorkspaceContext, WorkbenchStateContext, WorkspaceFolderCountContext, PanelPositionContext } from 'vs/workbench/common/contextkeys';
+import { TopBarVisibleContext, AuxiliaryActivityBarVisibleContext, SplitEditorsVertically, InEditorZenModeContext, ActiveEditorCanRevertContext, ActiveEditorGroupLockedContext, ActiveEditorCanSplitInGroupContext, SideBySideEditorActiveContext, AuxiliaryBarVisibleContext, SideBarVisibleContext, PanelAlignmentContext, PanelMaximizedContext, PanelVisibleContext, ActiveEditorContext, EditorsVisibleContext, TextCompareEditorVisibleContext, TextCompareEditorActiveContext, ActiveEditorGroupEmptyContext, MultipleEditorGroupsContext, EditorTabsVisibleContext, IsCenteredLayoutContext, ActiveEditorGroupIndexContext, ActiveEditorGroupLastContext, ActiveEditorReadonlyContext, EditorAreaVisibleContext, ActiveEditorAvailableEditorIdsContext, DirtyWorkingCopiesContext, EmptyWorkspaceSupportContext, EnterMultiRootWorkspaceSupportContext, HasWebFileSystemAccess, IsFullscreenContext, OpenFolderWorkspaceSupportContext, RemoteNameContext, VirtualWorkspaceContext, WorkbenchStateContext, WorkspaceFolderCountContext, PanelPositionContext, TemporaryWorkspaceContext } from 'vs/workbench/common/contextkeys';
 // --- End Positron ---
 import { TEXT_DIFF_EDITOR_ID, EditorInputCapabilities, SIDE_BY_SIDE_EDITOR_ID, DEFAULT_EDITOR_ASSOCIATION } from 'vs/workbench/common/editor';
 import { trackFocus, addDisposableListener, EventType } from 'vs/base/browser/dom';
@@ -110,6 +110,7 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		IsWebContext.bindTo(this.contextKeyService);
 		IsMacNativeContext.bindTo(this.contextKeyService);
 		IsIOSContext.bindTo(this.contextKeyService);
+		IsMobileContext.bindTo(this.contextKeyService);
 
 		RemoteNameContext.bindTo(this.contextKeyService).set(getRemoteName(this.environmentService.remoteAuthority) || '');
 

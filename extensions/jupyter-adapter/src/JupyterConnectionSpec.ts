@@ -32,6 +32,10 @@ export interface JupyterConnectionSpec {
 	/** PUB/SUB: The port for publishing input and output side effects (stdout, stderr, debugging) */
 	iopub_port: number;  // eslint-disable-line
 
+	// Language server: the port for the language server, if the kernel supports it
+	// (this is not part of the Jupyter spec, and is a Positron extension)
+	lsp_port?: number;  // eslint-disable-line
+
 	/** The key for signing messages */
 	key: string;
 }

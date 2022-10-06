@@ -2,7 +2,7 @@
   "name": "jupyter-adapter",
   "displayName": "Positron Jupyter Adapter",
   "description": "Jupyter Kernel Protocol adapter for Positron Language Runtime",
-  "publisher": "Posit Software, PBC",
+  "publisher": "posit",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.61.0"
@@ -34,7 +34,8 @@
   },
   "devDependencies": {
     "@types/uuid": "^8.3.3",
-    "@types/zeromq": "^5.2.1"
+    "@types/zeromq": "^5.2.1",
+    "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
     "uuid": "^8.3.2",

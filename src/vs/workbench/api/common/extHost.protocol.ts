@@ -70,9 +70,9 @@ import { CandidatePort } from 'vs/workbench/services/remote/common/remoteExplore
 import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/queryBuilder';
 import * as search from 'vs/workbench/services/search/common/search';
 
-// --- Start Positron ---
-import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-// --- End Positron ---
+/// --- Start Positron ---
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+/// --- End Positron ---
 
 export interface IWorkspaceData extends IStaticWorkspaceData {
 	folders: { uri: UriComponents; name: string; index: number }[];
@@ -411,8 +411,12 @@ export interface MainThreadLanguagesShape extends IDisposable {
 }
 
 // --- Start Positron ---
+// This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
-	$registerLangaugeRuntime(runtime: ILanguageRuntime): IDisposable;
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
+	$unregisterLanguageRuntime(handle: number): void;
+	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
+	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void;
 }
 // --- End Positron ---
 
@@ -1781,8 +1785,10 @@ export interface ExtHostLanguageFeaturesShape {
 }
 
 // --- Start Positron ---
+// The interface to the main thread exposed by the extension host
 export interface ExtHostLanguageRuntimeShape {
-	$registerLanguageRuntime(runtime: ILanguageRuntime): void;
+	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
+	$executeCode(handle: number, code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string>;
 }
 // --- End Positron ---
 
