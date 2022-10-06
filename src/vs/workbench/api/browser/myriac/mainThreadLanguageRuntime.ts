@@ -8,17 +8,26 @@ import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILangu
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 
-// Adapter class for the main thread to call into the extension host
+// Adapter class; presents an ILanguageRuntime interface that connects to the
+// extension host proxy to supply language features.
 class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _messageEmitter = new Emitter<ILanguageRuntimeMessage>();
+	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 
 	constructor(readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
+
+		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
+
+		// Listen to state changes and track the current state
+		this.onDidChangeRuntimeState((state) => {
+			this._currentState = state;
+		});
 	}
 
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
@@ -33,12 +42,17 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._stateEmitter.fire(state);
 	}
 
+	/** Gets the current state of the notebook runtime */
+	getRuntimeState(): RuntimeState {
+		return this._currentState;
+	}
+
 	execute(code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string> {
 		return this._proxy.$executeCode(this.handle, code, mode, errorBehavior);
 	}
 
 	interrupt(): void {
-		throw new Error('Method not implemented.');
+		return this._proxy.$interruptLanguageRuntime(this.handle);
 	}
 
 	restart(): void {

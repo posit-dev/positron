@@ -11,7 +11,7 @@
 		"Programming Languages"
 	],
 	"activationEvents": [
-		"onLanguage:r"
+		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
 	"contributes": {

@@ -4,8 +4,18 @@
 
 import { createHmac } from 'crypto';
 import { JupyterMessage } from './JupyterMessage';
+import * as vscode from 'vscode';
 
-export function deserializeJupyterMessage(message: any[], key: string): JupyterMessage | null {
+/**
+ * Deserializes a Jupyter wire protocol message received from a ZeroMQ socket.
+ *
+ * @param message The raw message buffer array.
+ * @param key The pre-shared HMAC-256 signing key for the message.
+ * @param channel An output channel on which to emit diagnostic warnings.
+ *
+ * @returns The decoded `JupyterMessage`
+ */
+export function deserializeJupyterMessage(message: any[], key: string, channel: vscode.OutputChannel): JupyterMessage | null {
 
 	// Discard the ZeroMQ socket identities, which are the elements of the array
 	// before the <IDS|MSG> token.
@@ -19,7 +29,7 @@ export function deserializeJupyterMessage(message: any[], key: string): JupyterM
 	}
 
 	if (!found) {
-		console.warn('Message received from kernel with no header.');
+		channel.appendLine('WARNING: Message received from kernel with no header.');
 		return null;
 	}
 
@@ -38,7 +48,7 @@ export function deserializeJupyterMessage(message: any[], key: string): JupyterM
 	hmac.update(content);
 	const computed = hmac.digest('hex').toString();
 	if (computed !== signature) {
-		console.warn(`Expected message signature ${computed} doesn't match actual signature ${signature}`);
+		channel.appendLine(`Expected message signature ${computed} doesn't match actual signature ${signature}`);
 		// TODO: we should totally reject the message in this case
 	}
 

@@ -6,7 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { NotebookLanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeNotebook';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { ILogService } from 'vs/platform/log/common/log';
 
@@ -18,7 +18,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _runtimes: Map<String, ILanguageRuntime> = new Map();
-	private readonly _activeRuntimes: Array<ILanguageRuntime> = new Array();
 
 	private readonly _onDidStartRuntime = this._register(new Emitter<ILanguageRuntime>);
 	readonly onDidStartRuntime = this._onDidStartRuntime.event;
@@ -76,14 +75,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	getActiveRuntime(language: string | null): ILanguageRuntime | undefined {
-		if (typeof language === 'string') {
-			return this._runtimes.get(language);
+		// Get all runtimes that match the language; return the first one.
+		const runtimes = this.getActiveLanguageRuntimes(language);
+		if (runtimes.length > 0) {
+			return runtimes[0];
 		}
-		return this._runtimes.get(this._activeLanguage);
-	}
 
-	setActiveRuntime(language: string): void {
-		this._activeLanguage = language;
+		// If there are no runtimes, return undefined
+		return;
 	}
 
 	startRuntime(id: string): void {
@@ -93,7 +92,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			if (runtime.metadata.id === id) {
 				runtime.start().then(() => {
 					this._onDidStartRuntime.fire(runtime);
-					this._activeRuntimes.push(runtime);
 				});
 				return;
 			}
@@ -101,7 +99,20 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		throw new Error(`No runtime with id '${id}' was found.`);
 	}
 
+	getActiveLanguageRuntimes(language: string | null): Array<ILanguageRuntime> {
+		return Array.from(this._runtimes.values()).filter(runtime => {
+			return runtime.getRuntimeState() !== RuntimeState.Uninitialized &&
+				runtime.getRuntimeState() !== RuntimeState.Exited &&
+				(language === null || runtime.metadata.language === language);
+		});
+	}
+
+	/**
+	 * Get the active language runtimes
+	 *
+	 * @returns All active runtimes
+	 */
 	getActiveRuntimes(): Array<ILanguageRuntime> {
-		return this._activeRuntimes;
+		return this.getActiveLanguageRuntimes(null);
 	}
 }
