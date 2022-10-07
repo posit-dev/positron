@@ -7,18 +7,17 @@ import * as DOM from 'vs/base/browser/dom';
 import { createRoot, Root } from 'react-dom/client';
 
 /**
- * ReactRenderer class.
- * Manages rendering a React component in the specified container HTMLElement.
+ * ModalDialogReactRenderer class.
+ * Manages rendering a React component as a modal dialog.
  */
-export class ReactRenderer {
-
+export class ModalDialogReactRenderer {
 	/**
-	 * The modal block element where the React element will be rendered.
+	 * The container element where the React element will be rendered.
 	 */
-	private _modalBlockElement?: HTMLElement;
+	private _container?: HTMLElement;
 
 	/**
-	 * The root where the  React element will be rendered.
+	 * The root where the React element will be rendered.
 	 */
 	private _root?: Root;
 
@@ -27,7 +26,8 @@ export class ReactRenderer {
 	 * @param container The container HTMLElement where the modal dialog will be presented.
 	 */
 	constructor(container: HTMLElement) {
-		this._modalBlockElement = container.appendChild(DOM.$(`.monaco-modal-dialog-modal-block.dimmed`));
+		this._container = container.appendChild(DOM.$(`.monaco-modal-dialog-modal-block.dimmed`));
+		this._root = createRoot(this._container);
 	}
 
 	/**
@@ -35,8 +35,7 @@ export class ReactRenderer {
 	 * @param reactElement The ReactElement to render.
 	 */
 	public render(reactElement: React.ReactElement) {
-		if (this._modalBlockElement) {
-			this._root = createRoot(this._modalBlockElement);
+		if (this._root) {
 			this._root.render(reactElement);
 		}
 	}
@@ -51,10 +50,10 @@ export class ReactRenderer {
 			this._root = undefined;
 		}
 
-		// Remove the modal block element.
-		if (this._modalBlockElement) {
-			this._modalBlockElement.remove();
-			this._modalBlockElement = undefined;
+		// Remove the container element.
+		if (this._container) {
+			this._container.remove();
+			this._container = undefined;
 		}
 	}
 }
