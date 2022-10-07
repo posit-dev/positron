@@ -236,6 +236,7 @@ export class ReplInstanceView extends Disposable {
 
 		// Recompute scrolling
 		this._scroller.scanDomNode();
+		this.scrollToBottom();
 	}
 
 	/**
@@ -289,6 +290,17 @@ export class ReplInstanceView extends Disposable {
 		if (focus) {
 			cell.focus();
 		}
+	}
+
+	/**
+	 * Consume focus
+	 */
+	takeFocus() {
+		if (this._activeCell) {
+			this._activeCell.focus();
+		}
+		this._scroller.scanDomNode();
+		this.scrollToBottom();
 	}
 
 	private addPendingCell(contents: string) {
