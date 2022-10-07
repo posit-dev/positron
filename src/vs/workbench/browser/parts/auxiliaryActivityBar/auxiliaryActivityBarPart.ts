@@ -16,6 +16,8 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { AuxiliaryActivityBarFocused } from 'vs/workbench/common/contextkeys';
 import { ToggleAction, ToggleActionBar } from 'vs/base/browser/ui/toggleActionBar/toggleActionBar';
 import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
+import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import {
 	AUXILIARY_ACTIVITY_BAR_BACKGROUND,
 	AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND,
@@ -127,9 +129,15 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 		@IThemeService themeService: IThemeService,
 		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
 		@IStorageService storageService: IStorageService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IHoverService private readonly hoverService: IHoverService,
+		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
 		super(Parts.AUXILIARYACTIVITYBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
+
+		// Temporary...
+		console.log(this.hoverService);
+		console.log(this.configurationService);
 	}
 
 	//#endregion Class Initialization
