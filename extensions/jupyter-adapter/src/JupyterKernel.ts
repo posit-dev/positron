@@ -185,7 +185,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				this._channel.appendLine('Receieved initial heartbeat: ' + msg);
 				this.setStatus(vscode.RuntimeState.Ready);
 
-				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 1) as number;
+				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
 				this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
 				this.heartbeat();
 				this._heartbeat?.socket().on('message', (msg: string) => {
@@ -495,7 +495,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Emits a heartbeat message and waits for the kernel to respond.
 	 */
 	private heartbeat() {
-		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 1) as number;
+		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this._channel.appendLine(`SEND heartbeat`);
 		this._heartbeat?.socket().send(['hello']);
@@ -525,7 +525,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		}
 
 		// Schedule the next heartbeat at the configured interval
-		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 1) as number;
+		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
 		setTimeout(() => {
 			this.heartbeat();
 		}, seconds * 1000);
