@@ -39,6 +39,9 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	/** Emitter for runtime state changes */
 	private readonly _state: Emitter<RuntimeState>;
 
+	/** Emitter for runtime startup event */
+	private readonly _startup: Emitter<ILanguageRuntimeInfo>;
+
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 
 	constructor(private readonly _kernel: INotebookKernel,
@@ -65,9 +68,21 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		this._state = this._register(new Emitter<RuntimeState>());
 		this.onDidChangeRuntimeState = this._state.event;
 
+		this._startup = this._register(new Emitter<ILanguageRuntimeInfo>());
+		this.onDidCompleteStartup = this._startup.event;
+
 		// Listen to our own messages and track current state
 		this.onDidChangeRuntimeState((state) => {
 			this._currentState = state;
+
+			// When moving into the ready state, emit a startup event
+			if (state === RuntimeState.Ready) {
+				this._startup.fire({
+					banner: `${this._kernel.label} [Notebook Kernel]`,
+					implementation_version: '0.1.0',
+					language_version: this.metadata.version
+				});
+			}
 		});
 
 		// Copy the kernel's ID as the runtime's ID
@@ -138,6 +153,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			}
 		});
 	}
+	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
 
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
