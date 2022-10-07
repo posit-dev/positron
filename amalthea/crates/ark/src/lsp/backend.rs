@@ -305,11 +305,11 @@ impl LanguageServer for Backend {
         let pattern = Regex::new(r"^\w").unwrap();
         for item in &mut completions {
             if item.kind == Some(CompletionItemKind::FIELD) {
-                item.sort_text = Some(format!("1{}", item.label));
+                item.sort_text = Some(join!["1", item.label]);
             } else if pattern.is_match(&item.label) {
-                item.sort_text = Some(format!("2{}", item.label));
+                item.sort_text = Some(join!["2", item.label]);
             } else {
-                item.sort_text = Some(format!("9{}", item.label));
+                item.sort_text = Some(join!["3", item.label]);
             }
         }
 
