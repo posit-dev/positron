@@ -11,6 +11,7 @@ import { JupyterDisplayData } from './JupyterDisplayData';
 import { JupyterExecuteResult } from './JupyterExecuteResult';
 import { JupyterExecuteInput } from './JupyterExecuteInput';
 import { JupyterKernelInfoReply } from './JupyterKernelInfoReply';
+import { JupyterKernelStatus } from './JupyterKernelStatus';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -168,6 +169,9 @@ export class LanguageRuntimeAdapter
 			case 'execute_input':
 				this.onExecuteInput(msg, message as JupyterExecuteInput);
 				break;
+			case 'status':
+				this.onKernelStatus(msg, message as JupyterKernelStatus);
+				break;
 		}
 	}
 
@@ -217,6 +221,22 @@ export class LanguageRuntimeAdapter
 			type: vscode.LanguageRuntimeMessageType.Input,
 			code: data.code
 		} as vscode.LanguageRuntimeInput);
+	}
+
+	/**
+	 * Converts a Jupyter status message to a LanguageRuntimeMessage and emits
+	 * it.
+	 *
+	 * @param message The message packet
+	 * @param data The kernel status message
+	 */
+	onKernelStatus(message: JupyterMessagePacket, data: JupyterKernelStatus) {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			type: vscode.LanguageRuntimeMessageType.State,
+			state: data.execution_state
+		} as vscode.LanguageRuntimeState);
 	}
 
 	/**
