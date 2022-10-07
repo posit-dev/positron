@@ -60,11 +60,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	restart(): void {
-		throw new Error('Method not implemented.');
+		return this._proxy.$restartLanguageRuntime(this.handle);
 	}
 
 	shutdown(): void {
-		throw new Error('Method not implemented.');
+		return this._proxy.$shutdownLanguageRuntime(this.handle);
 	}
 
 	start(): Promise<ILanguageRuntimeInfo> {
