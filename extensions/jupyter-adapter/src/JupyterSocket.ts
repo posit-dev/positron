@@ -78,7 +78,14 @@ export class JupyterSocket implements vscode.Disposable {
 				// Monitor the socket for events; this is necessary to
 				// get events like `connect` to fire (otherwise we just
 				// get `message` events from the socket)
-				this._socket.monitor(1000, 1);
+				//
+				// We also have to ignore type checking for this line because
+				// the type definitions for `zmq` insist on passing a monitoring
+				// interval to monitor(), but the underlying library ignores the
+				// interval and emits a warning if one is passed.
+				//
+				// @ts-ignore
+				this._socket.monitor();
 
 				this._socket.connect(this._addr);
 				resolve(port);
