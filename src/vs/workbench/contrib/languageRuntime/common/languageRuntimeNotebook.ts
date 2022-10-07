@@ -59,7 +59,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			version: '1.0',
 			id: _kernel.id,
 			language: _kernel.supportedLanguages[0],
-			name: this._kernel.label
+			name: this._kernel.label + ' [Notebook Bridge]'
 		};
 
 		this._messages = this._register(new Emitter<ILanguageRuntimeMessage>());
