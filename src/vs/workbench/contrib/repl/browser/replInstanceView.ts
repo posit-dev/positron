@@ -87,8 +87,11 @@ export class ReplInstanceView extends Disposable {
 				}
 
 				// Now that the cell execution is complete, try to process any
-				// pending input; if there is none, add a new cell.
-				if (!this.processQueue()) {
+				// pending input; if there is none, add a new cell if there aren't
+				// any cells or if the last cell is complete.
+				if (!this.processQueue() && (
+					!this._activeCell ||
+					this._activeCell.getState() !== ReplCellState.ReplCellInput)) {
 					this.addCell(this._hadFocus);
 				}
 			} else if (msg.type === LanguageRuntimeMessageType.Output) {
