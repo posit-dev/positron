@@ -8,7 +8,7 @@ import * as _ from 'react';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
 import { ModalDialogComponent } from 'vs/base/browser/ui/modalDialogComponent/modalDialogComponent';
-import { ReactRenderer } from 'vs/base/browser/ui/modalDialogComponent/reactRenderer';
+import { ModalDialogReactRenderer } from 'vs/base/browser/ui/modalDialogComponent/modalDialogReactRenderer';
 import { TestComponent } from 'vs/base/browser/ui/testComponent/testComponent';
 import { SimpleTitleBarComponent } from 'vs/base/browser/ui/modalDialogComponent/components/simpleTitleBarComponent';
 import { OKActionBarComponent } from 'vs/base/browser/ui/modalDialogComponent/components/okActionBarComponent';
@@ -33,21 +33,21 @@ export class ModalDialogs implements IModalDialogsService {
 
 	/**
 	 * Shows example modal dialog 1.
-	 * @returns A Promise<void> that resolves when the example modal display dialog is done.
+	 * @returns A Promise<void> that resolves when the example modal dialog is done.
 	 */
 	async showExampleModalDialog1(title: string): Promise<void> {
-		// Return a promise that resolves when the example modal display dialog is done.
+		// Return a promise that resolves when the example modal dialog is done.
 		return new Promise<void>((resolve) => {
-			// Create the react renderer that will be used to render the example modal display dialog component.
-			const reactRenderer = new ReactRenderer(this.layoutService.container);
+			// Create the modal dialog React renderer.
+			const modalDialogReactRenderer = new ModalDialogReactRenderer(this.layoutService.container);
 
 			// The accept handler.
 			const acceptHandler = () => {
-				reactRenderer.destroy();
+				modalDialogReactRenderer.destroy();
 				resolve();
 			};
 
-			// Create example modal display dialog component.
+			// The example modal dialog component.
 			const ExampleModalDialogComponent = () => {
 				return (
 					<ModalDialogComponent width={400} height={300} enter={acceptHandler} escape={acceptHandler}>
@@ -60,8 +60,8 @@ export class ModalDialogs implements IModalDialogsService {
 				);
 			};
 
-			// Render the example modal display dialog component.
-			reactRenderer.render(<ExampleModalDialogComponent />);
+			// Render the example modal dialog component.
+			modalDialogReactRenderer.render(<ExampleModalDialogComponent />);
 		});
 	}
 
@@ -71,16 +71,16 @@ export class ModalDialogs implements IModalDialogsService {
 	 */
 	async showExampleModalDialog2(title: string): Promise<boolean> {
 		return new Promise<boolean>((resolve) => {
-			// Create the react renderer thar will be used to render the example modal dialog component.
-			const reactRenderer = new ReactRenderer(this.layoutService.container);
+			// Create the modal dialog React renderer.
+			const modalDialogReactRenderer = new ModalDialogReactRenderer(this.layoutService.container);
 
 			// The accept handler.
 			const acceptHandler = (result: boolean) => {
-				reactRenderer.destroy();
+				modalDialogReactRenderer.destroy();
 				resolve(result);
 			};
 
-			// Create example modal dialog component.
+			// The example modal dialog component.
 			const ExampleModalDialogComponent = () => {
 				// Render.
 				return (
@@ -95,7 +95,7 @@ export class ModalDialogs implements IModalDialogsService {
 			};
 
 			// Render the example modal dialog component.
-			reactRenderer.render(<ExampleModalDialogComponent />);
+			modalDialogReactRenderer.render(<ExampleModalDialogComponent />);
 		});
 	}
 }
