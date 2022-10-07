@@ -26,7 +26,7 @@ export class ModalDialogReactRenderer {
 	 * @param container The container HTMLElement where the modal dialog will be presented.
 	 */
 	constructor(container: HTMLElement) {
-		this._container = container.appendChild(DOM.$(`.monaco-modal-dialog-modal-block.dimmed`));
+		this._container = container.appendChild(DOM.$('.monaco-modal-dialog-modal-block.dimmed'));
 		this._root = createRoot(this._container);
 	}
 
