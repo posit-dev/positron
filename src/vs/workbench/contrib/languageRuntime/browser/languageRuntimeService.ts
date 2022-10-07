@@ -9,6 +9,7 @@ import { NotebookLanguageRuntime } from 'vs/workbench/contrib/languageRuntime/co
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { ILogService } from 'vs/platform/log/common/log';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -27,7 +28,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	constructor(
 		@INotebookKernelService private _notebookKernelService: INotebookKernelService,
 		@IInstantiationService private _instantiationService: IInstantiationService,
-		@ILogService private readonly _logService: ILogService
+		@ILogService private readonly _logService: ILogService,
+		@ICommandService private readonly _commandService: ICommandService
 	) {
 		super();
 
@@ -89,13 +91,21 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		const runtimes = this._runtimes.values();
 		for (const runtime of runtimes) {
 			if (runtime.metadata.id === id) {
-				this._logService.trace(`Language runtime starting: '${id}'`);
-				runtime.start();
-				this._onDidStartRuntime.fire(runtime);
+				this.startLanguageRuntime(runtime);
 				return;
 			}
 		}
 		throw new Error(`No runtime with id '${id}' was found.`);
+	}
+
+	private startLanguageRuntime(runtime: ILanguageRuntime): void {
+		this._logService.trace(`Language runtime starting: '${runtime.metadata.language}' (${runtime.metadata.id})`);
+		runtime.start().then(info => {
+			// Execute the Focus into Console command using the command service
+			// to expose the REPL for the new runtime.
+			this._commandService.executeCommand('workbench.panel.console.focus');
+		});
+		this._onDidStartRuntime.fire(runtime);
 	}
 
 	getActiveLanguageRuntimes(language: string | null): Array<ILanguageRuntime> {
