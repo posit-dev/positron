@@ -37,7 +37,6 @@ export class ReactRenderer {
 	 * Destroys the ReactRenderer.
 	 */
 	public destroy() {
-		// Unmount the root.
 		if (this._root) {
 			this._root.unmount();
 			this._root = undefined;
