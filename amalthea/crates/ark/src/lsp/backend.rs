@@ -139,7 +139,7 @@ impl LanguageServer for Backend {
                 selection_range_provider: None,
                 hover_provider: Some(HoverProviderCapability::from(true)),
                 completion_provider: Some(CompletionOptions {
-                    resolve_provider: Some(false),
+                    resolve_provider: Some(true),
                     trigger_characters: Some(vec![
                         "$".to_string(),
                         "@".to_string(),
@@ -319,6 +319,13 @@ impl LanguageServer for Backend {
             Ok(None)
         }
 
+    }
+
+    // TODO: Use completion_resolve() to provide extra information about a completion.
+    // TODO: Tag completion items with a 'data' entry so we can look up information about
+    // them more easily.
+    async fn completion_resolve(&self, item: CompletionItem) -> Result<CompletionItem> {
+        Ok(item)
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
