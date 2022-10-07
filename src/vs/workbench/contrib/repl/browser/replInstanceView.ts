@@ -30,6 +30,9 @@ export class ReplInstanceView extends Disposable {
 	/** The HTML element containing all of the REPL cells */
 	private _cellContainer: HTMLElement;
 
+	/** The HTML element containing the startup banner */
+	private _bannerContainer: HTMLElement;
+
 	/** An array of all REPL cells */
 	private _cells: Array<ReplCell> = [];
 
@@ -71,6 +74,10 @@ export class ReplInstanceView extends Disposable {
 			}
 		});
 
+		// Create element for banner
+		this._bannerContainer = document.createElement('div');
+		this._bannerContainer.classList.add('repl-banner');
+
 		// Listen for execution state changes
 		this._kernel.onDidReceiveRuntimeMessage((msg) => {
 			if (msg.type === LanguageRuntimeMessageType.State) {
@@ -100,6 +107,12 @@ export class ReplInstanceView extends Disposable {
 			}
 
 			this.scrollToBottom();
+		});
+
+		// Show startup banner when kernel finishes starting
+		this._kernel.onDidCompleteStartup(info => {
+			this._bannerContainer.innerText = info.banner;
+			this._scroller.scanDomNode();
 		});
 
 		// Clear REPL when event signals the user has requested it
@@ -215,9 +228,7 @@ export class ReplInstanceView extends Disposable {
 	public render(parent: HTMLElement): void {
 		parent.appendChild(this._scroller.getDomNode());
 
-		const h1 = document.createElement('h1');
-		h1.innerText = this._kernel.metadata.name;
-		this._root.appendChild(h1);
+		this._root.appendChild(this._bannerContainer);
 		this._root.appendChild(this._cellContainer);
 
 		// Create first cell

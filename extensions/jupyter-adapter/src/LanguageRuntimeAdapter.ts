@@ -131,9 +131,9 @@ export class LanguageRuntimeAdapter
 		this._channel.appendLine(`Sending info request to ${this.metadata.language}`);
 		this._kernel.sendInfoRequest();
 
-		return new Promise<vscode.LanguageRuntimeInfo>((resolve, reject) => {
+		return new Promise<vscode.LanguageRuntimeInfo>((resolve, _reject) => {
 			// Wait for the kernel_info_reply to come back
-			this._kernel.once('message', (msg: JupyterMessagePacket) => {
+			this._kernel.on('message', (msg: JupyterMessagePacket) => {
 				if (msg.msgType === 'kernel_info_reply') {
 					const message = msg.message as JupyterKernelInfoReply;
 					resolve({
@@ -141,8 +141,6 @@ export class LanguageRuntimeAdapter
 						implementation_version: message.implementation_version,
 						language_version: message.language_info.version,
 					} as vscode.LanguageRuntimeInfo);
-				} else {
-					reject('Unexpected message type: ' + msg.msgType);
 				}
 			});
 		});
