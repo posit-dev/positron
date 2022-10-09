@@ -4,8 +4,9 @@
 
 import * as DOM from 'vs/base/browser/dom';
 import { Action, IAction, IActionRunner } from 'vs/base/common/actions';
-import { ActionBar, ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
+import { IHoverDelegate } from 'vs/base/browser/ui/iconLabel/iconHoverDelegate';
 import { BaseActionViewItem } from 'vs/base/browser/ui/actionbar/actionViewItems';
+import { ActionBar, ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 
 /**
  * ToggleAction class. Represents a toggle action in a ToggleActionBar.
@@ -17,12 +18,14 @@ export class ToggleAction extends Action {
 	 * Initializes a new instance of the ToggleAction class.
 	 * @param id The ID of the action.
 	 * @param label The label.
+	 * @param tooltip The tooltip.
 	 * @param cssClass The CSS class for the action.
 	 * @param enabled A value which indicates whether the action is enabled.
 	 * @param actionCallback The function to be called when the action is executed.
 	 */
-	constructor(id: string, label: string = '', cssClass: string, enabled: boolean = true, actionCallback?: (event?: unknown) => unknown) {
+	constructor(id: string, label: string, tooltip: string, cssClass: string, enabled: boolean = true, actionCallback?: (event?: unknown) => unknown) {
 		super(id, label, cssClass, enabled, actionCallback);
+		this.tooltip = tooltip;
 	}
 
 	//#endregion Class Initialization
@@ -51,6 +54,13 @@ export class ToggleAction extends Action {
 }
 
 /**
+ * IToggleActionViewItemOptions interface.
+ */
+export interface IToggleActionViewItemOptions {
+	hoverDelegate?: IHoverDelegate;
+}
+
+/**
  * ToggleActionViewItem class. Provides the visual representation of a ToggleAction
  * and keeps it up to dates when the state of the underlying IAction changes.
  */
@@ -72,9 +82,10 @@ class ToggleActionViewItem extends BaseActionViewItem {
 	 */
 	constructor(
 		action: IAction,
-		actionContainerClass: string
+		actionContainerClass: string,
+		options: IToggleActionViewItemOptions,
 	) {
-		super(null, action);
+		super(null, action, options);
 		this._actionContainerClass = actionContainerClass;
 	}
 
@@ -106,6 +117,8 @@ class ToggleActionViewItem extends BaseActionViewItem {
 		this._actionIcon = DOM.$(`.${this.action.class}`);
 		DOM.append(this._actionContainer, this._actionIcon);
 		DOM.append(container, this._actionContainer);
+		this.updateAriaLabel();
+		this.updateTooltip();
 	}
 }
 
@@ -121,6 +134,7 @@ export interface IToggleActionBarOptions {
 	readonly actionRunner?: IActionRunner;
 	readonly ariaLabel?: string;
 	readonly ariaRole?: string;
+	readonly hoverDelegate?: IHoverDelegate;
 }
 
 /**
@@ -154,7 +168,7 @@ export class ToggleActionBar extends ActionBar {
 			...options,
 			...{
 				actionViewItemProvider: action => {
-					return new ToggleActionViewItem(action, this._actionContainerClass);
+					return new ToggleActionViewItem(action, this._actionContainerClass, { hoverDelegate: options.hoverDelegate });
 				},
 				animated: false,
 				preventLoopNavigation: true
