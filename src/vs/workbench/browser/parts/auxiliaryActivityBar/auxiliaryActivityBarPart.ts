@@ -9,7 +9,7 @@ import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
 import { Part } from 'vs/workbench/browser/part';
-import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { IWorkbenchLayoutService, Parts, Position } from 'vs/workbench/services/layout/browser/layoutService';
 import { Emitter } from 'vs/base/common/event';
 import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -18,6 +18,8 @@ import { ToggleAction, ToggleActionBar } from 'vs/base/browser/ui/toggleActionBa
 import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IHoverDelegate, IHoverDelegateOptions, IHoverWidget } from 'vs/base/browser/ui/iconLabel/iconHoverDelegate';
+import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
 import {
 	AUXILIARY_ACTIVITY_BAR_BACKGROUND,
 	AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND,
@@ -70,6 +72,46 @@ registerThemingParticipant((theme, collector) => {
 });
 
 /**
+ * AuxiliaryActivityBarHoverDelegate class.
+ */
+class AuxiliaryActivityBarHoverDelegate implements IHoverDelegate {
+
+	readonly placement = 'element';
+	private lastHoverHideTime: number = 0;
+
+	constructor(
+		private readonly layoutService: IWorkbenchLayoutService,
+		private readonly configurationService: IConfigurationService,
+		private readonly hoverService: IHoverService
+	) { }
+
+	showHover(options: IHoverDelegateOptions, focus?: boolean | undefined): IHoverWidget | undefined {
+		// Determine the hover position.
+		const hoverPosition = this.layoutService.getSideBarPosition() === Position.LEFT ? HoverPosition.LEFT : HoverPosition.RIGHT;
+
+		// Show the hover.
+		return this.hoverService.showHover({
+			...options,
+			hoverPosition
+		});
+	}
+
+	get delay(): number {
+		// Show instantly when a hover was recently shown.
+		if (Date.now() - this.lastHoverHideTime < 200) {
+			return 0;
+		} else {
+			return this.configurationService.getValue<number>('workbench.hover.delay');
+		}
+	}
+
+	onDidHideHover() {
+		// Record the last time the hover was hidden.
+		this.lastHoverHideTime = Date.now();
+	}
+}
+
+/**
  * AuxiliaryActivityBarPart class.
  */
 export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivityBarService {
@@ -114,6 +156,9 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 	private viewerToggleAction: ToggleAction | undefined;
 	private presentationToggleAction: ToggleAction | undefined;
 
+	// The hover delegate.
+	private hoverDelegate: IHoverDelegate;
+
 	//#endregion Content Area
 
 	//#region Class Initialization
@@ -127,17 +172,14 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 	 */
 	constructor(
 		@IThemeService themeService: IThemeService,
-		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
+		@IHoverService hoverService: IHoverService,
 		@IStorageService storageService: IStorageService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-		@IHoverService private readonly hoverService: IHoverService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@IConfigurationService configurationService: IConfigurationService,
+		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService
 	) {
 		super(Parts.AUXILIARYACTIVITYBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
-
-		// Temporary...
-		console.log(this.hoverService);
-		console.log(this.configurationService);
+		this.hoverDelegate = new AuxiliaryActivityBarHoverDelegate(workbenchLayoutService, configurationService, hoverService);
 	}
 
 	//#endregion Class Initialization
@@ -156,35 +198,39 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 		this.bottomActionBarContainer = DOM.append(this.actionBarsContainer, DOM.$('.action-bar-container'));
 
 		// Create the top toggle action bar.
-		this.environmentToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionEnvironment', '', 'auxiliary-activity-bar-action-icon.environment', true, async () => {
+		this.environmentToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionEnvironment', 'Environment', 'Environment', 'auxiliary-activity-bar-action-icon.environment', true, async () => {
 			this.toggleEnvironmentAuxiliaryActivity();
 		}));
-		this.previewToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPreview', '', 'auxiliary-activity-bar-action-icon.preview', true, async () => {
+		this.previewToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPreview', 'Preview', 'Preview', 'auxiliary-activity-bar-action-icon.preview', true, async () => {
 			this.togglePreviewAuxiliaryActivity();
 		}));
-		this.helpToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionHelp', '', 'auxiliary-activity-bar-action-icon.help', true, async () => {
+		this.helpToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionHelp', 'Help', 'Help', 'auxiliary-activity-bar-action-icon.help', true, async () => {
 			this.toggleHelpAuxiliaryActivity();
 		}));
 		this.topToggleActionBar = new ToggleActionBar(this.topActionBarContainer, {
 			actionContainerClass: 'auxiliary-activity-bar-action-container',
 			orientation: ActionsOrientation.VERTICAL,
 			ariaLabel: localize('managew3rewerwer', "Manage w3rewerwer"),
+			ariaRole: 'toolbar',
+			hoverDelegate: this.hoverDelegate,
 		}, [this.environmentToggleAction, this.previewToggleAction, this.helpToggleAction]);
 
 		// Create the bottom toggle action bar.
-		this.plotToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPlot', '', 'auxiliary-activity-bar-action-icon.plot', true, async () => {
+		this.plotToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPlot', 'Plot', 'Plot', 'auxiliary-activity-bar-action-icon.plot', true, async () => {
 			this.togglePlotAuxiliaryActivity();
 		}));
-		this.viewerToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionViewer', '', 'auxiliary-activity-bar-action-icon.viewer', true, async () => {
+		this.viewerToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionViewer', 'Viewer', 'Viewer', 'auxiliary-activity-bar-action-icon.viewer', true, async () => {
 			this.toggleViewerAuxiliaryActivity();
 		}));
-		this.presentationToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPresentation', '', 'auxiliary-activity-bar-action-icon.presentation', true, async () => {
+		this.presentationToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPresentation', 'Presentation', 'Presentation', 'auxiliary-activity-bar-action-icon.presentation', true, async () => {
 			this.togglePresentationAuxiliaryActivity();
 		}));
 		this.bottomToggleActionBar = new ToggleActionBar(this.bottomActionBarContainer, {
 			actionContainerClass: 'auxiliary-activity-bar-action-container',
 			orientation: ActionsOrientation.VERTICAL,
 			ariaLabel: localize('managew3rewerwer', "Manage w3rewerwer"),
+			ariaRole: 'toolbar',
+			hoverDelegate: this.hoverDelegate,
 		}, [this.plotToggleAction, this.viewerToggleAction, this.presentationToggleAction]);
 
 		// Track focus.
