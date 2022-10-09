@@ -13,8 +13,8 @@ use std::sync::mpsc::SyncSender;
 
 use dashmap::DashMap;
 use harp::r_lock;
-use log::debug;
-use log::info;
+use log::*;
+use regex::Regex;
 use serde_json::Value;
 use stdext::*;
 use tokio::net::TcpStream;
@@ -25,6 +25,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 use crate::lsp::completions::append_session_completions;
 use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::append_document_completions;
+use crate::lsp::completions::completion_context;
 use crate::lsp::document::Document;
 use crate::lsp::modules;
 use crate::request::Request;
@@ -138,7 +139,7 @@ impl LanguageServer for Backend {
                 selection_range_provider: None,
                 hover_provider: Some(HoverProviderCapability::from(true)),
                 completion_provider: Some(CompletionOptions {
-                    resolve_provider: Some(false),
+                    resolve_provider: Some(true),
                     trigger_characters: Some(vec![
                         "$".to_string(),
                         "@".to_string(),
@@ -250,11 +251,14 @@ impl LanguageServer for Backend {
         });
 
         // check whether we should be providing completions
-        if !can_provide_completions(document.value_mut(), &params) {
+        let ok = can_provide_completions(document.value_mut(), &params).unwrap_or_else(|err| {
+            error!("{}", err);
+            return false;
+        });
+
+        if !ok {
             return Ok(None);
         }
-
-        let mut completions : Vec<CompletionItem> = vec!();
 
         // TODO: These probably shouldn't be separate methods, because we might get
         // the same completion from multiple sources, e.g.
@@ -266,14 +270,25 @@ impl LanguageServer for Backend {
         // Really, what's relevant is which of the above should be considered
         // 'visible' to the user.
 
+        // build completion context
+        let context = unwrap!(completion_context(document.value_mut(), params), error {
+            error!("{}", error);
+            return Ok(None);
+        });
+
+        info!("Completion token at point {:?}: '{}'", context.point, context.token);
+
+        // start building completions
+        let mut completions : Vec<CompletionItem> = vec!();
+
         // add session completions
-        let result = append_session_completions(document.value_mut(), &params, &mut completions);
+        let result = append_session_completions(&context, &mut completions);
         if let Err(error) = result {
             backend_trace!(self, "append_session_completions(): unexpected error {}", error);
         }
 
         // add context-relevant completions
-        let result = append_document_completions(document.value_mut(), &params, &mut completions);
+        let result = append_document_completions(&context, &mut completions);
         if let Err(error) = result {
             backend_trace!(self, "append_session_completions(): unexpected error {}", error);
         }
@@ -282,12 +297,35 @@ impl LanguageServer for Backend {
         let mut uniques = HashSet::new();
         completions.retain(|x| { uniques.insert(x.label.clone()) });
 
+        // sort completions by providing custom 'sort' text to be used when
+        // ordering completion results. we use some placeholders at the front
+        // to 'bin' different completion types differently; e.g. we place parameter
+        // completions at the front, and completions starting with non-word
+        // characters at the end (e.g. completions starting with `.`)
+        let pattern = Regex::new(r"^\w").unwrap();
+        for item in &mut completions {
+            if item.kind == Some(CompletionItemKind::FIELD) {
+                item.sort_text = Some(join!["1", item.label]);
+            } else if pattern.is_match(&item.label) {
+                item.sort_text = Some(join!["2", item.label]);
+            } else {
+                item.sort_text = Some(join!["3", item.label]);
+            }
+        }
+
         if !completions.is_empty() {
             Ok(Some(CompletionResponse::Array(completions)))
         } else {
             Ok(None)
         }
 
+    }
+
+    // TODO: Use completion_resolve() to provide extra information about a completion.
+    // TODO: Tag completion items with a 'data' entry so we can look up information about
+    // them more easily.
+    async fn completion_resolve(&self, item: CompletionItem) -> Result<CompletionItem> {
+        Ok(item)
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {

@@ -68,6 +68,13 @@ export class ReplViewPane extends ViewPane {
 			// Create the instance!
 			this.createInstanceView(e);
 		});
+
+		// Listen for focus events from ViewPane
+		this.onDidFocus(() => {
+			if (this._instanceView) {
+				this._instanceView.takeFocus();
+			}
+		});
 	}
 
 	/**

@@ -135,7 +135,7 @@ export class ReplCell extends Disposable {
 	 *   mime types and values are the output data for that type
 	 */
 	emitMimeOutput(data: Map<string, string>) {
-		for (const [mime, val] of data) {
+		for (const [mime, val] of Object.entries(data)) {
 			let output = '';
 			let error = false;
 			let isText = true;

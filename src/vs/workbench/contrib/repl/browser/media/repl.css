@@ -37,6 +37,11 @@
 	margin: 0.25em 0;
 }
 
+.repl-banner {
+	font-family: monospace;
+	margin: 15px;
+}
+
 .repl-cells {
 	margin-right: 15px;
 	position: relative;

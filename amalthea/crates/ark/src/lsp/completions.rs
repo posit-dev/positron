@@ -45,6 +45,61 @@ use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::tree::TreeExt;
 
+lazy_static! {
+    // NOTE: Regex::new() is quite slow to compile, so it's much better to keep
+    // a single singleton pattern and use that repeatedly for matches.
+    static ref RE_SYNTACTIC_IDENTIFIER : Regex =
+        Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap();
+}
+
+
+pub(crate) struct CompletionContext<'a> {
+    pub(crate) document: &'a mut Document,
+    pub(crate) token: String,
+    pub(crate) source: String,
+    pub(crate) point: Point,
+    pub(crate) params: CompletionParams,
+}
+
+fn is_syntactic(name: &str) -> bool {
+    return RE_SYNTACTIC_IDENTIFIER.is_match(name);
+}
+
+fn quote_if_non_syntactic(name: &str) -> String {
+    if RE_SYNTACTIC_IDENTIFIER.is_match(name) {
+        name.to_string()
+    } else {
+        format!("`{}`", name.replace("`", "\\`"))
+    }
+}
+
+fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
+
+    // get the callee
+    let lhs = unwrap!(node.child(0), {
+        return false;
+    });
+
+    // validate we have an identifier or a string
+    match lhs.kind() {
+        "identifier" | "string" => {},
+        _ => { return false; }
+    }
+
+    // check for a function whose evaluation occurs in a local scope
+    let value = unwrap!(lhs.utf8_text(context.source.as_bytes()), {
+        return false;
+    });
+
+    match value {
+        "expression" | "local" | "quote" | "enquote" | "substitute" | "with" | "within" => { return true; },
+        _ => { return false; }
+    }
+
+}
+
+
+
 fn completion_item_from_identifier(node: &Node, source: &str) -> Result<CompletionItem> {
     let label = node.utf8_text(source.as_bytes())?;
     let detail = format!("Defined on line {}", node.start_position().row + 1);
@@ -69,23 +124,6 @@ fn completion_item_from_assignment(node: &Node, source: &str) -> Result<Completi
 
     return Ok(item);
 
-}
-
-struct CompletionData {
-    source: String,
-    position: Point,
-    visited: HashSet<usize>,
-}
-
-lazy_static! {
-    // NOTE: Regex::new() is quite slow to compile, so it's much better to keep
-    // a single singleton pattern and use that repeatedly for matches.
-    static ref RE_SYNTACTIC_IDENTIFIER : Regex =
-        Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap();
-}
-
-fn is_syntactic(name: &str) -> bool {
-    return RE_SYNTACTIC_IDENTIFIER.is_match(name);
 }
 
 unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Result<CompletionItem> {
@@ -156,8 +194,15 @@ unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
     item.insert_text = if is_syntactic(name) {
         Some(format!("{}($0)", name))
     } else {
-        Some(format!("`{}`()", name))
+        Some(format!("`{}`($0)", name.replace("`", "\\`")))
     };
+
+    // provide parameter completions after completiong function
+    item.command = Some(Command {
+        title: "Trigger Suggest".to_string(),
+        command: "editor.action.triggerSuggest".to_string(),
+        ..Default::default()
+    });
 
     // TODO: Include 'detail' based on the function signature?
     // TODO: Include help documentation?
@@ -180,8 +225,14 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
         return completion_item_from_function(name);
     }
 
-    let mut item = CompletionItem::new_simple(name.to_string(), "(Object)".to_string());
+    let mut item = CompletionItem {
+        label: quote_if_non_syntactic(name),
+        ..Default::default()
+    };
+
+    item.detail = Some("(Object)".to_string());
     item.kind = Some(CompletionItemKind::STRUCT);
+
     return Ok(item);
 
 }
@@ -198,9 +249,13 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
 
 }
 
-unsafe fn completion_item_from_parameter(string: impl ToString, callee: impl ToString) -> Result<CompletionItem> {
+unsafe fn completion_item_from_parameter(string: &str, callee: &str) -> Result<CompletionItem> {
 
-    let mut item = CompletionItem::new_simple(string.to_string(), callee.to_string());
+    let mut item = CompletionItem {
+        label: quote_if_non_syntactic(string),
+        ..Default::default()
+    };
+
     item.kind = Some(CompletionItemKind::FIELD);
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
     item.insert_text = Some(string.to_string() + " = ");
@@ -223,43 +278,41 @@ unsafe fn completion_item_from_parameter(string: impl ToString, callee: impl ToS
 
 }
 
-fn call_uses_nse(node: &Node, data: &CompletionData) -> bool {
+pub(crate) fn completion_context<'a>(document: &'a mut Document, params: CompletionParams) -> Result<CompletionContext<'a>> {
 
-    // get the callee
-    let lhs = unwrap!(node.child(0), {
-        return false;
-    });
+    // get reference to AST
+    let ast = document.ast()?;
 
-    // validate we have an identifier or a string
-    match lhs.kind() {
-        "identifier" | "string" => {},
-        _ => { return false; }
+    // try to find node at completion position
+    let mut point = params.text_document_position.position.as_point();
+    if point.column > 1 {
+        point.column -= 1;
     }
 
-    // check for a function whose evaluation occurs in a local scope
-    let value = unwrap!(lhs.utf8_text(data.source.as_bytes()), {
-        return false;
-    });
+    // use the node to figure out the completion token
+    let node = ast.node_at_point(point)?;
+    let source = document.contents.to_string();
+    let token = node.utf8_text(source.as_bytes())?.to_string();
 
-    match value {
-        "expression" | "local" | "quote" | "enquote" | "substitute" | "with" | "within" => { return true; },
-        _ => { return false; }
-    }
+    // build completion context
+    Ok(CompletionContext { document, token, source, point, params })
 
 }
 
-fn append_defined_variables(node: &Node, data: &mut CompletionData, completions: &mut Vec<CompletionItem>) {
+fn append_defined_variables(node: &Node, context: &CompletionContext, completions: &mut Vec<CompletionItem>) {
+
+    let visited : HashSet<usize> = HashSet::new();
 
     let mut cursor = node.walk();
     cursor.recurse(|node| {
 
         // skip nodes that exist beyond the completion position
-        if node.start_position().is_after(data.position) {
+        if node.start_position().is_after(context.point) {
             return false;
         }
 
         // skip nodes that were already visited
-        if data.visited.contains(&node.id()) {
+        if visited.contains(&node.id()) {
             return false;
         }
 
@@ -268,7 +321,7 @@ fn append_defined_variables(node: &Node, data: &mut CompletionData, completions:
             "left_assignment" | "super_assignment" | "equals_assignment" => {
 
                 // check for a valid completion
-                match completion_item_from_assignment(&node, &data.source) {
+                match completion_item_from_assignment(&node, &context.source) {
                     Ok(item) => completions.push(item),
                     Err(error) => error!("{}", error),
                 }
@@ -288,7 +341,7 @@ fn append_defined_variables(node: &Node, data: &mut CompletionData, completions:
             "call" => {
 
                 // don't recurse into calls for certain functions
-                return !call_uses_nse(&node, &data);
+                return !call_uses_nse(&node, context);
 
             }
 
@@ -310,7 +363,7 @@ fn append_defined_variables(node: &Node, data: &mut CompletionData, completions:
 
 }
 
-fn append_function_parameters(node: &Node, data: &mut CompletionData, completions: &mut Vec<CompletionItem>) -> Result<()> {
+fn append_function_parameters(node: &Node, context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     let mut cursor = node.walk();
 
@@ -338,7 +391,7 @@ fn append_function_parameters(node: &Node, data: &mut CompletionData, completion
     while cursor.goto_next_sibling() {
         let node = cursor.node();
         if node.kind() == "identifier" {
-            match completion_item_from_identifier(&node, &data.source) {
+            match completion_item_from_identifier(&node, &context.source) {
                 Ok(item) => completions.push(item),
                 Err(error) => error!("{}", error),
             }
@@ -369,18 +422,18 @@ unsafe fn list_namespace_symbols(namespace: SEXP) -> RObject {
     return RObject::new(R_lsInternal(namespace, 1));
 }
 
-unsafe fn append_parameter_completions(document: &Document, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_parameter_completions({:?})", callee);
 
     // Check for a function defined in this document that can provide parameters.
-    let index = index_document(document);
+    let index = index_document(context.document);
     for symbol in index {
         match symbol {
             IndexedSymbol::Function { name, arguments } => {
                 if name == callee {
                     for argument in arguments {
-                        match completion_item_from_parameter(argument, name.clone()) {
+                        match completion_item_from_parameter(argument.as_str(), name.as_str()) {
                             Ok(item) => completions.push(item),
                             Err(error) => error!("{}", error),
                         }
@@ -445,7 +498,7 @@ unsafe fn append_parameter_completions(document: &Document, callee: &str, comple
 
 }
 
-unsafe fn append_namespace_completions(package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_namespace_completions(context: &CompletionContext, package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_namespace_completions({:?}, {})", package, exports_only);
 
@@ -473,13 +526,34 @@ unsafe fn append_namespace_completions(package: &str, exports_only: bool, comple
 
 }
 
-#[allow(dead_code)]
 fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
 
+    // add some built-in snippet completions for control flow
+    let snippets = vec![
+        ("function", "function($1:arguments}) $0"),
+        ("while", "while (${1:condition}) $0"),
+        ("repeat", "repeat $0"),
+        ("for", "for (${1:variable} in ${2:vector}) $0"),
+        ("if", "if (${1:condition}) $0"),
+    ];
+
+    for snippet in snippets {
+        let mut item = CompletionItem {
+            label: snippet.0.to_string(),
+            ..Default::default()
+        };
+
+        item.detail = Some("[keyword]".to_string());
+        item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+        item.insert_text = Some(snippet.1.to_string());
+        completions.push(item);
+    }
+
+    // provide other completion results
     let keywords = vec![
-    "NULL", "NA", "TRUE", "FALSE", "Inf", "NaN", "NA_integer_",
-    "NA_real_", "NA_character_", "NA_complex_", "function", "while",
-    "repeat", "for", "if", "in", "else", "next", "break", "return",
+        "NULL", "NA", "TRUE", "FALSE", "Inf", "NaN",
+        "NA_integer_", "NA_real_", "NA_character_", "NA_complex_",
+        "in", "else", "next", "break", "return",
     ];
 
     for keyword in keywords {
@@ -490,7 +564,10 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
 
 }
 
-unsafe fn append_search_path_completions(completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_search_path_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
+
+    // start with keywords
+    append_keyword_completions(completions);
 
     // Iterate through environments starting from the global environment.
     let mut envir = R_GlobalEnv;
@@ -601,61 +678,39 @@ unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<Complet
 
 }
 
-pub(crate) fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> bool {
-
-    // get reference to AST
-    let ast = unwrap!(document.ast.as_ref(), {
-        return false;
-    });
-
-    // get document source
-    let source = document.contents.to_string();
+pub(crate) fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> Result<bool> {
 
     // figure out the token / node at the cursor position. note that we use
     // the previous token here as the cursor itself will be located just past
     // the cursor / node providing the associated context
     let mut point = params.text_document_position.position.as_point();
-    if point.column > 1 { point.column -= 1; }
+    if point.column > 1 {
+        point.column -= 1;
+    }
 
-    let node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
-        return false;
-    });
-
-    let value = node.utf8_text(source.as_bytes()).unwrap();
+    let node = document.ast()?.node_at_point(point)?;
+    let source = document.contents.to_string();
+    let value = node.utf8_text(source.as_bytes())?;
 
     // completions will be triggered as the user types ':', which implies that
     // a completion request could be sent before the user has finished typing
     // '::' or ':::'. detect this particular case and don't provide completions
     // in that context
     if value == ":" {
-        return false;
+        return Ok(false);
     }
 
-    return true;
+    return Ok(true);
 
 }
 
-pub(crate) fn append_session_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) -> Result<()> {
+pub(crate) fn append_session_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_session_completions()");
 
     // get reference to AST
-    let ast = unwrap!(document.ast.as_ref(), {
-        bail!("Error retrieving document AST")
-    });
-
-    // get document source
-    let source = document.contents.to_string();
-
-    // figure out the token / node at the cursor position. note that we use
-    // the previous token here as the cursor itself will be located just past
-    // the cursor / node providing the associated context
-    let mut point = params.text_document_position.position.as_point();
-    if point.column > 1 { point.column -= 1; }
-
-    let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
-        bail!("Error finding node at point {:?}", point);
-    });
+    let ast = context.document.ast()?;
+    let mut node = ast.node_at_point(context.point)?;
 
     // check for completion within a comment -- in such a case, we usually
     // want to complete things like roxygen tags
@@ -663,7 +718,7 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
     // TODO: should some of this token processing happen in treesitter?
     if node.kind() == "comment" {
         let pattern = Regex::new(r"^.*\s").unwrap();
-        let contents = node.utf8_text(source.as_bytes()).unwrap();
+        let contents = node.utf8_text(context.source.as_bytes()).unwrap();
         let token = pattern.replace(contents, "");
         info!("Token: {:?}", token);
         if token.starts_with('@') {
@@ -704,8 +759,8 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
             if parent.kind() == "ERROR" {
                 if let Some(prev) = parent.prev_sibling() {
                     if matches!(prev.kind(), "identifier" | "string") {
-                        let package = prev.utf8_text(source.as_bytes()).unwrap();
-                        return r_lock! { append_namespace_completions(package, exports_only, completions) };
+                        let package = prev.utf8_text(context.source.as_bytes()).unwrap();
+                        return r_lock! { append_namespace_completions(context, package, exports_only, completions) };
                     }
                 }
             }
@@ -718,8 +773,8 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
         // for the associated callee if possible.
         if node.kind() == "call" {
             if let Some(child) = node.child(0) {
-                let text = child.utf8_text(source.as_bytes())?;
-                return r_lock! { append_parameter_completions(document, &text, completions) };
+                let text = child.utf8_text(context.source.as_bytes())?;
+                return r_lock! { append_parameter_completions(context, &text, completions) };
             };
         }
 
@@ -728,9 +783,9 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
         if matches!(node.kind(), "namespace_get" | "namespace_get_internal") {
             if let Some(package_node) = node.child(0) {
                 if let Some(colon_node) = node.child(1) {
-                    let package = package_node.utf8_text(source.as_bytes()).unwrap();
+                    let package = package_node.utf8_text(context.source.as_bytes()).unwrap();
                     let exports_only = colon_node.kind() == "::";
-                    return r_lock! { append_namespace_completions(package, exports_only, completions) };
+                    return r_lock! { append_namespace_completions(context, package, exports_only, completions) };
                 }
             }
         }
@@ -750,20 +805,17 @@ pub(crate) fn append_session_completions(document: &mut Document, params: &Compl
 
     // If we got here, then it's appropriate to return completions
     // for any packages + symbols on the search path.
-    return r_lock! { append_search_path_completions(completions) };
+    return r_lock! { append_search_path_completions(context, completions) };
 
 }
 
-pub(crate) fn append_document_completions(document: &mut Document, params: &CompletionParams, completions: &mut Vec<CompletionItem>) -> Result<()> {
+pub(crate) fn append_document_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_document_completions()");
 
     // get reference to AST
-    let ast = document.ast()?;
-
-    // try to find child for point
-    let point = params.text_document_position.position.as_point();
-    let mut node = ast.node_at_point(point)?;
+    let ast = context.document.ast()?;
+    let mut node = ast.node_at_point(context.point)?;
 
     // skip comments
     if node.kind() == "comment" {
@@ -771,30 +823,24 @@ pub(crate) fn append_document_completions(document: &mut Document, params: &Comp
         return Ok(());
     }
 
-    // build completion data
-    let mut data = CompletionData {
-        source: document.contents.to_string(),
-        position: point,
-        visited: HashSet::new(),
-    };
-
+    let mut visited : HashSet<usize> = HashSet::new();
     loop {
 
         // If this is a brace list, or the document root, recurse to find identifiers.
         if node.kind() == "brace_list" || node.parent() == None {
-            append_defined_variables(&node, &mut data, completions);
+            append_defined_variables(&node, context, completions);
         }
 
         // If this is a function definition, add parameter names.
         if node.kind() == "function_definition" {
-            let result = append_function_parameters(&node, &mut data, completions);
+            let result = append_function_parameters(&node, context, completions);
             if let Err(error) = result {
                 error!("{}", error);
             }
         }
 
         // Mark this node as visited.
-        data.visited.insert(node.id());
+        visited.insert(node.id());
 
         // Keep going.
         node = match node.parent() {
