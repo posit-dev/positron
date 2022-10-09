@@ -165,6 +165,9 @@ export interface ILanguageRuntime {
 	/** An object that emits events when the runtime state changes */
 	onDidChangeRuntimeState: Event<RuntimeState>;
 
+	/** An object that emits an event when the runtime completes startup */
+	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
+
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
 

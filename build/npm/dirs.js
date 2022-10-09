@@ -6,6 +6,7 @@
 // Complete list of directories where yarn should be executed to install node modules
 exports.dirs = [
 	'',
+	'amalthea/crates/ark/extension',
 	'build',
 	'extensions',
 	'extensions/configuration-editing',
@@ -27,6 +28,7 @@ exports.dirs = [
 	'extensions/jake',
 	'extensions/json-language-features',
 	'extensions/json-language-features/server',
+	'extensions/jupyter-adapter',
 	'extensions/markdown-language-features/server',
 	'extensions/markdown-language-features',
 	'extensions/markdown-math',
