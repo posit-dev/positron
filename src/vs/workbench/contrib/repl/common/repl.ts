@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-export const REPL_VIEW_ID = 'repl';
+export const REPL_VIEW_ID = 'workbench.panel.console';
 import * as nls from 'vs/nls';
 
 export const enum ReplCommandId {

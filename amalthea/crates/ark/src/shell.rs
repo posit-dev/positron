@@ -283,7 +283,7 @@ impl ShellHandler for Shell {
         }
 
         // Let the shell thread know that we've executed the code.
-        trace!("Code sent to R: {}", req.code);
+        trace!("Input reply sent to R: {}", req.code);
         let result = receiver.recv().unwrap();
         if let ExecuteResponse::ReplyException(err) = result {
             warn!("Error in input reply: {:?}", err);

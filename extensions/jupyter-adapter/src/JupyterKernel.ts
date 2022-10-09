@@ -4,7 +4,7 @@
 
 import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import * as vscode from 'vscode';
-import * as zmq from 'zeromq';
+import * as zmq from 'zeromq/v5-compat';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -171,8 +171,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		});
 		this._process.on('close', (code) => {
 			this.setStatus(vscode.RuntimeState.Exited);
+
+			// Dispose all sockets so they don't try to connect to the
+			// now-defunct kernel
+			this.disposeAllSockets();
+
 			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
-			output.dispose();
 		});
 		this._process.once('spawn', () => {
 			this._channel.appendLine(`${this._spec.display_name} kernel started`);
@@ -181,16 +185,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				this._channel.appendLine('Receieved initial heartbeat: ' + msg);
 				this.setStatus(vscode.RuntimeState.Ready);
 
-				const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
-				if (seconds > 0) {
-					this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
-					this.heartbeat();
-					this._heartbeat?.socket().on('message', (msg: string) => {
-						this.onHeartbeat(msg);
-					});
-				} else {
-					this._channel.appendLine(`Heartbeat check disabled via configuration.`);
-				}
+				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+				this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
+				this.heartbeat();
+				this._heartbeat?.socket().on('message', (msg: string) => {
+					this.onHeartbeat(msg);
+				});
 			});
 			this._heartbeat?.socket().send(['hello']);
 		});
@@ -278,7 +278,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.shutdown(true);
 
 		// Start the kernel again once the process finishes shutting down
-		this._process?.on('exit', () => {
+		this._process?.once('exit', () => {
 			this._channel.appendLine(`Waiting for '${this._spec.display_name}' to restart...`);
 			// Start the kernel again, rebinding to the LSP client if we have
 			// one
@@ -423,14 +423,31 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		}
 
 		// Close sockets
+		this.disposeAllSockets();
+
+		// If kernel isn't already shut down (or shutting down), shut it down
+		if (this.status() !== vscode.RuntimeState.Exiting &&
+			this.status() !== vscode.RuntimeState.Exited) {
+			this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
+			this.shutdown(false);
+		}
+	}
+
+	/**
+	 * Dispose all sockets
+	 */
+	private disposeAllSockets() {
 		this._control?.dispose();
 		this._shell?.dispose();
 		this._stdin?.dispose();
 		this._heartbeat?.dispose();
 		this._iopub?.dispose();
 
-		this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
-		this.shutdown(false);
+		this._control = null;
+		this._shell = null;
+		this._stdin = null;
+		this._heartbeat = null;
+		this._iopub = null;
 	}
 
 	private generateMessageHeader(id: string, type: string): JupyterMessageHeader {
@@ -478,7 +495,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Emits a heartbeat message and waits for the kernel to respond.
 	 */
 	private heartbeat() {
-		const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
+		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this._channel.appendLine(`SEND heartbeat`);
 		this._heartbeat?.socket().send(['hello']);
@@ -508,7 +525,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		}
 
 		// Schedule the next heartbeat at the configured interval
-		const seconds = vscode.workspace.getConfiguration('myriac').get('heartbeat') as number;
+		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
 		setTimeout(() => {
 			this.heartbeat();
 		}, seconds * 1000);

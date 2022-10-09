@@ -14,6 +14,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _messageEmitter = new Emitter<ILanguageRuntimeMessage>();
+	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 
 	constructor(readonly handle: number,
@@ -23,12 +24,15 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
+		this.onDidCompleteStartup = this._startupEmitter.event;
 
 		// Listen to state changes and track the current state
 		this.onDidChangeRuntimeState((state) => {
 			this._currentState = state;
 		});
 	}
+
+	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
 
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
@@ -56,15 +60,22 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	restart(): void {
-		throw new Error('Method not implemented.');
+		return this._proxy.$restartLanguageRuntime(this.handle);
 	}
 
 	shutdown(): void {
-		throw new Error('Method not implemented.');
+		return this._proxy.$shutdownLanguageRuntime(this.handle);
 	}
 
 	start(): Promise<ILanguageRuntimeInfo> {
-		return this._proxy.$startLanguageRuntime(this.handle);
+		return new Promise((resolve, reject) => {
+			this._proxy.$startLanguageRuntime(this.handle).then((info) => {
+				this._startupEmitter.fire(info);
+				resolve(info);
+			}).catch((err) => {
+				reject(err);
+			});
+		});
 	}
 }
 
