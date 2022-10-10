@@ -48,9 +48,9 @@ import 'vs/workbench/browser/parts/statusbar/statusbarPart';
 import 'vs/workbench/browser/parts/views/viewsService';
 
 // --- Start Positron ---
-// This loads Positron's top bar part and auxiliary activity bar part.
 import 'vs/workbench/browser/parts/topBar/topBarPart';
 import 'vs/workbench/browser/parts/auxiliaryActivityBar/auxiliaryActivityBarPart';
+import 'vs/workbench/browser/parts/toolsBar/toolsBarPart';
 // --- End Positron ---
 
 //#endregion
@@ -170,7 +170,6 @@ import 'vs/workbench/contrib/performance/browser/performance.contribution';
 import 'vs/workbench/contrib/contextmenu/browser/contextmenu.contribution';
 
 // --- Start Positron ---
-// Modal Dialogs
 import 'vs/workbench/contrib/modalDialogs/browser/modalDialogs.contribution';
 // --- End Positron ---
 
