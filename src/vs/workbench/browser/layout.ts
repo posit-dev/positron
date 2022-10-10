@@ -1720,6 +1720,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.workbenchGrid.moveViewTo(this.auxiliaryBarPartView, [3, -1]);
 			}
 			// --- Start Positron ---
+			this.workbenchGrid.moveViewTo(this.toolsBarPartView, [3, -1]);
 			this.workbenchGrid.moveViewTo(this.auxiliaryActivityBarPartView, [3, -1]);
 			// --- End Positron ---
 		} else {
@@ -1731,6 +1732,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.workbenchGrid.moveViewTo(this.auxiliaryBarPartView, [3, 0]);
 			}
 			// --- Start Positron ---
+			this.workbenchGrid.moveViewTo(this.toolsBarPartView, [3, 0]);
 			this.workbenchGrid.moveViewTo(this.auxiliaryActivityBarPartView, [3, 0]);
 			// --- End Positron ---
 		}
