@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.monaco-workbench .part.topbar {
+.monaco-workbench .part.top-bar {
 	box-sizing: border-box;
 	cursor: default;
 	width: 100%;
@@ -15,25 +15,25 @@
 }
 
 /* Don't draw a focus outline. */
-.monaco-workbench .part.topbar:focus {
+.monaco-workbench .part.top-bar:focus {
 	outline: none !important;
 }
 
-.monaco-workbench .part.topbar .action-bars-container {
+.monaco-workbench .part.top-bar .action-bars-container {
 	display: flex;
 	justify-content: space-between;
 	width: 100%;
 	margin: 0 10px;
 }
 
-.monaco-workbench .part.topbar .action-bars-container .action-bar-container {
+.monaco-workbench .part.top-bar .action-bars-container .action-bar-container {
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
 	padding: 0 0 0 0;
 }
 
-.monaco-workbench .part.topbar .actions-container {
+.monaco-workbench .part.top-bar .actions-container {
 	display: inline;
 }
 

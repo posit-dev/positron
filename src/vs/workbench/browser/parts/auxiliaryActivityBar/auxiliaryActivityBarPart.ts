@@ -166,8 +166,10 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 	/**
 	 * Initializes a new instance of the AuxiliaryActivityBarPart class.
 	 * @param themeService The theme service.
-	 * @param workbenchLayoutService The workbench layout service.
+	 * @param hoverService The theme service.
 	 * @param storageService The storage service.
+	 * @param configurationService The configuration service.
+	 * @param workbenchLayoutService The workbench layout service.
 	 * @param contextKeyService The context key service.
 	 */
 	constructor(
