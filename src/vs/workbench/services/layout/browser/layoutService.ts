@@ -13,18 +13,17 @@ import { Direction } from 'vs/base/browser/ui/grid/grid';
 export const IWorkbenchLayoutService = refineServiceDecorator<ILayoutService, IWorkbenchLayoutService>(ILayoutService);
 
 export const enum Parts {
-	TITLEBAR_PART = 'workbench.parts.titlebar',
 	// --- Start Positron ---
-	TOPBAR_PART = 'workbench.parts.topbar',
+	TOPBAR_PART = 'workbench.parts.top-bar',
+	TOOLSBAR_PART = 'workbench.parts.tools-bar',
+	AUXILIARYACTIVITYBAR_PART = 'workbench.parts.auxiliary-activity-bar',
 	// --- End Positron ---
+	TITLEBAR_PART = 'workbench.parts.titlebar',
 	BANNER_PART = 'workbench.parts.banner',
 	ACTIVITYBAR_PART = 'workbench.parts.activitybar',
 	SIDEBAR_PART = 'workbench.parts.sidebar',
 	PANEL_PART = 'workbench.parts.panel',
 	AUXILIARYBAR_PART = 'workbench.parts.auxiliarybar',
-	// --- Start Positron ---
-	AUXILIARYACTIVITYBAR_PART = 'workbench.parts.auxiliary-activity-bar',
-	// --- End Positron ---
 	EDITOR_PART = 'workbench.parts.editor',
 	STATUSBAR_PART = 'workbench.parts.statusbar'
 }

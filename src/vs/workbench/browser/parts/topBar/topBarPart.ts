@@ -27,7 +27,7 @@ import { BaseActionViewItem } from 'vs/base/browser/ui/actionbar/actionViewItems
 registerThemingParticipant((theme, collector) => {
 	const backgroundColor = theme.getColor(TOP_BAR_BACKGROUND);
 	if (backgroundColor) {
-		collector.addRule(`.monaco-workbench .part.topbar { background-color: ${backgroundColor}; }`);
+		collector.addRule(`.monaco-workbench .part.top-bar { background-color: ${backgroundColor}; }`);
 	}
 });
 
@@ -169,7 +169,7 @@ registerSingleton(ITopBarService, TopBarPart, false);
 // Keybindings
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
-	id: 'workbench.topbar.focusTopBar',
+	id: 'workbench.top-bar.focusTopBar',
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyCode.Escape,
 	when: TopBarFocused,
