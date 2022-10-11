@@ -6,7 +6,7 @@ import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IModalDialogsService } from 'vs/platform/modalDialogs/common/modalDialogs';
-import { CATEGORIES } from 'vs/workbench/common/actions';
+import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { AuxiliaryActivityBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
@@ -22,7 +22,7 @@ export class ToggleAuxiliaryActivityBarVisibilityAction extends Action2 {
 				mnemonicTitle: localize({ key: 'miAuxiliaryActivityBar', comment: ['&& denotes a mnemonic'] }, "Secondary Activity Bar"), //TODO@softwarenerd assign mnemonic.
 				original: 'Toggle Secondary Activity Bar Visibility'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 			toggled: AuxiliaryActivityBarVisibleContext,
 			menu: [{
@@ -53,7 +53,7 @@ registerAction2(class FocusAuxiliaryActivityBarAction extends Action2 {
 				value: localize('focusAuxiliaryActivityBar', "Focus Secondary Activity Bar"),
 				original: 'Focus Secondary Activity Bar'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true
 		});
 	}
@@ -75,7 +75,7 @@ registerAction2(class ShowEnvironmentAuxiliaryActivityAction extends Action2 {
 				value: localize('showEnvironmentAuxiliaryActivity', "Show Environment"),
 				original: 'Show Environment'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 		});
 	}
@@ -97,7 +97,7 @@ registerAction2(class ShowPreviewAuxiliaryActivityAction extends Action2 {
 				value: localize('showPreviewAuxiliaryActivity', "Show Preview"),
 				original: 'Show Preview'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 		});
 	}
@@ -119,7 +119,7 @@ registerAction2(class ShowHelpAuxiliaryActivityAction extends Action2 {
 				value: localize('showHelpAuxiliaryActivity', "Show Help"),
 				original: 'Show Help'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 		});
 	}
@@ -141,7 +141,7 @@ registerAction2(class ShowPlotAuxiliaryActivityAction extends Action2 {
 				value: localize('showPlotAuxiliaryActivity', "Show Plot"),
 				original: 'Show Plot'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 		});
 	}
@@ -163,7 +163,7 @@ registerAction2(class ShowViewerAuxiliaryActivityAction extends Action2 {
 				value: localize('showViewerAuxiliaryActivity', "Show Viewer"),
 				original: 'Show Viewer'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 		});
 	}
@@ -185,7 +185,7 @@ registerAction2(class ShowPresentationAuxiliaryActivityAction extends Action2 {
 				value: localize('showPresentationAuxiliaryActivity', "Show Presentation"),
 				original: 'Show Presentation'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 		});
 	}
@@ -209,7 +209,7 @@ registerAction2(class ShowExampleModalDialogAction1 extends Action2 {
 				value: localize('showExampleModalDialog1', "Show Example Modal Dialog 1"),
 				original: 'Show Example Modal Dialog 1'
 			},
-			category: CATEGORIES.Test,
+			category: Categories.Test,
 			f1: true
 		});
 	}
@@ -231,7 +231,7 @@ registerAction2(class ShowExampleModalDialogAction2 extends Action2 {
 				value: localize('showExampleModalDialog2', "Show Example Modal Dialog 2"),
 				original: 'Show Example Modal Dialog 2'
 			},
-			category: CATEGORIES.Test,
+			category: Categories.Test,
 			f1: true
 		});
 	}

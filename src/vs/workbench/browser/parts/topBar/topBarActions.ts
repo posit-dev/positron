@@ -5,7 +5,7 @@
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
-import { CATEGORIES } from 'vs/workbench/common/actions';
+import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { TopBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
@@ -21,7 +21,7 @@ export class ToggleTopBarVisibilityAction extends Action2 {
 				mnemonicTitle: localize({ key: 'miTopBar', comment: ['&& denotes a mnemonic'] }, "&&Top Bar"),
 				original: 'Toggle Top Bar Visibility'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 			toggled: TopBarVisibleContext,
 			menu: [{
@@ -48,7 +48,7 @@ registerAction2(class FocusTopBarAction extends Action2 {
 		super({
 			id: FocusTopBarAction.ID,
 			title: { value: FocusTopBarAction.LABEL, original: 'Focus Top Bar' },
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true
 		});
 	}
