@@ -36,13 +36,21 @@ export class ReplService extends Disposable implements IReplService {
 	) {
 		super();
 
-		// When a language runtime starts, open a REPL for it if we don't
-		// already have an active REPL.
-		this._languageRuntimeService.onDidStartRuntime((e) => {
-			if (this._instances.length === 0) {
-				this.startRepl(e);
-			}
-		});
+		const runtime = this._languageRuntimeService.getActiveRuntime(null);
+		if (runtime) {
+			// There is already a language runtime active; start a REPL for it
+			this.startRepl(runtime);
+		} else {
+			// No language runtime active yet. When a language runtime starts,
+			// open a REPL for it if we don't already have an active REPL.
+			this._languageRuntimeService.onDidStartRuntime((e) => {
+				if (this._instances.length === 0) {
+					this.startRepl(e);
+				} else {
+					this._logService.info(`Not starting REPL for ${e.metadata.name} because another REPL is already active.`);
+				}
+			});
+		}
 	}
 
 	/**
