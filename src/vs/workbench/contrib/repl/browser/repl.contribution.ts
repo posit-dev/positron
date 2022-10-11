@@ -11,12 +11,12 @@ import { Registry } from 'vs/platform/registry/common/platform';
 import { Extensions as ViewContainerExtensions, IViewContainersRegistry, ViewContainerLocation, IViewsRegistry } from 'vs/workbench/common/views';
 import * as nls from 'vs/nls';
 import { registerReplActions } from 'vs/workbench/contrib/repl/browser/replActions';
-import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ReplService } from 'vs/workbench/contrib/repl/browser/replService';
 import { ReplViewPane } from 'vs/workbench/contrib/repl/browser/replView';
 
 // Register REPL service singleton with platform
-registerSingleton(IReplService, ReplService, true);
+registerSingleton(IReplService, ReplService, InstantiationType.Delayed);
 
 // Register the REPL view with the views registry
 const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
