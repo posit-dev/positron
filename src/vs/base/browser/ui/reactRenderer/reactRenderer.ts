@@ -2,7 +2,6 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./modalDialogComponent';
 import { createRoot, Root } from 'react-dom/client';
 
 /**
