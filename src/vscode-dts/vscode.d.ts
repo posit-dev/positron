@@ -16434,9 +16434,13 @@ declare module 'vscode' {
 		/** A message representing echoed user input */
 		Input = 'input',
 
+		/** A message representing an error that occurred while executing user code */
+		Error = 'error',
+
 		/** A message representing a change in the runtime's online state */
 		State = 'state',
 	}
+
 	/**
 	 * The set of possible statuses for a language runtime while online
 	 */

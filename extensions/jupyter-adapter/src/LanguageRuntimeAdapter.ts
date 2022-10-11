@@ -12,6 +12,7 @@ import { JupyterExecuteResult } from './JupyterExecuteResult';
 import { JupyterExecuteInput } from './JupyterExecuteInput';
 import { JupyterKernelInfoReply } from './JupyterKernelInfoReply';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
+import { JupyterErrorReply } from './JupyterErrorReply';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -157,6 +158,17 @@ export class LanguageRuntimeAdapter
 
 	onMessage(msg: JupyterMessagePacket) {
 		const message = msg.message;
+
+		// Check to see whether the payload has a 'status' field that's set to
+		// 'error'. If so, the message is an error result message; we'll send an
+		// error message to the client.
+		//
+		// @ts-ignore-next-line
+		if (message.status && message.status === 'error') {
+			this.onErrorResult(msg, message as JupyterErrorReply);
+			return;
+		}
+
 		switch (msg.msgType) {
 			case 'display_data':
 				this.onDisplayData(msg, message as JupyterDisplayData);
@@ -187,6 +199,24 @@ export class LanguageRuntimeAdapter
 			type: vscode.LanguageRuntimeMessageType.Output,
 			data: data.data as any
 		} as vscode.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Converts a Jupyter error message to a LanguageRuntimeMessage and emits
+	 * it.
+	 *
+	 * @param message The message packet
+	 * @param data The error message
+	 */
+	private onErrorResult(message: JupyterMessagePacket, data: JupyterErrorReply) {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			type: vscode.LanguageRuntimeMessageType.Error,
+			name: data.ename,
+			message: data.evalue,
+			traceback: data.traceback
+		} as vscode.LanguageRuntimeError);
 	}
 
 	/**
