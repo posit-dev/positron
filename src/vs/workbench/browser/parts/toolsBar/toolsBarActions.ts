@@ -5,7 +5,7 @@
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
-import { CATEGORIES } from 'vs/workbench/common/actions';
+import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { ToolsBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
@@ -20,7 +20,7 @@ export class ToggleToolsBarVisibilityAction extends Action2 {
 				mnemonicTitle: localize({ key: 'miToolsBar', comment: ['&& denotes a mnemonic'] }, "Tools Bar"), //TODO@softwarenerd assign mnemonic.
 				original: 'Toggle Tools Bar Visibility'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true,
 			toggled: ToolsBarVisibleContext,
 			menu: [{
@@ -51,7 +51,7 @@ registerAction2(class FocusToolsBarAction extends Action2 {
 				value: localize('focusToolsBar', "Focus Tools Bar"),
 				original: 'Focus Tools Bar'
 			},
-			category: CATEGORIES.View,
+			category: Categories.View,
 			f1: true
 		});
 	}
