@@ -14,7 +14,7 @@ interface TestSubcomponentProps {
 // TestSubcomponent component.
 export const TestSubcomponent = (props: TestSubcomponentProps) => {
 	// Hooks.
-	const [time, setTime] = useState<string>('Loading time...');
+	const [time, setTime] = useState<string>(new Date().toLocaleString());
 	useEffect(() => {
 		const interval = setInterval(() => {
 			setTime(new Date().toLocaleString());

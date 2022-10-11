@@ -257,32 +257,32 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 	toggleEnvironmentAuxiliaryActivity(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.environmentToggleAction);
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	togglePreviewAuxiliaryActivity(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.previewToggleAction);
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	toggleHelpAuxiliaryActivity(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.helpToggleAction);
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	togglePlotAuxiliaryActivity(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.plotToggleAction);
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	toggleViewerAuxiliaryActivity(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.viewerToggleAction);
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	togglePresentationAuxiliaryActivity(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.presentationToggleAction);
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	// Show methods.
@@ -291,42 +291,42 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.onToggleAction = this.environmentToggleAction;
 		}
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	showPreviewAuxiliaryActivity(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.onToggleAction = this.previewToggleAction;
 		}
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	showHelpAuxiliaryActivity(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.onToggleAction = this.helpToggleAction;
 		}
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	showPlotAuxiliaryActivity(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.onToggleAction = this.plotToggleAction;
 		}
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	showViewerAuxiliaryActivity(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.onToggleAction = this.viewerToggleAction;
 		}
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	showPresentationAuxiliaryActivity(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.onToggleAction = this.presentationToggleAction;
 		}
-		this.showHideAuxiliaryBar();
+		this.showHideToolsBar();
 	}
 
 	// Other methods.
@@ -339,9 +339,9 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 	//#region Private Methods
 
-	// Shows / hides the auxiliary bar.
-	private showHideAuxiliaryBar(): void {
-		this.layoutService.setPartHidden(!this.topToggleActionBar?.onToggleAction && !this.bottomToggleActionBar?.onToggleAction, Parts.AUXILIARYBAR_PART);
+	// Shows / hides the tools bar.
+	private showHideToolsBar(): void {
+		this.layoutService.setPartHidden(!this.topToggleActionBar?.onToggleAction && !this.bottomToggleActionBar?.onToggleAction, Parts.TOOLSBAR_PART);
 	}
 
 	//#endregion Private Methods

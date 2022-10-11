@@ -2,20 +2,22 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+const React = require('react');
 import 'vs/css!./media/toolsBarPart';
 import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { Part } from 'vs/workbench/browser/part';
-import { LayoutPriority } from 'vs/base/browser/ui/grid/grid';
 import { ToolsBarFocused } from 'vs/workbench/common/contextkeys';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { ReactRenderer } from 'vs/base/browser/ui/reactRenderer/reactRenderer';
+import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IToolsBarService } from 'vs/workbench/services/toolsBar/browser/toolsBarService';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
-import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { ToolsBarBottomMode, ToolsBarComponent, ToolsBarContext, ToolsBarState, ToolsBarTopMode } from 'vs/workbench/browser/parts/toolsBar/toolsBarComponent';
 
 /**
  * ToolsBarPart class.
@@ -26,26 +28,28 @@ export class ToolsBarPart extends Part implements IToolsBarService {
 
 	//#region IView
 
-	readonly minimumWidth: number = 170;
+	readonly minimumWidth: number = 400;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 	readonly minimumHeight: number = 0;
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;
 
-	readonly priority: LayoutPriority = LayoutPriority.Low;
-
-	readonly snap = true;
-
 	get preferredWidth(): number | undefined {
-		// Return preferred width based on which view or views are showing.
-		return Math.max(0, 300);
+		// TODO@softwarenerd - Return preferred width based on which view or views are showing.
+		return Math.max(0, 400);
 	}
 
 	//#endregion
 
 	//#region Content Area
 
-	// The action bars container and the top and bottom action bar containers.
+	// The tools bar container.
 	private toolsBarContainer: HTMLElement | undefined;
+
+	private toolsBarState: ToolsBarState = {
+		counter: 1,
+		topMode: ToolsBarTopMode.Empty,
+		bottomMode: ToolsBarBottomMode.Empty
+	};
 
 	//#endregion Content Area
 
@@ -70,10 +74,16 @@ export class ToolsBarPart extends Part implements IToolsBarService {
 	) {
 		super(Parts.TOOLSBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
 
+		// Temporary.
 		console.log(localize('yaya', "YAYA"));
 	}
 
 	//#endregion Class Initialization
+	override dispose(): void {
+		super.dispose();
+
+		console.log('ksksk');
+	}
 
 	//#region Part
 
@@ -86,15 +96,25 @@ export class ToolsBarPart extends Part implements IToolsBarService {
 		// Create the tools bar container.
 		this.toolsBarContainer = DOM.append(this.element, DOM.$('.tools-bar-container'));
 
-		// Temporary.
-		console.log(this.toolsBarContainer);
+		const reactRenderer = new ReactRenderer(this.toolsBarContainer);
+
+		reactRenderer.render(
+			<ToolsBarContext.Provider value={this.toolsBarState}>
+				<ToolsBarComponent placeholder='value!' />
+			</ToolsBarContext.Provider>
+		);
+
+		// Testing.
+		setInterval(() => {
+			this.toolsBarState.counter++;
+		}, 1000);
 
 		// Track focus.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this.element);
 		ToolsBarFocused.bindTo(scopedContextKeyService).set(true);
 
 		// Return this element.
-		return this.element;
+		return this.toolsBarContainer;
 	}
 
 	toJSON(): object {
