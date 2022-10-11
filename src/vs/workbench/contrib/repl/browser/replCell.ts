@@ -150,6 +150,8 @@ export class ReplCell extends Disposable {
 				output = val;
 				error = true;
 			} else if (mime === 'application/vnd.code.notebook.error') {
+				// TODO: the value is a JSON object with a message and stack;
+				// parse it and display it
 				this.emitError('', val, []);
 				isText = false;
 			} else {
