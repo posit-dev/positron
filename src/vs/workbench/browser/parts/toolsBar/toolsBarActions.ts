@@ -61,4 +61,3 @@ registerAction2(class FocusToolsBarAction extends Action2 {
 		layoutService.focusPart(Parts.TOOLSBAR_PART);
 	}
 });
-
