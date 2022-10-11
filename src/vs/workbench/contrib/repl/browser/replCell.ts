@@ -150,8 +150,7 @@ export class ReplCell extends Disposable {
 				output = val;
 				error = true;
 			} else if (mime === 'application/vnd.code.notebook.error') {
-				this._output.emitError(val);
-				this.setState(ReplCellState.ReplCellCompletedFailure);
+				this.emitError('', val, []);
 				isText = false;
 			} else {
 				output = `Result type ${mime}`;
@@ -160,6 +159,19 @@ export class ReplCell extends Disposable {
 				this._output.emitOutput(output, error);
 			}
 		}
+	}
+
+	/**
+	 * Emits an error to the cell output
+	 *
+	 * @param name The error's name, if any
+	 * @param message The full text of the error message
+	 * @param traceback An array of strings containing the stack frames at the
+	 *   time the error occurred
+	 */
+	public emitError(name: string, message: string, traceback: string[]) {
+		this._output.emitError(message);
+		this.setState(ReplCellState.ReplCellCompletedFailure);
 	}
 
 	/**
