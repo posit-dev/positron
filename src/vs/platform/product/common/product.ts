@@ -65,14 +65,14 @@ else {
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
 			version: '1.72.0-dev',
-			nameShort: 'Myriac',
-			nameLong: 'Myriac',
-			applicationName: 'myriac',
-			dataFolderName: '.myriac',
-			urlProtocol: 'myriac',
-			reportIssueUrl: 'https://github.com/rstudio/myriac/issues/new',
+			nameShort: 'Positron',
+			nameLong: 'Positron',
+			applicationName: 'positron',
+			dataFolderName: '.positron',
+			urlProtocol: 'positron',
+			reportIssueUrl: 'https://github.com/rstudio/positron/issues/new',
 			licenseName: 'MIT',
-			licenseUrl: 'https://github.com/rstudio/myriac/blob/main/LICENSE.txt'
+			licenseUrl: 'https://github.com/rstudio/positron/blob/main/LICENSE.txt'
 		});
 	}
 }
