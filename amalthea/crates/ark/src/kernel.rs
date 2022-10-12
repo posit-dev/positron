@@ -244,17 +244,14 @@ impl Kernel {
         trace!("Formatting value");
 
         // Handle data.frame specially.
-        //
-        // NOTE: Disabled temporarily since it can halt the kernel
-        //
-        // let value = unsafe { Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv) };
-        // let is_data_frame = unsafe { r_inherits(value, "data.frame") };
-        // if is_data_frame {
-        //     match Kernel::to_html(value) {
-        //         Ok(html) => data.insert("text/html".to_string(), json!(html)),
-        //         Err(error) => { error!("{}", error); None },
-        //     };
-        // }
+        let value = unsafe { Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv) };
+        let is_data_frame = unsafe { r_inherits(value, "data.frame") };
+        if is_data_frame {
+            match Kernel::to_html(value) {
+                Ok(html) => data.insert("text/html".to_string(), json!(html)),
+                Err(error) => { error!("{}", error); None },
+            };
+        }
 
         trace!("Sending kernel output: {}", self.output);
         if let Err(err) = self.iopub.send(IOPubMessage::ExecuteResult(ExecuteResult {
