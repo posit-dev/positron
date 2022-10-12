@@ -15,8 +15,8 @@ export const IWorkbenchLayoutService = refineServiceDecorator<ILayoutService, IW
 export const enum Parts {
 	// --- Start Positron ---
 	TOPBAR_PART = 'workbench.parts.top-bar',
-	AUXILIARYACTIVITYBAR_PART = 'workbench.parts.auxiliary-activity-bar',
 	TOOLSBAR_PART = 'workbench.parts.tools-bar',
+	TOOLSSIDEBAR_PART = 'workbench.parts.tools-side-bar',
 	// --- End Positron ---
 	TITLEBAR_PART = 'workbench.parts.titlebar',
 	BANNER_PART = 'workbench.parts.banner',

@@ -908,52 +908,52 @@ export const TOP_BAR_BACKGROUND = registerColor('topBar.background', {
 	hcLight: '#f5f7fa'
 }, localize('topBar.background', "Top bar background color. The top bar is shown under the title bar of the window."));
 
-// < --- Auxiliary Activity Bar --- >
+// < --- Tools Bar --- >
 
-// The auxiliary activity bar background color.
-const AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID = 'auxiliaryActivityBar.background';
-export const AUXILIARY_ACTIVITY_BAR_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID, {
+// The tools bar background color.
+const TOOLS_BAR_BACKGROUND_COLOR_ID = 'toolsBar.background';
+export const TOOLS_BAR_BACKGROUND = registerColor(TOOLS_BAR_BACKGROUND_COLOR_ID, {
 	dark: '#32485b',
 	light: '#3a78b1',
 	hcDark: '#32485b',
 	hcLight: '#3a78b1'
-}, localize(AUXILIARY_ACTIVITY_BAR_BACKGROUND_COLOR_ID, "Auxiliary activity bar background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+}, localize(TOOLS_BAR_BACKGROUND_COLOR_ID, "Tools bar background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
-// The auxiliary activity bar action container on background color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID = 'auxiliaryActivityBar.actionContainerToggledBackground';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, {
+// The tools bar action container on background color.
+const TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID = 'toolsBar.actionContainerToggledBackground';
+export const TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor(TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, {
 	dark: '#202020',
 	light: '#FFFFFF',
 	hcDark: '#202020',
 	hcLight: '#FFFFFF'
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, "Auxiliary activity bar action container toggled background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+}, localize(TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, "Tools bar action container toggled background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
-// The auxiliary activity bar action icon background color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID = 'auxiliaryActivityBar.actionIconBackground';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID, {
+// The tools bar action icon background color.
+const TOOLS_BAR_ACTION_ICON_BACKGROUND_ID = 'toolsBar.actionIconBackground';
+export const TOOLS_BAR_ACTION_ICON_BACKGROUND = registerColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_ID, {
 	dark: '#c1c9d1',
 	light: '#d9dfe5',
 	hcDark: '#c1c9d1',
 	hcLight: '#d9dfe5'
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_ID, "Auxiliary activity bar action icon background color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+}, localize(TOOLS_BAR_ACTION_ICON_BACKGROUND_ID, "Tools bar action icon background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
-// The auxiliary activity bar action icon background toggled color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID = 'auxiliaryActivityBar.actionIconBackgroundToggled';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, {
+// The tools bar action icon background toggled color.
+const TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID = 'toolsBar.actionIconBackgroundToggled';
+export const TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, {
 	dark: '#3a78b1',
 	light: '#3a78b1',
 	hcDark: '#3a78b1',
 	hcLight: '#3a78b1'
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, "Auxiliary activity bar action icon background toggled color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+}, localize(TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, "Tools bar action icon background toggled color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
-// The auxiliary activity bar action icon background hover color.
-const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID = 'auxiliaryActivityBar.actionIconBackgroundHover';
-export const AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, {
+// The tools bar action icon background hover color.
+const TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER_ID = 'toolsBar.actionIconBackgroundHover';
+export const TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, {
 	dark: '#ffffff',
 	light: '#ffffff',
 	hcDark: '#ffffff',
 	hcLight: '#ffffff'
-}, localize(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, "Auxiliary activity bar action icon color. The auxiliary activity bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between auxiliary views."));
+}, localize(TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, "Tools bar action icon color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // < --- Modal Dialog --- >
 
