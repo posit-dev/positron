@@ -1,7 +1,7 @@
 
-## The Positron IDE
+## The Myriac IDE
 
-This repository hosts the source code for the Positron IDE, a fork of [Visual Studio Code](https://github.com/microsoft/vscode) that provides a batteries-included, opinionated environment for data science and scientific authoring.
+This repository hosts the source code for the Myriac IDE, a fork of [Visual Studio Code](https://github.com/microsoft/vscode) that provides a batteries-included, opinionated environment for data science and scientific authoring.
 
 ### Development
 
@@ -26,9 +26,9 @@ $ ./scripts/add-upstream-remote.sh
 
 Open the repository in Visual Studio Code. You'll be prompted to "Reopen in Container"; do so. The Terminal panel will show you the container build progress; expect it to take quite some time (10-15 minutes even on good hardware).
 
-Once this is done, VS Code will switch context to the container. You'll see `Dev Container: Positron` in the status bar. Your repository will be mounted in `/workspaces/positron` inside the container.
+Once this is done, VS Code will switch context to the container. You'll see `Dev Container: Myriac` in the status bar. Your repository will be mounted in `/workspaces/myriac` inside the container.
 
-Perform a one-time initial build of Positron by opening a Terminal and running, from `/workspaces/positron`:
+Perform a one-time initial build of Myriac by opening a Terminal and running, from `/workspaces/myriac`:
 
 ```bash
 $ yarn
@@ -54,7 +54,7 @@ $ ./scripts/code-server.sh
 
 This will give you a URL that looks like http://localhost:9888/?tkn=14202de2-c716-437f-8c67-1c5166443e5a.
 
-Click the `Ports` tab and add port `9888` to the list, then open your browser and navigate to the URL. Positron should then load in your browser; most changes you make in VS Code will be reflected after being picked up by the `yarn watch` window.
+Click the `Ports` tab and add port `9888` to the list, then open your browser and navigate to the URL. Myriac should then load in your browser; most changes you make in VS Code will be reflected after being picked up by the `yarn watch` window.
 
 ### Committing
 
@@ -80,7 +80,7 @@ In order to minimize conflicts with upstream, please use these techniques:
 
 **Put code in new files if possible**. Rather than amending or changing an existing file, create a new file to contain your new code.
 
-**Put new files in new directories if possible.** In the new directory, add an `.eslintrc.json` file [like this one](https://github.com/rstudio/positron/blob/main/src/vs/workbench/contrib/repl/.eslintrc.json) so that files in the new directory can use RStudio's copyright header.
+**Put new files in new directories if possible.** In the new directory, add an `.eslintrc.json` file [like this one](https://github.com/rstudio/myriac/blob/main/src/vs/workbench/contrib/repl/.eslintrc.json) so that files in the new directory can use RStudio's copyright header.
 
 **When changing existing files, fence your change with change-marker comments**. Use the following format:
 
@@ -96,7 +96,7 @@ When our changes to existing files inevitably conflict with changes upstream, th
 
 ### Logging
 
-The Positron overlays emit logs via VS Code's log service. When doing development work or reproducing bugs, it's useful to change the log level to `TRACE`.
+The Myriac overlays emit logs via VS Code's log service. When doing development work or reproducing bugs, it's useful to change the log level to `TRACE`.
 
 Use the *Developer: Set Log Level* command in the Command Palette to change the log level to `DEBUG` or `TRACE` as desired. The logs will appear in the **Console** tab of the Developer Tools in the browser.
 
