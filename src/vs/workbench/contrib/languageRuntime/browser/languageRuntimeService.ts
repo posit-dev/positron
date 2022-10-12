@@ -39,6 +39,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// them is activated, so this event will fire on extension activation
 		// events such as opening a file of the associated language type.
 		this._register(this._notebookKernelService.onDidAddKernel((kernel: INotebookKernel) => {
+			// Skip non-interactive kernels
+			if (kernel.id.indexOf('Interactive') === -1) {
+				return;
+			}
 
 			// Check to see whether the kernel thinks it supports every language.
 			if (kernel.supportedLanguages.length === this._languageService.getRegisteredLanguageIds().length) {
@@ -74,13 +78,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	registerRuntime(runtime: ILanguageRuntime): IDisposable {
-		if (this._runtimes.has(runtime.metadata.language)) {
-			throw new Error('A runtime for the language ' + runtime.metadata.language + ' is already registered.');
-		}
-		this._runtimes.set(runtime.metadata.language, runtime);
+		this._runtimes.set(runtime.metadata.id, runtime);
 		this._logService.trace(`Added new language runtime: ${runtime.metadata.language} (${runtime.metadata.id})`);
 		return toDisposable(() => {
-			this._runtimes.delete(runtime.metadata.language);
+			this._runtimes.delete(runtime.metadata.id);
 		});
 	}
 
@@ -119,7 +120,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		const runtimes = this._runtimes.values();
 		for (const runtime of runtimes) {
 			if (runtime.metadata.id === id) {
-				this.startLanguageRuntime(runtime);
+				// Check to see whether there's already a runtime active for
+				// this language
+				const activeRuntimes = this.getActiveLanguageRuntimes(runtime.metadata.language);
+
+				// Start the requested runtime if no other runtime is active
+				if (activeRuntimes.length === 0) {
+					this.startLanguageRuntime(runtime);
+				} else {
+					throw new Error(`Can't start runtime ${id} because another runtime is already active for language ${runtime.metadata.language}`);
+				}
 				return;
 			}
 		}
