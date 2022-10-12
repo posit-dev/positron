@@ -31,11 +31,7 @@ import {
 import { noop } from './common/utils/misc';
 import { DebuggerTypeName } from './debugger/constants';
 import { registerTypes as debugConfigurationRegisterTypes } from './debugger/extension/serviceRegistry';
-import {
-    IDebugConfigurationService,
-    IDebuggerBanner,
-    IDynamicDebugConfigurationService,
-} from './debugger/extension/types';
+import { IDebugConfigurationService, IDynamicDebugConfigurationService } from './debugger/extension/types';
 import { registerTypes as formattersRegisterTypes } from './formatters/serviceRegistry';
 import { IInterpreterService } from './interpreter/contracts';
 import { getLanguageConfiguration } from './language/languageConfiguration';
@@ -229,8 +225,6 @@ async function activateLegacy(ext: ExtensionState): Promise<ActivationResult> {
                     DebugConfigurationProviderTriggerKind.Dynamic,
                 ),
             );
-
-            serviceContainer.get<IDebuggerBanner>(IDebuggerBanner).initialize();
         }
     }
 
