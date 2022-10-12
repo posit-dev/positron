@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Myriac "batteries included installation" script; installs data science
+# Positron "batteries included installation" script; installs data science
 # runtime, tooling, and extensions into the dev container so that it's ready to
 # use right away.
 #
@@ -10,7 +10,7 @@
 # After changing this script, use the "Remote Container - Rebuild Dev Container
 # Without Cache" command in VS Code to test your changes.
 
-echo "Setting up Myriac dev environment...."
+echo "Setting up Positron dev environment...."
 sudo apt update
 
 # Install Python infrastructure; the dev container already contains Python, but not pip.
@@ -33,10 +33,10 @@ mkdir -p "$RPKGLIB"
 Rscript -e "install.packages(c('rmarkdown', 'renv', 'shiny', 'testthat', 'tidyverse', 'tinytex'), repos='https://cran.rstudio.com/')"
 Rscript -e "tinytex::install_tinytex()"
 
-# Install Myriac extensions from OpenVSX. Note that this list of extensions
+# Install Positron extensions from OpenVSX. Note that this list of extensions
 # differs from the one in `devcontainer.json`; that one controls the extensions
 # installed in the VS Code host, whereas this one installs extensions into the
-# development/working copy of Myriac.
+# development/working copy of Positron.
 #
 # TODO: This may not succeed since the `code` binary isn't available in the
 # image at the post-create step.
