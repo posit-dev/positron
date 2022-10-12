@@ -2,9 +2,8 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-const React = require('react');
 import 'vs/css!./media/toolsBarPart';
-import { localize } from 'vs/nls';
+const React = require('react');
 import * as DOM from 'vs/base/browser/dom';
 import { Part } from 'vs/workbench/browser/part';
 import { ToolsBarFocused } from 'vs/workbench/common/contextkeys';
@@ -15,9 +14,10 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ReactRenderer } from 'vs/base/browser/ui/reactRenderer/reactRenderer';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IToolsBarService } from 'vs/workbench/services/toolsBar/browser/toolsBarService';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
-import { ToolsBarBottomMode, ToolsBarComponent, ToolsBarContext, ToolsBarState, ToolsBarTopMode } from 'vs/workbench/browser/parts/toolsBar/toolsBarComponent';
+import { ToolsBarComponent } from 'vs/workbench/browser/parts/toolsBar/toolsBarComponent';
+import { IToolsBarService } from 'vs/workbench/services/toolsBar/browser/toolsBarService';
+import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 
 /**
  * ToolsBarPart class.
@@ -45,45 +45,26 @@ export class ToolsBarPart extends Part implements IToolsBarService {
 	// The tools bar container.
 	private toolsBarContainer: HTMLElement | undefined;
 
-	private toolsBarState: ToolsBarState = {
-		counter: 1,
-		topMode: ToolsBarTopMode.Empty,
-		bottomMode: ToolsBarBottomMode.Empty
-	};
+	// The React renderer used to render the tools bar component.
+	private reactRenderer: ReactRenderer | undefined;
 
 	//#endregion Content Area
 
 	//#region Class Initialization
 
-	/**
-	 * Initializes a new instance of the ToolsBarPart class.
-	 * @param themeService The theme service.
-	 * @param hoverService The theme service.
-	 * @param storageService The storage service.
-	 * @param configurationService The configuration service.
-	 * @param workbenchLayoutService The workbench layout service.
-	 * @param contextKeyService The context key service.
-	 */
 	constructor(
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IStorageService storageService: IStorageService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IAuxiliaryActivityBarService private readonly auxiliaryActivityBarService: IAuxiliaryActivityBarService
 	) {
 		super(Parts.TOOLSBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
-
-		// Temporary.
-		console.log(localize('yaya', "YAYA"));
 	}
 
 	//#endregion Class Initialization
-	override dispose(): void {
-		super.dispose();
-
-		console.log('ksksk');
-	}
 
 	//#region Part
 
@@ -96,18 +77,11 @@ export class ToolsBarPart extends Part implements IToolsBarService {
 		// Create the tools bar container.
 		this.toolsBarContainer = DOM.append(this.element, DOM.$('.tools-bar-container'));
 
-		const reactRenderer = new ReactRenderer(this.toolsBarContainer);
-
-		reactRenderer.render(
-			<ToolsBarContext.Provider value={this.toolsBarState}>
-				<ToolsBarComponent placeholder='value!' />
-			</ToolsBarContext.Provider>
+		// Create the React renderer and render the tools bar component.
+		this.reactRenderer = new ReactRenderer(this.toolsBarContainer);
+		this.reactRenderer.render(
+			<ToolsBarComponent placeholder='(x)' auxiliaryActivityBarService={this.auxiliaryActivityBarService} />
 		);
-
-		// Testing.
-		setInterval(() => {
-			this.toolsBarState.counter++;
-		}, 1000);
 
 		// Track focus.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this.element);
@@ -125,13 +99,13 @@ export class ToolsBarPart extends Part implements IToolsBarService {
 
 	//#endregion Part
 
-	//#region IAuxiliaryActivityBarService
+	//#region IToolsBarService
 
 	focus(): void {
 		this.element.focus();
 	}
 
-	//#endregion IAuxiliaryActivityBarService
+	//#endregion IToolsBarService
 }
 
 // Register the IToolsBarService singleton.
