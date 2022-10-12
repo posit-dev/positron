@@ -30,7 +30,7 @@ yarn run kill-watch-extensionsd
 yarn run kill-watch-build-toolsd
 
 # Remove any existing node_modules folders.
-find . -name 'node_modules' -delete
+find . -name 'node_modules' -exec rm -rf {} +
 
 # Run yarn to rebuild 'node_modules'.
 yarn
