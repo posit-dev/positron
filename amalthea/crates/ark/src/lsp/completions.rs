@@ -53,12 +53,12 @@ lazy_static! {
 }
 
 
-pub(crate) struct CompletionContext<'a> {
-    pub(crate) document: &'a mut Document,
-    pub(crate) token: String,
-    pub(crate) source: String,
-    pub(crate) point: Point,
-    pub(crate) params: CompletionParams,
+pub struct CompletionContext<'a> {
+    pub document: &'a mut Document,
+    pub token: String,
+    pub source: String,
+    pub point: Point,
+    pub params: CompletionParams,
 }
 
 fn is_syntactic(name: &str) -> bool {
@@ -249,7 +249,7 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
 
 }
 
-unsafe fn completion_item_from_parameter(string: &str, callee: &str) -> Result<CompletionItem> {
+unsafe fn completion_item_from_parameter(string: &str, _callee: &str) -> Result<CompletionItem> {
 
     let mut item = CompletionItem {
         label: quote_if_non_syntactic(string),
@@ -498,7 +498,7 @@ unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str
 
 }
 
-unsafe fn append_namespace_completions(context: &CompletionContext, package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_namespace_completions(_context: &CompletionContext, package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_namespace_completions({:?}, {})", package, exports_only);
 
@@ -564,7 +564,7 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
 
 }
 
-unsafe fn append_search_path_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_search_path_completions(_context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     // start with keywords
     append_keyword_completions(completions);

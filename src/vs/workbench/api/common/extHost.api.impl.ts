@@ -96,7 +96,7 @@ import { IExtHostTelemetryLogService } from 'vs/workbench/api/common/extHostTele
 import { IExtHostLocalizationService } from 'vs/workbench/api/common/extHostLocalizationService';
 
 // --- Start Positron ---
-import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
+import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/myriac/extHostLanguageRuntime';
 // --- End Positron ---
 
 export interface IExtensionRegistries {
@@ -593,7 +593,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 		};
 
 		// --- Start Positron ---
-		const positron: typeof vscode.positron = {
+		const myriac: typeof vscode.myriac = {
 			registerLanguageRuntime(runtime: vscode.LanguageRuntime): vscode.Disposable {
 				return extHostLanguageRuntime.registerLanguageRuntime(runtime);
 			}
@@ -1224,7 +1224,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			l10n,
 			languages,
 			// --- Start Positron ---
-			positron,
+			myriac,
 			// --- End Positron ---
 			notebooks,
 			scm,
