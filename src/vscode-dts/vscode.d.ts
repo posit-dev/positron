@@ -16619,8 +16619,8 @@ declare module 'vscode' {
 		shutdown(): void;
 	}
 
-	/** Namespace for Myriac extensions */
-	export namespace myriac {
+	/** Namespace for Positron extensions */
+	export namespace positron {
 
 		export function registerLanguageRuntime(runtime: LanguageRuntime): Disposable;
 	}
