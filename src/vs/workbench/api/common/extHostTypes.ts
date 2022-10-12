@@ -3973,6 +3973,9 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing echoed user input */
 	Input = 'input',
 
+	/** A message representing an error that occurred while executing user code */
+	Error = 'error',
+
 	/** A message representing a change in the runtime's online state */
 	State = 'state',
 }
