@@ -3,23 +3,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/auxiliaryActivityBarPart';
-import * as DOM from 'vs/base/browser/dom';
 import { localize } from 'vs/nls';
-import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IStorageService } from 'vs/platform/storage/common/storage';
-import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
-import { Part } from 'vs/workbench/browser/part';
-import { IWorkbenchLayoutService, Parts, Position } from 'vs/workbench/services/layout/browser/layoutService';
+import * as DOM from 'vs/base/browser/dom';
 import { Emitter } from 'vs/base/common/event';
-import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
+import { Part } from 'vs/workbench/browser/part';
+import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
+import { IStorageService } from 'vs/platform/storage/common/storage';
+import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
+import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { AuxiliaryActivityBarFocused } from 'vs/workbench/common/contextkeys';
-import { ToggleAction, ToggleActionBar } from 'vs/base/browser/ui/toggleActionBar/toggleActionBar';
-import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
-import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
+import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
+import { ToggleAction, ToggleActionBar } from 'vs/base/browser/ui/toggleActionBar/toggleActionBar';
+import { IWorkbenchLayoutService, Parts, Position } from 'vs/workbench/services/layout/browser/layoutService';
 import { IHoverDelegate, IHoverDelegateOptions, IHoverWidget } from 'vs/base/browser/ui/iconLabel/iconHoverDelegate';
-import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
+import { AuxiliaryActivityBarBottomMode, AuxiliaryActivityBarTopMode, IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 import {
 	AUXILIARY_ACTIVITY_BAR_BACKGROUND,
 	AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND,
@@ -79,12 +79,24 @@ class AuxiliaryActivityBarHoverDelegate implements IHoverDelegate {
 	readonly placement = 'element';
 	private lastHoverHideTime: number = 0;
 
+	/**
+	 * Initializes a new instance of the AuxiliaryActivityBarHoverDelegate class.
+	 * @param layoutService The layout service.
+	 * @param configurationService The configuration service.
+	 * @param hoverService The hover service.
+	 */
 	constructor(
 		private readonly layoutService: IWorkbenchLayoutService,
 		private readonly configurationService: IConfigurationService,
 		private readonly hoverService: IHoverService
 	) { }
 
+	/**
+	 * Shows the hover.
+	 * @param options The options for the hover.
+	 * @param focus A value which indicates whether to focus the hover.
+	 * @returns The hover widget.
+	 */
 	showHover(options: IHoverDelegateOptions, focus?: boolean | undefined): IHoverWidget | undefined {
 		// Determine the hover position.
 		const hoverPosition = this.layoutService.getSideBarPosition() === Position.LEFT ? HoverPosition.LEFT : HoverPosition.RIGHT;
@@ -96,6 +108,9 @@ class AuxiliaryActivityBarHoverDelegate implements IHoverDelegate {
 		});
 	}
 
+	/**
+	 * Gets the hover delay in MS.
+	 */
 	get delay(): number {
 		// Show instantly when a hover was recently shown.
 		if (Date.now() - this.lastHoverHideTime < 200) {
@@ -105,6 +120,9 @@ class AuxiliaryActivityBarHoverDelegate implements IHoverDelegate {
 		}
 	}
 
+	/**
+	 * Raised when the hover is hidden.
+	 */
 	onDidHideHover() {
 		// Record the last time the hover was hidden.
 		this.lastHoverHideTime = Date.now();
@@ -161,27 +179,25 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 	//#endregion Content Area
 
+	private _onDidChangeTopMode = this._register(new Emitter<AuxiliaryActivityBarTopMode>());
+	readonly onDidChangeTopMode = this._onDidChangeTopMode.event;
+
+	private _onDidChangeBottomMode = this._register(new Emitter<AuxiliaryActivityBarBottomMode>());
+	readonly onDidChangeBottomMode = this._onDidChangeBottomMode.event;
+
 	//#region Class Initialization
 
-	/**
-	 * Initializes a new instance of the AuxiliaryActivityBarPart class.
-	 * @param themeService The theme service.
-	 * @param hoverService The theme service.
-	 * @param storageService The storage service.
-	 * @param configurationService The configuration service.
-	 * @param workbenchLayoutService The workbench layout service.
-	 * @param contextKeyService The context key service.
-	 */
 	constructor(
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IStorageService storageService: IStorageService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 	) {
 		super(Parts.AUXILIARYACTIVITYBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
 		this.hoverDelegate = new AuxiliaryActivityBarHoverDelegate(workbenchLayoutService, configurationService, hoverService);
+
 	}
 
 	//#endregion Class Initialization
@@ -257,76 +273,76 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 	toggleEnvironmentAuxiliaryActivity(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.environmentToggleAction);
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	togglePreviewAuxiliaryActivity(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.previewToggleAction);
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	toggleHelpAuxiliaryActivity(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.helpToggleAction);
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	togglePlotAuxiliaryActivity(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.plotToggleAction);
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	toggleViewerAuxiliaryActivity(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.viewerToggleAction);
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	togglePresentationAuxiliaryActivity(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.presentationToggleAction);
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	// Show methods.
 
 	showEnvironmentAuxiliaryActivity(): void {
 		if (this.topToggleActionBar) {
-			this.topToggleActionBar.onToggleAction = this.environmentToggleAction;
+			this.topToggleActionBar.activeToggleAction = this.environmentToggleAction;
 		}
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	showPreviewAuxiliaryActivity(): void {
 		if (this.topToggleActionBar) {
-			this.topToggleActionBar.onToggleAction = this.previewToggleAction;
+			this.topToggleActionBar.activeToggleAction = this.previewToggleAction;
 		}
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	showHelpAuxiliaryActivity(): void {
 		if (this.topToggleActionBar) {
-			this.topToggleActionBar.onToggleAction = this.helpToggleAction;
+			this.topToggleActionBar.activeToggleAction = this.helpToggleAction;
 		}
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	showPlotAuxiliaryActivity(): void {
 		if (this.bottomToggleActionBar) {
-			this.bottomToggleActionBar.onToggleAction = this.plotToggleAction;
+			this.bottomToggleActionBar.activeToggleAction = this.plotToggleAction;
 		}
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	showViewerAuxiliaryActivity(): void {
 		if (this.bottomToggleActionBar) {
-			this.bottomToggleActionBar.onToggleAction = this.viewerToggleAction;
+			this.bottomToggleActionBar.activeToggleAction = this.viewerToggleAction;
 		}
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	showPresentationAuxiliaryActivity(): void {
 		if (this.bottomToggleActionBar) {
-			this.bottomToggleActionBar.onToggleAction = this.presentationToggleAction;
+			this.bottomToggleActionBar.activeToggleAction = this.presentationToggleAction;
 		}
-		this.showHideToolsBar();
+		this.updateToolsBar();
 	}
 
 	// Other methods.
@@ -340,8 +356,39 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 	//#region Private Methods
 
 	// Shows / hides the tools bar.
-	private showHideToolsBar(): void {
-		this.layoutService.setPartHidden(!this.topToggleActionBar?.onToggleAction && !this.bottomToggleActionBar?.onToggleAction, Parts.TOOLSBAR_PART);
+	private updateToolsBar(): void {
+
+		this.layoutService.setPartHidden(!this.topToggleActionBar?.activeToggleAction && !this.bottomToggleActionBar?.activeToggleAction, Parts.TOOLSBAR_PART);
+
+		switch (this.topToggleActionBar?.activeToggleAction) {
+			case this.environmentToggleAction:
+				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Environment);
+				break;
+			case this.previewToggleAction:
+				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Preview);
+				break;
+			case this.helpToggleAction:
+				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Help);
+				break;
+			default:
+				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Empty);
+				break;
+		}
+
+		switch (this.bottomToggleActionBar?.activeToggleAction) {
+			case this.plotToggleAction:
+				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Plot);
+				break;
+			case this.viewerToggleAction:
+				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Viewer);
+				break;
+			case this.presentationToggleAction:
+				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Presentation);
+				break;
+			default:
+				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Empty);
+				break;
+		}
 	}
 
 	//#endregion Private Methods
