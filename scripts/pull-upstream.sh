@@ -3,7 +3,7 @@
 read -r -d '' USAGE <<- EOF
 Usage: ./upstream/pull-upstream.sh [branch]
 
-Pull upstream changes from the Code - OSS repository into the Positron repository.
+Pull upstream changes from the Code - OSS repository into the Myriac repository.
 EOF
 
 if [ "$1" = "--help" ]; then
