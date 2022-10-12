@@ -106,7 +106,7 @@ async function createLocator(
     // This is shared.
 ): Promise<IDiscoveryAPI> {
     // Create the low-level locators.
-    let locators: ILocator<BasicEnvInfo> = new ExtensionLocators<BasicEnvInfo>(
+    const locators: ILocator<BasicEnvInfo> = new ExtensionLocators<BasicEnvInfo>(
         // Here we pull the locators together.
         createNonWorkspaceLocators(ext),
         createWorkspaceLocator(ext),
@@ -116,9 +116,9 @@ async function createLocator(
     const envInfoService = getEnvironmentInfoService(ext.disposables);
 
     // Build the stack of composite locators.
-    locators = new PythonEnvsReducer(locators);
+    const reducer = new PythonEnvsReducer(locators);
     const resolvingLocator = new PythonEnvsResolver(
-        locators,
+        reducer,
         // These are shared.
         envInfoService,
     );
@@ -177,8 +177,8 @@ function watchRoots(args: WatchRootsArgs): IDisposable {
     });
 }
 
-function createWorkspaceLocator(ext: ExtensionState): WorkspaceLocators<BasicEnvInfo> {
-    const locators = new WorkspaceLocators<BasicEnvInfo>(watchRoots, [
+function createWorkspaceLocator(ext: ExtensionState): WorkspaceLocators {
+    const locators = new WorkspaceLocators(watchRoots, [
         (root: vscode.Uri) => [new WorkspaceVirtualEnvironmentLocator(root.fsPath), new PoetryLocator(root.fsPath)],
         // Add an ILocator factory func here for each kind of workspace-rooted locator.
     ]);

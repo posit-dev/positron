@@ -97,6 +97,8 @@ export function createNamedEnv(
 }
 
 export class SimpleLocator<I = PythonEnvInfo> extends Locator<I> {
+    public readonly providerId: string = 'SimpleLocator';
+
     private deferred = createDeferred<void>();
 
     constructor(
