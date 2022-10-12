@@ -30,7 +30,7 @@
   },
   "scripts": {
     "compile": "gulp compile-extension:jupyter-adapter",
-    "postinstall": "electron-rebuild zeromq",
+    "postinstall": "scripts/postinstall.sh",
     "watch": "gulp watch-extension:jupyter-adapter"
   },
   "devDependencies": {
