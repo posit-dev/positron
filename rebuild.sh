@@ -5,6 +5,7 @@ This script will:
 
 - Kill any running build daemons,
 - Recursively remove any existing 'node_modules' folders,
+- Remove the '.build' directory,
 - Rebuild the aforementioned 'node_modules' folders,
 - Re-compile the existing Typescript source.
 
@@ -15,11 +16,11 @@ EOF
 read -p 'Do you want to proceed? [y/N]: ' proceed
 
 case "${proceed}" in
-	[yY]*)	;;
-	*)
-		echo "Operation aborted."
-		exit 0
-	;;
+[yY]*)	;;
+*)
+	echo "Operation aborted."
+	exit 0
+;;
 esac
 
 # Kill any running deemons.
@@ -31,6 +32,9 @@ yarn run kill-watch-build-toolsd
 
 # Remove any existing node_modules folders.
 find . -name 'node_modules' -exec rm -rf {} +
+
+# Remove the build directory.
+rm -rf .build
 
 # Run yarn to rebuild 'node_modules'.
 yarn
