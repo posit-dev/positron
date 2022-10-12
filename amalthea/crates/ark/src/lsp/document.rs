@@ -38,7 +38,7 @@ fn compute_point(point: Point, text: &str) -> Point {
 }
 
 
-pub(crate) struct Document {
+pub struct Document {
 
     // The document's textual contents.
     pub contents: Rope,
