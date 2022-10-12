@@ -268,8 +268,8 @@ export const walkthroughs: GettingStartedWalkthroughContent = [
 	{
 		id: 'SetupWeb',
 		// --- Start Positron ---
-		title: localize('gettingStarted.setupWeb.title', "Get Started with Myriac"),
-		description: localize('gettingStarted.setupWeb.description', "Discover the best customizations to make Myriac yours."),
+		title: localize('gettingStarted.setupWeb.title', "Get Started with Positron"),
+		description: localize('gettingStarted.setupWeb.description', "Discover the best customizations to make Positron yours."),
 		// --- End Positron ---
 		isFeatured: true,
 		icon: setupIcon,

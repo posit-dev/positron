@@ -10,6 +10,7 @@ import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/work
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -23,21 +24,53 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _onDidStartRuntime = this._register(new Emitter<ILanguageRuntime>);
 	readonly onDidStartRuntime = this._onDidStartRuntime.event;
 
-	private _activeLanguage: string = '';
-
 	constructor(
 		@INotebookKernelService private _notebookKernelService: INotebookKernelService,
 		@IInstantiationService private _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
-		@ICommandService private readonly _commandService: ICommandService
+		@ICommandService private readonly _commandService: ICommandService,
+		@ILanguageService private readonly _languageService: ILanguageService
 	) {
 		super();
 
-		// Probably temporary: pull kernels from the notebook kernel service
-		this._notebookKernelService.onDidAddKernel((e: INotebookKernel) => {
-			this.registerNotebookRuntime(e.supportedLanguages[0], e);
-			this._logService.trace(`Added language runtime from notebook kernel service: ${e.label} (${e.id})`);
-		});
+		// Pull kernels from the notebook kernel service as they are added.
+		//
+		// Note that most kernels are only added when the extension supplying
+		// them is activated, so this event will fire on extension activation
+		// events such as opening a file of the associated language type.
+		this._register(this._notebookKernelService.onDidAddKernel((kernel: INotebookKernel) => {
+
+			// Check to see whether the kernel thinks it supports every language.
+			if (kernel.supportedLanguages.length === this._languageService.getRegisteredLanguageIds().length) {
+				// If the kernel says that it supports every single registered
+				// language, then it is lying. It just hasn't had its set of
+				// registered languages populated yet (this happens
+				// asynchronously).
+				//
+				// Wait for population to finish and then register the kernel
+				// when its set of supported languages changes.
+				const handler = kernel.onDidChange(e => {
+					// The population is complete when the kernel's set of
+					// supported languages is no longer the same as the set
+					// of registered languages.
+					if (e.supportedLanguages &&
+						kernel.supportedLanguages.length < this._languageService.getRegisteredLanguageIds().length) {
+						this._logService.debug(`Kernel ${kernel.id} changed: ${JSON.stringify(e)}`);
+
+						// Stop listening for changes so we don't trigger a loop
+						// (registering the kernel will trigger another change event
+						// when we add the backing notebook)
+						handler.dispose();
+
+						// Register the notebook as a language backend
+						this.registerNotebookRuntime(kernel.supportedLanguages[0], kernel);
+					}
+				});
+			} else {
+				// The kernel is already registered; add it directly
+				this.registerNotebookRuntime(kernel.supportedLanguages[0], kernel);
+			}
+		}));
 	}
 
 	registerRuntime(runtime: ILanguageRuntime): IDisposable {
@@ -67,12 +100,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				NotebookLanguageRuntime,
 				kernel));
 		} catch (err) {
-			this._logService.error('Error registering notebook kernel: ' + err);
-		}
-
-		// pick up the active language if we haven't set one yet
-		if (this._activeLanguage === '') {
-			this._activeLanguage = language;
+			this._logService.warn(`Can't register notebook kernel ${kernel.id} as a language runtime: ${err}`);
 		}
 	}
 

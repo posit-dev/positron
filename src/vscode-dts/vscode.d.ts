@@ -16434,9 +16434,13 @@ declare module 'vscode' {
 		/** A message representing echoed user input */
 		Input = 'input',
 
+		/** A message representing an error that occurred while executing user code */
+		Error = 'error',
+
 		/** A message representing a change in the runtime's online state */
 		State = 'state',
 	}
+
 	/**
 	 * The set of possible statuses for a language runtime while online
 	 */
@@ -16615,8 +16619,8 @@ declare module 'vscode' {
 		shutdown(): void;
 	}
 
-	/** Namespace for Myriac extensions */
-	export namespace myriac {
+	/** Namespace for Positron extensions */
+	export namespace positron {
 
 		export function registerLanguageRuntime(runtime: LanguageRuntime): Disposable;
 	}
