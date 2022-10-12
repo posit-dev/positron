@@ -215,14 +215,14 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 		const cell = this._nbTextModel?.cells[0]!;
 		cell.onDidChangeOutputs((e) => {
-			const data = new Map<string, string>();
+			const data: { [k: string]: any } = {};
 
 			// Build map of all outputs
 			for (const output of e.newOutputs) {
 				for (const o of output.outputs) {
 					// TODO: should we really be converting from VSBuffer to a
 					// string?
-					data.set(o.mime, o.data.toString());
+					data[o.mime] = o.data.toString();
 				}
 			}
 

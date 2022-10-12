@@ -9,7 +9,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -41,6 +41,9 @@ export class ReplInstanceView extends Disposable {
 
 	/** The currently active REPL cell */
 	private _activeCell?: ReplCell;
+
+	/** A map of execution IDs to the cells containing the output from the execution */
+	private _executedCells: Map<string, ReplCell> = new Map();
 
 	/** The language runtime kernel to which the REPL is bound */
 	private _kernel: ILanguageRuntime;
@@ -103,7 +106,24 @@ export class ReplInstanceView extends Disposable {
 				}
 			} else if (msg.type === LanguageRuntimeMessageType.Output) {
 				const outputMsg = msg as ILanguageRuntimeOutput;
-				this._activeCell?.emitMimeOutput(outputMsg.data);
+
+				// Look up the cell with which this output is associated
+				const cell = this._executedCells.get(outputMsg.parent_id);
+				if (cell) {
+					cell.emitMimeOutput(outputMsg.data);
+				} else {
+					this._logService.warn(`Received output ${JSON.stringify(outputMsg)} for unknown code execution ${outputMsg.parent_id}`);
+				}
+			} else if (msg.type === LanguageRuntimeMessageType.Error) {
+				const errMsg = msg as ILanguageRuntimeError;
+
+				// Look up the cell with which this error is associated
+				const cell = this._executedCells.get(errMsg.parent_id);
+				if (cell) {
+					cell.emitError(errMsg.name, errMsg.message, errMsg.traceback);
+				} else {
+					this._logService.warn(`Received error ${JSON.stringify(errMsg)} for unknown code execution ${errMsg.parent_id}`);
+				}
 			}
 
 			this.scrollToBottom();
@@ -249,13 +269,14 @@ export class ReplInstanceView extends Disposable {
 		this._instance.history.add(code);
 
 		// Ask the kernel to execute the code
+		const cell = this._activeCell!;
 		this._kernel.execute(code, RuntimeCodeExecutionMode.Interactive,
-			RuntimeErrorBehavior.Stop);
+			RuntimeErrorBehavior.Stop).then(id => {
+				this._executedCells.set(id, cell);
+			});
 
 		// Mark the cell as executing
-		if (this._activeCell) {
-			this._activeCell.setState(ReplCellState.ReplCellExecuting);
-		}
+		cell.setState(ReplCellState.ReplCellExecuting);
 		this.scrollToBottom();
 	}
 

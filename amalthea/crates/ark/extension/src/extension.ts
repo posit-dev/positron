@@ -166,5 +166,5 @@ export function registerArkKernel(ext: vscode.Extension<any>,
     );
 
     // Register a language runtime provider for the ARK kernel.
-    return vscode.myriac.registerLanguageRuntime(arkRuntime);
+    return vscode.positron.registerLanguageRuntime(arkRuntime);
 }
