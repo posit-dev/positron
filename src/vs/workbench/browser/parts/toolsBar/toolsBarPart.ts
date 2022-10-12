@@ -2,7 +2,7 @@
  *  Copyright (c) RStudio, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./media/auxiliaryActivityBarPart';
+import 'vs/css!./media/toolsBarPart';
 import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { Emitter } from 'vs/base/common/event';
@@ -12,75 +12,75 @@ import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
 import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { AuxiliaryActivityBarFocused } from 'vs/workbench/common/contextkeys';
+import { ToolsBarFocused } from 'vs/workbench/common/contextkeys';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
 import { ToggleAction, ToggleActionBar } from 'vs/base/browser/ui/toggleActionBar/toggleActionBar';
 import { IWorkbenchLayoutService, Parts, Position } from 'vs/workbench/services/layout/browser/layoutService';
 import { IHoverDelegate, IHoverDelegateOptions, IHoverWidget } from 'vs/base/browser/ui/iconLabel/iconHoverDelegate';
-import { AuxiliaryActivityBarBottomMode, AuxiliaryActivityBarTopMode, IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
+import { ToolsBarBottomMode, ToolsBarTopMode, IToolsBarService } from 'vs/workbench/services/toolsBar/browser/toolsBarService';
 import {
-	AUXILIARY_ACTIVITY_BAR_BACKGROUND,
-	AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND,
-	AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER,
-	AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND,
-	AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED
+	TOOLS_BAR_BACKGROUND,
+	TOOLS_BAR_ACTION_ICON_BACKGROUND,
+	TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER,
+	TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND,
+	TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED
 } from 'vs/workbench/common/theme';
 
 // Theme support
 registerThemingParticipant((theme, collector) => {
-	// Get the auxiliary activity bar background color.
-	const backgroundColor = theme.getColor(AUXILIARY_ACTIVITY_BAR_BACKGROUND);
+	// Get the tools bar background color.
+	const backgroundColor = theme.getColor(TOOLS_BAR_BACKGROUND);
 	if (backgroundColor) {
-		collector.addRule(`.monaco-workbench .part.auxiliary-activity-bar {
+		collector.addRule(`.monaco-workbench .part.tools-bar {
 			background-color: ${backgroundColor};
 		}`);
 	}
 
-	// Get the auxiliary activity bar action container toggled background color.
-	const actionContainerToggledBackgroundColor = theme.getColor(AUXILIARY_ACTIVITY_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND);
+	// Get the tools bar action container toggled background color.
+	const actionContainerToggledBackgroundColor = theme.getColor(TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND);
 	if (actionContainerToggledBackgroundColor) {
-		collector.addRule(`.monaco-workbench .part.auxiliary-activity-bar .action-bar-container .auxiliary-activity-bar-action-container.toggled {
+		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-container.toggled {
 			background: ${actionContainerToggledBackgroundColor};
 		}`);
 	}
 
-	// Get the auxiliary activity bar action icon background color.
-	const actionIconBackgroundColor = theme.getColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND);
+	// Get the tools bar action icon background color.
+	const actionIconBackgroundColor = theme.getColor(TOOLS_BAR_ACTION_ICON_BACKGROUND);
 	if (actionIconBackgroundColor) {
-		collector.addRule(`.monaco-workbench .part.auxiliary-activity-bar .action-bar-container .auxiliary-activity-bar-action-icon {
+		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon {
 			background: ${actionIconBackgroundColor};
 		}`);
 	}
 
-	// Get the auxiliary activity bar action icon background toggled color.
-	const actionIconBackgroundToggledColor = theme.getColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_TOGGLED);
+	// Get the tools bar action icon background toggled color.
+	const actionIconBackgroundToggledColor = theme.getColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED);
 	if (actionIconBackgroundToggledColor) {
-		collector.addRule(`.monaco-workbench .part.auxiliary-activity-bar .action-bar-container .auxiliary-activity-bar-action-icon.toggled {
+		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon.toggled {
 			background: ${actionIconBackgroundToggledColor};
 		}`);
 	}
 
-	// Get the auxiliary activity bar action icon background hover color.
-	const actionIconBackgroundHoverColor = theme.getColor(AUXILIARY_ACTIVITY_BAR_ACTION_ICON_BACKGROUND_HOVER);
+	// Get the tools bar action icon background hover color.
+	const actionIconBackgroundHoverColor = theme.getColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER);
 	if (actionIconBackgroundHoverColor) {
-		collector.addRule(`.monaco-workbench .part.auxiliary-activity-bar .action-bar-container .auxiliary-activity-bar-action-icon:hover:not(.toggled) {
+		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon:hover:not(.toggled) {
 			background: ${actionIconBackgroundHoverColor};
 		}`);
 	}
 });
 
 /**
- * AuxiliaryActivityBarHoverDelegate class.
+ * ToolsBarHoverDelegate class.
  */
-class AuxiliaryActivityBarHoverDelegate implements IHoverDelegate {
+class ToolsBarHoverDelegate implements IHoverDelegate {
 
 	readonly placement = 'element';
 	private lastHoverHideTime: number = 0;
 
 	/**
-	 * Initializes a new instance of the AuxiliaryActivityBarHoverDelegate class.
+	 * Initializes a new instance of the ToolsBarHoverDelegate class.
 	 * @param layoutService The layout service.
 	 * @param configurationService The configuration service.
 	 * @param hoverService The hover service.
@@ -130,9 +130,9 @@ class AuxiliaryActivityBarHoverDelegate implements IHoverDelegate {
 }
 
 /**
- * AuxiliaryActivityBarPart class.
+ * ToolsBarPart class.
  */
-export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivityBarService {
+export class ToolsBarPart extends Part implements IToolsBarService {
 
 	declare readonly _serviceBrand: undefined;
 
@@ -179,10 +179,10 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 	//#endregion Content Area
 
-	private _onDidChangeTopMode = this._register(new Emitter<AuxiliaryActivityBarTopMode>());
+	private _onDidChangeTopMode = this._register(new Emitter<ToolsBarTopMode>());
 	readonly onDidChangeTopMode = this._onDidChangeTopMode.event;
 
-	private _onDidChangeBottomMode = this._register(new Emitter<AuxiliaryActivityBarBottomMode>());
+	private _onDidChangeBottomMode = this._register(new Emitter<ToolsBarBottomMode>());
 	readonly onDidChangeBottomMode = this._onDidChangeBottomMode.event;
 
 	//#region Class Initialization
@@ -195,8 +195,8 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 	) {
-		super(Parts.AUXILIARYACTIVITYBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
-		this.hoverDelegate = new AuxiliaryActivityBarHoverDelegate(workbenchLayoutService, configurationService, hoverService);
+		super(Parts.TOOLSBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
+		this.hoverDelegate = new ToolsBarHoverDelegate(workbenchLayoutService, configurationService, hoverService);
 
 	}
 
@@ -216,17 +216,17 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 		this.bottomActionBarContainer = DOM.append(this.actionBarsContainer, DOM.$('.action-bar-container'));
 
 		// Create the top toggle action bar.
-		this.environmentToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionEnvironment', 'Environment', 'Environment', 'auxiliary-activity-bar-action-icon.environment', true, async () => {
-			this.toggleEnvironmentAuxiliaryActivity();
+		this.environmentToggleAction = this._register(new ToggleAction('toolsBarActionEnvironment', 'Environment', 'Environment', 'tools-bar-action-icon.environment', true, async () => {
+			this.toggleEnvironment();
 		}));
-		this.previewToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPreview', 'Preview', 'Preview', 'auxiliary-activity-bar-action-icon.preview', true, async () => {
-			this.togglePreviewAuxiliaryActivity();
+		this.previewToggleAction = this._register(new ToggleAction('toolsBarActionPreview', 'Preview', 'Preview', 'tools-bar-action-icon.preview', true, async () => {
+			this.togglePreview();
 		}));
-		this.helpToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionHelp', 'Help', 'Help', 'auxiliary-activity-bar-action-icon.help', true, async () => {
-			this.toggleHelpAuxiliaryActivity();
+		this.helpToggleAction = this._register(new ToggleAction('toolsBarActionHelp', 'Help', 'Help', 'tools-bar-action-icon.help', true, async () => {
+			this.toggleHelp();
 		}));
 		this.topToggleActionBar = new ToggleActionBar(this.topActionBarContainer, {
-			actionContainerClass: 'auxiliary-activity-bar-action-container',
+			actionContainerClass: 'tools-bar-action-container',
 			orientation: ActionsOrientation.VERTICAL,
 			ariaLabel: localize('managew3rewerwer', "Manage w3rewerwer"),
 			ariaRole: 'toolbar',
@@ -234,17 +234,17 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 		}, [this.environmentToggleAction, this.previewToggleAction, this.helpToggleAction]);
 
 		// Create the bottom toggle action bar.
-		this.plotToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPlot', 'Plot', 'Plot', 'auxiliary-activity-bar-action-icon.plot', true, async () => {
-			this.togglePlotAuxiliaryActivity();
+		this.plotToggleAction = this._register(new ToggleAction('toolsBarActionPlot', 'Plot', 'Plot', 'tools-bar-action-icon.plot', true, async () => {
+			this.togglePlot();
 		}));
-		this.viewerToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionViewer', 'Viewer', 'Viewer', 'auxiliary-activity-bar-action-icon.viewer', true, async () => {
-			this.toggleViewerAuxiliaryActivity();
+		this.viewerToggleAction = this._register(new ToggleAction('toolsBarActionViewer', 'Viewer', 'Viewer', 'tools-bar-action-icon.viewer', true, async () => {
+			this.toggleViewer();
 		}));
-		this.presentationToggleAction = this._register(new ToggleAction('auxiliaryActivityBarActionPresentation', 'Presentation', 'Presentation', 'auxiliary-activity-bar-action-icon.presentation', true, async () => {
-			this.togglePresentationAuxiliaryActivity();
+		this.presentationToggleAction = this._register(new ToggleAction('toolsBarActionPresentation', 'Presentation', 'Presentation', 'tools-bar-action-icon.presentation', true, async () => {
+			this.togglePresentation();
 		}));
 		this.bottomToggleActionBar = new ToggleActionBar(this.bottomActionBarContainer, {
-			actionContainerClass: 'auxiliary-activity-bar-action-container',
+			actionContainerClass: 'tools-bar-action-container',
 			orientation: ActionsOrientation.VERTICAL,
 			ariaLabel: localize('managew3rewerwer', "Manage w3rewerwer"),
 			ariaRole: 'toolbar',
@@ -253,7 +253,7 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 		// Track focus.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this.element);
-		AuxiliaryActivityBarFocused.bindTo(scopedContextKeyService).set(true);
+		ToolsBarFocused.bindTo(scopedContextKeyService).set(true);
 
 		// Return this element.
 		return this.element;
@@ -261,88 +261,88 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 
 	toJSON(): object {
 		return {
-			type: Parts.AUXILIARYACTIVITYBAR_PART
+			type: Parts.TOOLSBAR_PART
 		};
 	}
 
 	//#endregion Part
 
-	//#region IAuxiliaryActivityBarService
+	//#region IToolsBarService
 
 	// Toggle methods.
 
-	toggleEnvironmentAuxiliaryActivity(): void {
+	toggleEnvironment(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.environmentToggleAction);
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	togglePreviewAuxiliaryActivity(): void {
+	togglePreview(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.previewToggleAction);
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	toggleHelpAuxiliaryActivity(): void {
+	toggleHelp(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.helpToggleAction);
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	togglePlotAuxiliaryActivity(): void {
+	togglePlot(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.plotToggleAction);
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	toggleViewerAuxiliaryActivity(): void {
+	toggleViewer(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.viewerToggleAction);
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	togglePresentationAuxiliaryActivity(): void {
+	togglePresentation(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.presentationToggleAction);
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
 	// Show methods.
 
-	showEnvironmentAuxiliaryActivity(): void {
+	showEnvironment(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.environmentToggleAction;
 		}
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	showPreviewAuxiliaryActivity(): void {
+	showPreview(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.previewToggleAction;
 		}
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	showHelpAuxiliaryActivity(): void {
+	showHelp(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.helpToggleAction;
 		}
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	showPlotAuxiliaryActivity(): void {
+	showPlot(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.plotToggleAction;
 		}
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	showViewerAuxiliaryActivity(): void {
+	showViewer(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.viewerToggleAction;
 		}
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
-	showPresentationAuxiliaryActivity(): void {
+	showPresentation(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.presentationToggleAction;
 		}
-		this.updateToolsBar();
+		this.updateToolsSideBar();
 	}
 
 	// Other methods.
@@ -351,42 +351,42 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 		this.element.focus();
 	}
 
-	//#endregion IAuxiliaryActivityBarService
+	//#endregion IToolsBarService
 
 	//#region Private Methods
 
 	// Shows / hides the tools bar.
-	private updateToolsBar(): void {
+	private updateToolsSideBar(): void {
 
-		this.layoutService.setPartHidden(!this.topToggleActionBar?.activeToggleAction && !this.bottomToggleActionBar?.activeToggleAction, Parts.TOOLSBAR_PART);
+		this.layoutService.setPartHidden(!this.topToggleActionBar?.activeToggleAction && !this.bottomToggleActionBar?.activeToggleAction, Parts.TOOLSSIDEBAR_PART);
 
 		switch (this.topToggleActionBar?.activeToggleAction) {
 			case this.environmentToggleAction:
-				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Environment);
+				this._onDidChangeTopMode.fire(ToolsBarTopMode.Environment);
 				break;
 			case this.previewToggleAction:
-				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Preview);
+				this._onDidChangeTopMode.fire(ToolsBarTopMode.Preview);
 				break;
 			case this.helpToggleAction:
-				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Help);
+				this._onDidChangeTopMode.fire(ToolsBarTopMode.Help);
 				break;
 			default:
-				this._onDidChangeTopMode.fire(AuxiliaryActivityBarTopMode.Empty);
+				this._onDidChangeTopMode.fire(ToolsBarTopMode.Empty);
 				break;
 		}
 
 		switch (this.bottomToggleActionBar?.activeToggleAction) {
 			case this.plotToggleAction:
-				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Plot);
+				this._onDidChangeBottomMode.fire(ToolsBarBottomMode.Plot);
 				break;
 			case this.viewerToggleAction:
-				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Viewer);
+				this._onDidChangeBottomMode.fire(ToolsBarBottomMode.Viewer);
 				break;
 			case this.presentationToggleAction:
-				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Presentation);
+				this._onDidChangeBottomMode.fire(ToolsBarBottomMode.Presentation);
 				break;
 			default:
-				this._onDidChangeBottomMode.fire(AuxiliaryActivityBarBottomMode.Empty);
+				this._onDidChangeBottomMode.fire(ToolsBarBottomMode.Empty);
 				break;
 		}
 	}
@@ -394,5 +394,5 @@ export class AuxiliaryActivityBarPart extends Part implements IAuxiliaryActivity
 	//#endregion Private Methods
 }
 
-// Register the IAuxiliaryActivityBarService singleton.
-registerSingleton(IAuxiliaryActivityBarService, AuxiliaryActivityBarPart, false);
+// Register the IToolsBarService singleton.
+registerSingleton(IToolsBarService, ToolsBarPart, false);

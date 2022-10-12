@@ -50,8 +50,8 @@ import { AuxiliaryBarPart } from 'vs/workbench/browser/parts/auxiliarybar/auxili
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 // --- Start Positron ---
 import { ITopBarService } from 'vs/workbench/services/topBar/browser/topBarService';
-import { IAuxiliaryActivityBarService } from 'vs/workbench/services/auxiliaryActivityBar/browser/auxiliaryActivityBarService';
 import { IToolsBarService } from 'vs/workbench/services/toolsBar/browser/toolsBarService';
+import { IToolsSideBarService } from 'vs/workbench/services/toolsSideBar/browser/toolsSideBarService';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -100,8 +100,8 @@ interface ILayoutState {
 enum LayoutClasses {
 	// --- Start Positron ---
 	TOPBAR_HIDDEN = 'notopbar',
-	AUXILIARYACTIVITYBAR_HIDDEN = 'noauxiliaryactivitybar',
 	TOOLSBAR_HIDDEN = 'notoolsbar',
+	TOOLSSIDEBAR_HIDDEN = 'notoolssidebar',
 	// --- End Positron ---
 	SIDEBAR_HIDDEN = 'nosidebar',
 	EDITOR_HIDDEN = 'noeditorarea',
@@ -196,8 +196,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 	// --- Start Positron ---
 	private topBarPartView!: ISerializableView;
-	private auxiliaryActivityBarPartView!: ISerializableView;
 	private toolsBarPartView!: ISerializableView;
+	private toolsSideBarPartView!: ISerializableView;
 	// --- End Positron ---
 
 	private environmentService!: IBrowserWorkbenchEnvironmentService;
@@ -220,8 +220,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 	// --- Start Positron ---
 	private topBarService!: ITopBarService;
-	private auxiliaryActivityBarService!: IAuxiliaryActivityBarService;
 	private toolsBarService!: IToolsBarService;
+	private toolsSideBarService!: IToolsSideBarService;
 	// --- End Positron ---
 
 	private state!: ILayoutState;
@@ -261,10 +261,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		// TODO@softwarenerd these are a work in progress.
 		this.topBarService = accessor.get(ITopBarService);
 		console.log(this.topBarService);
-		this.auxiliaryActivityBarService = accessor.get(IAuxiliaryActivityBarService);
-		console.log(this.auxiliaryActivityBarService);
 		this.toolsBarService = accessor.get(IToolsBarService);
 		console.log(this.toolsBarService);
+		this.toolsSideBarService = accessor.get(IToolsSideBarService);
+		console.log(this.toolsSideBarService);
 		// --- End Positron ---
 		accessor.get(IBannerService);
 
@@ -487,12 +487,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.setTopBarHidden(change.value as boolean);
 			}
 
-			if (change.key === LayoutStateKeys.AUXILIARYACTIVITYBAR_HIDDEN) {
-				this.setAuxiliaryActivityBarHidden(change.value as boolean);
-			}
-
 			if (change.key === LayoutStateKeys.TOOLSBAR_HIDDEN) {
 				this.setToolsBarHidden(change.value as boolean);
+			}
+
+			if (change.key === LayoutStateKeys.TOOLSSIDEBAR_HIDDEN) {
+				this.setToolsSideBarHidden(change.value as boolean);
 			}
 			// --- End Positron ---
 
@@ -1019,12 +1019,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				container?.focus();
 				break;
 			}
-			case Parts.AUXILIARYACTIVITYBAR_PART: {
+			case Parts.TOOLSBAR_PART: {
 				const container = this.getContainer(part);
 				container?.focus();
 				break;
 			}
-			case Parts.TOOLSBAR_PART: {
+			case Parts.TOOLSSIDEBAR_PART: {
 				const container = this.getContainer(part);
 				container?.focus();
 				break;
@@ -1072,10 +1072,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				// --- Start Positron ---
 				case Parts.TOPBAR_PART:
 					return !this.stateModel.getRuntimeValue(LayoutStateKeys.TOPBAR_HIDDEN);
-				case Parts.AUXILIARYACTIVITYBAR_PART:
-					return !this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYACTIVITYBAR_HIDDEN);
 				case Parts.TOOLSBAR_PART:
 					return !this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSBAR_HIDDEN);
+				case Parts.TOOLSSIDEBAR_PART:
+					return !this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSSIDEBAR_HIDDEN);
 				// --- End Positron ---
 				case Parts.SIDEBAR_PART:
 					return !this.stateModel.getRuntimeValue(LayoutStateKeys.SIDEBAR_HIDDEN);
@@ -1098,10 +1098,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// --- Start Positron ---
 			case Parts.TOPBAR_PART:
 				return !this.stateModel.getRuntimeValue(LayoutStateKeys.TOPBAR_HIDDEN);
-			case Parts.AUXILIARYACTIVITYBAR_PART:
-				return !this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYACTIVITYBAR_HIDDEN);
 			case Parts.TOOLSBAR_PART:
 				return !this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSBAR_HIDDEN);
+			case Parts.TOOLSSIDEBAR_PART:
+				return !this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSSIDEBAR_HIDDEN);
 			// --- End Positron ---
 			case Parts.TITLEBAR_PART:
 				return this.shouldShowTitleBar();
@@ -1169,8 +1169,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const takenWidth =
 			(this.isVisible(Parts.ACTIVITYBAR_PART) ? this.activityBarPartView.minimumWidth : 0) +
 			// --- Start Positron ---
-			(this.isVisible(Parts.AUXILIARYACTIVITYBAR_PART) ? this.auxiliaryActivityBarPartView.minimumWidth : 0) +
 			(this.isVisible(Parts.TOOLSBAR_PART) ? this.toolsBarPartView.minimumWidth : 0) +
+			(this.isVisible(Parts.TOOLSSIDEBAR_PART) ? this.toolsSideBarPartView.minimumWidth : 0) +
 			// --- End Positron ---
 			(this.isVisible(Parts.SIDEBAR_PART) ? this.sideBarPartView.minimumWidth : 0) +
 			(this.isVisible(Parts.PANEL_PART) && isColumn ? this.panelPartView.minimumWidth : 0) +
@@ -1354,8 +1354,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const statusBar = this.getPart(Parts.STATUSBAR_PART);
 		// --- Start Positron ---
 		const topBar = this.getPart(Parts.TOPBAR_PART);
-		const auxiliaryActivityBar = this.getPart(Parts.AUXILIARYACTIVITYBAR_PART);
 		const toolsBar = this.getPart(Parts.TOOLSBAR_PART);
+		const toolsSideBar = this.getPart(Parts.TOOLSSIDEBAR_PART);
 		// --- End Positron ---
 
 		// View references for all parts
@@ -1369,15 +1369,15 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.statusBarPartView = statusBar;
 		// --- Start Positron ---
 		this.topBarPartView = topBar;
-		this.auxiliaryActivityBarPartView = auxiliaryActivityBar;
 		this.toolsBarPartView = toolsBar;
+		this.toolsSideBarPartView = toolsSideBar;
 		// --- End Positron ---
 
 		const viewMap = {
 			// --- Start Positron ---
-			[Parts.AUXILIARYACTIVITYBAR_PART]: this.auxiliaryActivityBarPartView,
-			[Parts.TOPBAR_PART]: this.topBarPartView,
 			[Parts.TOOLSBAR_PART]: this.toolsBarPartView,
+			[Parts.TOPBAR_PART]: this.topBarPartView,
+			[Parts.TOOLSSIDEBAR_PART]: this.toolsSideBarPartView,
 			// --- End Positron ---
 			[Parts.ACTIVITYBAR_PART]: this.activityBarPartView,
 			[Parts.BANNER_PART]: this.bannerPartView,
@@ -1402,8 +1402,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.workbenchGrid.edgeSnapping = this.state.runtime.fullscreen;
 
 		// --- Start Positron ---
-		// added topBar, auxiliaryActivityBar, toolsBar to this.
-		for (const part of [topBar, auxiliaryActivityBar, toolsBar, titleBar, editorPart, activityBar, panelPart, sideBar, statusBar, auxiliaryBarPart]) {
+		// added topBar, toolsBar, toolsSideBar to this.
+		for (const part of [topBar, toolsBar, toolsSideBar, titleBar, editorPart, activityBar, panelPart, sideBar, statusBar, auxiliaryBarPart]) {
 			// --- End Positron ---
 			this._register(part.onDidVisibilityChange((visible) => {
 				if (part === sideBar) {
@@ -1420,10 +1420,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				// The else was done this way so it easily merges.
 				else if (part === topBar) {
 					this.setTopBarHidden(!visible, true);
-				} else if (part === auxiliaryActivityBar) {
-					this.setAuxiliaryActivityBarHidden(!visible, true);
 				} else if (part === toolsBar) {
 					this.setToolsBarHidden(!visible, true);
+				} else if (part === toolsSideBar) {
+					this.setToolsSideBarHidden(!visible, true);
 				}
 				// --- End Positron ---
 
@@ -1589,16 +1589,16 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.workbenchGrid.setViewVisible(this.topBarPartView, !hidden);
 	}
 
-	private setAuxiliaryActivityBarHidden(hidden: boolean, skipLayout?: boolean): void {
-		// Propagate to grid
-		this.stateModel.setRuntimeValue(LayoutStateKeys.AUXILIARYACTIVITYBAR_HIDDEN, hidden);
-		this.workbenchGrid.setViewVisible(this.auxiliaryActivityBarPartView, !hidden);
-	}
-
 	private setToolsBarHidden(hidden: boolean, skipLayout?: boolean): void {
 		// Propagate to grid
 		this.stateModel.setRuntimeValue(LayoutStateKeys.TOOLSBAR_HIDDEN, hidden);
 		this.workbenchGrid.setViewVisible(this.toolsBarPartView, !hidden);
+	}
+
+	private setToolsSideBarHidden(hidden: boolean, skipLayout?: boolean): void {
+		// Propagate to grid
+		this.stateModel.setRuntimeValue(LayoutStateKeys.TOOLSSIDEBAR_HIDDEN, hidden);
+		this.workbenchGrid.setViewVisible(this.toolsSideBarPartView, !hidden);
 	}
 	// --- End Positron ---
 
@@ -1635,8 +1635,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		return coalesce([
 			// --- Start Positron ---
 			!this.isVisible(Parts.TOPBAR_PART) ? LayoutClasses.TOPBAR_HIDDEN : undefined,
-			!this.isVisible(Parts.AUXILIARYACTIVITYBAR_PART) ? LayoutClasses.AUXILIARYACTIVITYBAR_HIDDEN : undefined,
 			!this.isVisible(Parts.TOOLSBAR_PART) ? LayoutClasses.TOOLSBAR_HIDDEN : undefined,
+			!this.isVisible(Parts.TOOLSSIDEBAR_PART) ? LayoutClasses.TOOLSSIDEBAR_HIDDEN : undefined,
 			// --- End Positron ---
 			!this.isVisible(Parts.SIDEBAR_PART) ? LayoutClasses.SIDEBAR_HIDDEN : undefined,
 			!this.isVisible(Parts.EDITOR_PART) ? LayoutClasses.EDITOR_HIDDEN : undefined,
@@ -1720,8 +1720,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.workbenchGrid.moveViewTo(this.auxiliaryBarPartView, [3, -1]);
 			}
 			// --- Start Positron ---
+			this.workbenchGrid.moveViewTo(this.toolsSideBarPartView, [3, -1]);
 			this.workbenchGrid.moveViewTo(this.toolsBarPartView, [3, -1]);
-			this.workbenchGrid.moveViewTo(this.auxiliaryActivityBarPartView, [3, -1]);
 			// --- End Positron ---
 		} else {
 			this.workbenchGrid.moveViewTo(this.activityBarPartView, [3, -1]);
@@ -1732,8 +1732,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.workbenchGrid.moveViewTo(this.auxiliaryBarPartView, [3, 0]);
 			}
 			// --- Start Positron ---
+			this.workbenchGrid.moveViewTo(this.toolsSideBarPartView, [3, 0]);
 			this.workbenchGrid.moveViewTo(this.toolsBarPartView, [3, 0]);
-			this.workbenchGrid.moveViewTo(this.auxiliaryActivityBarPartView, [3, 0]);
 			// --- End Positron ---
 		}
 		// --- End Positron ---
@@ -1949,10 +1949,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// --- Start Positron ---
 			case Parts.TOPBAR_PART:
 				return this.setTopBarHidden(hidden);
-			case Parts.AUXILIARYACTIVITYBAR_PART:
-				return this.setAuxiliaryActivityBarHidden(hidden);
 			case Parts.TOOLSBAR_PART:
 				return this.setToolsBarHidden(hidden);
+			case Parts.TOOLSSIDEBAR_PART:
+				return this.setToolsSideBarHidden(hidden);
 			// --- End Positron ---
 			case Parts.ACTIVITYBAR_PART:
 				return this.setActivityBarHidden(hidden);
@@ -2176,13 +2176,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	// --- Start Positron ---
-	// Added auxiliaryActivityBar and toolsBar.
-	private arrangeMiddleSectionNodes(nodes: { auxiliaryActivityBar: ISerializedNode; toolsBar: ISerializedNode; editor: ISerializedNode; panel: ISerializedNode; activityBar: ISerializedNode; sideBar: ISerializedNode; auxiliaryBar: ISerializedNode }, availableWidth: number, availableHeight: number): ISerializedNode[] {
+	// Added toolsBar and toolsSideBar.
+	private arrangeMiddleSectionNodes(nodes: { toolsBar: ISerializedNode; toolsSideBar: ISerializedNode; editor: ISerializedNode; panel: ISerializedNode; activityBar: ISerializedNode; sideBar: ISerializedNode; auxiliaryBar: ISerializedNode }, availableWidth: number, availableHeight: number): ISerializedNode[] {
 		// --- End Positron ---
 		const activityBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.ACTIVITYBAR_HIDDEN) ? 0 : nodes.activityBar.size;
 		// --- Start Positron ---
-		const auxiliaryActivityBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYACTIVITYBAR_HIDDEN) ? 0 : nodes.auxiliaryActivityBar.size;
 		const toolsBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSBAR_HIDDEN) ? 0 : nodes.toolsBar.size;
+		const toolsSideBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSSIDEBAR_HIDDEN) ? 0 : nodes.toolsSideBar.size;
 		// --- End Positron ---
 		const sideBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.SIDEBAR_HIDDEN) ? 0 : nodes.sideBar.size;
 		const auxiliaryBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYBAR_HIDDEN) ? 0 : nodes.auxiliaryBar.size;
@@ -2192,8 +2192,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if (this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_POSITION) !== Position.BOTTOM) {
 			result.push(nodes.editor);
 			// --- Start Positron ---
-			// Include the auxiliaryActivityBar size and toolsBar size in the calculation of the editor size.
-			nodes.editor.size = availableWidth - activityBarSize - sideBarSize - panelSize - auxiliaryBarSize - auxiliaryActivityBarSize - toolsBarSize;
+			// Include the toolsBar size and toolsSideBar size in the calculation of the editor size.
+			nodes.editor.size = availableWidth - activityBarSize - sideBarSize - panelSize - auxiliaryBarSize - toolsBarSize - toolsSideBarSize;
 			// --- End Positron ---
 			if (this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_POSITION) === Position.RIGHT) {
 				result.push(nodes.panel);
@@ -2204,18 +2204,18 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			if (this.stateModel.getRuntimeValue(LayoutStateKeys.SIDEBAR_POSITON) === Position.LEFT) {
 				result.push(nodes.auxiliaryBar);
 				// --- Start Positron ---
-				// The side bar is on the left, so the auxiliary activity bar becomes the rightmost bar.
+				// The side bar is on the left, so the tools bar and tools side bar become the rightmost bars.
+				result.push(nodes.toolsSideBar);
 				result.push(nodes.toolsBar);
-				result.push(nodes.auxiliaryActivityBar);
 				// --- End Positron ---
 				result.splice(0, 0, nodes.sideBar);
 				result.splice(0, 0, nodes.activityBar);
 			} else {
 				result.splice(0, 0, nodes.auxiliaryBar);
 				// --- Start Positron ---
-				// The side bar is on the right, so the auxiliary activity bar becomes the leftmost bar.
+				// The side bar is on the right, so the tools bar and tools side bar become the leftmost bars.
+				result.splice(0, 0, nodes.toolsSideBar);
 				result.splice(0, 0, nodes.toolsBar);
-				result.splice(0, 0, nodes.auxiliaryActivityBar);
 				// --- End Positron ---
 				result.push(nodes.sideBar);
 				result.push(nodes.activityBar);
@@ -2256,16 +2256,16 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			if (sideBarPosition === Position.LEFT) {
 				result.splice(0, 0, nodes.activityBar);
 				// --- Start Positron ---
-				// The side bar is on the left, so make the auxiliary activity bar rightmost.
+				// The side bar is on the left, so make the tools side bar and tools bar rightmost.
+				result.push(nodes.toolsSideBar);
 				result.push(nodes.toolsBar);
-				result.push(nodes.auxiliaryActivityBar);
 				// --- End Positron ---
 			} else {
 				result.push(nodes.activityBar);
 				// --- Start Positron ---
-				// The side bar is on the right, so make the auxiliary activity bar leftmost.
+				// The side bar is on the right, so make the tools bar and tools side bar leftmost.
+				result.splice(0, 0, nodes.toolsSideBar);
 				result.splice(0, 0, nodes.toolsBar);
-				result.splice(0, 0, nodes.auxiliaryActivityBar);
 				// --- End Positron ---
 			}
 		}
@@ -2287,8 +2287,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 		// --- Start Positron ---
 		const topBarHeight = this.topBarPartView.minimumHeight;
-		const auxiliaryActivityBarWidth = this.auxiliaryActivityBarPartView.minimumWidth;
 		const toolsBarWidth = this.toolsBarPartView.minimumWidth;
+		const toolsSideBarWidth = this.toolsSideBarPartView.minimumWidth;
 		// --- End Positron ---
 
 		const activityBarNode: ISerializedLeafNode = {
@@ -2299,18 +2299,18 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		};
 
 		// --- Start Positron ---
-		const auxiliaryActivityBarNode: ISerializedLeafNode = {
-			type: 'leaf',
-			data: { type: Parts.AUXILIARYACTIVITYBAR_PART },
-			size: auxiliaryActivityBarWidth,
-			visible: !this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYACTIVITYBAR_HIDDEN)
-		};
-
 		const toolsBarNode: ISerializedLeafNode = {
 			type: 'leaf',
 			data: { type: Parts.TOOLSBAR_PART },
 			size: toolsBarWidth,
 			visible: !this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSBAR_HIDDEN)
+		};
+
+		const toolsSideBarNode: ISerializedLeafNode = {
+			type: 'leaf',
+			data: { type: Parts.TOOLSSIDEBAR_PART },
+			size: toolsSideBarWidth,
+			visible: !this.stateModel.getRuntimeValue(LayoutStateKeys.TOOLSSIDEBAR_HIDDEN)
 		};
 		// --- End Positron ---
 
@@ -2345,8 +2345,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 		const middleSection: ISerializedNode[] = this.arrangeMiddleSectionNodes({
 			// --- Start Positron ---
-			auxiliaryActivityBar: auxiliaryActivityBarNode,
 			toolsBar: toolsBarNode,
+			toolsSideBar: toolsSideBarNode,
 			// --- End Positron ---
 			activityBar: activityBarNode,
 			auxiliaryBar: auxiliaryBarNode,
@@ -2529,8 +2529,8 @@ const LayoutStateKeys = {
 	// Part Visibility
 	// --- Start Positron ---
 	TOPBAR_HIDDEN: new RuntimeStateKey<boolean>('topBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
-	AUXILIARYACTIVITYBAR_HIDDEN: new RuntimeStateKey<boolean>('auxiliaryActivityBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
 	TOOLSBAR_HIDDEN: new RuntimeStateKey<boolean>('toolsBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
+	TOOLSSIDEBAR_HIDDEN: new RuntimeStateKey<boolean>('toolsSideBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
 	// --- End Positron ---
 	ACTIVITYBAR_HIDDEN: new RuntimeStateKey<boolean>('activityBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
 	SIDEBAR_HIDDEN: new RuntimeStateKey<boolean>('sideBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false),

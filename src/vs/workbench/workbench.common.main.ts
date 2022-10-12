@@ -49,8 +49,8 @@ import 'vs/workbench/browser/parts/views/viewsService';
 
 // --- Start Positron ---
 import 'vs/workbench/browser/parts/topBar/topBarPart';
-import 'vs/workbench/browser/parts/auxiliaryActivityBar/auxiliaryActivityBarPart';
 import 'vs/workbench/browser/parts/toolsBar/toolsBarPart';
+import 'vs/workbench/browser/parts/toolsSideBar/toolsSideBarPart';
 // --- End Positron ---
 
 //#endregion

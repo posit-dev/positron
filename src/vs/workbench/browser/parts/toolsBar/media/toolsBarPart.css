@@ -11,10 +11,72 @@
 	display: flex;
 	flex-direction: column;
 	overflow: visible;
-	background: black;
 }
 
 /* Don't draw a focus outline. */
 .monaco-workbench .part.tools-bar:focus {
 	outline: none !important;
+}
+
+.monaco-workbench .part.tools-bar .action-bars-container {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	height: 100%;
+}
+
+.monaco-workbench
+	.part.tools-bar
+	.action-bars-container
+	.action-bar-container {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	padding: 0 0 0 0;
+}
+
+.monaco-workbench .part.tools-bar .actions-container {
+	display: inline; /* remove space at the bottom. */
+}
+
+.tools-bar-action-container {
+	width: 38px;
+	height: 38px;
+}
+
+.tools-bar-action-icon {
+	width: 100%;
+	height: 100%;
+	mask-size: 38px;
+	-webkit-mask-size: 38px;
+}
+
+.tools-bar-action-icon.environment {
+	mask: url("./environment.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./environment.svg") no-repeat 50% 50%;
+}
+
+.tools-bar-action-icon.preview {
+	mask: url("./preview.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./preview.svg") no-repeat 50% 50%;
+}
+
+.tools-bar-action-icon.help {
+	mask: url("./help.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./help.svg") no-repeat 50% 50%;
+}
+
+.tools-bar-action-icon.plot {
+	mask: url("./plot.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./plot.svg") no-repeat 50% 50%;
+}
+
+.tools-bar-action-icon.viewer {
+	mask: url("./viewer.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./viewer.svg") no-repeat 50% 50%;
+}
+
+.tools-bar-action-icon.presentation {
+	mask: url("./presentation.svg") no-repeat 50% 50%;
+	-webkit-mask: url("./presentation.svg") no-repeat 50% 50%;
 }
