@@ -110,7 +110,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IStorageService storageService: IStorageService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService
 	) {
-		super(Parts.TOPBAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
+		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
 
 	//#endregion Class Initialization
@@ -153,7 +153,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 	toJSON(): object {
 		return {
-			type: Parts.TOPBAR_PART
+			type: Parts.POSITRON_TOP_BAR_PART
 		};
 	}
 
