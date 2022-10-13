@@ -2530,7 +2530,7 @@ const LayoutStateKeys = {
 	// --- Start Positron ---
 	TOPBAR_HIDDEN: new RuntimeStateKey<boolean>('topBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
 	TOOLSBAR_HIDDEN: new RuntimeStateKey<boolean>('toolsBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
-	TOOLSSIDEBAR_HIDDEN: new RuntimeStateKey<boolean>('toolsSideBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
+	TOOLSSIDEBAR_HIDDEN: new RuntimeStateKey<boolean>('toolsSideBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, true, true),
 	// --- End Positron ---
 	ACTIVITYBAR_HIDDEN: new RuntimeStateKey<boolean>('activityBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false, true),
 	SIDEBAR_HIDDEN: new RuntimeStateKey<boolean>('sideBar.hidden', StorageScope.WORKSPACE, StorageTarget.USER, false),
