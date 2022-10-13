@@ -100,26 +100,40 @@
         "escapes": {
             "patterns": [
                 {
-                    "include": "#escape-unicode"
+                    "include": "#escape-code"
                 },
                 {
                     "include": "#escape-hex"
                 },
                 {
-                    "include": "#escape-backslash"
+                    "include": "#escape-octal"
+                },
+                {
+                    "include": "#escape-unicode"
+                },
+                {
+                    "include": "#escape-invalid"
                 }
             ]
         },
-        "escape-unicode": {
+        "escape-code": {
             "name": "constant.character.escape",
-            "match": "\\\\[uU](?:[0-9a-fA-F]+|\\{[0-9a-fA-F]+\\})"
+            "match": "\\\\[abefnrtv'\"`\\\\]"
         },
         "escape-hex": {
             "name": "constant.numeric",
             "match": "\\\\x[0-9a-fA-F]+"
         },
-        "escape-backslash": {
+        "escape-octal": {
             "name": "constant.character.escape",
+            "match": "\\\\\\d{1,3}"
+        },
+        "escape-unicode": {
+            "name": "constant.character.escape",
+            "match": "\\\\[uU](?:[0-9a-fA-F]+|\\{[0-9a-fA-F]+\\})"
+        },
+        "escape-invalid": {
+            "name": "invalid",
             "match": "\\\\."
         },
         "expression": {
