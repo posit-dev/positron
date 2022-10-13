@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) RStudio, PBC.
+ *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 import { IReplInputSubmitEvent, ReplInput } from 'vs/workbench/contrib/repl/browser/replInput';

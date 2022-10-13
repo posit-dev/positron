@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box-frame .simple-title-bar {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 32px;
+	background: var(--vscode-modalDialog-titleBarBackground);
+	color: var(--vscode-modalDialog-foreground);
+	display: flex;
+	align-items: center;
+	padding: 0 16px;
+}
+
+.positron-modal-dialog-box-frame .simple-title-bar .simple-title-bar-title {
+	color: var(--vscode-modalDialog-titleBarForeground);
+	overflow: hidden;
+}

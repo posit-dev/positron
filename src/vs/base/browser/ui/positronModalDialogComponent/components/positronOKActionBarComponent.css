@@ -1,0 +1,44 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box-frame .ok-action-bar {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 64px;
+	display: flex;
+	justify-content: end;
+	align-items: center;
+	padding: 0 0px;
+	margin: 0 16px;
+}
+
+.positron-modal-dialog-box-frame .ok-action-bar.top-separator {
+	border-top: 1px solid var(--vscode-modalDialog-separator);
+}
+
+a.push-button {
+	border-radius: 5px;
+	background: var(--vscode-modalDialog-buttonBackground);
+	color: var(--vscode-modalDialog-buttonForeground);
+	height: 32px;
+	width: 80px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+a.push-button.default {
+	font-weight: 700;
+}
+
+a.push-button:hover {
+	background: var(--vscode-modalDialog-buttonHoverBackground);
+}
+
+a.push-button:active {
+	background: var(--vscode-modalDialog-buttonActiveBackground);
+}

@@ -23,7 +23,7 @@ const copyrightHeaderLines = [
 // --- Start Positron ---
 const positCopyrightHeaderLines = [
 	'/*---------------------------------------------------------------------------------------------',
-	' *  Copyright (c) RStudio, PBC.',
+	' *  Copyright (c) Posit, PBC.',
 	' *--------------------------------------------------------------------------------------------*/',
 ];
 // --- End Positron ---
