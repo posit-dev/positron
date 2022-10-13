@@ -305,8 +305,16 @@
             ]
         },
         "numbers": {
-            "name": "constant.numeric",
-            "match": "(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][+-]?\\d*)?[iL]?"
+            "patterns": [
+                {
+                    "name": "constant.numeric",
+                    "match": "0[xX][0-9a-fA-F]+(?:p[-+]?\\d+)?[iL]?"
+                },
+                {
+                    "name": "constant.numeric",
+                    "match": "(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][+-]?\\d*)?[iL]?"
+                }
+            ]
         },
         "operators": {
             "name": "keyword.operator",
