@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) RStudio, PBC.
+ *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
