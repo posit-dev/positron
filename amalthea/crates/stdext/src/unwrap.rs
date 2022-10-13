@@ -5,6 +5,18 @@
 //
 //
 
+#[derive(Debug, Clone)]
+pub struct EmptyOptionError {
+}
+
+impl std::fmt::Display for EmptyOptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unexpected empty option value")
+    }
+}
+
+impl std::error::Error for EmptyOptionError {}
+
 pub trait IntoResult<T, E> {
     fn into_result(self) -> Result<T, E>;
 }
@@ -13,8 +25,10 @@ impl<T, E> IntoResult<T, E> for Result<T, E> {
     fn into_result(self) -> Result<T, E> { self }
 }
 
-impl<T> IntoResult<T, ()> for Option<T> {
-    fn into_result(self) -> Result<T, ()> { self.ok_or(()) }
+impl<T> IntoResult<T, EmptyOptionError> for Option<T> {
+    fn into_result(self) -> Result<T, EmptyOptionError> {
+        self.ok_or(EmptyOptionError {})
+    }
 }
 
 #[doc(hidden)]
