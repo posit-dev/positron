@@ -35,7 +35,7 @@ export class ToggleToolsBarVisibilityAction extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		layoutService.setPartHidden(layoutService.isVisible(Parts.TOOLSBAR_PART), Parts.TOOLSBAR_PART);
+		layoutService.setPartHidden(layoutService.isVisible(Parts.POSITRON_TOOLS_BAR_PART), Parts.POSITRON_TOOLS_BAR_PART);
 	}
 }
 
@@ -60,7 +60,7 @@ registerAction2(class FocusToolsBarAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		layoutService.focusPart(Parts.TOOLSBAR_PART);
+		layoutService.focusPart(Parts.POSITRON_TOOLS_BAR_PART);
 	}
 });
 
