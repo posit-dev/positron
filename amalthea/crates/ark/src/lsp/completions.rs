@@ -278,7 +278,7 @@ unsafe fn completion_item_from_parameter(string: &str, _callee: &str) -> Result<
 
 }
 
-pub(crate) fn completion_context<'a>(document: &'a mut Document, params: CompletionParams) -> Result<CompletionContext<'a>> {
+pub fn completion_context<'a>(document: &'a mut Document, params: CompletionParams) -> Result<CompletionContext<'a>> {
 
     // get reference to AST
     let ast = document.ast()?;

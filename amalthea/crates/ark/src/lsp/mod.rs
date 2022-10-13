@@ -8,6 +8,7 @@
 pub mod backend;
 pub mod comm;
 pub mod completions;
+pub mod definitions;
 pub mod document;
 pub mod indexer;
 pub mod modules;
