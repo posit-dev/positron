@@ -83,9 +83,9 @@ export class WorkbenchContextKeysHandler extends Disposable {
 	private editorTabsVisibleContext: IContextKey<boolean>;
 
 	// --- Start Positron ---
-	private topBarVisibleContext: IContextKey<boolean>;
-	private toolsBarVisibleContext: IContextKey<boolean>;
-	private toolsSideBarVisibleContext: IContextKey<boolean>;
+	private positronTopBarVisibleContext: IContextKey<boolean>;
+	private positronToolsBarVisibleContext: IContextKey<boolean>;
+	private positronToolsSideBarVisibleContext: IContextKey<boolean>;
 	// --- End Positron ---
 
 	constructor(
@@ -216,17 +216,17 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.panelAlignmentContext.set(this.layoutService.getPanelAlignment());
 
 		// --- Start Positron ---
-		// TopBar
-		this.topBarVisibleContext = TopBarVisibleContext.bindTo(this.contextKeyService);
-		this.topBarVisibleContext.set(this.layoutService.isVisible(Parts.TOPBAR_PART));
+		// Positron Top Bar
+		this.positronTopBarVisibleContext = TopBarVisibleContext.bindTo(this.contextKeyService);
+		this.positronTopBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOP_BAR_PART));
 
-		// ToolsBar
-		this.toolsBarVisibleContext = ToolsBarVisibleContext.bindTo(this.contextKeyService);
-		this.toolsBarVisibleContext.set(this.layoutService.isVisible(Parts.TOOLSBAR_PART));
+		// Positron Tools Bar
+		this.positronToolsBarVisibleContext = ToolsBarVisibleContext.bindTo(this.contextKeyService);
+		this.positronToolsBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOOLS_BAR_PART));
 
-		// ToolsSideBar
-		this.toolsSideBarVisibleContext = ToolsSideBarVisibleContext.bindTo(this.contextKeyService);
-		this.toolsSideBarVisibleContext.set(this.layoutService.isVisible(Parts.TOOLSSIDEBAR_PART));
+		// Positron Tools Side Bar
+		this.positronToolsSideBarVisibleContext = ToolsSideBarVisibleContext.bindTo(this.contextKeyService);
+		this.positronToolsSideBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOOLS_SIDE_BAR_PART));
 		// --- End Positron ---
 
 		// Auxiliary Bar
@@ -284,9 +284,9 @@ export class WorkbenchContextKeysHandler extends Disposable {
 			this.panelMaximizedContext.set(this.layoutService.isPanelMaximized());
 			this.auxiliaryBarVisibleContext.set(this.layoutService.isVisible(Parts.AUXILIARYBAR_PART));
 			// --- Start Positron ---
-			this.topBarVisibleContext.set(this.layoutService.isVisible(Parts.TOPBAR_PART));
-			this.toolsBarVisibleContext.set(this.layoutService.isVisible(Parts.TOOLSBAR_PART));
-			this.toolsSideBarVisibleContext.set(this.layoutService.isVisible(Parts.TOOLSSIDEBAR_PART));
+			this.positronTopBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOP_BAR_PART));
+			this.positronToolsBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOOLS_BAR_PART));
+			this.positronToolsSideBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOOLS_SIDE_BAR_PART));
 			// --- End Positron ---
 		}));
 

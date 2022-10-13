@@ -195,7 +195,7 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 	) {
-		super(Parts.TOOLSBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
+		super(Parts.POSITRON_TOOLS_BAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
 		this.hoverDelegate = new ToolsBarHoverDelegate(workbenchLayoutService, configurationService, hoverService);
 
 	}
@@ -261,7 +261,7 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 
 	toJSON(): object {
 		return {
-			type: Parts.TOOLSBAR_PART
+			type: Parts.POSITRON_TOOLS_BAR_PART
 		};
 	}
 
@@ -358,7 +358,7 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 	// Shows / hides the tools bar.
 	private updateToolsSideBar(): void {
 
-		this.layoutService.setPartHidden(!this.topToggleActionBar?.activeToggleAction && !this.bottomToggleActionBar?.activeToggleAction, Parts.TOOLSSIDEBAR_PART);
+		this.layoutService.setPartHidden(!this.topToggleActionBar?.activeToggleAction && !this.bottomToggleActionBar?.activeToggleAction, Parts.POSITRON_TOOLS_SIDE_BAR_PART);
 
 		switch (this.topToggleActionBar?.activeToggleAction) {
 			case this.environmentToggleAction:

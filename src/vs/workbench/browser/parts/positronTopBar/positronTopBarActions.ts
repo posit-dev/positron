@@ -34,7 +34,7 @@ export class ToggleTopBarVisibilityAction extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		layoutService.setPartHidden(layoutService.isVisible(Parts.TOPBAR_PART), Parts.TOPBAR_PART);
+		layoutService.setPartHidden(layoutService.isVisible(Parts.POSITRON_TOP_BAR_PART), Parts.POSITRON_TOP_BAR_PART);
 	}
 }
 
@@ -55,6 +55,6 @@ registerAction2(class FocusTopBarAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		layoutService.focusPart(Parts.TOPBAR_PART);
+		layoutService.focusPart(Parts.POSITRON_TOP_BAR_PART);
 	}
 });

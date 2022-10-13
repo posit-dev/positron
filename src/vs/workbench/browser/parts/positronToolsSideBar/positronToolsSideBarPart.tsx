@@ -61,7 +61,7 @@ export class PositronToolsSideBarPart extends Part implements IPositronToolsSide
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IPositronToolsBarService private readonly positronToolsBarService: IPositronToolsBarService
 	) {
-		super(Parts.TOOLSSIDEBAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
+		super(Parts.POSITRON_TOOLS_SIDE_BAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
 	}
 
 	//#endregion Class Initialization
@@ -93,7 +93,7 @@ export class PositronToolsSideBarPart extends Part implements IPositronToolsSide
 
 	toJSON(): object {
 		return {
-			type: Parts.TOOLSSIDEBAR_PART
+			type: Parts.POSITRON_TOOLS_SIDE_BAR_PART
 		};
 	}
 
