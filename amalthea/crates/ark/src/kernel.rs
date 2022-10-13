@@ -25,8 +25,8 @@ use harp::utils::r_inherits;
 use libR_sys::*;
 use log::*;
 use serde_json::json;
-use std::result::Result::Ok;
 use std::result::Result::Err;
+use std::result::Result::Ok;
 use std::sync::mpsc::{Sender, SyncSender};
 
 use crate::request::Request;
@@ -75,7 +75,6 @@ impl Kernel {
     /// Completes the kernel's initialization
     pub fn complete_intialization(&mut self) {
         if self.initializing {
-
             let version = unsafe {
                 let version = Rf_findVarInFrame(R_BaseNamespace, r_symbol!("R.version.string"));
                 RObject::new(version).to::<String>().unwrap()
@@ -146,7 +145,6 @@ impl Kernel {
 
     /// Converts a data frame to HTML
     pub fn to_html(frame: SEXP) -> Result<String> {
-
         unsafe {
             let result = RFunction::from(".rs.format.toHtml")
                 .add(frame)
@@ -154,7 +152,6 @@ impl Kernel {
                 .to::<String>()?;
             Ok(result)
         }
-
     }
 
     /// Report an incomplete request to the front end
@@ -244,12 +241,15 @@ impl Kernel {
         trace!("Formatting value");
 
         // Handle data.frame specially.
-        let value = unsafe { Rf_findVarInFrame(r_symbol!(".Last.value"), R_GlobalEnv) };
+        let value = unsafe { Rf_findVarInFrame(R_GlobalEnv, r_symbol!(".Last.value")) };
         let is_data_frame = unsafe { r_inherits(value, "data.frame") };
         if is_data_frame {
             match Kernel::to_html(value) {
                 Ok(html) => data.insert("text/html".to_string(), json!(html)),
-                Err(error) => { error!("{}", error); None },
+                Err(error) => {
+                    error!("{}", error);
+                    None
+                }
             };
         }
 
