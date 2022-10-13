@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) RStudio, PBC.
+ *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -27,10 +27,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(disposable);
 
-    // Check to see whether the Jupyter Adapter extension is installed
-    // and active. If so, we can start the language server.
-    let ext = vscode.extensions.getExtension("posit.jupyter-adapter");
-    if (!ext) {
+	// Check to see whether the Jupyter Adapter extension is installed
+	// and active. If so, we can start the language server.
+	let ext = vscode.extensions.getExtension("posit.jupyter-adapter");
+	if (!ext) {
 		vscode.window.showErrorMessage("Could not find Jupyter Adapter extension; can't register ARK.");
 		return;
 	}
@@ -143,28 +143,28 @@ export function deactivate(): Thenable<void> | undefined {
 }
 
 export function registerArkKernel(ext: vscode.Extension<any>,
-    context: vscode.ExtensionContext,
-    kernelPath: string): vscode.Disposable {
+	context: vscode.ExtensionContext,
+	kernelPath: string): vscode.Disposable {
 
-    let kernelSpec = {
-        "argv": [ kernelPath, "--connection_file", "{connection_file}" ],
-        "display_name": "Amalthea R Kernel (ARK)", // eslint-disable-line
-        "language": "R",
-        "env": {
-            "RUST_LOG": "trace", // eslint-disable-line
-            "R_HOME": "/Library/Frameworks/R.framework/Resources", // eslint-disable-line
+	let kernelSpec = {
+		"argv": [kernelPath, "--connection_file", "{connection_file}"],
+		"display_name": "Amalthea R Kernel (ARK)", // eslint-disable-line
+		"language": "R",
+		"env": {
+			"RUST_LOG": "trace", // eslint-disable-line
+			"R_HOME": "/Library/Frameworks/R.framework/Resources", // eslint-disable-line
 			"RUST_BACKTRACE": "1" // eslint-disable-line
-        }
-    };
+		}
+	};
 
-    // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-    arkRuntime = ext.exports.adaptKernel(
-        kernelSpec,
-        () => {
+	// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
+	arkRuntime = ext.exports.adaptKernel(
+		kernelSpec,
+		() => {
 			return activateLsp(ext, context);
 		}
-    );
+	);
 
-    // Register a language runtime provider for the ARK kernel.
-    return vscode.positron.registerLanguageRuntime(arkRuntime);
+	// Register a language runtime provider for the ARK kernel.
+	return vscode.positron.registerLanguageRuntime(arkRuntime);
 }

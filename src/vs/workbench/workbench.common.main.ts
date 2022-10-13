@@ -48,9 +48,9 @@ import 'vs/workbench/browser/parts/statusbar/statusbarPart';
 import 'vs/workbench/browser/parts/views/viewsService';
 
 // --- Start Positron ---
-import 'vs/workbench/browser/parts/topBar/topBarPart';
-import 'vs/workbench/browser/parts/toolsBar/toolsBarPart';
-import 'vs/workbench/browser/parts/toolsSideBar/toolsSideBarPart';
+import 'vs/workbench/browser/parts/positronTopBar/positronTopBarPart';
+import 'vs/workbench/browser/parts/positronToolsBar/positronToolsBarPart';
+import 'vs/workbench/browser/parts/positronToolsSideBar/positronToolsSideBarPart';
 // --- End Positron ---
 
 //#endregion
@@ -170,7 +170,7 @@ import 'vs/workbench/contrib/performance/browser/performance.contribution';
 import 'vs/workbench/contrib/contextmenu/browser/contextmenu.contribution';
 
 // --- Start Positron ---
-import 'vs/workbench/contrib/modalDialogs/browser/modalDialogs.contribution';
+import 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogs.contribution';
 // --- End Positron ---
 
 // Notebook

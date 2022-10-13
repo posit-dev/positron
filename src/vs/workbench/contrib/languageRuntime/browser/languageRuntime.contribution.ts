@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) RStudio, PBC.
+ *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';

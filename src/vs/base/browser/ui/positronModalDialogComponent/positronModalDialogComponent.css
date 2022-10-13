@@ -1,0 +1,50 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+@keyframes fade-in {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
+.positron-modal-dialog-modal-block {
+	position: fixed;
+	height: 100%;
+	width: 100%;
+	left:0;
+	top:0;
+	z-index: 2600;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	animation: fade-in 0.25s;
+}
+
+.positron-modal-dialog-modal-block.dimmed {
+	background: rgba(0, 0, 0, 0.2);
+}
+
+.positron-modal-dialog-shadow-container {
+	background: transparent;
+}
+
+.positron-modal-dialog-box {
+	animation: fade-in 0.25s;
+	outline: none !important;
+	padding: 10px;
+	transform: translate3d(0px, 0px, 0px); /* Makes some devices run their hardware acceleration. */
+}
+
+/* Placeholder... */
+.positron-modal-dialog-box-frame {
+	border-radius: 15px 15px 5px 5px;
+	overflow: hidden;
+	background: var(--vscode-modalDialog-background);
+	color: var(--vscode-modalDialog-foreground);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+	border: 1px solid var(--vscode-modalDialog-border);
+	position: relative;
+}

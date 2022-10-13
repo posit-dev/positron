@@ -49,9 +49,9 @@ import { ActivitybarPart } from 'vs/workbench/browser/parts/activitybar/activity
 import { AuxiliaryBarPart } from 'vs/workbench/browser/parts/auxiliarybar/auxiliaryBarPart';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 // --- Start Positron ---
-import { ITopBarService } from 'vs/workbench/services/topBar/browser/topBarService';
-import { IToolsBarService } from 'vs/workbench/services/toolsBar/browser/toolsBarService';
-import { IToolsSideBarService } from 'vs/workbench/services/toolsSideBar/browser/toolsSideBarService';
+import { IPositronTopBarService } from 'vs/workbench/services/positronTopBar/browser/positronTopBarService';
+import { IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
+import { IPositronToolsSideBarService } from 'vs/workbench/services/positronToolsSideBar/browser/positronToolsSideBarService';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -219,9 +219,9 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	private telemetryService!: ITelemetryService;
 
 	// --- Start Positron ---
-	private topBarService!: ITopBarService;
-	private toolsBarService!: IToolsBarService;
-	private toolsSideBarService!: IToolsSideBarService;
+	private positronTopBarService!: IPositronTopBarService;
+	private positronToolsBarService!: IPositronToolsBarService;
+	private positronToolsSideBarService!: IPositronToolsSideBarService;
 	// --- End Positron ---
 
 	private state!: ILayoutState;
@@ -259,12 +259,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.statusBarService = accessor.get(IStatusbarService);
 		// --- Start Positron ---
 		// TODO@softwarenerd these are a work in progress.
-		this.topBarService = accessor.get(ITopBarService);
-		console.log(this.topBarService);
-		this.toolsBarService = accessor.get(IToolsBarService);
-		console.log(this.toolsBarService);
-		this.toolsSideBarService = accessor.get(IToolsSideBarService);
-		console.log(this.toolsSideBarService);
+		this.positronTopBarService = accessor.get(IPositronTopBarService);
+		console.log(this.positronTopBarService);
+		this.positronToolsBarService = accessor.get(IPositronToolsBarService);
+		console.log(this.positronToolsBarService);
+		this.positronToolsSideBarService = accessor.get(IPositronToolsSideBarService);
+		console.log(this.positronToolsSideBarService);
 		// --- End Positron ---
 		accessor.get(IBannerService);
 

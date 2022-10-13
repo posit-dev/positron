@@ -33,9 +33,9 @@ import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { ThemeIcon } from 'vs/platform/theme/common/themeService';
 import { ICommandActionTitle } from 'vs/platform/action/common/action';
 // --- Start Positron ---
-import { ToggleTopBarVisibilityAction } from 'vs/workbench/browser/parts/topBar/topBarActions';
-import { ToggleToolsBarVisibilityAction } from 'vs/workbench/browser/parts/toolsBar/toolsBarActions';
-import { ToggleToolsSideBarVisibilityAction as ToggleToolsSideBarVisibilityAction } from 'vs/workbench/browser/parts/toolsSideBar/toolsSideBarActions';
+import { ToggleTopBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarActions';
+import { ToggleToolsBarVisibilityAction } from 'vs/workbench/browser/parts/positronToolsBar/positronToolsBarActions';
+import { ToggleToolsSideBarVisibilityAction as ToggleToolsSideBarVisibilityAction } from 'vs/workbench/browser/parts/positronToolsSideBar/positronToolsSideBarActions';
 // --- End Positron ---
 
 // Register Icons
