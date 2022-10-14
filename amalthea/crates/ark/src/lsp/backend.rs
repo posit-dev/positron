@@ -24,10 +24,12 @@ use tower_lsp::lsp_types::request::GotoImplementationParams;
 use tower_lsp::lsp_types::request::GotoImplementationResponse;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use crate::lsp::completions::CompletionData;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::completions::append_session_completions;
 use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::completion_context;
+use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition_context;
 use crate::lsp::document::Document;
 use crate::lsp::modules;
@@ -318,8 +320,29 @@ impl LanguageServer for Backend {
     // TODO: Use completion_resolve() to provide extra information about a completion.
     // TODO: Tag completion items with a 'data' entry so we can look up information about
     // them more easily.
-    async fn completion_resolve(&self, item: CompletionItem) -> Result<CompletionItem> {
+    async fn completion_resolve(&self, mut item: CompletionItem) -> Result<CompletionItem> {
+        backend_trace!(self, "completion_resolve({:?})", item);
+
+        let data = item.data.clone();
+        let data = unwrap!(data, {
+            info!("Completion has no associated data");
+            return Ok(item);
+        });
+
+        let data : CompletionData = unwrap!(serde_json::from_value(data), err {
+            error!("{}", err);
+            return Ok(item);
+        });
+
+        unsafe {
+            if let Err(error) = resolve_completion_item(&mut item, &data) {
+                error!("{}", error);
+                return Ok(item);
+            }
+        }
+
         Ok(item)
+
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
