@@ -316,7 +316,8 @@
 					{
 						"target": "src/vs/base/~",
 						"restrictions": [
-							"vs/base/~"
+							"vs/base/~",
+							"react-dom/client"
 						]
 					},
 					{

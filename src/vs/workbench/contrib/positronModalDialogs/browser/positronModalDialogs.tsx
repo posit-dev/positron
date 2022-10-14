@@ -6,14 +6,14 @@ import 'vs/css!./positronModalDialogs';
 import * as _ from 'react';
 const React = require('react');
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { PositronTestComponent } from 'vs/base/browser/ui/positronTestComponent/positronTestComponent';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/browser/positronModalDialogs';
-import { PositronModalDialogComponent } from 'vs/base/browser/ui/positronModalDialogComponent/positronModalDialogComponent';
-import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialogComponent/positronModalDialogReactRenderer';
-import { PositronOKActionBarComponent } from 'vs/base/browser/ui/positronModalDialogComponent/components/positronOKActionBarComponent';
-import { PositronContentAreaComponent } from 'vs/base/browser/ui/positronModalDialogComponent/components/positronContentAreaComponent';
-import { PositronSimpleTitleBarComponent } from 'vs/base/browser/ui/positronModalDialogComponent/components/positronSimpleTitleBarComponent';
-import { PositronOKCancelActionBarComponent } from 'vs/base/browser/ui/positronModalDialogComponent/components/positronOKCancelActionBarComponent';
+import { PositronTestComponent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/components/positronTestComponent';
+import { PositronModalDialogComponent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/positronModalDialogComponent';
+import { PositronModalDialogReactRenderer } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/positronModalDialogReactRenderer';
+import { PositronOKActionBarComponent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/components/positronOKActionBarComponent';
+import { PositronContentAreaComponent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/components/positronContentAreaComponent';
+import { PositronSimpleTitleBarComponent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/components/positronSimpleTitleBarComponent';
+import { PositronOKCancelActionBarComponent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/components/positronOKCancelActionBarComponent';
 
 /**
  * PositronModalDialogs class.

@@ -5,7 +5,7 @@
 import 'vs/css!./positronTestComponent';
 const React = require('react');
 import { useEffect, useState } from 'react';
-import { PositronTestSubcomponent } from 'vs/base/browser/ui/positronTestSubcomponent/positronTestSubcomponent';
+import { PositronTestSubcomponent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogComponent/components/positronTestSubcomponent';
 
 // PositronTestComponentProps interface.
 interface PositronTestComponentProps {
