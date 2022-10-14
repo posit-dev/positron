@@ -13,8 +13,11 @@
 
     # If we have pandoc available, then we'll generate HTML help,
     # and then convert that to Markdown.
-    pandoc <- Sys.which("/opt/homebrew/bin/pandoc")
-    if (nzchar(pandoc)) {
+    #
+    # TODO: Sys.which() seems to fail when executed from the kernel?
+    # Seems related to the lack of a PATH.
+    pandoc <- "/opt/homebrew/bin/pandoc"
+    if (file.exists(pandoc)) {
 
         htmlOutput <- tempfile(pattern = "help-", fileext = ".html")
         on.exit(unlink(htmlOutput), add = TRUE)
@@ -22,24 +25,25 @@
 
         markdownOutput <- tempfile(pattern = "help-", fileext = ".md")
         args <- c(shQuote(htmlOutput), "-o", shQuote(markdownOutput))
-        system2(pandoc, args, stdout = TRUE, stderr = TRUE)
+        output <- system2(pandoc, args, stdout = TRUE, stderr = TRUE)
+        cat(output, file = "/tmp/rstudio.log", append = TRUE, sep = "\n")
 
         if (file.exists(markdownOutput)) {
-            contents <- paste(readLines(markdownOutput, warn = FALSE), collapse = "\n")
-            writeLines(contents)
-            return(list(type = "markdown", value = contents))
+            contents <- readLines(markdownOutput, warn = FALSE)
+            contents <- tail(contents, n = -4L)
+            return(list(type = "markdown", value = paste(contents, collapse = "\n")))
         }
 
     }
 
-    output <- tempfile(pattern = "help-", fileext = ".txt")
-    on.exit(unlink(output), add = TRUE)
+    # output <- tempfile(pattern = "help-", fileext = ".txt")
+    # on.exit(unlink(output), add = TRUE)
 
-    tools::Rd2txt(rd, out = output, package = package)
+    # tools::Rd2txt(rd, out = output, package = package)
 
-    contents <- paste(readLines(output, warn = FALSE), collapse = "\n")
-    contents <- gsub("_*\\b_*", "", contents)
-    return(list(type = "text", value = contents))
+    # contents <- paste(readLines(output, warn = FALSE), collapse = "\n")
+    # contents <- gsub("_*\\b_*", "", contents)
+    # return(list(type = "text", value = contents))
 
 }
 
@@ -65,6 +69,17 @@
 
     # Otherwise, generate a simple piece of help based on the package's DESCRIPTION file
     # TODO: NYI
+    list(type = "text", value = "")
+
+}
+
+.rs.help.object <- function(topic) {
+
+    helpFiles <- help(topic = (topic))
+    if (length(helpFiles)) {
+        return(.rs.help.getHelpTextFromFile(helpFiles[[1L]]))
+    }
+
     list(type = "text", value = "")
 
 }
