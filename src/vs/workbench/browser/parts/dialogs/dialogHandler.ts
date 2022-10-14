@@ -144,9 +144,11 @@ export class BrowserDialogHandler implements IDialogHandler {
 	async about(): Promise<void> {
 		const detailString = (useAgo: boolean): string => {
 			return localize('aboutDetail',
-				"Version: {0}\nCommit: {1}\nDate: {2}\nBrowser: {3}",
 				// --- Start Positron ---
-				this.productService.overlayVersion || this.productService.version || 'Unknown',
+				"{0} Version: {1}\nCode - OSS Version: {2}\nCommit: {3}\nDate: {4}\nBrowser: {5}",
+				this.productService.nameLong,
+				this.productService.overlayVersion,
+				this.productService.version || 'Unknown',
 				// --- End Positron ---
 				this.productService.commit || 'Unknown',
 				this.productService.date ? `${this.productService.date}${useAgo ? ' (' + fromNow(new Date(this.productService.date), true) + ')' : ''}` : 'Unknown',
