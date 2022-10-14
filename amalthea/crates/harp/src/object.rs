@@ -17,6 +17,8 @@ use libR_sys::*;
 use log::trace;
 
 use crate::error::Error;
+use crate::exec::RFunction;
+use crate::exec::RFunctionExt;
 use crate::utils::r_check_length;
 use crate::utils::r_check_type;
 use crate::utils::r_typeof;
@@ -97,6 +99,20 @@ unsafe fn unprotect(cell: SEXP) {
 pub struct RObject {
     pub data: SEXP,
     pub cell: SEXP,
+}
+
+pub trait RObjectExt<T> {
+    unsafe fn elt(&self, index: T) -> crate::error::Result<RObject>;
+}
+
+impl<T: Into<RObject>> RObjectExt<T> for RObject {
+    unsafe fn elt(&self, index: T) -> crate::error::Result<RObject> {
+        let index: RObject = index.into();
+        RFunction::new("base", "[[")
+            .add(self.data)
+            .add(index)
+            .call()
+    }
 }
 
 impl RObject {

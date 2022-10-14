@@ -15,6 +15,7 @@ use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
+use harp::object::RObjectExt;
 use harp::protect::RProtect;
 use harp::r_lock;
 use harp::r_string;
@@ -24,6 +25,8 @@ use libR_sys::*;
 use log::*;
 use regex::Captures;
 use regex::Regex;
+use serde::Deserialize;
+use serde::Serialize;
 use stdext::*;
 use tower_lsp::lsp_types::Command;
 use tower_lsp::lsp_types::CompletionItem;
@@ -52,6 +55,11 @@ lazy_static! {
         Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap();
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CompletionData {
+    value: String,
+    source: Option<String>,
+}
 
 pub struct CompletionContext<'a> {
     pub document: &'a mut Document,
@@ -98,7 +106,28 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
 }
 
+pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
 
+    let mut help = RFunction::from(".rs.help.object");
+    help.add(data.value.to_string());
+    if let Some(ref source) = data.source {
+        help.add(source.to_string());
+    }
+
+    let object = help.call()?;
+
+    let kind  = object.elt("type")?.to::<String>()?;
+    let value = object.elt("value")?.to::<String>()?;
+
+    let markup = MarkupContent {
+        kind: if kind == "markdown" { MarkupKind::Markdown } else { MarkupKind::PlainText },
+        value: value.to_string(),
+    };
+
+    item.documentation = Some(Documentation::MarkupContent(markup));
+    Ok(())
+
+}
 
 fn completion_item_from_identifier(node: &Node, source: &str) -> Result<CompletionItem> {
     let label = node.utf8_text(source.as_bytes())?;
@@ -145,37 +174,12 @@ unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Re
         });
     }
 
-    // // generate package documentation
-    // //
-    // // TODO: This is fairly slow so we disable this for now.
-    // // It'd be nice if we could defer help generation until the time
-    // // the user asks for it, but it seems like we need to provide it
-    // // up-front. For that reason, we'll probably need to generate a
-    // // cache of help documentation, or implement some sort of LSP-side
-    // // filtering of completion results based on the current token.
-    // let documentation = RFunction::from(".rs.help.package")
-    //     .add(package)
-    //     .call()?;
+    let data = CompletionData {
+        source: None,
+        value: package.to_string(),
+    };
 
-    // if TYPEOF(*documentation) as u32 == VECSXP {
-
-    //     // TODO: Use safe extraction functions here
-    //     let doc_type = VECTOR_ELT(*documentation, 0);
-    //     let doc_contents = VECTOR_ELT(*documentation, 1);
-
-    //     if TYPEOF(doc_type) as u32 == STRSXP && TYPEOF(doc_contents) as u32 == STRSXP {
-
-    //         let _doc_type = RObject::new(doc_type).to::<String>().unwrap();
-    //         let doc_contents = RObject::new(doc_contents).to::<String>().unwrap();
-
-    //         item.documentation = Some(Documentation::MarkupContent(MarkupContent {
-    //             kind: MarkupKind::Markdown,
-    //             value: doc_contents.to_string()
-    //         }));
-    //     }
-
-    // }
-
+    item.data = Some(serde_json::to_value(data)?);
     return Ok(item);
 
 }
@@ -187,7 +191,7 @@ unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
         ..Default::default()
     };
 
-    item.detail = Some("(Function)".to_string());
+    // item.detail = Some("(Function)".to_string());
     item.kind = Some(CompletionItemKind::FUNCTION);
 
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
@@ -204,9 +208,12 @@ unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
         ..Default::default()
     });
 
-    // TODO: Include 'detail' based on the function signature?
-    // TODO: Include help documentation?
+    let data = CompletionData {
+        source: None,
+        value: name.to_string(),
+    };
 
+    item.data = Some(serde_json::to_value(data)?);
     return Ok(item);
 }
 
@@ -233,6 +240,12 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
     item.detail = Some("(Object)".to_string());
     item.kind = Some(CompletionItemKind::STRUCT);
 
+    let data = CompletionData {
+        source: None,
+        value: name.to_string(),
+    };
+
+    item.data = Some(serde_json::to_value(data)?);
     return Ok(item);
 
 }
@@ -249,31 +262,23 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
 
 }
 
-unsafe fn completion_item_from_parameter(string: &str, _callee: &str) -> Result<CompletionItem> {
+unsafe fn completion_item_from_parameter(parameter: &str, callee: &str) -> Result<CompletionItem> {
 
     let mut item = CompletionItem {
-        label: quote_if_non_syntactic(string),
+        label: quote_if_non_syntactic(parameter),
         ..Default::default()
     };
 
     item.kind = Some(CompletionItemKind::FIELD);
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-    item.insert_text = Some(string.to_string() + " = ");
+    item.insert_text = Some(parameter.to_string() + " = ");
 
-    // TODO: Include help based on the help documentation for the argument.
-    // It looks like raw HTML help is not supported, so we'll probably have to
-    // request the HTML help from R, and then convert that to Markdown with
-    // pandoc or something similar.
-    //
-    // TODO: Could we build this from roxygen comments for functions definitions
-    // existing only in-source?
+    let data = CompletionData {
+        source: Some(callee.to_string()),
+        value: parameter.to_string(),
+    };
 
-    item.detail = Some("This is some detail.".to_string());
-    item.documentation = Some(Documentation::MarkupContent(MarkupContent {
-        kind: MarkupKind::Markdown,
-        value: "# This is some Markdown.".to_string(),
-    }));
-
+    item.data = Some(serde_json::to_value(data)?);
     return Ok(item);
 
 }
