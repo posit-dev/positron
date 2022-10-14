@@ -35,10 +35,10 @@
 	transform: translate3d(0px, 0px, 0px); /* Makes some devices run their hardware acceleration. */
 }
 
-/* Placeholder... */
 .positron-modal-dialog-box-frame {
-	border-radius: 15px 15px 5px 5px;
+	position: relative;
 	overflow: hidden;
+	border-radius: 15px 15px 5px 5px;
 	background: var(--vscode-modalDialog-background);
 	color: var(--vscode-modalDialog-foreground);
 	display: flex;
@@ -46,5 +46,4 @@
 	justify-content: center;
 	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 	border: 1px solid var(--vscode-modalDialog-border);
-	position: relative;
 }
