@@ -317,7 +317,9 @@
 						"target": "src/vs/base/~",
 						"restrictions": [
 							"vs/base/~",
+							// --- Start Positron ---
 							"react-dom/client"
+							// --- End Positron ---
 						]
 					},
 					{
