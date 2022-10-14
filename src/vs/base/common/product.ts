@@ -31,7 +31,14 @@ export type ExtensionVirtualWorkspaceSupport = {
 };
 
 export interface IProductConfiguration {
+	// --- Start Positron ---
+	/** The base version: underlying Code - OSS version */
 	readonly version: string;
+
+	/** The Positron (overlay) version */
+	readonly positronVersion: string;
+	// --- End Positron ---
+
 	readonly date?: string;
 	readonly quality?: string;
 	readonly commit?: string;

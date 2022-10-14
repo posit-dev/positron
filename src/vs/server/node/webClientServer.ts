@@ -333,7 +333,7 @@ export class WebClientServer {
 			// --- Start Positron ---
 			// Adds support for serving at non-root paths.
 			WORKBENCH_WEB_BASE_URL: vscodeBase + this._staticRoute,
-			WORKBENCH_NLS_BASE_URL: vscodeBase + (nlsBaseUrl ? `${nlsBaseUrl}${this._productService.commit}/${this._productService.version}/` : ''),
+			WORKBENCH_NLS_BASE_URL: vscodeBase + (nlsBaseUrl ? `${nlsBaseUrl}${this._productService.commit}/${this._productService.positronVersion}/` : ''),
 			// --- End Positron ---
 			BASE: base,
 			VS_BASE: vscodeBase,
