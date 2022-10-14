@@ -235,7 +235,9 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.js.map'], { dot: true }));
 
-		let version = packageJson.version;
+		// --- Start Positron ---
+		let version = product.overlayVersion;
+		// --- End Positron ---
 		const quality = product.quality;
 
 		if (quality && quality !== 'stable') {

@@ -1,6 +1,7 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
+	"overlayVersion": "2022.10.0",
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
 	"win32MutexName": "positron",
@@ -20,7 +21,7 @@
 	"win32UserAppId": "{{CA791628-3EE5-404F-8BBE-8844E6C04455}",
 	"win32x64UserAppId": "{{5894F169-3C13-4E32-A124-67BDE57636E1}",
 	"win32arm64UserAppId": "{{585852C3-3385-447E-8711-67F60DE17946}",
-	"win32AppUserModelId": "RStudio.Positron",
+	"win32AppUserModelId": "Posit.Positron",
 	"win32ShellNameShort": "&Positron",
 	"darwinBundleIdentifier": "com.rstudio.positron",
 	"linuxIconName": "com.visualstudio.code.oss",

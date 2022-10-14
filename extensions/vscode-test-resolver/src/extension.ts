@@ -390,6 +390,10 @@ export interface IProductConfiguration {
 	dataFolderName: string;
 	serverApplicationName?: string;
 	serverDataFolderName?: string;
+
+	// --- Start Positron ---
+	overlayVersion: string;
+	// --- End Positron ---
 }
 
 function getProductConfiguration(): IProductConfiguration {

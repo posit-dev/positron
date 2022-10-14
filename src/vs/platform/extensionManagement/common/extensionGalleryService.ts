@@ -677,6 +677,11 @@ abstract class AbstractExtensionGalleryService implements IExtensionGalleryServi
 			return false;
 		}
 
+		// --- Start Positron ---
+		// TODO: We should also check for compatibility with the Positron version,
+		// available in productService.overlayVersion.
+		// --- End Positron ---
+
 		let engine = extension.properties.engine;
 		if (!engine) {
 			const manifest = await this.getManifest(extension, CancellationToken.None);
