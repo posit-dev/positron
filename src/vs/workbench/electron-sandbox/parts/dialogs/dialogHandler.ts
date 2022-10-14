@@ -169,13 +169,21 @@ export class NativeDialogHandler implements IDialogHandler {
 
 		const detailString = (useAgo: boolean): string => {
 			// --- Start Positron ---
-			return localize({ key: 'aboutDetail', comment: ['Electron, Chromium, Node.js and V8 are product names that need no translation'] },
-				"{0} Version: {1}\nCode - OSS Version: {2}\nCommit: {3}\nDate: {4}\nElectron: {5}\nChromium: {6}\nNode.js: {7}\nV8: {8}\nOS: {9}\nSandboxed: {10}",
+			// Note: This is heavily modified from the original Code - OSS
+			// version because there is a limit of 10 placeholders in localization strings,
+			// and we need 12 of them.
+			const productDetail = localize({ key: 'productDetail', comment: ['Product version details; Code - OSS needs no translation'] },
+				"{0} Version: {1} build {2}\nCode - OSS Version: {3}\nCommit: {4}\nDate: {5}",
 				this.productService.nameLong,
 				version,
+				this.productService.positronBuildNumber,
 				this.productService.version || 'Unknown',
 				this.productService.commit || 'Unknown',
 				this.productService.date ? `${this.productService.date}${useAgo ? ' (' + fromNow(new Date(this.productService.date), true) + ')' : ''}` : 'Unknown',
+			);
+			return localize({ key: 'aboutDetail', comment: ['Electron, Chromium, Node.js and V8 are product names that need no translation'] },
+				"{0}\nElectron: {1}\nChromium: {2}\nNode.js: {3}\nV8: {4}\nOS: {5}\nSandboxed: {6}",
+				productDetail,
 				process.versions['electron'],
 				process.versions['chrome'],
 				process.versions['node'],
