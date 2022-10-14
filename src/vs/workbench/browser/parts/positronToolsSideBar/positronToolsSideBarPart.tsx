@@ -11,13 +11,13 @@ import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { PositronReactRenderer } from 'vs/base/browser/ui/positronReactRenderer/positronReactRenderer';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronToolsSideBarComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/positronToolsSideBarComponent';
 import { IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
 import { IPositronToolsSideBarService } from 'vs/workbench/services/positronToolsSideBar/browser/positronToolsSideBarService';
+import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 
 /**
  * PositronToolsSideBarPart class.
