@@ -2,6 +2,7 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"positronVersion": "2022.10.0",
+	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
 	"win32MutexName": "positron",

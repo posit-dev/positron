@@ -35,8 +35,11 @@ export interface IProductConfiguration {
 	/** The base version: underlying Code - OSS version */
 	readonly version: string;
 
-	/** The Positron (overlay) version */
+	/** The 3-part Positron (overlay) version, in YYYY.MM.Patch format */
 	readonly positronVersion: string;
+
+	/** The Positron build number; unique within the Positron version */
+	readonly positronBuildNumber: number;
 	// --- End Positron ---
 
 	readonly date?: string;

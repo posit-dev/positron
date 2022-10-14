@@ -21,6 +21,7 @@ export interface IExtensionHostInitData {
 	version: string;
 	// --- Start Positron ---
 	positronVersion: string;
+	positronBuildNumber: number;
 	// --- End Positron ---
 	commit?: string;
 	/**

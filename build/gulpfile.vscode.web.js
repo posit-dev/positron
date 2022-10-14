@@ -22,6 +22,10 @@ const packageJson = require('../package.json');
 const { compileBuildTask } = require('./gulpfile.compile');
 const extensions = require('./lib/extensions');
 
+// --- Start Positron ---
+const child_process = require('child_process');
+// --- End Positron ---
+
 const REPO_ROOT = path.dirname(__dirname);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
 const WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'web');
@@ -79,6 +83,11 @@ exports.vscodeWebEntryPoints = vscodeWebEntryPoints;
 
 const buildDate = new Date().toISOString();
 
+// --- Begin Positron ---
+// Ask the helper script to compute the build number
+const buildNumber = child_process.execSync(`${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
+// --- End Positron ---
+
 /**
  * @param {object} product The parsed product.json file contents
  */
@@ -92,6 +101,9 @@ const createVSCodeWebProductConfigurationPatcher = (product) => {
 		if (path.endsWith('vs/platform/product/common/product.js')) {
 			const productConfiguration = JSON.stringify({
 				...product,
+				// --- Start Positron ---
+				buildNumber,
+				// --- End Positron ---
 				version,
 				commit,
 				date: buildDate
