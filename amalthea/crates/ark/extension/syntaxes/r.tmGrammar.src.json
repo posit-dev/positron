@@ -1,5 +1,5 @@
 {
-    "$schema": "https://raw.githubusercontent.com/rstudio/myriac/main/schemas/tmlanguage.json",
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
     "comment": "https://macromates.com/manual/en/language_grammars",
     "name": "R",
     "scopeName": "source.r",
