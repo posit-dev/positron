@@ -28,7 +28,9 @@ const WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'web');
 
 const commit = util.getVersion(REPO_ROOT);
 const quality = product.quality;
-const version = (quality && quality !== 'stable') ? `${packageJson.version}-${quality}` : packageJson.version;
+// --- Start Positron ---
+const version = (quality && quality !== 'stable') ? `${product.positronVersion}-${quality}` : product.positronVersion;
+// --- End Positron ---
 
 const vscodeWebResourceIncludes = [
 	// Workbench

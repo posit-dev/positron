@@ -1214,6 +1214,9 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 
 		return <typeof vscode>{
 			version: initData.version,
+			// --- Start Positron ---
+			positronVersion: initData.positronVersion,
+			// --- End Positron ---
 			// namespaces
 			authentication,
 			commands,

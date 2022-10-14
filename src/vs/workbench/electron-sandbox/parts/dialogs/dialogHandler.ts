@@ -156,7 +156,9 @@ export class NativeDialogHandler implements IDialogHandler {
 	}
 
 	async about(): Promise<void> {
-		let version = this.productService.version;
+		// --- Start Positron ---
+		let version = this.productService.positronVersion;
+		// --- End Positron ---
 		if (this.productService.target) {
 			version = `${version} (${this.productService.target} setup)`;
 		} else if (this.productService.darwinUniversalAssetId) {
@@ -166,9 +168,12 @@ export class NativeDialogHandler implements IDialogHandler {
 		const osProps = await this.nativeHostService.getOSProperties();
 
 		const detailString = (useAgo: boolean): string => {
+			// --- Start Positron ---
 			return localize({ key: 'aboutDetail', comment: ['Electron, Chromium, Node.js and V8 are product names that need no translation'] },
-				"Version: {0}\nCommit: {1}\nDate: {2}\nElectron: {3}\nChromium: {4}\nNode.js: {5}\nV8: {6}\nOS: {7}\nSandboxed: {8}",
+				"{0} Version: {1}\nCode - OSS Version: {2}\nCommit: {3}\nDate: {4}\nElectron: {5}\nChromium: {6}\nNode.js: {7}\nV8: {8}\nOS: {9}\nSandboxed: {10}",
+				this.productService.nameLong,
 				version,
+				this.productService.version || 'Unknown',
 				this.productService.commit || 'Unknown',
 				this.productService.date ? `${this.productService.date}${useAgo ? ' (' + fromNow(new Date(this.productService.date), true) + ')' : ''}` : 'Unknown',
 				process.versions['electron'],
@@ -178,6 +183,7 @@ export class NativeDialogHandler implements IDialogHandler {
 				`${osProps.type} ${osProps.arch} ${osProps.release}${isLinuxSnap ? ' snap' : ''}`,
 				process.sandboxed ? 'Yes' : 'No' // TODO@bpasero remove me once sandbox is final
 			);
+			// --- End Positron ---
 		};
 
 		const detail = detailString(true);

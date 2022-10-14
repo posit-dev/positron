@@ -437,6 +437,9 @@ export class SandboxLocalProcessExtensionHost implements IExtensionHost {
 		return {
 			commit: this._productService.commit,
 			version: this._productService.version,
+			// --- Start Positron ---
+			positronVersion: this._productService.positronVersion,
+			// --- End Positron ---
 			parentPid: process.sandboxed ? 0 : process.pid,
 			environment: {
 				isExtensionDevelopmentDebug: this._isExtensionDevDebug,
