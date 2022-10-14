@@ -2,8 +2,8 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { PositronModalDialogs } from 'vs/platform/modalDialogs/browser/positronModalDialogs';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IPositronModalDialogsService } from 'vs/platform/modalDialogs/common/positronModalDialogs';
+import { PositronModalDialogs } from 'vs/platform/positronModalDialogs/browser/positronModalDialogs';
+import { IPositronModalDialogsService } from 'vs/platform/positronModalDialogs/common/positronModalDialogs';
 
 registerSingleton(IPositronModalDialogsService, PositronModalDialogs, InstantiationType.Delayed);
