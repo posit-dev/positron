@@ -213,11 +213,7 @@
 						// - electron-browser
 						"when": "hasBrowser",
 						"allow": [
-							"vs/css!./**/*",
-							// --- Start Positron ---
-							"react",
-							"react-dom/client"
-							// --- End Positron ---
+							"vs/css!./**/*"
 						]
 					},
 					{
@@ -466,6 +462,11 @@
 							"vs/workbench/~",
 							"vs/workbench/services/*/~",
 							"vs/workbench/contrib/*/~",
+							// --- Start Positron ---
+							"react",
+							"react-dom/client",
+							// --- End Positron ---
+
 							"vscode-notebook-renderer", // Type only import
 							{
 								"when": "hasBrowser",

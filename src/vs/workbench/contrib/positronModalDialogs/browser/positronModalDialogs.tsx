@@ -7,7 +7,7 @@ import * as _ from 'react';
 const React = require('react');
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { PositronTestComponent } from 'vs/base/browser/ui/positronTestComponent/positronTestComponent';
-import { IPositronModalDialogsService } from 'vs/platform/positronModalDialogs/common/positronModalDialogs';
+import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/browser/positronModalDialogs';
 import { PositronModalDialogComponent } from 'vs/base/browser/ui/positronModalDialogComponent/positronModalDialogComponent';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialogComponent/positronModalDialogReactRenderer';
 import { PositronOKActionBarComponent } from 'vs/base/browser/ui/positronModalDialogComponent/components/positronOKActionBarComponent';

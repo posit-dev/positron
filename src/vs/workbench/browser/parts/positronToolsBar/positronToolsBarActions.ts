@@ -8,8 +8,8 @@ import { ToolsBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
-import { IPositronModalDialogsService } from 'vs/platform/positronModalDialogs/common/positronModalDialogs';
 import { IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
+import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/browser/positronModalDialogs';
 
 export class ToggleToolsBarVisibilityAction extends Action2 {
 	static readonly ID = 'workbench.action.toggleToolsBarVisibility';
