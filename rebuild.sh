@@ -31,7 +31,7 @@ yarn run kill-watch-extensionsd
 yarn run kill-watch-build-toolsd
 
 # Remove any existing node_modules folders.
-find . -name 'node_modules' -exec rm -rf {} +
+git ls-files --directory -i -o -x node_modules | xargs rm -rf
 
 # Remove the build directory.
 rm -rf .build
