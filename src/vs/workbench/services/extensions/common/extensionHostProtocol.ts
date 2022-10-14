@@ -19,6 +19,9 @@ export interface IExtensionDescriptionDelta {
 
 export interface IExtensionHostInitData {
 	version: string;
+	// --- Start Positron ---
+	overlayVersion: string;
+	// --- End Positron ---
 	commit?: string;
 	/**
 	 * When set to `0`, no polling for the parent process still running will happen.

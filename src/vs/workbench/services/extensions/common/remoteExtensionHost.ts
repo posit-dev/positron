@@ -214,6 +214,9 @@ export class RemoteExtensionHost extends Disposable implements IExtensionHost {
 		return {
 			commit: this._productService.commit,
 			version: this._productService.version,
+			// --- Start Positron ---
+			overlayVersion: this._productService.overlayVersion,
+			// --- End Positron ---
 			parentPid: remoteInitData.pid,
 			environment: {
 				isExtensionDevelopmentDebug,

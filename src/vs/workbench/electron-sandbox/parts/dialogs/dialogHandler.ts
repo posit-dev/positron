@@ -156,7 +156,9 @@ export class NativeDialogHandler implements IDialogHandler {
 	}
 
 	async about(): Promise<void> {
-		let version = this.productService.version;
+		// --- Start Positron ---
+		let version = this.productService.overlayVersion;
+		// --- End Positron ---
 		if (this.productService.target) {
 			version = `${version} (${this.productService.target} setup)`;
 		} else if (this.productService.darwinUniversalAssetId) {
