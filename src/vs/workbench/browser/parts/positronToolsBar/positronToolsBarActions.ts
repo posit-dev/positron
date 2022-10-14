@@ -2,14 +2,14 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
-import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
-import { IPositronModalDialogsService } from 'vs/platform/modalDialogs/common/positronModalDialogs';
-import { Categories } from 'vs/platform/action/common/actionCommonCategories';
+import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { ToolsBarVisibleContext } from 'vs/workbench/common/contextkeys';
-import { IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
+import { Categories } from 'vs/platform/action/common/actionCommonCategories';
+import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { IPositronModalDialogsService } from 'vs/platform/positronModalDialogs/common/positronModalDialogs';
+import { IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
 
 export class ToggleToolsBarVisibilityAction extends Action2 {
 	static readonly ID = 'workbench.action.toggleToolsBarVisibility';
