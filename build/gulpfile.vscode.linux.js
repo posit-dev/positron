@@ -88,7 +88,7 @@ function prepareDebPackage(arch) {
 				gulp.src('resources/linux/debian/control.template', { base: '.' })
 					.pipe(replace('@@NAME@@', product.applicationName))
 					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', product.overlayVersion + '-' + linuxPackageRevision))
+					.pipe(replace('@@VERSION@@', product.positronVersion + '-' + linuxPackageRevision))
 					// --- End Positron ---
 					.pipe(replace('@@ARCHITECTURE@@', debArch))
 					.pipe(replace('@@DEPENDS@@', dependencies.join(', ')))
@@ -197,7 +197,7 @@ function prepareRpmPackage(arch) {
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@ICON@@', product.linuxIconName))
 			// --- Start Positron ---
-			.pipe(replace('@@VERSION@@', product.overlayVersion))
+			.pipe(replace('@@VERSION@@', product.positronVersion))
 			// --- End Positron ---
 			.pipe(replace('@@RELEASE@@', linuxPackageRevision))
 			.pipe(replace('@@ARCHITECTURE@@', rpmArch))

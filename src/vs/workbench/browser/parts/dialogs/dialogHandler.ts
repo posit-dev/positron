@@ -147,7 +147,7 @@ export class BrowserDialogHandler implements IDialogHandler {
 				// --- Start Positron ---
 				"{0} Version: {1}\nCode - OSS Version: {2}\nCommit: {3}\nDate: {4}\nBrowser: {5}",
 				this.productService.nameLong,
-				this.productService.overlayVersion,
+				this.productService.positronVersion,
 				this.productService.version || 'Unknown',
 				// --- End Positron ---
 				this.productService.commit || 'Unknown',

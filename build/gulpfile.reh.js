@@ -236,7 +236,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			.pipe(filter(['**', '!**/*.js.map'], { dot: true }));
 
 		// --- Start Positron ---
-		let version = product.overlayVersion;
+		let version = product.positronVersion;
 		// --- End Positron ---
 		const quality = product.quality;
 

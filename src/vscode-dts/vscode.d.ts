@@ -14,7 +14,7 @@ declare module 'vscode' {
 	/**
 	 * The version of the host application.
 	 */
-	export const overlayVersion: string;
+	export const positronVersion: string;
 	// --- End Positron ---
 
 	/**

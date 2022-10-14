@@ -679,7 +679,7 @@ abstract class AbstractExtensionGalleryService implements IExtensionGalleryServi
 
 		// --- Start Positron ---
 		// TODO: We should also check for compatibility with the Positron version,
-		// available in productService.overlayVersion.
+		// available in productService.positronVersion.
 		// --- End Positron ---
 
 		let engine = extension.properties.engine;

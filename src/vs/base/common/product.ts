@@ -36,7 +36,7 @@ export interface IProductConfiguration {
 	readonly version: string;
 
 	/** The Positron (overlay) version */
-	readonly overlayVersion: string;
+	readonly positronVersion: string;
 	// --- End Positron ---
 
 	readonly date?: string;

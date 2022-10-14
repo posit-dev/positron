@@ -157,7 +157,7 @@ export class NativeDialogHandler implements IDialogHandler {
 
 	async about(): Promise<void> {
 		// --- Start Positron ---
-		let version = this.productService.overlayVersion;
+		let version = this.productService.positronVersion;
 		// --- End Positron ---
 		if (this.productService.target) {
 			version = `${version} (${this.productService.target} setup)`;

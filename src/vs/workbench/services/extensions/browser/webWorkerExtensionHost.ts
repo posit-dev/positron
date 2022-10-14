@@ -287,7 +287,7 @@ export class WebWorkerExtensionHost extends Disposable implements IExtensionHost
 			commit: this._productService.commit,
 			version: this._productService.version,
 			// --- Start Positron ---
-			overlayVersion: this._productService.overlayVersion,
+			positronVersion: this._productService.positronVersion,
 			// --- End Positron ---
 			parentPid: 0,
 			environment: {

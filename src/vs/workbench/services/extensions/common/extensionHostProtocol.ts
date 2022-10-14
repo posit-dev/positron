@@ -20,7 +20,7 @@ export interface IExtensionDescriptionDelta {
 export interface IExtensionHostInitData {
 	version: string;
 	// --- Start Positron ---
-	overlayVersion: string;
+	positronVersion: string;
 	// --- End Positron ---
 	commit?: string;
 	/**

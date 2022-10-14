@@ -92,7 +92,7 @@ function buildWin32Setup(arch, target) {
 			NameShort: product.nameShort,
 			DirName: product.win32DirName,
 			// --- Start Positron ---
-			Version: product.overlayVersion,
+			Version: product.positronVersion,
 			// --- End Positron ---
 			RawVersion: pkg.version.replace(/-\w+$/, ''),
 			NameVersion: product.win32NameVersion + (target === 'user' ? ' (User)' : ''),

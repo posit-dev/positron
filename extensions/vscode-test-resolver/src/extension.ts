@@ -392,7 +392,7 @@ export interface IProductConfiguration {
 	serverDataFolderName?: string;
 
 	// --- Start Positron ---
-	overlayVersion: string;
+	positronVersion: string;
 	// --- End Positron ---
 }
 

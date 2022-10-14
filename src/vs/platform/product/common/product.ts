@@ -66,7 +66,7 @@ else {
 		Object.assign(product, {
 			version: '1.72.0-dev',
 			// --- Start Positron ---
-			overlayVersion: '2022.10.0',
+			positronVersion: '2022.10.0',
 			nameShort: 'Positron',
 			nameLong: 'Positron',
 			applicationName: 'positron',
