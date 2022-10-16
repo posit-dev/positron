@@ -402,12 +402,17 @@ export class Workbench extends Layout {
 
 	private restore(lifecycleService: ILifecycleService): void {
 
-		// Ask each part to restore
-		try {
-			this.restoreParts();
-		} catch (error) {
-			onUnexpectedError(error);
-		}
+		// TODO: Temporarily disabled as attempting to restore old
+		// state seems to cause the 'debuggers' extension point to
+		// be initialized twice, leading to a cascading set of
+		// load failures.
+		//
+		// // Ask each part to restore
+		// try {
+		// 	this.restoreParts();
+		// } catch (error) {
+		// 	onUnexpectedError(error);
+		// }
 
 		// Transition into restored phase after layout has restored
 		// but do not wait indefinitely on this to account for slow
