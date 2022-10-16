@@ -122,7 +122,7 @@ export class ExtensionPoint<T> implements IExtensionPoint<T> {
 
 	setHandler(handler: IExtensionPointHandler<T>): void {
 		if (this._handler !== null) {
-			throw new Error('Handler already set!');
+			throw new Error(`Handler already set for extension point '${this.name}'!`);
 		}
 		this._handler = handler;
 		this._handle();
