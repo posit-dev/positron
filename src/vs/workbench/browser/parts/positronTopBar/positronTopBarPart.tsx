@@ -3,24 +3,27 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/css/positronTopBarPart';
-import * as DOM from 'vs/base/browser/dom';
-import { localize } from 'vs/nls';
+const React = require('react');
+// import { localize } from 'vs/nls';
+// import * as DOM from 'vs/base/browser/dom';
 import { Emitter } from 'vs/base/common/event';
 import { Part } from 'vs/workbench/browser/part';
 import { KeyCode } from 'vs/base/common/keyCodes';
-import { Action, IAction } from 'vs/base/common/actions';
+// import { IAction } from 'vs/base/common/actions';
 import { TOP_BAR_BACKGROUND } from 'vs/workbench/common/theme';
 import { TopBarFocused } from 'vs/workbench/common/contextkeys';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { BaseActionViewItem } from 'vs/base/browser/ui/actionbar/actionViewItems';
+// import { BaseActionViewItem } from 'vs/base/browser/ui/actionbar/actionViewItems';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { ActionBar, ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
+// import { ActionBar, ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IPositronTopBarService } from 'vs/workbench/services/positronTopBar/browser/positronTopBarService';
+import { PositronTopBarComponent } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarComponent';
 
 // Theme support
 
@@ -32,32 +35,6 @@ registerThemingParticipant((theme, collector) => {
 });
 
 /**
- * PositronTopBarActionViewItem class
- */
-export class PositronTopBarActionViewItem extends BaseActionViewItem {
-
-	private readonly _actionContainerClass: string;
-	private _actionContainer: HTMLElement | undefined;
-	private _actionIcon: HTMLElement | undefined;
-
-	constructor(
-		action: IAction,
-		actionContainerClass: string
-	) {
-		super(null, action);
-		this._actionContainerClass = actionContainerClass;
-	}
-
-	override render(container: HTMLElement): void {
-		super.render(container);
-		this._actionContainer = DOM.$(`.${this._actionContainerClass}`);
-		this._actionIcon = DOM.$(`.${this.action.class}`);
-		DOM.append(this._actionContainer, this._actionIcon);
-		DOM.append(container, this._actionContainer);
-	}
-}
-
-/**
  * PositronTopBarPart class.
  */
 export class PositronTopBarPart extends Part implements IPositronTopBarService {
@@ -66,7 +43,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 	// #region IView
 
-	readonly height: number = 48;
+	readonly height: number = 32;
 	readonly minimumWidth: number = 0;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 
@@ -87,18 +64,8 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 	//#region Content Area
 
-	// The action bars container and the left and right action bar containers.
-	private actionBarsContainer: HTMLElement | undefined;
-	private leftActionBarContainer: HTMLElement | undefined;
-	// private rightActionBarContainer: HTMLElement | undefined;
-
-	// The left action bar.
-	private leftActionBar: ActionBar | undefined;
-	private newFileAction: Action | undefined;
-
-	// The right action bar.
-	//private rightActionBar: ActionBar | undefined;
-	//private newFileAction: Action | undefined;
+	// The React renderer used to render the tools bar component.
+	private positronReactRenderer: PositronReactRenderer | undefined;
 
 	//#endregion Content Area
 
@@ -123,25 +90,11 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		this.element = parent;
 		this.element.tabIndex = 0;
 
-		// Create the action bars container and the top and bottom action bar containers.
-		this.actionBarsContainer = DOM.append(this.element, DOM.$('div.action-bars-container'));
-		this.leftActionBarContainer = DOM.append(this.actionBarsContainer, DOM.$('div.action-bar-container'));
-		//this.rightActionBarContainer = DOM.append(this.actionBarsContainer, DOM.$('div.action-bar-container'));
-
-		this.leftActionBar = this._register(new ActionBar(this.leftActionBarContainer, {
-			actionViewItemProvider: action => {
-				return new PositronTopBarActionViewItem(action, 'top-bar-action-container');
-			},
-			orientation: ActionsOrientation.HORIZONTAL,
-			ariaLabel: localize('managew3rewerwer', "Manage w3rewerwer"),
-			animated: false,
-			preventLoopNavigation: true
-		}));
-
-		this.newFileAction = this._register(new Action('testAction1', '', 'top-bar-action.new-file', true, async () => {
-			console.log('New file action.');
-		}));
-		this.leftActionBar.push(this.newFileAction);
+		// Render the Positron top bar component.
+		this.positronReactRenderer = new PositronReactRenderer(this.element);
+		this.positronReactRenderer.render(
+			<PositronTopBarComponent placeholder='A Value' />
+		);
 
 		// Track focus
 		const scopedContextKeyService = this.contextKeyService.createScoped(this.element);

@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./media/toolsSideBarPart';
+import 'vs/css!./media/css/positronToolsSideBarPart';
 const React = require('react');
 import * as DOM from 'vs/base/browser/dom';
 import { Part } from 'vs/workbench/browser/part';
@@ -10,6 +10,7 @@ import { ToolsSideBarFocused } from 'vs/workbench/common/contextkeys';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
+import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -17,7 +18,6 @@ import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/bro
 import { PositronToolsSideBarComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/positronToolsSideBarComponent';
 import { IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
 import { IPositronToolsSideBarService } from 'vs/workbench/services/positronToolsSideBar/browser/positronToolsSideBarService';
-import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 
 /**
  * PositronToolsSideBarPart class.
@@ -28,7 +28,7 @@ export class PositronToolsSideBarPart extends Part implements IPositronToolsSide
 
 	//#region IView
 
-	readonly minimumWidth: number = 400;
+	readonly minimumWidth: number = 250;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 	readonly minimumHeight: number = 0;
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;
