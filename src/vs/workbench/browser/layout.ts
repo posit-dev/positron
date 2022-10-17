@@ -2371,20 +2371,32 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			sideBar: sideBarNode
 		}, width, middleSectionHeight);
 
+		// --- Start Positron ---
+		const positronTopBar: ISerializedNode = {
+			type: 'leaf',
+			data: { type: Parts.POSITRON_TOP_BAR_PART },
+			size: positronTopBarHeight,
+			visible: !this.stateModel.getRuntimeValue(LayoutStateKeys.POSITRON_TOP_BAR_HIDDEN)
+		};
+		// --- End Positron ---
+
 		const result: ISerializedGrid = {
 			root: {
 				type: 'branch',
 				size: width,
 				data: [
 					// --- Start Positron ---
-					{
-						type: 'leaf',
-						data: { type: Parts.POSITRON_TOP_BAR_PART },
-						size: positronTopBarHeight,
-						visible: !this.stateModel.getRuntimeValue(LayoutStateKeys.POSITRON_TOP_BAR_HIDDEN)
-					},
+					// ...(isWeb ? titleAndBanner.reverse() : titleAndBanner),
+					...(isWeb ? [
+						titleAndBanner[1],
+						titleAndBanner[0],
+						positronTopBar
+					] : [
+						titleAndBanner[0],
+						positronTopBar,
+						titleAndBanner[1]
+					]),
 					// --- End Positron ---
-					...(isWeb ? titleAndBanner.reverse() : titleAndBanner),
 					{
 						type: 'branch',
 						data: middleSection,
