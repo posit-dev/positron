@@ -6,3 +6,36 @@
 	background: transparent;
 	display: flex;
 }
+
+.new-file {
+	background-image: url("../images/new-file-light.svg");
+	background-repeat: no-repeat;
+	background-size: 28px 28px;
+	background-position: center center, 50%, 50%;
+}
+
+.vs-dark .new-file {
+	background-image: url("../images/new-file-dark.svg");
+}
+
+.new-project {
+	background-image: url("../images/new-project-light.svg");
+	background-repeat: no-repeat;
+	background-size: 28px 28px;
+	background-position: center center, 50%, 50%;
+}
+
+.vs-dark .new-project {
+	background-image: url("../images/new-project-dark.svg");
+}
+
+.open-file {
+	background-image: url("../images/open-file-light.svg");
+	background-repeat: no-repeat;
+	background-size: 28px 28px;
+	background-position: center center, 50%, 50%;
+}
+
+.vs-dark .open-file {
+	background-image: url("../images/open-file-dark.svg");
+}

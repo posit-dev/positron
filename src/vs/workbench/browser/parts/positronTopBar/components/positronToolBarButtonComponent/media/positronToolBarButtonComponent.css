@@ -2,5 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 .positron-x {
-	padding: 0 10px;
+	padding: 0 0px;
+	width: 32px;
+	height: 32px;
 }
