@@ -213,7 +213,9 @@
 						// - electron-browser
 						"when": "hasBrowser",
 						"allow": [
-							"vs/css!./**/*"
+							"vs/css!./**/*",
+														"react"
+
 						]
 					},
 					{
