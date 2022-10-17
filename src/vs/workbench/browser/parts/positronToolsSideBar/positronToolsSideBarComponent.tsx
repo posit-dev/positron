@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./media/toolsSideBarComponent';
+import 'vs/css!./media/css/positronToolsSideBarComponent';
 const React = require('react');
 import { useEffect, useState } from 'react';
 import { HelpComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/components/helpComponent/helpComponent';
