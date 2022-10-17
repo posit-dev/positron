@@ -911,140 +911,125 @@ export const TOP_BAR_BACKGROUND = registerColor('topBar.background', {
 // < --- Tools Bar --- >
 
 // The tools bar background color.
-const TOOLS_BAR_BACKGROUND_COLOR_ID = 'toolsBar.background';
-export const TOOLS_BAR_BACKGROUND = registerColor(TOOLS_BAR_BACKGROUND_COLOR_ID, {
+export const TOOLS_BAR_BACKGROUND = registerColor('toolsBar.background', {
 	dark: '#32485b',
 	light: '#3a78b1',
 	hcDark: '#32485b',
 	hcLight: '#3a78b1'
-}, localize(TOOLS_BAR_BACKGROUND_COLOR_ID, "Tools bar background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('toolsBar.background', "Tools bar background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // The tools bar action container on background color.
-const TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID = 'toolsBar.actionContainerToggledBackground';
-export const TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor(TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, {
+export const TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor('toolsBar.actionContainerToggledBackground', {
 	dark: '#202020',
 	light: '#FFFFFF',
 	hcDark: '#202020',
 	hcLight: '#FFFFFF'
-}, localize(TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND_ID, "Tools bar action container toggled background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('toolsBar.actionContainerToggledBackground', "Tools bar action container toggled background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // The tools bar action icon background color.
-const TOOLS_BAR_ACTION_ICON_BACKGROUND_ID = 'toolsBar.actionIconBackground';
-export const TOOLS_BAR_ACTION_ICON_BACKGROUND = registerColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_ID, {
+export const TOOLS_BAR_ACTION_ICON_BACKGROUND = registerColor('toolsBar.actionIconBackground', {
 	dark: '#c1c9d1',
 	light: '#d9dfe5',
 	hcDark: '#c1c9d1',
 	hcLight: '#d9dfe5'
-}, localize(TOOLS_BAR_ACTION_ICON_BACKGROUND_ID, "Tools bar action icon background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('toolsBar.actionIconBackground', "Tools bar action icon background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // The tools bar action icon background toggled color.
-const TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID = 'toolsBar.actionIconBackgroundToggled';
-export const TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, {
+export const TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor('toolsBar.actionIconBackgroundToggled', {
 	dark: '#3a78b1',
 	light: '#3a78b1',
 	hcDark: '#3a78b1',
 	hcLight: '#3a78b1'
-}, localize(TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED_ID, "Tools bar action icon background toggled color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('toolsBar.actionIconBackgroundToggled', "Tools bar action icon background toggled color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // The tools bar action icon background hover color.
-const TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER_ID = 'toolsBar.actionIconBackgroundHover';
-export const TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, {
+export const TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor('toolsBar.actionIconBackgroundHover', {
 	dark: '#ffffff',
 	light: '#ffffff',
 	hcDark: '#ffffff',
 	hcLight: '#ffffff'
-}, localize(TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER_ID, "Tools bar action icon color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('toolsBar.actionIconBackgroundHover', "Tools bar action icon color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // < --- Modal Dialog --- >
 
 // Modal dialog background color.
-const MODAL_DIALOG_BACKGROUND_ID = 'modalDialog.background';
-export const MODAL_DIALOG_BACKGROUND = registerColor(MODAL_DIALOG_BACKGROUND_ID, {
+export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
 	dark: '#3b4144',
 	light: '#f1f3f5',
 	hcDark: '#3b4144',
 	hcLight: '#f1f3f5'
-}, localize(MODAL_DIALOG_BACKGROUND_ID, "Modal dialog background color."));
+}, localize('modalDialog.background', "Modal dialog background color."));
 
 // Modal dialog foreground color.
-const MODAL_DIALOG_FOREGROUND_ID = 'modalDialog.foreground';
-export const MODAL_DIALOG_FOREGROUND = registerColor(MODAL_DIALOG_FOREGROUND_ID, {
+export const MODAL_DIALOG_FOREGROUND = registerColor('modalDialog.foreground', {
 	dark: '#cfd0d0',
 	light: '#000000',
 	hcDark: '#cfd0d0',
 	hcLight: '#000000'
-}, localize(MODAL_DIALOG_FOREGROUND_ID, "Modal dialog foreground color."));
+}, localize('modalDialog.foreground', "Modal dialog foreground color."));
 
 // Modal dialog border color.
-const MODAL_DIALOG_BORDER_ID = 'modalDialog.border';
-export const MODAL_DIALOG_BORDER = registerColor(MODAL_DIALOG_BORDER_ID, {
+export const MODAL_DIALOG_BORDER = registerColor('modalDialog.border', {
 	dark: '#3b4144',
 	light: '#dee1e5',
 	hcDark: '#3b4144',
 	hcLight: '#dee1e5'
-}, localize(MODAL_DIALOG_BORDER_ID, "Modal dialog border color."));
+}, localize('modalDialog.border', "Modal dialog border color."));
 
 // Modal dialog separator color.
-const MODAL_DIALOG_SEPARATOR_ID = 'modalDialog.separator';
-export const MODAL_DIALOG_SEPARATOR = registerColor(MODAL_DIALOG_SEPARATOR_ID, {
+export const MODAL_DIALOG_SEPARATOR = registerColor('modalDialog.separator', {
 	dark: '#292f32',
 	light: '#dee1e5',
 	hcDark: '#292f32',
 	hcLight: '#dee1e5'
-}, localize(MODAL_DIALOG_SEPARATOR_ID, "Modal dialog border color."));
+}, localize('modalDialog.separator', "Modal dialog border color."));
 
 // Modal dialog title bar background color.
-const MODAL_DIALOG_TITLE_BAR_BACKGROUND_ID = 'modalDialog.titleBarBackground';
-export const MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor(MODAL_DIALOG_TITLE_BAR_BACKGROUND_ID, {
+export const MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor('modalDialog.titleBarBackground', {
 	dark: '#292f32',
 	light: '#dee1e5',
 	hcDark: '#292f32',
 	hcLight: '#dee1e5'
-}, localize(MODAL_DIALOG_TITLE_BAR_BACKGROUND_ID, "Modal dialog title bar background color."));
+}, localize('modalDialog.titleBarBackground', "Modal dialog title bar background color."));
 
 // Modal dialog title bar foreground color.
-const MODAL_DIALOG_TITLE_BAR_FOREGROUND_ID = 'modalDialog.titleBarForeground';
-export const MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor(MODAL_DIALOG_TITLE_BAR_FOREGROUND_ID, {
+export const MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('modalDialog.titleBarForeground', {
 	dark: '#cfd0d0',
 	light: '#000000',
 	hcDark: '#cfd0d0',
 	hcLight: '#000000'
-}, localize(MODAL_DIALOG_TITLE_BAR_FOREGROUND_ID, "Modal dialog title bar foreground color."));
+}, localize('modalDialog.titleBarForeground', "Modal dialog title bar foreground color."));
 
 // Modal dialog button background color.
-const MODAL_DIALOG_BUTTON_BACKGROUND_ID = 'modalDialog.buttonBackground';
-export const MODAL_DIALOG_BUTTON_BACKGROUND = registerColor(MODAL_DIALOG_BUTTON_BACKGROUND_ID, {
+export const MODAL_DIALOG_BUTTON_BACKGROUND = registerColor('modalDialog.buttonBackground', {
 	dark: '#292f32',
 	light: '#dee1e5',
 	hcDark: '#292f32',
 	hcLight: '#dee1e5'
-}, localize(MODAL_DIALOG_BUTTON_BACKGROUND_ID, "Modal dialog button background color."));
+}, localize('modalDialog.buttonBackground', "Modal dialog button background color."));
 
 // Modal dialog button hover background color.
-const MODAL_DIALOG_BUTTON_HOVER_BACKGROUND_ID = 'modalDialog.buttonHoverBackground';
-export const MODAL_DIALOG_BUTTON_HOVER_BACKGROUND = registerColor(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND_ID, {
+export const MODAL_DIALOG_BUTTON_HOVER_BACKGROUND = registerColor('modalDialog.buttonHoverBackground', {
 	dark: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1),
 	light: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1),
 	hcDark: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1),
 	hcLight: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1)
-}, localize(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND_ID, "Modal dialog button hover background color."));
+}, localize('modalDialog.buttonHoverBackground', "Modal dialog button hover background color."));
 
 // Modal dialog button active background color.
-const MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND_ID = 'modalDialog.buttonActiveBackground';
-export const MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor(MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND_ID, {
+export const MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor('modalDialog.buttonActiveBackground', {
 	dark: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1),
 	light: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1),
 	hcDark: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1),
 	hcLight: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1)
-}, localize(MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND_ID, "Modal dialog button active background color."));
+}, localize('modalDialog.buttonActiveBackground', "Modal dialog button active background color."));
 
 // Modal dialog button foreground color.
-const MODAL_DIALOG_BUTTON_FOREGROUND_ID = 'modalDialog.buttonForeground';
-export const MODAL_DIALOG_BUTTON_FOREGROUND = registerColor(MODAL_DIALOG_BUTTON_FOREGROUND_ID, {
+export const MODAL_DIALOG_BUTTON_FOREGROUND = registerColor('modalDialog.buttonForeground', {
 	dark: '#cfd0d0',
 	light: '#000000',
 	hcDark: '#cfd0d0',
 	hcLight: '#000000'
-}, localize(MODAL_DIALOG_BUTTON_FOREGROUND_ID, "Modal dialog button foreground color."));
+}, localize('modalDialog.buttonForeground', "Modal dialog button foreground color."));
 
 // --- End Positron ---
