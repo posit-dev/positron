@@ -5,7 +5,7 @@ import { IDisposable } from '../../../../common/types';
 import { createDeferred, Deferred } from '../../../../common/utils/async';
 import { Disposables } from '../../../../common/utils/resourceLifecycle';
 import { traceError } from '../../../../logging';
-import { arePathsSame } from '../../../common/externalDependencies';
+import { arePathsSame, isVirtualWorkspace } from '../../../common/externalDependencies';
 import { getEnvPath } from '../../info/env';
 import { BasicEnvInfo, IPythonEnvsIterator, Locator, PythonLocatorQuery } from '../../locator';
 
@@ -123,10 +123,14 @@ export abstract class LazyResourceBasedLocator extends Locator<BasicEnvInfo> imp
             return;
         }
         this.watchersReady = createDeferred<void>();
-        await this.initWatchers().catch((ex) => {
-            traceError(ex);
-            this.watchersReady?.reject(ex);
-        });
+
+        // Don't create any file watchers in a virtual workspace.
+        if (!(await isVirtualWorkspace())) {
+            await this.initWatchers().catch((ex) => {
+                traceError(ex);
+                this.watchersReady?.reject(ex);
+            });
+        }
         this.watchersReady.resolve();
     }
 }
