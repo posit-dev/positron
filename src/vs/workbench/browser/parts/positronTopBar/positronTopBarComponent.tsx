@@ -30,10 +30,9 @@ export const PositronTopBarComponent = (props: PositronTopBarComponentProps) => 
 	// Render.
 	return (
 		<div className='positron-top-bar'>
-			<PositronToolBarButtomComponent placeholder='sss' />
-			<PositronToolBarButtomComponent placeholder='sss' />
-			<PositronToolBarButtomComponent placeholder='sss' />
-			<PositronToolBarButtomComponent placeholder='sss' />
+			<PositronToolBarButtomComponent placeholder='sss' className='new-file' />
+			<PositronToolBarButtomComponent placeholder='sss' className='new-project' />
+			<PositronToolBarButtomComponent placeholder='sss' className='open-file' />
 		</div>
 	);
 };

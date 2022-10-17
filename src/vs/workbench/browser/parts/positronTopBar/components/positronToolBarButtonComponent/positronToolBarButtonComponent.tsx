@@ -18,6 +18,7 @@ const React = require('react');
  */
 interface PositronToolBarButtomComponentProps {
 	placeholder: string;
+	className: string;
 }
 
 /**
@@ -28,8 +29,8 @@ interface PositronToolBarButtomComponentProps {
 export const PositronToolBarButtomComponent = (props: PositronToolBarButtomComponentProps) => {
 	// Render.
 	return (
-		<div className='positron-x'>
-			Button
+		<div className={`positron-x ${props.className}`}>
+			&nbsp;
 		</div>
 	);
 };
