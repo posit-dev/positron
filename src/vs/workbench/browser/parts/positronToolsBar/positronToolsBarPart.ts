@@ -21,17 +21,17 @@ import { IWorkbenchLayoutService, Parts, Position } from 'vs/workbench/services/
 import { IHoverDelegate, IHoverDelegateOptions, IHoverWidget } from 'vs/base/browser/ui/iconLabel/iconHoverDelegate';
 import { PositronToolsBarBottomMode, PositronToolsBarTopMode, IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
 import {
-	TOOLS_BAR_BACKGROUND,
-	TOOLS_BAR_ACTION_ICON_BACKGROUND,
-	TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER,
-	TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND,
-	TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED
+	POSITRON_TOOLS_BAR_BACKGROUND,
+	POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND,
+	POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER,
+	POSITRON_TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND,
+	POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED
 } from 'vs/workbench/common/theme';
 
 // Theme support
 registerThemingParticipant((theme, collector) => {
 	// Get the tools bar background color.
-	const backgroundColor = theme.getColor(TOOLS_BAR_BACKGROUND);
+	const backgroundColor = theme.getColor(POSITRON_TOOLS_BAR_BACKGROUND);
 	if (backgroundColor) {
 		collector.addRule(`.monaco-workbench .part.tools-bar {
 			background-color: ${backgroundColor};
@@ -39,7 +39,7 @@ registerThemingParticipant((theme, collector) => {
 	}
 
 	// Get the tools bar action container toggled background color.
-	const actionContainerToggledBackgroundColor = theme.getColor(TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND);
+	const actionContainerToggledBackgroundColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND);
 	if (actionContainerToggledBackgroundColor) {
 		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-container.toggled {
 			background: ${actionContainerToggledBackgroundColor};
@@ -47,7 +47,7 @@ registerThemingParticipant((theme, collector) => {
 	}
 
 	// Get the tools bar action icon background color.
-	const actionIconBackgroundColor = theme.getColor(TOOLS_BAR_ACTION_ICON_BACKGROUND);
+	const actionIconBackgroundColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND);
 	if (actionIconBackgroundColor) {
 		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon {
 			background: ${actionIconBackgroundColor};
@@ -55,7 +55,7 @@ registerThemingParticipant((theme, collector) => {
 	}
 
 	// Get the tools bar action icon background toggled color.
-	const actionIconBackgroundToggledColor = theme.getColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED);
+	const actionIconBackgroundToggledColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED);
 	if (actionIconBackgroundToggledColor) {
 		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon.toggled {
 			background: ${actionIconBackgroundToggledColor};
@@ -63,7 +63,7 @@ registerThemingParticipant((theme, collector) => {
 	}
 
 	// Get the tools bar action icon background hover color.
-	const actionIconBackgroundHoverColor = theme.getColor(TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER);
+	const actionIconBackgroundHoverColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER);
 	if (actionIconBackgroundHoverColor) {
 		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon:hover:not(.toggled) {
 			background: ${actionIconBackgroundHoverColor};

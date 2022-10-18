@@ -899,56 +899,56 @@ export const WINDOW_INACTIVE_BORDER = registerColor('window.inactiveBorder', {
 
 // --- Start Positron ---
 
-// < --- Top Bar --- >
+// < --- Positron Top Bar --- >
 
-export const TOP_BAR_BACKGROUND = registerColor('topBar.background', {
+export const POSITRON_TOP_BAR_BACKGROUND = registerColor('positronTopBar.background', {
 	dark: '#3b4144',
-	light: '#f5f7fa',
+	light: '#f1f3f5',
 	hcDark: '#3b4144',
-	hcLight: '#f5f7fa'
-}, localize('topBar.background', "Top bar background color. The top bar is shown under the title bar of the window."));
+	hcLight: '#f1f3f5'
+}, localize('positronTopBar.background', "Top bar background color. The top bar is shown under the title bar of the window."));
 
-// < --- Tools Bar --- >
+// < --- Positron Tools Bar --- >
 
-// The tools bar background color.
-export const TOOLS_BAR_BACKGROUND = registerColor('toolsBar.background', {
+// The Positron tools bar background color.
+export const POSITRON_TOOLS_BAR_BACKGROUND = registerColor('positronToolsBar.background', {
 	dark: '#32485b',
 	light: '#3a78b1',
 	hcDark: '#32485b',
 	hcLight: '#3a78b1'
-}, localize('toolsBar.background', "Tools bar background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('positronToolsBar.background', "Tools bar background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
-// The tools bar action container on background color.
-export const TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor('toolsBar.actionContainerToggledBackground', {
+// The Positron tools bar action container on background color.
+export const POSITRON_TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND = registerColor('positronToolsBar.actionContainerToggledBackground', {
 	dark: '#202020',
 	light: '#FFFFFF',
 	hcDark: '#202020',
 	hcLight: '#FFFFFF'
-}, localize('toolsBar.actionContainerToggledBackground', "Tools bar action container toggled background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('positronToolsBar.actionContainerToggledBackground', "Tools bar action container toggled background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // The tools bar action icon background color.
-export const TOOLS_BAR_ACTION_ICON_BACKGROUND = registerColor('toolsBar.actionIconBackground', {
+export const POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND = registerColor('positronToolsBar.actionIconBackground', {
 	dark: '#c1c9d1',
 	light: '#d9dfe5',
 	hcDark: '#c1c9d1',
 	hcLight: '#d9dfe5'
-}, localize('toolsBar.actionIconBackground', "Tools bar action icon background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('positronToolsBar.actionIconBackground', "Tools bar action icon background color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // The tools bar action icon background toggled color.
-export const TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor('toolsBar.actionIconBackgroundToggled', {
+export const POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED = registerColor('positronToolsBar.actionIconBackgroundToggled', {
 	dark: '#3a78b1',
 	light: '#3a78b1',
 	hcDark: '#3a78b1',
 	hcLight: '#3a78b1'
-}, localize('toolsBar.actionIconBackgroundToggled', "Tools bar action icon background toggled color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('positronToolsBar.actionIconBackgroundToggled', "Tools bar action icon background toggled color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // The tools bar action icon background hover color.
-export const TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor('toolsBar.actionIconBackgroundHover', {
+export const POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor('positronToolsBar.actionIconBackgroundHover', {
 	dark: '#ffffff',
 	light: '#ffffff',
 	hcDark: '#ffffff',
 	hcLight: '#ffffff'
-}, localize('toolsBar.actionIconBackgroundHover', "Tools bar action icon color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
+}, localize('positronToolsBar.actionIconBackgroundHover', "Tools bar action icon color. The tools bar is shown on the far left or far right of the workspace, opposing the activity bar, and allows the user to switch between tools views."));
 
 // < --- Modal Dialog --- >
 
