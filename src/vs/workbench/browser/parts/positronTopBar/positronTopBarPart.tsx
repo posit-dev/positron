@@ -10,7 +10,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Part } from 'vs/workbench/browser/part';
 import { KeyCode } from 'vs/base/common/keyCodes';
 // import { IAction } from 'vs/base/common/actions';
-import { TOP_BAR_BACKGROUND } from 'vs/workbench/common/theme';
+import { POSITRON_TOP_BAR_BACKGROUND } from 'vs/workbench/common/theme';
 import { TopBarFocused } from 'vs/workbench/common/contextkeys';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -28,9 +28,9 @@ import { PositronTopBarComponent } from 'vs/workbench/browser/parts/positronTopB
 // Theme support
 
 registerThemingParticipant((theme, collector) => {
-	const backgroundColor = theme.getColor(TOP_BAR_BACKGROUND);
+	const backgroundColor = theme.getColor(POSITRON_TOP_BAR_BACKGROUND);
 	if (backgroundColor) {
-		collector.addRule(`.monaco-workbench .part.top-bar { background-color: ${backgroundColor}; }`);
+		collector.addRule(`.monaco-workbench .part.positron-top-bar { background-color: ${backgroundColor}; }`);
 	}
 });
 
@@ -93,7 +93,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		// Render the Positron top bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<PositronTopBarComponent placeholder='A Value' />
+			<PositronTopBarComponent />
 		);
 
 		// Track focus

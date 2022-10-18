@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.button-component {
+	width: 44px;
+	height: 32px;
+	display: flex;
+	cursor: pointer;
+	align-items: center;
+	justify-content: center;
+}
+
+.button-face {
+	width: 32px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-repeat: no-repeat;
+	background-size: 24px 20px;
+	background-position: center center, 50%, 50%;
+}
+
+.button-face:hover {
+	border-radius: 3px;
+	background: #00000030;
+}
+
+.button-background {
+	width: 24px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
