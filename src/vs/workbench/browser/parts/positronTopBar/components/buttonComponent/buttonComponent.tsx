@@ -18,12 +18,15 @@ interface ButtonComponentProps {
  * @returns The component.
  */
 export const ButtonComponent = (props: ButtonComponentProps) => {
+	const clickHandler = () => {
+		console.log('Button was clicked');
+	};
+
 	// Render.
 	return (
-		<div className='button-component'>
+		<div className='button-component' onClick={clickHandler}>
 			<div className='button-face'>
-				<div className={`button-background ${props.classNameBackground}`}>
-				</div>
+				<div className={`button-background ${props.classNameBackground}`} />
 			</div>
 		</div>
 	);
