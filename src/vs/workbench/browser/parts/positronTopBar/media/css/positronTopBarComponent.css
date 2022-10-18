@@ -7,35 +7,26 @@
 	display: flex;
 }
 
-.new-file {
+.new-file-background {
 	background-image: url("../images/new-file-light.svg");
-	background-repeat: no-repeat;
-	background-size: 28px 28px;
-	background-position: center center, 50%, 50%;
 }
 
-.vs-dark .new-file {
+.vs-dark .new-file-background {
 	background-image: url("../images/new-file-dark.svg");
 }
 
-.new-project {
+.new-project-background {
 	background-image: url("../images/new-project-light.svg");
-	background-repeat: no-repeat;
-	background-size: 28px 28px;
-	background-position: center center, 50%, 50%;
 }
 
-.vs-dark .new-project {
+.vs-dark .new-project-background {
 	background-image: url("../images/new-project-dark.svg");
 }
 
-.open-file {
+.open-file-background {
 	background-image: url("../images/open-file-light.svg");
-	background-repeat: no-repeat;
-	background-size: 28px 28px;
-	background-position: center center, 50%, 50%;
 }
 
-.vs-dark .open-file {
+.vs-dark .open-file-background {
 	background-image: url("../images/open-file-dark.svg");
 }

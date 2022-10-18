@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.monaco-workbench .part.top-bar {
+.monaco-workbench .part.positron-top-bar {
 	box-sizing: border-box;
 	cursor: default;
 	width: 100%;
@@ -15,50 +15,7 @@
 }
 
 /* Don't draw a focus outline. */
-.monaco-workbench .part.top-bar:focus {
+.monaco-workbench .part.positron-top-bar:focus {
 	outline: none !important;
 }
 
-.monaco-workbench .part.top-bar .action-bars-container {
-	display: flex;
-	justify-content: space-between;
-	width: 100%;
-	margin: 0 10px;
-}
-
-.monaco-workbench .part.top-bar .action-bars-container .action-bar-container {
-	display: flex;
-	flex-shrink: 0;
-	align-items: center;
-	padding: 0 0 0 0;
-}
-
-.monaco-workbench .part.top-bar .actions-container {
-	display: inline;
-}
-
-.top-bar-action-container {
-	width: 32px;
-	height: 32px;
-}
-
-.top-bar-action {
-	width: 100%;
-	height: 100%;
-	border-radius: 5px;
-}
-
-.top-bar-action:hover {
-	background-color: #0000007f;
-}
-
-.top-bar-action.new-file {
-	background-image: url("../images/new-file-light.svg");
-	background-repeat: no-repeat;
-	background-size: 28px 28px;
-	background-position: center center, 50%, 50%;
-}
-
-.vs-dark .top-bar-action.new-file {
-	background-image: url("../images/new-file-dark.svg");
-}

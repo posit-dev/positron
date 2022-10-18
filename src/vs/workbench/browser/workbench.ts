@@ -336,7 +336,7 @@ export class Workbench extends Layout {
 		for (const { id, role, classes, options } of [
 			{ id: Parts.TITLEBAR_PART, role: 'contentinfo', classes: ['titlebar'] },
 			// --- Start Positron ---
-			{ id: Parts.POSITRON_TOP_BAR_PART, role: 'appbar', classes: ['top-bar'] },
+			{ id: Parts.POSITRON_TOP_BAR_PART, role: 'appbar', classes: ['positron-top-bar'] },
 			{ id: Parts.POSITRON_TOOLS_BAR_PART, role: 'appbar', classes: ['tools-bar'] },
 			{ id: Parts.POSITRON_TOOLS_SIDE_BAR_PART, role: 'appbar', classes: ['tools-side-bar'] },
 			// --- End Positron ---

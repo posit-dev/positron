@@ -3,22 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/css/positronTopBarComponent';
-import { PositronToolBarButtomComponent } from 'vs/workbench/browser/parts/positronTopBar/components/positronToolBarButtonComponent/positronToolBarButtonComponent';
 const React = require('react');
-// import { useEffect, useState } from 'react';
-// import { HelpComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/components/helpComponent/helpComponent';
-// import { PlotComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/components/plotComponent/plotComponent';
-// import { ViewerComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/components/viewerComponent/viewerComponent';
-// import { PreviewComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/components/previewComponent/previewComponent';
-// import { EnvironmentComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/components/environmentComponent/environmentComponent';
-// import { PresentationComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/components/presentationComponent/presentationComponent';
-// import { PositronToolsBarBottomMode, PositronToolsBarTopMode, IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
+import { ButtonComponent } from 'vs/workbench/browser/parts/positronTopBar/components/buttonComponent/buttonComponent';
+import { SeparatorComponent } from 'vs/workbench/browser/parts/positronTopBar/components/separatorComponent/separatorComponent';
 
 /**
  * PositronTopBarComponentProps interface.
  */
 interface PositronTopBarComponentProps {
-	placeholder: string;
 }
 
 /**
@@ -30,9 +22,11 @@ export const PositronTopBarComponent = (props: PositronTopBarComponentProps) => 
 	// Render.
 	return (
 		<div className='positron-top-bar'>
-			<PositronToolBarButtomComponent placeholder='sss' className='new-file' />
-			<PositronToolBarButtomComponent placeholder='sss' className='new-project' />
-			<PositronToolBarButtomComponent placeholder='sss' className='open-file' />
+			<ButtonComponent classNameBackground='new-file-background' />
+			<SeparatorComponent />
+			<ButtonComponent classNameBackground='new-project-background' />
+			<SeparatorComponent />
+			<ButtonComponent classNameBackground='open-file-background' />
 		</div>
 	);
 };
