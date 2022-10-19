@@ -27,6 +27,11 @@ export const PositronTopBarComponent = (props: PositronTopBarComponentProps) => 
 			<ButtonComponent classNameBackground='new-project-background' />
 			<SeparatorComponent />
 			<ButtonComponent classNameBackground='open-file-background' dropDown={true} />
+			<SeparatorComponent />
+			<ButtonComponent classNameBackground='save-background' />
+			<ButtonComponent classNameBackground='save-all-background' />
+			<SeparatorComponent />
+			<ButtonComponent classNameBackground='print-background' />
 		</div>
 	);
 };
