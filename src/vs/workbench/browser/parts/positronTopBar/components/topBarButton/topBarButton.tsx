@@ -11,7 +11,7 @@ const React = require('react');
  */
 interface TopBarButtonProps {
 	dropDown?: boolean;
-	classNameBackground: string;
+	iconClassName: string;
 }
 
 /**
@@ -43,7 +43,7 @@ export const TopBarButton = (props: TopBarButtonProps) => {
 	return (
 		<div className='top-bar-button' onClick={clickHandler} onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
 			<div className='top-bar-button-face'>
-				<div className={`top-bar-button-background ${props.classNameBackground}`} />
+				<div className={`top-bar-button-icon ${props.iconClassName}`} />
 				{props.dropDown && <div className='top-bar-button-drop-down-arrow' />}
 				{hover && <div className='toolie'>Hello</div>}
 			</div>

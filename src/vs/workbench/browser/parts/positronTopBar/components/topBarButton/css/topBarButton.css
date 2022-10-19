@@ -5,14 +5,14 @@
 .top-bar-button {
 	display: flex;
 	cursor: pointer;
+	overflow: visible;
 	align-items: center;
 	justify-content: center;
-	overflow: visible;
 }
 
 .top-bar-button-face {
-	position: relative;
 	display: flex;
+	position: relative;
 	align-items: center;
 	justify-content: center;
 	background-size: 24px 20px;
@@ -25,7 +25,7 @@
 	background: var(--vscode-positronTopBar-hoverBackground);
 }
 
-.top-bar-button-background {
+.top-bar-button-icon {
 	width: 24px;
 	height: 20px;
 	padding: 4px;
