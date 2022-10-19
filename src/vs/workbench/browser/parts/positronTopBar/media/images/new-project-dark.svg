@@ -26,9 +26,9 @@
 	<polygon fill="#8EA2B2" points="29.2,5.5 14.3,9.5 16.1,10.8 29.2,7.3 42.2,11 44,9.5 	"/>
 </g>
 <g id="Layer_4">
-	<circle fill="#00AC68" cx="12" cy="14" r="10"/>
+	<circle fill="#54B28C" cx="12" cy="14" r="10"/>
 </g>
 <g id="Layer_5">
-	<polygon fill="#FFFFFF" points="19,12 14,12 14,7 10,7 10,12 5,12 5,16 10,16 10,21 14,21 14,16 19,16 	"/>
+	<polygon opacity="0.84" fill="#FFFFFF" points="19,12 14,12 14,7 10,7 10,12 5,12 5,16 10,16 10,21 14,21 14,16 19,16 	"/>
 </g>
 </svg>

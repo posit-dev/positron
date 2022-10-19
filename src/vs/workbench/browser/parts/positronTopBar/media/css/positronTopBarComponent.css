@@ -5,6 +5,9 @@
 .positron-top-bar {
 	background: transparent;
 	display: flex;
+	overflow: visible;
+	z-index: 2000;
+	/* position: relative; */
 }
 
 .new-file-background {
