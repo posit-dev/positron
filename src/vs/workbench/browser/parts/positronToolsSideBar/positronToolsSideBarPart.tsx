@@ -15,7 +15,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
-import { PositronToolsSideBarComponent } from 'vs/workbench/browser/parts/positronToolsSideBar/positronToolsSideBarComponent';
+import { PositronToolsSideBar } from 'vs/workbench/browser/parts/positronToolsSideBar/positronToolsSideBar';
 import { IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
 import { IPositronToolsSideBarService } from 'vs/workbench/services/positronToolsSideBar/browser/positronToolsSideBarService';
 
@@ -80,7 +80,7 @@ export class PositronToolsSideBarPart extends Part implements IPositronToolsSide
 		// Create the React renderer and render the tools bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.toolsSideBarContainer);
 		this.positronReactRenderer.render(
-			<PositronToolsSideBarComponent placeholder='(x)' positronToolsBarService={this.positronToolsBarService} />
+			<PositronToolsSideBar placeholder='(x)' positronToolsBarService={this.positronToolsBarService} />
 		);
 
 		// Track focus.

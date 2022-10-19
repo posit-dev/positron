@@ -16,9 +16,9 @@ import { ToolsBarFocused } from 'vs/workbench/common/contextkeys';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
-import { PositronToggleAction, PositronToggleActionBar } from 'vs/base/browser/ui/positronToggleActionBar/positronToggleActionBar';
 import { IWorkbenchLayoutService, Parts, Position } from 'vs/workbench/services/layout/browser/layoutService';
 import { IHoverDelegate, IHoverDelegateOptions, IHoverWidget } from 'vs/base/browser/ui/iconLabel/iconHoverDelegate';
+import { PositronToggleAction, PositronToggleActionBar } from 'vs/base/browser/ui/positronToggleActionBar/positronToggleActionBar';
 import { PositronToolsBarBottomMode, PositronToolsBarTopMode, IPositronToolsBarService } from 'vs/workbench/services/positronToolsBar/browser/positronToolsBarService';
 import {
 	POSITRON_TOOLS_BAR_BACKGROUND,
