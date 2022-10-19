@@ -14,10 +14,10 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IPositronTopBarService } from 'vs/workbench/services/positronTopBar/browser/positronTopBarService';
-import { PositronTopBarComponent } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarComponent';
 
 /**
  * PositronTopBarPart class.
@@ -78,7 +78,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		// Render the Positron top bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<PositronTopBarComponent />
+			<PositronTopBar />
 		);
 
 		// Track focus
