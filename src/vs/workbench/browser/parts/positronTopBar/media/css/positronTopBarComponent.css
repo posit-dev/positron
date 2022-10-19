@@ -30,3 +30,27 @@
 .vs-dark .open-file-background {
 	background-image: url("../images/open-file-dark.svg");
 }
+
+.save-background {
+	background-image: url("../images/save-light.svg");
+}
+
+.vs-dark .save-background {
+	background-image: url("../images/save-dark.svg");
+}
+
+.save-all-background {
+	background-image: url("../images/save-all-light.svg");
+}
+
+.vs-dark .save-all-background {
+	background-image: url("../images/save-all-dark.svg");
+}
+
+.print-background {
+	background-image: url("../images/print-light.svg");
+}
+
+.vs-dark .print-background {
+	background-image: url("../images/print-dark.svg");
+}
