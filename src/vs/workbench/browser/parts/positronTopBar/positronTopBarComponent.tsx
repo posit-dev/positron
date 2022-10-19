@@ -22,11 +22,11 @@ export const PositronTopBarComponent = (props: PositronTopBarComponentProps) => 
 	// Render.
 	return (
 		<div className='positron-top-bar'>
-			<ButtonComponent classNameBackground='new-file-background' />
+			<ButtonComponent classNameBackground='new-file-background' dropDown={true} />
 			<SeparatorComponent />
 			<ButtonComponent classNameBackground='new-project-background' />
 			<SeparatorComponent />
-			<ButtonComponent classNameBackground='open-file-background' />
+			<ButtonComponent classNameBackground='open-file-background' dropDown={true} />
 		</div>
 	);
 };

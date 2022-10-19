@@ -9,6 +9,7 @@ const React = require('react');
  * ButtonComponentProps interface.
  */
 interface ButtonComponentProps {
+	dropDown?: boolean;
 	classNameBackground: string;
 }
 
@@ -27,6 +28,7 @@ export const ButtonComponent = (props: ButtonComponentProps) => {
 		<div className='button-component' onClick={clickHandler}>
 			<div className='button-face'>
 				<div className={`button-background ${props.classNameBackground}`} />
+				{props.dropDown && <div className='button-drop-down-arrow' />}
 			</div>
 		</div>
 	);

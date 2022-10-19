@@ -28,7 +28,9 @@ import {
 	POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED
 } from 'vs/workbench/common/theme';
 
-// Theme support
+/**
+ * Theme support.
+ */
 registerThemingParticipant((theme, collector) => {
 	// Get the tools bar background color.
 	const backgroundColor = theme.getColor(POSITRON_TOOLS_BAR_BACKGROUND);
