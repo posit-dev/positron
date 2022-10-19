@@ -534,12 +534,16 @@ unsafe fn append_namespace_completions(_context: &CompletionContext, package: &s
 fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
 
     // add some built-in snippet completions for control flow
+    // NOTE: We don't use placeholder names for the final cursor locations below,
+    // as the editting experience is not great (e.g. trying to insert a '{' will
+    // cause the editor to just surround the snippet text with '{}'.
     let snippets = vec![
-        ("function", "function($1:arguments}) $0"),
+        ("function", "function(${1:arguments}) $0"),
         ("while", "while (${1:condition}) $0"),
         ("repeat", "repeat $0"),
         ("for", "for (${1:variable} in ${2:vector}) $0"),
         ("if", "if (${1:condition}) $0"),
+        ("return", "return(${0:value})"),
     ];
 
     for snippet in snippets {
@@ -550,15 +554,24 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
 
         item.detail = Some("[keyword]".to_string());
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-        item.insert_text = Some(snippet.1.to_string());
+
+        item.insert_text = if snippet.1 == "return" {
+            Some(format!("{}()", snippet.1.to_string()))
+        } else {
+            Some(format!("{} ()", snippet.1.to_string()))
+        };
+
         completions.push(item);
     }
 
     // provide other completion results
+    // NOTE: Some R keywords have definitions provided in the R
+    // base namespace, so we don't need to provide duplicate
+    // definitions for these here.
     let keywords = vec![
         "NULL", "NA", "TRUE", "FALSE", "Inf", "NaN",
         "NA_integer_", "NA_real_", "NA_character_", "NA_complex_",
-        "in", "else", "next", "break", "return",
+        "in", "else", "next", "break",
     ];
 
     for keyword in keywords {
@@ -583,7 +596,16 @@ unsafe fn append_search_path_completions(_context: &CompletionContext, completio
         let symbols = R_lsInternal(envir, 1);
 
         // Create completion items for each.
-        let strings = RObject::new(symbols).to::<Vec<String>>()?;
+        let mut strings = RObject::new(symbols).to::<Vec<String>>()?;
+
+        // If this is the base environment, we'll want to remove some
+        // completion items (mainly, control flow keywords which don't
+        // behave like "regular" functions.)
+        if envir == R_BaseEnv || envir == R_BaseNamespace {
+            strings.retain(|name| {
+                !matches!(name.as_str(), "if" | "else" | "for" | "in" | "while" | "repeat" | "break" | "next" | "return" | "function")
+            });
+        }
         for string in strings.iter() {
             if let Ok(item) = completion_item_from_symbol(string, envir) {
                 completions.push(item);
