@@ -1,7 +1,5 @@
 name: Build macOS Release
 
-on: workflow_dispatch
-
 jobs:
   macos:
     name: Build macOS Release
