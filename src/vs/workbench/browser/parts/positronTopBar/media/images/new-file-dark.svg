@@ -11,9 +11,9 @@
 		l8,8C39,16,34,16,33.3,16z"/>
 </g>
 <g id="Layer_4">
-	<circle fill="#00AC68" cx="15" cy="14" r="10"/>
+	<circle fill="#54B28C" cx="15" cy="14" r="10"/>
 </g>
 <g id="Layer_5">
-	<polygon fill="#FFFFFF" points="22,12 17,12 17,7 13,7 13,12 8,12 8,16 13,16 13,21 17,21 17,16 22,16 	"/>
+	<polygon opacity="0.84" fill="#FFFFFF" points="22,12 17,12 17,7 13,7 13,12 8,12 8,16 13,16 13,21 17,21 17,16 22,16 	"/>
 </g>
 </svg>
