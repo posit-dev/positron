@@ -3,8 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .button-component {
-	width: 44px;
-	height: 32px;
 	display: flex;
 	cursor: pointer;
 	align-items: center;
@@ -12,25 +10,35 @@
 }
 
 .button-face {
-	width: 32px;
-	height: 26px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background-repeat: no-repeat;
 	background-size: 24px 20px;
+	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
 }
 
 .button-face:hover {
-	border-radius: 3px;
-	background: #00000030;
+	border-radius: 6px;
+	background: var(--vscode-positronTopBar-hoverBackground);
 }
 
 .button-background {
 	width: 24px;
 	height: 20px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	padding: 4px;
+	background-size: 24px 20px;
+	background-repeat: no-repeat;
+	background-position: center center, 50%, 50%;
+
+}
+
+.button-drop-down-arrow {
+	width: 7px;
+	height: 20px;
+	padding: 0 4px 0 0;
+	background-size: 7px 20px;
+	background-repeat: no-repeat;
+	background-position: left center, 50%, 50%;
+	background-image: url("../images/drop-down-arrow.svg");
 }
