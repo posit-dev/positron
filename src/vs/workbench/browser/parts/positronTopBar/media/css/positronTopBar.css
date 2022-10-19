@@ -10,50 +10,50 @@
 	/* position: relative; */
 }
 
-.new-file-background {
+.new-file-icon {
 	background-image: url("../images/new-file-light.svg");
 }
 
-.vs-dark .new-file-background {
+.vs-dark .new-file-icon {
 	background-image: url("../images/new-file-dark.svg");
 }
 
-.new-project-background {
+.new-project-icon {
 	background-image: url("../images/new-project-light.svg");
 }
 
-.vs-dark .new-project-background {
+.vs-dark .new-project-icon {
 	background-image: url("../images/new-project-dark.svg");
 }
 
-.open-file-background {
+.open-file-icon {
 	background-image: url("../images/open-file-light.svg");
 }
 
-.vs-dark .open-file-background {
+.vs-dark .open-file-icon {
 	background-image: url("../images/open-file-dark.svg");
 }
 
-.save-background {
+.save-icon {
 	background-image: url("../images/save-light.svg");
 }
 
-.vs-dark .save-background {
+.vs-dark .save-icon {
 	background-image: url("../images/save-dark.svg");
 }
 
-.save-all-background {
+.save-all-icon {
 	background-image: url("../images/save-all-light.svg");
 }
 
-.vs-dark .save-all-background {
+.vs-dark .save-all-icon {
 	background-image: url("../images/save-all-dark.svg");
 }
 
-.print-background {
+.print-icon {
 	background-image: url("../images/print-light.svg");
 }
 
-.vs-dark .print-background {
+.vs-dark .print-icon {
 	background-image: url("../images/print-dark.svg");
 }

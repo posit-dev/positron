@@ -22,16 +22,16 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 	// Render.
 	return (
 		<div className='positron-top-bar'>
-			<TopBarButton classNameBackground='new-file-background' dropDown={true} />
+			<TopBarButton iconClassName='new-file-icon' dropDown={true} />
 			<TopBarSeparator />
-			<TopBarButton classNameBackground='new-project-background' />
+			<TopBarButton iconClassName='new-project-icon' />
 			<TopBarSeparator />
-			<TopBarButton classNameBackground='open-file-background' dropDown={true} />
+			<TopBarButton iconClassName='open-file-icon' dropDown={true} />
 			<TopBarSeparator />
-			<TopBarButton classNameBackground='save-background' />
-			<TopBarButton classNameBackground='save-all-background' />
+			<TopBarButton iconClassName='save-icon' />
+			<TopBarButton iconClassName='save-all-icon' />
 			<TopBarSeparator />
-			<TopBarButton classNameBackground='print-background' />
+			<TopBarButton iconClassName='print-icon' />
 		</div>
 	);
 };
