@@ -36,4 +36,3 @@ export const TestContent = (props: TestContentProps) => {
 		</div>
 	);
 };
-
