@@ -1,0 +1,16 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.top-bar-separator {
+	width: 8px;
+	height: 32px;
+	background-size: 4px 20px;
+	background-repeat: no-repeat;
+	background-position: center center, 50%, 50%;
+	background-image: url("../images/top-bar-separator-dark.svg");
+}
+
+.vs-dark .top-bar-separator {
+	background-image: url("../images/top-bar-separator-dark.svg");
+}
