@@ -15,7 +15,7 @@
 	position: relative;
 	align-items: center;
 	justify-content: center;
-	background-size: 24px 20px;
+	background-size: 28px 28px;
 	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
 }
@@ -26,10 +26,10 @@
 }
 
 .top-bar-button-icon {
-	width: 24px;
-	height: 20px;
-	padding: 4px;
-	background-size: 24px 20px;
+	width: 28px;
+	height: 28px;
+	padding: 2px;
+	background-size: 28px 28px;
 	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
 
@@ -37,7 +37,7 @@
 
 .top-bar-button-drop-down-arrow {
 	width: 7px;
-	height: 20px;
+	height: 28px;
 	padding: 0 4px 0 0;
 	background-size: 7px 20px;
 	background-repeat: no-repeat;
