@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import 'vs/css!./media/css/positronTopBar';
 const React = require('react');
 import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
@@ -11,12 +11,16 @@ import { TopBarRegion } from 'vs/workbench/browser/parts/positronTopBar/componen
 import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSeparator/topBarSeparator';
 import { TooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+
+import { ICommandsMap, MenuRegistry } from 'vs/platform/actions/common/actions';
 
 /**
  * PositronTopBarProps interface.
  */
 interface PositronTopBarProps {
 	quickInputService: IQuickInputService;
+	commandService: ICommandService;
 }
 
 /**
@@ -27,6 +31,19 @@ interface PositronTopBarProps {
 export const PositronTopBar = (props: PositronTopBarProps) => {
 	// Hooks.
 	const [hoverManager] = useState(new TooltipManager());
+
+	const [commands, setCommands] = useState(MenuRegistry.getCommands());
+
+	useEffect(() => {
+		const unsubscribe = MenuRegistry.onDidChangeMenu(e => {
+			// TODO: be smarter here as we can query for whether any commands
+			// we care about have changed
+			setCommands(MenuRegistry.getCommands());
+		});
+		return () => {
+			unsubscribe.dispose();
+		};
+	});
 
 	// Render.
 	return (
@@ -43,8 +60,8 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 			</TopBarRegion>
 
 			<TopBarRegion align='center'>
-				<TopBarButton iconClassName='back-icon' />
-				<TopBarButton iconClassName='forward-icon' />
+				{topBarCommandButton('workbench.action.navigateBack', 'back-icon', commands, props.commandService)}
+				{topBarCommandButton('workbench.action.navigateForward', 'forward-icon', commands, props.commandService)}
 				<TopBarCommandCenter {...props} />
 			</TopBarRegion>
 
@@ -54,3 +71,21 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 		</div>
 	);
 };
+
+
+function topBarCommandButton(
+	id: string,
+	iconClassName: string,
+	commands: ICommandsMap,
+	commandService: ICommandService
+) {
+	const command = commands.get(id);
+	const execute = () => commandService.executeCommand(id);
+	if (command) {
+		return (
+			<TopBarButton execute={execute} iconClassName={iconClassName} tooltip={command?.tooltip}></TopBarButton>
+		);
+	} else {
+		return null;
+	}
+}

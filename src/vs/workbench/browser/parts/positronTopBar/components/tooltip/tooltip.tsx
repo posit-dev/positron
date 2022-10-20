@@ -6,13 +6,14 @@ import 'vs/css!./css/tooltip';
 const React = require('react');
 import { useState } from 'react';
 import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
+import { ILocalizedString } from 'vs/platform/action/common/action';
 
 /**
  * TooltipProps interface.
  */
 interface TooltipProps {
 	tooltipManager?: ITooltipManager;
-	tooltip?: string;
+	tooltip?: string | ILocalizedString;
 }
 
 /**
