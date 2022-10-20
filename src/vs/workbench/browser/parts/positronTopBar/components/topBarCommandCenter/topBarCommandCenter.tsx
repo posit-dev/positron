@@ -25,7 +25,7 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 		<div className={`top-bar-command-center`}>
 			<div className='top-bar-command-center-search'>
 				<span className='codicon codicon-search'></span>
-				Search
+				<span>Search</span>
 			</div>
 
 			<div className='top-bar-command-center-chevron'>

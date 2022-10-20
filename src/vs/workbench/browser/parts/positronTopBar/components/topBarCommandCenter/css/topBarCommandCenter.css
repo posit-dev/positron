@@ -23,10 +23,16 @@
 	display: inline-flex;
 	justify-content: center;
 	width: 100%;
-	margin: auto;
+
+}
+
+.top-bar-command-center-search>span {
+	padding: 3px 3px 0 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+
+
 
 .top-bar-command-center-search .codicon-search::before {
 	font-size: 14px;
@@ -39,4 +45,9 @@
 	padding: 3px 3px 0 0;
 	width: 16px;
 	flex-shrink: 0;
+}
+
+.top-bar-command-center-search:HOVER,
+.top-bar-command-center-chevron:HOVER {
+	background-color: var(--vscode-positronTopBar-hoverBackground);
 }
