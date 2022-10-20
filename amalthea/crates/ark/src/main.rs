@@ -213,7 +213,8 @@ fn main() {
         return;
     }
 
-    logger::initialize("/tmp/ark.log");
+    // Initialize the logger.
+    logger::initialize(log_file.as_deref());
 
     // Initialize harp.
     harp::initialize();

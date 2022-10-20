@@ -17,21 +17,30 @@ use chrono::Utc;
 use log::*;
 
 struct Logger {
+    level: log::Level,
     mutex: Option<Mutex<File>>,
 }
 
 impl Logger {
 
-    fn initialize(&mut self, log_file: &str) {
+    fn initialize(&mut self, file: Option<&str>) {
 
-        let file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open(log_file)
-            .unwrap();
+        self.mutex = None;
 
-        self.mutex = Some(Mutex::new(file));
+        if let Some(file) = file {
+
+            let file = std::fs::OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open(file);
+
+            match file {
+                Ok(file) => self.mutex = Some(Mutex::new(file)),
+                Err(error) => eprintln!("Error initializing log: {}", error),
+            }
+
+        }
 
     }
 
@@ -40,13 +49,7 @@ impl Logger {
 impl log::Log for Logger {
 
     fn enabled(&self, metadata: &Metadata) -> bool {
-        match metadata.level() {
-            Level::Error => true,
-            Level::Warn => true,
-            Level::Info => true,
-            Level::Debug => false,
-            Level::Trace => false,
-        }
+        metadata.level() as i32 <= self.level as i32
     }
 
     fn log(&self, record: &Record) {
@@ -55,14 +58,12 @@ impl log::Log for Logger {
             return;
         }
 
-        // Acquire logging lock.
-        let mut file = self.mutex.as_ref().unwrap().lock().unwrap();
-
+        // Generate timestamp.
         let now: DateTime<Utc> = SystemTime::now().into();
         let timestamp = now.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
 
-        writeln!(
-            file,
+        // Generate message to log.
+        let message = format!(
             "{} [{}-{}] {} {}:{}: {}",
             timestamp,
             "ark",
@@ -71,7 +72,24 @@ impl log::Log for Logger {
             record.file().unwrap_or("?"),
             record.line().unwrap_or(0),
             record.args()
-        ).unwrap();
+        );
+
+        // Write to stdout.
+        if record.level() == Level::Error {
+            eprintln!("{}", message);
+        } else {
+            println!("{}", message);
+        }
+
+        // Also write to log file if enabled.
+        if let Some(mutex) = self.mutex.as_ref() {
+            if let Ok(mut file) = mutex.lock() {
+                let status = writeln!(file, "{}", message);
+                if let Err(error) = status {
+                    eprintln!("Error writing to log file: {}", error);
+                }
+            }
+        }
 
     }
 
@@ -84,20 +102,22 @@ impl log::Log for Logger {
 }
 
 
-pub fn initialize(log_file: &str) {
+pub fn initialize(file: Option<&str>) {
 
-    ONCE.call_once(|| unsafe {
+    ONCE.call_once(|| {
+
+        // Initialize the log level, using RUST_LOG.
+        log::set_max_level(LevelFilter::Info);
+        let level = std::env::var("RUST_LOG").unwrap_or("info".into());
+        match LevelFilter::from_str(level.as_str()) {
+            Ok(level) => log::set_max_level(level),
+            Err(error) => eprintln!("Error parsing RUST_LOG: {}", error),
+        }
 
         // Set up the logger.
-        LOGGER.initialize(log_file);
-        log::set_logger(&LOGGER).unwrap();
-
-        // Set the log level.
-        let level = std::env::var("RUST_LOG").unwrap_or("info".into());
-        if let Ok(level) = LevelFilter::from_str(level.as_str()) {
-            log::set_max_level(level);
-        } else {
-            log::set_max_level(LevelFilter::Info);
+        unsafe {
+            LOGGER.initialize(file);
+            log::set_logger(&LOGGER).unwrap();
         }
 
     });
@@ -105,4 +125,4 @@ pub fn initialize(log_file: &str) {
 }
 
 static ONCE: Once = Once::new();
-static mut LOGGER: Logger = Logger { mutex: None };
+static mut LOGGER: Logger = Logger { mutex: None, level: Level::Info };
