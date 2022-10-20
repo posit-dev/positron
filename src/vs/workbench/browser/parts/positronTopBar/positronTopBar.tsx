@@ -60,8 +60,8 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 			</TopBarRegion>
 
 			<TopBarRegion align='center'>
-				{topBarCommandButton('workbench.action.navigateBack', 'back-icon', commands, props.commandService)}
-				{topBarCommandButton('workbench.action.navigateForward', 'forward-icon', commands, props.commandService)}
+				{topBarCommandButton('workbench.action.navigateBack', 'back-icon', hoverManager, commands, props.commandService)}
+				{topBarCommandButton('workbench.action.navigateForward', 'forward-icon', hoverManager, commands, props.commandService)}
 				<TopBarCommandCenter {...props} />
 			</TopBarRegion>
 
@@ -76,6 +76,7 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 function topBarCommandButton(
 	id: string,
 	iconClassName: string,
+	tooltipManager: TooltipManager,
 	commands: ICommandsMap,
 	commandService: ICommandService
 ) {
@@ -83,7 +84,12 @@ function topBarCommandButton(
 	const execute = () => commandService.executeCommand(id);
 	if (command) {
 		return (
-			<TopBarButton execute={execute} iconClassName={iconClassName} tooltip={command?.tooltip}></TopBarButton>
+			<TopBarButton
+				execute={execute}
+				iconClassName={iconClassName}
+				tooltip={command?.tooltip}
+				tooltipManager={tooltipManager}
+			></TopBarButton>
 		);
 	} else {
 		return null;
