@@ -60,7 +60,7 @@ jobs:
       - name: Create universal build
         env:
            VSCODE_ARCH: universal
-           DEBUG: *
+           DEBUG: "*"
            AGENT_BUILDDIRECTORY: ".."
         run: node build/darwin/create-universal-app.js
 
