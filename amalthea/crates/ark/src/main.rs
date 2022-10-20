@@ -60,7 +60,7 @@ fn start_kernel(connection_file: ConnectionFile) {
                 let mut s = String::new();
                 println!("R Kernel exiting.");
                 if let Err(err) = stdin().read_line(&mut s) {
-                    error!("Could not read from stdin: {}", err);
+                    error!("Could not read from stdin: {:?}", err);
                 }
             }
             Err(err) => {
@@ -213,15 +213,8 @@ fn main() {
         return;
     }
 
-    if let Some(log) = log_file {
-        // Initialize the internal file-based logger when a log file is
-        // specified
-        logger::initialize(log.as_str());
-    } else {
-        // Otherwise, log to standard out with the log level determined
-        // by the RUST_LOG environment variable.
-        env_logger::init();
-    }
+    // Initialize the logger.
+    logger::initialize(log_file.as_deref());
 
     // Initialize harp.
     harp::initialize();

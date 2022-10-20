@@ -126,7 +126,10 @@ export class TitlebarPart extends Part implements ITitleService {
 	}
 
 	get isCommandCenterVisible() {
-		return this.configurationService.getValue<boolean>(TitlebarPart.configCommandCenter);
+		// --- Start Positron ---
+		return false;
+		// return this.configurationService.getValue<boolean>(TitlebarPart.configCommandCenter);
+		// --- End Positron ---
 	}
 
 	private registerListeners(): void {
@@ -498,11 +501,15 @@ class ToogleConfigAction extends Action2 {
 	}
 }
 
+// --- Start Positron ---
+/*
 registerAction2(class ToogleCommandCenter extends ToogleConfigAction {
 	constructor() {
 		super('window.commandCenter', localize('toggle.commandCenter', 'Command Center'), 1);
 	}
 });
+*/
+// --- End Positron ---
 
 registerAction2(class ToogleLayoutControl extends ToogleConfigAction {
 	constructor() {
