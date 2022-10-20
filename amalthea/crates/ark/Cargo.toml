@@ -2,6 +2,9 @@
 name = "ark"
 version = "0.1.0"
 edition = "2021"
+description = """
+The Amalthea R Kernel.
+"""
 
 [dependencies]
 amalthea = { path = "../amalthea" }
@@ -9,8 +12,6 @@ anyhow = { version = "^1.0", features = ["backtrace"] }
 async-trait = "0.1.53"
 chrono = "0.4.22"
 dashmap = "5.3.3"
-env_logger = "0.9.0"
-extendr-api = "0.3.1"
 harp = { path = "../harp" }
 html5ever = "0.26.0"
 lazy_static = "1.4.0"
@@ -18,7 +19,6 @@ libR-sys = "0.3"
 libc = "0.2"
 log = "0.4.14"
 nix = { version = "0.24.1", features = ["signal"] }
-notify = "4.0.17"
 parking_lot = "0.12.1"
 regex = "1.6.0"
 ropey = "1.4.1"
@@ -26,7 +26,6 @@ scraper = "0.13.0"
 serde = { version = "1.0.133", features = ["derive"] }
 serde_json = "1.0.59"
 stdext = { path = "../stdext" }
-thiserror = "1.0.37"
 tokio = { version = "1.17.0", features = ["full"] }
 tower-lsp = "0.16.0"
 tree-sitter = "0.20.6"
