@@ -1,0 +1,42 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.top-bar-command-center {
+	display: flex;
+	align-items: stretch;
+	color: var(--vscode-positronTopBar-foreground);
+	background-color: var(--vscode-positronTopBar-background);
+	border: 1px solid var(--vscode-positronTopBar-border);
+	overflow: hidden;
+	margin: 0 6px;
+	border-top-left-radius: 6px;
+	border-bottom-left-radius: 6px;
+	border-top-right-radius: 6px;
+	border-bottom-right-radius: 6px;
+	width: 38vw;
+	max-width: 500px;
+	height: 24px;
+}
+
+.top-bar-command-center-search {
+	display: inline-flex;
+	justify-content: center;
+	width: 100%;
+	margin: auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.top-bar-command-center-search .codicon-search::before {
+	font-size: 14px;
+	opacity: .8;
+	margin: auto 4px;
+}
+
+.top-bar-command-center-chevron {
+	margin-left: auto;
+	padding: 3px 3px 0 0;
+	width: 16px;
+	flex-shrink: 0;
+}

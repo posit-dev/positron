@@ -5,6 +5,7 @@
 .top-bar-separator {
 	width: 8px;
 	height: 32px;
+	margin: 0 3px;
 	background-size: 4px 20px;
 	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
