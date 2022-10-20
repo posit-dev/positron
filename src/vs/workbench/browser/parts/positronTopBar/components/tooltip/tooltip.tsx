@@ -4,7 +4,7 @@
 
 import 'vs/css!./css/tooltip';
 const React = require('react');
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
 
 /**
@@ -22,28 +22,32 @@ interface TooltipProps {
  */
 export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => {
 	// Hooks.
-	const [hover, setHover] = useState(false);
+	const [mouseInside, setMouseInside] = useState(false);
+	const [showTooltip, setShowTooltip] = useState(false);
 
+	useEffect(() => {
+		console.log('useEffect called for control');
+	}, [mouseInside]);
+
+	// Handlers.
 	const mouseEnterHandler = () => {
-		console.log('Mouse is inside tooltip');
-		setHover(true);
+		setMouseInside(true);
 	};
 
 	const mouseLeaveHandler = () => {
-		console.log('Mouse is outside tooltip');
-		setHover(false);
-	};
-
-	const mouseOverHandler = () => {
-		console.log('Mouse is over');
-		setHover(false);
+		setMouseInside(false);
+		setShowTooltip(false);
 	};
 
 	// Render.
 	return (
-		<div className='tooltip' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onMouseOver={mouseOverHandler}>
-			{props.children}
-			{hover && <div className='toolie'>Tip</div>}
+		<div className='yack'>
+			<div className='tooltip' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
+				{props.children}
+			</div>
+			{mouseInside && showTooltip && props.tooltip && <div className='toolie'>
+				<div className='tyu'>{props.tooltip}</div>
+			</div>}
 		</div>
 	);
 };
