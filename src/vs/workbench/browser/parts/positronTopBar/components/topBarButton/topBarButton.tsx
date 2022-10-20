@@ -2,16 +2,19 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { useState } from 'react';
 import 'vs/css!./css/topBarButton';
 const React = require('react');
+import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
+import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 
 /**
  * TopBarButtonProps interface.
  */
 interface TopBarButtonProps {
-	dropDown?: boolean;
+	tooltipManager?: ITooltipManager;
 	iconClassName: string;
+	dropDown?: boolean;
+	tooltip?: string;
 }
 
 /**
@@ -20,9 +23,6 @@ interface TopBarButtonProps {
  * @returns The component.
  */
 export const TopBarButton = (props: TopBarButtonProps) => {
-	// Hooks.
-	const [hover, setHover] = useState(false);
-
 	// Handlers.
 	const clickHandler = () => {
 		console.log('Button was clicked');
@@ -30,23 +30,21 @@ export const TopBarButton = (props: TopBarButtonProps) => {
 
 	const mouseEnterHandler = () => {
 		console.log('Mouse is inside button!');
-		// setHover(true);
-		setHover(false);
 	};
 
 	const mouseLeaveHandler = () => {
 		console.log('Mouse is outside button!');
-		setHover(false);
 	};
 
 	// Render.
 	return (
-		<div className='top-bar-button' onClick={clickHandler} onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
-			<div className='top-bar-button-face'>
-				<div className={`top-bar-button-icon ${props.iconClassName}`} />
-				{props.dropDown && <div className='top-bar-button-drop-down-arrow' />}
-				{hover && <div className='toolie'>Hello</div>}
+		<Tooltip {...props}>
+			<div className='top-bar-button' onClick={clickHandler} onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
+				<div className='top-bar-button-face'>
+					<div className={`top-bar-button-icon ${props.iconClassName}`} />
+					{props.dropDown && <div className='top-bar-button-drop-down-arrow' />}
+				</div>
 			</div>
-		</div>
+		</Tooltip>
 	);
 };
