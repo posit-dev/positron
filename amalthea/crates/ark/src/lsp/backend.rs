@@ -273,21 +273,19 @@ impl LanguageServer for Backend {
             return Ok(None);
         });
 
-        info!("Completion token at point {:?}: '{}'", context.point, context.token);
-
         // start building completions
         let mut completions: Vec<CompletionItem> = vec![];
 
         // add session completions
         let result = append_session_completions(&context, &mut completions);
         if let Err(error) = result {
-            backend_trace!(self, "append_session_completions(): unexpected error {}", error);
+            error!("{:?}", error);
         }
 
         // add context-relevant completions
         let result = append_document_completions(&context, &mut completions);
         if let Err(error) = result {
-            backend_trace!(self, "append_session_completions(): unexpected error {}", error);
+            error!("{:?}", error);
         }
 
         // remove duplicates
@@ -325,7 +323,7 @@ impl LanguageServer for Backend {
 
         let data = item.data.clone();
         let data = unwrap!(data, {
-            info!("Completion has no associated data");
+            info!("Completion '{}' has no associated data", item.label);
             return Ok(item);
         });
 
