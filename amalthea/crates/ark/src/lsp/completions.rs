@@ -17,7 +17,6 @@ use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
-use harp::r_lock;
 use harp::r_symbol;
 use lazy_static::lazy_static;
 use libR_sys::*;
@@ -565,11 +564,69 @@ unsafe fn append_subset_completions(_context: &CompletionContext, callee: &str, 
 
 }
 
+unsafe fn append_call_completions(context: &CompletionContext, cursor_node: &Node, call_node: &Node, completions: &mut Vec<CompletionItem>) -> Result<()> {
+
+    // Get the callee text.
+    let callee = call_node.child(0).into_result()?.utf8_text(context.source.as_bytes())?;
+
+    // Check for library completions.
+    info!("Call node: {}", call_node.dump(context.source.as_str()));
+    info!("Cursor node: {}", cursor_node.dump(context.source.as_str()));
+
+    let mut cursor_node = *cursor_node;
+    let can_use_library_completions = local! {
+
+        if !matches!(callee, "library" | "base::library" | "base:::library") {
+            return false;
+        }
+
+        loop {
+
+            let cursor_parent = unwrap!(cursor_node.parent(), {
+                return false;
+            });
+
+            if cursor_parent == *call_node {
+                return
+                    call_node.child(1) == Some(cursor_node) ||
+                    call_node.child(2) == Some(cursor_node);
+            }
+
+            cursor_node = cursor_parent;
+
+        }
+
+    };
+
+
+    if can_use_library_completions {
+
+        let packages = RFunction::new("base", ".packages")
+            .param("all.available", true)
+            .call()?
+            .to::<Vec<String>>()?;
+
+        for package in packages {
+            let item = completion_item_from_package(package.as_str(), false)?;
+            completions.push(item);
+        }
+
+        return Ok(())
+
+    }
+
+    // Fall back to the default parameter completions.
+    append_parameter_completions(context, &callee, completions)
+
+}
+
 unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_parameter_completions({:?})", callee);
 
     // Check for a function defined in this document that can provide parameters.
+    // TODO: Move this to a separate 'resolve()' function which takes some 'callee'
+    // and provides a definition for that (probably an enum?)
     let index = index_document(context.document);
     for symbol in index {
         match symbol {
@@ -843,13 +900,14 @@ pub(crate) fn can_provide_completions(document: &mut Document, params: &Completi
 
 }
 
-pub(crate) fn append_session_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
+pub unsafe fn append_session_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_session_completions()");
 
     // get reference to AST
     let ast = context.document.ast()?;
-    let mut node = ast.node_at_point(context.point)?;
+    let cursor_node = ast.node_at_point(context.point)?;
+    let mut node = cursor_node;
 
     // check for completion within a comment -- in such a case, we usually
     // want to complete things like roxygen tags
@@ -861,7 +919,7 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
         let token = pattern.replace(contents, "");
         info!("Token: {:?}", token);
         if token.starts_with('@') {
-            return r_lock! { append_roxygen_completions(&token[1..], completions) };
+            return append_roxygen_completions(&token[1..], completions);
         } else {
             return Ok(());
         }
@@ -898,7 +956,7 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
                 if let Some(prev) = parent.prev_sibling() {
                     if matches!(prev.kind(), "identifier" | "string") {
                         let package = prev.utf8_text(context.source.as_bytes()).unwrap();
-                        return r_lock! { append_namespace_completions(context, package, exports_only, completions) };
+                        return append_namespace_completions(context, package, exports_only, completions);
                     }
                 }
             }
@@ -912,17 +970,14 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
             let enquote = matches!(node.kind(), "subset" | "subset2");
             if let Some(child) = node.child(0) {
                 let text = child.utf8_text(context.source.as_bytes())?;
-                return r_lock! { append_subset_completions(context, &text, enquote, completions) };
+                return append_subset_completions(context, &text, enquote, completions);
             }
         }
 
         // If we landed on a 'call', then we should provide parameter completions
         // for the associated callee if possible.
         if node.kind() == "call" {
-            if let Some(child) = node.child(0) {
-                let text = child.utf8_text(context.source.as_bytes())?;
-                return r_lock! { append_parameter_completions(context, &text, completions) };
-            }
+            return append_call_completions(context, &cursor_node, &node, completions);
         }
 
         // Handle the case with 'package::prefix', where the user has now
@@ -932,7 +987,7 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
                 if let Some(colon_node) = node.child(1) {
                     let package = package_node.utf8_text(context.source.as_bytes()).unwrap();
                     let exports_only = colon_node.kind() == "::";
-                    return r_lock! { append_namespace_completions(context, package, exports_only, completions) };
+                    return append_namespace_completions(context, package, exports_only, completions);
                 }
             }
         }
@@ -952,7 +1007,7 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
 
     // If we got here, then it's appropriate to return completions
     // for any packages + symbols on the search path.
-    return r_lock! { append_search_path_completions(context, completions) };
+    append_search_path_completions(context, completions)
 
 }
 

@@ -277,7 +277,7 @@ impl LanguageServer for Backend {
         let mut completions: Vec<CompletionItem> = vec![];
 
         // add session completions
-        let result = append_session_completions(&context, &mut completions);
+        let result = r_lock! { append_session_completions(&context, &mut completions) };
         if let Err(error) = result {
             error!("{:?}", error);
         }
