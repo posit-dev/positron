@@ -12,10 +12,11 @@
 
 .top-bar-button-face {
 	display: flex;
+	padding: 0 2px;
 	position: relative;
 	align-items: center;
 	justify-content: center;
-	background-size: 24px 20px;
+	background-size: 30px 25px;
 	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
 }
@@ -26,20 +27,20 @@
 }
 
 .top-bar-button-icon {
-	width: 24px;
-	height: 20px;
-	padding: 4px;
-	background-size: 24px 20px;
+	width: 30px;
+	height: 25px;
+	padding: 2px 3px;
+	background-size: 30px 25px;
 	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
 
 }
 
 .top-bar-button-drop-down-arrow {
-	width: 7px;
-	height: 20px;
-	padding: 0 4px 0 0;
-	background-size: 7px 20px;
+	width: 8px;
+	height: 28px;
+	padding-right: 2px;
+	background-size: 8px 20px;
 	background-repeat: no-repeat;
 	background-position: left center, 50%, 50%;
 	background-image: url("../images/drop-down-arrow.svg");

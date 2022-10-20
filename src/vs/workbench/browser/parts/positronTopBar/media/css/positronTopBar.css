@@ -3,11 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-top-bar {
+	width: 100%;
 	background: transparent;
 	display: flex;
 	overflow: visible;
 	z-index: 2000;
-	/* position: relative; */
+	padding: 0 2px;
 }
 
 .new-file-icon {
@@ -57,3 +58,21 @@
 .vs-dark .print-icon {
 	background-image: url("../images/print-dark.svg");
 }
+
+.forward-icon {
+	background-image: url("../images/forward-light.svg");
+}
+
+.vs-dark .forward-icon {
+	background-image: url("../images/forward-dark.svg");
+}
+
+.back-icon {
+	background-image: url("../images/back-light.svg");
+}
+
+.vs-dark .back-icon {
+	background-image: url("../images/back-dark.svg");
+}
+
+

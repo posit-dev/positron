@@ -28,7 +28,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 	// #region IView
 
-	readonly height: number = 32;
+	readonly height: number = 36;
 	readonly minimumWidth: number = 0;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 
