@@ -20,43 +20,30 @@ jobs:
         with:
           node-version: 16
 
-      - name: Compute node modules cache key
-        id: nodeModulesCacheKey
-        run: echo "::set-output name=value::$(node build/azure-pipelines/common/computeNodeModulesCacheKey.js)"
+      # Perform initial (arm64) dependency download/install
+      - name: Install Dependencies (arm64)
+        run: yarn
 
-      - name: Cache node modules
-        id: cacheNodeModules
-        uses: actions/cache@v3
-        with:
-          path: "**/node_modules"
-          key: ${{ runner.os }}-cacheNodeModulesLinux-${{ steps.nodeModulesCacheKey.outputs.value }}
+      # Build client for arm64
+      - name: Build Client (arm64)
+        run: yarn gulp vscode-darwin-arm64
 
-      - name: Get yarn cache directory path
-        id: yarnCacheDirPath
-        if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
-        run: echo "::set-output name=dir::$(yarn cache dir)"
+      # Remove arm64 node_modules folders so we can rebuild for x64
+      - name: Clean Client (arm64)
+        run: git ls-files --directory -i -o -x node_modules | xargs rm -rf
 
-      - name: Cache yarn directory
-        if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.yarnCacheDirPath.outputs.dir }}
-          key: ${{ runner.os }}-yarnCacheDir-${{ steps.nodeModulesCacheKey.outputs.value }}
-          restore-keys: ${{ runner.os }}-yarnCacheDir-
-
-      - name: Execute yarn
-        if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
+      # Reinstall node_modules binaries for x64
+      - name: Install Dependencies (x64)
         env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-        run: yarn --frozen-lockfile --network-timeout 180000
+          npm_config_arch: x64
+        run: yarn
 
-      - name: Compile and Download (x64)
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64"
+      # Build client for x64
+      - name: Build Client (x64)
+        run: yarn gulp vscode-darwin-x64
 
-      - name: Compile and Download (arm64)
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron arm64"
-
+      # Glue together the arm64 and x64 binaries with lipo to create a
+      # universal build
       - name: Create universal build
         env:
            VSCODE_ARCH: universal
