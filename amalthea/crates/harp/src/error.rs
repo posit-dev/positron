@@ -6,6 +6,7 @@
 //
 
 use std::fmt;
+use std::str::Utf8Error;
 
 use crate::utils::r_type2char;
 
@@ -16,6 +17,7 @@ pub enum Error {
     EvaluationError(String, String),
     UnexpectedLength(u32, u32),
     UnexpectedType(u32, Vec<u32>),
+    InvalidUtf8(Utf8Error)
 }
 
 // empty implementation required for 'anyhow'
@@ -41,6 +43,16 @@ impl fmt::Display for Error {
                 }
             }
 
+            Error::InvalidUtf8(error) => {
+                write!(f, "Invalid UTF-8 in string: {}", error)
+            }
+
         }
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(error: Utf8Error) -> Self {
+        Self::InvalidUtf8(error)
     }
 }

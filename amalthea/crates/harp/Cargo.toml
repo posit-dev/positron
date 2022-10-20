@@ -10,4 +10,5 @@ Integration of R and Rust.
 libR-sys = "0.3.0"
 log = "0.4.17"
 stdext = { path = "../stdext" }
+thiserror = "1.0.37"
 walkdir = "2.3.2"

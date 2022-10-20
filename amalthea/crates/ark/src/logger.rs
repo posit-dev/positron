@@ -39,8 +39,14 @@ impl Logger {
 
 impl log::Log for Logger {
 
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        match metadata.level() {
+            Level::Error => true,
+            Level::Warn => true,
+            Level::Info => true,
+            Level::Debug => false,
+            Level::Trace => false,
+        }
     }
 
     fn log(&self, record: &Record) {
@@ -50,19 +56,22 @@ impl log::Log for Logger {
         }
 
         // Acquire logging lock.
-        if let Ok(mut file) = self.mutex.as_ref().unwrap().lock() {
-            let now: DateTime<Utc> = SystemTime::now().into();
-            writeln!(file, "{}", format!(
-                "{} [{}-{}] {} {}:{}: {}",
-                now.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true),
-                "ark",
-                "unknown", // TODO: Current user?
-                record.level(),
-                record.file().unwrap_or("?"),
-                record.line().unwrap_or(0),
-                record.args()
-            )).unwrap();
-        }
+        let mut file = self.mutex.as_ref().unwrap().lock().unwrap();
+
+        let now: DateTime<Utc> = SystemTime::now().into();
+        let timestamp = now.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
+
+        writeln!(
+            file,
+            "{} [{}-{}] {} {}:{}: {}",
+            timestamp,
+            "ark",
+            "unknown", // TODO: Current user?
+            record.level(),
+            record.file().unwrap_or("?"),
+            record.line().unwrap_or(0),
+            record.args()
+        ).unwrap();
 
     }
 
