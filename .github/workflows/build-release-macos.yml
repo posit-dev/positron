@@ -83,7 +83,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      # Reinstall node_modules binaries for x64
+      # Install node_modules binaries for x64
       - name: Install dependencies (x64)
         env:
           npm_config_arch: x64
@@ -134,6 +134,12 @@ jobs:
           unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
           unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
 
+      # Align architectures. These tasks alter the arm64 and x64 files so that
+      # they are suitably symmetric for the electron-universal task that runs
+      # below.
+      - name: Align arm64 and x64 app content
+        run: find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
+
       # Glue together the arm64 and x64 binaries with lipo to create a
       # universal build
       - name: Create universal build
@@ -144,6 +150,37 @@ jobs:
           export AGENT_BUILDDIRECTORY=$(pwd)
           node build/darwin/create-universal-app.js
 
+      # Compress universal client to a zip file
+      - name: Create universal client archive
+        run: |
+          pushd ..
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip VSCode-darwin-universal
+          popd
+
+      # Create a GitHub release for the universal binary we just created.
+      #
+      # TODO: This shouldn't be nested inside the macOS build task, but since
+      # macOS is all we're building now, a macOS release and a Positron release
+      # are the same thing.
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: true
+          release_name: ${{ needs.version_string.outputs.short_version }}
+          tag_name: ${{ github.ref }}
+
+      - name: Upload release artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          asset_name: positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          asset_content_type: application/zip
+
       - name: Run unit tests
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
@@ -151,4 +188,3 @@ jobs:
       - name: Run integration tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
-
