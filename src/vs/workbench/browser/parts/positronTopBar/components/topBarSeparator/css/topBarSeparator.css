@@ -3,10 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .top-bar-separator {
-	width: 8px;
+	width: 7px;
 	height: 32px;
-	margin: 0 3px;
-	background-size: 4px 20px;
+	background-size: 5px 30px;
 	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
 	background-image: url("../images/top-bar-separator-dark.svg");
