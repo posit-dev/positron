@@ -6,6 +6,9 @@
 			"script": "watch-clientd",
 			"label": "Core - Build",
 			"isBackground": true,
+			"dependsOn": [
+				"Kill Core - Build"
+			],
 			"presentation": {
 				"reveal": "never",
 				"group": "buildWatchers",
@@ -34,6 +37,9 @@
 			"script": "watch-extensionsd",
 			"label": "Ext - Build",
 			"isBackground": true,
+			"dependsOn": [
+				"Kill Ext - Build"
+			],
 			"presentation": {
 				"reveal": "never",
 				"group": "buildWatchers",
@@ -62,6 +68,9 @@
 			"script": "watch-build-toolsd",
 			"label": "Build Tools - Build",
 			"isBackground": true,
+			"dependsOn": [
+				"Kill Build Tools - Build"
+			],
 			"presentation": {
 				"reveal": "never",
 				"group": "buildWatchers",
