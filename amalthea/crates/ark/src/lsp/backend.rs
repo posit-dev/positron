@@ -249,7 +249,7 @@ impl LanguageServer for Backend {
 
         // check whether we should be providing completions
         let ok = can_provide_completions(document.value_mut(), &params).unwrap_or_else(|err| {
-            error!("{}", err);
+            error!("{:?}", err);
             return false;
         });
 
@@ -269,7 +269,7 @@ impl LanguageServer for Backend {
 
         // build completion context
         let context = unwrap!(completion_context(document.value_mut(), params), error {
-            error!("{}", error);
+            error!("{:?}", error);
             return Ok(None);
         });
 
@@ -330,15 +330,15 @@ impl LanguageServer for Backend {
         });
 
         let data : CompletionData = unwrap!(serde_json::from_value(data), err {
-            error!("{}", err);
+            error!("{:?}", err);
             return Ok(item);
         });
 
         unsafe {
-            if let Err(error) = resolve_completion_item(&mut item, &data) {
-                error!("{}", error);
+            unwrap!(resolve_completion_item(&mut item, &data), err {
+                error!("{:?}", err);
                 return Ok(item);
-            }
+            });
         }
 
         Ok(item)

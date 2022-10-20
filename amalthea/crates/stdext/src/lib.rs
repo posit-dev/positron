@@ -12,8 +12,7 @@ pub mod unwrap;
 macro_rules! cargs {
 
     ($($expr:expr),*) => {{
-        use stdext::cstr;
-        std::vec![$($crate::cstr!($expr)),*]
+        vec![$($crate::cstr!($expr)),*]
     }};
 
 }
@@ -24,7 +23,7 @@ macro_rules! cstr {
 
     ($value:literal) => {{
         use std::os::raw::c_char;
-        let value = std::concat!($value, "\0");
+        let value = concat!($value, "\0");
         value.as_ptr() as *mut c_char
     }};
 
