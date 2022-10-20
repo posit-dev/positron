@@ -14,14 +14,16 @@ use crate::error::Error;
 use crate::object::RObject;
 use crate::r_symbol;
 
-pub unsafe fn r_check_type(object: SEXP, expected: u32) -> Result<(), Error> {
+pub unsafe fn r_check_type(object: SEXP, expected: &[u32]) -> Result<(), Error> {
 
     let actual = TYPEOF(object) as u32;
-    if actual != expected {
-        return Err(Error::UnexpectedType(actual, vec![expected]));
+    for candidate in expected.iter() {
+        if actual == *candidate {
+            return Ok(())
+        }
     }
 
-    Ok(())
+    Err(Error::UnexpectedType(actual, expected.to_vec()))
 
 }
 

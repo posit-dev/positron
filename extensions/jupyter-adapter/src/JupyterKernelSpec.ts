@@ -19,5 +19,5 @@ export interface JupyterKernelSpec {
 	interrupt_mode?: string; // eslint-disable-line
 
 	/** Environment variables to set when starting the kernel */
-	env?: Map<string, string>;
+	env?: { [key: string]: string };
 }

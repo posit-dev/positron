@@ -5,6 +5,7 @@
 //
 //
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -15,7 +16,6 @@ use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
-use harp::object::RObjectExt;
 use harp::protect::RProtect;
 use harp::r_lock;
 use harp::r_string;
@@ -25,9 +25,13 @@ use libR_sys::*;
 use log::*;
 use regex::Captures;
 use regex::Regex;
+use scraper::ElementRef;
+use scraper::Html;
+use scraper::Selector;
 use serde::Deserialize;
 use serde::Serialize;
 use stdext::*;
+use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::Command;
 use tower_lsp::lsp_types::CompletionItem;
 use tower_lsp::lsp_types::CompletionItemKind;
@@ -69,6 +73,26 @@ pub struct CompletionContext<'a> {
     pub params: CompletionParams,
 }
 
+// TODO: Belongs somewhere else.
+fn to_markdown(elt: ElementRef, buffer: &mut String) {
+
+    for node in elt.children() {
+
+        if let Some(elt) = ElementRef::wrap(node) {
+            if elt.value().name() == "code" {
+                buffer.push('`');
+                to_markdown(elt, buffer);
+                buffer.push('`');
+            } else {
+                to_markdown(elt, buffer);
+            }
+        } else if let Some(text) = node.value().as_text() {
+            buffer.push_str(text.as_ref());
+        }
+
+    }
+}
+
 fn is_syntactic(name: &str) -> bool {
     return RE_SYNTACTIC_IDENTIFIER.is_match(name);
 }
@@ -106,25 +130,93 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
 }
 
-pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
 
-    let mut help = RFunction::from(".rs.help.object");
-    help.add(data.value.to_string());
-    if let Some(ref source) = data.source {
-        help.add(source.to_string());
+    let source = data.source.as_ref().into_result()?;
+    let html = RFunction::from(".rs.help.getHtmlHelpContents")
+        .add(source.as_ref())
+        .call()?
+        .to::<String>()?;
+
+    // Find and parse the arguments in the HTML help. The help file has the structure:
+    //
+    // <h3>Arguments</h3>
+    //
+    // <table>
+    // <tr style="vertical-align: top;"><td><code>parameter</code></td>
+    // <td>
+    // Parameter documentation.
+    // </td></tr>
+
+    let doc = Html::parse_document(html.as_str());
+    let selector = Selector::parse("h3").unwrap();
+    let mut headers = doc.select(&selector);
+    let header = headers.find(|node| node.html() == "<h3>Arguments</h3>").into_result()?;
+
+    // Find the table. Note that empty lines enter the AST, so we need to skip those
+    // even though the table is the next element sibling.
+    let table = header.next_siblings().find(|node| {
+        node.value().as_element().map(|elt| elt.name() == "table").unwrap_or(false)
+    }).into_result()?;
+
+    // Wrap the table back into an element reference.
+    let table = ElementRef::wrap(table).into_result()?;
+
+    // I really wish R included classes on these table elements...
+    let selector = Selector::parse(r#"tr[style="vertical-align: top;"] > td"#).unwrap();
+    let mut cells = table.select(&selector);
+
+    // Start iterating through pairs of cells.
+    loop {
+
+        // Get the parameters. Note that multiple parameters might be contained
+        // within a single table cell, so we'll need to split that later.
+        let lhs = unwrap!(cells.next(), { break });
+        let parameters : String = lhs.text().collect();
+
+        // Get the parameter description. We'll convert this from HTML to Markdown.
+        let rhs = unwrap!(cells.next(), { break });
+
+        // Check and see if we've found the parameter we care about.
+        let pattern = Regex::new("\\s*,\\s*").unwrap();
+        let mut params = pattern.split(parameters.as_str());
+        let label = params.find(|&value| value == item.label);
+        if label.is_none() {
+            continue;
+        }
+
+        // We found the relevant parameter; add its documentation.
+        let mut buffer = String::new();
+        to_markdown(rhs, &mut buffer);
+        let description = buffer.trim().to_string();
+
+        let markup = MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: description,
+        };
+
+        // Build the actual markup content.
+        // We found it; amend the documentation.
+        item.detail = Some(format!("{}()", source));
+        item.documentation = Some(Documentation::MarkupContent(markup));
+        return Ok(())
+
     }
 
-    let object = help.call()?;
+    Ok(())
 
-    let kind  = object.elt("type")?.to::<String>()?;
-    let value = object.elt("value")?.to::<String>()?;
 
-    let markup = MarkupContent {
-        kind: if kind == "markdown" { MarkupKind::Markdown } else { MarkupKind::PlainText },
-        value: value.to_string(),
-    };
+}
 
-    item.documentation = Some(Documentation::MarkupContent(markup));
+pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+
+    // Handle arguments specially.
+    if let Some(kind) = item.kind {
+        if kind == CompletionItemKind::FIELD {
+            return resolve_argument_completion_item(item, data);
+        }
+    }
+
     Ok(())
 
 }
@@ -328,7 +420,7 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
                 // check for a valid completion
                 match completion_item_from_assignment(&node, &context.source) {
                     Ok(item) => completions.push(item),
-                    Err(error) => error!("{}", error),
+                    Err(error) => error!("{:?}", error),
                 }
 
                 // return true in case we have nested assignments
@@ -398,7 +490,7 @@ fn append_function_parameters(node: &Node, context: &CompletionContext, completi
         if node.kind() == "identifier" {
             match completion_item_from_identifier(&node, &context.source) {
                 Ok(item) => completions.push(item),
-                Err(error) => error!("{}", error),
+                Err(error) => error!("{:?}", error),
             }
         }
     }
@@ -440,7 +532,7 @@ unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str
                     for argument in arguments {
                         match completion_item_from_parameter(argument.as_str(), name.as_str()) {
                             Ok(item) => completions.push(item),
-                            Err(error) => error!("{}", error),
+                            Err(error) => error!("{:?}", error),
                         }
                     }
                     return Ok(());
@@ -493,7 +585,7 @@ unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str
         for string in strings.iter() {
             match completion_item_from_parameter(string, callee) {
                 Ok(item) => completions.push(item),
-                Err(error) => error!("{}", error),
+                Err(error) => error!("{:?}", error),
             }
         }
 
@@ -862,7 +954,7 @@ pub(crate) fn append_document_completions(context: &CompletionContext, completio
         if node.kind() == "function_definition" {
             let result = append_function_parameters(&node, context, completions);
             if let Err(error) = result {
-                error!("{}", error);
+                error!("{:?}", error);
             }
         }
 

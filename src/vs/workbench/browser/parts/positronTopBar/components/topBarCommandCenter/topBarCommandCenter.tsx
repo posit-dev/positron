@@ -3,14 +3,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./css/topBarCommandCenter';
+import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
+
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 
 const React = require('react');
+
 
 /**
  * TopBarCommandCenterProps interface.
  */
 interface TopBarCommandCenterProps {
-
+	quickInputService: IQuickInputService;
 }
 
 /**
@@ -20,15 +24,29 @@ interface TopBarCommandCenterProps {
  */
 export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 
+	// Handlers.
+	const searchClickHandler = () => {
+		props.quickInputService.quickAccess.show(undefined, {
+			providerOptions: {
+				includeHelp: true,
+			} as AnythingQuickAccessProviderRunOptions
+		});
+	};
+
+	const chevronClickHandler = () => {
+		props.quickInputService.quickAccess.show('?');
+	};
+
+
 	// Render.
 	return (
 		<div className={`top-bar-command-center`}>
-			<div className='top-bar-command-center-search'>
+			<div className='top-bar-command-center-search' onClick={searchClickHandler}>
 				<span className='codicon codicon-search'></span>
-				Search
+				<span>Search</span>
 			</div>
 
-			<div className='top-bar-command-center-chevron'>
+			<div className='top-bar-command-center-chevron' onClick={chevronClickHandler}>
 				<span className='codicon codicon-chevron-down'></span>
 			</div>
 		</div>

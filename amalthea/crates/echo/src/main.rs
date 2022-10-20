@@ -36,7 +36,7 @@ fn start_kernel(connection_file: ConnectionFile) {
                 let mut s = String::new();
                 println!("Kernel activated, press Ctrl+C to end ");
                 if let Err(err) = stdin().read_line(&mut s) {
-                    error!("Could not read from stdin: {}", err);
+                    error!("Could not read from stdin: {:?}", err);
                 }
             }
             Err(err) => {
