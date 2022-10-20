@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export interface ITooltipManager {
-	shouldShowTooltip(): boolean;
+	tooltipDelay(): number;
 }
 
 /**
@@ -11,13 +11,18 @@ export interface ITooltipManager {
  */
 export class TooltipManager implements ITooltipManager {
 
-	// private lastTime?: Date;
+	private lastTime?: number;
 
 	constructor() {
-
 	}
 
-	shouldShowTooltip = () => {
-		return true;
+	tooltipDelay = () => {
+
+		if (!this.lastTime) {
+			this.lastTime = new Date().getTime();
+			return 200;
+		} else {
+			return 0;
+		}
 	};
 }
