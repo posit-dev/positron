@@ -12,12 +12,12 @@ jobs:
       build_number: ${{ steps.build_number.outputs.result }}
     steps:
       # Fetch full history; required so we can determine the build version with rev-list
-      - name: Checkout Sources
+      - name: Checkout sources
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # Set up Node 16
+      # Set up Node 16; needed since the show-version.js script runs under Node
       - uses: actions/setup-node@v3
         with:
           node-version: 16
@@ -38,81 +38,80 @@ jobs:
 
 
   macos-arm64:
-    name: Build macOS Client (arm64)
+    name: Build macOS client (arm64)
     needs: version_string
     runs-on: [self-hosted, macos, arm64]
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout Sources
+      - name: Checkout sources
         uses: actions/checkout@v3
 
       # Perform initial (arm64) dependency download/install
-      - name: Install Dependencies (arm64)
+      - name: Install dependencies (arm64)
         run: yarn
 
       # Build client for arm64
-      - name: Build Client (arm64)
+      - name: Build client (arm64)
         run: yarn gulp vscode-darwin-arm64
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
 
       # Compress arm64 client to a zip file
-      - name: Create arm64 Client Archive
+      - name: Create arm64 client archive
         run: |
           pushd ..
           zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip VSCode-darwin-arm64
           popd
 
       # Create build artifact
-      - name: Upload arm64 Client Arachive
+      - name: Upload arm64 client archive
         uses: actions/upload-artifact@v3
         with:
           name: positron-darwin-arm64-archive
           path: positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
 
   macos-x64:
-    name: Build macOS Client (x64)
+    name: Build macOS client (x64)
     runs-on: [self-hosted, macos, arm64]
     needs: version_string
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout Sources
+      - name: Checkout sources
         uses: actions/checkout@v3
 
       # Reinstall node_modules binaries for x64
-      - name: Install Dependencies (x64)
+      - name: Install dependencies (x64)
         env:
           npm_config_arch: x64
         run: yarn
 
       # Build client for x64
-      - name: Build Client (x64)
+      - name: Build client (x64)
         run: yarn gulp vscode-darwin-x64
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
 
-      # Compress arm64 client to a zip file
-      - name: Create x64 Client Archive
+      # Compress x64 client to a zip file
+      - name: Create x64 client archive
         run: |
           pushd ..
           zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip VSCode-darwin-x64
           popd
 
       # Create build artifact
-      - name: Upload x64 Client Arachive
+      - name: Upload x64 client archive
         uses: actions/upload-artifact@v3
         with:
           name: positron-darwin-x64-archive
           path: positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
 
-
   macos-universal:
-    name: Create macOS Universal Binary
-    needs: [macos-arm64, macos-x64]
+    name: Create macOS universal binary
+    needs: [version_string, macos-arm64, macos-x64]
     runs-on: [self-hosted, macos, arm64]
     timeout-minutes: 40
     env:
@@ -145,11 +144,11 @@ jobs:
           export AGENT_BUILDDIRECTORY=$(pwd)
           node build/darwin/create-universal-app.js
 
-      - name: Run Unit Tests
+      - name: Run unit tests
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
 
-      - name: Run Integration Tests (Electron)
+      - name: Run integration tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
 
