@@ -5,6 +5,7 @@
 //
 //
 
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::ops::Deref;
@@ -19,6 +20,7 @@ use log::trace;
 use crate::error::Error;
 use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
+use crate::protect::RProtect;
 use crate::utils::r_check_length;
 use crate::utils::r_check_type;
 use crate::utils::r_typeof;
@@ -221,6 +223,7 @@ impl From<Vec<String>> for RObject {
     }
 }
 
+
 /// RObject ->
 
 // TODO: Need to handle NA elements as well.
@@ -228,7 +231,7 @@ impl TryFrom<RObject> for bool {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, LGLSXP)?;
+            r_check_type(*value, &[LGLSXP])?;
             r_check_length(*value, 1)?;
             return Ok(*LOGICAL(*value) != 0);
         }
@@ -239,11 +242,12 @@ impl TryFrom<RObject> for String {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, STRSXP)?;
+            r_check_type(*value, &[STRSXP])?;
             r_check_length(*value, 1)?;
+
             let charsexp = STRING_ELT(*value, 0);
-            let cstr = Rf_translateCharUTF8(charsexp);
-            return Ok(CStr::from_ptr(cstr).to_str().unwrap().to_string());
+            let utf8text = Rf_translateCharUTF8(charsexp);
+            Ok(CStr::from_ptr(utf8text).to_str()?.to_string())
         }
     }
 }
@@ -252,7 +256,7 @@ impl TryFrom<RObject> for Vec<String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, STRSXP)?;
+            r_check_type(*value, &[STRSXP])?;
 
             let mut result : Vec<String> = Vec::new();
             let n = Rf_length(*value);
@@ -278,6 +282,39 @@ impl TryFrom<RObject> for i32 {
                 REALSXP => { Ok((*REAL(*value)) as i32) }
                 _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![INTSXP])) }
             }
+        }
+    }
+}
+
+impl TryFrom<RObject> for HashMap<String, String> {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_check_type(*value, &[STRSXP, VECSXP])?;
+
+            let names = Rf_getAttrib(*value, R_NamesSymbol);
+            r_check_type(names, &[STRSXP])?;
+
+            let mut protect = RProtect::new();
+            let value = protect.add(Rf_coerceVector(*value, STRSXP));
+
+            let n = Rf_length(names);
+            let mut map = HashMap::<String, String>::with_capacity(n as usize);
+
+            for i in 0..Rf_length(names) {
+
+                // Get access to element pointers.
+                let lhs = R_CHAR(STRING_ELT(names, i as isize));
+                let rhs = R_CHAR(STRING_ELT(value, i as isize));
+
+                // Create strings.
+                let lhs = CStr::from_ptr(lhs).to_str()?;
+                let rhs = CStr::from_ptr(rhs).to_str()?;
+
+                map.insert(lhs.to_string(), rhs.to_string());
+            }
+
+            Ok(map)
         }
     }
 }

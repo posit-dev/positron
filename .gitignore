@@ -17,3 +17,4 @@ vscode.lsif
 vscode.db
 /.profile-oss
 /cli/target
+.Rproj.user

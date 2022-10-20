@@ -18,6 +18,8 @@ import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/positr
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IPositronTopBarService } from 'vs/workbench/services/positronTopBar/browser/positronTopBarService';
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 /**
  * PositronTopBarPart class.
@@ -60,7 +62,9 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IThemeService themeService: IThemeService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
 		@IStorageService storageService: IStorageService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IQuickInputService private readonly quickInputService: IQuickInputService,
+		@ICommandService private readonly commandService: ICommandService,
 	) {
 		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
@@ -78,7 +82,10 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		// Render the Positron top bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<PositronTopBar />
+			<PositronTopBar
+				quickInputService={this.quickInputService}
+				commandService={this.commandService}
+			/>
 		);
 
 		// Track focus
@@ -93,6 +100,14 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		return {
 			type: Parts.POSITRON_TOP_BAR_PART
 		};
+	}
+
+	public override dispose(): void {
+		if (this.positronReactRenderer) {
+			this.positronReactRenderer.destroy();
+			this.positronReactRenderer = undefined;
+		}
+		super.dispose();
 	}
 
 	//#endregion Part Class

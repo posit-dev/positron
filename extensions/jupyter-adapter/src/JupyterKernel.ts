@@ -141,16 +141,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		const command = args.join(' ');
 
-		// If environment variables were provided in the kernel spec, apply them
-		let options = {};
-		if (this._spec.env) {
-			options = {
-				// The environment variables are passed in as Map, which
-				// Typescript doesn't think is compatible with
-				// NodeJS.ProcessEnv. But it totally is.
-				env: this._spec.env as any
-			} as SpawnOptions;
-		}
+		// Create environment.
+		const env = {};
+		Object.assign(env, process.env, this._spec.env);
+
+		// Create spawn options.
+		const options = <SpawnOptions>{
+			env: env,
+		};
 
 		this.setStatus(vscode.RuntimeState.Starting);
 

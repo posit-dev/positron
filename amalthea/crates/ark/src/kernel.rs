@@ -247,7 +247,7 @@ impl Kernel {
             match Kernel::to_html(value) {
                 Ok(html) => data.insert("text/html".to_string(), json!(html)),
                 Err(error) => {
-                    error!("{}", error);
+                    error!("{:?}", error);
                     None
                 }
             };
