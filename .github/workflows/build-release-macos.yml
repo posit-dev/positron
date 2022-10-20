@@ -48,8 +48,9 @@ jobs:
         env:
            VSCODE_ARCH: universal
            DEBUG: "*"
-           AGENT_BUILDDIRECTORY: ".."
-        run: node build/darwin/create-universal-app.js
+        run: |
+          export AGENT_BUILDDIRECTORY=$(dirname $GITHUB_WORKSPACE)
+          node build/darwin/create-universal-app.js
 
       - name: Run Unit Tests
         id: electron-unit-tests
