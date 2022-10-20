@@ -10,11 +10,13 @@ import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/c
 import { TopBarRegion } from 'vs/workbench/browser/parts/positronTopBar/components/topBarRegion/topBarRegion';
 import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSeparator/topBarSeparator';
 import { TooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 
 /**
  * PositronTopBarProps interface.
  */
 interface PositronTopBarProps {
+	quickInputService: IQuickInputService;
 }
 
 /**
@@ -43,7 +45,7 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 			<TopBarRegion align='center'>
 				<TopBarButton iconClassName='back-icon' />
 				<TopBarButton iconClassName='forward-icon' />
-				<TopBarCommandCenter />
+				<TopBarCommandCenter {...props} />
 			</TopBarRegion>
 
 			<TopBarRegion align='right'>

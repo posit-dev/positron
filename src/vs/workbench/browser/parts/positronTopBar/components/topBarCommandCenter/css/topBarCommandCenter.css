@@ -6,7 +6,7 @@
 	display: flex;
 	align-items: stretch;
 	color: var(--vscode-positronTopBar-foreground);
-	background-color: var(--vscode-positronTopBar-background);
+	background-color: var(--vscode-positronTopBar-commandsBackground);
 	border: 1px solid var(--vscode-positronTopBar-border);
 	overflow: hidden;
 	margin: 0 6px;
