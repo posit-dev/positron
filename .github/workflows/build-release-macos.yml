@@ -5,7 +5,7 @@ on: workflow_dispatch
 jobs:
   macos:
     name: Build macOS Release
-    runs-on: macos-latest
+    runs-on: [self-hosted, macos, arm64]
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
