@@ -61,15 +61,16 @@ jobs:
       # Compress arm64 client to a zip file
       - name: Create arm64 Client Archive
         run: |
-          cd ..
-          zip -Xry positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip VSCode-darwin-arm64
+          pushd ..
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip VSCode-darwin-arm64
+          popd
 
       # Create build artifact
       - name: Upload arm64 Client Arachive
         uses: actions/upload-artifact@v3
         with:
           name: positron-darwin-arm64-archive
-          path: ../positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
+          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
 
   macos-x64:
     name: Build macOS Client (x64)
@@ -98,7 +99,7 @@ jobs:
       - name: Create x64 Client Archive
         run: |
           pushd ..
-          zip -Xry positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip VSCode-darwin-x64
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip VSCode-darwin-x64
           popd
 
       # Create build artifact
@@ -106,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: positron-darwin-x64-archive
-          path: ../positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
+          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
 
 
   macos-universal:
