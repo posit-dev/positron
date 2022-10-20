@@ -2,6 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+.yack {
+	position: relative;
+	overflow: visible;
+	font-size: 13px;
+}
+
 .tooltip {
 	display: flex;
 	overflow: visible;
@@ -9,12 +15,18 @@
 }
 
 .toolie {
-	position: absolute;
-	border-radius: 5px;
-	background: red;
+	left: 0;
 	top: 32px;
-	left: 0px;
-	width: 200;
-	display: block;
-	height: 20px;
+	padding: 6px 6px;
+	position: absolute;
+	width: fit-content;
+	border-radius: 6px;
+	display: inline-block;
+	background: var(--vscode-positronToolTip-background);
+	/* border: 1px solid var(--vscode-positronToolTip-border); */
+}
+
+.tyu {
+	width: max-content;
+	height: max-content;
 }

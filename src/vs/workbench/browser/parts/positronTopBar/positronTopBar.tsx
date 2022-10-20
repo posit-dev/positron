@@ -30,14 +30,14 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 	return (
 		<div className='positron-top-bar'>
 			<TopBarRegion align='left'>
-				<TopBarButton tooltipManager={hoverManager} iconClassName='new-file-icon' dropDown={true} />
+				<TopBarButton tooltipManager={hoverManager} iconClassName='new-file-icon' dropDown={true} tooltip='New file' />
 				<TopBarSeparator />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='new-project-icon' />
+				<TopBarButton tooltipManager={hoverManager} iconClassName='new-project-icon' tooltip='New project' />
 				<TopBarSeparator />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='open-file-icon' dropDown={true} />
+				<TopBarButton tooltipManager={hoverManager} iconClassName='open-file-icon' dropDown={true} tooltip='Open file' />
 				<TopBarSeparator />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='save-icon' />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='save-all-icon' />
+				<TopBarButton tooltipManager={hoverManager} iconClassName='save-icon' tooltip='Save' />
+				<TopBarButton tooltipManager={hoverManager} iconClassName='save-all-icon' tooltip='Save all' />
 			</TopBarRegion>
 
 			<TopBarRegion align='center'>
