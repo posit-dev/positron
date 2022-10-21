@@ -1,0 +1,32 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.posicon-wrench-subaction {
+	opacity: 0.5;
+}
+
+@keyframes posicon-spin {
+	100% {
+		transform:rotate(360deg);
+	}
+}
+
+.posicon-sync.posicon-modifier-spin,
+.posicon-loading.posicon-modifier-spin,
+.posicon-gear.posicon-modifier-spin,
+.posicon-notebook-state-executing.posicon-modifier-spin {
+	/* Use steps to throttle FPS to reduce CPU usage */
+	animation: posicon-spin 1.5s steps(30) infinite;
+}
+
+.posicon-modifier-disabled {
+	opacity: 0.4;
+}
+
+/* custom speed & easing for loading icon */
+.posicon-loading,
+.posicon-tree-item-loading::before {
+	animation-duration: 1s !important;
+	animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
+}
