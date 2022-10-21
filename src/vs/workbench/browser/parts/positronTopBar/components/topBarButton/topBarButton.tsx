@@ -4,6 +4,7 @@
 
 import 'vs/css!./css/topBarButton';
 const React = require('react');
+import { forwardRef } from 'react';
 import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 
@@ -22,7 +23,7 @@ interface TopBarButtonProps {
  * @param props A TopBarButtonProps that contains the component properties.
  * @returns The component.
  */
-export const TopBarButton = (props: TopBarButtonProps) => {
+export const TopBarButton = forwardRef<HTMLDivElement, TopBarButtonProps>((props: TopBarButtonProps, ref) => {
 
 	const mouseEnterHandler = () => {
 		console.log('Mouse is inside button!');
@@ -35,7 +36,7 @@ export const TopBarButton = (props: TopBarButtonProps) => {
 	// Render.
 	return (
 		<Tooltip {...props}>
-			<div className='top-bar-button' onClick={props.execute} onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
+			<div ref={ref} className='top-bar-button' onClick={props.execute} onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
 				<div className='top-bar-button-face'>
 					<div className={`top-bar-button-icon ${props.iconClassName}`} />
 					{props.dropDown && <div className='top-bar-button-drop-down-arrow' />}
@@ -43,4 +44,4 @@ export const TopBarButton = (props: TopBarButtonProps) => {
 			</div>
 		</Tooltip>
 	);
-};
+});
