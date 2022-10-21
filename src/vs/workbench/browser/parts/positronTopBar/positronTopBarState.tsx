@@ -30,25 +30,26 @@ export interface PositronTopBarState {
 export const usePositronTopBarState = ({
 	configurationService,
 	quickInputService,
-	commandService
-}: PositronTopBarServices): PositronTopBarState => {
+	commandService,
+}: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
 	// Hooks.
 	const [commands, setCommands] = useState<ICommandsMap>(MenuRegistry.getCommands());
 	const [lastTooltipShownAt, setLastTooltipShownAt] = useState<number>(0);
 
 	useEffect(() => {
 		const disposable = MenuRegistry.onDidChangeMenu(e => {
-
-			// look in the command pallette as some commands (e.g. file save commands) are
-			// only registered there
-			const commandsMap = new Map<string, ICommandAction>();
-			const commandPallette = MenuRegistry.getMenuItems(MenuId.CommandPalette);
-			commandPallette.forEach(item => {
-				if (isIMenuItem(item)) {
-					commandsMap.set(item.command.id, item.command);
-				}
-			});
-			setCommands(commandsMap);
+			if (e.has(MenuId.CommandPalette)) {
+				// look in the command pallette as some commands (e.g. file save commands) are
+				// only registered there
+				const commandsMap = new Map<string, ICommandAction>();
+				const commandPallette = MenuRegistry.getMenuItems(MenuId.CommandPalette);
+				commandPallette.forEach(item => {
+					if (isIMenuItem(item) && commandIds.includes(item.command.id)) {
+						commandsMap.set(item.command.id, item.command);
+					}
+				});
+				setCommands(commandsMap);
+			}
 		});
 		return () => disposable.dispose();
 	}, [commands]);
