@@ -34,7 +34,8 @@ async function main() {
             'fsevents.node',
             'Info.plist',
             'MainMenu.nib',
-            '.npmrc'
+            '.npmrc',
+			'electron.napi.node'
         ],
         x64ArchFiles: 'electron.napi.node',
         outAppPath,
