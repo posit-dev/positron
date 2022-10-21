@@ -8,6 +8,7 @@ import React = require('react');
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
 import { IAction } from 'vs/base/common/actions';
+import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 
 /**
  * TopBarMenuButtonProps interface.
@@ -17,8 +18,6 @@ interface TopBarMenuButtonProps {
 	tooltip: string;
 	actions: () => Promise<readonly IAction[]>;
 }
-
-const kMenuYOffset = 5;
 
 /**
  * TopBarCommandButton component.
@@ -36,13 +35,9 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 				if (actions.length > 0) {
 					positronTopBarContext?.contextMenuService.showContextMenu({
 						getActions: () => actions,
-						getAnchor: () => {
-							const buttonEl = buttonRef.current!;
-							const rect = buttonEl.getBoundingClientRect();
-							return {
-								x: rect.x, y: rect.y + rect.height + kMenuYOffset
-							};
-						}
+						getAnchor: () => buttonRef.current!,
+						anchorAlignment: AnchorAlignment.LEFT,
+						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
 					});
 				}
 			});
