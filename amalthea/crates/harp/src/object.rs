@@ -256,7 +256,7 @@ impl TryFrom<RObject> for Vec<String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, &[STRSXP])?;
+            r_check_type(*value, &[STRSXP, NILSXP])?;
 
             let mut result : Vec<String> = Vec::new();
             let n = Rf_length(*value);

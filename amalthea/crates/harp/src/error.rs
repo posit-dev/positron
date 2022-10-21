@@ -14,7 +14,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
 pub enum Error {
+    ParseError(String, String),
     EvaluationError(String, String),
+    UnsafeEvaluationError(String),
     UnexpectedLength(u32, u32),
     UnexpectedType(u32, Vec<u32>),
     InvalidUtf8(Utf8Error)
@@ -27,8 +29,16 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
 
+            Error::ParseError(code, message) => {
+                write!(f, "Error parsing {}: {}", code, message)
+            }
+
             Error::EvaluationError(expression, message) => {
                 write!(f, "Error evaluating {}: {}", expression, message)
+            }
+
+            Error::UnsafeEvaluationError(code) => {
+                write!(f, "Evaluation of function calls not supported in this context: {}", code)
             }
 
             Error::UnexpectedLength(actual, expected) => {

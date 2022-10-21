@@ -39,6 +39,9 @@ async function main() {
 			'MainMenu.nib', // Generated sequence is not deterministic with Xcode 13
 			'.npmrc'
 		],
+		// --- Start Positron ---
+		x64ArchFiles: 'electron.napi.node',
+		// --- End Positron ---
 		outAppPath,
 		force: true
 	});
