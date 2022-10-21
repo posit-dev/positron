@@ -3,18 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./css/topBarCommandCenter';
-import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
-
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-
 const React = require('react');
-
+import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
+import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**
  * TopBarCommandCenterProps interface.
  */
 interface TopBarCommandCenterProps {
-	quickInputService: IQuickInputService;
 }
 
 /**
@@ -23,10 +19,12 @@ interface TopBarCommandCenterProps {
  * @returns The component.
  */
 export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
+	// Hooks.
+	const positronTopBarContext = usePositronTopBarContext();
 
 	// Handlers.
 	const searchClickHandler = () => {
-		props.quickInputService.quickAccess.show(undefined, {
+		positronTopBarContext?.quickInputService?.quickAccess.show(undefined, {
 			providerOptions: {
 				includeHelp: true,
 			} as AnythingQuickAccessProviderRunOptions
@@ -34,7 +32,7 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 	};
 
 	const chevronClickHandler = () => {
-		props.quickInputService.quickAccess.show('?');
+		positronTopBarContext?.quickInputService?.quickAccess.show('?');
 	};
 
 
