@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React = require('react');
-import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
+import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
 
 /**
  * TopBarCommandButtonProps interface.
