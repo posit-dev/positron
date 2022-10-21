@@ -37,11 +37,11 @@ async function main() {
 			'fsevents.node',
 			'Info.plist', // TODO@deepak1556: regressed with 11.4.2 internal builds
 			'MainMenu.nib', // Generated sequence is not deterministic with Xcode 13
-			'.npmrc'
+			'.npmrc',
+			// --- Start Positron ---
+			'electron.napi.node'  // ZeroMQ Electron architecture-specific pre-built binary
+			// --- End Positron ---
 		],
-		// --- Start Positron ---
-		x64ArchFiles: 'electron.napi.node',
-		// --- End Positron ---
 		outAppPath,
 		force: true
 	});
