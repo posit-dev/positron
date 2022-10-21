@@ -5,9 +5,10 @@
 import { useEffect, useState } from 'react';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { ICommandsMap, MenuRegistry } from 'vs/platform/actions/common/actions';
+import { ICommandsMap, isIMenuItem, MenuId, MenuRegistry } from 'vs/platform/actions/common/actions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
+import { ICommandAction } from 'vs/platform/action/common/action';
 
 /**
  * The Positron top bar state.
@@ -37,9 +38,17 @@ export const usePositronTopBarState = ({
 
 	useEffect(() => {
 		const disposable = MenuRegistry.onDidChangeMenu(e => {
-			// TODO: be smarter here as we can query for whether any commands
-			// we care about have changed
-			setCommands(MenuRegistry.getCommands());
+
+			// look in the command pallette as some commands (e.g. file save commands) are
+			// only registered there
+			const commandsMap = new Map<string, ICommandAction>();
+			const commandPallette = MenuRegistry.getMenuItems(MenuId.CommandPalette);
+			commandPallette.forEach(item => {
+				if (isIMenuItem(item)) {
+					commandsMap.set(item.command.id, item.command);
+				}
+			});
+			setCommands(commandsMap);
 		});
 		return () => disposable.dispose();
 	}, [commands]);
