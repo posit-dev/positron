@@ -36,6 +36,7 @@ async function main() {
             'MainMenu.nib',
             '.npmrc'
         ],
+        x64ArchFiles: 'electron.napi.node',
         outAppPath,
         force: true
     });

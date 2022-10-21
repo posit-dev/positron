@@ -85,8 +85,10 @@ exports.vscodeWebEntryPoints = vscodeWebEntryPoints;
 const buildDate = new Date().toISOString();
 
 // --- Begin Positron ---
-// Ask the helper script to compute the build number
-const buildNumber = child_process.execSync(`${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
+// Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call show-version to compute it.
+const buildNumber =
+	process.env.POSITRON_BUILD_NUMBER ??
+	child_process.execSync(`${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
 // --- End Positron ---
 
 /**

@@ -3,44 +3,157 @@ name: Build macOS Release
 on: workflow_dispatch
 
 jobs:
-  macos:
-    name: Build macOS Release
+
+  version_string:
+    name: Determine version
+    runs-on: self-hosted
+    outputs:
+      short_version: ${{ steps.short_version.outputs.result }}
+      build_number: ${{ steps.build_number.outputs.result }}
+    steps:
+      # Fetch full history; required so we can determine the build version with rev-list
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Set up Node 16; needed since the show-version.js script runs under Node
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      # Call version script to determine short version. This is the version
+      # string that we will use later to form the file name of the release
+      # artifact.
+      #
+      # Example: 2022.10.0-123
+      - name: Determine Version (Short)
+        id: short_version
+        run: echo "result=$(./versions/show-version.js --short)" >> $GITHUB_OUTPUT
+
+      # Call again to get just the build number. Example: 123
+      - name: Determine Version (Build Number)
+        id: build_number
+        run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
+
+
+  macos-arm64:
+    name: Build macOS client (arm64)
+    needs: version_string
     runs-on: [self-hosted, macos, arm64]
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      # Fetch full history; required so we can determine the build version with rev-list
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      # Set up Node 16
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 16
+      - name: Checkout sources
+        uses: actions/checkout@v3
 
       # Perform initial (arm64) dependency download/install
-      - name: Install Dependencies (arm64)
+      - name: Install dependencies (arm64)
         run: yarn
 
       # Build client for arm64
-      - name: Build Client (arm64)
+      - name: Build client (arm64)
         run: yarn gulp vscode-darwin-arm64
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
 
-      # Remove arm64 node_modules folders so we can rebuild for x64
-      - name: Clean Client (arm64)
-        run: git ls-files --directory -i -o -x node_modules | xargs rm -rf
+      # Compress arm64 client to a zip file
+      - name: Create arm64 client archive
+        run: |
+          pushd ..
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip VSCode-darwin-arm64
+          popd
 
-      # Reinstall node_modules binaries for x64
-      - name: Install Dependencies (x64)
+      # Create build artifact
+      - name: Upload arm64 client archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: positron-darwin-arm64-archive
+          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
+
+  macos-x64:
+    name: Build macOS client (x64)
+    runs-on: [self-hosted, macos, arm64]
+    needs: version_string
+    timeout-minutes: 40
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      # Install node_modules binaries for x64
+      - name: Install dependencies (x64)
         env:
           npm_config_arch: x64
         run: yarn
 
       # Build client for x64
-      - name: Build Client (x64)
+      - name: Build client (x64)
         run: yarn gulp vscode-darwin-x64
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+
+      # Compress x64 client to a zip file
+      - name: Create x64 client archive
+        run: |
+          pushd ..
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip VSCode-darwin-x64
+          popd
+
+      # Create build artifact
+      - name: Upload x64 client archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: positron-darwin-x64-archive
+          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
+
+  macos-universal:
+    name: Create macOS universal binary
+    needs: [version_string, macos-arm64, macos-x64]
+    runs-on: [self-hosted, macos, arm64]
+    timeout-minutes: 40
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # Download arm64 and x64 binaries
+      - name: Download arm64 client
+        uses: actions/download-artifact@v3
+        with:
+          name: positron-darwin-arm64-archive
+
+      - name: Download x64 client
+        uses: actions/download-artifact@v3
+        with:
+          name: positron-darwin-x64-archive
+
+      # Expand client archives produced in previous workflow steps
+      - name: Expand client archives
+        run: |
+          unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
+          unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
+
+      # Align architectures. These tasks alter the arm64 and x64 files so that
+      # they are suitably symmetric for the electron-universal task that runs
+      # below.
+      #
+      # Specifically:
+      #
+      # - Remove the ZeroMQ build folders -- they contain build intermediates
+      #   that are non-binary but nonetheless differ between arm64 and x64 since
+      #   they contain e.g. different compilation flags. electron-universal
+      #   chokes if any files (other than binaries) that differ between x64 and
+      #   arm64.
+      #
+      # - Copy the 'nls.metadata.json' files from x64 to arm64. These files are
+      #   semantically identical in both builds, but due to unstable dictionary
+      #   key sorting, they don't hash identically.
+      - name: Align arm64 and x64 app content
+        run: |
+          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
+          rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
+          find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
 
       # Glue together the arm64 and x64 binaries with lipo to create a
       # universal build
@@ -48,14 +161,45 @@ jobs:
         env:
            VSCODE_ARCH: universal
            DEBUG: "*"
-           AGENT_BUILDDIRECTORY: ".."
-        run: node build/darwin/create-universal-app.js
+        run: |
+          export AGENT_BUILDDIRECTORY=$(pwd)
+          node build/darwin/create-universal-app.js
 
-      - name: Run Unit Tests
+      # Compress universal client to a zip file
+      - name: Create universal client archive
+        run: |
+          pushd ..
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip VSCode-darwin-universal
+          popd
+
+      # Create a GitHub release for the universal binary we just created.
+      #
+      # TODO: This shouldn't be nested inside the macOS build task, but since
+      # macOS is all we're building now, a macOS release and a Positron release
+      # are the same thing.
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: true
+          release_name: ${{ needs.version_string.outputs.short_version }}
+          tag_name: ${{ github.ref }}
+
+      - name: Upload release artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          asset_name: positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          asset_content_type: application/zip
+
+      - name: Run unit tests
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
 
-      - name: Run Integration Tests (Electron)
+      - name: Run integration tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
-
