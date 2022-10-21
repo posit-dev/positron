@@ -24,17 +24,25 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
 
-	// Constants.
 	const command = positronTopBarContext?.commands.get(props.id);
+	if (command) {
+		// Handlers.
+		const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.id);
 
-	// Handlers.
-	const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.id);
+		// Props.
+		const kb = positronTopBarContext?.keybindingService.lookupKeybinding(command?.id)?.getLabel();
+		const commandText = command.tooltip || command.title;
+		const tooltipText = typeof (commandText) === 'string' ? commandText : commandText.value;
+		const tooltip = kb ? `${tooltipText} (${kb})` : tooltipText;
 
-	// Render.
-	return (
-		<>
-			{command && <TopBarButton iconClassName={props.iconClassName} tooltip={command.tooltip || command.title} execute={executeHandler} />}
-		</>
-	);
+		// Render.
+		return (
+			<>
+				{command && <TopBarButton iconClassName={props.iconClassName} tooltip={tooltip} execute={executeHandler} />}
+			</>
+		);
+	} else {
+		return null;
+	}
 };
 
