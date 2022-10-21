@@ -4,7 +4,7 @@
 
 import 'vs/css!./css/tooltip';
 const React = require('react');
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
@@ -24,13 +24,11 @@ interface TooltipProps {
  */
 export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => {
 	// Hooks.
+	const positronTopBarContext = usePositronTopBarContext();
 	const [mouseInside, setMouseInside] = useState(false);
 	const [showTooltip, setShowTooltip] = useState(false);
-	const positronTopBarContext = usePositronTopBarContext();
 
-	useEffect(() => {
-		console.log('useEffect called for control');
-	}, [mouseInside]);
+	const toolTip = typeof props.tooltip === 'string' ? props.tooltip : props.tooltip?.value;
 
 	// Handlers.
 	const mouseEnterHandler = () => {
@@ -41,8 +39,8 @@ export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => 
 	};
 
 	const mouseLeaveHandler = () => {
-		setMouseInside(false);
-		setShowTooltip(false);
+		setMouseInside(false); // Temporary.
+		setShowTooltip(false); // Temporary.
 	};
 
 	// Render.
@@ -52,7 +50,7 @@ export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => 
 				{props.children}
 			</div>
 			{mouseInside && showTooltip && props.tooltip && <div className='tool-tip'>
-				<div className='tool-tip-text'>Tooltip text</div>
+				<div className='tool-tip-text'>{toolTip}</div>
 			</div>}
 		</div>
 	);
