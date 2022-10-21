@@ -52,8 +52,8 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton id='workbench.action.navigateBack' iconClassName='back-icon'></TopBarCommandButton>
-					<TopBarCommandButton id='workbench.action.navigateForward' iconClassName='forward-icon'></TopBarCommandButton>
+					<TopBarCommandButton id='workbench.action.navigateBack' iconClassName='back-icon' />
+					<TopBarCommandButton id='workbench.action.navigateForward' iconClassName='forward-icon' />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
