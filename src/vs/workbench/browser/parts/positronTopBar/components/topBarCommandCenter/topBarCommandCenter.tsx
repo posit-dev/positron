@@ -24,7 +24,7 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 
 	// Handlers.
 	const searchClickHandler = () => {
-		positronTopBarContext?.quickInputService?.quickAccess.show(undefined, {
+		positronTopBarContext?.quickInputService.quickAccess.show(undefined, {
 			providerOptions: {
 				includeHelp: true,
 			} as AnythingQuickAccessProviderRunOptions
@@ -32,7 +32,7 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 	};
 
 	const chevronClickHandler = () => {
-		positronTopBarContext?.quickInputService?.quickAccess.show('?');
+		positronTopBarContext?.quickInputService.quickAccess.show('?');
 	};
 
 
