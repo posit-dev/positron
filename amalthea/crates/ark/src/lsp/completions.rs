@@ -106,26 +106,23 @@ fn quote_if_non_syntactic(name: &str) -> String {
 
 fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
-    // get the callee
-    let lhs = unwrap!(node.child(0), {
-        return false;
-    });
+    let result: Result<()> = local! {
 
-    // validate we have an identifier or a string
-    match lhs.kind() {
-        "identifier" | "string" => {},
-        _ => { return false; }
-    }
+        let lhs = node.child(0).into_result()?;
+        if !matches!(lhs.kind(), "identifier" | "string") {
+            bail!("Expected an identifier or a string");
+        }
 
-    // check for a function whose evaluation occurs in a local scope
-    let value = unwrap!(lhs.utf8_text(context.source.as_bytes()), {
-        return false;
-    });
+        let value = lhs.utf8_text(context.source.as_bytes())?;
+        if !matches!(value, "expression" | "local" | "quote" | "enquote" | "substitute" | "with" | "within") {
+            bail!("Value is not an expected NSE symbol");
+        }
 
-    match value {
-        "expression" | "local" | "quote" | "enquote" | "substitute" | "with" | "within" => { return true; },
-        _ => { return false; }
-    }
+        Ok(())
+
+    };
+
+    result.is_ok()
 
 }
 
@@ -170,11 +167,11 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
 
         // Get the parameters. Note that multiple parameters might be contained
         // within a single table cell, so we'll need to split that later.
-        let lhs = unwrap!(cells.next(), { break });
+        let lhs = unwrap!(cells.next(), None => { break });
         let parameters : String = lhs.text().collect();
 
         // Get the parameter description. We'll convert this from HTML to Markdown.
-        let rhs = unwrap!(cells.next(), { break });
+        let rhs = unwrap!(cells.next(), None => { break });
 
         // Check and see if we've found the parameter we care about.
         let pattern = Regex::new("\\s*,\\s*").unwrap();
@@ -582,7 +579,7 @@ unsafe fn append_call_completions(context: &CompletionContext, cursor_node: &Nod
 
         loop {
 
-            let cursor_parent = unwrap!(cursor_node.parent(), {
+            let cursor_parent = unwrap!(cursor_node.parent(), None => {
                 return false;
             });
 
@@ -828,7 +825,7 @@ unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<Complet
     let items = doc.as_vec().unwrap();
     for entry in items.iter() {
 
-        let name = unwrap!(entry["name"].as_str(), {
+        let name = unwrap!(entry["name"].as_str(), None => {
             continue;
         });
 

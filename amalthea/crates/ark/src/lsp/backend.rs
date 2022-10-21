@@ -76,7 +76,7 @@ impl Backend {
         F: FnMut(&Document) -> std::result::Result<T, ()>,
     {
         let mut fallback = || {
-            let contents = unwrap!(std::fs::read_to_string(path), {
+            let contents = unwrap!(std::fs::read_to_string(path), None => {
                 info!("reading from {:?} failed", path);
                 return Err(());
             });
@@ -88,12 +88,12 @@ impl Backend {
         // If we have a cached copy of the document (because we're monitoring it)
         // then use that; otherwise, try to read the document from the provided
         // path and use that instead.
-        let uri = unwrap!(Url::from_file_path(path), {
+        let uri = unwrap!(Url::from_file_path(path), None => {
             info!("couldn't construct uri from {:?}; using fallback", path);
             return fallback();
         });
 
-        let document = unwrap!(self.documents.get(&uri), {
+        let document = unwrap!(self.documents.get(&uri), None => {
             info!("no document for uri {:?}; using fallback", uri);
             return fallback();
         });
@@ -216,7 +216,7 @@ impl LanguageServer for Backend {
 
         // get reference to document
         let uri = &params.text_document.uri;
-        let mut doc = unwrap!(self.documents.get_mut(uri), {
+        let mut doc = unwrap!(self.documents.get_mut(uri), None => {
             backend_trace!(self, "did_change(): unexpected document uri '{}'", uri);
             return;
         });
@@ -242,7 +242,7 @@ impl LanguageServer for Backend {
 
         // get reference to document
         let uri = &params.text_document_position.text_document.uri;
-        let mut document = unwrap!(self.documents.get_mut(uri), {
+        let mut document = unwrap!(self.documents.get_mut(uri), None => {
             backend_trace!(self, "completion(): No document associated with URI {}", uri);
             return Ok(None);
         });
@@ -268,7 +268,7 @@ impl LanguageServer for Backend {
         // 'visible' to the user.
 
         // build completion context
-        let context = unwrap!(completion_context(document.value_mut(), params), error {
+        let context = unwrap!(completion_context(document.value_mut(), params), Err(error) => {
             error!("{:?}", error);
             return Ok(None);
         });
@@ -322,19 +322,19 @@ impl LanguageServer for Backend {
         backend_trace!(self, "completion_resolve({:?})", item);
 
         let data = item.data.clone();
-        let data = unwrap!(data, {
+        let data = unwrap!(data, None => {
             info!("Completion '{}' has no associated data", item.label);
             return Ok(item);
         });
 
-        let data : CompletionData = unwrap!(serde_json::from_value(data), err {
-            error!("{:?}", err);
+        let data : CompletionData = unwrap!(serde_json::from_value(data), Err(error) => {
+            error!("{:?}", error);
             return Ok(item);
         });
 
         unsafe {
-            unwrap!(resolve_completion_item(&mut item, &data), err {
-                error!("{:?}", err);
+            unwrap!(resolve_completion_item(&mut item, &data), Err(error) => {
+                error!("{:?}", error);
                 return Ok(item);
             });
         }
@@ -358,13 +358,13 @@ impl LanguageServer for Backend {
 
         // get reference to document
         let uri = &params.text_document_position_params.text_document.uri;
-        let mut document = unwrap!(self.documents.get_mut(uri), {
+        let mut document = unwrap!(self.documents.get_mut(uri), None => {
             backend_trace!(self, "completion(): No document associated with URI {}", uri);
             return Ok(None);
         });
 
         // build goto definition context
-        let context = unwrap!(goto_definition_context(&mut document, params), error {
+        let context = unwrap!(goto_definition_context(&mut document, params), Err(error) => {
             error!("{}", error);
             return Ok(None);
         });

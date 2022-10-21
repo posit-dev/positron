@@ -87,8 +87,8 @@ fn install_kernel_spec() {
     );
 
     // Create the kernelspec
-    let exe_path = unwrap!(env::current_exe(), err {
-        eprintln!("Failed to determine path to Ark. {}", err);
+    let exe_path = unwrap!(env::current_exe(), Err(error) => {
+        eprintln!("Failed to determine path to Ark. {}", error);
         return;
     });
 
@@ -103,8 +103,8 @@ fn install_kernel_spec() {
         env: env,
     };
 
-    let dest = unwrap!(spec.install(String::from("ark")), err {
-        eprintln!("Failed to install Ark's Jupyter kernelspec. {}", err);
+    let dest = unwrap!(spec.install(String::from("ark")), Err(error) => {
+        eprintln!("Failed to install Ark's Jupyter kernelspec. {}", error);
         return;
     });
 

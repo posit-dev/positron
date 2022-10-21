@@ -110,7 +110,7 @@ impl Backend {
     fn build_context(&self, uri: &Url, point: Point) -> Result<Context, ()> {
 
         // Unwrap the URL.
-        let path = unwrap!(uri.to_file_path(), {
+        let path = unwrap!(uri.to_file_path(), None => {
             info!("URL {} not associated with a local file path", uri);
             return Err(());
         });
@@ -118,12 +118,12 @@ impl Backend {
         // Figure out the identifier we're looking for.
         let context = self.with_document(path.as_path(), |document| {
 
-            let ast = unwrap!(document.ast.as_ref(), {
+            let ast = unwrap!(document.ast.as_ref(), None => {
                 info!("no ast associated with document {}", path.display());
                 return Err(());
             });
 
-            let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
+            let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), None => {
                 info!("couldn't find node associated with point {:?}", point);
                 return Err(());
             });
@@ -138,7 +138,7 @@ impl Backend {
             // identifier.
             if node.kind() != "identifier" {
                 let point = Point::new(point.row, point.column - 1);
-                node = unwrap!(ast.root_node().descendant_for_point_range(point, point), {
+                node = unwrap!(ast.root_node().descendant_for_point_range(point, point), None => {
                     info!("couldn't find node associated with point {:?}", point);
                     return Err(());
                 });
@@ -190,9 +190,9 @@ impl Backend {
         let walker = WalkDir::new(path);
         for entry in walker.into_iter().filter_entry(|entry| _filter_entry(entry)) {
 
-            let entry = unwrap!(entry, { continue; });
+            let entry = unwrap!(entry, None => { continue; });
             let path = entry.path();
-            let ext = unwrap!(path.extension(), { continue; });
+            let ext = unwrap!(path.extension(), None => { continue; });
             if ext != "r" && ext != "R" { continue; }
 
             info!("found R file {}", path.display());
@@ -215,7 +215,7 @@ impl Backend {
 
     fn find_references_in_document(&self, context: &Context, path: &Path, document: &Document, locations: &mut Vec<Location>) {
 
-        let ast = unwrap!(document.ast.as_ref(), {
+        let ast = unwrap!(document.ast.as_ref(), None => {
             info!("no ast available");
             return;
         });
@@ -245,7 +245,7 @@ impl Backend {
         let point = params.text_document_position.position.as_point();
 
         // Figure out what we're looking for.
-        let context = unwrap!(self.build_context(&uri, point), {
+        let context = unwrap!(self.build_context(&uri, point), None => {
             info!("failed to find build context at point {}", point);
             return Err(());
         });
