@@ -14,6 +14,7 @@ import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/compo
 import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandButton/topBarCommandButton';
 import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -23,6 +24,7 @@ export interface PositronTopBarServices {
 	quickInputService: IQuickInputService;
 	commandService: ICommandService;
 	keybindingService: IKeybindingService;
+	contextMenuService: IContextMenuService;
 }
 
 /**
