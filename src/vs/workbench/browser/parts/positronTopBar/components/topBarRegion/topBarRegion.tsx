@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./css/topBarRegion';
-
+import { PropsWithChildren } from 'react';
 const React = require('react');
 
 /**
@@ -11,7 +11,6 @@ const React = require('react');
  */
 interface TopBarRegionProps {
 	align: 'left' | 'center' | 'right';
-	children: React.ReactNode;
 }
 
 /**
@@ -19,7 +18,7 @@ interface TopBarRegionProps {
  * @param props A TopBarRegionProps that contains the component properties.
  * @returns The component.
  */
-export const TopBarRegion = (props: TopBarRegionProps) => {
+export const TopBarRegion = (props: PropsWithChildren<TopBarRegionProps>) => {
 
 	// Render.
 	return (
