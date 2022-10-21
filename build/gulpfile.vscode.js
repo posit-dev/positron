@@ -39,6 +39,10 @@ const { promisify } = require('util');
 const glob = promisify(require('glob'));
 const rcedit = promisify(require('rcedit'));
 
+// --- Start Positron ---
+const child_process = require('child_process');
+// --- End Positron ---
+
 // Build
 const vscodeEntryPoints = _.flatten([
 	buildfile.entrypoint('vs/workbench/workbench.desktop.main'),
@@ -225,7 +229,16 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 
 		// --- Start Positron ---
 		let version = product.positronVersion;
+
+		// Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call
+		// show-version to compute it.
+		const positronBuildNumber =
+			process.env.POSITRON_BUILD_NUMBER ??
+			child_process.execSync(
+				`${path.dirname(__dirname)}/versions/show-version.js --build`).toString().trim();
+
 		// --- End Positron ---
+
 		const quality = product.quality;
 
 		if (quality && quality !== 'stable') {
@@ -244,7 +257,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			.pipe(json(packageJsonUpdates));
 
 		const date = new Date().toISOString();
-		const productJsonUpdate = { commit, date, checksums, version };
+		// --- Start Positron ---
+		const productJsonUpdate = { commit, date, checksums, version, positronBuildNumber };
+		// --- End Positron ---
 
 		if (shouldSetupSettingsSearch()) {
 			productJsonUpdate.settingsSearchBuildId = getSettingsSearchBuildId(packageJson);
