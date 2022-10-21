@@ -35,7 +35,6 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 		positronTopBarContext?.quickInputService.quickAccess.show('?');
 	};
 
-
 	// Render.
 	return (
 		<div className={`top-bar-command-center`}>
