@@ -5,6 +5,7 @@
 import React = require('react');
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
+// import { ICommandAction } from 'vs/platform/action/common/action';
 
 /**
  * TopBarCommandButtonProps interface.
@@ -23,14 +24,16 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
 
+	// Constants.
 	const command = positronTopBarContext?.commands.get(props.id);
-	const execute = () => {
-		positronTopBarContext?.commandService.executeCommand(props.id);
-	};
 
+	// Handlers.
+	const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.id);
+
+	// Render.
 	return (
 		<>
-			{command && <TopBarButton iconClassName={props.iconClassName} tooltip={command.tooltip} execute={execute} />}
+			{command && <TopBarButton iconClassName={props.iconClassName} tooltip={command.tooltip || command.title} execute={executeHandler} />}
 		</>
 	);
 };

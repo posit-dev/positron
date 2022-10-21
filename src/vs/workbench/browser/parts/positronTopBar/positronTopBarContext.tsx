@@ -5,8 +5,7 @@
 const React = require('react');
 import { PropsWithChildren, createContext, useContext } from 'react';
 import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
-import usePositronTopBarState from 'vs/workbench/browser/parts/positronTopBar/usePositronTopBarState';
-import type { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
+import { PositronTopBarState, usePositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
 
 /**
  * Create the Positron top bar context.
