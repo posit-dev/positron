@@ -7,6 +7,7 @@ const React = require('react');
 import { useEffect, useState } from 'react';
 import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
 import { ILocalizedString } from 'vs/platform/action/common/action';
+import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**
  * TooltipProps interface.
@@ -25,6 +26,7 @@ export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => 
 	// Hooks.
 	const [mouseInside, setMouseInside] = useState(false);
 	const [showTooltip, setShowTooltip] = useState(false);
+	const positronTopBarContext = usePositronTopBarContext();
 
 	useEffect(() => {
 		console.log('useEffect called for control');
@@ -32,6 +34,8 @@ export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => 
 
 	// Handlers.
 	const mouseEnterHandler = () => {
+		console.log(`Last tooltip shown at ${positronTopBarContext?.lastTooltipShownAt}`);
+		positronTopBarContext?.setLastTooltipShownAt(new Date().getTime());
 		setMouseInside(true);
 	};
 
@@ -47,7 +51,7 @@ export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => 
 				{props.children}
 			</div>
 			{mouseInside && showTooltip && props.tooltip && <div className='toolie'>
-				<div className='tyu'>{props.tooltip}</div>
+				<div className='tyu'>Tooltip text</div>
 			</div>}
 		</div>
 	);
