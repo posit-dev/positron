@@ -110,7 +110,7 @@ impl Backend {
     fn build_context(&self, uri: &Url, point: Point) -> Result<Context, ()> {
 
         // Unwrap the URL.
-        let path = unwrap!(uri.to_file_path(), None => {
+        let path = unwrap!(uri.to_file_path(), Err(_) => {
             info!("URL {} not associated with a local file path", uri);
             return Err(());
         });
@@ -190,7 +190,7 @@ impl Backend {
         let walker = WalkDir::new(path);
         for entry in walker.into_iter().filter_entry(|entry| _filter_entry(entry)) {
 
-            let entry = unwrap!(entry, None => { continue; });
+            let entry = unwrap!(entry, Err(_) => { continue; });
             let path = entry.path();
             let ext = unwrap!(path.extension(), None => { continue; });
             if ext != "r" && ext != "R" { continue; }
@@ -245,7 +245,7 @@ impl Backend {
         let point = params.text_document_position.position.as_point();
 
         // Figure out what we're looking for.
-        let context = unwrap!(self.build_context(&uri, point), None => {
+        let context = unwrap!(self.build_context(&uri, point), Err(_) => {
             info!("failed to find build context at point {}", point);
             return Err(());
         });
