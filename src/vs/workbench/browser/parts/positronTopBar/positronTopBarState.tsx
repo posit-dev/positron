@@ -16,6 +16,11 @@ import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 
 /**
+ * The tooltip reset timeout in milliseconds.
+ */
+const kTooltipReset = 500;
+
+/**
  * The Positron top bar state.
  */
 export interface PositronTopBarState {
@@ -28,8 +33,8 @@ export interface PositronTopBarState {
 	labelService: ILabelService;
 	hostService: IHostService;
 	commands: ICommandsMap;
-	lastTooltipShownAt: number;
-	setLastTooltipShownAt(value: number): void;
+	showTooltipDelay(): number;
+	tooltipHidden(): void;
 }
 
 /**
@@ -47,9 +52,12 @@ export const usePositronTopBarState = ({
 	labelService,
 	hostService
 }: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
+	// Get the tooltip delay.
+	const tooltipDelay = configurationService.getValue<number>('workbench.hover.delay');
+
 	// Hooks.
 	const [commands, setCommands] = useState<ICommandsMap>(MenuRegistry.getCommands());
-	const [lastTooltipShownAt, setLastTooltipShownAt] = useState<number>(0);
+	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
 
 	useEffect(() => {
 		const disposable = MenuRegistry.onDidChangeMenu(e => {
@@ -69,6 +77,9 @@ export const usePositronTopBarState = ({
 		return () => disposable.dispose();
 	}, [commands]);
 
+	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : tooltipDelay;
+	const tooltipHidden = () => setLastTooltipHiddenAt(new Date().getTime());
+
 	// Return the Positron top bar state.
 	return {
 		configurationService,
@@ -80,7 +91,7 @@ export const usePositronTopBarState = ({
 		labelService,
 		hostService,
 		commands,
-		lastTooltipShownAt,
-		setLastTooltipShownAt,
+		showTooltipDelay,
+		tooltipHidden
 	};
 };

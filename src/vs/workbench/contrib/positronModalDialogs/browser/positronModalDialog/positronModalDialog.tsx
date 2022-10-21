@@ -4,7 +4,7 @@
 
 import 'vs/css!./positronModalDialog';
 const React = require('react');
-import { useCallback, useEffect } from 'react';
+import { PropsWithChildren, useCallback, useEffect } from 'react';
 
 /**
  * Grossness.
@@ -25,7 +25,7 @@ export interface PositronModalDialogProps {
  * PositronModalDialog component.
  * @param props A PositronModalDialogProps that contains the modal dialog component properties.
  */
-export function PositronModalDialog<T>(props: PositronModalDialogProps & { children: React.ReactNode }) {
+export function PositronModalDialog<T>(props: PropsWithChildren<PositronModalDialogProps>) {
 	// Memoize the keydown event handler.
 	const keydownHandler = useCallback((event: DocumentKeyboardEvent) => {
 		// Eat all keydown events.

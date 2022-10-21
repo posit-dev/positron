@@ -45,4 +45,3 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 		return null;
 	}
 };
-
