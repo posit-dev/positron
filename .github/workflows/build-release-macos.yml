@@ -181,7 +181,7 @@ jobs:
           draft: false
           prerelease: true
           release_name: ${{ needs.version_string.outputs.short_version }}
-          tag_name: ${{ github.ref }}
+          tag_name: ${{ needs.version_string.outputs.short_version }}
 
       - name: Upload release artifact
         uses: actions/upload-release-asset@v1
