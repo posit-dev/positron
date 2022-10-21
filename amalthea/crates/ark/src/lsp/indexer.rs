@@ -37,7 +37,7 @@ fn index_node_function_definition(source: &str, node: &Node, index: &mut Vec<Ind
     }
 
     // Check for symbol or string on LHS.
-    let lhs = unwrap!(node.child(0), {
+    let lhs = unwrap!(node.child(0), None => {
         return false;
     });
 
@@ -46,7 +46,7 @@ fn index_node_function_definition(source: &str, node: &Node, index: &mut Vec<Ind
     }
 
     // Check for a function definition on RHS.
-    let rhs = unwrap!(node.child(2), {
+    let rhs = unwrap!(node.child(2), None => {
         return false;
     });
 
@@ -61,7 +61,7 @@ fn index_node_function_definition(source: &str, node: &Node, index: &mut Vec<Ind
     // Get the formal parameters. Because treesitter doesn't parse
     // the parameter list into a tree (it's just a series of tokens)
     // we need to walk those and look for identifiers.
-    let params = unwrap!(rhs.child(1), {
+    let params = unwrap!(rhs.child(1), None => {
         return false;
     });
 
@@ -127,7 +127,7 @@ pub(crate) fn index_document(document: &Document) -> Vec<IndexedSymbol> {
 
     let mut index: Vec<IndexedSymbol> = Vec::new();
 
-    let ast = unwrap!(document.ast.as_ref(), {
+    let ast = unwrap!(document.ast.as_ref(), None => {
         info!("error unwrapping ast");
         return index;
     });

@@ -39,18 +39,18 @@ pub fn _into_result<T, E>(object: impl IntoResult<T, E>) -> Result<T, E> {
 #[macro_export]
 macro_rules! unwrap {
 
-    ($value: expr, $id: ident $error: block) => {
+    ($value:expr, Err($id:ident) => $error:expr) => {
         match $crate::unwrap::_into_result($value) {
             Ok(value) => value,
             Err($id) => $error,
         }
     };
 
-    ($value: expr, $error: block) => {
+    ($value:expr, None => $error:expr) => {
         match $crate::unwrap::_into_result($value) {
             Ok(value) => value,
-            Err(_error) => $error,
+            Err(_) => $error,
         }
-    }
+    };
 
 }

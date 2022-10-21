@@ -313,7 +313,7 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
 
     // Figure out what the default prompt looks like.
     let default_prompt = unsafe { r_get_option::<String>("prompt") };
-    let default_prompt = unwrap!(default_prompt, error {
+    let default_prompt = unwrap!(default_prompt, Err(error) => {
         warn!("Failed to read R prompt: {}", error);
         return kernel.finish_request();
     });
