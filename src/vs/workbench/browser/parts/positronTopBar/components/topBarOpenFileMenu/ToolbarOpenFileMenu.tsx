@@ -2,8 +2,6 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-// menubarControl.ts
-
 import React = require('react');
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton/topBarMenuButton';
@@ -18,11 +16,13 @@ import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/p
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
+export const kOpenFile = 'workbench.action.files.openFile';
+
 /**
- * TopBarOpenRecentButton component.
+ * TopBarOpenFileMenu component.
  * @returns The component.
  */
-export const TopBarOpenRecentButton = () => {
+export const TopBarOpenFileMenu = () => {
 
 	// Hooks.
 	const context = usePositronTopBarContext();
@@ -30,6 +30,14 @@ export const TopBarOpenRecentButton = () => {
 	// fetch actions when menu is shown
 	const actions = async () => {
 		const actions: IAction[] = [];
+
+		// standard open file command
+		const openFile = commandAction(kOpenFile, context);
+		if (openFile) {
+			actions.push(openFile);
+		}
+		actions.push(new Separator());
+
 		const recent = await context?.workspacesService.getRecentlyOpened();
 		if (recent && context) {
 			actions.push(
@@ -46,6 +54,18 @@ export const TopBarOpenRecentButton = () => {
 	);
 };
 
+function commandAction(id: string, context?: PositronTopBarState) {
+	const command = context?.commands.get(id);
+	if (command) {
+		const label = typeof (command.title) === 'string' ? command.title : command.title.value;
+		return new Action(command.id, unmnemonicLabel(label), undefined, undefined, () => {
+			context?.commandService.executeCommand(command.id);
+		});
+	} else {
+		return undefined;
+	}
+}
+
 function recentMenuActions(context: PositronTopBarState, recent: IRecent[]) {
 	const actions: IAction[] = [];
 	if (recent.length > 0) {
@@ -57,6 +77,7 @@ function recentMenuActions(context: PositronTopBarState, recent: IRecent[]) {
 	return actions;
 }
 
+// based on code in menubarControl.ts
 function createOpenRecentMenuAction(context: PositronTopBarState, recent: IRecent): IOpenRecentAction {
 
 	let label: string;
