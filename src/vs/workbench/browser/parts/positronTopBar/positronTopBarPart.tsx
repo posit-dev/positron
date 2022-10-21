@@ -21,6 +21,7 @@ import { IPositronTopBarService } from 'vs/workbench/services/positronTopBar/bro
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 /**
  * PositronTopBarPart class.
@@ -67,6 +68,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@ICommandService private readonly commandService: ICommandService,
+		@IKeybindingService private readonly keybindingService: IKeybindingService
 	) {
 		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
@@ -89,6 +91,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 				configurationService={this.configurationService}
 				quickInputService={this.quickInputService}
 				commandService={this.commandService}
+				keybindingService={this.keybindingService}
 			/>
 		);
 
