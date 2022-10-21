@@ -15,9 +15,9 @@ const PositronTopBarContext = createContext<PositronTopBarState | undefined>(und
 /**
  * Export the PositronTopBarContextProvider provider
  */
-export const PositronTopBarContextProvider = (props: PropsWithChildren<PositronTopBarServices>) => {
+export const PositronTopBarContextProvider = (props: PropsWithChildren<PositronTopBarServices> & { commandIds: string[] }) => {
 	// Hooks.
-	const positronTopBarState = usePositronTopBarState({ ...props });
+	const positronTopBarState = usePositronTopBarState({ ...props }, props.commandIds);
 
 	// Render.
 	return (

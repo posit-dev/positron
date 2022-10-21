@@ -30,6 +30,13 @@ interface PositronTopBarProps extends PositronTopBarServices {
 	testValue: string; // For now, as a tracer...
 }
 
+// commands that we bind to in the top bar (used so we can filter our interations w/ the MenuRegistry)
+const kFileSave = 'workbench.action.files.save';
+const kFileSaveAll = 'workbench.action.files.saveFiles';
+const kNavigateBack = 'workbench.action.navigateBack';
+const kNavigateForward = 'workbench.action.navigateForward';
+const kTopBarCommands = [kFileSave, kFileSaveAll, kNavigateBack, kNavigateForward];
+
 /**
  * PositronTopBar component.
  * @param props A PositronTopBarProps that contains the component properties.
@@ -38,7 +45,7 @@ interface PositronTopBarProps extends PositronTopBarServices {
 export const PositronTopBar = (props: PositronTopBarProps) => {
 	// Render.
 	return (
-		<PositronTopBarContextProvider {...props}>
+		<PositronTopBarContextProvider {...props} commandIds={kTopBarCommands}>
 			<div className='positron-top-bar'>
 				<TopBarRegion align='left'>
 					<TopBarButton iconClassName='new-file-icon' dropDown={true} tooltip='New file' />
@@ -47,13 +54,13 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarButton iconClassName='open-file-icon' dropDown={true} tooltip='Open file' />
 					<TopBarSeparator />
-					<TopBarCommandButton id='workbench.action.files.save' iconClassName='save-icon' />
-					<TopBarCommandButton id='workbench.action.files.saveFiles' iconClassName='save-all-icon' />
+					<TopBarCommandButton id={kFileSave} iconClassName='save-icon' />
+					<TopBarCommandButton id={kFileSaveAll} iconClassName='save-all-icon' />
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton id='workbench.action.navigateBack' iconClassName='back-icon' />
-					<TopBarCommandButton id='workbench.action.navigateForward' iconClassName='forward-icon' />
+					<TopBarCommandButton id={kNavigateBack} iconClassName='back-icon' />
+					<TopBarCommandButton id={kNavigateForward} iconClassName='forward-icon' />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
