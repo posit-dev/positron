@@ -2,19 +2,19 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.yack {
+.tool-tip-container {
 	position: relative;
 	overflow: visible;
 	font-size: 13px;
 }
 
-.tooltip {
+.tool-tip-wrapper {
 	display: flex;
 	overflow: visible;
 	position: relative;
 }
 
-.toolie {
+.tool-tip {
 	left: 0;
 	top: 32px;
 	padding: 6px 6px;
@@ -26,7 +26,7 @@
 	/* border: 1px solid var(--vscode-positronToolTip-border); */
 }
 
-.tyu {
+.tool-tip-text {
 	width: max-content;
 	height: max-content;
 }
