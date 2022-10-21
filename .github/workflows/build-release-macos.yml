@@ -167,10 +167,7 @@ jobs:
 
       # Compress universal client to a zip file
       - name: Create universal client archive
-        run: |
-          pushd ..
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip VSCode-darwin-universal
-          popd
+        run: zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip VSCode-darwin-universal
 
       # Create a GitHub release for the universal binary we just created.
       #
@@ -192,8 +189,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
-          asset_name: positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          asset_path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
           asset_content_type: application/zip
 
       - name: Run unit tests
