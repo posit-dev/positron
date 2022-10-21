@@ -30,7 +30,7 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 
 	return (
 		<>
-			{command && <TopBarButton execute={execute} iconClassName={props.iconClassName} tooltip={command?.tooltip} />}
+			{command && <TopBarButton execute={execute} iconClassName={props.iconClassName} tooltip={command.tooltip} />}
 		</>
 	);
 };
