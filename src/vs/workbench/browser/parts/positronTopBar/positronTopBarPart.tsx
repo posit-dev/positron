@@ -22,6 +22,7 @@ import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 
 /**
  * PositronTopBarPart class.
@@ -68,7 +69,8 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IKeybindingService private readonly keybindingService: IKeybindingService
+		@IKeybindingService private readonly keybindingService: IKeybindingService,
+		@IContextMenuService private readonly contextMenuService: IContextMenuService
 	) {
 		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
@@ -92,6 +94,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 				quickInputService={this.quickInputService}
 				commandService={this.commandService}
 				keybindingService={this.keybindingService}
+				contextMenuService={this.contextMenuService}
 			/>
 		);
 

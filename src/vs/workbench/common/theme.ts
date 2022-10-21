@@ -924,9 +924,9 @@ export const POSITRON_TOOL_TIP_BORDER = registerColor('positronToolTip.border', 
 // The Positron top bar background color.
 export const POSITRON_TOP_BAR_BACKGROUND = registerColor('positronTopBar.background', {
 	dark: '#3b4144',
-	light: '#f4f7f9',
+	light: '#f1f3f5',
 	hcDark: '#3b4144',
-	hcLight: '#f4f7f9'
+	hcLight: '#f1f3f5'
 }, localize('positronTopBar.background', "Positron top bar background color. The Positron top bar is shown under the title bar of the window."));
 
 // The Positron top bar foreground color.
@@ -947,9 +947,9 @@ export const POSITRON_TOP_BAR_BORDER = registerColor('positronTopBar.border', {
 
 export const POSITRON_TOP_BAR_COMMANDS_BACKGROUND = registerColor('positronTopBar.commandsBackground', {
 	dark: '#383e41',
-	light: '#f7f8fa',
+	light: '#eceff2',
 	hcDark: '#383e41',
-	hcLight: '#f7f8fa'
+	hcLight: '#eceff2'
 }, localize('positronTopBar.commandsBackground', "Positron top bar commands background color. The Positron top bar is shown under the title bar of the window."));
 
 // The Positron top bar background hover color.

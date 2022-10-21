@@ -10,6 +10,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
 import { ICommandAction } from 'vs/platform/action/common/action';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 
 /**
  * The Positron top bar state.
@@ -19,6 +20,7 @@ export interface PositronTopBarState {
 	quickInputService: IQuickInputService;
 	commandService: ICommandService;
 	keybindingService: IKeybindingService;
+	contextMenuService: IContextMenuService;
 	commands: ICommandsMap;
 	lastTooltipShownAt: number;
 	setLastTooltipShownAt(value: number): void;
@@ -33,7 +35,8 @@ export const usePositronTopBarState = ({
 	configurationService,
 	quickInputService,
 	commandService,
-	keybindingService
+	keybindingService,
+	contextMenuService
 }: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
 	// Hooks.
 	const [commands, setCommands] = useState<ICommandsMap>(MenuRegistry.getCommands());
@@ -41,18 +44,18 @@ export const usePositronTopBarState = ({
 
 	useEffect(() => {
 		const disposable = MenuRegistry.onDidChangeMenu(e => {
-			if (e.has(MenuId.CommandPalette)) {
-				// look in the command pallette as some commands (e.g. file save commands) are
-				// only registered there
-				const commandsMap = new Map<string, ICommandAction>();
-				const commandPallette = MenuRegistry.getMenuItems(MenuId.CommandPalette);
-				commandPallette.forEach(item => {
-					if (isIMenuItem(item) && commandIds.includes(item.command.id)) {
-						commandsMap.set(item.command.id, item.command);
-					}
-				});
-				setCommands(commandsMap);
-			}
+
+			// look in the command pallette as some commands (e.g. file save commands) are
+			// only registered there
+			const commandsMap = new Map<string, ICommandAction>();
+			const commandPallette = MenuRegistry.getMenuItems(MenuId.CommandPalette);
+			commandPallette.forEach(item => {
+				if (isIMenuItem(item) && commandIds.includes(item.command.id)) {
+					commandsMap.set(item.command.id, item.command);
+				}
+			});
+			setCommands(commandsMap);
+
 		});
 		return () => disposable.dispose();
 	}, [commands]);
@@ -63,6 +66,7 @@ export const usePositronTopBarState = ({
 		quickInputService,
 		commandService,
 		keybindingService,
+		contextMenuService,
 		commands,
 		lastTooltipShownAt,
 		setLastTooltipShownAt,
