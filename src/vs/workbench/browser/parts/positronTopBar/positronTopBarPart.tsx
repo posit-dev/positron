@@ -23,6 +23,9 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
+import { ILabelService } from 'vs/platform/label/common/label';
+import { IHostService } from 'vs/workbench/services/host/browser/host';
 
 /**
  * PositronTopBarPart class.
@@ -70,7 +73,10 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
-		@IContextMenuService private readonly contextMenuService: IContextMenuService
+		@IContextMenuService private readonly contextMenuService: IContextMenuService,
+		@IWorkspacesService private readonly workspacesService: IWorkspacesService,
+		@ILabelService private readonly labelService: ILabelService,
+		@IHostService private readonly hostService: IHostService
 	) {
 		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
@@ -95,6 +101,9 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 				commandService={this.commandService}
 				keybindingService={this.keybindingService}
 				contextMenuService={this.contextMenuService}
+				workspacesService={this.workspacesService}
+				labelService={this.labelService}
+				hostService={this.hostService}
 			/>
 		);
 

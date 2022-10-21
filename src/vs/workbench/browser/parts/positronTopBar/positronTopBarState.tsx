@@ -11,6 +11,9 @@ import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBa
 import { ICommandAction } from 'vs/platform/action/common/action';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
+import { ILabelService } from 'vs/platform/label/common/label';
+import { IHostService } from 'vs/workbench/services/host/browser/host';
 
 /**
  * The Positron top bar state.
@@ -21,6 +24,9 @@ export interface PositronTopBarState {
 	commandService: ICommandService;
 	keybindingService: IKeybindingService;
 	contextMenuService: IContextMenuService;
+	workspacesService: IWorkspacesService;
+	labelService: ILabelService;
+	hostService: IHostService;
 	commands: ICommandsMap;
 	lastTooltipShownAt: number;
 	setLastTooltipShownAt(value: number): void;
@@ -36,7 +42,10 @@ export const usePositronTopBarState = ({
 	quickInputService,
 	commandService,
 	keybindingService,
-	contextMenuService
+	contextMenuService,
+	workspacesService,
+	labelService,
+	hostService
 }: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
 	// Hooks.
 	const [commands, setCommands] = useState<ICommandsMap>(MenuRegistry.getCommands());
@@ -67,6 +76,9 @@ export const usePositronTopBarState = ({
 		commandService,
 		keybindingService,
 		contextMenuService,
+		workspacesService,
+		labelService,
+		hostService,
 		commands,
 		lastTooltipShownAt,
 		setLastTooltipShownAt,

@@ -2,18 +2,20 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+// menubarControl.ts
+
 import React = require('react');
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
-import { MenuId } from 'vs/platform/actions/common/actions';
+import { IAction } from 'vs/base/common/actions';
 
 /**
  * TopBarMenuButtonProps interface.
  */
 interface TopBarMenuButtonProps {
-	menuId: MenuId;
 	iconClassName: string;
 	tooltip: string;
+	actions: () => Promise<readonly IAction[]>;
 }
 
 const kMenuYOffset = 5;
@@ -30,14 +32,18 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 
 	const showMenu = () => {
 		if (buttonRef.current) {
-			positronTopBarContext?.contextMenuService.showContextMenu({
-				menuId: props.menuId,
-				getAnchor: () => {
-					const buttonEl = buttonRef.current!;
-					const rect = buttonEl.getBoundingClientRect();
-					return {
-						x: rect.x, y: rect.y + rect.height + kMenuYOffset
-					};
+			props.actions().then(actions => {
+				if (actions.length > 0) {
+					positronTopBarContext?.contextMenuService.showContextMenu({
+						getActions: () => actions,
+						getAnchor: () => {
+							const buttonEl = buttonRef.current!;
+							const rect = buttonEl.getBoundingClientRect();
+							return {
+								x: rect.x, y: rect.y + rect.height + kMenuYOffset
+							};
+						}
+					});
 				}
 			});
 		}
