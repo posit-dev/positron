@@ -15,7 +15,7 @@ import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/c
 import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { TopBarOpenRecentButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenRecentButton/topBarOpenRecentButton';
+import { kOpenFile, TopBarOpenFileMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenFileMenu/ToolbarOpenFileMenu';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
@@ -46,7 +46,7 @@ const kFileSave = 'workbench.action.files.save';
 const kFileSaveAll = 'workbench.action.files.saveFiles';
 const kNavigateBack = 'workbench.action.navigateBack';
 const kNavigateForward = 'workbench.action.navigateForward';
-const kTopBarCommands = [kFileSave, kFileSaveAll, kNavigateBack, kNavigateForward];
+const kTopBarCommands = [kOpenFile, kFileSave, kFileSaveAll, kNavigateBack, kNavigateForward];
 
 /**
  * PositronTopBar component.
@@ -63,7 +63,7 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarButton iconClassName='new-project-icon' tooltip='New project' />
 					<TopBarSeparator />
-					<TopBarOpenRecentButton />
+					<TopBarOpenFileMenu />
 					<TopBarSeparator />
 					<TopBarCommandButton id={kFileSave} iconClassName='save-icon' />
 					<TopBarCommandButton id={kFileSaveAll} iconClassName='save-all-icon' />

@@ -26,16 +26,19 @@ interface TopBarMenuButtonProps {
  */
 export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 	// Hooks.
-	const positronTopBarContext = usePositronTopBarContext();
+	const context = usePositronTopBarContext();
 	const buttonRef = React.useRef<HTMLDivElement>(null);
 
 	const showMenu = () => {
 		if (buttonRef.current) {
 			props.actions().then(actions => {
 				if (actions.length > 0) {
-					positronTopBarContext?.contextMenuService.showContextMenu({
+					context?.contextMenuService.showContextMenu({
 						getActions: () => actions,
 						getAnchor: () => buttonRef.current!,
+						getKeyBinding: (action: IAction) => {
+							return context.keybindingService.lookupKeybinding(action.id);
+						},
 						anchorAlignment: AnchorAlignment.LEFT,
 						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
 					});
