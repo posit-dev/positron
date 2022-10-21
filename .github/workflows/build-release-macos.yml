@@ -1,4 +1,4 @@
-name: Build macOS Release
+name: "Positron: Build macOS Release"
 
 on: workflow_dispatch
 
@@ -196,7 +196,12 @@ jobs:
       - name: Run unit tests
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
 
       - name: Run integration tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+
