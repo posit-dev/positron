@@ -35,9 +35,9 @@ async function main() {
             'Info.plist',
             'MainMenu.nib',
             '.npmrc',
-			'electron.napi.node'
+			'electron.napi.node',
+			'node.napi.node'
         ],
-        x64ArchFiles: 'electron.napi.node',
         outAppPath,
         force: true
     });
