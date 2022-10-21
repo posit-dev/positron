@@ -105,9 +105,6 @@ module.exports.indentationFilter = [
 
 	// except multiple specific folders
 	'!**/codicon/**',
-	// --- Start Positron ---
-	'!**/posicon/**',
-	// --- End Positron ---
 	'!**/fixtures/**',
 	'!**/lib/**',
 	'!extensions/**/dist/**',
