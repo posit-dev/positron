@@ -47,8 +47,8 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarButton iconClassName='open-file-icon' dropDown={true} tooltip='Open file' />
 					<TopBarSeparator />
-					<TopBarButton iconClassName='save-icon' tooltip='Save' />
-					<TopBarButton iconClassName='save-all-icon' tooltip='Save all' />
+					<TopBarCommandButton id='workbench.action.files.save' iconClassName='save-icon' />
+					<TopBarCommandButton id='workbench.action.files.saveFiles' iconClassName='save-all-icon' />
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
