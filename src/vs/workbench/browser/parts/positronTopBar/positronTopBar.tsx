@@ -2,25 +2,29 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
 import 'vs/css!./media/css/positronTopBar';
 const React = require('react');
-import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
-import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
-import { TopBarRegion } from 'vs/workbench/browser/parts/positronTopBar/components/topBarRegion/topBarRegion';
-import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSeparator/topBarSeparator';
-import { TooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandButton/topBarCommandButton';
+import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
+import { TopBarRegion } from 'vs/workbench/browser/parts/positronTopBar/components/topBarRegion/topBarRegion';
+import { PositronTopBarContextProvider } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
+import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSeparator/topBarSeparator';
+import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 
-import { ICommandsMap, MenuRegistry } from 'vs/platform/actions/common/actions';
+export interface PositronTopBarServices {
+	configurationService: IConfigurationService;
+	quickInputService: IQuickInputService;
+	commandService: ICommandService;
+}
 
 /**
  * PositronTopBarProps interface.
  */
-interface PositronTopBarProps {
-	quickInputService: IQuickInputService;
-	commandService: ICommandService;
+interface PositronTopBarProps extends PositronTopBarServices {
+	testValue: string; // For now, as a tracer...
 }
 
 /**
@@ -29,69 +33,31 @@ interface PositronTopBarProps {
  * @returns The component.
  */
 export const PositronTopBar = (props: PositronTopBarProps) => {
-	// Hooks.
-	const [hoverManager] = useState(new TooltipManager());
-
-	const [commands, setCommands] = useState(MenuRegistry.getCommands());
-
-	useEffect(() => {
-		const unsubscribe = MenuRegistry.onDidChangeMenu(e => {
-			// TODO: be smarter here as we can query for whether any commands
-			// we care about have changed
-			setCommands(MenuRegistry.getCommands());
-		});
-		return () => {
-			unsubscribe.dispose();
-		};
-	});
-
 	// Render.
 	return (
-		<div className='positron-top-bar'>
-			<TopBarRegion align='left'>
-				<TopBarButton tooltipManager={hoverManager} iconClassName='new-file-icon' dropDown={true} tooltip='New file' />
-				<TopBarSeparator />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='new-project-icon' tooltip='New project' />
-				<TopBarSeparator />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='open-file-icon' dropDown={true} tooltip='Open file' />
-				<TopBarSeparator />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='save-icon' tooltip='Save' />
-				<TopBarButton tooltipManager={hoverManager} iconClassName='save-all-icon' tooltip='Save all' />
-			</TopBarRegion>
+		<PositronTopBarContextProvider {...props}>
+			<div className='positron-top-bar'>
+				<TopBarRegion align='left'>
+					<TopBarButton iconClassName='new-file-icon' dropDown={true} tooltip='New file' />
+					<TopBarSeparator />
+					<TopBarButton iconClassName='new-project-icon' tooltip='New project' />
+					<TopBarSeparator />
+					<TopBarButton iconClassName='open-file-icon' dropDown={true} tooltip='Open file' />
+					<TopBarSeparator />
+					<TopBarButton iconClassName='save-icon' tooltip='Save' />
+					<TopBarButton iconClassName='save-all-icon' tooltip='Save all' />
+				</TopBarRegion>
 
-			<TopBarRegion align='center'>
-				{topBarCommandButton('workbench.action.navigateBack', 'back-icon', hoverManager, commands, props.commandService)}
-				{topBarCommandButton('workbench.action.navigateForward', 'forward-icon', hoverManager, commands, props.commandService)}
-				<TopBarCommandCenter {...props} />
-			</TopBarRegion>
+				<TopBarRegion align='center'>
+					<TopBarCommandButton id='workbench.action.navigateBack' iconClassName='back-icon'></TopBarCommandButton>
+					<TopBarCommandButton id='workbench.action.navigateForward' iconClassName='forward-icon'></TopBarCommandButton>
+					<TopBarCommandCenter {...props} />
+				</TopBarRegion>
 
-			<TopBarRegion align='right'>
-				<TopBarButton iconClassName='print-icon' />
-			</TopBarRegion>
-		</div>
+				<TopBarRegion align='right'>
+					<TopBarButton iconClassName='print-icon' />
+				</TopBarRegion>
+			</div>
+		</PositronTopBarContextProvider>
 	);
 };
-
-
-function topBarCommandButton(
-	id: string,
-	iconClassName: string,
-	tooltipManager: TooltipManager,
-	commands: ICommandsMap,
-	commandService: ICommandService
-) {
-	const command = commands.get(id);
-	const execute = () => commandService.executeCommand(id);
-	if (command) {
-		return (
-			<TopBarButton
-				execute={execute}
-				iconClassName={iconClassName}
-				tooltip={command?.tooltip}
-				tooltipManager={tooltipManager}
-			></TopBarButton>
-		);
-	} else {
-		return null;
-	}
-}

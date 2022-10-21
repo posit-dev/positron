@@ -4,7 +4,6 @@
 
 import 'vs/css!./css/topBarButton';
 const React = require('react');
-import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
 import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 
@@ -12,7 +11,6 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
  * TopBarButtonProps interface.
  */
 interface TopBarButtonProps {
-	tooltipManager?: ITooltipManager;
 	iconClassName: string;
 	dropDown?: boolean;
 	tooltip?: string | ILocalizedString;
