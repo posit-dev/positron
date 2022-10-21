@@ -52,9 +52,6 @@ export const usePositronTopBarState = ({
 	labelService,
 	hostService
 }: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
-	// Get the tooltip delay.
-	const tooltipDelay = configurationService.getValue<number>('workbench.hover.delay');
-
 	// Hooks.
 	const [commands, setCommands] = useState<ICommandsMap>(MenuRegistry.getCommands());
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
@@ -77,7 +74,7 @@ export const usePositronTopBarState = ({
 		return () => disposable.dispose();
 	}, [commands]);
 
-	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : tooltipDelay;
+	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : configurationService.getValue<number>('workbench.hover.delay');
 	const tooltipHidden = () => setLastTooltipHiddenAt(new Date().getTime());
 
 	// Return the Positron top bar state.
