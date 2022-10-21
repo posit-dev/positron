@@ -11,7 +11,7 @@ import type { PositronTopBarState } from 'vs/workbench/browser/parts/positronTop
 /**
  * Create the Positron top bar context.
  */
-const positronTopBarContext = createContext<PositronTopBarState | undefined>(undefined);
+const PositronTopBarContext = createContext<PositronTopBarState | undefined>(undefined);
 
 /**
  * Export the PositronTopBarContextProvider provider
@@ -22,11 +22,11 @@ export const PositronTopBarContextProvider = (props: PropsWithChildren<PositronT
 
 	// Render.
 	return (
-		<positronTopBarContext.Provider value={positronTopBarState}>
+		<PositronTopBarContext.Provider value={positronTopBarState}>
 			{props.children}
-		</positronTopBarContext.Provider>
+		</PositronTopBarContext.Provider>
 	);
 };
 
 // Export useQuartoPubContext to simplify using the Positron top bar context object.
-export const usePositronTopBarContext = () => useContext(positronTopBarContext);
+export const usePositronTopBarContext = () => useContext(PositronTopBarContext);
