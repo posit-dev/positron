@@ -5,20 +5,18 @@
 //
 //
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::bail;
+use harp::eval::RParseEvalOptions;
+use harp::eval::r_parse_eval;
 use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
-use harp::protect::RProtect;
-use harp::r_lock;
-use harp::r_string;
 use harp::r_symbol;
 use lazy_static::lazy_static;
 use libR_sys::*;
@@ -48,6 +46,7 @@ use crate::lsp::indexer::IndexedSymbol;
 use crate::lsp::indexer::index_document;
 use crate::lsp::document::Document;
 use crate::lsp::traits::cursor::TreeCursorExt;
+use crate::lsp::traits::node::NodeExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::tree::TreeExt;
@@ -309,6 +308,24 @@ unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
     return Ok(item);
 }
 
+unsafe fn completion_item_from_name(name: &str, callee: &str, enquote: bool) -> Result<CompletionItem> {
+
+    let mut item = CompletionItem {
+        label: name.to_string(),
+        ..Default::default()
+    };
+
+    if enquote {
+        item.insert_text = Some(format!("\"{}\"", name));
+    }
+
+    item.detail = Some(callee.to_string());
+    item.kind = Some(CompletionItemKind::FIELD);
+
+    Ok(item)
+
+}
+
 unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP) -> Result<CompletionItem> {
 
     // TODO: Can we figure out the object type without forcing promise evaluation?
@@ -417,10 +434,14 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
 
             "left_assignment" | "super_assignment" | "equals_assignment" => {
 
-                // check for a valid completion
-                match completion_item_from_assignment(&node, &context.source) {
-                    Ok(item) => completions.push(item),
-                    Err(error) => error!("{:?}", error),
+                // check that the left-hand side is an identifier or a string
+                if let Some(child) = node.child(0) {
+                    if matches!(child.kind(), "identifier" | "string") {
+                        match completion_item_from_assignment(&node, &context.source) {
+                            Ok(item) => completions.push(item),
+                            Err(error) => error!("{:?}", error),
+                        }
+                    }
                 }
 
                 // return true in case we have nested assignments
@@ -519,11 +540,93 @@ unsafe fn list_namespace_symbols(namespace: SEXP) -> RObject {
     return RObject::new(R_lsInternal(namespace, 1));
 }
 
+unsafe fn append_subset_completions(_context: &CompletionContext, callee: &str, enquote: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
+
+    info!("append_subset_completions({:?})", callee);
+
+    let value = r_parse_eval(callee, RParseEvalOptions {
+        forbid_function_calls: true,
+    })?;
+
+    let names = RFunction::new("base", "names")
+        .add(value)
+        .call()?
+        .to::<Vec<String>>()?;
+
+    for name in names {
+        match completion_item_from_name(&name, callee, enquote) {
+            Ok(item) => completions.push(item),
+            Err(error) => error!("{:?}", error),
+        }
+    }
+
+    Ok(())
+
+}
+
+unsafe fn append_call_completions(context: &CompletionContext, cursor_node: &Node, call_node: &Node, completions: &mut Vec<CompletionItem>) -> Result<()> {
+
+    // Get the callee text.
+    let callee = call_node.child(0).into_result()?.utf8_text(context.source.as_bytes())?;
+
+    // Check for library completions.
+    info!("Call node: {}", call_node.dump(context.source.as_str()));
+    info!("Cursor node: {}", cursor_node.dump(context.source.as_str()));
+
+    let mut cursor_node = *cursor_node;
+    let can_use_library_completions = local! {
+
+        if !matches!(callee, "library" | "base::library" | "base:::library") {
+            return false;
+        }
+
+        loop {
+
+            let cursor_parent = unwrap!(cursor_node.parent(), {
+                return false;
+            });
+
+            if cursor_parent == *call_node {
+                return
+                    call_node.child(1) == Some(cursor_node) ||
+                    call_node.child(2) == Some(cursor_node);
+            }
+
+            cursor_node = cursor_parent;
+
+        }
+
+    };
+
+
+    if can_use_library_completions {
+
+        let packages = RFunction::new("base", ".packages")
+            .param("all.available", true)
+            .call()?
+            .to::<Vec<String>>()?;
+
+        for package in packages {
+            let item = completion_item_from_package(package.as_str(), false)?;
+            completions.push(item);
+        }
+
+        return Ok(())
+
+    }
+
+    // Fall back to the default parameter completions.
+    append_parameter_completions(context, &callee, completions)
+
+}
+
 unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_parameter_completions({:?})", callee);
 
     // Check for a function defined in this document that can provide parameters.
+    // TODO: Move this to a separate 'resolve()' function which takes some 'callee'
+    // and provides a definition for that (probably an enum?)
     let index = index_document(context.document);
     for symbol in index {
         match symbol {
@@ -544,40 +647,14 @@ unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str
     // TODO: Given the callee, we should also try to find its definition within
     // the document index of function definitions, since it may not be defined
     // within the session.
-    let mut protect = RProtect::new();
-    let mut status: ParseStatus = 0;
+    let value = r_parse_eval(callee, RParseEvalOptions {
+        forbid_function_calls: true,
+    })?;
 
-    // Parse the callee text. The text will be parsed as an R expression,
-    // which is a vector of calls to be evaluated.
-    let string_sexp = protect.add(r_string!(callee));
-    let parsed_sexp = protect.add(R_ParseVector(string_sexp, 1, &mut status, R_NilValue));
-
-    if status != ParseStatus_PARSE_OK {
-        bail!("Error parsing {} [status {}]", callee, status);
-    }
-
-    // Evaluate the text. We use evaluation here to make it easier to support
-    // the lookup of complex left-hand expressions.
-    //
-    // TODO: Avoid evaluating function calls here.
-    let mut value = R_NilValue;
-    for i in 0..Rf_length(parsed_sexp) {
-        let expr = VECTOR_ELT(parsed_sexp, i as isize);
-        let mut errc : i32 = 0;
-        value = R_tryEvalSilent(expr, R_GlobalEnv, &mut errc);
-        if errc != 0 {
-            bail!("Error evaluating {}: {}", callee, geterrmessage());
-        }
-    }
-
-    // Protect the final evaluation result here, as we'll
-    // need to introspect on its result.
-    value = protect.add(value);
-
-    if Rf_isFunction(value) != 0 {
+    if Rf_isFunction(*value) != 0 {
 
         let strings = RFunction::from(".rs.formalNames")
-            .add(value)
+            .add(*value)
             .call()?
             .to::<Vec<String>>()?;
 
@@ -823,13 +900,14 @@ pub(crate) fn can_provide_completions(document: &mut Document, params: &Completi
 
 }
 
-pub(crate) fn append_session_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
+pub unsafe fn append_session_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_session_completions()");
 
     // get reference to AST
     let ast = context.document.ast()?;
-    let mut node = ast.node_at_point(context.point)?;
+    let cursor_node = ast.node_at_point(context.point)?;
+    let mut node = cursor_node;
 
     // check for completion within a comment -- in such a case, we usually
     // want to complete things like roxygen tags
@@ -841,11 +919,10 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
         let token = pattern.replace(contents, "");
         info!("Token: {:?}", token);
         if token.starts_with('@') {
-            return r_lock! { append_roxygen_completions(&token[1..], completions) };
+            return append_roxygen_completions(&token[1..], completions);
         } else {
             return Ok(());
         }
-
     }
 
     // check to see if we're completing a symbol from a namespace,
@@ -879,7 +956,7 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
                 if let Some(prev) = parent.prev_sibling() {
                     if matches!(prev.kind(), "identifier" | "string") {
                         let package = prev.utf8_text(context.source.as_bytes()).unwrap();
-                        return r_lock! { append_namespace_completions(context, package, exports_only, completions) };
+                        return append_namespace_completions(context, package, exports_only, completions);
                     }
                 }
             }
@@ -888,13 +965,19 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
 
     loop {
 
+        // Check for 'subset' completions.
+        if matches!(node.kind(), "dollar" | "subset" | "subset2") {
+            let enquote = matches!(node.kind(), "subset" | "subset2");
+            if let Some(child) = node.child(0) {
+                let text = child.utf8_text(context.source.as_bytes())?;
+                return append_subset_completions(context, &text, enquote, completions);
+            }
+        }
+
         // If we landed on a 'call', then we should provide parameter completions
         // for the associated callee if possible.
         if node.kind() == "call" {
-            if let Some(child) = node.child(0) {
-                let text = child.utf8_text(context.source.as_bytes())?;
-                return r_lock! { append_parameter_completions(context, &text, completions) };
-            };
+            return append_call_completions(context, &cursor_node, &node, completions);
         }
 
         // Handle the case with 'package::prefix', where the user has now
@@ -904,7 +987,7 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
                 if let Some(colon_node) = node.child(1) {
                     let package = package_node.utf8_text(context.source.as_bytes()).unwrap();
                     let exports_only = colon_node.kind() == "::";
-                    return r_lock! { append_namespace_completions(context, package, exports_only, completions) };
+                    return append_namespace_completions(context, package, exports_only, completions);
                 }
             }
         }
@@ -924,7 +1007,7 @@ pub(crate) fn append_session_completions(context: &CompletionContext, completion
 
     // If we got here, then it's appropriate to return completions
     // for any packages + symbols on the search path.
-    return r_lock! { append_search_path_completions(context, completions) };
+    append_search_path_completions(context, completions)
 
 }
 
