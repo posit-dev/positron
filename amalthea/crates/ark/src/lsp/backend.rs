@@ -76,8 +76,8 @@ impl Backend {
         F: FnMut(&Document) -> std::result::Result<T, ()>,
     {
         let mut fallback = || {
-            let contents = unwrap!(std::fs::read_to_string(path), None => {
-                info!("reading from {:?} failed", path);
+            let contents = unwrap!(std::fs::read_to_string(path), Err(error) => {
+                error!("Error reading from {:?}: {}", path, error);
                 return Err(());
             });
 
@@ -88,7 +88,7 @@ impl Backend {
         // If we have a cached copy of the document (because we're monitoring it)
         // then use that; otherwise, try to read the document from the provided
         // path and use that instead.
-        let uri = unwrap!(Url::from_file_path(path), None => {
+        let uri = unwrap!(Url::from_file_path(path), Err(_) => {
             info!("couldn't construct uri from {:?}; using fallback", path);
             return fallback();
         });
