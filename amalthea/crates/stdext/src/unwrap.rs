@@ -46,10 +46,17 @@ macro_rules! unwrap {
         }
     };
 
-    ($value:expr, None => $error:expr) => {
+    ($value:expr, Err(_) => $error:expr) => {
         match $crate::unwrap::_into_result($value) {
             Ok(value) => value,
             Err(_) => $error,
+        }
+    };
+
+    ($value:expr, None => $error:expr) => {
+        match $value {
+            Some(value) => value,
+            None => $error,
         }
     };
 
