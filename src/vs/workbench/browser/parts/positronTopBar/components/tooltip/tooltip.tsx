@@ -5,8 +5,8 @@
 import 'vs/css!./css/tooltip';
 const React = require('react');
 import { useEffect, useState } from 'react';
-import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
 import { ILocalizedString } from 'vs/platform/action/common/action';
+import { ITooltipManager } from 'vs/workbench/browser/parts/positronTopBar/tooltipManager';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**
@@ -36,7 +36,8 @@ export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => 
 	const mouseEnterHandler = () => {
 		console.log(`Last tooltip shown at ${positronTopBarContext?.lastTooltipShownAt}`);
 		positronTopBarContext?.setLastTooltipShownAt(new Date().getTime());
-		setMouseInside(true);
+		setMouseInside(true); // Temporary.
+		setShowTooltip(true); // Temporary.
 	};
 
 	const mouseLeaveHandler = () => {
