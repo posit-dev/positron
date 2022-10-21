@@ -15,8 +15,10 @@ import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/c
 import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton/topBarMenuButton';
-import { MenuId } from 'vs/platform/actions/common/actions';
+import { TopBarOpenRecentButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenRecentButton/topBarOpenRecentButton';
+import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
+import { ILabelService } from 'vs/platform/label/common/label';
+import { IHostService } from 'vs/workbench/services/host/browser/host';
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -27,6 +29,9 @@ export interface PositronTopBarServices {
 	commandService: ICommandService;
 	keybindingService: IKeybindingService;
 	contextMenuService: IContextMenuService;
+	workspacesService: IWorkspacesService;
+	labelService: ILabelService;
+	hostService: IHostService;
 }
 
 /**
@@ -58,7 +63,7 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarButton iconClassName='new-project-icon' tooltip='New project' />
 					<TopBarSeparator />
-					<TopBarMenuButton menuId={MenuId.MenubarRecentMenu} iconClassName='open-file-icon' tooltip='Open file' />
+					<TopBarOpenRecentButton />
 					<TopBarSeparator />
 					<TopBarCommandButton id={kFileSave} iconClassName='save-icon' />
 					<TopBarCommandButton id={kFileSaveAll} iconClassName='save-all-icon' />
