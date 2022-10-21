@@ -15,7 +15,7 @@ interface TopBarCommandButtonProps {
 }
 
 /**
- * PositronTopBar component.
+ * TopBarCommandButton component.
  * @param props A TopBarCommandButtonProps that contains the component properties.
  * @returns The component.
  */
