@@ -30,6 +30,9 @@ const extensionsPath = path.join(path.dirname(__dirname), 'extensions');
 // 	ignore: ['**/out/**', '**/node_modules/**']
 // });
 const compilations = [
+	// --- Start Positron ---
+	'ark/tsconfig.json',
+	// --- End Positron ---
 	'authentication-proxy/tsconfig.json',
 	'configuration-editing/build/tsconfig.json',
 	'configuration-editing/tsconfig.json',
@@ -51,7 +54,9 @@ const compilations = [
 	'jake/tsconfig.json',
 	'json-language-features/client/tsconfig.json',
 	'json-language-features/server/tsconfig.json',
+	// --- Start Positron ---
 	'jupyter-adapter/tsconfig.json',
+	// --- End Positron ---
 	'markdown-language-features/preview-src/tsconfig.json',
 	'markdown-language-features/server/tsconfig.json',
 	'markdown-language-features/tsconfig.json',
