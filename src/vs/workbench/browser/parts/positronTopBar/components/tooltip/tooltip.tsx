@@ -47,12 +47,12 @@ export const Tooltip = (props: TooltipProps & { children: React.ReactNode }) => 
 
 	// Render.
 	return (
-		<div className='yack'>
-			<div className='tooltip' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
+		<div className='tool-tip-container'>
+			<div className='tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
 				{props.children}
 			</div>
-			{mouseInside && showTooltip && props.tooltip && <div className='toolie'>
-				<div className='tyu'>Tooltip text</div>
+			{mouseInside && showTooltip && props.tooltip && <div className='tool-tip'>
+				<div className='tool-tip-text'>Tooltip text</div>
 			</div>}
 		</div>
 	);

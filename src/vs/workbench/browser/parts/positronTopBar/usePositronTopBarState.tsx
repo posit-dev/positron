@@ -10,7 +10,7 @@ import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBa
 import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
 import { MenuRegistry } from 'vs/platform/actions/common/actions';
 
-export const usePositronTopBarState = (services: PositronTopBarServices): PositronTopBarState => {
+const usePositronTopBarState = (services: PositronTopBarServices): PositronTopBarState => {
 	// Hooks.
 	const [configurationService] = useState<IConfigurationService>(services.configurationService);
 	const [quickInputService] = useState<IQuickInputService>(services.quickInputService);
@@ -29,7 +29,6 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 		};
 	}, [commands]);
 
-
 	return {
 		configurationService,
 		quickInputService,
@@ -40,5 +39,5 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 	};
 };
 
-// // Export usePositronTopBarState.
-// export default usePositronTopBarState;
+// Export usePositronTopBarState.
+export default usePositronTopBarState;
