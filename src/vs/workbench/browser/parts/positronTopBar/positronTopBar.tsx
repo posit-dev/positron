@@ -15,10 +15,12 @@ import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/c
 import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { kOpenFileMenuCommands, TopBarOpenFileMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenFileMenu';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
+import { kNewMenuCommands, TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarNewMenu';
+import { kOpenMenuCommands, TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
+
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -46,7 +48,12 @@ const kFileSave = 'workbench.action.files.save';
 const kFileSaveAll = 'workbench.action.files.saveFiles';
 const kNavigateBack = 'workbench.action.navigateBack';
 const kNavigateForward = 'workbench.action.navigateForward';
-const kTopBarCommands = [...kOpenFileMenuCommands, kFileSave, kFileSaveAll, kNavigateBack, kNavigateForward];
+const kTopBarCommands = [
+	...kNewMenuCommands,
+	...kOpenMenuCommands,
+	kFileSave, kFileSaveAll,
+	kNavigateBack, kNavigateForward
+];
 
 /**
  * PositronTopBar component.
@@ -59,11 +66,9 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 		<PositronTopBarContextProvider {...props} commandIds={kTopBarCommands}>
 			<div className='positron-top-bar'>
 				<TopBarRegion align='left'>
-					<TopBarButton iconClassName='new-file-icon' dropDown={true} tooltip='New file' />
+					<TopBarNewMenu />
 					<TopBarSeparator />
-					<TopBarButton iconClassName='new-project-icon' tooltip='New project' />
-					<TopBarSeparator />
-					<TopBarOpenFileMenu />
+					<TopBarOpenMenu />
 					<TopBarSeparator />
 					<TopBarCommandButton id={kFileSave} iconClassName='save-icon' />
 					<TopBarCommandButton id={kFileSaveAll} iconClassName='save-all-icon' />

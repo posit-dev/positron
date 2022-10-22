@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React = require('react');
+import { localize } from 'vs/nls';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
 import { URI } from 'vs/base/common/uri';
@@ -19,16 +20,23 @@ const MAX_MENU_RECENT_ENTRIES = 10;
 
 const kOpenFileFolder = 'workbench.action.files.openFileFolder';
 const kOpenFolder = 'workbench.action.files.openFolder';
+const kOpenWorkspaceFromFile = 'workbench.action.openWorkspace';
 const kOpenRecent = 'workbench.action.openRecent';
 const kClearRecentFiles = 'workbench.action.clearRecentFiles';
 
-export const kOpenFileMenuCommands = [kOpenFileFolder, kOpenFolder, kOpenRecent, kClearRecentFiles];
+export const kOpenMenuCommands = [
+	kOpenFileFolder,
+	kOpenFolder,
+	kOpenWorkspaceFromFile,
+	kOpenRecent,
+	kClearRecentFiles
+];
 
 /**
- * TopBarOpenFileMenu component.
+ * TopBarOpenMenu component.
  * @returns The component.
  */
-export const TopBarOpenFileMenu = () => {
+export const TopBarOpenMenu = () => {
 
 	// Hooks.
 	const context = usePositronTopBarContext();
@@ -37,8 +45,8 @@ export const TopBarOpenFileMenu = () => {
 	const actions = async () => {
 
 		const actions: IAction[] = [];
-		const addAction = (id: string) => {
-			const action = commandAction(id, context);
+		const addAction = (id: string, label?: string) => {
+			const action = commandAction(id, label, context);
 			if (action) {
 				actions.push(action);
 			}
@@ -47,6 +55,7 @@ export const TopBarOpenFileMenu = () => {
 		// core open actions
 		addAction(kOpenFileFolder);
 		addAction(kOpenFolder);
+		addAction(kOpenWorkspaceFromFile);
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
@@ -69,7 +78,11 @@ export const TopBarOpenFileMenu = () => {
 
 	// compontent
 	return (
-		<TopBarMenuButton actions={actions} iconClassName='open-file-icon' tooltip='Open file' />
+		<TopBarMenuButton
+			actions={actions}
+			iconClassName='open-file-icon'
+			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}
+		/>
 	);
 };
 

@@ -13,10 +13,10 @@ export interface CommandActionContext {
 	commandService: ICommandService;
 }
 
-export function commandAction(id: string, context?: CommandActionContext) {
+export function commandAction(id: string, label?: string, context?: CommandActionContext) {
 	const command = context?.commands.get(id);
 	if (command) {
-		const label = typeof (command.title) === 'string' ? command.title : command.title.value;
+		label = label || (typeof (command.title) === 'string' ? command.title : command.title.value);
 		return new Action(command.id, unmnemonicLabel(label), undefined, undefined, () => {
 			context?.commandService.executeCommand(command.id);
 		});
