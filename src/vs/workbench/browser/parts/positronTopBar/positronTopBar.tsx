@@ -67,9 +67,7 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 			<div className='positron-top-bar'>
 				<TopBarRegion align='left'>
 					<TopBarNewMenu />
-					<TopBarSeparator />
 					<TopBarOpenMenu />
-					<TopBarSeparator />
 					<TopBarCommandButton id={kFileSave} iconClassName='save-icon' />
 					<TopBarCommandButton id={kFileSaveAll} iconClassName='save-all-icon' />
 				</TopBarRegion>
