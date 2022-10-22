@@ -53,7 +53,7 @@ export const usePositronTopBarState = ({
 	hostService
 }: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
 	// Hooks.
-	const [commands, setCommands] = useState<ICommandsMap>(MenuRegistry.getCommands());
+	const [commands, setCommands] = useState<ICommandsMap>(new Map<string, ICommandAction>());
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
 
 	useEffect(() => {
@@ -72,7 +72,7 @@ export const usePositronTopBarState = ({
 
 		});
 		return () => disposable.dispose();
-	}, [commands]);
+	});
 
 	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : configurationService.getValue<number>('workbench.hover.delay');
 	const tooltipHidden = () => setLastTooltipHiddenAt(new Date().getTime());
