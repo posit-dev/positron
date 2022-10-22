@@ -266,6 +266,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.positronTopBarService = accessor.get(IPositronTopBarService);
 		this.positronToolsBarService = accessor.get(IPositronToolsBarService);
 		this.positronToolsSideBarService = accessor.get(IPositronToolsSideBarService);
+		// prevent unused var warnings
+		if (this.positronTopBarService || this.positronToolsBarService || this.positronToolsSideBarService) { }
 		// --- End Positron ---
 		accessor.get(IBannerService);
 
