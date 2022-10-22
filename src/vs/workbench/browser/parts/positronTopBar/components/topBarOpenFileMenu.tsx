@@ -13,6 +13,7 @@ import { IOpenRecentAction } from 'vs/workbench/browser/parts/titlebar/menubarCo
 import { IWindowOpenable } from 'vs/platform/window/common/window';
 import { unmnemonicLabel } from 'vs/base/common/labels';
 import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
+import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
@@ -52,8 +53,8 @@ export const TopBarOpenFileMenu = () => {
 		const recent = await context?.workspacesService.getRecentlyOpened();
 		if (recent && context) {
 			const recentActions = [
-				...recentMenuActions(context, recent.workspaces),
-				...recentMenuActions(context, recent.files)
+				...recentMenuActions(recent.workspaces, context),
+				...recentMenuActions(recent.files, context)
 			];
 			if (recentActions.length > 0) {
 				actions.push(...recentActions);
@@ -72,19 +73,7 @@ export const TopBarOpenFileMenu = () => {
 	);
 };
 
-function commandAction(id: string, context?: PositronTopBarState) {
-	const command = context?.commands.get(id);
-	if (command) {
-		const label = typeof (command.title) === 'string' ? command.title : command.title.value;
-		return new Action(command.id, unmnemonicLabel(label), undefined, undefined, () => {
-			context?.commandService.executeCommand(command.id);
-		});
-	} else {
-		return undefined;
-	}
-}
-
-function recentMenuActions(context: PositronTopBarState, recent: IRecent[]) {
+function recentMenuActions(recent: IRecent[], context: PositronTopBarState,) {
 	const actions: IAction[] = [];
 	if (recent.length > 0) {
 		for (let i = 0; i < MAX_MENU_RECENT_ENTRIES && i < recent.length; i++) {
