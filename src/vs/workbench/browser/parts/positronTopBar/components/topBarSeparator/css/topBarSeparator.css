@@ -8,7 +8,7 @@
 	background-size: 5px 30px;
 	background-repeat: no-repeat;
 	background-position: center center, 50%, 50%;
-	background-image: url("../images/top-bar-separator-dark.svg");
+	background-image: url("../images/top-bar-separator-light.svg");
 }
 
 .vs-dark .top-bar-separator {
