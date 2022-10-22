@@ -15,7 +15,7 @@ import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/c
 import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { kOpenFile, TopBarOpenFileMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenFileMenu';
+import { kOpenFileMenuCommands, TopBarOpenFileMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenFileMenu';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
@@ -46,7 +46,7 @@ const kFileSave = 'workbench.action.files.save';
 const kFileSaveAll = 'workbench.action.files.saveFiles';
 const kNavigateBack = 'workbench.action.navigateBack';
 const kNavigateForward = 'workbench.action.navigateForward';
-const kTopBarCommands = [kOpenFile, kFileSave, kFileSaveAll, kNavigateBack, kNavigateForward];
+const kTopBarCommands = [...kOpenFileMenuCommands, kFileSave, kFileSaveAll, kNavigateBack, kNavigateForward];
 
 /**
  * PositronTopBar component.

@@ -16,7 +16,12 @@ import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/p
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
-export const kOpenFile = 'workbench.action.files.openFile';
+const kOpenFileFolder = 'workbench.action.files.openFileFolder';
+const kOpenFolder = 'workbench.action.files.openFolder';
+const kOpenRecent = 'workbench.action.openRecent';
+const kClearRecentFiles = 'workbench.action.clearRecentFiles';
+
+export const kOpenFileMenuCommands = [kOpenFileFolder, kOpenFolder, kOpenRecent, kClearRecentFiles];
 
 /**
  * TopBarOpenFileMenu component.
@@ -29,21 +34,34 @@ export const TopBarOpenFileMenu = () => {
 
 	// fetch actions when menu is shown
 	const actions = async () => {
-		const actions: IAction[] = [];
 
-		// standard open file command
-		const openFile = commandAction(kOpenFile, context);
-		if (openFile) {
-			actions.push(openFile);
-		}
+		const actions: IAction[] = [];
+		const addAction = (id: string) => {
+			const action = commandAction(id, context);
+			if (action) {
+				actions.push(action);
+			}
+		};
+
+		// core open actions
+		addAction(kOpenFileFolder);
+		addAction(kOpenFolder);
 		actions.push(new Separator());
 
+		// recent files/workspaces actions
 		const recent = await context?.workspacesService.getRecentlyOpened();
 		if (recent && context) {
-			actions.push(
+			const recentActions = [
 				...recentMenuActions(context, recent.workspaces),
 				...recentMenuActions(context, recent.files)
-			);
+			];
+			if (recentActions.length > 0) {
+				actions.push(...recentActions);
+				actions.push(new Separator());
+				addAction(kOpenRecent);
+				actions.push(new Separator());
+				addAction(kClearRecentFiles);
+			}
 		}
 		return actions;
 	};

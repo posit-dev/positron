@@ -37,7 +37,6 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 						getActions: () => actions,
 						getAnchor: () => buttonRef.current!,
 						getKeyBinding: (action: IAction) => {
-							console.log('getKeyBinding: ' + action.id);
 							return context.keybindingService.lookupKeybinding(action.id);
 						},
 						anchorAlignment: AnchorAlignment.LEFT,
