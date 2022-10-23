@@ -28,6 +28,10 @@
 	display: flex !important;
 }
 
+.codicon-top-bar-button::before {
+	color: var(--vscode-positronTopBar-foreground);
+}
+
 .codicon-top-bar-button-drop-down-arrow {
 	width: 10px;
 	height: 28px;
@@ -35,4 +39,8 @@
 	justify-content: left;
 	font-size: 18px !important;
 	display: flex !important;
+}
+
+.codicon-top-bar-button-drop-down-arrow::before {
+	color: var(--vscode-positronTopBar-foreground);
 }
