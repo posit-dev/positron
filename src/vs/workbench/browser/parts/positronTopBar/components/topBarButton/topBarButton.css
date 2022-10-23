@@ -4,13 +4,14 @@
 
 .top-bar-button {
 	cursor: pointer;
-	padding: 2px 2px;
+	padding: 2px 0;
 	overflow: visible;
 }
 
 .top-bar-button-face {
 	display: flex;
 	position: relative;
+	padding: 0 2px;
 }
 
 .top-bar-button-face:hover {
@@ -30,7 +31,6 @@
 .codicon-top-bar-button-drop-down-arrow {
 	width: 12px;
 	height: 28px;
-	padding-right: 2px;
 	align-items: center;
 	justify-content: center;
 	font-size: 18px !important;
