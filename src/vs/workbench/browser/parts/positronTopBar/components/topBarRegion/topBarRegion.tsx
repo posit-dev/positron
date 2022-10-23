@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./css/topBarRegion';
+import 'vs/css!./topBarRegion';
 import { PropsWithChildren } from 'react';
 const React = require('react');
 

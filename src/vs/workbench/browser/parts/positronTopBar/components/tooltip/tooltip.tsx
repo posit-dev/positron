@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./css/tooltip';
+import 'vs/css!./tooltip';
 const React = require('react');
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { ILocalizedString } from 'vs/platform/action/common/action';
