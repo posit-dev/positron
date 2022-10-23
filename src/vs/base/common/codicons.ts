@@ -566,6 +566,15 @@ export class Codicon implements CSSIcon {
 	public static readonly gitPullRequestNewChanges = new Codicon('git-pull-request-new-changes', { fontCharacter: '\\ec0c' });
 	public static readonly searchFuzzy = new Codicon('search-fuzzy', { fontCharacter: '\\ec0d' });
 
+	// --- Start Positron ---
+	// Custom Codicons for Positron. In order to avoid namespace collisions, these are prefixed with 'positron-'.
+	public static readonly positronNew = new Codicon('positron-new', { fontCharacter: '\\f230' });
+	public static readonly positronOpen = new Codicon('positron-open', { fontCharacter: '\\f231' });
+	public static readonly positronSave = new Codicon('positron-save', { fontCharacter: '\\f232' });
+	public static readonly positronSaveAll = new Codicon('positron-save-all', { fontCharacter: '\\f233' });
+	public static readonly positronPrint = new Codicon('positron-print', { fontCharacter: '\\f234' });
+	public static readonly positronDropDownArrow = new Codicon('positron-drop-down-arrow', { fontCharacter: '\\f235' });
+	// --- End Positron ---
 
 	// derived icons, that could become separate icons
 

@@ -11,7 +11,7 @@ import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/componen
  */
 interface TopBarCommandButtonProps {
 	id: string;
-	iconClassName: string;
+	iconId: string;
 }
 
 /**
@@ -37,7 +37,7 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 		// Render.
 		return (
 			<>
-				{command && <TopBarButton iconClassName={props.iconClassName} tooltip={tooltip} execute={executeHandler} />}
+				{command && <TopBarButton iconId={props.iconId} tooltip={tooltip} execute={executeHandler} />}
 			</>
 		);
 	} else {

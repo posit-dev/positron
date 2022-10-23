@@ -12,7 +12,7 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
  * TopBarButtonProps interface.
  */
 interface TopBarButtonProps {
-	iconClassName: string;
+	iconId: string;
 	dropDown?: boolean;
 	tooltip?: string | ILocalizedString;
 	execute?: VoidFunction;
@@ -24,22 +24,13 @@ interface TopBarButtonProps {
  * @returns The component.
  */
 export const TopBarButton = forwardRef<HTMLDivElement, TopBarButtonProps>((props: TopBarButtonProps, ref) => {
-
-	const mouseEnterHandler = () => {
-		console.log('Mouse is inside button!');
-	};
-
-	const mouseLeaveHandler = () => {
-		console.log('Mouse is outside button!');
-	};
-
 	// Render.
 	return (
 		<Tooltip {...props}>
-			<div ref={ref} className='top-bar-button' onClick={props.execute} onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler}>
+			<div ref={ref} className='top-bar-button' onClick={props.execute}>
 				<div className='top-bar-button-face'>
-					<div className={`top-bar-button-icon ${props.iconClassName}`} />
-					{props.dropDown && <div className='top-bar-button-drop-down-arrow' />}
+					<div className={`codicon codicon-top-bar-button codicon-${props.iconId}`}></div>
+					{props.dropDown && <div className='codicon codicon-top-bar-button-drop-down-arrow codicon-positron-drop-down-arrow' />}
 				</div>
 			</div>
 		</Tooltip>
