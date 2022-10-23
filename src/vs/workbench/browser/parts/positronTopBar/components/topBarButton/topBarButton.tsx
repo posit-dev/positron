@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./css/topBarButton';
+import 'vs/css!./topBarButton';
 const React = require('react');
 import { forwardRef } from 'react';
 import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
