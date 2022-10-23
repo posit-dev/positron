@@ -3,22 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 .top-bar-button {
-	display: flex;
 	cursor: pointer;
+	padding: 2px 2px;
 	overflow: visible;
-	align-items: center;
-	justify-content: center;
 }
 
 .top-bar-button-face {
 	display: flex;
-	padding: 0 2px;
 	position: relative;
-	align-items: center;
-	justify-content: center;
-	background-size: 30px 25px;
-	background-repeat: no-repeat;
-	background-position: center center, 50%, 50%;
 }
 
 .top-bar-button-face:hover {
@@ -26,22 +18,21 @@
 	background: var(--vscode-positronTopBar-hoverBackground);
 }
 
-.top-bar-button-icon {
-	width: 30px;
-	height: 25px;
-	padding: 2px 3px;
-	background-size: 30px 25px;
-	background-repeat: no-repeat;
-	background-position: center center, 50%, 50%;
-
+.codicon-top-bar-button {
+	width: 28px;
+	height: 28px;
+	align-items: center;
+	justify-content: center;
+	font-size: 24px !important;
+	display: flex !important;
 }
 
-.top-bar-button-drop-down-arrow {
-	width: 8px;
+.codicon-top-bar-button-drop-down-arrow {
+	width: 12px;
 	height: 28px;
 	padding-right: 2px;
-	background-size: 8px 20px;
-	background-repeat: no-repeat;
-	background-position: left center, 50%, 50%;
-	background-image: url("../images/drop-down-arrow.svg");
+	align-items: center;
+	justify-content: center;
+	font-size: 18px !important;
+	display: flex !important;
 }

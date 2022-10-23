@@ -70,18 +70,18 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarOpenMenu />
 					<TopBarSeparator />
-					<TopBarCommandButton id={kFileSave} iconClassName='save-icon' />
-					<TopBarCommandButton id={kFileSaveAll} iconClassName='save-all-icon' />
+					<TopBarCommandButton id={kFileSave} iconId='positron-save' />
+					<TopBarCommandButton id={kFileSaveAll} iconId='positron-save-all' />
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton id={kNavigateBack} iconClassName='back-icon' />
-					<TopBarCommandButton id={kNavigateForward} iconClassName='forward-icon' />
+					<TopBarCommandButton id={kNavigateBack} iconId='arrow-small-left' />
+					<TopBarCommandButton id={kNavigateForward} iconId='arrow-small-right' />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
 				<TopBarRegion align='right'>
-					<TopBarButton iconClassName='print-icon' />
+					<TopBarButton iconId='positron-print' />
 				</TopBarRegion>
 			</div>
 		</PositronTopBarContextProvider>

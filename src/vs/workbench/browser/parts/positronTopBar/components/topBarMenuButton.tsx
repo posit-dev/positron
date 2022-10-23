@@ -14,7 +14,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/context
  * TopBarMenuButtonProps interface.
  */
 interface TopBarMenuButtonProps {
-	iconClassName: string;
+	iconId: string;
 	tooltip: string;
 	actions: () => Promise<readonly IAction[]>;
 }
@@ -50,7 +50,7 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 
 	return (
 		<>
-			<TopBarButton ref={buttonRef} dropDown={true} iconClassName={props.iconClassName} tooltip={props.tooltip} execute={showMenu} />
+			<TopBarButton ref={buttonRef} dropDown={true} iconId={props.iconId} tooltip={props.tooltip} execute={showMenu} />
 		</>
 	);
 
