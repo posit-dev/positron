@@ -5,7 +5,7 @@
 .positron-top-bar {
 	width: 100%;
 	z-index: 2000;
-	padding: 0 3px;
+	padding: 0 2px;
 	display: flex;
 	overflow: visible;
 	background: transparent;
