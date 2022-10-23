@@ -4,75 +4,9 @@
 
 .positron-top-bar {
 	width: 100%;
-	background: transparent;
-	display: flex;
-	overflow: visible;
 	z-index: 2000;
 	padding: 0 2px;
+	display: flex;
+	overflow: visible;
+	background: transparent;
 }
-
-.new-file-icon {
-	background-image: url("../images/new-file-light.svg");
-}
-
-.vs-dark .new-file-icon {
-	background-image: url("../images/new-file-dark.svg");
-}
-
-.new-project-icon {
-	background-image: url("../images/new-project-light.svg");
-}
-
-.vs-dark .new-project-icon {
-	background-image: url("../images/new-project-dark.svg");
-}
-
-.open-file-icon {
-	background-image: url("../images/open-file-light.svg");
-}
-
-.vs-dark .open-file-icon {
-	background-image: url("../images/open-file-dark.svg");
-}
-
-.save-icon {
-	background-image: url("../images/save-light.svg");
-}
-
-.vs-dark .save-icon {
-	background-image: url("../images/save-dark.svg");
-}
-
-.save-all-icon {
-	background-image: url("../images/save-all-light.svg");
-}
-
-.vs-dark .save-all-icon {
-	background-image: url("../images/save-all-dark.svg");
-}
-
-.print-icon {
-	background-image: url("../images/print-light.svg");
-}
-
-.vs-dark .print-icon {
-	background-image: url("../images/print-dark.svg");
-}
-
-.forward-icon {
-	background-image: url("../images/forward-light.svg");
-}
-
-.vs-dark .forward-icon {
-	background-image: url("../images/forward-dark.svg");
-}
-
-.back-icon {
-	background-image: url("../images/back-light.svg");
-}
-
-.vs-dark .back-icon {
-	background-image: url("../images/back-dark.svg");
-}
-
-

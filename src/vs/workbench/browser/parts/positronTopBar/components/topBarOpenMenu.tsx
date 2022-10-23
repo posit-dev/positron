@@ -80,7 +80,7 @@ export const TopBarOpenMenu = () => {
 	return (
 		<TopBarMenuButton
 			actions={actions}
-			iconClassName='open-file-icon'
+			iconId='positron-open'
 			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}
 		/>
 	);
