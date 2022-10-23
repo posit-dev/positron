@@ -11,14 +11,16 @@ import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/componen
 import { TopBarRegion } from 'vs/workbench/browser/parts/positronTopBar/components/topBarRegion/topBarRegion';
 import { PositronTopBarContextProvider } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSeparator/topBarSeparator';
-import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandButton/topBarCommandButton';
+import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandButton';
 import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { kOpenFile, TopBarOpenFileMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenFileMenu/ToolbarOpenFileMenu';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
+import { kNewMenuCommands, TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarNewMenu';
+import { kOpenMenuCommands, TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
+
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -46,7 +48,12 @@ const kFileSave = 'workbench.action.files.save';
 const kFileSaveAll = 'workbench.action.files.saveFiles';
 const kNavigateBack = 'workbench.action.navigateBack';
 const kNavigateForward = 'workbench.action.navigateForward';
-const kTopBarCommands = [kOpenFile, kFileSave, kFileSaveAll, kNavigateBack, kNavigateForward];
+const kTopBarCommands = [
+	...kNewMenuCommands,
+	...kOpenMenuCommands,
+	kFileSave, kFileSaveAll,
+	kNavigateBack, kNavigateForward
+];
 
 /**
  * PositronTopBar component.
@@ -59,11 +66,9 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 		<PositronTopBarContextProvider {...props} commandIds={kTopBarCommands}>
 			<div className='positron-top-bar'>
 				<TopBarRegion align='left'>
-					<TopBarButton iconClassName='new-file-icon' dropDown={true} tooltip='New file' />
+					<TopBarNewMenu />
 					<TopBarSeparator />
-					<TopBarButton iconClassName='new-project-icon' tooltip='New project' />
-					<TopBarSeparator />
-					<TopBarOpenFileMenu />
+					<TopBarOpenMenu />
 					<TopBarSeparator />
 					<TopBarCommandButton id={kFileSave} iconClassName='save-icon' />
 					<TopBarCommandButton id={kFileSaveAll} iconClassName='save-all-icon' />
