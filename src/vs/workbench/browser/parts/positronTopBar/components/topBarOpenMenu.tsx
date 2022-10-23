@@ -3,8 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React = require('react');
+import { localize } from 'vs/nls';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
-import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton/topBarMenuButton';
+import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
 import { URI } from 'vs/base/common/uri';
 import { isMacintosh } from 'vs/base/common/platform';
 import { Action, IAction, Separator } from 'vs/base/common/actions';
@@ -13,60 +14,79 @@ import { IOpenRecentAction } from 'vs/workbench/browser/parts/titlebar/menubarCo
 import { IWindowOpenable } from 'vs/platform/window/common/window';
 import { unmnemonicLabel } from 'vs/base/common/labels';
 import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
+import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
-export const kOpenFile = 'workbench.action.files.openFile';
+const kOpenFileFolder = 'workbench.action.files.openFileFolder';
+const kOpenFolder = 'workbench.action.files.openFolder';
+const kOpenWorkspaceFromFile = 'workbench.action.openWorkspace';
+const kOpenRecent = 'workbench.action.openRecent';
+const kClearRecentFiles = 'workbench.action.clearRecentFiles';
+
+export const kOpenMenuCommands = [
+	kOpenFileFolder,
+	kOpenFolder,
+	kOpenWorkspaceFromFile,
+	kOpenRecent,
+	kClearRecentFiles
+];
 
 /**
- * TopBarOpenFileMenu component.
+ * TopBarOpenMenu component.
  * @returns The component.
  */
-export const TopBarOpenFileMenu = () => {
+export const TopBarOpenMenu = () => {
 
 	// Hooks.
 	const context = usePositronTopBarContext();
 
 	// fetch actions when menu is shown
 	const actions = async () => {
-		const actions: IAction[] = [];
 
-		// standard open file command
-		const openFile = commandAction(kOpenFile, context);
-		if (openFile) {
-			actions.push(openFile);
-		}
+		const actions: IAction[] = [];
+		const addAction = (id: string, label?: string) => {
+			const action = commandAction(id, label, context);
+			if (action) {
+				actions.push(action);
+			}
+		};
+
+		// core open actions
+		addAction(kOpenFileFolder);
+		addAction(kOpenFolder);
+		addAction(kOpenWorkspaceFromFile);
 		actions.push(new Separator());
 
+		// recent files/workspaces actions
 		const recent = await context?.workspacesService.getRecentlyOpened();
 		if (recent && context) {
-			actions.push(
-				...recentMenuActions(context, recent.workspaces),
-				...recentMenuActions(context, recent.files)
-			);
+			const recentActions = [
+				...recentMenuActions(recent.workspaces, context),
+				...recentMenuActions(recent.files, context)
+			];
+			if (recentActions.length > 0) {
+				actions.push(...recentActions);
+				actions.push(new Separator());
+				addAction(kOpenRecent);
+				actions.push(new Separator());
+				addAction(kClearRecentFiles);
+			}
 		}
 		return actions;
 	};
 
 	// compontent
 	return (
-		<TopBarMenuButton actions={actions} iconClassName='open-file-icon' tooltip='Open file' />
+		<TopBarMenuButton
+			actions={actions}
+			iconClassName='open-file-icon'
+			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}
+		/>
 	);
 };
 
-function commandAction(id: string, context?: PositronTopBarState) {
-	const command = context?.commands.get(id);
-	if (command) {
-		const label = typeof (command.title) === 'string' ? command.title : command.title.value;
-		return new Action(command.id, unmnemonicLabel(label), undefined, undefined, () => {
-			context?.commandService.executeCommand(command.id);
-		});
-	} else {
-		return undefined;
-	}
-}
-
-function recentMenuActions(context: PositronTopBarState, recent: IRecent[]) {
+function recentMenuActions(recent: IRecent[], context: PositronTopBarState,) {
 	const actions: IAction[] = [];
 	if (recent.length > 0) {
 		for (let i = 0; i < MAX_MENU_RECENT_ENTRIES && i < recent.length; i++) {
