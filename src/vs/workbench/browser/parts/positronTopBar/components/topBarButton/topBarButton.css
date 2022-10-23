@@ -29,10 +29,11 @@
 }
 
 .codicon-top-bar-button-drop-down-arrow {
-	width: 12px;
+	width: 10px;
 	height: 28px;
 	align-items: center;
-	justify-content: center;
+	/* margin-left: 2px; */
+	justify-content: left;
 	font-size: 18px !important;
 	display: flex !important;
 }
