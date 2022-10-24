@@ -4,7 +4,7 @@
 
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { createProxyIdentifier } from 'vs/workbench/services/extensions/common/proxyIdentifier';
+import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
@@ -21,6 +21,9 @@ export interface ExtHostLanguageRuntimeShape {
 	$interruptLanguageRuntime(handle: number): void;
 	$restartLanguageRuntime(handle: number): void;
 	$shutdownLanguageRuntime(handle: number): void;
+}
+
+export interface IMainPositronContext extends IRPCProtocol {
 }
 
 export const ExtHostPositronContext = {

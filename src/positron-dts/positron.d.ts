@@ -2,9 +2,9 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-
 declare module 'positron' {
+
+	import * as vscode from 'vscode'; // eslint-disable-line
 
 	/** The set of possible language runtime messages */
 	export enum LanguageRuntimeMessageType {

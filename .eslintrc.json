@@ -433,6 +433,9 @@
 						"target": "src/vs/workbench/api/~",
 						"restrictions": [
 							"vscode",
+							// --- Start Positron ---
+							"positron",
+							// --- End Positron ---
 							"vs/base/~",
 							"vs/base/parts/*/~",
 							"vs/platform/*/~",

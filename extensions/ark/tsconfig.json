@@ -23,7 +23,7 @@
 	},
 	"include": [
 		"src/**/*",
-		"../../src/vscode-dts/vscode.d.ts",
 		"../../src/positron-dts/positron.d.ts",
+		"../../src/vscode-dts/vscode.d.ts",
 	]
 }

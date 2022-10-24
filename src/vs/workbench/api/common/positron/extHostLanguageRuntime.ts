@@ -2,10 +2,9 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import type * as vscode from 'vscode';
 import type * as positron from 'positron';
 import { ILanguageRuntimeInfo, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import * as extHostProtocol from '../extHost.protocol';
+import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable } from 'vs/workbench/api/common/extHostTypes';
 
@@ -16,10 +15,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
 	constructor(
-		mainContext: extHostProtocol.IMainContext,
+		mainContext: extHostProtocol.IMainPositronContext,
 	) {
 		// Trigger creation of the proxy
-		this._proxy = mainContext.getProxy(extHostProtocol.MainContext.MainThreadLanguageRuntime);
+		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
 	}
 
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo> {

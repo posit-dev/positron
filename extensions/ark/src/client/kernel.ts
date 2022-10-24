@@ -53,6 +53,6 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	});
 
 	// Register a language runtime provider for the ARK kernel.
-	return positron.registerLanguageRuntime(runtime);
+	return positron.runtime.registerLanguageRuntime(runtime);
 }
 
