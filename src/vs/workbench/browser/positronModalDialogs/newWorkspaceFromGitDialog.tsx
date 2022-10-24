@@ -10,10 +10,10 @@ import { showPositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { browseForParentDirectory, defaultParentDirectory, NewWorkspaceDialogContext } from 'vs/workbench/browser/parts/positronTopBar/dialogs/newWorkspaceDialog';
 import { TextInput } from 'vs/workbench/browser/positronModalDialogs/components/textInput';
 import { CheckBoxInput } from 'vs/workbench/browser/positronModalDialogs/components/checkBoxInput';
 import { DirectoryInput } from 'vs/workbench/browser/positronModalDialogs/components/directoryInput';
+import { browseForParentDirectory, defaultParentDirectory, NewWorkspaceDialogContext } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceDialog';
 
 export interface NewWorkspaceFromGitDialogData {
 	repo: string;
