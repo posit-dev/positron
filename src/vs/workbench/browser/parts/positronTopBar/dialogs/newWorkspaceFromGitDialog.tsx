@@ -11,9 +11,9 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { browseForParentDirectory, defaultParentDirectory, NewWorkspaceDialogContext } from 'vs/workbench/browser/parts/positronTopBar/dialogs/newWorkspaceDialog';
-import { TextInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/textInput';
-import { CheckBoxInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/checkBoxInput';
-import { DirectoryInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/directoryInput';
+import { TextInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/components/textInput';
+import { CheckBoxInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/components/checkBoxInput';
+import { DirectoryInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/components/directoryInput';
 
 export interface NewWorkspaceFromGitDialogData {
 	repo: string;
