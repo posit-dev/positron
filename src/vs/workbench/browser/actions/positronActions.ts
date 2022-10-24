@@ -2,6 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import { ITelemetryData } from 'vs/base/common/actions';
 import { URI } from 'vs/base/common/uri';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
@@ -9,6 +10,7 @@ import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/act
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
@@ -121,9 +123,34 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 	}
 }
 
+export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
+
+	static readonly ID = 'positron.workbench.action.openWorkspaceInNewWindow';
+
+	constructor() {
+		super({
+			id: PositronOpenWorkspaceInNewWindowAction.ID,
+			title: {
+				value: localize('positronOpenWorkspaceInNewWindow', "Open Workspace in New Window..."),
+				original: 'Open Workspace in New Window...'
+			},
+			category: workspacesCategory,
+			f1: true,
+			precondition: EnterMultiRootWorkspaceSupportContext,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor, data?: ITelemetryData): Promise<void> {
+		const fileDialogService = accessor.get(IFileDialogService);
+		return fileDialogService.pickFolderAndOpen({ forceNewWindow: true, telemetryExtraData: data });
+	}
+}
+
+
 // --- Actions Registration
 registerAction2(PositronNewWorkspaceAction);
 registerAction2(PositronNewWorkspaceFromGitAction);
+registerAction2(PositronOpenWorkspaceInNewWindowAction);
 
 
 
