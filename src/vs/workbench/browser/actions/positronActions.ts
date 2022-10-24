@@ -14,8 +14,8 @@ import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
-import { showNewWorkspaceDialog } from 'vs/workbench/browser/parts/positronTopBar/dialogs/newWorkspaceDialog';
-import { showNewWorkspaceFromGitDialog } from 'vs/workbench/browser/parts/positronTopBar/dialogs/newWorkspaceFromGitDialog';
+import { showNewWorkspaceDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceDialog';
+import { showNewWorkspaceFromGitDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceFromGitDialog';
 import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 

@@ -5,11 +5,10 @@
 import 'vs/css!./positronModalDialog';
 const React = require('react');
 import { PropsWithChildren, useCallback, useEffect, FC } from 'react';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { SimpleTitleBar } from 'vs/workbench/browser/parts/positronModalDialog/components/simpleTitleBar';
-import { ContentArea } from 'vs/workbench/browser/parts/positronModalDialog/components/contentArea';
-import { OKCancelActionBar } from 'vs/workbench/browser/parts/positronModalDialog/components/okCancelActionBar';
-import { PositronModalDialogReactRenderer } from 'vs/workbench/browser/parts/positronModalDialog/positronModalDialogReactRenderer';
+import { SimpleTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/simpleTitleBar';
+import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
+import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
+import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 
 /**
  * Grossness.
@@ -22,7 +21,7 @@ export type ModalDialogOptions<T, C> = {
 	title: string;
 	width: number;
 	height: number;
-	layoutService: ILayoutService;
+	container: HTMLElement;
 	context: C;
 };
 
@@ -37,12 +36,12 @@ export async function showPositronModalDialog<T, C = Record<string, unknown>>(
 ) {
 
 	// destruecture
-	const { input, Editor, title, width, height, layoutService, context } = options;
+	const { input, Editor, title, width, height, container, context } = options;
 
 	// Return a promise that resolves when the modal dialog is done.
 	return new Promise<T | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(layoutService.container);
+		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(container);
 
 		// function called to collect result (and hook for setting it from the editor)
 		let accept: (() => T) | undefined;
