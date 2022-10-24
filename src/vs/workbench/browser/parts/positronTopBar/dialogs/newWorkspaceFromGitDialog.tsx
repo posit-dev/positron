@@ -35,15 +35,15 @@ export async function showNewWorkspaceFromGitDialog(accessor: ServicesAccessor):
 		newWindow: false
 	};
 
-	return showPositronModalDialog<NewWorkspaceFromGitDialogData, NewWorkspaceDialogContext>(
+	return showPositronModalDialog<NewWorkspaceFromGitDialogData, NewWorkspaceDialogContext>({
 		input,
-		NewWorkspaceFromGitDialogEditor,
-		localize('positronNewWorkspaceDialogTitle', "New Workspace from Git"),
-		400,
-		300,
+		Editor: NewWorkspaceFromGitDialogEditor,
+		title: localize('positronNewWorkspaceDialogTitle', "New Workspace from Git"),
+		width: 400,
+		height: 300,
 		layoutService,
-		{ fileDialogs }
-	);
+		context: { fileDialogs }
+	});
 }
 
 
