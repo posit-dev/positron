@@ -95,10 +95,6 @@ import { DebugConfigurationProviderTriggerKind } from 'vs/workbench/contrib/debu
 import { IExtHostLocalizationService } from 'vs/workbench/api/common/extHostLocalizationService';
 import { EditSessionIdentityMatch } from 'vs/platform/workspace/common/editSessions';
 
-// --- Start Positron ---
-import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
-// --- End Positron ---
-
 export interface IExtensionRegistries {
 	mine: ExtensionDescriptionRegistry;
 	all: ExtensionDescriptionRegistry;
@@ -189,10 +185,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostWebviewViews = rpcProtocol.set(ExtHostContext.ExtHostWebviewViews, new ExtHostWebviewViews(rpcProtocol, extHostWebviews));
 	const extHostTesting = rpcProtocol.set(ExtHostContext.ExtHostTesting, new ExtHostTesting(rpcProtocol, extHostCommands, extHostDocumentsAndEditors));
 	const extHostUriOpeners = rpcProtocol.set(ExtHostContext.ExtHostUriOpeners, new ExtHostUriOpeners(rpcProtocol));
-
-	// --- Start Positron ---
-	const extHostLanguageRuntime = rpcProtocol.set(ExtHostContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
-	// --- End Positron ---
 
 	rpcProtocol.set(ExtHostContext.ExtHostInteractive, new ExtHostInteractive(rpcProtocol, extHostNotebook, extHostDocumentsAndEditors, extHostCommands, extHostLogService));
 
@@ -603,8 +595,8 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 		};
 
 		// --- Start Positron ---
-		const positron: typeof vscode.positron = {
-			registerLanguageRuntime(runtime: vscode.LanguageRuntime): vscode.Disposable {
+		const positronApi: typeof positron = {
+			registerLanguageRuntime(runtime: positron.LanguageRuntime): vscode.Disposable {
 				return extHostLanguageRuntime.registerLanguageRuntime(runtime);
 			}
 		};
@@ -1216,9 +1208,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 
 		return <typeof vscode>{
 			version: initData.version,
-			// --- Start Positron ---
-			positronVersion: initData.positronVersion,
-			// --- End Positron ---
 			// namespaces
 			authentication,
 			commands,
@@ -1228,9 +1217,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			extensions,
 			l10n,
 			languages,
-			// --- Start Positron ---
-			positron,
-			// --- End Positron ---
 			notebooks,
 			scm,
 			tasks,

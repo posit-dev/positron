@@ -304,7 +304,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			productJsonStream,
 			license,
 			api,
+			// --- Start Positron ---
 			positronApi,
+			// --- End Positron ---
 			telemetry,
 			sources,
 			deps

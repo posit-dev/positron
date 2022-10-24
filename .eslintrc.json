@@ -130,7 +130,9 @@
 			"files": [
 				"**/vscode.d.ts",
 				"**/vscode.proposed.*.d.ts",
+				// --- Start Positron ---
 				"**/positron.d.ts"
+				// --- End Positron ---
 			],
 			"rules": {
 				"local/vscode-dts-create-func": "warn",
@@ -586,10 +588,12 @@
 						"target": "src/vscode-dts/**",
 						"restrictions": []
 					},
+					// --- Start Positron ---
 					{
 						"target": "src/positron-dts/**",
 						"restrictions": []
 					},
+					// --- End Positron ---
 					{
 						"target": "src/{bootstrap-amd.js,bootstrap-fork.js,bootstrap-node.js,bootstrap-window.js,bootstrap.js,cli.js,main.js,server-cli.js,server-main.js}",
 						"restrictions": []

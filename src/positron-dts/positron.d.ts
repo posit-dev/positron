@@ -176,10 +176,10 @@ declare module 'positron' {
 		readonly metadata: LanguageRuntimeMetadata;
 
 		/** An object that emits language runtime events */
-		onDidReceiveRuntimeMessage: Event<LanguageRuntimeMessage>;
+		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
 
 		/** An object that emits he current state of the runtime */
-		onDidChangeRuntimeState: Event<RuntimeState>;
+		onDidChangeRuntimeState: vscode.Event<RuntimeState>;
 
 		/** Execute code in the runtime; returns the ID of the code execution. */
 		execute(code: string,
@@ -199,9 +199,5 @@ declare module 'positron' {
 		shutdown(): void;
 	}
 
-	/** Namespace for Positron extensions */
-	export namespace positron {
-
-		export function registerLanguageRuntime(runtime: LanguageRuntime): Disposable;
-	}
+	export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
 }

@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as vscode from 'vscode';
+import type * as positron from 'positron';
 import { ILanguageRuntimeInfo, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from '../extHost.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -12,7 +13,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
 
-	private readonly _runtimes = new Array<vscode.LanguageRuntime>();
+	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainContext,
@@ -65,7 +66,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public registerLanguageRuntime(
-		runtime: vscode.LanguageRuntime): IDisposable {
+		runtime: positron.LanguageRuntime): IDisposable {
 
 		// Create a handle and register the runtime with the main thread
 		const handle = this._runtimes.length;
