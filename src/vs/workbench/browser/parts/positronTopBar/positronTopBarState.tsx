@@ -85,6 +85,7 @@ export const usePositronTopBarState = ({
 
 	// update commands on menu changed event
 	useEffect(() => {
+		console.log('+++++++++++++++++++++++++++++++++++++++ THE USE EFFECT US RUNNGING');
 		const disposable = MenuRegistry.onDidChangeMenu(e => {
 			updateCommands();
 		});
