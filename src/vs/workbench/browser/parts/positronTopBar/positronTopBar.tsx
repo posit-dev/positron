@@ -20,6 +20,8 @@ import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { kNewMenuCommands, TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarNewMenu';
 import { kOpenMenuCommands, TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 
 
 /**
@@ -31,9 +33,11 @@ export interface PositronTopBarServices {
 	commandService: ICommandService;
 	keybindingService: IKeybindingService;
 	contextMenuService: IContextMenuService;
+	contextKeyService: IContextKeyService;
 	workspacesService: IWorkspacesService;
 	labelService: ILabelService;
 	hostService: IHostService;
+	layoutService: ILayoutService;
 }
 
 /**
@@ -75,8 +79,8 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton id={kNavigateBack} iconId='arrow-small-left' />
-					<TopBarCommandButton id={kNavigateForward} iconId='arrow-small-right' />
+					<TopBarCommandButton id={kNavigateBack} iconId='chevron-left' />
+					<TopBarCommandButton id={kNavigateForward} iconId='chevron-right' />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
