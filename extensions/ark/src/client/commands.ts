@@ -12,19 +12,25 @@ export function registerCommands(context: vscode.ExtensionContext) {
 		// extension. Typically run only once to set up the kernel.
 		vscode.commands.registerCommand('ark.setKernelPath', () => {
 			// Get the existing kernel path setting
-			const settingPath = vscode.workspace.getConfiguration('ark').get<string>('kernelPath');
+			const settingPath = vscode.workspace.getConfiguration('ark').get<string>('kernel.path');
 
-			// Prompt the user to enter the new kernel path string
-			vscode.window.showInputBox({
-				prompt: 'Enter the path to the ARK kernel executable',
-				value: settingPath
-			}).then((kernelPath) => {
-				if (kernelPath) {
+			// Prompt the user to select a file
+			vscode.window.showOpenDialog({
+				canSelectFiles: true,
+				canSelectFolders: false,
+				canSelectMany: false,
+				defaultUri: settingPath ? vscode.Uri.file(settingPath) : undefined,
+				openLabel: 'Select Kernel'
+			}).then((kernelPaths) => {
+				if (kernelPaths && kernelPaths.length > 0) {
+					// Only use the first file selected (there should only be one!)
+					const fsPath = kernelPaths[0].fsPath;
+
 					// Update the setting with the value the user entered
-					vscode.workspace.getConfiguration('ark').update('kernelPath', kernelPath, true);
+					vscode.workspace.getConfiguration('ark').update('kernel.path', fsPath, true);
 
 					// Register the kernel with the Jupyter Adapter extension
-					adaptJupyterKernel(context, kernelPath);
+					adaptJupyterKernel(context, fsPath);
 				}
 			});
 		}));
