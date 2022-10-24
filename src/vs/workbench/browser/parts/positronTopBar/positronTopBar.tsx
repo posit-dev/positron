@@ -79,8 +79,8 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton id={kNavigateBack} iconId='arrow-small-left' />
-					<TopBarCommandButton id={kNavigateForward} iconId='arrow-small-right' />
+					<TopBarCommandButton id={kNavigateBack} iconId='chevron-left' />
+					<TopBarCommandButton id={kNavigateForward} iconId='chevron-right' />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
