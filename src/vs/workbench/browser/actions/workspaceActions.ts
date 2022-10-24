@@ -23,7 +23,10 @@ import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegis
 import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 
-const workspacesCategory: ILocalizedString = { value: localize('workspaces', "Workspaces"), original: 'Workspaces' };
+// --- Start Positron ---
+// exported so that additional workspace commands could be added in positronActions.ts
+export const workspacesCategory: ILocalizedString = { value: localize('workspaces', "Workspaces"), original: 'Workspaces' };
+// --- End Positron ---
 const fileCategory = { value: localize('filesCategory', "File"), original: 'File' };
 
 export class OpenFileAction extends Action2 {

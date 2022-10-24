@@ -101,9 +101,11 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 				commandService={this.commandService}
 				keybindingService={this.keybindingService}
 				contextMenuService={this.contextMenuService}
+				contextKeyService={this.contextKeyService}
 				workspacesService={this.workspacesService}
 				labelService={this.labelService}
 				hostService={this.hostService}
+				layoutService={this.layoutService}
 			/>
 		);
 

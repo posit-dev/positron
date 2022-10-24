@@ -15,19 +15,20 @@ import { IWindowOpenable } from 'vs/platform/window/common/window';
 import { unmnemonicLabel } from 'vs/base/common/labels';
 import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
 import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
+import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
+const kOpenFile = 'workbench.action.files.openFile';
 const kOpenFileFolder = 'workbench.action.files.openFileFolder';
 const kOpenFolder = 'workbench.action.files.openFolder';
-const kOpenWorkspaceFromFile = 'workbench.action.openWorkspace';
 const kOpenRecent = 'workbench.action.openRecent';
 const kClearRecentFiles = 'workbench.action.clearRecentFiles';
 
 export const kOpenMenuCommands = [
+	kOpenFile,
 	kOpenFileFolder,
 	kOpenFolder,
-	kOpenWorkspaceFromFile,
 	kOpenRecent,
 	kClearRecentFiles
 ];
@@ -39,7 +40,7 @@ export const kOpenMenuCommands = [
 export const TopBarOpenMenu = () => {
 
 	// Hooks.
-	const context = usePositronTopBarContext();
+	const context = usePositronTopBarContext()!;
 
 	// fetch actions when menu is shown
 	const actions = async () => {
@@ -53,9 +54,13 @@ export const TopBarOpenMenu = () => {
 		};
 
 		// core open actions
-		addAction(kOpenFileFolder);
-		addAction(kOpenFolder);
-		addAction(kOpenWorkspaceFromFile);
+		if (IsMacNativeContext.getValue(context.contextKeyService)) {
+			addAction(kOpenFileFolder, localize('positronOpenFile', "Open File..."));
+		} else {
+			addAction(kOpenFile);
+		}
+
+		addAction(kOpenFolder, localize('positronOpenWorkspace', "Open Workspace..."));
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
