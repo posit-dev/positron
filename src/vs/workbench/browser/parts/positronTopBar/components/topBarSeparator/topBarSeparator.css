@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.top-bar-separator {
+	width: 7px;
+	height: 32px;
+	align-items: center;
+	justify-content: center;
+	font-size: 24px !important;
+	display: flex !important;
+}
+
+.top-bar-separator-icon {
+	width: 7px;
+	height: 28px;
+	align-items: center;
+	justify-content: center;
+	font-size: 24px !important;
+	display: flex !important;
+}
+
+.top-bar-separator-icon::before {
+	color: var(--vscode-positronTopBar-separator);
+}

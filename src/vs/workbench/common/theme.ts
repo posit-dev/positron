@@ -937,13 +937,21 @@ export const POSITRON_TOP_BAR_FOREGROUND = registerColor('positronTopBar.foregro
 	hcLight: '#75828D'
 }, localize('positronTopBar.foreground', "Positron top bar foreground color. The Positron top bar is shown under the title bar of the window."));
 
+// The Positron top bar separator color.
+export const POSITRON_TOP_BAR_SEPARATOR = registerColor('positronTopBar.separator', {
+	dark: '#2f3436',
+	light: '#dfe3e6',
+	hcDark: '#2f3436',
+	hcLight: '#dfe3e6'
+}, localize('positronTopBar.separator', "Positron top bar separator color."));
+
 // The Positron top bar border color.
 export const POSITRON_TOP_BAR_BORDER = registerColor('positronTopBar.border', {
 	dark: '#17191a',
 	light: '#cad0d6',
 	hcDark: '#17191a',
 	hcLight: '#cad0d6'
-}, localize('positronTopBar.broder', "Positron top bar border color. The Positron top bar is shown under the title bar of the window."));
+}, localize('positronTopBar.border', "Positron top bar border color. The Positron top bar is shown under the title bar of the window."));
 
 export const POSITRON_TOP_BAR_COMMANDS_BACKGROUND = registerColor('positronTopBar.commandsBackground', {
 	dark: '#383e41',
