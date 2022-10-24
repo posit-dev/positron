@@ -129,7 +129,8 @@
 		{
 			"files": [
 				"**/vscode.d.ts",
-				"**/vscode.proposed.*.d.ts"
+				"**/vscode.proposed.*.d.ts",
+				"**/positron.d.ts"
 			],
 			"rules": {
 				"local/vscode-dts-create-func": "warn",
@@ -583,6 +584,10 @@
 					},
 					{
 						"target": "src/vscode-dts/**",
+						"restrictions": []
+					},
+					{
+						"target": "src/positron-dts/**",
 						"restrictions": []
 					},
 					{
