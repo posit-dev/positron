@@ -3,7 +3,9 @@
 	"short_name": "Positron",
 	"start_url": "/",
 	"lang": "en-US",
-	"display": "standalone",
+	"display_override": [
+		"window-controls-overlay"
+	],
 	"icons": [
 		{
 			"src": "positron-192.png",

@@ -40,6 +40,8 @@ export class BracketPairsTree extends Disposable {
 	private readonly denseKeyProvider = new DenseKeyProvider<string>();
 	private readonly brackets = new LanguageAgnosticBracketTokens(this.denseKeyProvider, this.getLanguageConfiguration);
 
+	private readonly parseQueue: TextEditInfo[][] = [];
+
 	public didLanguageChange(languageId: string): boolean {
 		return this.brackets.didLanguageChange(languageId);
 	}
@@ -90,10 +92,7 @@ export class BracketPairsTree extends Disposable {
 				toLength(r.toLineNumber - r.fromLineNumber + 1, 0)
 			)
 		);
-		this.astWithTokens = this.parseDocumentFromTextBuffer(edits, this.astWithTokens, false);
-		if (!this.initialAstWithoutTokens) {
-			this.didChangeEmitter.fire();
-		}
+		this.queueParsing(edits);
 	}
 
 	public handleContentChanged(change: IModelContentChangedEvent) {
@@ -105,11 +104,23 @@ export class BracketPairsTree extends Disposable {
 				lengthOfString(c.text)
 			);
 		}).reverse();
+		this.queueParsing(edits);
+	}
 
-		this.astWithTokens = this.parseDocumentFromTextBuffer(edits, this.astWithTokens, false);
-		if (this.initialAstWithoutTokens) {
-			this.initialAstWithoutTokens = this.parseDocumentFromTextBuffer(edits, this.initialAstWithoutTokens, false);
+	private queueParsing(edits: TextEditInfo[]): void {
+		// Queues parsing of the document so that it only runs before the state is actually
+		// requested, this helps reduce editor input latency by doing parsing lazily instead of eagerly.
+		this.parseQueue.push(edits);
+	}
+
+	private ensureState() {
+		for (const edits of this.parseQueue) {
+			this.astWithTokens = this.parseDocumentFromTextBuffer(edits, this.astWithTokens, false);
+			if (this.initialAstWithoutTokens) {
+				this.initialAstWithoutTokens = this.parseDocumentFromTextBuffer(edits, this.initialAstWithoutTokens, false);
+			}
 		}
+		this.parseQueue.length = 0;
 	}
 
 	//#endregion
@@ -127,15 +138,17 @@ export class BracketPairsTree extends Disposable {
 	}
 
 	public getBracketsInRange(range: Range): CallbackIterable<BracketInfo> {
+		this.ensureState();
 		const startOffset = toLength(range.startLineNumber - 1, range.startColumn - 1);
 		const endOffset = toLength(range.endLineNumber - 1, range.endColumn - 1);
 		return new CallbackIterable(cb => {
 			const node = this.initialAstWithoutTokens || this.astWithTokens!;
-			collectBrackets(node, lengthZero, node.length, startOffset, endOffset, cb, 0, new Map());
+			collectBrackets(node, lengthZero, node.length, startOffset, endOffset, cb, 0, 0, new Map());
 		});
 	}
 
 	public getBracketPairsInRange(range: Range, includeMinIndentation: boolean): CallbackIterable<BracketPairWithMinIndentationInfo> {
+		this.ensureState();
 		const startLength = positionToLength(range.getStartPosition());
 		const endLength = positionToLength(range.getEndPosition());
 
@@ -147,11 +160,13 @@ export class BracketPairsTree extends Disposable {
 	}
 
 	public getFirstBracketAfter(position: Position): IFoundBracket | null {
+		this.ensureState();
 		const node = this.initialAstWithoutTokens || this.astWithTokens!;
 		return getFirstBracketAfter(node, lengthZero, node.length, positionToLength(position));
 	}
 
 	public getFirstBracketBefore(position: Position): IFoundBracket | null {
+		this.ensureState();
 		const node = this.initialAstWithoutTokens || this.astWithTokens!;
 		return getFirstBracketBefore(node, lengthZero, node.length, positionToLength(position));
 	}
@@ -220,7 +235,9 @@ function collectBrackets(
 	endOffset: Length,
 	push: (item: BracketInfo) => boolean,
 	level: number,
-	levelPerBracketType: Map<string, number>
+	nestingLevelOfEqualBracketType: number,
+	levelPerBracketType: Map<string, number>,
+	parentPairIsIncomplete: boolean = false
 ): boolean {
 	if (level > 200) {
 		return true;
@@ -248,7 +265,7 @@ function collectBrackets(
 							continue whileLoop;
 						}
 
-						const shouldContinue = collectBrackets(child, nodeOffsetStart, nodeOffsetEnd, startOffset, endOffset, push, level, levelPerBracketType);
+						const shouldContinue = collectBrackets(child, nodeOffsetStart, nodeOffsetEnd, startOffset, endOffset, push, level, 0, levelPerBracketType);
 						if (!shouldContinue) {
 							return false;
 						}
@@ -288,7 +305,9 @@ function collectBrackets(
 							continue whileLoop;
 						}
 
-						const shouldContinue = collectBrackets(child, nodeOffsetStart, nodeOffsetEnd, startOffset, endOffset, push, level + 1, levelPerBracketType);
+						const shouldContinue = collectBrackets(
+							child, nodeOffsetStart, nodeOffsetEnd, startOffset, endOffset, push, level + 1, levelPerBracket + 1, levelPerBracketType, !node.closingBracket
+						);
 						if (!shouldContinue) {
 							return false;
 						}
@@ -306,7 +325,7 @@ function collectBrackets(
 			}
 			case AstNodeKind.Bracket: {
 				const range = lengthsToRange(nodeOffsetStart, nodeOffsetEnd);
-				return push(new BracketInfo(range, level - 1, 0, false));
+				return push(new BracketInfo(range, level - 1, nestingLevelOfEqualBracketType - 1, parentPairIsIncomplete));
 			}
 			case AstNodeKind.Text:
 				return true;
