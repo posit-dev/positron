@@ -17,8 +17,8 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "ark.helloWorld",
-				"title": "Hello World"
+				"command": "ark.setKernelPath",
+				"title": "Set Kernel Path"
 			}
 		],
 		"configuration": {
