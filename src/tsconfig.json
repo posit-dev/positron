@@ -26,8 +26,10 @@
 	"include": [
 		"./typings",
 		"./vs",
+		// --- Start Positron ---
+		"positron-dts/positron.d.ts",
+		// --- End Positron ---
 		"vscode-dts/vscode.proposed.*.d.ts",
-		"vscode-dts/vscode.d.ts",
-		"positron-dts/positron.d.ts"
+		"vscode-dts/vscode.d.ts"
 	]
 }

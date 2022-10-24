@@ -10,6 +10,7 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IExtensionApiFactory, IExtensionRegistries } from 'vs/workbench/api/common/extHost.api.impl';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { ExtHostConfigProvider } from 'vs/workbench/api/common/extHostConfiguration';
+import { ExtHostPositronContext } from 'vs/workbench/api/common/positron/extHost.positron.protocol';
 
 import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.positron';
 
@@ -22,12 +23,12 @@ export interface IExtensionPositronApiFactory {
  */
 export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): IExtensionApiFactory {
 	const rpcProtocol = accessor.get(IExtHostRpcService);
-	const extHostLanguageRuntime = rpcProtocol.set(ExtHostContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
+	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
 		// --- Start Positron ---
-		const positronApi: typeof positron = {
+		const runtime: typeof positron = {
 			registerLanguageRuntime(runtime: positron.LanguageRuntime): vscode.Disposable {
 				return extHostLanguageRuntime.registerLanguageRuntime(runtime);
 			}
@@ -35,6 +36,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 		// --- End Positron ---
 
 		return <typeof positron>{
+			runtime,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
 			RuntimeErrorBehavior: extHostTypes.RuntimeErrorBehavior,

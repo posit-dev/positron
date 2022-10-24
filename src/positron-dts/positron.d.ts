@@ -199,5 +199,7 @@ declare module 'positron' {
 		shutdown(): void;
 	}
 
-	export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+	namespace runtime {
+		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+	}
 }
