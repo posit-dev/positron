@@ -7,7 +7,6 @@ const React = require('react');
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
 import { TopBarRegion } from 'vs/workbench/browser/parts/positronTopBar/components/topBarRegion/topBarRegion';
 import { PositronTopBarContextProvider } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSeparator/topBarSeparator';
@@ -22,6 +21,8 @@ import { kNewMenuCommands, TopBarNewMenu } from 'vs/workbench/browser/parts/posi
 import { kOpenMenuCommands, TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { kWorkspaceMenuCommands, TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
+import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 
 
 /**
@@ -38,6 +39,7 @@ export interface PositronTopBarServices {
 	labelService: ILabelService;
 	hostService: IHostService;
 	layoutService: ILayoutService;
+	workspaceContextService: IWorkspaceContextService;
 }
 
 /**
@@ -55,6 +57,7 @@ const kNavigateForward = 'workbench.action.navigateForward';
 const kTopBarCommands = [
 	...kNewMenuCommands,
 	...kOpenMenuCommands,
+	...kWorkspaceMenuCommands,
 	kFileSave, kFileSaveAll,
 	kNavigateBack, kNavigateForward
 ];
@@ -85,7 +88,7 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 				</TopBarRegion>
 
 				<TopBarRegion align='right'>
-					<TopBarButton iconId='positron-print' />
+					<TopBarWorkspaceMenu />
 				</TopBarRegion>
 			</div>
 		</PositronTopBarContextProvider>
