@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./css/topBarSeparator';
+import 'vs/css!./topBarSeparator';
 const React = require('react');
 
 /**
@@ -11,5 +11,9 @@ const React = require('react');
  */
 export const TopBarSeparator = () => {
 	// Render.
-	return <div className='top-bar-separator' />;
+	return (
+		<div className='top-bar-separator'>
+			<div className='top-bar-separator-icon codicon codicon-positron-separator' />
+		</div>
+	);
 };

@@ -576,6 +576,7 @@ export class Codicon implements CSSIcon {
 	public static readonly positronDropDownArrow = new Codicon('positron-drop-down-arrow', { fontCharacter: '\\f235' });
 	public static readonly positronLeftChevron = new Codicon('positron-chevron-left', { fontCharacter: '\\f236' });
 	public static readonly positronRightChevron = new Codicon('positron-chevron-right', { fontCharacter: '\\f237' });
+	public static readonly positronSeparator = new Codicon('positron-separator', { fontCharacter: '\\f238' });
 	// --- End Positron ---
 
 	// derived icons, that could become separate icons

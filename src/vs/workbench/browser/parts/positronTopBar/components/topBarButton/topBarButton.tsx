@@ -29,7 +29,7 @@ export const TopBarButton = forwardRef<HTMLDivElement, TopBarButtonProps>((props
 		<Tooltip {...props}>
 			<div ref={ref} className='top-bar-button' onClick={props.execute}>
 				<div className='top-bar-button-face'>
-					<div className={`codicon codicon-top-bar-button codicon-${props.iconId}`}></div>
+					<div className={`top-bar-button-icon codicon codicon-top-bar-button codicon-${props.iconId}`}></div>
 					{props.dropDown && <div className='codicon codicon-top-bar-button-drop-down-arrow codicon-positron-drop-down-arrow' />}
 				</div>
 			</div>
