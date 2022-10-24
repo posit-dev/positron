@@ -8,7 +8,7 @@ import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTop
 import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
-import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'vs/workbench/browser/actions/positronActions';
+import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction, PositronOpenWorkspaceInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
 import { OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { recentMenuActions } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
 import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
@@ -20,6 +20,7 @@ export const kWorkspaceMenuCommands = [
 	PositronNewWorkspaceAction.ID,
 	PositronNewWorkspaceFromGitAction.ID,
 	OpenFolderAction.ID,
+	PositronOpenWorkspaceInNewWindowAction.ID,
 	kCloseFolder,
 	ClearRecentFilesAction.ID,
 	kWorkbenchSettings
@@ -46,6 +47,7 @@ export const TopBarWorkspaceMenu = () => {
 		addAction(PositronNewWorkspaceFromGitAction.ID);
 		actions.push(new Separator());
 		addAction(OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
+		addAction(PositronOpenWorkspaceInNewWindowAction.ID);
 		addAction(kCloseFolder);
 
 		const recent = await context?.workspacesService.getRecentlyOpened();
