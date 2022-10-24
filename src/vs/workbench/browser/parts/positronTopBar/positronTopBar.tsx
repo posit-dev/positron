@@ -74,13 +74,13 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarOpenMenu />
 					<TopBarSeparator />
-					<TopBarCommandButton id={kFileSave} iconId='positron-save' />
-					<TopBarCommandButton id={kFileSaveAll} iconId='positron-save-all' />
+					<TopBarCommandButton iconId='positron-save' commandId={kFileSave} />
+					<TopBarCommandButton iconId='positron-save-all' commandId={kFileSaveAll} />
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton id={kNavigateBack} iconId='positron-chevron-left' />
-					<TopBarCommandButton id={kNavigateForward} iconId='positron-chevron-right' />
+					<TopBarCommandButton iconId='positron-chevron-left' commandId={kNavigateBack} />
+					<TopBarCommandButton iconId='positron-chevron-right' commandId={kNavigateForward} />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
