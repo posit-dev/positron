@@ -2025,7 +2025,7 @@ declare module 'vscode' {
 		/**
 		 * Selection of the pre-filled {@linkcode InputBoxOptions.value value}. Defined as tuple of two number where the
 		 * first is the inclusive start index and the second the exclusive end index. When `undefined` the whole
-		 * word will be selected, when empty (start equals end) only the cursor will be set,
+		 * pre-filled value will be selected, when empty (start equals end) only the cursor will be set,
 		 * otherwise the defined range will be selected.
 		 */
 		valueSelection?: [number, number];
@@ -2758,8 +2758,12 @@ declare module 'vscode' {
 		/**
 		 * Indicates that this markdown string is from a trusted source. Only *trusted*
 		 * markdown supports links that execute commands, e.g. `[Run it](command:myCommandId)`.
+		 *
+		 * Defaults to `false` (commands are disabled).
+		 *
+		 * If this is an object, only the set of commands listed in `enabledCommands` are allowed.
 		 */
-		isTrusted?: boolean;
+		isTrusted?: boolean | { readonly enabledCommands: readonly string[] };
 
 		/**
 		 * Indicates that this markdown string can contain {@link ThemeIcon ThemeIcons}, e.g. `$(zap)`.
@@ -11323,7 +11327,7 @@ declare module 'vscode' {
 		value: string;
 
 		/**
-		 * Optional placeholder in the filter text.
+		 * Optional placeholder shown in the filter textbox when no filter has been entered.
 		 */
 		placeholder: string | undefined;
 
@@ -11415,7 +11419,18 @@ declare module 'vscode' {
 		value: string;
 
 		/**
-		 * Optional placeholder in the filter text.
+		 * Selection range in the input value. Defined as tuple of two number where the
+		 * first is the inclusive start index and the second the exclusive end index. When `undefined` the whole
+		 * pre-filled value will be selected, when empty (start equals end) only the cursor will be set,
+		 * otherwise the defined range will be selected.
+		 *
+		 * This property does not get updated when the user types or makes a selection,
+		 * but it can be updated by the extension.
+		 */
+		valueSelection: readonly [number, number] | undefined;
+
+		/**
+		 * Optional placeholder shown when no value has been input.
 		 */
 		placeholder: string | undefined;
 
