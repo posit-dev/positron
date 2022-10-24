@@ -9,22 +9,24 @@ import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/comp
 import { IAction, Separator } from 'vs/base/common/actions';
 import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
 import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'vs/workbench/browser/actions/positronActions';
+import { OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
+import { recentMenuActions } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
+import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
 
-const kNewUntitledFile = 'workbench.action.files.newUntitledFile';
-const kNewWindow = 'workbench.action.newWindow';
+const kCloseFolder = 'workbench.action.closeFolder';
+const kWorkbenchSettings = 'workbench.action.openWorkspaceSettings';
 
-export const kNewMenuCommands = [
-	kNewUntitledFile,
+export const kWorkspaceMenuCommands = [
 	PositronNewWorkspaceAction.ID,
 	PositronNewWorkspaceFromGitAction.ID,
-	kNewWindow
+	OpenFolderAction.ID,
+	kCloseFolder,
+	ClearRecentFilesAction.ID,
+	kWorkbenchSettings
 ];
 
-/**
- * TopBarNewMenu component.
- * @returns The component.
- */
-export const TopBarNewMenu = () => {
+
+export const TopBarWorkspaceMenu = () => {
 
 	// Hooks.
 	const context = usePositronTopBarContext();
@@ -40,23 +42,35 @@ export const TopBarNewMenu = () => {
 			}
 		};
 
-		// core new actions
-		addAction(kNewUntitledFile, localize('positronNewFile', "New File"));
-		actions.push(new Separator());
 		addAction(PositronNewWorkspaceAction.ID);
 		addAction(PositronNewWorkspaceFromGitAction.ID);
 		actions.push(new Separator());
-		addAction(kNewWindow);
+		addAction(OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
+		addAction(kCloseFolder);
+
+		const recent = await context?.workspacesService.getRecentlyOpened();
+		if (context && recent?.workspaces?.length) {
+			actions.push(new Separator());
+			actions.push(...recentMenuActions(recent.workspaces, context));
+			actions.push(new Separator());
+			addAction(ClearRecentFilesAction.ID);
+		}
+
+		actions.push(new Separator());
+		addAction(kWorkbenchSettings);
 
 		return actions;
 	};
+
+	// TODO: text and tooltip reactive based on current workspace
 
 	// compontent
 	return (
 		<TopBarMenuButton
 			actions={actions}
-			iconId='positron-new'
-			tooltip={localize('positronNewFileWorkspace', "New File/Workspace")}
+			iconId='root-folder'
+			text={context?.workspaceFolder ? context.workspaceFolder.name : 'Workspace: (None)'}
+			tooltip={context?.workspaceFolder?.uri?.fsPath || ''}
 		/>
 	);
 };

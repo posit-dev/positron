@@ -26,6 +26,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
+import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 
 /**
  * PositronTopBarPart class.
@@ -76,7 +77,8 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IWorkspacesService private readonly workspacesService: IWorkspacesService,
 		@ILabelService private readonly labelService: ILabelService,
-		@IHostService private readonly hostService: IHostService
+		@IHostService private readonly hostService: IHostService,
+		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService
 	) {
 		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
@@ -106,6 +108,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 				labelService={this.labelService}
 				hostService={this.hostService}
 				layoutService={this.layoutService}
+				workspaceContextService={this.workspaceContextService}
 			/>
 		);
 
