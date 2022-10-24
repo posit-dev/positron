@@ -22,25 +22,22 @@ interface TopBarCommandButtonProps {
 export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
-
 	const command = positronTopBarContext?.commands.get(props.commandId);
-	if (command) {
-		// Handlers.
-		const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.commandId);
 
-		// Props.
-		const kb = positronTopBarContext?.keybindingService.lookupKeybinding(command?.id)?.getLabel();
-		const commandText = command.tooltip || command.title;
-		const tooltipText = typeof (commandText) === 'string' ? commandText : commandText.value;
-		const tooltip = kb ? `${tooltipText} (${kb})` : tooltipText;
-
-		// Render.
-		return (
-			<>
-				{command && <TopBarButton iconId={props.iconId} tooltip={tooltip} execute={executeHandler} />}
-			</>
-		);
-	} else {
+	// If the command cannot be found, render nothing.
+	if (!command) {
 		return null;
 	}
+
+	// Handlers.
+	const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.commandId);
+
+	// Props.
+	const kb = positronTopBarContext?.keybindingService.lookupKeybinding(command?.id)?.getLabel();
+	const commandText = command.tooltip || command.title;
+	const tooltipText = typeof (commandText) === 'string' ? commandText : commandText.value;
+	const tooltip = kb ? `${tooltipText} (${kb})` : tooltipText;
+
+	// Render.
+	return <TopBarButton iconId={props.iconId} tooltip={tooltip} execute={executeHandler} />;
 };
