@@ -10,8 +10,8 @@ import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/componen
  * TopBarCommandButtonProps interface.
  */
 interface TopBarCommandButtonProps {
-	id: string;
 	iconId: string;
+	commandId: string;
 }
 
 /**
@@ -23,10 +23,10 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
 
-	const command = positronTopBarContext?.commands.get(props.id);
+	const command = positronTopBarContext?.commands.get(props.commandId);
 	if (command) {
 		// Handlers.
-		const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.id);
+		const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.commandId);
 
 		// Props.
 		const kb = positronTopBarContext?.keybindingService.lookupKeybinding(command?.id)?.getLabel();
