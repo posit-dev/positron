@@ -17,7 +17,6 @@ import { showNewWorkspaceFromGitDialog } from 'vs/workbench/browser/parts/positr
 import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 
-
 export class PositronNewWorkspaceAction extends Action2 {
 
 	static readonly ID = 'positron.workbench.action.newWorkspace';

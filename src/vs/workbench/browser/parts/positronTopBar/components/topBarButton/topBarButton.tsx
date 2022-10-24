@@ -13,6 +13,7 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
  */
 interface TopBarButtonProps {
 	iconId: string;
+	text?: string;
 	dropDown?: boolean;
 	tooltip?: string | ILocalizedString;
 	execute?: VoidFunction;
@@ -30,6 +31,7 @@ export const TopBarButton = forwardRef<HTMLDivElement, TopBarButtonProps>((props
 			<div ref={ref} className='top-bar-button' onClick={props.execute}>
 				<div className='top-bar-button-face'>
 					<div className={`top-bar-button-icon codicon codicon-top-bar-button codicon-${props.iconId}`}></div>
+					{props.text ? <div className='top-bar-button-text'>{props.text}</div> : null}
 					{props.dropDown && <div className='codicon codicon-top-bar-button-drop-down-arrow codicon-positron-drop-down-arrow' />}
 				</div>
 			</div>

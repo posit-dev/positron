@@ -14,6 +14,12 @@
 	padding: 0 2px;
 }
 
+.top-bar-button-text {
+	margin-top: 4px;
+	margin-left: 2px;
+	margin-right: 4px;
+}
+
 .top-bar-button-face:hover {
 	border-radius: 6px;
 	background: var(--vscode-positronTopBar-hoverBackground);

@@ -16,21 +16,18 @@ import { unmnemonicLabel } from 'vs/base/common/labels';
 import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
 import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
 import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
+import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
+import { OpenRecentAction } from 'vs/workbench/browser/actions/windowActions';
+import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
-const kOpenFile = 'workbench.action.files.openFile';
-const kOpenFileFolder = 'workbench.action.files.openFileFolder';
-const kOpenFolder = 'workbench.action.files.openFolder';
-const kOpenRecent = 'workbench.action.openRecent';
-const kClearRecentFiles = 'workbench.action.clearRecentFiles';
-
 export const kOpenMenuCommands = [
-	kOpenFile,
-	kOpenFileFolder,
-	kOpenFolder,
-	kOpenRecent,
-	kClearRecentFiles
+	OpenFileAction.ID,
+	OpenFileFolderAction.ID,
+	OpenFolderAction.ID,
+	OpenRecentAction.ID,
+	ClearRecentFilesAction.ID
 ];
 
 /**
@@ -55,12 +52,12 @@ export const TopBarOpenMenu = () => {
 
 		// core open actions
 		if (IsMacNativeContext.getValue(context.contextKeyService)) {
-			addAction(kOpenFileFolder, localize('positronOpenFile', "Open File..."));
+			addAction(OpenFileFolderAction.ID, localize('positronOpenFile', "Open File..."));
 		} else {
-			addAction(kOpenFile);
+			addAction(OpenFileAction.ID);
 		}
 
-		addAction(kOpenFolder, localize('positronOpenWorkspace', "Open Workspace..."));
+		addAction(OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
@@ -73,9 +70,9 @@ export const TopBarOpenMenu = () => {
 			if (recentActions.length > 0) {
 				actions.push(...recentActions);
 				actions.push(new Separator());
-				addAction(kOpenRecent);
+				addAction(OpenRecentAction.ID);
 				actions.push(new Separator());
-				addAction(kClearRecentFiles);
+				addAction(ClearRecentFilesAction.ID);
 			}
 		}
 		return actions;
@@ -91,7 +88,7 @@ export const TopBarOpenMenu = () => {
 	);
 };
 
-function recentMenuActions(recent: IRecent[], context: PositronTopBarState,) {
+export function recentMenuActions(recent: IRecent[], context: PositronTopBarState,) {
 	const actions: IAction[] = [];
 	if (recent.length > 0) {
 		for (let i = 0; i < MAX_MENU_RECENT_ENTRIES && i < recent.length; i++) {
