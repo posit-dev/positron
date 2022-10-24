@@ -52,6 +52,7 @@ const vscodeEntryPoints = _.flatten([
 	buildfile.workerLanguageDetection,
 	buildfile.workerSharedProcess,
 	buildfile.workerLocalFileSearch,
+	buildfile.workerProfileAnalysis,
 	buildfile.workbenchDesktop,
 	buildfile.code
 ]);
@@ -297,6 +298,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				'**/node-pty/lib/worker/conoutSocketWorker.js',
 				'**/node-pty/lib/shared/conout.js',
 				'**/*.wasm',
+				'**/node-vsce-sign/bin/*',
 			], 'node_modules.asar'));
 
 		let all = es.merge(
@@ -396,6 +398,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			result = es.merge(result, gulp.src('.build/policies/win32/**', { base: '.build/policies/win32' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`)));
 
+			if (quality === 'insider') {
+				result = es.merge(result, gulp.src('.build/win32/appx/**', { base: '.build/win32' }));
+			}
 		} else if (platform === 'linux') {
 			result = es.merge(result, gulp.src('resources/linux/bin/code.sh', { base: '.' })
 				.pipe(replace('@@PRODNAME@@', product.nameLong))

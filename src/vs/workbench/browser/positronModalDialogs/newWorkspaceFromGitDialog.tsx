@@ -6,14 +6,14 @@ const React = require('react');
 import { FC, useState } from 'react';
 import { localize } from 'vs/nls';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
-import { showPositronModalDialog } from 'vs/workbench/browser/parts/positronModalDialog/positronModalDialog';
+import { showPositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { browseForParentDirectory, defaultParentDirectory, NewWorkspaceDialogContext } from 'vs/workbench/browser/parts/positronTopBar/dialogs/newWorkspaceDialog';
-import { TextInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/components/textInput';
-import { CheckBoxInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/components/checkBoxInput';
-import { DirectoryInput } from 'vs/workbench/browser/parts/positronTopBar/dialogs/components/directoryInput';
+import { TextInput } from 'vs/workbench/browser/positronModalDialogs/components/textInput';
+import { CheckBoxInput } from 'vs/workbench/browser/positronModalDialogs/components/checkBoxInput';
+import { DirectoryInput } from 'vs/workbench/browser/positronModalDialogs/components/directoryInput';
+import { browseForParentDirectory, defaultParentDirectory, NewWorkspaceDialogContext } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceDialog';
 
 export interface NewWorkspaceFromGitDialogData {
 	repo: string;
@@ -41,7 +41,7 @@ export async function showNewWorkspaceFromGitDialog(accessor: ServicesAccessor):
 		title: localize('positronNewWorkspaceDialogTitle', "New Workspace from Git"),
 		width: 400,
 		height: 300,
-		layoutService,
+		container: layoutService.container,
 		context: { fileDialogs }
 	});
 }
