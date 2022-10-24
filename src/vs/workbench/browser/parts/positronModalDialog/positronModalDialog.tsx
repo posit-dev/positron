@@ -16,21 +16,28 @@ import { PositronModalDialogReactRenderer } from 'vs/workbench/browser/parts/pos
  */
 interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
 
+export type ModalDialogOptions<T, C> = {
+	input: T;
+	Editor: ModalDialogEditor<T, C>;
+	title: string;
+	width: number;
+	height: number;
+	layoutService: ILayoutService;
+	context: C;
+};
+
 export type ModalDialogEditor<T, C = Record<string, unknown>> = FC<{
 	input: T;
 	context: C;
 	onAccept: (f: () => T) => void;
 }>;
 
-
 export async function showPositronModalDialog<T, C = Record<string, unknown>>(
-	input: T,
-	Editor: ModalDialogEditor<T, C>,
-	title: string,
-	width: number,
-	height: number,
-	layoutService: ILayoutService,
-	context: C): Promise<T | undefined> {
+	options: ModalDialogOptions<T, C>
+) {
+
+	// destruecture
+	const { input, Editor, title, width, height, layoutService, context } = options;
 
 	// Return a promise that resolves when the modal dialog is done.
 	return new Promise<T | undefined>((resolve) => {

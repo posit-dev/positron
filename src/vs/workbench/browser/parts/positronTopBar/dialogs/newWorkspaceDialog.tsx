@@ -40,15 +40,15 @@ export async function showNewWorkspaceDialog(accessor: ServicesAccessor): Promis
 		newWindow: false
 	};
 
-	return showPositronModalDialog<NewWorkspaceDialogData, NewWorkspaceDialogContext>(
+	return showPositronModalDialog<NewWorkspaceDialogData, NewWorkspaceDialogContext>({
 		input,
-		NewWorkspaceDialogEditor,
-		localize('positronNewWorkspaceDialogTitle', "New Workspace"),
-		400,
-		300,
+		Editor: NewWorkspaceDialogEditor,
+		title: localize('positronNewWorkspaceDialogTitle', "New Workspace"),
+		width: 400,
+		height: 300,
 		layoutService,
-		{ fileDialogs }
-	);
+		context: { fileDialogs }
+	});
 }
 
 export async function defaultParentDirectory(fileDialogs: IFileDialogService, path: IPath) {
