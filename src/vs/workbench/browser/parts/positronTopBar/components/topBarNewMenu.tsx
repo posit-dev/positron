@@ -11,9 +11,12 @@ import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions
 
 const kNewUntitledFile = 'workbench.action.files.newUntitledFile';
 const kNewWindow = 'workbench.action.newWindow';
+const kNewWorkspace = 'positron.workbench.action.newWorkspace';
+const kNewWorkspaceFromGit = 'positron.workbench.action.newWorkspaceFromGit';
+
 
 export const kNewMenuCommands = [
-	kNewUntitledFile, kNewWindow
+	kNewUntitledFile, kNewWorkspace, kNewWorkspaceFromGit, kNewWindow
 ];
 
 /**
@@ -37,7 +40,10 @@ export const TopBarNewMenu = () => {
 		};
 
 		// core new actions
-		addAction(kNewUntitledFile, localize('newFile', "New Text File"));
+		addAction(kNewUntitledFile, localize('positronNewFile', "New File"));
+		actions.push(new Separator());
+		addAction(kNewWorkspace);
+		addAction(kNewWorkspaceFromGit);
 		actions.push(new Separator());
 		addAction(kNewWindow);
 

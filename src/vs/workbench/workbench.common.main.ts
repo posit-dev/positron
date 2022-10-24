@@ -26,6 +26,10 @@ import 'vs/workbench/browser/actions/workspaceActions';
 import 'vs/workbench/browser/actions/workspaceCommands';
 import 'vs/workbench/browser/actions/quickAccessActions';
 
+// --- Start Positron ---
+import 'vs/workbench/browser/actions/positronActions';
+// --- End Positron ---
+
 //#endregion
 
 
