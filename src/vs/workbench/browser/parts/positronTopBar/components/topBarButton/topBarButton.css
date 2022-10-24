@@ -19,16 +19,15 @@
 	background: var(--vscode-positronTopBar-hoverBackground);
 }
 
-.codicon-top-bar-button {
+.top-bar-button-icon {
 	width: 28px;
 	height: 28px;
 	align-items: center;
 	justify-content: center;
-	font-size: 24px !important;
-	display: flex !important;
+	font-size: 24px !important;	display: flex !important;
 }
 
-.codicon-top-bar-button::before {
+.top-bar-button-icon::before {
 	color: var(--vscode-positronTopBar-foreground);
 }
 
