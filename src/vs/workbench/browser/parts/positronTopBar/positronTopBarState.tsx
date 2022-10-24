@@ -14,6 +14,8 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 
 /**
  * The tooltip reset timeout in milliseconds.
@@ -29,9 +31,11 @@ export interface PositronTopBarState {
 	commandService: ICommandService;
 	keybindingService: IKeybindingService;
 	contextMenuService: IContextMenuService;
+	contextKeyService: IContextKeyService;
 	workspacesService: IWorkspacesService;
 	labelService: ILabelService;
 	hostService: IHostService;
+	layoutService: ILayoutService;
 	commands: ICommandsMap;
 	showTooltipDelay(): number;
 	tooltipHidden(): void;
@@ -48,9 +52,11 @@ export const usePositronTopBarState = ({
 	commandService,
 	keybindingService,
 	contextMenuService,
+	contextKeyService,
 	workspacesService,
 	labelService,
-	hostService
+	hostService,
+	layoutService
 }: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
 	// Hooks.
 	const [commands, setCommands] = useState<ICommandsMap>(new Map<string, ICommandAction>());
@@ -84,9 +90,11 @@ export const usePositronTopBarState = ({
 		commandService,
 		keybindingService,
 		contextMenuService,
+		contextKeyService,
 		workspacesService,
 		labelService,
 		hostService,
+		layoutService,
 		commands,
 		showTooltipDelay,
 		tooltipHidden

@@ -7,13 +7,13 @@ import * as _ from 'react';
 const React = require('react');
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/browser/positronModalDialogs';
-import { TestContent } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialog/components/testContent';
-import { OKActionBar } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialog/components/okActionBar';
-import { ContentArea } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialog/components/contentArea';
-import { PositronModalDialog } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialog/positronModalDialog';
-import { SimpleTitleBar } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialog/components/simpleTitleBar';
-import { OKCancelActionBar } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialog/components/okCancelActionBar';
-import { PositronModalDialogReactRenderer } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialog/positronModalDialogReactRenderer';
+import { TestContent } from 'vs/workbench/browser/parts/positronModalDialog/components/testContent';
+import { OKActionBar } from 'vs/workbench/browser/parts/positronModalDialog/components/okActionBar';
+import { ContentArea } from 'vs/workbench/browser/parts/positronModalDialog/components/contentArea';
+import { PositronModalDialog } from 'vs/workbench/browser/parts/positronModalDialog/positronModalDialog';
+import { SimpleTitleBar } from 'vs/workbench/browser/parts/positronModalDialog/components/simpleTitleBar';
+import { OKCancelActionBar } from 'vs/workbench/browser/parts/positronModalDialog/components/okCancelActionBar';
+import { PositronModalDialogReactRenderer } from 'vs/workbench/browser/parts/positronModalDialog/positronModalDialogReactRenderer';
 
 /**
  * PositronModalDialogs class.
