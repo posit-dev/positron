@@ -509,6 +509,12 @@ class ExtensionsScanner extends Disposable {
 				if (!c.isDirectory) {
 					return null;
 				}
+				// --- Start Positron ---
+				// Exclude the built-in 'r' extension, as 'ark' provides its facilities (and more).
+				if (input.type === ExtensionType.System && c.name === 'r') {
+					return null;
+				}
+				// --- End Positron ---
 				// Do not consider user extension folder starting with `.`
 				if (input.type === ExtensionType.User && basename(c.resource).indexOf('.') === 0) {
 					return null;
