@@ -9,8 +9,6 @@ import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { showPositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { IPath } from 'vs/base/common/path';
 import { URI } from 'vs/base/common/uri';
 import { TextInput } from 'vs/workbench/browser/positronModalDialogs/components/textInput';
 import { CheckBoxInput } from 'vs/workbench/browser/positronModalDialogs/components/checkBoxInput';
