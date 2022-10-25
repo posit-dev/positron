@@ -228,8 +228,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const sources = es.merge(src, extensions)
 			.pipe(filter(['**', '!**/*.js.map'], { dot: true }));
 
+		let version = packageJson.version;
+
 		// --- Start Positron ---
-		let version = product.positronVersion;
+		const positronVersion = product.positronVersion;
 
 		// Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call
 		// show-version to compute it.
@@ -259,7 +261,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 
 		const date = new Date().toISOString();
 		// --- Start Positron ---
-		const productJsonUpdate = { commit, date, checksums, version, positronBuildNumber };
+		const productJsonUpdate = { commit, date, checksums, version, positronVersion, positronBuildNumber };
 		// --- End Positron ---
 
 		if (shouldSetupSettingsSearch()) {
