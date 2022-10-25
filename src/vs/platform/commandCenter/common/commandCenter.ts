@@ -3,38 +3,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILocalizedString } from 'vs/platform/action/common/action';
-import { Action2 } from 'vs/platform/actions/common/actions';
 import { ContextKeyExpression } from 'vs/platform/contextkey/common/contextkey';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-
-export const ICommandCenterService = createDecorator<ICommandCenterService>('commandService');
-export interface ICommandCenterService {
-	yaya(): void;
-}
-
-export interface ICommandCenter {
-	registerAction2(action2: Action2): void;
-	title(id: string): string | undefined;
-}
 
 interface ICommandInfo {
+	id: string;
 	title: string | ILocalizedString;
 	precondition?: ContextKeyExpression;
 }
 
+export interface ICommandCenter {
+	addCommandInfo(commandInfo: ICommandInfo): void;
+	title(id: string): string | undefined;
+}
+
 export const CommandCenter: ICommandCenter = new class implements ICommandCenter {
 
-	private readonly actions = new Map<string, ICommandInfo>();
+	private readonly commandInfos = new Map<string, ICommandInfo>();
 
-	registerAction2(action2: Action2): void {
-		this.actions.set(action2.desc.id, {
-			title: action2.desc.title,
-			precondition: action2.desc.precondition
-		});
+	addCommandInfo(commandInfo: ICommandInfo): void {
+		this.commandInfos.set(commandInfo.id, commandInfo);
 	}
 
 	title(id: string): string | undefined {
-		const commandInfo = this.actions.get(id);
+		const commandInfo = this.commandInfos.get(id);
 		if (!commandInfo) {
 			return undefined;
 		}

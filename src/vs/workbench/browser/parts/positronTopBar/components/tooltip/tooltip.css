@@ -15,7 +15,6 @@
 }
 
 .tool-tip {
-	left: 0;
 	top: 32px;
 	padding: 6px 6px;
 	position: absolute;
@@ -23,7 +22,15 @@
 	border-radius: 6px;
 	display: inline-block;
 	background: var(--vscode-positronToolTip-background);
-	/* border: 1px solid var(--vscode-positronToolTip-border); */
+	border: 1px solid var(--vscode-positronToolTip-border);
+}
+
+.tool-tip-left {
+	left: 0;
+}
+
+.tool-tip-right {
+	right: 0;
 }
 
 .tool-tip-text {

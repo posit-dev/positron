@@ -29,9 +29,8 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 		positronTopBarContext?.commandService.executeCommand(commandId);
 	};
 
-	// Returns the tooltip for the command button.
+	// Returns a dynamic tooltip for the command button.
 	const tooltip = (): string | undefined => {
-		console.log('Generating dynamic tooltip');
 		// Get the title for the command from the command center.
 		const title = CommandCenter.title(commandId);
 		if (!title) {
@@ -40,9 +39,12 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 
 		// Get the keybinding label for the command from the keybinding service.
 		const keybindingLabel = positronTopBarContext?.keybindingService.lookupKeybinding(commandId)?.getLabel();
+		if (!keybindingLabel) {
+			return title;
+		}
 
 		// Return the tooltip.
-		return keybindingLabel ? `${title} (${keybindingLabel})` : title;
+		return `${title} (${keybindingLabel})`;
 	};
 
 	// Render.
