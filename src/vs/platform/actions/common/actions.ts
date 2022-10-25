@@ -610,7 +610,12 @@ export function registerAction2(ctor: { new(): Action2 }): IDisposable {
 	const { f1, menu, keybinding, description, ...command } = action.desc;
 
 	// -- Start Positron ---
-	CommandCenter.registerAction2(action);
+	// Add command information to the command center.
+	CommandCenter.addCommandInfo({
+		id: command.id,
+		title: command.title,
+		precondition: command.precondition
+	});
 	// -- End Positron ---
 
 	// command

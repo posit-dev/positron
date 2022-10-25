@@ -26,6 +26,7 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { ThemeIcon } from 'vs/platform/theme/common/themeService';
 import { IExplorerService } from 'vs/workbench/contrib/files/browser/files';
 import { Codicon } from 'vs/base/common/codicons';
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 
 // Contribute Global Actions
 
@@ -184,7 +185,13 @@ function appendSaveConflictEditorTitleAction(id: string, title: string, icon: Th
 // Menu registration - command palette
 
 export function appendToCommandPalette(id: string, title: ILocalizedString, category: ILocalizedString, when?: ContextKeyExpression): void {
-	// ADD TO COMMAND CENTER
+	// --- Start Positron --
+	CommandCenter.addCommandInfo({
+		id,
+		title,
+		precondition: when
+	});
+	// --- End Positron --
 	MenuRegistry.appendMenuItem(MenuId.CommandPalette, {
 		command: {
 			id,
