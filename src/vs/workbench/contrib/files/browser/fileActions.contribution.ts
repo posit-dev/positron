@@ -184,6 +184,7 @@ function appendSaveConflictEditorTitleAction(id: string, title: string, icon: Th
 // Menu registration - command palette
 
 export function appendToCommandPalette(id: string, title: ILocalizedString, category: ILocalizedString, when?: ContextKeyExpression): void {
+	// ADD TO COMMAND CENTER
 	MenuRegistry.appendMenuItem(MenuId.CommandPalette, {
 		command: {
 			id,
