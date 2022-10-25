@@ -398,6 +398,10 @@ export abstract class AbstractExtensionsScannerService extends Disposable implem
 			this.productService.version,
 			this.productService.date,
 			this.productService.commit,
+			// --- Start Positron ---
+			this.productService.positronVersion,
+			this.productService.positronBuildNumber,
+			// --- End Positron ---
 			!this.environmentService.isBuilt,
 			language,
 			translations,
@@ -432,6 +436,10 @@ class ExtensionScannerInput {
 		public readonly productVersion: string,
 		public readonly productDate: string | undefined,
 		public readonly productCommit: string | undefined,
+		// --- Start Positron ---
+		public readonly productPositronVersion: string,
+		public readonly productPositronBuildNumber: number,
+		// --- End Positron ---
 		public readonly devMode: boolean,
 		public readonly language: string | undefined,
 		public readonly translations: Translations
@@ -519,7 +527,25 @@ class ExtensionsScanner extends Disposable {
 				if (input.type === ExtensionType.User && basename(c.resource).indexOf('.') === 0) {
 					return null;
 				}
-				const extensionScannerInput = new ExtensionScannerInput(c.resource, input.mtime, input.applicationExtensionslocation, input.applicationExtensionslocationMtime, input.profile, input.type, input.excludeObsolete, input.validate, input.productVersion, input.productDate, input.productCommit, input.devMode, input.language, input.translations);
+				// --- Start Positron ---
+				const extensionScannerInput = new ExtensionScannerInput(
+					c.resource,
+					input.mtime,
+					input.applicationExtensionslocation,
+					input.applicationExtensionslocationMtime,
+					input.profile,
+					input.type,
+					input.excludeObsolete,
+					input.validate,
+					input.productVersion,
+					input.productDate,
+					input.productCommit,
+					input.productPositronVersion,
+					input.productPositronBuildNumber,
+					input.devMode,
+					input.language,
+					input.translations);
+				// --- End Positron ---
 				return this.scanExtension(extensionScannerInput);
 			}));
 		return coalesce(extensions)
@@ -545,7 +571,24 @@ class ExtensionsScanner extends Disposable {
 		const extensions = await Promise.all<IRelaxedScannedExtension | null>(
 			scannedProfileExtensions.map(async extensionInfo => {
 				if (filter(extensionInfo)) {
-					const extensionScannerInput = new ExtensionScannerInput(extensionInfo.location, input.mtime, input.applicationExtensionslocation, input.applicationExtensionslocationMtime, input.profile, input.type, input.excludeObsolete, input.validate, input.productVersion, input.productDate, input.productCommit, input.devMode, input.language, input.translations);
+					// --- Start Positron ---
+					const extensionScannerInput = new ExtensionScannerInput(extensionInfo.location,
+						input.mtime,
+						input.applicationExtensionslocation,
+						input.applicationExtensionslocationMtime,
+						input.profile,
+						input.type,
+						input.excludeObsolete,
+						input.validate,
+						input.productVersion,
+						input.productDate,
+						input.productCommit,
+						input.productPositronVersion,
+						input.productPositronBuildNumber,
+						input.devMode,
+						input.language,
+						input.translations);
+					// --- End Positron ---
 					return this.scanExtension(extensionScannerInput, extensionInfo.metadata);
 				}
 				return null;
