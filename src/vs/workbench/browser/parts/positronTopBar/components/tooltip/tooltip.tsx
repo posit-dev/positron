@@ -28,6 +28,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 
 	// Tooltip.
 	useEffect(() => {
+		// If we cannot show the tooltip, do nothing.
 		if (!positronTopBarContext || !mouseInside || !props.tooltip) {
 			return;
 		}
@@ -36,11 +37,13 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 		if (typeof props.tooltip === 'string') {
 			setTooltip(props.tooltip);
 		} else {
+			// Get the dynamic tooltip. If it's undefined, we cannot show the tooltip. Do nothing.
 			const dynamicTooltip = props.tooltip();
 			if (!dynamicTooltip) {
 				return;
 			}
 
+			// Set the dynamic tooltip.
 			setTooltip(dynamicTooltip);
 		}
 
@@ -73,10 +76,12 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 		clearTooltip();
 	};
 
+	// Mouse down handler.
 	const mouseDownHandler = () => {
 		clearTooltip();
 	};
 
+	// Clear tooltip.
 	const clearTooltip = () => {
 		if (showTooltip) {
 			setShowTooltip(false);
