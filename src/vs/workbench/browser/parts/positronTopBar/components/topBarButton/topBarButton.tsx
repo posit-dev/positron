@@ -6,7 +6,6 @@ import 'vs/css!./topBarButton';
 const React = require('react');
 import { forwardRef } from 'react';
 import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
-import { ILocalizedString } from 'vs/platform/action/common/action';
 
 /**
  * TopBarButtonProps interface.
@@ -15,7 +14,7 @@ interface TopBarButtonProps {
 	iconId: string;
 	text?: string;
 	dropDown?: boolean;
-	tooltip?: string | ILocalizedString;
+	tooltip: string | (() => string | undefined) | undefined;
 	execute?: VoidFunction;
 }
 

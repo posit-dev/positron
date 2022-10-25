@@ -10,6 +10,7 @@ import { DisposableStore, IDisposable, toDisposable } from 'vs/base/common/lifec
 import { LinkedList } from 'vs/base/common/linkedList';
 import { ICommandAction, ICommandActionTitle, Icon, ILocalizedString } from 'vs/platform/action/common/action';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { CommandsRegistry, ICommandHandlerDescription, ICommandService } from 'vs/platform/commands/common/commands';
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { SyncDescriptor, SyncDescriptor0 } from 'vs/platform/instantiation/common/descriptors';
@@ -607,6 +608,10 @@ export function registerAction2(ctor: { new(): Action2 }): IDisposable {
 	const action = new ctor();
 
 	const { f1, menu, keybinding, description, ...command } = action.desc;
+
+	// -- Start Positron ---
+	CommandCenter.registerAction2(action);
+	// -- End Positron ---
 
 	// command
 	disposables.add(CommandsRegistry.registerCommand({

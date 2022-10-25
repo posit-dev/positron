@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React = require('react');
+// import { useMemo } from 'react';
 import { localize } from 'vs/nls';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
@@ -56,7 +57,7 @@ export const TopBarNewMenu = () => {
 		<TopBarMenuButton
 			actions={actions}
 			iconId='positron-new'
-			tooltip={localize('positronNewFileWorkspace', "New File/Workspace")}
+			tooltip={localize('positronNewFileWorkspace', "New File/Workspace  lkwqhjd qwkehqwkh ekweh qwkeh qkeh qkwe h")}
 		/>
 	);
 };
