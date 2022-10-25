@@ -18,6 +18,10 @@ import { CLIServer } from 'vs/workbench/api/node/extHostCLIServer';
 import { realpathSync } from 'vs/base/node/extpath';
 import { ExtHostConsoleForwarder } from 'vs/workbench/api/node/extHostConsoleForwarder';
 
+// --- Start Positron ---
+import { createPositronApiFactoryAndRegisterActors } from 'vs/workbench/api/common/positron/extHost.positron.api.impl';
+// --- End Positron ---
+
 class NodeModuleRequireInterceptor extends RequireInterceptor {
 
 	protected _installInterceptor(): void {
@@ -65,6 +69,10 @@ export class ExtHostExtensionService extends AbstractExtHostExtensionService {
 		// initialize API and register actors
 		const extensionApiFactory = this._instaService.invokeFunction(createApiFactoryAndRegisterActors);
 
+		// --- Start Positron ---
+		const positronExtensionApiFactory = this._instaService.invokeFunction(createPositronApiFactoryAndRegisterActors);
+		// --- End Positron ---
+
 		// Register Download command
 		this._instaService.createInstance(ExtHostDownloadService);
 
@@ -75,7 +83,12 @@ export class ExtHostExtensionService extends AbstractExtHostExtensionService {
 		}
 
 		// Module loading tricks
-		const interceptor = this._instaService.createInstance(NodeModuleRequireInterceptor, extensionApiFactory, { mine: this._myRegistry, all: this._globalRegistry });
+		// --- Start Positron ---
+		const interceptor = this._instaService.createInstance(NodeModuleRequireInterceptor,
+			extensionApiFactory,
+			positronExtensionApiFactory,
+			{ mine: this._myRegistry, all: this._globalRegistry });
+		// --- End Positron ---
 		await interceptor.install();
 		performance.mark('code/extHost/didInitAPI');
 

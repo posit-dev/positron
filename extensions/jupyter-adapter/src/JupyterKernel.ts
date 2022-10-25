@@ -4,6 +4,7 @@
 
 import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as zmq from 'zeromq/v5-compat';
 import * as path from 'path';
 import * as os from 'os';
@@ -36,7 +37,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _file: string | null;
 
 	/** The kernel's current state */
-	private _status: vscode.RuntimeState;
+	private _status: positron.RuntimeState;
 
 	/** The security key to use to sign messages to the kernel */
 	private readonly _key: string;
@@ -73,7 +74,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._lastHeartbeat = 0;
 		this._lspClientPort = null;
 
-		this._status = vscode.RuntimeState.Uninitialized;
+		this._status = positron.RuntimeState.Uninitialized;
 		this._key = crypto.randomBytes(16).toString('hex');
 		this._sessionId = crypto.randomBytes(16).toString('hex');
 	}
@@ -150,7 +151,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			env: env,
 		};
 
-		this.setStatus(vscode.RuntimeState.Starting);
+		this.setStatus(positron.RuntimeState.Starting);
 
 		this._channel.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
 		if (this._spec.env) {
@@ -168,7 +169,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			output.append(decoder.write(data));
 		});
 		this._process.on('close', (code) => {
-			this.setStatus(vscode.RuntimeState.Exited);
+			this.setStatus(positron.RuntimeState.Exited);
 
 			// Dispose all sockets so they don't try to connect to the
 			// now-defunct kernel
@@ -181,7 +182,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._heartbeat?.socket().once('message', (msg: string) => {
 
 				this._channel.appendLine('Receieved initial heartbeat: ' + msg);
-				this.setStatus(vscode.RuntimeState.Ready);
+				this.setStatus(positron.RuntimeState.Ready);
 
 				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
 				this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
@@ -264,7 +265,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @returns The kernel's current status
 	 */
-	public status(): vscode.RuntimeState {
+	public status(): positron.RuntimeState {
 		return this._status;
 	}
 
@@ -288,7 +289,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Tells the kernel to shut down
 	 */
 	public shutdown(restart: boolean) {
-		this.setStatus(vscode.RuntimeState.Exiting);
+		this.setStatus(positron.RuntimeState.Exiting);
 		const msg: JupyterShutdownRequest = {
 			restart: restart
 		};
@@ -299,7 +300,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Interrupts the kernel
 	 */
 	public interrupt() {
-		this.setStatus(vscode.RuntimeState.Interrupting);
+		this.setStatus(positron.RuntimeState.Interrupting);
 		const msg: JupyterInterruptRequest = {};
 		this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
@@ -339,8 +340,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param errorBehavior The error behavior.
 	 */
 	public execute(code: string,
-		mode: vscode.RuntimeCodeExecutionMode,
-		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
+		mode: positron.RuntimeCodeExecutionMode,
+		errorBehavior: positron.RuntimeErrorBehavior): Thenable<string> {
 
 		// Create an identifier for the execution request
 		const executionId = uuidv4();
@@ -351,19 +352,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			code: code,
 
 			// Only allow stdin if we are executing interactively
-			allow_stdin: mode !== vscode.RuntimeCodeExecutionMode.Silent,
+			allow_stdin: mode !== positron.RuntimeCodeExecutionMode.Silent,
 
 			// Execute silently if requested
-			silent: mode === vscode.RuntimeCodeExecutionMode.Silent,
+			silent: mode === positron.RuntimeCodeExecutionMode.Silent,
 
 			// Don't store history unless we are executing interactively
-			store_history: mode === vscode.RuntimeCodeExecutionMode.Interactive,
+			store_history: mode === positron.RuntimeCodeExecutionMode.Interactive,
 
 			// Not currently supported
 			user_expressions: new Map(),
 
 			// Whether to stop execution on error
-			stop_on_error: errorBehavior === vscode.RuntimeErrorBehavior.Stop
+			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop
 		};
 
 		// Send the execution request to the kernel
@@ -424,8 +425,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.disposeAllSockets();
 
 		// If kernel isn't already shut down (or shutting down), shut it down
-		if (this.status() !== vscode.RuntimeState.Exiting &&
-			this.status() !== vscode.RuntimeState.Exited) {
+		if (this.status() !== positron.RuntimeState.Exiting &&
+			this.status() !== positron.RuntimeState.Exited) {
 			this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
 			this.shutdown(false);
 		}
@@ -500,7 +501,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeatTimer = setTimeout(() => {
 			// If the kernel hasn't responded in the given amount of time,
 			// mark it as offline
-			this.setStatus(vscode.RuntimeState.Offline);
+			this.setStatus(positron.RuntimeState.Offline);
 		}, seconds * 1000);
 	}
 
@@ -534,7 +535,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @param status The new status of the kernel
 	 */
-	private setStatus(status: vscode.RuntimeState) {
+	private setStatus(status: positron.RuntimeState) {
 		this.emit('status', status);
 		this._status = status;
 	}
