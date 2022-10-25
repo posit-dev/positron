@@ -17,8 +17,8 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
-import { kNewMenuCommands, TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarNewMenu';
-import { kOpenMenuCommands, TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
+import { TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarNewMenu';
+import { TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { kWorkspaceMenuCommands, TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
@@ -50,8 +50,8 @@ interface PositronTopBarProps extends PositronTopBarServices {
 }
 
 const kTopBarCommands = [
-	...kNewMenuCommands,
-	...kOpenMenuCommands,
+	// ...kNewMenuCommands,
+	// ...kOpenMenuCommands,
 	...kWorkspaceMenuCommands,
 ];
 
