@@ -31,6 +31,7 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 
 	// Returns the tooltip for the command button.
 	const tooltip = (): string | undefined => {
+		console.log('Generating dynamic tooltip');
 		// Get the title for the command from the command center.
 		const title = CommandCenter.title(commandId);
 		if (!title) {
@@ -45,5 +46,5 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 	};
 
 	// Render.
-	return <TopBarButton iconId={iconId} tooltip={tooltip} execute={executeHandler} />;
+	return <TopBarButton iconId={iconId} tooltip={tooltip} onClick={executeHandler} />;
 };
