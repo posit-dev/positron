@@ -28,18 +28,18 @@ interface TopBarMenuButtonProps {
  */
 export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 	// Hooks.
-	const context = usePositronTopBarContext();
+	const positronTopBarContext = usePositronTopBarContext();
 	const buttonRef = React.useRef<HTMLDivElement>(null);
 
 	const showMenu = (event: React.MouseEvent) => {
 		if (buttonRef.current) {
 			props.actions().then(actions => {
 				if (actions.length > 0) {
-					context?.contextMenuService.showContextMenu({
+					positronTopBarContext?.contextMenuService.showContextMenu({
 						getActions: () => actions,
 						getAnchor: () => buttonRef.current!,
 						getKeyBinding: (action: IAction) => {
-							return context.keybindingService.lookupKeybinding(action.id);
+							return positronTopBarContext.keybindingService.lookupKeybinding(action.id);
 						},
 						getActionsContext: (event?: IContextMenuEvent) => {
 							if (event) {
@@ -55,7 +55,7 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 						},
 						anchorAlignment: AnchorAlignment.LEFT,
 						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
-						contextKeyService: context.contextKeyService
+						contextKeyService: positronTopBarContext.contextKeyService
 					});
 				}
 			});

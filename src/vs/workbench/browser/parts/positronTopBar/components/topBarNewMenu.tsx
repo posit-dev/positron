@@ -14,28 +14,29 @@ import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'v
 const kNewUntitledFile = 'workbench.action.files.newUntitledFile';
 const kNewWindow = 'workbench.action.newWindow';
 
-export const kNewMenuCommands = [
-	kNewUntitledFile,
-	PositronNewWorkspaceAction.ID,
-	PositronNewWorkspaceFromGitAction.ID,
-	kNewWindow
-];
+// export const kNewMenuCommands = [
+// 	kNewUntitledFile,
+// 	PositronNewWorkspaceAction.ID,
+// 	PositronNewWorkspaceFromGitAction.ID,
+// 	kNewWindow
+// ];
 
 /**
  * TopBarNewMenu component.
  * @returns The component.
  */
 export const TopBarNewMenu = () => {
-
 	// Hooks.
-	const context = usePositronTopBarContext();
+	const positronTopBarContext = usePositronTopBarContext();
+	if (!positronTopBarContext) {
+		return null;
+	}
 
 	// fetch actions when menu is shown
 	const actions = async () => {
-
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = commandAction(id, label, context);
+			const action = commandAction(id, positronTopBarContext, label);
 			if (action) {
 				actions.push(action);
 			}

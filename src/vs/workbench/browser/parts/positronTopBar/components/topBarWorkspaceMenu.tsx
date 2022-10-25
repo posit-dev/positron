@@ -28,16 +28,18 @@ export const kWorkspaceMenuCommands = [
 
 
 export const TopBarWorkspaceMenu = () => {
-
 	// Hooks.
-	const context = usePositronTopBarContext();
+	const positronTopBarContext = usePositronTopBarContext();
+	if (!positronTopBarContext) {
+		return null;
+	}
 
 	// fetch actions when menu is shown
 	const actions = async () => {
 
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = commandAction(id, label, context);
+			const action = commandAction(id, positronTopBarContext, label);
 			if (action) {
 				actions.push(action);
 			}
@@ -50,10 +52,10 @@ export const TopBarWorkspaceMenu = () => {
 		addAction(PositronOpenWorkspaceInNewWindowAction.ID);
 		addAction(kCloseFolder);
 
-		const recent = await context?.workspacesService.getRecentlyOpened();
-		if (context && recent?.workspaces?.length) {
+		const recent = await positronTopBarContext?.workspacesService.getRecentlyOpened();
+		if (positronTopBarContext && recent?.workspaces?.length) {
 			actions.push(new Separator());
-			actions.push(...recentMenuActions(recent.workspaces, context));
+			actions.push(...recentMenuActions(recent.workspaces, positronTopBarContext));
 			actions.push(new Separator());
 			addAction(ClearRecentFilesAction.ID);
 		}
@@ -69,8 +71,8 @@ export const TopBarWorkspaceMenu = () => {
 		<TopBarMenuButton
 			actions={actions}
 			iconId='root-folder'
-			text={context?.workspaceFolder ? context.workspaceFolder.name : 'Workspace: (None)'}
-			tooltip={context?.workspaceFolder?.uri?.fsPath || ''}
+			text={positronTopBarContext?.workspaceFolder ? positronTopBarContext.workspaceFolder.name : 'Workspace: (None)'}
+			tooltip={positronTopBarContext?.workspaceFolder?.uri?.fsPath || ''}
 		/>
 	);
 };
