@@ -6,6 +6,11 @@ declare module 'positron' {
 
 	import * as vscode from 'vscode'; // eslint-disable-line
 
+	/**
+	 * The current Positron version.
+	 */
+	export const version: string;
+
 	/** The set of possible language runtime messages */
 	export enum LanguageRuntimeMessageType {
 		/** A message representing output (text, plots, etc.) */

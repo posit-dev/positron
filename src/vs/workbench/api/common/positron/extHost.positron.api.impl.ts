@@ -11,18 +11,23 @@ import { IExtensionRegistries } from 'vs/workbench/api/common/extHost.api.impl';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { ExtHostConfigProvider } from 'vs/workbench/api/common/extHostConfiguration';
 import { ExtHostPositronContext } from 'vs/workbench/api/common/positron/extHost.positron.protocol';
-
 import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.positron';
+import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
 
+/**
+ * Factory interface for creating an instance of the Positron API.
+ */
 export interface IExtensionPositronApiFactory {
 	(extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron;
 }
 
 /**
- * This method instantiates and returns the extension API surface
+ * This method instantiates and returns the extension API surface for Positron;
+ * it mirrors IExtensionApiFactory for VS Code.
  */
 export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAccessor): IExtensionPositronApiFactory {
 	const rpcProtocol = accessor.get(IExtHostRpcService);
+	const initData = accessor.get(IExtHostInitDataService);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
@@ -36,6 +41,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		// --- End Positron ---
 
 		return <typeof positron>{
+			version: initData.positronVersion,
 			runtime,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
