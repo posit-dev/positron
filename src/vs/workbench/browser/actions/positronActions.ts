@@ -9,10 +9,9 @@ import { localize } from 'vs/nls';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
-import { INotificationService } from 'vs/platform/notification/common/notification';
 import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
 import { showNewWorkspaceDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceDialog';
 import { showNewWorkspaceFromGitDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceFromGitDialog';
@@ -80,7 +79,10 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			precondition: EnterMultiRootWorkspaceSupportContext,
+			precondition: ContextKeyExpr.and(
+				EnterMultiRootWorkspaceSupportContext,
+				ContextKeyExpr.deserialize('config.git.enabled && !git.missing')
+			),
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newworkspace',
@@ -92,20 +94,6 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService);
 		const configService = accessor.get(IConfigurationService);
-		const contextKeyService = accessor.get(IContextKeyService);
-		const notificationService = accessor.get(INotificationService);
-
-		// check if git is available
-		const gitEnabled = configService.getValue('git.enabled');
-		if (!gitEnabled) {
-			notificationService.error(localize('positronGitNotEnabled', "Git is not current enabled."));
-			return;
-		}
-		const gitMissing = contextKeyService.getContextKeyValue('git.missing');
-		if (gitMissing) {
-			notificationService.error(localize('positronGitMissing', "Git is not currently installed."));
-			return;
-		}
 
 		const result = await showNewWorkspaceFromGitDialog(accessor);
 		if (result?.repo) {

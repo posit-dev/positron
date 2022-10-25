@@ -54,7 +54,8 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 							}
 						},
 						anchorAlignment: AnchorAlignment.LEFT,
-						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
+						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
+						contextKeyService: context.contextKeyService
 					});
 				}
 			});
