@@ -97,18 +97,17 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
 			<PositronTopBar
-				testValue='something'
-				configurationService={this.configurationService}
-				quickInputService={this.quickInputService}
 				commandService={this.commandService}
-				keybindingService={this.keybindingService}
-				contextMenuService={this.contextMenuService}
+				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
-				workspacesService={this.workspacesService}
-				labelService={this.labelService}
+				contextMenuService={this.contextMenuService}
 				hostService={this.hostService}
+				keybindingService={this.keybindingService}
+				labelService={this.labelService}
 				layoutService={this.layoutService}
+				quickInputService={this.quickInputService}
 				workspaceContextService={this.workspaceContextService}
+				workspacesService={this.workspacesService}
 			/>
 		);
 

@@ -21,7 +21,7 @@ import { TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/compone
 import { TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { kWorkspaceMenuCommands, TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
+import { TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
 
@@ -29,31 +29,23 @@ import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/bro
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
  */
 export interface PositronTopBarServices {
-	configurationService: IConfigurationService;
-	quickInputService: IQuickInputService;
 	commandService: ICommandService;
-	keybindingService: IKeybindingService;
-	contextMenuService: IContextMenuService;
+	configurationService: IConfigurationService;
 	contextKeyService: IContextKeyService;
-	workspacesService: IWorkspacesService;
-	labelService: ILabelService;
+	contextMenuService: IContextMenuService;
 	hostService: IHostService;
+	keybindingService: IKeybindingService;
+	labelService: ILabelService;
 	layoutService: ILayoutService;
+	quickInputService: IQuickInputService;
 	workspaceContextService: IWorkspaceContextService;
+	workspacesService: IWorkspacesService;
 }
 
 /**
  * PositronTopBarProps interface.
  */
-interface PositronTopBarProps extends PositronTopBarServices {
-	testValue: string; // For now, as a tracer...
-}
-
-const kTopBarCommands = [
-	// ...kNewMenuCommands,
-	// ...kOpenMenuCommands,
-	...kWorkspaceMenuCommands,
-];
+interface PositronTopBarProps extends PositronTopBarServices { }
 
 /**
  * PositronTopBar component.
@@ -63,7 +55,7 @@ const kTopBarCommands = [
 export const PositronTopBar = (props: PositronTopBarProps) => {
 	// Render.
 	return (
-		<PositronTopBarContextProvider {...props} commandIds={kTopBarCommands}>
+		<PositronTopBarContextProvider {...props}>
 			<div className='positron-top-bar'>
 				<TopBarRegion align='left'>
 					<TopBarNewMenu />

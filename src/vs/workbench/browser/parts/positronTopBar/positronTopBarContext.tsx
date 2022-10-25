@@ -8,13 +8,6 @@ import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBa
 import { PositronTopBarState, usePositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
 
 /**
- * PositronTopBarContextProviderProps interface.
- */
-interface PositronTopBarContextProviderProps extends PropsWithChildren<PositronTopBarServices> {
-	commandIds: string[];
-}
-
-/**
  * Create the Positron top bar context.
  */
 const PositronTopBarContext = createContext<PositronTopBarState | undefined>(undefined);
@@ -22,9 +15,9 @@ const PositronTopBarContext = createContext<PositronTopBarState | undefined>(und
 /**
  * Export the PositronTopBarContextProvider provider
  */
-export const PositronTopBarContextProvider = (props: PositronTopBarContextProviderProps) => {
+export const PositronTopBarContextProvider = (props: PropsWithChildren<PositronTopBarServices>) => {
 	// Hooks.
-	const positronTopBarState = usePositronTopBarState({ ...props }, props.commandIds);
+	const positronTopBarState = usePositronTopBarState({ ...props });
 
 	// Render.
 	return (
@@ -34,5 +27,7 @@ export const PositronTopBarContextProvider = (props: PositronTopBarContextProvid
 	);
 };
 
-// Export useQuartoPubContext to simplify using the Positron top bar context object.
+/**
+ * Export useQuartoPubContext to simplify using the Positron top bar context object.
+ */
 export const usePositronTopBarContext = () => useContext(PositronTopBarContext);
