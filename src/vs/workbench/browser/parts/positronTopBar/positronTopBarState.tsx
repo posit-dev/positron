@@ -5,10 +5,8 @@
 import { useEffect, useState } from 'react';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { ICommandsMap, isIMenuItem, MenuId, MenuRegistry } from 'vs/platform/actions/common/actions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
-import { ICommandAction } from 'vs/platform/action/common/action';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
@@ -17,6 +15,7 @@ import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkspaceContextService, IWorkspaceFolder } from 'vs/platform/workspace/common/workspace';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * The tooltip reset timeout in milliseconds.
@@ -38,7 +37,6 @@ export interface PositronTopBarState {
 	hostService: IHostService;
 	layoutService: ILayoutService;
 	workspaceContextService: IWorkspaceContextService;
-	commands: ICommandsMap;
 	workspaceFolder?: IWorkspaceFolder;
 	showTooltipDelay(): number;
 	tooltipHidden(): void;
@@ -63,40 +61,18 @@ export const usePositronTopBarState = ({
 	workspaceContextService
 }: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
 	// Hooks.
-	const [commands, setCommands] = useState<ICommandsMap>(new Map<string, ICommandAction>());
 	const [workspaceFolder, setWorkspaceFolder] = useState<IWorkspaceFolder | undefined>(singleWorkspaceFolder(workspaceContextService));
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
 
-	// helper to update commands
-	const updateCommands = () => {
-		// look in the command pallette as some commands (e.g. file save commands) are
-		// only registered there
-		const commandsMap = new Map<string, ICommandAction>();
-		const commandPallette = MenuRegistry.getMenuItems(MenuId.CommandPalette);
-		commandPallette.forEach(item => {
-			if (isIMenuItem(item)) {
-				if (commandIds.includes(item.command.id)) {
-					commandsMap.set(item.command.id, item.command);
-				}
-			}
-		});
-		setCommands(commandsMap);
-	};
-
-	// update commands on menu changed event
+	// Add event handlers.
 	useEffect(() => {
-		const disposable = MenuRegistry.onDidChangeMenu(e => {
-			updateCommands();
-		});
-		return () => disposable.dispose();
-	});
+		const disposableStore = new DisposableStore();
 
-	// update workspace on workspace folder changed
-	useEffect(() => {
-		const disposable = workspaceContextService.onDidChangeWorkspaceFolders(e => {
+		disposableStore.add(workspaceContextService.onDidChangeWorkspaceFolders(e => {
 			setWorkspaceFolder(singleWorkspaceFolder(workspaceContextService));
-		});
-		return () => disposable.dispose();
+		}));
+
+		return () => disposableStore.dispose();
 	});
 
 	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : configurationService.getValue<number>('workbench.hover.delay');
@@ -115,7 +91,6 @@ export const usePositronTopBarState = ({
 		hostService,
 		layoutService,
 		workspaceContextService,
-		commands,
 		workspaceFolder,
 		showTooltipDelay,
 		tooltipHidden

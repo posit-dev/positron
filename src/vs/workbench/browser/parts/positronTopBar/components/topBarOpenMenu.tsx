@@ -22,36 +22,27 @@ import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editor
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
-export const kOpenMenuCommands = [
-	OpenFileAction.ID,
-	OpenFileFolderAction.ID,
-	OpenFolderAction.ID,
-	OpenRecentAction.ID,
-	ClearRecentFilesAction.ID
-];
-
 /**
  * TopBarOpenMenu component.
  * @returns The component.
  */
 export const TopBarOpenMenu = () => {
-
 	// Hooks.
-	const context = usePositronTopBarContext()!;
+	const positronTopBarContext = usePositronTopBarContext()!;
 
 	// fetch actions when menu is shown
 	const actions = async () => {
 
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = commandAction(id, label, context);
+			const action = commandAction(id, positronTopBarContext, label);
 			if (action) {
 				actions.push(action);
 			}
 		};
 
 		// core open actions
-		if (IsMacNativeContext.getValue(context.contextKeyService)) {
+		if (IsMacNativeContext.getValue(positronTopBarContext.contextKeyService)) {
 			addAction(OpenFileFolderAction.ID, localize('positronOpenFile', "Open File..."));
 		} else {
 			addAction(OpenFileAction.ID);
@@ -61,11 +52,11 @@ export const TopBarOpenMenu = () => {
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
-		const recent = await context?.workspacesService.getRecentlyOpened();
-		if (recent && context) {
+		const recent = await positronTopBarContext?.workspacesService.getRecentlyOpened();
+		if (recent && positronTopBarContext) {
 			const recentActions = [
-				...recentMenuActions(recent.workspaces, context),
-				...recentMenuActions(recent.files, context)
+				...recentMenuActions(recent.workspaces, positronTopBarContext),
+				...recentMenuActions(recent.files, positronTopBarContext)
 			];
 			if (recentActions.length > 0) {
 				actions.push(...recentActions);
