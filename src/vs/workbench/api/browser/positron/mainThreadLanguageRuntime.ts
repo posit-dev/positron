@@ -2,7 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtHostContext, ExtHostLanguageRuntimeShape, MainContext, MainThreadLanguageRuntimeShape } from '../../common/extHost.protocol';
+import {
+	ExtHostLanguageRuntimeShape,
+	MainThreadLanguageRuntimeShape,
+	MainPositronContext,
+	ExtHostPositronContext
+} from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
@@ -79,7 +84,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 }
 
-@extHostNamedCustomer(MainContext.MainThreadLanguageRuntime)
+@extHostNamedCustomer(MainPositronContext.MainThreadLanguageRuntime)
 export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape {
 
 	private readonly _disposables = new DisposableStore();
@@ -92,7 +97,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService
 	) {
-		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostLanguageRuntime);
+		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
