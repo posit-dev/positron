@@ -9,8 +9,6 @@ import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { showPositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { IPath } from 'vs/base/common/path';
 import { URI } from 'vs/base/common/uri';
 import { TextInput } from 'vs/workbench/browser/positronModalDialogs/components/textInput';
 import { CheckBoxInput } from 'vs/workbench/browser/positronModalDialogs/components/checkBoxInput';
@@ -31,12 +29,11 @@ export async function showNewWorkspaceDialog(accessor: ServicesAccessor): Promis
 	// get services
 	const layoutService = accessor.get(ILayoutService);
 	const fileDialogs = accessor.get(IFileDialogService);
-	const pathService = accessor.get(IPathService);
 
 	// default input
 	const input: NewWorkspaceDialogData = {
 		directory: '',
-		parentDirectory: await defaultParentDirectory(fileDialogs, await pathService.path),
+		parentDirectory: await defaultParentDirectory(fileDialogs),
 		newWindow: false
 	};
 
@@ -51,9 +48,9 @@ export async function showNewWorkspaceDialog(accessor: ServicesAccessor): Promis
 	});
 }
 
-export async function defaultParentDirectory(fileDialogs: IFileDialogService, path: IPath) {
-	const defaultWorkspaceUri = await fileDialogs.defaultWorkspacePath();
-	return path.dirname(defaultWorkspaceUri.fsPath);
+export async function defaultParentDirectory(fileDialogs: IFileDialogService) {
+	const defaultFolderUri = await fileDialogs.defaultFolderPath();
+	return defaultFolderUri.fsPath;
 }
 
 export async function browseForParentDirectory(context: NewWorkspaceDialogContext, defaultDirectory?: string) {
