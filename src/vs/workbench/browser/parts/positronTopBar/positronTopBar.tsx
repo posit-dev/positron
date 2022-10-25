@@ -23,7 +23,7 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { kWorkspaceMenuCommands, TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-
+import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -49,17 +49,10 @@ interface PositronTopBarProps extends PositronTopBarServices {
 	testValue: string; // For now, as a tracer...
 }
 
-// commands that we bind to in the top bar (used so we can filter our interations w/ the MenuRegistry)
-const kFileSave = 'workbench.action.files.save';
-const kFileSaveAll = 'workbench.action.files.saveFiles';
-const kNavigateBack = 'workbench.action.navigateBack';
-const kNavigateForward = 'workbench.action.navigateForward';
 const kTopBarCommands = [
 	...kNewMenuCommands,
 	...kOpenMenuCommands,
 	...kWorkspaceMenuCommands,
-	kFileSave, kFileSaveAll,
-	kNavigateBack, kNavigateForward
 ];
 
 /**
@@ -77,13 +70,13 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarOpenMenu />
 					<TopBarSeparator />
-					<TopBarCommandButton iconId='positron-save' commandId={kFileSave} />
-					<TopBarCommandButton iconId='positron-save-all' commandId={kFileSaveAll} />
+					<TopBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
+					<TopBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton iconId='positron-chevron-left' commandId={kNavigateBack} />
-					<TopBarCommandButton iconId='positron-chevron-right' commandId={kNavigateForward} />
+					<TopBarCommandButton iconId='positron-chevron-left' commandId={NavigateBackwardsAction.ID} />
+					<TopBarCommandButton iconId='positron-chevron-right' commandId={NavigateForwardAction.ID} />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
