@@ -14,7 +14,6 @@ import { IOpenRecentAction } from 'vs/workbench/browser/parts/titlebar/menubarCo
 import { IWindowOpenable } from 'vs/platform/window/common/window';
 import { unmnemonicLabel } from 'vs/base/common/labels';
 import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
-import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
 import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { OpenRecentAction } from 'vs/workbench/browser/actions/windowActions';
@@ -32,10 +31,9 @@ export const TopBarOpenMenu = () => {
 
 	// fetch actions when menu is shown
 	const actions = async () => {
-
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = commandAction(id, positronTopBarContext, label);
+			const action = positronTopBarContext.createCommandAction(id, label);
 			if (action) {
 				actions.push(action);
 			}
@@ -69,11 +67,11 @@ export const TopBarOpenMenu = () => {
 		return actions;
 	};
 
-	// compontent
+	// Render.
 	return (
 		<TopBarMenuButton
-			actions={actions}
 			iconId='positron-open'
+			actions={actions}
 			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}
 		/>
 	);
