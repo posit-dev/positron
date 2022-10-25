@@ -434,7 +434,8 @@
                     "items": {
                         "enum": [
                             "All",
-                            "pythonSurveyNotification"
+                            "pythonSurveyNotification",
+                            "pythonPromptNewToolsExt"
                         ]
                     },
                     "scope": "machine",
@@ -446,7 +447,8 @@
                     "items": {
                         "enum": [
                             "All",
-                            "pythonSurveyNotification"
+                            "pythonSurveyNotification",
+                            "pythonPromptNewToolsExt"
                         ]
                     },
                     "scope": "machine",
