@@ -236,9 +236,12 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.js.map'], { dot: true }));
 
+		let version = packageJson.version;
+
 		// --- Start Positron ---
-		let version = product.positronVersion;
+		const positronVersion = product.positronVersion;
 		// --- End Positron ---
+
 		const quality = product.quality;
 
 		if (quality && quality !== 'stable') {
@@ -251,8 +254,10 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 
 		const date = new Date().toISOString();
 
+		// --- Start Positron ---
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
-			.pipe(json({ commit, date, version }));
+			.pipe(json({ commit, date, version, positronVersion }));
+		// --- End Positron ---
 
 		const license = gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
 
