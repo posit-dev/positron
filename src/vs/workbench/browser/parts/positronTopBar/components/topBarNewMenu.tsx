@@ -57,7 +57,7 @@ export const TopBarNewMenu = () => {
 		<TopBarMenuButton
 			actions={actions}
 			iconId='positron-new'
-			tooltip={localize('positronNewFileWorkspace', "New File/Workspace slkfj sedlf jsd jfldkf jsdlfjks dlfsdj ")}
+			tooltip={localize('positronNewFileWorkspace', "New File/Workspace")}
 		/>
 	);
 };
