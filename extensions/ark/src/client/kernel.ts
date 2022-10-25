@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 import { withActiveExtension } from './util';
 
@@ -10,7 +11,7 @@ import { activateLsp } from './lsp';
 
 // A global instance of the language runtime (and LSP language server) provided
 // by this language pack
-let runtime: vscode.LanguageRuntime;
+let runtime: positron.LanguageRuntime;
 
 export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath: string) {
 	// Check to see whether the Jupyter Adapter extension is installed
@@ -52,6 +53,6 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	});
 
 	// Register a language runtime provider for the ARK kernel.
-	return vscode.positron.registerLanguageRuntime(runtime);
+	return positron.runtime.registerLanguageRuntime(runtime);
 }
 

@@ -276,6 +276,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		// TODO the API should be copied to `out` during compile, not here
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
 
+		// --- Start Positron ---
+		const positronApi = gulp.src('src/positron-dts/positron.d.ts').pipe(rename('out/positron-dts/positron.d.ts'));
+		// --- End Positron ---
+
 		const telemetry = gulp.src('.build/telemetry/**', { base: '.build/telemetry', dot: true });
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
@@ -304,6 +308,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			productJsonStream,
 			license,
 			api,
+			// --- Start Positron ---
+			positronApi,
+			// --- End Positron ---
 			telemetry,
 			sources,
 			deps
