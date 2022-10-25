@@ -26,12 +26,11 @@ export async function showNewWorkspaceFromGitDialog(accessor: ServicesAccessor):
 	// get services
 	const layoutService = accessor.get(ILayoutService);
 	const fileDialogs = accessor.get(IFileDialogService);
-	const pathService = accessor.get(IPathService);
 
 	// default input
 	const input: NewWorkspaceFromGitDialogData = {
 		repo: '',
-		parentDirectory: await defaultParentDirectory(fileDialogs, await pathService.path),
+		parentDirectory: await defaultParentDirectory(fileDialogs),
 		newWindow: false
 	};
 
