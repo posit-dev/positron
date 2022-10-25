@@ -71,10 +71,6 @@ import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/qu
 import * as search from 'vs/workbench/services/search/common/search';
 import { EditSessionIdentityMatch } from 'vs/platform/workspace/common/editSessions';
 
-/// --- Start Positron ---
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-/// --- End Positron ---
-
 export interface IWorkspaceData extends IStaticWorkspaceData {
 	folders: { uri: UriComponents; name: string; index: number }[];
 }
@@ -410,16 +406,6 @@ export interface MainThreadLanguagesShape extends IDisposable {
 	$setLanguageStatus(handle: number, status: ILanguageStatus): void;
 	$removeLanguageStatus(handle: number): void;
 }
-
-// --- Start Positron ---
-// This is the interface that the main process exposes to the extension host
-export interface MainThreadLanguageRuntimeShape extends IDisposable {
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
-	$unregisterLanguageRuntime(handle: number): void;
-	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
-	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void;
-}
-// --- End Positron ---
 
 export interface MainThreadMessageOptions {
 	source?: { identifier: ExtensionIdentifier; label: string };
@@ -1792,17 +1778,6 @@ export interface ExtHostLanguageFeaturesShape {
 	$provideDocumentOnDropEdits(handle: number, requestId: number, resource: UriComponents, position: IPosition, dataTransferDto: DataTransferDTO, token: CancellationToken): Promise<IDocumentOnDropEditDto | undefined>;
 }
 
-// --- Start Positron ---
-// The interface to the main thread exposed by the extension host
-export interface ExtHostLanguageRuntimeShape {
-	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
-	$executeCode(handle: number, code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string>;
-	$interruptLanguageRuntime(handle: number): void;
-	$restartLanguageRuntime(handle: number): void;
-	$shutdownLanguageRuntime(handle: number): void;
-}
-// --- End Positron ---
-
 export interface ExtHostQuickOpenShape {
 	$onItemSelected(handle: number): void;
 	$validateInput(input: string): Promise<string | { content: string; severity: Severity } | null | undefined>;
@@ -2328,9 +2303,6 @@ export const MainContext = {
 	MainThreadDownloadService: createProxyIdentifier<MainThreadDownloadServiceShape>('MainThreadDownloadService'),
 	MainThreadKeytar: createProxyIdentifier<MainThreadKeytarShape>('MainThreadKeytar'),
 	MainThreadLanguageFeatures: createProxyIdentifier<MainThreadLanguageFeaturesShape>('MainThreadLanguageFeatures'),
-	// --- Start Positron ---
-	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
-	// --- End Positron ---
 	MainThreadLanguages: createProxyIdentifier<MainThreadLanguagesShape>('MainThreadLanguages'),
 	MainThreadLogger: createProxyIdentifier<MainThreadLoggerShape>('MainThreadLogger'),
 	MainThreadMessageService: createProxyIdentifier<MainThreadMessageServiceShape>('MainThreadMessageService'),
@@ -2386,9 +2358,6 @@ export const ExtHostContext = {
 	ExtHostFileSystemEventService: createProxyIdentifier<ExtHostFileSystemEventServiceShape>('ExtHostFileSystemEventService'),
 	ExtHostLanguages: createProxyIdentifier<ExtHostLanguagesShape>('ExtHostLanguages'),
 	ExtHostLanguageFeatures: createProxyIdentifier<ExtHostLanguageFeaturesShape>('ExtHostLanguageFeatures'),
-	// --- Start Positron ---
-	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
-	// --- End Positron ---
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
 	ExtHostExtensionService: createProxyIdentifier<ExtHostExtensionServiceShape>('ExtHostExtensionService'),
 	ExtHostLogLevelServiceShape: createProxyIdentifier<ExtHostLogLevelServiceShape>('ExtHostLogLevelServiceShape'),

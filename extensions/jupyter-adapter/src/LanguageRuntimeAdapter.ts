@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { v4 as uuidv4 } from 'uuid';
 import { JupyterKernel } from './JupyterKernel';
 import { JupyterKernelSpec } from './JupyterKernelSpec';
@@ -18,13 +19,13 @@ import { JupyterErrorReply } from './JupyterErrorReply';
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
  */
 export class LanguageRuntimeAdapter
-	implements vscode.Disposable, vscode.LanguageRuntime {
+	implements vscode.Disposable, positron.LanguageRuntime {
 
 	private readonly _kernel: JupyterKernel;
-	private readonly _messages: vscode.EventEmitter<vscode.LanguageRuntimeMessage>;
-	private readonly _state: vscode.EventEmitter<vscode.RuntimeState>;
+	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
+	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _lspPort: number | null = null;
-	readonly metadata: vscode.LanguageRuntimeMetadata;
+	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	constructor(private readonly _spec: JupyterKernelSpec,
 		private readonly _lsp: () => Promise<number> | null,
@@ -44,8 +45,8 @@ export class LanguageRuntimeAdapter
 		this._lspPort = null;
 
 		// Create emitter for LanguageRuntime messages and state changes
-		this._messages = new vscode.EventEmitter<vscode.LanguageRuntimeMessage>();
-		this._state = new vscode.EventEmitter<vscode.RuntimeState>();
+		this._messages = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
+		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this.onDidReceiveRuntimeMessage = this._messages.event;
 		this.onDidChangeRuntimeState = this._state.event;
 
@@ -58,8 +59,8 @@ export class LanguageRuntimeAdapter
 		this._kernel.addListener('status', this.onStatus);
 	}
 
-	onDidReceiveRuntimeMessage: vscode.Event<vscode.LanguageRuntimeMessage>;
-	onDidChangeRuntimeState: vscode.Event<vscode.RuntimeState>;
+	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
+	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
 	/**
 	 * Executes a fragment of code in the kernel.
@@ -69,8 +70,8 @@ export class LanguageRuntimeAdapter
 	 * @param errorBehavior The error behavior.
 	 */
 	public execute(code: string,
-		mode: vscode.RuntimeCodeExecutionMode,
-		errorBehavior: vscode.RuntimeErrorBehavior): Thenable<string> {
+		mode: positron.RuntimeCodeExecutionMode,
+		errorBehavior: positron.RuntimeErrorBehavior): Thenable<string> {
 
 		this._channel.appendLine(`Sending code to ${this.metadata.language}: ${code}`);
 
@@ -91,17 +92,17 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @returns A promise with information about the newly started runtime.
 	 */
-	public start(): Thenable<vscode.LanguageRuntimeInfo> {
+	public start(): Thenable<positron.LanguageRuntimeInfo> {
 		this._channel.appendLine(`Starting ${this.metadata.language}...`);
 
 		// Reject if the kernel is already running; only in the Unintialized state
 		// can we start the kernel
-		if (this._kernel.status() !== vscode.RuntimeState.Uninitialized) {
+		if (this._kernel.status() !== positron.RuntimeState.Uninitialized) {
 			this._channel.appendLine(`Not started (already running)`);
 			Promise.reject('Kernel is already running');
 		}
 
-		return new Promise<vscode.LanguageRuntimeInfo>((resolve, reject) => {
+		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
 			if (this._lsp) {
 				// If we have an LSP, start it, then start the kernel
 				this._lsp()!.then((port) => {
@@ -122,17 +123,17 @@ export class LanguageRuntimeAdapter
 		});
 	}
 
-	private async startKernel(lspPort: number): Promise<vscode.LanguageRuntimeInfo> {
+	private async startKernel(lspPort: number): Promise<positron.LanguageRuntimeInfo> {
 		await this._kernel.start(lspPort);
 		return await this.getKernelInfo();
 	}
 
-	private getKernelInfo(): Promise<vscode.LanguageRuntimeInfo> {
+	private getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
 		// Send a kernel_info_request to get the kernel info
 		this._channel.appendLine(`Sending info request to ${this.metadata.language}`);
 		this._kernel.sendInfoRequest();
 
-		return new Promise<vscode.LanguageRuntimeInfo>((resolve, _reject) => {
+		return new Promise<positron.LanguageRuntimeInfo>((resolve, _reject) => {
 			// Wait for the kernel_info_reply to come back
 			this._kernel.on('message', (msg: JupyterMessagePacket) => {
 				if (msg.msgType === 'kernel_info_reply') {
@@ -141,7 +142,7 @@ export class LanguageRuntimeAdapter
 						banner: message.banner,
 						implementation_version: message.implementation_version,
 						language_version: message.language_info.version,
-					} as vscode.LanguageRuntimeInfo);
+					} as positron.LanguageRuntimeInfo);
 				}
 			});
 		});
@@ -196,9 +197,9 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
-			type: vscode.LanguageRuntimeMessageType.Output,
+			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any
-		} as vscode.LanguageRuntimeOutput);
+		} as positron.LanguageRuntimeOutput);
 	}
 
 	/**
@@ -212,11 +213,11 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
-			type: vscode.LanguageRuntimeMessageType.Error,
+			type: positron.LanguageRuntimeMessageType.Error,
 			name: data.ename,
 			message: data.evalue,
 			traceback: data.traceback
-		} as vscode.LanguageRuntimeError);
+		} as positron.LanguageRuntimeError);
 	}
 
 	/**
@@ -230,9 +231,9 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
-			type: vscode.LanguageRuntimeMessageType.Output,
+			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any
-		} as vscode.LanguageRuntimeOutput);
+		} as positron.LanguageRuntimeOutput);
 	}
 
 	/**
@@ -246,9 +247,9 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
-			type: vscode.LanguageRuntimeMessageType.Input,
+			type: positron.LanguageRuntimeMessageType.Input,
 			code: data.code
-		} as vscode.LanguageRuntimeInput);
+		} as positron.LanguageRuntimeInput);
 	}
 
 	/**
@@ -262,9 +263,9 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
-			type: vscode.LanguageRuntimeMessageType.State,
+			type: positron.LanguageRuntimeMessageType.State,
 			state: data.execution_state
-		} as vscode.LanguageRuntimeState);
+		} as positron.LanguageRuntimeState);
 	}
 
 	/**
@@ -272,7 +273,7 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @param status The new status of the kernel
 	 */
-	onStatus(status: vscode.RuntimeState) {
+	onStatus(status: positron.RuntimeState) {
 		this._channel.appendLine(`Kernel status changed to ${status}`);
 		this._state.fire(status);
 	}

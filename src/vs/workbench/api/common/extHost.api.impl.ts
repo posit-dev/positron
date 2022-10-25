@@ -95,10 +95,6 @@ import { DebugConfigurationProviderTriggerKind } from 'vs/workbench/contrib/debu
 import { IExtHostLocalizationService } from 'vs/workbench/api/common/extHostLocalizationService';
 import { EditSessionIdentityMatch } from 'vs/platform/workspace/common/editSessions';
 
-// --- Start Positron ---
-import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
-// --- End Positron ---
-
 export interface IExtensionRegistries {
 	mine: ExtensionDescriptionRegistry;
 	all: ExtensionDescriptionRegistry;
@@ -189,10 +185,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostWebviewViews = rpcProtocol.set(ExtHostContext.ExtHostWebviewViews, new ExtHostWebviewViews(rpcProtocol, extHostWebviews));
 	const extHostTesting = rpcProtocol.set(ExtHostContext.ExtHostTesting, new ExtHostTesting(rpcProtocol, extHostCommands, extHostDocumentsAndEditors));
 	const extHostUriOpeners = rpcProtocol.set(ExtHostContext.ExtHostUriOpeners, new ExtHostUriOpeners(rpcProtocol));
-
-	// --- Start Positron ---
-	const extHostLanguageRuntime = rpcProtocol.set(ExtHostContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
-	// --- End Positron ---
 
 	rpcProtocol.set(ExtHostContext.ExtHostInteractive, new ExtHostInteractive(rpcProtocol, extHostNotebook, extHostDocumentsAndEditors, extHostCommands, extHostLogService));
 
@@ -341,7 +333,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return isNewAppInstall(initData.telemetryInfo.firstSessionDate);
 			},
 			createTelemetryLogger(appender: vscode.TelemetryAppender): vscode.TelemetryLogger {
-				checkProposedApiEnabled(extension, 'telemetryLogger');
+				checkProposedApiEnabled(extension, 'telemetry');
 				return extHostTelemetry.instantiateLogger(extension, appender);
 			},
 			openExternal(uri: URI, options?: { allowContributedOpeners?: boolean | string }) {
@@ -602,14 +594,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			}
 		};
 
-		// --- Start Positron ---
-		const positron: typeof vscode.positron = {
-			registerLanguageRuntime(runtime: vscode.LanguageRuntime): vscode.Disposable {
-				return extHostLanguageRuntime.registerLanguageRuntime(runtime);
-			}
-		};
-		// --- End Positron ---
-
 		// namespace: window
 		const window: typeof vscode.window = {
 			get activeTextEditor() {
@@ -810,8 +794,12 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			onDidChangeNotebookEditorVisibleRanges(listener, thisArgs?, disposables?) {
 				return extHostNotebookEditors.onDidChangeNotebookEditorVisibleRanges(listener, thisArgs, disposables);
 			},
-			showNotebookDocument(document, options?) {
-				return extHostNotebook.showNotebookDocument(document, options);
+			showNotebookDocument(uriOrDocument, options?) {
+				if (URI.isUri(uriOrDocument)) {
+					extHostApiDeprecation.report('window.showNotebookDocument(uri)', extension,
+						`Please use 'workspace.openNotebookDocument' and 'window.showNotebookDocument'`);
+				}
+				return extHostNotebook.showNotebookDocument(uriOrDocument, options);
 			},
 			registerExternalUriOpener(id: string, opener: vscode.ExternalUriOpener, metadata: vscode.ExternalUriOpenerMetadata) {
 				checkProposedApiEnabled(extension, 'externalUriOpener');
@@ -1212,9 +1200,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 
 		return <typeof vscode>{
 			version: initData.version,
-			// --- Start Positron ---
-			positronVersion: initData.positronVersion,
-			// --- End Positron ---
 			// namespaces
 			authentication,
 			commands,
@@ -1224,9 +1209,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			extensions,
 			l10n,
 			languages,
-			// --- Start Positron ---
-			positron,
-			// --- End Positron ---
 			notebooks,
 			scm,
 			tasks,
@@ -1358,13 +1340,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			Uri: URI,
 			ViewColumn: extHostTypes.ViewColumn,
 			WorkspaceEdit: extHostTypes.WorkspaceEdit,
-			// --- Start Positron ---
-			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
-			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
-			RuntimeErrorBehavior: extHostTypes.RuntimeErrorBehavior,
-			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
-			RuntimeState: extHostTypes.RuntimeState,
-			// --- End Positron ---
 			// proposed api types
 			DocumentDropEdit: extHostTypes.DocumentDropEdit,
 			DocumentPasteEdit: extHostTypes.DocumentPasteEdit,

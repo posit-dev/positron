@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { LanguageRuntimeAdapter } from './LanguageRuntimeAdapter';
@@ -18,7 +19,7 @@ export class Api implements vscode.Disposable {
 	 * @param lsp An optional function that returns a client port number for the LSP server to connect to.
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
-	adaptKernel(kernel: JupyterKernelSpec, lsp: () => Promise<number> | null): vscode.LanguageRuntime {
+	adaptKernel(kernel: JupyterKernelSpec, lsp: () => Promise<number> | null): positron.LanguageRuntime {
 		return new LanguageRuntimeAdapter(kernel, lsp, this._channel);
 	}
 
