@@ -16,7 +16,7 @@ interface TopBarButtonProps {
 	text?: string;
 	dropDown?: boolean;
 	tooltip?: string | ILocalizedString;
-	execute?: VoidFunction;
+	onClick?: React.MouseEventHandler;
 }
 
 /**
@@ -28,7 +28,7 @@ export const TopBarButton = forwardRef<HTMLDivElement, TopBarButtonProps>((props
 	// Render.
 	return (
 		<Tooltip {...props}>
-			<div ref={ref} className='top-bar-button' onClick={props.execute}>
+			<div ref={ref} className='top-bar-button' onClick={props.onClick}>
 				<div className='top-bar-button-face'>
 					<div className={`top-bar-button-icon codicon codicon-top-bar-button codicon-${props.iconId}`}></div>
 					{props.text ? <div className='top-bar-button-text'>{props.text}</div> : null}

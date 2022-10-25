@@ -64,8 +64,6 @@ export const TopBarWorkspaceMenu = () => {
 		return actions;
 	};
 
-	// TODO: text and tooltip reactive based on current workspace
-
 	// compontent
 	return (
 		<TopBarMenuButton

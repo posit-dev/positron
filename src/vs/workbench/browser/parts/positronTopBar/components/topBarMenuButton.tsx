@@ -9,6 +9,7 @@ import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTop
 import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
 import { IAction } from 'vs/base/common/actions';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
+import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
 
 /**
  * TopBarMenuButtonProps interface.
@@ -30,7 +31,7 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 	const context = usePositronTopBarContext();
 	const buttonRef = React.useRef<HTMLDivElement>(null);
 
-	const showMenu = () => {
+	const showMenu = (event: React.MouseEvent) => {
 		if (buttonRef.current) {
 			props.actions().then(actions => {
 				if (actions.length > 0) {
@@ -39,6 +40,18 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 						getAnchor: () => buttonRef.current!,
 						getKeyBinding: (action: IAction) => {
 							return context.keybindingService.lookupKeybinding(action.id);
+						},
+						getActionsContext: (event?: IContextMenuEvent) => {
+							if (event) {
+								return new KeyboardEvent('keydown', {
+									ctrlKey: event.ctrlKey,
+									shiftKey: event.shiftKey,
+									metaKey: event.metaKey,
+									altKey: event.altKey
+								});
+							} else {
+								return undefined;
+							}
 						},
 						anchorAlignment: AnchorAlignment.LEFT,
 						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
@@ -51,10 +64,9 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 
 	return (
 		<>
-			<TopBarButton ref={buttonRef} dropDown={true} iconId={props.iconId} text={props.text} tooltip={props.tooltip} execute={showMenu} />
+			<TopBarButton ref={buttonRef} dropDown={true} iconId={props.iconId} text={props.text} tooltip={props.tooltip} onClick={showMenu} />
 		</>
 	);
 
 
 };
-
