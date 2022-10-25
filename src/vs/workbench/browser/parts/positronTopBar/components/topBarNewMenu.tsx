@@ -3,23 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React = require('react');
-// import { useMemo } from 'react';
 import { localize } from 'vs/nls';
+import { IAction, Separator } from 'vs/base/common/actions';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
-import { IAction, Separator } from 'vs/base/common/actions';
-import { commandAction } from 'vs/workbench/browser/parts/positronTopBar/actions';
 import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'vs/workbench/browser/actions/positronActions';
-
-const kNewUntitledFile = 'workbench.action.files.newUntitledFile';
-const kNewWindow = 'workbench.action.newWindow';
-
-// export const kNewMenuCommands = [
-// 	kNewUntitledFile,
-// 	PositronNewWorkspaceAction.ID,
-// 	PositronNewWorkspaceFromGitAction.ID,
-// 	kNewWindow
-// ];
 
 /**
  * TopBarNewMenu component.
@@ -36,19 +24,19 @@ export const TopBarNewMenu = () => {
 	const actions = async () => {
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = commandAction(id, positronTopBarContext, label);
+			const action = positronTopBarContext.createCommandAction(id, label);
 			if (action) {
 				actions.push(action);
 			}
 		};
 
 		// core new actions
-		addAction(kNewUntitledFile, localize('positronNewFile', "New File"));
+		addAction('workbench.action.files.newUntitledFile', localize('positronNewFile', "New File"));
 		actions.push(new Separator());
 		addAction(PositronNewWorkspaceAction.ID);
 		addAction(PositronNewWorkspaceFromGitAction.ID);
 		actions.push(new Separator());
-		addAction(kNewWindow);
+		addAction('workbench.action.newWindow');
 
 		return actions;
 	};
@@ -56,8 +44,8 @@ export const TopBarNewMenu = () => {
 	// compontent
 	return (
 		<TopBarMenuButton
-			actions={actions}
 			iconId='positron-new'
+			actions={actions}
 			tooltip={localize('positronNewFileWorkspace', "New File/Workspace")}
 		/>
 	);

@@ -3,19 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
-import { ILabelService } from 'vs/platform/label/common/label';
-import { IHostService } from 'vs/workbench/services/host/browser/host';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IWorkspaceContextService, IWorkspaceFolder } from 'vs/platform/workspace/common/workspace';
+import { Action } from 'vs/base/common/actions';
+import { unmnemonicLabel } from 'vs/base/common/labels';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
+import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
+import { IWorkspaceContextService, IWorkspaceFolder } from 'vs/platform/workspace/common/workspace';
 
 /**
  * The tooltip reset timeout in milliseconds.
@@ -25,19 +18,9 @@ const kTooltipReset = 500;
 /**
  * The Positron top bar state.
  */
-export interface PositronTopBarState {
-	configurationService: IConfigurationService;
-	quickInputService: IQuickInputService;
-	commandService: ICommandService;
-	keybindingService: IKeybindingService;
-	contextMenuService: IContextMenuService;
-	contextKeyService: IContextKeyService;
-	workspacesService: IWorkspacesService;
-	labelService: ILabelService;
-	hostService: IHostService;
-	layoutService: ILayoutService;
-	workspaceContextService: IWorkspaceContextService;
+export interface PositronTopBarState extends PositronTopBarServices {
 	workspaceFolder?: IWorkspaceFolder;
+	createCommandAction(commandId: string, label?: string): Action | undefined;
 	showTooltipDelay(): number;
 	tooltipHidden(): void;
 }
@@ -47,51 +30,62 @@ export interface PositronTopBarState {
  * @param services A PositronTopBarServices that contains the Positron top bar services.
  * @returns The hook.
  */
-export const usePositronTopBarState = ({
-	configurationService,
-	quickInputService,
-	commandService,
-	keybindingService,
-	contextMenuService,
-	contextKeyService,
-	workspacesService,
-	labelService,
-	hostService,
-	layoutService,
-	workspaceContextService
-}: PositronTopBarServices, commandIds: string[]): PositronTopBarState => {
+export const usePositronTopBarState = (services: PositronTopBarServices): PositronTopBarState => {
 	// Hooks.
-	const [workspaceFolder, setWorkspaceFolder] = useState<IWorkspaceFolder | undefined>(singleWorkspaceFolder(workspaceContextService));
+	const [workspaceFolder, setWorkspaceFolder] = useState<IWorkspaceFolder | undefined>(singleWorkspaceFolder(services.workspaceContextService));
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
 
 	// Add event handlers.
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(workspaceContextService.onDidChangeWorkspaceFolders(e => {
-			setWorkspaceFolder(singleWorkspaceFolder(workspaceContextService));
+		disposableStore.add(services.workspaceContextService.onDidChangeWorkspaceFolders(e => {
+			setWorkspaceFolder(singleWorkspaceFolder(services.workspaceContextService));
 		}));
 
 		return () => disposableStore.dispose();
 	});
 
-	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : configurationService.getValue<number>('workbench.hover.delay');
+	/**
+	 * Gets the tooltip delay.
+	 * @returns The tooltip delay in milliseconds.
+	 */
+	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : services.configurationService.getValue<number>('workbench.hover.delay');
+
+	/**
+	 * Called when a tooltip is hidden. This will determine whether another tooltip will be shown
+	 * immediately or after the value returned by showTooltipDelay.
+	 */
 	const tooltipHidden = () => setLastTooltipHiddenAt(new Date().getTime());
+
+	/**
+	 * Creates a command action.
+	 * @param commandId The command ID.
+	 * @param label The optional label.
+	 * @returns The command action, if it was successfully created; otherwise, undefined.
+	 */
+	const createCommandAction = (commandId: string, label?: string): Action | undefined => {
+		// Get the command info from the command center.
+		const commandInfo = CommandCenter.commandInfo(commandId);
+		if (!commandInfo) {
+			return undefined;
+		}
+
+		// Determine whether the command action will be enabled and set the label to use.
+		const enabled = !commandInfo.precondition || services.contextKeyService.contextMatchesRules(commandInfo.precondition);
+		label = label || (typeof (commandInfo.title) === 'string' ? commandInfo.title : commandInfo.title.value);
+
+		// Create and return the action.
+		return new Action(commandId, unmnemonicLabel(label), undefined, enabled, () => {
+			services.commandService.executeCommand(commandId);
+		});
+	};
 
 	// Return the Positron top bar state.
 	return {
-		configurationService,
-		quickInputService,
-		commandService,
-		keybindingService,
-		contextMenuService,
-		contextKeyService,
-		workspacesService,
-		labelService,
-		hostService,
-		layoutService,
-		workspaceContextService,
+		...services,
 		workspaceFolder,
+		createCommandAction,
 		showTooltipDelay,
 		tooltipHidden
 	};
