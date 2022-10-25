@@ -23,8 +23,8 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
 	const [mouseInside, setMouseInside] = useState(false);
-	const [showTooltip, setShowTooltip] = useState(false);
 	const [tooltip, setTooltip] = useState<string | undefined>(undefined);
+	const [showTooltip, setShowTooltip] = useState(false);
 
 	// Tooltip.
 	useEffect(() => {
@@ -95,7 +95,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 			<div className='tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onMouseDown={mouseDownHandler}>
 				{props.children}
 			</div>
-			{showTooltip && <div className='tool-tip'>
+			{showTooltip && <div className='tool-tip tool-tip-left'>
 				<div className='tool-tip-text'>{tooltip}</div>
 			</div>}
 		</div>
