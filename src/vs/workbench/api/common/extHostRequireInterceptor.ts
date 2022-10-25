@@ -19,6 +19,11 @@ import { platform } from 'vs/base/common/process';
 import { ILogService } from 'vs/platform/log/common/log';
 import { escapeRegExpCharacters } from 'vs/base/common/strings';
 
+// --- Start Positron ---
+import { IExtensionPositronApiFactory } from 'vs/workbench/api/common/positron/extHost.positron.api.impl';
+import * as positron from 'positron';
+// --- End Positron ---
+
 
 interface LoadFunction {
 	(request: string): any;
@@ -40,6 +45,9 @@ export abstract class RequireInterceptor {
 
 	constructor(
 		private _apiFactory: IExtensionApiFactory,
+		// --- Start Positron ---
+		private _positronApiFactory: IExtensionPositronApiFactory,
+		// --- End Positron ---
 		private _extensionRegistry: IExtensionRegistries,
 		@IInstantiationService private readonly _instaService: IInstantiationService,
 		@IExtHostConfiguration private readonly _extHostConfiguration: IExtHostConfiguration,
@@ -61,6 +69,9 @@ export abstract class RequireInterceptor {
 		const extensionPaths = await this._extHostExtensionService.getExtensionPathIndex();
 
 		this.register(new VSCodeNodeModuleFactory(this._apiFactory, extensionPaths, this._extensionRegistry, configProvider, this._logService));
+		// --- Start Positron ---
+		this.register(new PositronNodeModuleFactory(this._positronApiFactory, extensionPaths, this._extensionRegistry, configProvider, this._logService));
+		// --- End Positron ---
 		this.register(this._instaService.createInstance(KeytarNodeModuleFactory, extensionPaths));
 		this.register(this._instaService.createInstance(NodeModuleAliasingModuleFactory));
 		if (this._initData.remote.isRemote) {
@@ -187,6 +198,59 @@ class VSCodeNodeModuleFactory implements INodeModuleFactory {
 
 //#endregion
 
+//#region --- positron-module
+
+// --- Start Positron ---
+
+// Loads the Positron node module for an extension. Note that this is largely a copy of the
+// VSCodeNodeModuleFactory above; the only difference is that it loads the Positron module
+// instead of the VSCode module.
+//
+// We use a copy instead of making VSCodeNodeModuleFactory generic to reduce the odds of
+// merge conflicts with upstream VSCode.
+
+class PositronNodeModuleFactory implements INodeModuleFactory {
+	public readonly nodeModuleName = 'positron';
+
+	private readonly _extApiImpl = new Map<string, typeof positron>();
+	private _defaultApiImpl?: typeof positron;
+
+	constructor(
+		private readonly _apiFactory: IExtensionPositronApiFactory,
+		private readonly _extensionPaths: ExtensionPaths,
+		private readonly _extensionRegistry: IExtensionRegistries,
+		private readonly _configProvider: ExtHostConfigProvider,
+		private readonly _logService: ILogService,
+	) {
+	}
+
+	public load(_request: string, parent: URI): any {
+
+		// get extension id from filename and api for extension
+		const ext = this._extensionPaths.findSubstr(parent);
+		if (ext) {
+			let apiImpl = this._extApiImpl.get(ExtensionIdentifier.toKey(ext.identifier));
+			if (!apiImpl) {
+				apiImpl = this._apiFactory(ext, this._extensionRegistry, this._configProvider);
+				this._extApiImpl.set(ExtensionIdentifier.toKey(ext.identifier), apiImpl);
+			}
+			return apiImpl;
+		}
+
+		// fall back to a default implementation
+		if (!this._defaultApiImpl) {
+			let extensionPathsPretty = '';
+			this._extensionPaths.forEach((value, index) => extensionPathsPretty += `\t${index} -> ${value.identifier.value}\n`);
+			this._logService.warn(`Could not identify extension for 'positron' require call from ${parent}. These are the extension path mappings: \n${extensionPathsPretty}`);
+			this._defaultApiImpl = this._apiFactory(nullExtensionDescription, this._extensionRegistry, this._configProvider);
+		}
+		return this._defaultApiImpl;
+	}
+}
+
+// --- End Positron ---
+
+//#endregion
 
 //#region --- keytar-module
 
