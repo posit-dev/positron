@@ -24,6 +24,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
+import { TopBarConsoleSelect } from 'vs/workbench/browser/parts/positronTopBar/topBarConsoleSelect/topBarConsoleSelect';
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -73,6 +74,7 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 				</TopBarRegion>
 
 				<TopBarRegion align='right'>
+					<TopBarConsoleSelect />
 					<TopBarWorkspaceMenu />
 				</TopBarRegion>
 			</div>
