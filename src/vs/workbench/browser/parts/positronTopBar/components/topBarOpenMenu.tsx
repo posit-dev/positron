@@ -73,6 +73,7 @@ export const TopBarOpenMenu = () => {
 			iconId='positron-open'
 			actions={actions}
 			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}
+			tooltipAlignment='left'
 		/>
 	);
 };

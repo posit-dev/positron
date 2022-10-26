@@ -60,6 +60,7 @@ export const TopBarWorkspaceMenu = () => {
 			actions={actions}
 			text={positronTopBarContext?.workspaceFolder ? positronTopBarContext.workspaceFolder.name : 'Workspace: (None)'}
 			tooltip={positronTopBarContext?.workspaceFolder?.uri?.fsPath || ''}
+			tooltipAlignment='right'
 		/>
 	);
 };

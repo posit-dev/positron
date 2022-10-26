@@ -8,9 +8,15 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**
+ * TooltipAlignment type.
+ */
+export type TooltipAlignment = 'left' | 'right';
+
+/**
  * TooltipProps interface.
  */
 interface TooltipProps {
+	tooltipAlignment: TooltipAlignment;
 	tooltip: string | (() => string | undefined) | undefined;
 }
 
@@ -60,9 +66,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 		const timeout = setTimeout(() => {
 			setShowTooltip(true);
 		}, showTooltipDelay);
-		return () => {
-			clearTimeout(timeout);
-		};
+		return () => clearTimeout(timeout);
 	}, [mouseInside]);
 
 	// Mouse enter handler.
@@ -87,15 +91,19 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 		positronTopBarContext?.tooltipHidden();
 	};
 
+	// Set the tooltip class name.
+	const tooltipClassName = props.tooltipAlignment === 'left' ? 'tool-tip tool-tip-left' : 'tool-tip tool-tip-right';
+
 	// Render.
 	return (
 		<div className='tool-tip-container'>
 			<div className='tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onMouseDown={mouseDownHandler}>
 				{props.children}
 			</div>
-			{showTooltip && <div className='tool-tip tool-tip-left'>
-				<div className='tool-tip-text'>{tooltip}</div>
-			</div>}
+			{showTooltip &&
+				<div className={tooltipClassName}>
+					<div className='tool-tip-text'>{tooltip}</div>
+				</div>}
 		</div>
 	);
 };
