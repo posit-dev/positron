@@ -44,7 +44,7 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 		}));
 
 		return () => disposableStore.dispose();
-	});
+	}, []);
 
 	/**
 	 * Gets the tooltip delay.
