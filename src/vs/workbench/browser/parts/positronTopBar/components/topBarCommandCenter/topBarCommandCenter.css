@@ -7,6 +7,9 @@
 	max-width: 400px;
 }
 
+.top-bar-command-center>.top-bar-select-box-main {
+	justify-content: center;
+}
 
 .top-bar-command-center>.top-bar-select-box-main .codicon-search::before {
 	font-size: 14px;
