@@ -953,20 +953,20 @@ export const POSITRON_TOP_BAR_BORDER = registerColor('positronTopBar.border', {
 	hcLight: '#cad0d6'
 }, localize('positronTopBar.border', "Positron top bar border color. The Positron top bar is shown under the title bar of the window."));
 
-export const POSITRON_TOP_BAR_COMMANDS_BACKGROUND = registerColor('positronTopBar.commandsBackground', {
+export const POSITRON_TOP_BAR_SELECT_BOX_BACKGROUND = registerColor('positronTopBar.selectBoxBackground', {
 	dark: '#383e41',
 	light: '#eceff2',
 	hcDark: '#383e41',
 	hcLight: '#eceff2'
-}, localize('positronTopBar.commandsBackground', "Positron top bar commands background color. The Positron top bar is shown under the title bar of the window."));
+}, localize('positronTopBar.selectBoxBackground', "Positron top bar select box background color. The Positron top bar is shown under the title bar of the window."));
 
-// The Positron top bar background hover color.
-export const POSITRON_TOP_BAR_HOVER_BACKGROUND = registerColor('positronTopBar.hoverBackground', {
+// The Positron top bar select box hover color.
+export const POSITRON_TOP_BAR_SELECT_BOX_HOVER_BACKGROUND = registerColor('positronTopBar.selectBoxHoverBackground', {
 	dark: '#292f32',
 	light: '#dae1ea',
 	hcDark: '#292f32',
 	hcLight: '#dae1ea'
-}, localize('positronTopBar.hoverBackground', "Positron top bar hover background color. The Positron top bar is shown under the title bar of the window."));
+}, localize('positronTopBar.selectBoxHoverBackground', "Positron top bar select box hover background color. The Positron top bar is shown under the title bar of the window."));
 
 // < --- Positron Tools Bar --- >
 

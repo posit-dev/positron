@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topBarRegion';
-import { PropsWithChildren } from 'react';
 const React = require('react');
+import { PropsWithChildren } from 'react';
 
 /**
  * TopBarRegionProps interface.
