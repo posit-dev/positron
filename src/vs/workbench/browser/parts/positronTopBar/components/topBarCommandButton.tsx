@@ -68,6 +68,8 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 
 		// Get the keybinding label for the command from the keybinding service.
 		const keybindingLabel = positronTopBarContext?.keybindingService.lookupKeybinding(commandId)?.getLabel();
+
+		// If there's no keybinding label, return the title as the tooltip.
 		if (!keybindingLabel) {
 			return title;
 		}
