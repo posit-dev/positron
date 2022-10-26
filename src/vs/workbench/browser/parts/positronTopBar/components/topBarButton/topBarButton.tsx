@@ -10,7 +10,7 @@ import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/to
 /**
  * TopBarButtonProps interface.
  */
-interface TopBarButtonProps {
+export interface TopBarButtonProps {
 	iconId: string;
 	text?: string;
 	dropDown?: boolean;

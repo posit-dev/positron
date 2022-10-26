@@ -4,6 +4,7 @@
 
 import 'vs/css!./textInput';
 const React = require('react');
+import { forwardRef } from 'react';
 
 export interface TextInputProps {
 	label: string;
@@ -12,12 +13,13 @@ export interface TextInputProps {
 	autoFocus?: boolean;
 }
 
-export const TextInput: React.FC<TextInputProps> = (props: TextInputProps) => {
+export const TextInput = forwardRef<HTMLInputElement, TextInputProps>((props: TextInputProps, ref) => {
 	return (
 		<div className='positron-dialog-text-input'>
 			<label>
 				{props.label}: <br />
 				<input
+					ref={ref}
 					type='text'
 					value={props.value}
 					autoFocus={props.autoFocus}
@@ -26,5 +28,5 @@ export const TextInput: React.FC<TextInputProps> = (props: TextInputProps) => {
 			</label>
 		</div>
 	);
-};
+});
 
