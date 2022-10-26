@@ -47,6 +47,7 @@ export const TopBarNewMenu = () => {
 			iconId='positron-new'
 			actions={actions}
 			tooltip={localize('positronNewFileWorkspace', "New File/Workspace")}
+			tooltipAlignment='left'
 		/>
 	);
 };
