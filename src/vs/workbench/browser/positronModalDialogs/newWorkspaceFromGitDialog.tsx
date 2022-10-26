@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 const React = require('react');
-import { FC, useState } from 'react';
+import { FC, useRef, useState } from 'react';
 import { localize } from 'vs/nls';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { showPositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
@@ -57,17 +57,24 @@ const NewWorkspaceFromGitDialogEditor: FC<NewWorkspaceFromGitDialogProps> = (pro
 	const [state, setState] = useState<NewWorkspaceFromGitDialogData>(props.input);
 	props.onAccept(() => state);
 
+	// save ref to input for focus after dialog
+	const inputRef = useRef<HTMLInputElement>(null);
+
 	// browse for parent directory
 	const browseForParent = async () => {
 		const parentDirectory = await browseForParentDirectory(props.context, state.parentDirectory);
 		if (parentDirectory) {
 			setState({ ...state, parentDirectory });
+			if (inputRef.current) {
+				inputRef.current.focus();
+			}
 		}
 	};
 
 	return (
 		<>
 			<TextInput
+				ref={inputRef}
 				autoFocus label='Repository URL' value={state.repo}
 				onChange={e => setState({ ...state, repo: e.target.value })}
 			/>
