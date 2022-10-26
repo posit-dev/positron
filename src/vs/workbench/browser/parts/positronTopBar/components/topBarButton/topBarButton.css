@@ -25,19 +25,28 @@
 	background: var(--vscode-positronTopBar-hoverBackground);
 }
 
+.disabled .top-bar-button-face:hover {
+	background: transparent;
+}
+
 .top-bar-button-icon {
 	width: 28px;
 	height: 28px;
 	align-items: center;
 	justify-content: center;
-	font-size: 24px !important;	display: flex !important;
+	font-size: 24px !important;
+	display: flex !important;
 }
 
 .top-bar-button-icon::before {
 	color: var(--vscode-positronTopBar-foreground);
 }
 
-.codicon-top-bar-button-drop-down-arrow {
+.disabled .top-bar-button-icon::before {
+	color: var(--vscode-positronTopBar-disabledForeground)
+}
+
+.top-bar-button-drop-down-arrow {
 	width: 10px;
 	height: 28px;
 	align-items: center;
@@ -46,6 +55,10 @@
 	display: flex !important;
 }
 
-.codicon-top-bar-button-drop-down-arrow::before {
+.top-bar-button-drop-down-arrow::before {
 	color: var(--vscode-positronTopBar-foreground);
+}
+
+.disabled .top-bar-button-drop-down-arrow::before {
+	color: var(--vscode-positronTopBar-disabledForeground)
 }

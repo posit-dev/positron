@@ -20,6 +20,7 @@ const kTooltipReset = 500;
  */
 export interface PositronTopBarState extends PositronTopBarServices {
 	workspaceFolder?: IWorkspaceFolder;
+	isCommandEnabled(commandId: string): boolean;
 	createCommandAction(commandId: string, label?: string): Action | undefined;
 	showTooltipDelay(): number;
 	tooltipHidden(): void;
@@ -64,7 +65,7 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 	 * @param label The optional label.
 	 * @returns The command action, if it was successfully created; otherwise, undefined.
 	 */
-	const createCommandAction = (commandId: string, label?: string): Action | undefined => {
+	const createCommandAction = (commandId: string, label?: string) => {
 		// Get the command info from the command center.
 		const commandInfo = CommandCenter.commandInfo(commandId);
 		if (!commandInfo) {
@@ -81,10 +82,32 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 		});
 	};
 
+	/**
+	 * Determines whether a command is enabled.
+	 * @param commandId The command ID
+	 * @returns A value which indicates whether the command is enabled.
+	 */
+	const isCommandEnabled = (commandId: string) => {
+		// Get the command info from the command center.
+		const commandInfo = CommandCenter.commandInfo(commandId);
+		if (!commandInfo) {
+			return false;
+		}
+
+		// If the command doesn't have a precondition, it's enabled.
+		if (!commandInfo.precondition) {
+			return true;
+		}
+
+		// Return true if the specified command ID is enabled; otherwise, false.
+		return services.contextKeyService.contextMatchesRules(commandInfo.precondition);
+	};
+
 	// Return the Positron top bar state.
 	return {
 		...services,
 		workspaceFolder,
+		isCommandEnabled,
 		createCommandAction,
 		showTooltipDelay,
 		tooltipHidden

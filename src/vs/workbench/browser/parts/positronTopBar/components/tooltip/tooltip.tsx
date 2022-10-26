@@ -83,10 +83,8 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 
 	// Clear tooltip.
 	const clearTooltip = () => {
-		if (showTooltip) {
-			setShowTooltip(false);
-			positronTopBarContext?.tooltipHidden();
-		}
+		setShowTooltip(false);
+		positronTopBarContext?.tooltipHidden();
 	};
 
 	// Render.
