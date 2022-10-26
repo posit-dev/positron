@@ -15,11 +15,11 @@
 	border-top-right-radius: 6px;
 	border-bottom-right-radius: 6px;
 	height: 24px;
+	cursor: pointer;
 }
 
 .top-bar-select-box-main {
 	display: inline-flex;
-	justify-content: center;
 	width: 100%;
 
 }
