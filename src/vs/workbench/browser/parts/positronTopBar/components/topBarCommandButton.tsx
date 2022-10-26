@@ -3,9 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React = require('react');
+import { useEffect, useState } from 'react';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 
 /**
  * TopBarCommandButtonProps interface.
@@ -23,6 +25,35 @@ interface TopBarCommandButtonProps {
 export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
+	const [enabled, setEnabled] = useState(positronTopBarContext?.isCommandEnabled(commandId));
+
+	// Ensure that the top bar context exists.
+	if (!positronTopBarContext) {
+		return null;
+	}
+
+	// Add our event handlers.
+	useEffect(() => {
+		// Create a disposable store for the event handlers we'll add.
+		const disposableStore = new DisposableStore();
+
+		// Get the command info. If it's found and it has a precondition, track changes for its keys.
+		const commandInfo = CommandCenter.commandInfo(commandId);
+		if (commandInfo && commandInfo.precondition) {
+			// Get the set of precondition keys that we need to monitor.
+			const keys = new Set(commandInfo.precondition.keys());
+
+			// Add the context key service change tracker
+			disposableStore.add(positronTopBarContext.contextKeyService.onDidChangeContext(e => {
+				if (e.affectsSome(keys)) {
+					setEnabled(positronTopBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
+				}
+			}));
+		}
+
+		// Return the clean up for our event handlers.
+		return () => disposableStore.dispose();
+	}, []);
 
 	// Handlers.
 	const executeHandler = () => {
@@ -48,5 +79,5 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 	};
 
 	// Render.
-	return <TopBarButton iconId={iconId} tooltip={tooltip} onClick={executeHandler} />;
+	return <TopBarButton iconId={iconId} tooltip={tooltip} enabled={enabled} onClick={executeHandler} />;
 };
