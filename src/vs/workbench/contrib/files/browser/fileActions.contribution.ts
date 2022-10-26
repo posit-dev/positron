@@ -186,12 +186,26 @@ function appendSaveConflictEditorTitleAction(id: string, title: string, icon: Th
 
 export function appendToCommandPalette(id: string, title: ILocalizedString, category: ILocalizedString, when?: ContextKeyExpression): void {
 	// --- Start Positron --
-	CommandCenter.addCommandInfo({
-		id,
-		title,
-		precondition: when
-	});
+	// The workbench.action.files.saveFiles command is a special case. It is added to the
+	// MenuId.MenubarFileMenu (look for 'MenuId.MenubarFileMenu' below) with the right
+	// precondition (DirtyWorkingCopiesContext) so the command will be enabled and disabled
+	// on the menu. We need that same precondition in CommandCenter so the command will be
+	// enabled and disabled on the Positron top bar, too.
+	if (id === SAVE_FILES_COMMAND_ID) {
+		CommandCenter.addCommandInfo({
+			id,
+			title,
+			precondition: DirtyWorkingCopiesContext
+		});
+	} else {
+		CommandCenter.addCommandInfo({
+			id,
+			title,
+			precondition: when
+		});
+	}
 	// --- End Positron --
+
 	MenuRegistry.appendMenuItem(MenuId.CommandPalette, {
 		command: {
 			id,
