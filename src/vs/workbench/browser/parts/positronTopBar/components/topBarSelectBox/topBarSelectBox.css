@@ -41,9 +41,9 @@
 .top-bar-select-box:HOVER,
 .top-bar-select-box-main:HOVER,
 .top-bar-select-box-drop-down:HOVER {
-	background-color: var(--vscode-positronTopBar-selectBoxHoverBackground);
+	background-color: var(--vscode-positronTopBar-hoverBackground);
 }
 
 .top-bar-select-box-drop-down-click:HOVER {
-	background-color: var(--vscode-positronTopBar-selectBoxBackground);
+	background-color: var(--vscode-positronTopBar-hoverBackground);
 }
