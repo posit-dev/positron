@@ -10,6 +10,7 @@ import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/componen
 import { IAction } from 'vs/base/common/actions';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
+import { TooltipAlignment } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 
 /**
  * TopBarMenuButtonProps interface.
@@ -17,6 +18,7 @@ import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
 interface TopBarMenuButtonProps {
 	iconId: string;
 	tooltip: string;
+	tooltipAlignment: TooltipAlignment;
 	text?: string;
 	actions: () => Promise<readonly IAction[]>;
 }
@@ -60,13 +62,10 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 				}
 			});
 		}
-
 	};
 
 	// Render.
 	return (
-		<>
-			<TopBarButton ref={buttonRef} dropDown={true} iconId={props.iconId} text={props.text} tooltip={props.tooltip} onClick={showMenu} />
-		</>
+		<TopBarButton {...props} ref={buttonRef} dropDown={true} onClick={showMenu} />
 	);
 };

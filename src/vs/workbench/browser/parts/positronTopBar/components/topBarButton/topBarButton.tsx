@@ -5,7 +5,7 @@
 import 'vs/css!./topBarButton';
 const React = require('react');
 import { forwardRef } from 'react';
-import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
+import { Tooltip, TooltipAlignment } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 
 /**
  * TopBarButtonProps interface.
@@ -14,6 +14,7 @@ export interface TopBarButtonProps {
 	iconId: string;
 	text?: string;
 	dropDown?: boolean;
+	tooltipAlignment: TooltipAlignment;
 	tooltip: string | (() => string | undefined) | undefined;
 	enabled?: boolean;
 	onClick?: React.MouseEventHandler;

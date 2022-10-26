@@ -24,7 +24,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
-import { TopBarConsoleSelect } from 'vs/workbench/browser/parts/positronTopBar/topBarConsoleSelect/topBarConsoleSelect';
+import { TopBarConsoleSelect } from 'vs/workbench/browser/parts/positronTopBar/components/topBarConsoleSelect/topBarConsoleSelect';
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -63,13 +63,13 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarOpenMenu />
 					<TopBarSeparator />
-					<TopBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
-					<TopBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
+					<TopBarCommandButton iconId='positron-save' tooltipAlignment='left' commandId={'workbench.action.files.save'} />
+					<TopBarCommandButton iconId='positron-save-all' tooltipAlignment='left' commandId={'workbench.action.files.saveFiles'} />
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton iconId='positron-chevron-left' commandId={NavigateBackwardsAction.ID} />
-					<TopBarCommandButton iconId='positron-chevron-right' commandId={NavigateForwardAction.ID} />
+					<TopBarCommandButton iconId='positron-chevron-left' tooltipAlignment='left' commandId={NavigateBackwardsAction.ID} />
+					<TopBarCommandButton iconId='positron-chevron-right' tooltipAlignment='left' commandId={NavigateForwardAction.ID} />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
