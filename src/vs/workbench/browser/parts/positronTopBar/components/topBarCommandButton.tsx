@@ -56,9 +56,7 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 	}, []);
 
 	// Handlers.
-	const executeHandler = () => {
-		positronTopBarContext?.commandService.executeCommand(commandId);
-	};
+	const executeHandler = () => positronTopBarContext?.commandService.executeCommand(commandId);
 
 	// Returns a dynamic tooltip for the command button.
 	const tooltip = (): string | undefined => {
