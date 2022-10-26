@@ -1,0 +1,49 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.top-bar-select-box {
+	display: flex;
+	align-items: stretch;
+	color: var(--vscode-positronTopBar-foreground);
+	background-color: var(--vscode-positronTopBar-selectBoxBackground);
+	border: 1px solid var(--vscode-positronTopBar-border);
+	overflow: hidden;
+	margin: 0 6px;
+	border-top-left-radius: 6px;
+	border-bottom-left-radius: 6px;
+	border-top-right-radius: 6px;
+	border-bottom-right-radius: 6px;
+	height: 24px;
+}
+
+.top-bar-select-box-main {
+	display: inline-flex;
+	justify-content: center;
+	width: 100%;
+
+}
+
+.top-bar-select-box-main>span {
+	padding: 3px 3px 0 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.top-bar-select-box-drop-down {
+	margin-left: auto;
+	padding: 3px 3px 0 0;
+	width: 16px;
+	flex-shrink: 0;
+}
+
+
+.top-bar-select-box:HOVER,
+.top-bar-select-box-main:HOVER,
+.top-bar-select-box-drop-down:HOVER {
+	background-color: var(--vscode-positronTopBar-selectBoxHoverBackground);
+}
+
+.top-bar-select-box-drop-down-click:HOVER {
+	background-color: var(--vscode-positronTopBar-selectBoxBackground);
+}

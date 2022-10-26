@@ -3,8 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topBarCommandCenter';
-const React = require('react');
+import React = require('react');
 import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
+import { TopBarSelectBox } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSelectBox/topBarSelectBox';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**
@@ -37,15 +38,9 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 
 	// Render.
 	return (
-		<div className={`top-bar-command-center`}>
-			<div className='top-bar-command-center-search' onClick={searchClickHandler}>
-				<span className='codicon codicon-search'></span>
-				<span>Search</span>
-			</div>
-
-			<div className='top-bar-command-center-chevron' onClick={chevronClickHandler}>
-				<span className='codicon codicon-chevron-down'></span>
-			</div>
-		</div>
+		<TopBarSelectBox className='top-bar-command-center' onClick={searchClickHandler} onDropDownClick={chevronClickHandler}>
+			<span className='codicon codicon-search'></span>
+			<span>Search</span>
+		</TopBarSelectBox>
 	);
 };
