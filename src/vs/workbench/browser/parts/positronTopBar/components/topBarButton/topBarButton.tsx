@@ -15,6 +15,7 @@ export interface TopBarButtonProps {
 	text?: string;
 	dropDown?: boolean;
 	tooltip: string | (() => string | undefined) | undefined;
+	enabled?: boolean;
 	onClick?: React.MouseEventHandler;
 }
 
@@ -24,14 +25,17 @@ export interface TopBarButtonProps {
  * @returns The component.
  */
 export const TopBarButton = forwardRef<HTMLDivElement, TopBarButtonProps>((props: TopBarButtonProps, ref) => {
+	// Create the class name.
+	const className = props.enabled === undefined || props.enabled ? 'top-bar-button' : 'top-bar-button disabled';
+
 	// Render.
 	return (
 		<Tooltip {...props}>
-			<div ref={ref} className='top-bar-button' onClick={props.onClick}>
+			<div ref={ref} className={className} onClick={props.onClick}>
 				<div className='top-bar-button-face'>
-					<div className={`top-bar-button-icon codicon codicon-top-bar-button codicon-${props.iconId}`}></div>
+					<div className={`top-bar-button-icon codicon codicon-${props.iconId}`}></div>
 					{props.text ? <div className='top-bar-button-text'>{props.text}</div> : null}
-					{props.dropDown && <div className='codicon codicon-top-bar-button-drop-down-arrow codicon-positron-drop-down-arrow' />}
+					{props.dropDown && <div className='top-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />}
 				</div>
 			</div>
 		</Tooltip>
