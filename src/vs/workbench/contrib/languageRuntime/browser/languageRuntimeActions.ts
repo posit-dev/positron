@@ -10,6 +10,7 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { Codicon } from 'vs/base/common/codicons';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 export function registerLanguageRuntimeActions() {
 	const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -42,8 +43,12 @@ export function registerLanguageRuntimeActions() {
 		 */
 		async run(accessor: ServicesAccessor) {
 			// Retrieve services
+			const extensionService = accessor.get(IExtensionService);
 			const languageService = accessor.get(ILanguageRuntimeService);
 			const pickService = accessor.get(IQuickInputService);
+
+			// ensure that the python extension is loaded
+			await extensionService.activateByEvent('onLanguage:python');
 
 			// Get the list of available runtimes
 			const allRuntimes = languageService.getAllRuntimes();
