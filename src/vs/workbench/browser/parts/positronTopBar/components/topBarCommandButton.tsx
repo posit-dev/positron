@@ -43,8 +43,9 @@ export const TopBarCommandButton = ({ iconId, commandId }: TopBarCommandButtonPr
 			// Get the set of precondition keys that we need to monitor.
 			const keys = new Set(commandInfo.precondition.keys());
 
-			// Add the context key service change tracker
+			// Add the context key service change tracker.
 			disposableStore.add(positronTopBarContext.contextKeyService.onDidChangeContext(e => {
+				// If any of the precondition keys are affected, update the enabled state.
 				if (e.affectsSome(keys)) {
 					setEnabled(positronTopBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
 				}
