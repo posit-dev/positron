@@ -6,11 +6,12 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { NotebookLanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeNotebook';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -163,3 +164,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		return this.getActiveLanguageRuntimes(null);
 	}
 }
+
+// Register language runtime singleton
+registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Delayed);
