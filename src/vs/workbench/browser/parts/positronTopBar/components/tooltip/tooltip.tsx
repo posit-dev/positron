@@ -8,15 +8,10 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**
- * TooltipAlignment type.
- */
-export type TooltipAlignment = 'left' | 'right';
-
-/**
  * TooltipProps interface.
  */
 interface TooltipProps {
-	tooltipAlignment: TooltipAlignment;
+	align?: 'left' | 'right';
 	tooltip: string | (() => string | undefined) | undefined;
 }
 
@@ -32,10 +27,15 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 	const [tooltip, setTooltip] = useState<string | undefined>(undefined);
 	const [showTooltip, setShowTooltip] = useState(false);
 
+	// Without context, nothing can be done.
+	if (!positronTopBarContext) {
+		return null;
+	}
+
 	// Tooltip.
 	useEffect(() => {
 		// If we cannot show the tooltip, do nothing.
-		if (!positronTopBarContext || !mouseInside || !props.tooltip) {
+		if (!mouseInside || !props.tooltip) {
 			return;
 		}
 
@@ -64,10 +64,12 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 
 		// Set up a timeout to show the tooltip.
 		const timeout = setTimeout(() => {
-			setShowTooltip(true);
+			if (!positronTopBarContext.menuShowing) {
+				setShowTooltip(true);
+			}
 		}, showTooltipDelay);
 		return () => clearTimeout(timeout);
-	}, [mouseInside]);
+	}, [positronTopBarContext, mouseInside]);
 
 	// Mouse enter handler.
 	const mouseEnterHandler = () => {
@@ -77,31 +79,26 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 	// Mouse leave handler.
 	const mouseLeaveHandler = () => {
 		setMouseInside(false);
-		clearTooltip();
+		if (showTooltip) {
+			setShowTooltip(false);
+			positronTopBarContext.updateTooltipHidden();
+		}
 	};
 
-	// Mouse down handler.
-	const mouseDownHandler = () => {
-		clearTooltip();
-	};
-
-	// Clear tooltip.
-	const clearTooltip = () => {
+	// Click handler.
+	const clickHandler = () => {
+		// When the mouse is clicked, hide the tooltip.
 		setShowTooltip(false);
-		positronTopBarContext?.tooltipHidden();
 	};
-
-	// Set the tooltip class name.
-	const tooltipClassName = props.tooltipAlignment === 'left' ? 'tool-tip tool-tip-left' : 'tool-tip tool-tip-right';
 
 	// Render.
 	return (
 		<div className='tool-tip-container'>
-			<div className='tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onMouseDown={mouseDownHandler}>
+			<div className='tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onClick={clickHandler}>
 				{props.children}
 			</div>
 			{showTooltip &&
-				<div className={tooltipClassName}>
+				<div className={`tool-tip tool-tip-${props.align ?? 'left'}`}>
 					<div className='tool-tip-text'>{tooltip}</div>
 				</div>}
 		</div>

@@ -8,14 +8,13 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
-import { TooltipAlignment } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 
 /**
  * TopBarCommandButtonProps interface.
  */
 interface TopBarCommandButtonProps {
 	iconId: string;
-	tooltipAlignment: TooltipAlignment;
+	align?: 'left' | 'right';
 	commandId: string;
 }
 
@@ -27,12 +26,7 @@ interface TopBarCommandButtonProps {
 export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
-	const [enabled, setEnabled] = useState(positronTopBarContext?.isCommandEnabled(props.commandId));
-
-	// Ensure that the top bar context exists.
-	if (!positronTopBarContext) {
-		return null;
-	}
+	const [enabled, setEnabled] = useState(positronTopBarContext.isCommandEnabled(props.commandId));
 
 	// Add our event handlers.
 	useEffect(() => {
@@ -59,7 +53,7 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	}, []);
 
 	// Handlers.
-	const executeHandler = () => positronTopBarContext?.commandService.executeCommand(props.commandId);
+	const executeHandler = () => positronTopBarContext.commandService.executeCommand(props.commandId);
 
 	// Returns a dynamic tooltip for the command button.
 	const tooltip = (): string | undefined => {
@@ -70,7 +64,7 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 		}
 
 		// Get the keybinding label for the command from the keybinding service.
-		const keybindingLabel = positronTopBarContext?.keybindingService.lookupKeybinding(props.commandId)?.getLabel();
+		const keybindingLabel = positronTopBarContext.keybindingService.lookupKeybinding(props.commandId)?.getLabel();
 
 		// If there's no keybinding label, return the title as the tooltip.
 		if (!keybindingLabel) {

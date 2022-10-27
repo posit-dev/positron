@@ -18,9 +18,6 @@ const kWorkbenchSettings = 'workbench.action.openWorkspaceSettings';
 export const TopBarWorkspaceMenu = () => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
-	if (!positronTopBarContext) {
-		return null;
-	}
 
 	// fetch actions when menu is shown
 	const actions = async () => {
@@ -39,7 +36,7 @@ export const TopBarWorkspaceMenu = () => {
 		addAction(PositronOpenWorkspaceInNewWindowAction.ID);
 		addAction(kCloseFolder);
 
-		const recent = await positronTopBarContext?.workspacesService.getRecentlyOpened();
+		const recent = await positronTopBarContext.workspacesService.getRecentlyOpened();
 		if (positronTopBarContext && recent?.workspaces?.length) {
 			actions.push(new Separator());
 			actions.push(...recentMenuActions(recent.workspaces, positronTopBarContext));
@@ -57,10 +54,10 @@ export const TopBarWorkspaceMenu = () => {
 	return (
 		<TopBarMenuButton
 			iconId='root-folder'
+			align='right'
 			actions={actions}
-			text={positronTopBarContext?.workspaceFolder ? positronTopBarContext.workspaceFolder.name : undefined}
-			tooltip={positronTopBarContext?.workspaceFolder?.uri?.fsPath || ''}
-			tooltipAlignment='right'
+			text={positronTopBarContext.workspaceFolder ? positronTopBarContext.workspaceFolder.name : undefined}
+			tooltip={positronTopBarContext.workspaceFolder?.uri?.fsPath || ''}
 		/>
 	);
 };

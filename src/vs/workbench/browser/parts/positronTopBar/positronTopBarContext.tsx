@@ -10,7 +10,7 @@ import { PositronTopBarState, usePositronTopBarState } from 'vs/workbench/browse
 /**
  * Create the Positron top bar context.
  */
-const PositronTopBarContext = createContext<PositronTopBarState | undefined>(undefined);
+const PositronTopBarContext = createContext<PositronTopBarState>(undefined!);
 
 /**
  * Export the PositronTopBarContextProvider provider
