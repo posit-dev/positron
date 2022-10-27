@@ -11,8 +11,3 @@
 	justify-content: center;
 }
 
-.top-bar-command-center>.top-bar-select-box-main .codicon-search::before {
-	font-size: 14px;
-	opacity: .8;
-	margin: auto 4px;
-}

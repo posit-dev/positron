@@ -58,7 +58,7 @@ export const TopBarWorkspaceMenu = () => {
 		<TopBarMenuButton
 			iconId='root-folder'
 			actions={actions}
-			text={positronTopBarContext?.workspaceFolder ? positronTopBarContext.workspaceFolder.name : 'Workspace: (None)'}
+			text={positronTopBarContext?.workspaceFolder ? positronTopBarContext.workspaceFolder.name : '(No Workspace)'}
 			tooltip={positronTopBarContext?.workspaceFolder?.uri?.fsPath || ''}
 			tooltipAlignment='right'
 		/>

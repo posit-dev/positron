@@ -6,6 +6,7 @@
 	cursor: pointer;
 	padding: 2px 0;
 	overflow: visible;
+	color: var(--vscode-positronTopBar-foreground);
 }
 
 .top-bar-button-face {
@@ -18,6 +19,7 @@
 	margin-top: 4px;
 	margin-left: 2px;
 	margin-right: 4px;
+	font-size: 12px;
 }
 
 .top-bar-button-face:hover {
