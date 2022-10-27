@@ -5,7 +5,7 @@
 import 'vs/css!./topBarSelectBox';
 const React = require('react');
 import { PropsWithChildren } from 'react';
-
+import { positronClassNames } from 'vs/base/common/positronClassNames';
 
 export interface TopBarSelectBoxProps {
 	onClick?: (event: React.MouseEvent) => void;
@@ -13,17 +13,17 @@ export interface TopBarSelectBoxProps {
 	className?: string;
 }
 
-
 export const TopBarSelectBox = (props: PropsWithChildren<TopBarSelectBoxProps>) => {
 
-	const classes = ['top-bar-select-box'];
-	if (props.onDropDownClick) {
-		classes.push('top-bar-select-box-drop-down-click');
-	}
+	const classNames = positronClassNames(
+		'top-bar-select-box',
+		{ 'top-bar-select-box-drop-down-click': props.onDropDownClick },
+		props.className
+	);
 
 	// Render.
 	return (
-		<div className={`${classes.join(' ')}${props.className ? (' ' + props.className) : ''}`}>
+		<div className={classNames}>
 			<div className='top-bar-select-box-main' onClick={props.onClick}>
 				{props.children}
 			</div>
