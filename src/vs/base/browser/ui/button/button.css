@@ -13,6 +13,9 @@
 	cursor: pointer;
 	justify-content: center;
 	align-items: center;
+	/* --- Start Positron --- */
+	border-radius: 4px;
+	/* --- End Positron --- */
 }
 
 .monaco-text-button:focus {
