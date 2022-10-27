@@ -201,6 +201,12 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 	}
 
 	async installVSIX(vsix: URI, manifest: IExtensionManifest, options?: InstallVSIXOptions): Promise<ILocalExtension> {
+		// --- Start Positron ---
+		const compat = positronExtensionCompatibility(manifest);
+		if (!compat.compatible) {
+			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
+		}
+		// --- End Positron ---
 		const serversToInstall = this.getServersToInstall(manifest);
 		if (serversToInstall?.length) {
 			await this.checkForWorkspaceTrust(manifest);
@@ -305,7 +311,12 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 	}
 
 	async installFromGallery(gallery: IGalleryExtension, installOptions?: InstallOptions): Promise<ILocalExtension> {
-
+		// --- Start Positron ---
+		const compat = positronExtensionCompatibility(gallery);
+		if (!compat.compatible) {
+			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
+		}
+		// --- End Positron ---
 		const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
 		if (!manifest) {
 			return Promise.reject(localize('Manifest is not found', "Installing Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
@@ -512,3 +523,41 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 
 	registerParticipant() { throw new Error('Not Supported'); }
 }
+
+// --- Start Positron ---
+const kPositronDuplicativeExtensions = [
+	'ikuyadeu.r',
+	'reditorsupport.r-lsp',
+	'reditorsupport.r',
+	'rdebugger.r-debugger',
+	'mikhail-arkhipov.r',
+	'vscode.r'
+];
+
+interface PositronExtensionCompatibilty {
+	compatible: boolean;
+	reason?: string;
+}
+
+function positronExtensionCompatibility(extension: { name: string; publisher: string; displayName?: string }): PositronExtensionCompatibilty {
+	const id = `${extension.publisher}.${extension.name}`.toLowerCase();
+	if (kPositronDuplicativeExtensions.includes(id)) {
+		return {
+			compatible: false,
+			reason: localize(
+				'positronExtensionConflicts',
+				"Cannot install the '{0}' extension because it conflicts with Positron built-in features.", extension.displayName || extension.name
+			)
+		};
+	} else {
+		return {
+			compatible: true
+		};
+	}
+}
+function positronExtensionCompatibilityError(reason?: string) {
+	const error = new Error(reason || localize('positronExtensionIncompatible', "Cannot install the extension because it is incompatible with Positron"));
+	error.name = ExtensionManagementErrorCode.Incompatible;
+	return error;
+}
+// --- End Positron ---
