@@ -21,7 +21,12 @@
 .top-bar-select-box-main {
 	display: inline-flex;
 	width: 100%;
+}
 
+.top-bar-select-box>.top-bar-select-box-main .codicon::before {
+	font-size: 14px;
+	opacity: .8;
+	margin: auto 4px;
 }
 
 .top-bar-select-box-main>span {
