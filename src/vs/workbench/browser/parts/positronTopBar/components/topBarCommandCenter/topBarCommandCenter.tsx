@@ -23,7 +23,7 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 	const positronTopBarContext = usePositronTopBarContext();
 
 	// Handlers.
-	const searchClickHandler = () => {
+	const clickHandler = () => {
 		positronTopBarContext.quickInputService.quickAccess.show(undefined, {
 			providerOptions: {
 				includeHelp: true,
@@ -31,13 +31,13 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 		});
 	};
 
-	const chevronClickHandler = () => {
+	const dropDownClickHandler = () => {
 		positronTopBarContext.quickInputService.quickAccess.show('?');
 	};
 
 	// Render.
 	return (
-		<TopBarSelectBox className='top-bar-command-center' onClick={searchClickHandler} onDropDownClick={chevronClickHandler}>
+		<TopBarSelectBox className='top-bar-command-center' onClick={clickHandler} onDropDownClick={dropDownClickHandler}>
 			<span className='codicon codicon-search'></span>
 			<span>Search</span>
 		</TopBarSelectBox>
