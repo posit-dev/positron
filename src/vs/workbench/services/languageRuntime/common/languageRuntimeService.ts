@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 
@@ -195,13 +194,6 @@ export interface ILanguageRuntimeService {
 	readonly _serviceBrand: undefined;
 
 	readonly onDidStartRuntime: Event<ILanguageRuntime>;
-
-	/**
-	 * @param language The language being registered
-	 * @param kernel The NotebookKernel for the language; will be converted to a
-	 *   LanguageRuntime
-	 */
-	registerNotebookRuntime(language: string, kernel: INotebookKernel): void;
 
 	/**
 	 * Register a new language runtime
