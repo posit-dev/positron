@@ -36,6 +36,9 @@ import { IExtensionsProfileScannerService, IScannedProfileExtension } from 'vs/p
 import { IUserDataProfilesService } from 'vs/platform/userDataProfile/common/userDataProfile';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
 import { localizeManifest } from 'vs/platform/extensionManagement/common/extensionNls';
+// --- Start Positron ---
+import { validatePositronExtensionManifest } from 'vs/platform/extensions/common/positronExtensionValidator';
+// --- End Positron ---
 
 export type IScannedExtensionManifest = IRelaxedExtensionManifest & { __metadata?: Metadata };
 
@@ -648,7 +651,27 @@ class ExtensionsScanner extends Disposable {
 
 	validate(extension: IRelaxedScannedExtension, input: ExtensionScannerInput): IRelaxedScannedExtension {
 		let isValid = true;
-		const validations = validateExtensionManifest(input.productVersion, input.productDate, input.location, extension.manifest, extension.isBuiltin);
+		// --- Start Positron ---
+
+		const validations: [Severity, string][] = [];
+
+		// Validate extension manifest for VS Code fields
+		validations.push(...validateExtensionManifest(
+			input.productVersion,
+			input.productDate,
+			input.location,
+			extension.manifest,
+			extension.isBuiltin));
+
+		// Validate extension manifest for Positron fields (i.e. engine: positron)
+		validations.push(...validatePositronExtensionManifest(
+			input.productPositronVersion,
+			input.productDate,
+			input.location,
+			extension.manifest,
+			extension.isBuiltin));
+
+		// --- End Positron ---
 		for (const [severity, message] of validations) {
 			if (severity === Severity.Error) {
 				isValid = false;

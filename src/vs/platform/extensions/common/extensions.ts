@@ -265,7 +265,12 @@ export interface IRelaxedExtensionManifest {
 	displayName?: string;
 	publisher: string;
 	version: string;
-	engines: { readonly vscode: string };
+	// --- Start Positron ---
+	engines: {
+		readonly vscode: string;
+		readonly positron?: string;
+	};
+	// --- End Positron ---
 	description?: string;
 	main?: string;
 	browser?: string;

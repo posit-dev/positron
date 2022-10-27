@@ -43,6 +43,9 @@ import { IStringDictionary } from 'vs/base/common/collections';
 import { IUserDataProfileService } from 'vs/workbench/services/userDataProfile/common/userDataProfile';
 import { IUserDataProfilesService } from 'vs/platform/userDataProfile/common/userDataProfile';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
+// --- Start Positron ---
+import { validatePositronExtensionManifest } from 'vs/platform/extensions/common/positronExtensionValidator';
+// --- End Positron ---
 
 type GalleryExtensionInfo = { readonly id: string; preRelease?: boolean; migrateStorageFrom?: string };
 type ExtensionInfo = { readonly id: string; preRelease: boolean };
@@ -687,6 +690,9 @@ export class WebExtensionsScannerService extends Disposable implements IWebExten
 		const uuid = (<IGalleryMetadata | undefined>webExtension.metadata)?.id;
 
 		validations.push(...validateExtensionManifest(this.productService.version, this.productService.date, webExtension.location, manifest, false));
+		// --- Start Positron ---
+		validations.push(...validatePositronExtensionManifest(this.productService.positronVersion, this.productService.date, webExtension.location, manifest, false));
+		// --- End Positron ---
 		let isValid = true;
 		for (const [severity, message] of validations) {
 			if (severity === Severity.Error) {
