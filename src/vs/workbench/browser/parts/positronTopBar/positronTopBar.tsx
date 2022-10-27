@@ -63,13 +63,13 @@ export const PositronTopBar = (props: PositronTopBarProps) => {
 					<TopBarSeparator />
 					<TopBarOpenMenu />
 					<TopBarSeparator />
-					<TopBarCommandButton iconId='positron-save' tooltipAlignment='left' commandId={'workbench.action.files.save'} />
-					<TopBarCommandButton iconId='positron-save-all' tooltipAlignment='left' commandId={'workbench.action.files.saveFiles'} />
+					<TopBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
+					<TopBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
 				</TopBarRegion>
 
 				<TopBarRegion align='center'>
-					<TopBarCommandButton iconId='positron-chevron-left' tooltipAlignment='left' commandId={NavigateBackwardsAction.ID} />
-					<TopBarCommandButton iconId='positron-chevron-right' tooltipAlignment='left' commandId={NavigateForwardAction.ID} />
+					<TopBarCommandButton iconId='positron-chevron-left' commandId={NavigateBackwardsAction.ID} />
+					<TopBarCommandButton iconId='positron-chevron-right' commandId={NavigateForwardAction.ID} />
 					<TopBarCommandCenter {...props} />
 				</TopBarRegion>
 
