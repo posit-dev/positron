@@ -75,10 +75,3 @@ for (let dir of dirs) {
 
 cp.execSync('git config pull.rebase merges');
 cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore');
-
-// --- Start Positron ---
-console.log(`Installing positron built-in extensions...`);
-cp.execSync('git -C positron-quarto  pull || git clone https://github.com/quarto-dev/quarto-vscode positron-quarto', { cwd: 'extensions' })
-cp.execSync('npm install', { cwd: 'extensions/positron-quarto' })
-// --- End Positron ---
-
