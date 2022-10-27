@@ -22,10 +22,6 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
 
-	if (!positronTopBarContext) {
-		return null;
-	}
-
 	// Handlers.
 	const searchClickHandler = () => {
 		positronTopBarContext.quickInputService.quickAccess.show(undefined, {

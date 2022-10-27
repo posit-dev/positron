@@ -27,11 +27,6 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 	const [tooltip, setTooltip] = useState<string | undefined>(undefined);
 	const [showTooltip, setShowTooltip] = useState(false);
 
-	// Without context, nothing can be done.
-	if (!positronTopBarContext) {
-		return null;
-	}
-
 	// Tooltip.
 	useEffect(() => {
 		// If we cannot show the tooltip, do nothing.
