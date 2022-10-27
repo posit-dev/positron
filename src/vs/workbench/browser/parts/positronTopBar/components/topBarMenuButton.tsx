@@ -10,16 +10,15 @@ import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/componen
 import { IAction } from 'vs/base/common/actions';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
-import { TooltipAlignment } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 
 /**
  * TopBarMenuButtonProps interface.
  */
 interface TopBarMenuButtonProps {
 	iconId: string;
-	tooltip: string;
-	tooltipAlignment: TooltipAlignment;
 	text?: string;
+	align?: 'left' | 'right';
+	tooltip: string;
 	actions: () => Promise<readonly IAction[]>;
 }
 
@@ -37,7 +36,8 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 		if (buttonRef.current) {
 			props.actions().then(actions => {
 				if (actions.length > 0) {
-					positronTopBarContext?.contextMenuService.showContextMenu({
+					positronTopBarContext.setMenuShowing(true);
+					positronTopBarContext.contextMenuService.showContextMenu({
 						getActions: () => actions,
 						getAnchor: () => buttonRef.current!,
 						getKeyBinding: (action: IAction) => {
@@ -55,7 +55,10 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 								return undefined;
 							}
 						},
-						anchorAlignment: AnchorAlignment.LEFT,
+						onHide: () => {
+							positronTopBarContext.setMenuShowing(false);
+						},
+						anchorAlignment: props.align === 'right' ? AnchorAlignment.RIGHT : AnchorAlignment.LEFT,
 						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
 						contextKeyService: positronTopBarContext.contextKeyService
 					});

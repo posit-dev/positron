@@ -50,7 +50,7 @@ export const TopBarOpenMenu = () => {
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
-		const recent = await positronTopBarContext?.workspacesService.getRecentlyOpened();
+		const recent = await positronTopBarContext.workspacesService.getRecentlyOpened();
 		if (recent && positronTopBarContext) {
 			const recentActions = [
 				...recentMenuActions(recent.workspaces, positronTopBarContext),
@@ -73,7 +73,6 @@ export const TopBarOpenMenu = () => {
 			iconId='positron-open'
 			actions={actions}
 			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}
-			tooltipAlignment='left'
 		/>
 	);
 };
