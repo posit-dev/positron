@@ -30,45 +30,44 @@ interface TopBarMenuButtonProps {
 export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
-	const buttonRef = React.useRef<HTMLDivElement>(null);
+	const buttonRef = React.useRef<HTMLDivElement>(undefined!);
 
-	const showMenu = (event: React.MouseEvent) => {
-		if (buttonRef.current) {
-			props.actions().then(actions => {
-				if (actions.length > 0) {
-					positronTopBarContext.setMenuShowing(true);
-					positronTopBarContext.contextMenuService.showContextMenu({
-						getActions: () => actions,
-						getAnchor: () => buttonRef.current!,
-						getKeyBinding: (action: IAction) => {
-							return positronTopBarContext.keybindingService.lookupKeybinding(action.id);
-						},
-						getActionsContext: (event?: IContextMenuEvent) => {
-							if (event) {
-								return new KeyboardEvent('keydown', {
-									ctrlKey: event.ctrlKey,
-									shiftKey: event.shiftKey,
-									metaKey: event.metaKey,
-									altKey: event.altKey
-								});
-							} else {
-								return undefined;
-							}
-						},
-						onHide: () => {
-							positronTopBarContext.setMenuShowing(false);
-						},
-						anchorAlignment: props.align === 'right' ? AnchorAlignment.RIGHT : AnchorAlignment.LEFT,
-						anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
-						contextKeyService: positronTopBarContext.contextKeyService
-					});
-				}
+	// Handlers.
+	const clickHandler = () => {
+		props.actions().then(actions => {
+			if (!actions.length) {
+				return;
+			}
+
+			positronTopBarContext.setMenuShowing(true);
+			positronTopBarContext.contextMenuService.showContextMenu({
+				getActions: () => actions,
+				getAnchor: () => buttonRef.current!,
+				getKeyBinding: (action: IAction) => {
+					return positronTopBarContext.keybindingService.lookupKeybinding(action.id);
+				},
+				getActionsContext: (event?: IContextMenuEvent) => {
+					if (event) {
+						return new KeyboardEvent('keydown', {
+							ctrlKey: event.ctrlKey,
+							shiftKey: event.shiftKey,
+							metaKey: event.metaKey,
+							altKey: event.altKey
+						});
+					} else {
+						return undefined;
+					}
+				},
+				onHide: () => positronTopBarContext.setMenuShowing(false),
+				anchorAlignment: AnchorAlignment.LEFT,
+				anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
+				contextKeyService: positronTopBarContext.contextKeyService
 			});
-		}
+		});
 	};
 
 	// Render.
 	return (
-		<TopBarButton {...props} ref={buttonRef} dropDown={true} onClick={showMenu} />
+		<TopBarButton {...props} ref={buttonRef} dropDown={true} onClick={clickHandler} />
 	);
 };
