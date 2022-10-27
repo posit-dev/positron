@@ -75,6 +75,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 	const mouseLeaveHandler = () => {
 		setMouseInside(false);
 		if (showTooltip) {
+			// Hide the toolip and refresh the tooltip keep alive so that the next tooltip will be shown immediately.
 			setShowTooltip(false);
 			positronTopBarContext.refreshTooltipKeepAlive();
 		}
@@ -82,7 +83,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 
 	// Click handler.
 	const clickHandler = () => {
-		// When the mouse is clicked, hide the tooltip.
+		// When the mouse is clicked, hide the tooltip but do not refresh the tooltip keep alive. A click resets the tooltip delay.
 		setShowTooltip(false);
 	};
 
