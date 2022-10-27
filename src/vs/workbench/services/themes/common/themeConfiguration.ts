@@ -41,6 +41,10 @@ const colorThemeSettingSchema: IConfigurationPropertySchema = {
 	enumItemLabels: colorThemeSettingEnumItemLabels,
 	errorMessage: nls.localize('colorThemeError', "Theme is unknown or not installed."),
 };
+// --- Start Positron ---
+colorThemeSettingSchema.default = DEFAULT_THEME_LIGHT_SETTING_VALUE;
+// --- End Positron ---
+
 const preferredDarkThemeSettingSchema: IConfigurationPropertySchema = {
 	type: 'string', //
 	markdownDescription: nls.localize({ key: 'preferredDarkColorTheme', comment: ['`#{0}#` will become a link to an other setting. Do not remove backtick or #'] }, 'Specifies the preferred color theme for dark OS appearance when `#{0}#` is enabled.', ThemeSettings.DETECT_COLOR_SCHEME),
