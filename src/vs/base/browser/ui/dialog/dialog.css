@@ -30,6 +30,9 @@
 	min-height: 75px;
 	padding: 10px;
 	transform: translate3d(0px, 0px, 0px);
+	/* --- Start Positron --- */
+	border-radius: 10px;
+	/* --- End Positron --- */
 }
 
 /** Dialog: Title Actions Row */
