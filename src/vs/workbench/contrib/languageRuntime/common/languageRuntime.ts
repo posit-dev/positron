@@ -9,4 +9,9 @@ export const enum LanguageRuntimeCommandId {
 	Select = 'workbench.action.languageRuntime.select',
 }
 
+export interface INotebookBridgeService {
+	readonly _serviceBrand: undefined;
+	// Stub for dependency injection; this service has no public methods.
+}
+
 export const LANGUAGE_RUNTIME_ACTION_CATEGORY = nls.localize('languageRuntimeCategory', "Language Runtime");

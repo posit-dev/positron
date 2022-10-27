@@ -9,8 +9,12 @@ import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/no
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { INotebookBridgeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
 
-export class NotebookBridgeService extends Disposable {
+export class NotebookBridgeService extends Disposable implements INotebookBridgeService {
+	/** Needed for service branding in dependency injector */
+	declare readonly _serviceBrand: undefined;
+
 	constructor(
 		@ILogService private readonly _logService: ILogService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
