@@ -441,12 +441,8 @@ export const STATUS_BAR_NO_FOLDER_FOREGROUND = registerColor('statusBar.noFolder
 }, localize('statusBarNoFolderForeground', "Status bar foreground color when no folder is opened. The status bar is shown in the bottom of the window."));
 
 export const STATUS_BAR_BACKGROUND = registerColor('statusBar.background', {
-	// --- Start Positron ---
-	// dark: '#007ACC',
-	// light: '#007ACC',
-	dark: '#3b4144',
-	light: '#f5f7fa',
-	// --- End Positron ---
+	dark: '#007ACC',
+	light: '#007ACC',
 	hcDark: null,
 	hcLight: null,
 }, localize('statusBarBackground', "Status bar background color when a workspace or folder is opened. The status bar is shown in the bottom of the window."));
