@@ -76,7 +76,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 		setMouseInside(false);
 		if (showTooltip) {
 			setShowTooltip(false);
-			positronTopBarContext.updateTooltipHidden();
+			positronTopBarContext.refreshTooltipKeepAlive();
 		}
 	};
 
