@@ -43,7 +43,7 @@ const colorThemeSettingSchema: IConfigurationPropertySchema = {
 };
 // --- Start Positron Settings ---
 colorThemeSettingSchema.default = DEFAULT_THEME_LIGHT_SETTING_VALUE;
-// --- End Positron ---
+// --- End Positron Settings ---
 
 const preferredDarkThemeSettingSchema: IConfigurationPropertySchema = {
 	type: 'string', //
