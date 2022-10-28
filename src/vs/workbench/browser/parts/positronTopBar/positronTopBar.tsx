@@ -25,6 +25,7 @@ import { TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/c
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
 import { TopBarConsoleSelect } from 'vs/workbench/browser/parts/positronTopBar/components/topBarConsoleSelect/topBarConsoleSelect';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
@@ -41,6 +42,7 @@ export interface PositronTopBarServices {
 	quickInputService: IQuickInputService;
 	workspaceContextService: IWorkspaceContextService;
 	workspacesService: IWorkspacesService;
+	languageRuntimeService: ILanguageRuntimeService;
 }
 
 /**
