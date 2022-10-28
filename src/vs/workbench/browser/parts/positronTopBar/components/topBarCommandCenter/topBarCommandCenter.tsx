@@ -11,8 +11,7 @@ import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTop
 /**
  * TopBarCommandCenterProps interface.
  */
-interface TopBarCommandCenterProps {
-}
+interface TopBarCommandCenterProps { }
 
 /**
  * TopBarCommandCenter component.
@@ -24,21 +23,21 @@ export const TopBarCommandCenter = (props: TopBarCommandCenterProps) => {
 	const positronTopBarContext = usePositronTopBarContext();
 
 	// Handlers.
-	const searchClickHandler = () => {
-		positronTopBarContext?.quickInputService.quickAccess.show(undefined, {
+	const clickHandler = () => {
+		positronTopBarContext.quickInputService.quickAccess.show(undefined, {
 			providerOptions: {
 				includeHelp: true,
 			} as AnythingQuickAccessProviderRunOptions
 		});
 	};
 
-	const chevronClickHandler = () => {
-		positronTopBarContext?.quickInputService.quickAccess.show('?');
+	const dropDownClickHandler = () => {
+		positronTopBarContext.quickInputService.quickAccess.show('?');
 	};
 
 	// Render.
 	return (
-		<TopBarSelectBox className='top-bar-command-center' onClick={searchClickHandler} onDropDownClick={chevronClickHandler}>
+		<TopBarSelectBox className='top-bar-command-center' onClick={clickHandler} onDropDownClick={dropDownClickHandler}>
 			<span className='codicon codicon-search'></span>
 			<span>Search</span>
 		</TopBarSelectBox>

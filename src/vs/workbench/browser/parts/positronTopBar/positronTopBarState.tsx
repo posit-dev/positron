@@ -23,7 +23,9 @@ export interface PositronTopBarState extends PositronTopBarServices {
 	isCommandEnabled(commandId: string): boolean;
 	createCommandAction(commandId: string, label?: string): Action | undefined;
 	showTooltipDelay(): number;
-	tooltipHidden(): void;
+	refreshTooltipKeepAlive(): void;
+	menuShowing: boolean;
+	setMenuShowing(menuShowing: boolean): void;
 }
 
 /**
@@ -35,6 +37,7 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 	// Hooks.
 	const [workspaceFolder, setWorkspaceFolder] = useState<IWorkspaceFolder | undefined>(singleWorkspaceFolder(services.workspaceContextService));
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
+	const [menuShowing, setMenuShowing] = useState(false);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -46,18 +49,6 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 
 		return () => disposableStore.dispose();
 	}, []);
-
-	/**
-	 * Gets the tooltip delay.
-	 * @returns The tooltip delay in milliseconds.
-	 */
-	const showTooltipDelay = () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : services.configurationService.getValue<number>('workbench.hover.delay');
-
-	/**
-	 * Called when a tooltip is hidden. This will determine whether another tooltip will be shown
-	 * immediately or after the value returned by showTooltipDelay.
-	 */
-	const tooltipHidden = () => setLastTooltipHiddenAt(new Date().getTime());
 
 	/**
 	 * Creates a command action.
@@ -109,8 +100,10 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 		workspaceFolder,
 		isCommandEnabled,
 		createCommandAction,
-		showTooltipDelay,
-		tooltipHidden
+		showTooltipDelay: () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : services.configurationService.getValue<number>('workbench.hover.delay'),
+		refreshTooltipKeepAlive: () => setLastTooltipHiddenAt(new Date().getTime()),
+		menuShowing,
+		setMenuShowing
 	};
 };
 

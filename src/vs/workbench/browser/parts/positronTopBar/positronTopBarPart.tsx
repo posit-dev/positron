@@ -27,6 +27,7 @@ import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * PositronTopBarPart class.
@@ -78,7 +79,8 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IWorkspacesService private readonly workspacesService: IWorkspacesService,
 		@ILabelService private readonly labelService: ILabelService,
 		@IHostService private readonly hostService: IHostService,
-		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService
+		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
+		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService
 	) {
 		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
@@ -108,6 +110,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 				quickInputService={this.quickInputService}
 				workspaceContextService={this.workspaceContextService}
 				workspacesService={this.workspacesService}
+				languageRuntimeService={this.languageRuntimeService}
 			/>
 		);
 

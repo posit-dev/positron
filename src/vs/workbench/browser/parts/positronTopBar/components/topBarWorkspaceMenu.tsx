@@ -14,13 +14,11 @@ import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction, Positron
 
 const kCloseFolder = 'workbench.action.closeFolder';
 const kWorkbenchSettings = 'workbench.action.openWorkspaceSettings';
+const kDuplicateWorkspace = 'workbench.action.duplicateWorkspaceInNewWindow';
 
 export const TopBarWorkspaceMenu = () => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
-	if (!positronTopBarContext) {
-		return null;
-	}
 
 	// fetch actions when menu is shown
 	const actions = async () => {
@@ -38,8 +36,10 @@ export const TopBarWorkspaceMenu = () => {
 		addAction(OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
 		addAction(PositronOpenWorkspaceInNewWindowAction.ID);
 		addAction(kCloseFolder);
+		actions.push(new Separator());
+		addAction(kDuplicateWorkspace, localize('positronDuplicateWorkspace', "Duplicate Workspace"));
 
-		const recent = await positronTopBarContext?.workspacesService.getRecentlyOpened();
+		const recent = await positronTopBarContext.workspacesService.getRecentlyOpened();
 		if (positronTopBarContext && recent?.workspaces?.length) {
 			actions.push(new Separator());
 			actions.push(...recentMenuActions(recent.workspaces, positronTopBarContext));
@@ -57,10 +57,10 @@ export const TopBarWorkspaceMenu = () => {
 	return (
 		<TopBarMenuButton
 			iconId='root-folder'
+			align='right'
 			actions={actions}
-			text={positronTopBarContext?.workspaceFolder ? positronTopBarContext.workspaceFolder.name : 'Workspace: (None)'}
-			tooltip={positronTopBarContext?.workspaceFolder?.uri?.fsPath || ''}
-			tooltipAlignment='right'
+			text={positronTopBarContext.workspaceFolder ? positronTopBarContext.workspaceFolder.name : undefined}
+			tooltip={positronTopBarContext.workspaceFolder?.uri?.fsPath || ''}
 		/>
 	);
 };

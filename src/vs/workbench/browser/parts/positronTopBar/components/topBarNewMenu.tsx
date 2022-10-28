@@ -16,9 +16,6 @@ import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'v
 export const TopBarNewMenu = () => {
 	// Hooks.
 	const positronTopBarContext = usePositronTopBarContext();
-	if (!positronTopBarContext) {
-		return null;
-	}
 
 	// fetch actions when menu is shown
 	const actions = async () => {
@@ -47,7 +44,6 @@ export const TopBarNewMenu = () => {
 			iconId='positron-new'
 			actions={actions}
 			tooltip={localize('positronNewFileWorkspace', "New File/Workspace")}
-			tooltipAlignment='left'
 		/>
 	);
 };
