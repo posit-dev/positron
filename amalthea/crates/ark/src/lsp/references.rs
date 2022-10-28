@@ -7,8 +7,10 @@
 
 use std::path::Path;
 
+use anyhow::bail;
 use log::info;
 use stdext::*;
+use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::Location;
 use tower_lsp::lsp_types::Range;
 use tower_lsp::lsp_types::ReferenceParams;
@@ -19,6 +21,7 @@ use walkdir::DirEntry;
 use walkdir::WalkDir;
 
 use crate::lsp::traits::cursor::TreeCursorExt;
+use crate::lsp::traits::url::UrlExt;
 use crate::lsp::backend::Backend;
 use crate::lsp::document::Document;
 use crate::lsp::traits::point::PointExt;
@@ -107,26 +110,16 @@ fn found_match(node: &Node, contents: &str, context: &Context) -> bool {
 
 impl Backend {
 
-    fn build_context(&self, uri: &Url, point: Point) -> Result<Context, ()> {
+    fn build_context(&self, uri: &Url, point: Point) -> anyhow::Result<Context>{
 
         // Unwrap the URL.
-        let path = unwrap!(uri.to_file_path(), Err(_) => {
-            info!("URL {} not associated with a local file path", uri);
-            return Err(());
-        });
+        let path = uri.file_path()?;
 
         // Figure out the identifier we're looking for.
         let context = self.with_document(path.as_path(), |document| {
 
-            let ast = unwrap!(document.ast.as_ref(), None => {
-                info!("no ast associated with document {}", path.display());
-                return Err(());
-            });
-
-            let mut node = unwrap!(ast.root_node().descendant_for_point_range(point, point), None => {
-                info!("couldn't find node associated with point {:?}", point);
-                return Err(());
-            });
+            let ast = document.ast.as_ref().into_result()?;
+            let mut node = ast.root_node().descendant_for_point_range(point, point).into_result()?;
 
             // Check and see if we got an identifier. If we didn't, we might need to use
             // some heuristics to look around. Unfortunately, it seems like if you double-click
@@ -138,16 +131,12 @@ impl Backend {
             // identifier.
             if node.kind() != "identifier" {
                 let point = Point::new(point.row, point.column - 1);
-                node = unwrap!(ast.root_node().descendant_for_point_range(point, point), None => {
-                    info!("couldn't find node associated with point {:?}", point);
-                    return Err(());
-                });
+                node = ast.root_node().descendant_for_point_range(point, point).into_result()?;
             }
 
             // double check that we found an identifier
             if node.kind() != "identifier" {
-                info!("couldn't find an identifier associated with point {:?}", point);
-                return Err(());
+                bail!("couldn't find an identifier associated with point {:?}", point);
             }
 
             // check this node's previous sibling; if this is the name of a slot

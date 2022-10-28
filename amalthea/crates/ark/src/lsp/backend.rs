@@ -67,20 +67,13 @@ pub(crate) struct Backend {
 }
 
 impl Backend {
-    pub(crate) fn with_document<T, F>(
-        &self,
-        path: &Path,
-        mut callback: F,
-    ) -> std::result::Result<T, ()>
+
+    pub fn with_document<T, F>(&self, path: &Path, mut callback: F) -> anyhow::Result<T>
     where
-        F: FnMut(&Document) -> std::result::Result<T, ()>,
+        F: FnMut(&Document) -> anyhow::Result<T>
     {
         let mut fallback = || {
-            let contents = unwrap!(std::fs::read_to_string(path), Err(error) => {
-                error!("Error reading from {:?}: {}", path, error);
-                return Err(());
-            });
-
+            let contents = std::fs::read_to_string(path)?;
             let document = Document::new(contents.as_str());
             return callback(&document);
         };
