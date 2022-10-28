@@ -45,6 +45,7 @@ use yaml_rust::YamlLoader;
 use crate::lsp::indexer::IndexedSymbol;
 use crate::lsp::indexer::index_document;
 use crate::lsp::document::Document;
+use crate::lsp::markdown::MarkdownConverter;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::node::NodeExt;
 use crate::lsp::traits::point::PointExt;
@@ -70,26 +71,6 @@ pub struct CompletionContext<'a> {
     pub source: String,
     pub point: Point,
     pub params: CompletionParams,
-}
-
-// TODO: Belongs somewhere else.
-fn to_markdown(elt: ElementRef, buffer: &mut String) {
-
-    for node in elt.children() {
-
-        if let Some(elt) = ElementRef::wrap(node) {
-            if elt.value().name() == "code" {
-                buffer.push('`');
-                to_markdown(elt, buffer);
-                buffer.push('`');
-            } else {
-                to_markdown(elt, buffer);
-            }
-        } else if let Some(text) = node.value().as_text() {
-            buffer.push_str(text.as_ref());
-        }
-
-    }
 }
 
 fn is_syntactic(name: &str) -> bool {
@@ -182,13 +163,12 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
         }
 
         // We found the relevant parameter; add its documentation.
-        let mut buffer = String::new();
-        to_markdown(rhs, &mut buffer);
-        let description = buffer.trim().to_string();
+        let mut converter = MarkdownConverter::new(*rhs);
+        let description = converter.convert();
 
         let markup = MarkupContent {
             kind: MarkupKind::Markdown,
-            value: description,
+            value: description.to_string(),
         };
 
         // Build the actual markup content.
@@ -233,7 +213,7 @@ fn completion_item_from_assignment(node: &Node, source: &str) -> Result<Completi
 
     let mut item = CompletionItem::new_simple(format!("{}()", label), detail);
 
-    if rhs.kind() == "function_definition" {
+    if rhs.kind() == "function" {
         item.kind = Some(CompletionItemKind::FUNCTION);
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
         item.insert_text = Some(format!("{}($0)", label));
@@ -375,9 +355,16 @@ unsafe fn completion_item_from_parameter(parameter: &str, callee: &str) -> Resul
         ..Default::default()
     };
 
+    // TODO: It'd be nice if we could be smarter about how '...' completions are handled,
+    // but evidently VSCode doesn't let us set an empty 'insert text' string here.
+    // Might be worth fixing upstream.
     item.kind = Some(CompletionItemKind::FIELD);
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-    item.insert_text = Some(parameter.to_string() + " = ");
+    item.insert_text = if parameter == "..." {
+        Some("...".to_string())
+    } else {
+        Some(parameter.to_string() + " = ")
+    };
 
     let data = CompletionData {
         source: Some(callee.to_string()),
@@ -429,7 +416,7 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
 
         match node.kind() {
 
-            "left_assignment" | "super_assignment" | "equals_assignment" => {
+            "=" | "<-" | "<<-" => {
 
                 // check that the left-hand side is an identifier or a string
                 if let Some(child) = node.child(0) {
@@ -446,7 +433,7 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
 
             }
 
-            "right_assignment" | "super_right_assignment" => {
+            "->" | "->>" => {
 
                 // return true for nested assignments
                 return true;
@@ -460,7 +447,7 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
 
             }
 
-            "function_definition" => {
+            "function" => {
 
                 // don't recurse into function definitions, as these create as new scope
                 // for variable definitions (and so such definitions are no longer visible)
@@ -481,7 +468,6 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
 fn append_function_parameters(node: &Node, context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     let mut cursor = node.walk();
-
     if !cursor.goto_first_child() {
         bail!("goto_first_child() failed");
     }
@@ -491,7 +477,7 @@ fn append_function_parameters(node: &Node, context: &CompletionContext, completi
     }
 
     let kind = cursor.node().kind();
-    if kind != "formal_parameters" {
+    if kind != "parameters" {
         bail!("unexpected node kind {}", kind);
     }
 
@@ -963,8 +949,8 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
     loop {
 
         // Check for 'subset' completions.
-        if matches!(node.kind(), "dollar" | "subset" | "subset2") {
-            let enquote = matches!(node.kind(), "subset" | "subset2");
+        if matches!(node.kind(), "$" | "[" | "[[") {
+            let enquote = matches!(node.kind(), "[" | "[[");
             if let Some(child) = node.child(0) {
                 let text = child.utf8_text(context.source.as_bytes())?;
                 return append_subset_completions(context, &text, enquote, completions);
@@ -979,7 +965,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 
         // Handle the case with 'package::prefix', where the user has now
         // started typing the prefix of the symbol they would like completions for.
-        if matches!(node.kind(), "namespace_get" | "namespace_get_internal") {
+        if matches!(node.kind(), "::" | ":::") {
             if let Some(package_node) = node.child(0) {
                 if let Some(colon_node) = node.child(1) {
                     let package = package_node.utf8_text(context.source.as_bytes()).unwrap();
@@ -990,7 +976,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
         }
 
         // If we reach a brace list, bail.
-        if node.kind() == "brace_list" {
+        if node.kind() == "{" {
             break;
         }
 
@@ -1022,16 +1008,21 @@ pub(crate) fn append_document_completions(context: &CompletionContext, completio
         return Ok(());
     }
 
+    // don't complete following subset-style operators
+    if matches!(node.kind(), "::" | ":::" | "$" | "[" | "[[") {
+        return Ok(());
+    }
+
     let mut visited : HashSet<usize> = HashSet::new();
     loop {
 
         // If this is a brace list, or the document root, recurse to find identifiers.
-        if node.kind() == "brace_list" || node.parent() == None {
+        if node.kind() == "{" || node.parent() == None {
             append_defined_variables(&node, context, completions);
         }
 
         // If this is a function definition, add parameter names.
-        if node.kind() == "function_definition" {
+        if node.kind() == "function" {
             let result = append_function_parameters(&node, context, completions);
             if let Err(error) = result {
                 error!("{:?}", error);
