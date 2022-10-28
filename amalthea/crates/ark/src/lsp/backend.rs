@@ -323,7 +323,7 @@ impl LanguageServer for Backend {
 
         let data = item.data.clone();
         let data = unwrap!(data, None => {
-            info!("Completion '{}' has no associated data", item.label);
+            warn!("Completion '{}' has no associated data", item.label);
             return Ok(item);
         });
 

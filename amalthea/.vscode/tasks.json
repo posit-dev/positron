@@ -12,6 +12,18 @@
                 "isDefault": true
             },
             "label": "rust: cargo build"
+        },
+        {
+            "type": "cargo",
+            "command": "update",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "label": "rust: cargo update"
         }
     ]
 }

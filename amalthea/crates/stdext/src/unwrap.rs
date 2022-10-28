@@ -17,8 +17,24 @@ impl std::fmt::Display for EmptyOptionError {
 
 impl std::error::Error for EmptyOptionError {}
 
+#[derive(Debug, Clone)]
+pub struct FalsyValueError {
+}
+
+impl std::fmt::Display for FalsyValueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unexpected falsy value")
+    }
+}
+
 pub trait IntoResult<T, E> {
     fn into_result(self) -> Result<T, E>;
+}
+
+impl IntoResult<bool, FalsyValueError> for bool {
+    fn into_result(self) -> Result<bool, FalsyValueError> {
+        if self { Ok(self) } else { Err(FalsyValueError {}) }
+    }
 }
 
 impl<T, E> IntoResult<T, E> for Result<T, E> {
