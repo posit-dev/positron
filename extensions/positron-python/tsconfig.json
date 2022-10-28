@@ -25,7 +25,9 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "resolveJsonModule": true,
-        "removeComments": true
+        "removeComments": true,
+        "noImplicitOverride": false,
+        "noImplicitReturns": false
     },
     "exclude": [
         "node_modules",
@@ -41,10 +43,11 @@
         "tmp"
     ],
     "include": [
-		"src/**/*",
-		"../../src/vscode-dts/vscode.d.ts",
-		"../../src/vscode-dts/vscode.proposed.testObserver.d.ts",
-		"../../src/vscode-dts/vscode.proposed.quickPickSortByLabel.d.ts",
-		"../../src/positron-dts/positron.d.ts"
-	]
+        "src/client/**/*",
+        "typings/*.d.ts",
+        "../../src/vscode-dts/vscode.d.ts",
+        "../../src/vscode-dts/vscode.proposed.testObserver.d.ts",
+        "../../src/vscode-dts/vscode.proposed.quickPickSortByLabel.d.ts",
+        "../../src/positron-dts/positron.d.ts"
+    ]
 }
