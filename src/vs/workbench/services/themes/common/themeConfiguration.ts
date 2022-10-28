@@ -41,7 +41,7 @@ const colorThemeSettingSchema: IConfigurationPropertySchema = {
 	enumItemLabels: colorThemeSettingEnumItemLabels,
 	errorMessage: nls.localize('colorThemeError', "Theme is unknown or not installed."),
 };
-// --- Start Positron ---
+// --- Start Positron Settings ---
 colorThemeSettingSchema.default = DEFAULT_THEME_LIGHT_SETTING_VALUE;
 // --- End Positron ---
 
