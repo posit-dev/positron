@@ -37,7 +37,7 @@ export const showNewWorkspaceModalDialog = async (accessor: ServicesAccessor): P
 	// Load data we need to present the dialog.
 	const parentDirectory = (await fileDialogs.defaultFolderPath()).fsPath;
 
-	// Return a promise that resolves or rejects when the dialog is done.
+	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewWorkspaceResult | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
 		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(layoutService.container);
