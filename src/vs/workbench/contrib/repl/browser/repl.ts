@@ -5,7 +5,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { HistoryNavigator2 } from 'vs/base/common/history';
-import { ILanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Create the decorator for the REPL service (used in dependency injection)
 export const IReplService = createDecorator<IReplService>('replService');
