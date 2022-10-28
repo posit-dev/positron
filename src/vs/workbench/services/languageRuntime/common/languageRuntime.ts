@@ -108,5 +108,4 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 }
 
-// Register language runtime singleton
 registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Delayed);
