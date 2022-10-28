@@ -15,6 +15,6 @@ export interface INotebookBridgeService {
 	// Stub for dependency injection; this service has no public methods.
 }
 
-export const INotebookBridgeService = createDecorator<INotebookBridgeService>('languageConfigurationService');
+export const INotebookBridgeService = createDecorator<INotebookBridgeService>('notebookBridgeService');
 
 export const LANGUAGE_RUNTIME_ACTION_CATEGORY = nls.localize('languageRuntimeCategory', "Language Runtime");
