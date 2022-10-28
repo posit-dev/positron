@@ -14,6 +14,7 @@ import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction, Positron
 
 const kCloseFolder = 'workbench.action.closeFolder';
 const kWorkbenchSettings = 'workbench.action.openWorkspaceSettings';
+const kDuplicateWorkspace = 'workbench.action.duplicateWorkspaceInNewWindow';
 
 export const TopBarWorkspaceMenu = () => {
 	// Hooks.
@@ -35,6 +36,8 @@ export const TopBarWorkspaceMenu = () => {
 		addAction(OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
 		addAction(PositronOpenWorkspaceInNewWindowAction.ID);
 		addAction(kCloseFolder);
+		actions.push(new Separator());
+		addAction(kDuplicateWorkspace, localize('positronDuplicateWorkspace', "Duplicate Workspace"));
 
 		const recent = await positronTopBarContext.workspacesService.getRecentlyOpened();
 		if (positronTopBarContext && recent?.workspaces?.length) {
