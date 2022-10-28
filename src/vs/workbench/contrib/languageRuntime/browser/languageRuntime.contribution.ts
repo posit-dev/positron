@@ -2,13 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import { INotebookBridgeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
+import { NotebookBridgeService } from 'vs/workbench/contrib/languageRuntime/common/notebookBridgeService';
+import { registerLanguageRuntimeActions } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeActions';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { LanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/browser/languageRuntimeService';
-import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
-import { registerLanguageRuntimeActions } from 'vs/workbench/contrib/languageRuntime/browser/languageRuntimeActions';
-
-// Register language runtime singleton
-registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Delayed);
 
 // Register commands
 registerLanguageRuntimeActions();
+
+registerSingleton(INotebookBridgeService, NotebookBridgeService, InstantiationType.Delayed);

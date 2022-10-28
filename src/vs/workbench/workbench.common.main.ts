@@ -373,8 +373,12 @@ import 'vs/workbench/contrib/bracketPairColorizer2Telemetry/browser/bracketPairC
 
 // --- Start Positron ---
 
+// Contributions
 import 'vs/workbench/contrib/repl/browser/repl.contribution';
 import 'vs/workbench/contrib/repl/browser/replView';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
+
+// Workbench services
+import 'vs/workbench/services/languageRuntime/common/languageRuntime';
 
 // --- End Positron ---

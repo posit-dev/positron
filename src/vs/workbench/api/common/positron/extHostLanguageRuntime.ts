@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable } from 'vs/workbench/api/common/extHostTypes';

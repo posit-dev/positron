@@ -9,7 +9,7 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { Codicon } from 'vs/base/common/codicons';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { ILanguageRuntimeService } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 export function registerLanguageRuntimeActions() {
