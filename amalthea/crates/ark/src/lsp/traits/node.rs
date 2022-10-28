@@ -1,8 +1,8 @@
-// 
+//
 // node.rs
-// 
+//
 // Copyright (C) 2022 by RStudio, PBC
-// 
+//
 //
 
 use tree_sitter::{Node, TreeCursor};
@@ -22,7 +22,7 @@ fn _dump_impl(cursor: &mut TreeCursor, source: &str, indent: &str, output: &mut 
             node.start_position().to_string(),
             node.end_position().to_string(),
         ).as_str());
-    
+
     }
 
     if cursor.goto_first_child() {
@@ -40,7 +40,7 @@ fn _dump_impl(cursor: &mut TreeCursor, source: &str, indent: &str, output: &mut 
 
 }
 
-pub(crate) trait NodeExt {
+pub trait NodeExt {
     fn dump(&self, source: &str) -> String;
 }
 

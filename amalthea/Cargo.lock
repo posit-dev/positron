@@ -84,6 +84,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "dashmap",
+ "ego-tree",
  "harp",
  "html5ever",
  "lazy_static",
@@ -1912,8 +1913,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-r"
 version = "0.19.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "522c13f4cc46213148b19d4ad40a988ffabd51fd90eb7de759844fbde49bda0c"
+source = "git+https://github.com/r-lib/tree-sitter-r?branch=next#e09dc33ac88e6a552aede2b2ae16d80db66afd4e"
 dependencies = [
  "cc",
  "tree-sitter",
