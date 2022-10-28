@@ -8,7 +8,6 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use anyhow::Context;
 use anyhow::Result;
 use anyhow::bail;
 use harp::eval::RParseEvalOptions;
@@ -91,12 +90,12 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
         let lhs = node.child(0).into_result()?;
         if !matches!(lhs.kind(), "identifier" | "string") {
-            bail!("Expected an identifier or a string");
+            bail!("expected an identifier or a string");
         }
 
         let value = lhs.utf8_text(context.source.as_bytes())?;
         if !matches!(value, "expression" | "local" | "quote" | "enquote" | "substitute" | "with" | "within") {
-            bail!("Value is not an expected NSE symbol");
+            bail!("value is not an expected NSE symbol");
         }
 
         Ok(())
@@ -197,21 +196,21 @@ pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &Completi
 
 }
 
-fn completion_item_from_identifier(node: &Node, source: &str) -> Result<CompletionItem> {
-    let label = node.utf8_text(source.as_bytes())?;
-    let detail = format!("Defined on line {}", node.start_position().row + 1);
-    return Ok(CompletionItem::new_simple(label.to_string(), detail));
-}
-
 fn completion_item_from_assignment(node: &Node, source: &str) -> Result<CompletionItem> {
 
-    let lhs = node.child(0).context("unexpected missing assignment name")?;
-    let rhs = node.child(2).context("unexpected missing assignment value")?;
+    let lhs = node.child_by_field_name("lhs").into_result()?;
+    let rhs = node.child_by_field_name("rhs").into_result()?;
 
     let label = lhs.utf8_text(source.as_bytes())?;
-    let detail = format!("Defined on line {}", lhs.start_position().row + 1);
 
-    let mut item = CompletionItem::new_simple(format!("{}()", label), detail);
+    let mut item = CompletionItem {
+        label: label.to_string(),
+        ..Default::default()
+    };
+
+    let detail = format!("Defined on line {}", lhs.start_position().row + 1);
+    item.detail = Some(detail);
+    item.kind = Some(CompletionItemKind::VARIABLE);
 
     if rhs.kind() == "function" {
         item.kind = Some(CompletionItemKind::FUNCTION);
@@ -348,7 +347,28 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
 
 }
 
-unsafe fn completion_item_from_parameter(parameter: &str, callee: &str) -> Result<CompletionItem> {
+// This is used when providing completions for a parameter in a document
+// that is considered in-scope at the cursor position.
+fn completion_item_from_parameter(parameter: &str, context: &CompletionContext) -> Result<CompletionItem> {
+
+    let mut item = CompletionItem {
+        label: quote_if_non_syntactic(parameter),
+        ..Default::default()
+    };
+
+    item.kind = Some(CompletionItemKind::VARIABLE);
+
+    // let data = CompletionData {
+    //     source: Some(callee.to_string()),
+    //     value: parameter.to_string(),
+    // };
+
+    // item.data = Some(serde_json::to_value(data)?);
+    Ok(item)
+
+}
+
+unsafe fn completion_item_from_argument(parameter: &str, callee: &str) -> Result<CompletionItem> {
 
     let mut item = CompletionItem {
         label: quote_if_non_syntactic(parameter),
@@ -465,38 +485,34 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
 
 }
 
+// TODO: Pick a name that makes it clear this is a function defined in the associated document.
 fn append_function_parameters(node: &Node, context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
-    let mut cursor = node.walk();
-    if !cursor.goto_first_child() {
-        bail!("goto_first_child() failed");
-    }
+    // get the parameters node
+    let parameters = node.child_by_field_name("parameters").into_result()?;
 
-    if !cursor.goto_next_sibling() {
-        bail!("goto_next_sibling() failed");
-    }
+    // iterate through the children, looking for parameters with known names
+    let mut cursor = parameters.walk();
+    for node in parameters.children(&mut cursor) {
 
-    let kind = cursor.node().kind();
-    if kind != "parameters" {
-        bail!("unexpected node kind {}", kind);
-    }
-
-    if !cursor.goto_first_child() {
-        bail!("goto_first_child() failed");
-    }
-
-    // The R tree-sitter grammar doesn't parse an R function's formals list into
-    // a tree; instead, it's just held as a sequence of tokens. that said, the
-    // only way an identifier could / should show up here is if it is indeed a
-    // function parameter, so just search direct children here for identifiers.
-    while cursor.goto_next_sibling() {
-        let node = cursor.node();
-        if node.kind() == "identifier" {
-            match completion_item_from_identifier(&node, &context.source) {
-                Ok(item) => completions.push(item),
-                Err(error) => error!("{:?}", error),
-            }
+        if node.kind() != "parameter" {
+            continue;
         }
+
+        let node = unwrap!(node.child_by_field_name("name"), None => {
+            continue;
+        });
+
+        if node.kind() != "identifier" {
+            continue;
+        }
+
+        let parameter = node.utf8_text(context.source.as_bytes()).into_result()?;
+        match completion_item_from_parameter(parameter, context) {
+            Ok(item) => completions.push(item),
+            Err(error) => error!("{:?}", error),
+        }
+
     }
 
     Ok(())
@@ -598,14 +614,14 @@ unsafe fn append_call_completions(context: &CompletionContext, cursor_node: &Nod
 
     }
 
-    // Fall back to the default parameter completions.
-    append_parameter_completions(context, &callee, completions)
+    // Fall back to the default argument completions.
+    append_argument_completions(context, &callee, completions)
 
 }
 
-unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_argument_completions(context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
-    info!("append_parameter_completions({:?})", callee);
+    info!("append_argument_completions({:?})", callee);
 
     // Check for a function defined in this document that can provide parameters.
     // TODO: Move this to a separate 'resolve()' function which takes some 'callee'
@@ -616,7 +632,7 @@ unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str
             IndexedSymbol::Function { name, arguments } => {
                 if name == callee {
                     for argument in arguments {
-                        match completion_item_from_parameter(argument.as_str(), name.as_str()) {
+                        match completion_item_from_argument(argument.as_str(), name.as_str()) {
                             Ok(item) => completions.push(item),
                             Err(error) => error!("{:?}", error),
                         }
@@ -643,7 +659,7 @@ unsafe fn append_parameter_completions(context: &CompletionContext, callee: &str
 
         // Return the names of these formals.
         for string in strings.iter() {
-            match completion_item_from_parameter(string, callee) {
+            match completion_item_from_argument(string, callee) {
                 Ok(item) => completions.push(item),
                 Err(error) => error!("{:?}", error),
             }
@@ -900,49 +916,10 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
         let pattern = Regex::new(r"^.*\s").unwrap();
         let contents = node.utf8_text(context.source.as_bytes()).unwrap();
         let token = pattern.replace(contents, "");
-        info!("Token: {:?}", token);
         if token.starts_with('@') {
             return append_roxygen_completions(&token[1..], completions);
         } else {
             return Ok(());
-        }
-    }
-
-    // check to see if we're completing a symbol from a namespace,
-    // via code like:
-    //
-    //   package::sym
-    //   package:::sym
-    //
-    // note that we'll need to handle cases where the user hasn't
-    // yet started typing the symbol name, so that the cursor would
-    // be on the '::' or ':::' token.
-    //
-    // Note that treesitter collects the tokens into a tree of the form:
-    //
-    //    - stats::bar - namespace_get
-    //    - stats - identifier
-    //    - :: - ::
-    //    - bar - identifier
-    //
-    // But, if the tree is not yet complete, then treesitter gives us:
-    //
-    //    - stats - identifier
-    //    - :: - ERROR
-    //      - :: - ::
-    //
-    // So we have to do some extra work to get the package name in each case.
-    if matches!(node.kind(), "::" | ":::") {
-        let exports_only = node.kind() == "::";
-        if let Some(parent) = node.parent() {
-            if parent.kind() == "ERROR" {
-                if let Some(prev) = parent.prev_sibling() {
-                    if matches!(prev.kind(), "identifier" | "string") {
-                        let package = prev.utf8_text(context.source.as_bytes()).unwrap();
-                        return append_namespace_completions(context, package, exports_only, completions);
-                    }
-                }
-            }
         }
     }
 
@@ -966,12 +943,10 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
         // Handle the case with 'package::prefix', where the user has now
         // started typing the prefix of the symbol they would like completions for.
         if matches!(node.kind(), "::" | ":::") {
-            if let Some(package_node) = node.child(0) {
-                if let Some(colon_node) = node.child(1) {
-                    let package = package_node.utf8_text(context.source.as_bytes()).unwrap();
-                    let exports_only = colon_node.kind() == "::";
-                    return append_namespace_completions(context, package, exports_only, completions);
-                }
+            let exports_only = node.kind() == "::";
+            if let Some(node) = node.child(0) {
+                let package = node.utf8_text(context.source.as_bytes())?;
+                return append_namespace_completions(context, package, exports_only, completions);
             }
         }
 
@@ -995,8 +970,6 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 }
 
 pub(crate) fn append_document_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
-    info!("append_document_completions()");
 
     // get reference to AST
     let ast = context.document.ast()?;
