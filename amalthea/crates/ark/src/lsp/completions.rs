@@ -58,6 +58,8 @@ lazy_static! {
         Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap();
 }
 
+// Completions should be tagged with a CompletionData object, so that further
+// information about a completion can be resolved lazily via the
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CompletionData {
     value: String,
