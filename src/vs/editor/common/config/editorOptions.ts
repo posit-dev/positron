@@ -2772,7 +2772,9 @@ class EditorMinimap extends BaseEditorOption<EditorOption.minimap, IEditorMinima
 
 	constructor() {
 		const defaults: EditorMinimapOptions = {
-			enabled: true,
+			// --- Start Positron Settings ---
+			enabled: false,
+			// --- End Positron Settings ---
 			size: 'proportional',
 			side: 'right',
 			showSlider: 'mouseover',
