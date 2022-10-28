@@ -12,6 +12,7 @@ anyhow = { version = "^1.0", features = ["backtrace"] }
 async-trait = "0.1.53"
 chrono = "0.4.22"
 dashmap = "5.3.3"
+ego-tree = "0.6.2"
 harp = { path = "../harp" }
 html5ever = "0.26.0"
 lazy_static = "1.4.0"
@@ -29,7 +30,7 @@ stdext = { path = "../stdext" }
 tokio = { version = "1.17.0", features = ["full"] }
 tower-lsp = "0.16.0"
 tree-sitter = "0.20.6"
-tree-sitter-r = "0.19.5"
+tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "next" }
 walkdir = "2"
 yaml-rust = "0.4.5"
 

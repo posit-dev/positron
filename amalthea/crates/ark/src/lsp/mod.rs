@@ -11,6 +11,7 @@ pub mod completions;
 pub mod definitions;
 pub mod document;
 pub mod indexer;
+pub mod markdown;
 pub mod modules;
 pub mod references;
 pub mod traits;
