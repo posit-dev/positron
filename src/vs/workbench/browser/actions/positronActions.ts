@@ -13,7 +13,8 @@ import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
 import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
-import { showNewWorkspaceDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceDialog';
+import { showNewWorkspaceModalDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceModalDialog';
+// import { showNewWorkspaceDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceDialog';
 import { showNewWorkspaceFromGitDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceFromGitDialog';
 import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
@@ -42,26 +43,30 @@ export class PositronNewWorkspaceAction extends Action2 {
 	}
 
 	override async run(accessor: ServicesAccessor): Promise<void> {
-
+		// Get the services we need to create the new workspace, if the user accept the dialog.
 		const commandService = accessor.get(ICommandService);
-		const pathService = accessor.get(IPathService);
 		const fileService = accessor.get(IFileService);
+		const pathService = accessor.get(IPathService);
 
-		const result = await showNewWorkspaceDialog(accessor);
-		if (result?.directory) {
-			const workspaceDir = URI.file((await pathService.path).join(result.parentDirectory, result.directory));
-			if (!(await fileService.exists(workspaceDir))) {
-				await fileService.createFolder(workspaceDir);
-			}
-			await commandService.executeCommand(
-				'vscode.openFolder',
-				workspaceDir,
-				{
-					forceNewWindow: result.newWindow,
-					forceReuseWindow: !result.newWindow
-				}
-			);
+		// Show the new workspace modal dialog. If the result is undefined, the user canceled the operation.
+		const result = await showNewWorkspaceModalDialog(accessor);
+		if (!result) {
+			return;
 		}
+
+		// Create the new workspace.
+		const workspaceDir = URI.file((await pathService.path).join(result.parentDirectory, result.directory));
+		if (!(await fileService.exists(workspaceDir))) {
+			await fileService.createFolder(workspaceDir);
+		}
+		await commandService.executeCommand(
+			'vscode.openFolder',
+			workspaceDir,
+			{
+				forceNewWindow: result.newWindow,
+				forceReuseWindow: !result.newWindow
+			}
+		);
 	}
 }
 
