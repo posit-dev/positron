@@ -13,6 +13,7 @@ import { ILifecycleService, LifecyclePhase } from 'vs/workbench/services/lifecyc
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ContextKeyExpr, ContextKeyExpression } from 'vs/platform/contextkey/common/contextkey';
 import { ICommandAction } from 'vs/platform/action/common/action';
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 
 export const Extensions = {
 	WorkbenchActions: 'workbench.contributions.actions'
@@ -36,6 +37,18 @@ Registry.add(Extensions.WorkbenchActions, new class implements IWorkbenchActionR
 
 	private registerWorkbenchCommandFromAction(descriptor: SyncActionDescriptor, alias: string, category?: string, when?: ContextKeyExpression): IDisposable {
 		const registrations = new DisposableStore();
+
+		// -- Start Positron ---
+		// Add command information to the command center. It is possible for descriptor.label to be undefined,
+		// but, this is never the case.
+		if (descriptor.label) {
+			CommandCenter.addCommandInfo({
+				id: descriptor.id,
+				title: descriptor.label,
+				precondition: when
+			});
+		}
+		// -- End Positron ---
 
 		// command
 		registrations.add(CommandsRegistry.registerCommand(descriptor.id, this.createCommandHandler(descriptor)));
