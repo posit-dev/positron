@@ -49,6 +49,13 @@ impl<'a> MarkdownConverter<'a> {
                 self.buffer.push('`');
             }
 
+            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                self.buffer.push_str("## ");
+                for child in element.children() {
+                    self.convert_node(child);
+                }
+            }
+
             "ul" => {
                 for child in element.children() {
                     if child.value().is_element() {
