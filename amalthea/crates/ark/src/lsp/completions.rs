@@ -120,6 +120,39 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
 }
 
+unsafe fn resolve_function_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+
+    let html = RFunction::from(".rs.help.getHtmlHelpContents")
+        .add(data.value.as_str())
+        .call()?
+        .to::<String>()?;
+
+    let doc = Html::parse_document(html.as_str());
+    let mut markup = String::new();
+
+    // Get the page title header.
+    let selector = Selector::parse("h2").unwrap();
+    let header = doc.select(&selector).next().into_result()?;
+    markup.push_str(MarkdownConverter::new(*header).convert());
+
+    markup.push_str("\n\n");
+
+    // Get the description.
+    let selector = Selector::parse("h3 + p").unwrap();
+    let description = doc.select(&selector).next().into_result()?;
+    markup.push_str(MarkdownConverter::new(*description).convert());
+
+    let markup = MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: markup,
+    };
+
+    item.documentation = Some(Documentation::MarkupContent(markup));
+
+    Ok(())
+
+}
+
 unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
 
     let source = data.source.as_ref().into_result()?;
@@ -215,13 +248,15 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
 pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
 
     // Handle arguments specially.
-    if let Some(kind) = item.kind {
-        if kind == CompletionItemKind::FIELD {
-            return resolve_argument_completion_item(item, data);
+    match data.kind {
+        CompletionKind::Parameter => resolve_argument_completion_item(item, data),
+        CompletionKind::Function => resolve_function_completion_item(item, data),
+        _ => {
+            warn!("Unhandled completion kind '{:?}'", data.kind);
+            Ok(())
         }
     }
 
-    Ok(())
 
 }
 
