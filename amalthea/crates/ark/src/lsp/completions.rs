@@ -10,6 +10,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use anyhow::bail;
+use ego_tree::NodeRef;
 use harp::eval::RParseEvalOptions;
 use harp::eval::r_parse_eval;
 use harp::exec::geterrmessage;
@@ -46,7 +47,6 @@ use crate::lsp::indexer::index_document;
 use crate::lsp::document::Document;
 use crate::lsp::markdown::MarkdownConverter;
 use crate::lsp::traits::cursor::TreeCursorExt;
-use crate::lsp::traits::node::NodeExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::tree::TreeExt;
@@ -58,10 +58,22 @@ lazy_static! {
         Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap();
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+enum CompletionKind {
+    Function,
+    Object,
+    Parameter,
+    Package,
+    RoxygenTag,
+    Snippet,
+    Unknown,
+}
+
 // Completions should be tagged with a CompletionData object, so that further
 // information about a completion can be resolved lazily via the
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CompletionData {
+    kind: CompletionKind,
     value: String,
     source: Option<String>,
 }
@@ -125,63 +137,78 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
     // <td>
     // Parameter documentation.
     // </td></tr>
+    //
+    // Note that parameters might be parsed as part of different, multiple tables;
+    // we need to iterate over all tables after the Arguments header.
+
 
     let doc = Html::parse_document(html.as_str());
     let selector = Selector::parse("h3").unwrap();
     let mut headers = doc.select(&selector);
     let header = headers.find(|node| node.html() == "<h3>Arguments</h3>").into_result()?;
 
-    // Find the table. Note that empty lines enter the AST, so we need to skip those
-    // even though the table is the next element sibling.
-    let table = header.next_siblings().find(|node| {
-        node.value().as_element().map(|elt| elt.name() == "table").unwrap_or(false)
-    }).into_result()?;
-
-    // Wrap the table back into an element reference.
-    let table = ElementRef::wrap(table).into_result()?;
-
-    // I really wish R included classes on these table elements...
-    let selector = Selector::parse(r#"tr[style="vertical-align: top;"] > td"#).unwrap();
-    let mut cells = table.select(&selector);
-
-    // Start iterating through pairs of cells.
+    let mut node = *header;
     loop {
 
-        // Get the parameters. Note that multiple parameters might be contained
-        // within a single table cell, so we'll need to split that later.
-        let lhs = unwrap!(cells.next(), None => { break });
-        let parameters : String = lhs.text().collect();
+        // Get the next node.
+        node = unwrap!(node.next_sibling(), None => { break });
 
-        // Get the parameter description. We'll convert this from HTML to Markdown.
-        let rhs = unwrap!(cells.next(), None => { break });
+        // See if it's an element.
+        let element = unwrap!(ElementRef::wrap(node), None => { continue });
+        info!("Element: {}", element.html());
 
-        // Check and see if we've found the parameter we care about.
-        let pattern = Regex::new("\\s*,\\s*").unwrap();
-        let mut params = pattern.split(parameters.as_str());
-        let label = params.find(|&value| value == item.label);
-        if label.is_none() {
+        // If it's a header, time to stop parsing.
+        if element.value().name() == "h3" {
+            break;
+        }
+
+        if element.value().name() != "table" {
             continue;
         }
 
-        // We found the relevant parameter; add its documentation.
-        let mut converter = MarkdownConverter::new(*rhs);
-        let description = converter.convert();
+        // I really wish R included classes on these table elements...
+        let selector = Selector::parse(r#"tr[style="vertical-align: top;"] > td"#).unwrap();
+        let mut cells = element.select(&selector);
 
-        let markup = MarkupContent {
-            kind: MarkupKind::Markdown,
-            value: description.to_string(),
-        };
+        // Start iterating through pairs of cells.
+        loop {
 
-        // Build the actual markup content.
-        // We found it; amend the documentation.
-        item.detail = Some(format!("{}()", source));
-        item.documentation = Some(Documentation::MarkupContent(markup));
-        return Ok(())
+            // Get the parameters. Note that multiple parameters might be contained
+            // within a single table cell, so we'll need to split that later.
+            let lhs = unwrap!(cells.next(), None => { break });
+            let parameters : String = lhs.text().collect();
+
+            // Get the parameter description. We'll convert this from HTML to Markdown.
+            let rhs = unwrap!(cells.next(), None => { break });
+
+            // Check and see if we've found the parameter we care about.
+            let pattern = Regex::new("\\s*,\\s*").unwrap();
+            let mut params = pattern.split(parameters.as_str());
+            let label = params.find(|&value| value == item.label);
+            if label.is_none() {
+                continue;
+            }
+
+            // We found the relevant parameter; add its documentation.
+            let mut converter = MarkdownConverter::new(*rhs);
+            let description = converter.convert();
+
+            let markup = MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: description.to_string(),
+            };
+
+            // Build the actual markup content.
+            // We found it; amend the documentation.
+            item.detail = Some(format!("{}()", source));
+            item.documentation = Some(Documentation::MarkupContent(markup));
+            return Ok(())
+
+        }
 
     }
 
     Ok(())
-
 
 }
 
@@ -198,6 +225,16 @@ pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &Completi
 
 }
 
+fn completion_item(label: impl AsRef<str>, data: CompletionData) -> Result<CompletionItem> {
+
+    Ok(CompletionItem {
+        label: label.as_ref().to_string(),
+        data: Some(serde_json::to_value(data)?),
+        ..Default::default()
+    })
+
+}
+
 fn completion_item_from_assignment(node: &Node, source: &str) -> Result<CompletionItem> {
 
     let lhs = node.child_by_field_name("lhs").into_result()?;
@@ -205,10 +242,11 @@ fn completion_item_from_assignment(node: &Node, source: &str) -> Result<Completi
 
     let label = lhs.utf8_text(source.as_bytes())?;
 
-    let mut item = CompletionItem {
-        label: label.to_string(),
-        ..Default::default()
-    };
+    let mut item = completion_item(label, CompletionData {
+        kind: CompletionKind::Unknown,
+        source: None,
+        value: label.to_string(),
+    })?;
 
     let detail = format!("Defined on line {}", lhs.start_position().row + 1);
     item.detail = Some(detail);
@@ -226,10 +264,11 @@ fn completion_item_from_assignment(node: &Node, source: &str) -> Result<Completi
 
 unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Result<CompletionItem> {
 
-    let mut item = CompletionItem {
-        label: package.to_string(),
-        ..Default::default()
-    };
+    let mut item = completion_item(package.to_string(), CompletionData {
+        kind: CompletionKind::Package,
+        source: None,
+        value: package.to_string(),
+    })?;
 
     item.kind = Some(CompletionItemKind::MODULE);
 
@@ -243,24 +282,19 @@ unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Re
         });
     }
 
-    let data = CompletionData {
-        source: None,
-        value: package.to_string(),
-    };
-
-    item.data = Some(serde_json::to_value(data)?);
     return Ok(item);
 
 }
 
 unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
 
-    let mut item = CompletionItem {
-        label: format!("{}()", name),
-        ..Default::default()
-    };
+    let label = format!("{}()", name);
+    let mut item = completion_item(label, CompletionData {
+        kind: CompletionKind::Function,
+        source: None,
+        value: name.to_string(),
+    })?;
 
-    // item.detail = Some("(Function)".to_string());
     item.kind = Some(CompletionItemKind::FUNCTION);
 
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
@@ -277,21 +311,16 @@ unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
         ..Default::default()
     });
 
-    let data = CompletionData {
-        source: None,
-        value: name.to_string(),
-    };
-
-    item.data = Some(serde_json::to_value(data)?);
     return Ok(item);
 }
 
 unsafe fn completion_item_from_name(name: &str, callee: &str, enquote: bool) -> Result<CompletionItem> {
 
-    let mut item = CompletionItem {
-        label: name.to_string(),
-        ..Default::default()
-    };
+    let mut item = completion_item(name.to_string(), CompletionData {
+        kind: CompletionKind::Unknown,
+        source: Some(callee.to_string()),
+        value: name.to_string(),
+    })?;
 
     if enquote {
         item.insert_text = Some(format!("\"{}\"", name));
@@ -319,15 +348,17 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
         return completion_item_from_function(name);
     }
 
-    let mut item = CompletionItem {
-        label: quote_if_non_syntactic(name),
-        ..Default::default()
-    };
+    let mut item = completion_item(name, CompletionData {
+        kind: CompletionKind::Object,
+        source: None,
+        value: name.to_string()
+    })?;
 
     item.detail = Some("(Object)".to_string());
     item.kind = Some(CompletionItemKind::STRUCT);
 
     let data = CompletionData {
+        kind: CompletionKind::Object,
         source: None,
         value: name.to_string(),
     };
@@ -353,29 +384,25 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
 // that is considered in-scope at the cursor position.
 fn completion_item_from_parameter(parameter: &str, context: &CompletionContext) -> Result<CompletionItem> {
 
-    let mut item = CompletionItem {
-        label: quote_if_non_syntactic(parameter),
-        ..Default::default()
-    };
+    let mut item = completion_item(parameter, CompletionData {
+        kind: CompletionKind::Parameter,
+        source: None,
+        value: parameter.to_string(),
+    })?;
 
     item.kind = Some(CompletionItemKind::VARIABLE);
-
-    // let data = CompletionData {
-    //     source: Some(callee.to_string()),
-    //     value: parameter.to_string(),
-    // };
-
-    // item.data = Some(serde_json::to_value(data)?);
     Ok(item)
 
 }
 
 unsafe fn completion_item_from_argument(parameter: &str, callee: &str) -> Result<CompletionItem> {
 
-    let mut item = CompletionItem {
-        label: quote_if_non_syntactic(parameter),
-        ..Default::default()
-    };
+    let label = quote_if_non_syntactic(parameter);
+    let mut item = completion_item(label, CompletionData {
+        kind: CompletionKind::Parameter,
+        source: Some(callee.to_string()),
+        value: parameter.to_string(),
+    })?;
 
     // TODO: It'd be nice if we could be smarter about how '...' completions are handled,
     // but evidently VSCode doesn't let us set an empty 'insert text' string here.
@@ -388,13 +415,7 @@ unsafe fn completion_item_from_argument(parameter: &str, callee: &str) -> Result
         Some(parameter.to_string() + " = ")
     };
 
-    let data = CompletionData {
-        source: Some(callee.to_string()),
-        value: parameter.to_string(),
-    };
-
-    item.data = Some(serde_json::to_value(data)?);
-    return Ok(item);
+    Ok(item)
 
 }
 
@@ -571,9 +592,6 @@ unsafe fn append_call_completions(context: &CompletionContext, cursor_node: &Nod
     let callee = call_node.child(0).into_result()?.utf8_text(context.source.as_bytes())?;
 
     // Check for library completions.
-    info!("Call node: {}", call_node.dump(context.source.as_str()));
-    info!("Cursor node: {}", cursor_node.dump(context.source.as_str()));
-
     let mut cursor_node = *cursor_node;
     let can_use_library_completions = local! {
 
@@ -701,7 +719,7 @@ unsafe fn append_namespace_completions(_context: &CompletionContext, package: &s
 
 }
 
-fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
+fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::Result<()> {
 
     // add some built-in snippet completions for control flow
     // NOTE: We don't use placeholder names for the final cursor locations below,
@@ -717,10 +735,13 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
     ];
 
     for snippet in snippets {
-        let mut item = CompletionItem {
-            label: snippet.0.to_string(),
-            ..Default::default()
-        };
+
+        let label = snippet.0.to_string();
+        let mut item = completion_item(label.to_string(), CompletionData {
+            kind: CompletionKind::Snippet,
+            source: None,
+            value: label.to_string(),
+        })?;
 
         item.detail = Some("[keyword]".to_string());
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
@@ -750,12 +771,14 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) {
         completions.push(item);
     }
 
+    Ok(())
+
 }
 
 unsafe fn append_search_path_completions(_context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     // start with keywords
-    append_keyword_completions(completions);
+    append_keyword_completions(completions)?;
 
     // Iterate through environments starting from the global environment.
     let mut envir = R_GlobalEnv;
@@ -834,10 +857,11 @@ unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<Complet
         });
 
         let label = name.to_string();
-        let mut item = CompletionItem {
-            label: label.clone(),
-            ..Default::default()
-        };
+        let mut item = completion_item(label.clone(), CompletionData {
+            kind: CompletionKind::RoxygenTag,
+            source: None,
+            value: label.clone(),
+        })?;
 
         // TODO: What is the appropriate icon for us to use here?
         let template = entry["template"].as_str();
