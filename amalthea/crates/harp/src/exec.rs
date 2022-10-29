@@ -17,8 +17,19 @@ use crate::r_symbol;
 use crate::utils::r_inherits;
 
 pub struct RArgument {
-    name: String,
-    value: RObject,
+    pub name: String,
+    pub value: RObject,
+}
+
+impl RArgument {
+
+    pub fn new(name: &str, value: RObject) -> Self {
+        Self {
+            name: name.to_string(),
+            value: value
+        }
+    }
+
 }
 
 pub struct RFunction {

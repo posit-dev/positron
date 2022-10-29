@@ -226,6 +226,12 @@ impl From<Vec<String>> for RObject {
 
 /// RObject ->
 
+impl From<RObject> for SEXP {
+    fn from(object: RObject) -> Self {
+        object.data
+    }
+}
+
 // TODO: Need to handle NA elements as well.
 impl TryFrom<RObject> for bool {
     type Error = crate::error::Error;
@@ -242,10 +248,15 @@ impl TryFrom<RObject> for String {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, &[STRSXP])?;
-            r_check_length(*value, 1)?;
 
-            let charsexp = STRING_ELT(*value, 0);
+            let types = &[CHARSXP | STRSXP | SYMSXP];
+            let charsexp = match r_typeof(*value) {
+                CHARSXP => *value,
+                STRSXP => { r_check_length(*value, 1)?; STRING_ELT(*value, 0) },
+                SYMSXP => PRINTNAME(*value),
+                _ => return Err(Error::UnexpectedType(r_typeof(*value), types.to_vec())),
+            };
+
             let utf8text = Rf_translateCharUTF8(charsexp);
             Ok(CStr::from_ptr(utf8text).to_str()?.to_string())
         }

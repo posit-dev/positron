@@ -5,6 +5,27 @@
 //
 //
 
+pub fn joined<T: AsRef<str>>(values: &[T], delimiter: &str) -> String {
+
+    let mut buffer = String::new();
+
+    let mut it = values.iter();
+
+    // handle first element
+    match it.next() {
+        Some(value) => buffer.push_str(value.as_ref()),
+        None => return buffer,
+    }
+
+    // handle rest
+    for value in it {
+        buffer.push_str(delimiter);
+        buffer.push_str(value.as_ref());
+    }
+
+    buffer
+}
+
 #[macro_export]
 macro_rules! join {
 
