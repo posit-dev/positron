@@ -161,7 +161,7 @@ impl Backend {
 
             // return identifier text contents
             let contents = document.contents.to_string();
-            let symbol = node.utf8_text(contents.as_bytes()).expect("node contents");
+            let symbol = node.utf8_text(contents.as_bytes())?;
 
             Ok(Context {
                 kind: kind,
