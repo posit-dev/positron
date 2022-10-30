@@ -96,7 +96,7 @@ impl RFunction {
         // append arguments to the call
         let mut slot = CDR(call);
         for argument in self.arguments.iter() {
-            SETCAR(slot, argument.value.data);
+            SETCAR(slot, argument.value.sexp);
             if !argument.name.is_empty() {
                 SET_TAG(slot, r_symbol!(argument.name));
             }

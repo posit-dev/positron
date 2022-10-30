@@ -17,6 +17,8 @@ use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::r_symbol;
+use crate::vector::CharacterVector;
+use crate::vector::Vector;
 
 pub unsafe fn r_check_type(object: SEXP, expected: &[u32]) -> Result<u32> {
 
@@ -31,6 +33,17 @@ pub unsafe fn r_check_type(object: SEXP, expected: &[u32]) -> Result<u32> {
 
 }
 
+pub unsafe fn r_check_capacity(object: SEXP, required: u32) -> Result<u32> {
+
+    let actual = Rf_length(object) as u32;
+    if actual < required {
+        return Err(Error::UnexpectedLength(actual, required));
+    }
+
+    Ok(actual)
+
+}
+
 pub unsafe fn r_check_length(object: SEXP, expected: u32) -> Result<u32> {
 
     let actual = Rf_length(object) as u32;
@@ -39,6 +52,7 @@ pub unsafe fn r_check_length(object: SEXP, expected: u32) -> Result<u32> {
     }
 
     Ok(actual)
+
 }
 
 pub unsafe fn r_typeof(object: SEXP) -> u32 {
@@ -87,5 +101,24 @@ pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
     }
 
     Ok(arguments)
+
+}
+
+pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
+
+    r_check_type(envir, &[ENVSXP])?;
+
+    if R_IsPackageEnv(envir) != 0 {
+        let name = RObject::from(R_PackageEnvName(envir));
+        return name.to::<String>();
+    }
+
+    if R_IsNamespaceEnv(envir) != 0 {
+        let spec = CharacterVector::try_from(R_NamespaceEnvSpec(envir))?;
+        let package = spec.elt(0)?;
+        return Ok(package);
+    }
+
+    Ok(format!("{:p}", envir))
 
 }
