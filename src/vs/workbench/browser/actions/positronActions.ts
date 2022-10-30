@@ -14,7 +14,7 @@ import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
 import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
 import { showNewWorkspaceModalDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceModalDialog';
-import { showNewWorkspaceFromGitDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceFromGitDialog';
+import { showNewWorkspaceFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceFromGitModalDialog';
 import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 
@@ -99,7 +99,7 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 		const commandService = accessor.get(ICommandService);
 		const configService = accessor.get(IConfigurationService);
 
-		const result = await showNewWorkspaceFromGitDialog(accessor);
+		const result = await showNewWorkspaceFromGitModalDialog(accessor);
 		if (result?.repo) {
 			// temporarily set openAfterClone to facilitate result.newWindow
 			// then set it back afterwards
