@@ -17,6 +17,7 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
+use harp::utils::r_envir_name;
 use harp::utils::r_formals;
 use lazy_static::lazy_static;
 use libR_sys::*;
@@ -121,6 +122,45 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
 }
 
+unsafe fn resolve_package_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+
+    let package = data.value.clone();
+    let topic = join!(package, "-package");
+
+    let html = RFunction::from(".rs.help.getHtmlHelpContents")
+        .param("topic", topic)
+        .param("package", package)
+        .call()?
+        .to::<String>()?;
+
+    let doc = Html::parse_document(html.as_str());
+    let mut markup = String::new();
+
+    // Get the page title header.
+    let selector = Selector::parse("h2").unwrap();
+    let header = doc.select(&selector).next().into_result()?;
+
+    markup.push_str("**");
+    markup.push_str(header.text().collect::<String>().as_str().trim());
+    markup.push_str("**");
+    markup.push_str("\n\n");
+
+    // Get the description.
+    let selector = Selector::parse("h3 + p").unwrap();
+    let description = doc.select(&selector).next().into_result()?;
+    markup.push_str(MarkdownConverter::new(*description).convert().trim());
+
+    let markup = MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: markup.trim().to_string(),
+    };
+
+    item.detail = None;
+    item.documentation = Some(Documentation::MarkupContent(markup));
+
+    Ok(())
+}
+
 unsafe fn resolve_function_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
 
     let html = RFunction::from(".rs.help.getHtmlHelpContents")
@@ -135,15 +175,17 @@ unsafe fn resolve_function_completion_item(item: &mut CompletionItem, data: &Com
     let selector = Selector::parse("h2").unwrap();
     let header = doc.select(&selector).next().into_result()?;
 
-    // h2 feels a little too big, so we construct a smaller header by hand here.
-    markup.push_str("#### ");
-    markup.push_str(header.text().collect::<String>().as_str());
+    // Add it as bold text. We don't use header-style markup as it
+    // introduces too much padding around the header field.
+    markup.push_str("**");
+    markup.push_str(header.text().collect::<String>().as_str().trim());
+    markup.push_str("**");
     markup.push_str("\n\n");
 
     // Get the description.
     let selector = Selector::parse("h3 + p").unwrap();
     let description = doc.select(&selector).next().into_result()?;
-    markup.push_str(MarkdownConverter::new(*description).convert());
+    markup.push_str(MarkdownConverter::new(*description).convert().trim());
 
     let markup = MarkupContent {
         kind: MarkupKind::Markdown,
@@ -248,6 +290,7 @@ pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &Completi
 
     // Handle arguments specially.
     match data.kind {
+        CompletionKind::Package   => resolve_package_completion_item(item, data),
         CompletionKind::Parameter => resolve_argument_completion_item(item, data),
         CompletionKind::Function  => resolve_function_completion_item(item, data),
         _ => {
@@ -320,12 +363,12 @@ unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Re
 
 }
 
-unsafe fn completion_item_from_function<T: AsRef<str>>(name: &str, parameters: &[T]) -> Result<CompletionItem> {
+unsafe fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: &str, parameters: &[T]) -> Result<CompletionItem> {
 
     let label = format!("{}()", name);
     let mut item = completion_item(label, CompletionData {
         kind: CompletionKind::Function,
-        source: None,
+        source: Some(envir.to_string()),
         value: name.to_string(),
     })?;
 
@@ -382,9 +425,10 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
     }
 
     if Rf_isFunction(object) != 0 {
+        let envir = r_envir_name(envir)?;
         let formals = r_formals(object)?;
         let arguments = formals.iter().map(|formal| formal.name.as_str()).collect::<Vec<_>>();
-        return completion_item_from_function(name, &arguments);
+        return completion_item_from_function(name, envir.as_str(), &arguments);
     }
 
     let mut item = completion_item(name, CompletionData {
@@ -785,12 +829,7 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::
 
         item.detail = Some("[keyword]".to_string());
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-
-        item.insert_text = if snippet.1 == "return" {
-            Some(format!("{}()", snippet.1.to_string()))
-        } else {
-            Some(format!("{} ()", snippet.1.to_string()))
-        };
+        item.insert_text = Some(snippet.1.to_string());
 
         completions.push(item);
     }
