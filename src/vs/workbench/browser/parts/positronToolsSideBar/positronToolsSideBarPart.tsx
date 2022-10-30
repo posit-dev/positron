@@ -12,7 +12,7 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronToolsSideBar } from 'vs/workbench/browser/parts/positronToolsSideBar/positronToolsSideBar';
@@ -109,4 +109,4 @@ export class PositronToolsSideBarPart extends Part implements IPositronToolsSide
 }
 
 // Register the IPositronToolsSideBarService singleton.
-registerSingleton(IPositronToolsSideBarService, PositronToolsSideBarPart, false);
+registerSingleton(IPositronToolsSideBarService, PositronToolsSideBarPart, InstantiationType.Eager);
