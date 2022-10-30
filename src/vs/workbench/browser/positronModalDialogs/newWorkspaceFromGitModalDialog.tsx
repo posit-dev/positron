@@ -25,7 +25,7 @@ export interface NewWorkspaceFromGitResult {
 }
 
 /**
- * Shows the NewWorkspaceModalDialog..
+ * Shows the NewWorkspaceFromGitModalDialog..
  * @param accessor The services accessor.
  * @returns The component.
  */
