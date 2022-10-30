@@ -13,7 +13,7 @@ import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
 import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ToolsBarFocused } from 'vs/workbench/common/contextkeys';
-import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
 import { IWorkbenchLayoutService, Parts, Position } from 'vs/workbench/services/layout/browser/layoutService';
@@ -397,4 +397,4 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 }
 
 // Register the IPositronToolsBarService singleton.
-registerSingleton(IPositronToolsBarService, PositronToolsBarPart, false);
+registerSingleton(IPositronToolsBarService, PositronToolsBarPart, InstantiationType.Eager);
