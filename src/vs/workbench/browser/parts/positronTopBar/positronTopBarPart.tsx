@@ -12,7 +12,7 @@ import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
@@ -147,7 +147,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 	//#endregion IPositronTopBarService
 }
 
-registerSingleton(IPositronTopBarService, PositronTopBarPart, false);
+registerSingleton(IPositronTopBarService, PositronTopBarPart, InstantiationType.Eager);
 
 // Keybindings
 
