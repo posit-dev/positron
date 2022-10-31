@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topBarRegion';
-const React = require('react');
-import { PropsWithChildren } from 'react';
+import * as React from 'react';
+import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 
 /**
  * TopBarRegionProps interface.

@@ -3,8 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronModalDialogs';
-import * as _ from 'react';
-const React = require('react');
+import * as React from 'react';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/browser/positronModalDialogs';
 import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/testContent';

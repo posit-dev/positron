@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronModalDialog';
-const React = require('react');
-import { PropsWithChildren, useCallback, useEffect } from 'react';
+import * as React from 'react';
+import { PropsWithChildren, useCallback, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { SimpleTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/simpleTitleBar';
 import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
 import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';

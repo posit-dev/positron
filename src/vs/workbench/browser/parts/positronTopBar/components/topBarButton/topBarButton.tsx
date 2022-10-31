@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topBarButton';
-const React = require('react');
-import { forwardRef } from 'react';
+import * as React from 'react';
+import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { Tooltip } from 'vs/workbench/browser/parts/positronTopBar/components/tooltip/tooltip';
 
 /**
