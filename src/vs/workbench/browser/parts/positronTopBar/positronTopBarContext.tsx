@@ -2,8 +2,8 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-const React = require('react');
-import { PropsWithChildren, createContext, useContext } from 'react';
+import * as React from 'react';
+import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
 import { PositronTopBarState, usePositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
 

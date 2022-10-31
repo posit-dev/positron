@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/css/positronToolsSideBar';
-const React = require('react');
-import { useEffect, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { HelpTool } from 'vs/workbench/browser/parts/positronToolsSideBar/components/helpTool/helpTool';
 import { PlotTool } from 'vs/workbench/browser/parts/positronToolsSideBar/components/plotTool/plotTool';
 import { ViewerTool } from 'vs/workbench/browser/parts/positronToolsSideBar/components/viewerTool/viewerTool';

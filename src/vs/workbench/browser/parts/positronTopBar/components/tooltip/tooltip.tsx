@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./tooltip';
-const React = require('react');
-import { PropsWithChildren, useEffect, useState } from 'react';
+import * as React from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**

@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topBarSeparator';
-const React = require('react');
+import * as React from 'react';
 
 /**
  * TopBarSeparator component.

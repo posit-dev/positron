@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/css/positronTopBarPart';
-const React = require('react');
+import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { Part } from 'vs/workbench/browser/part';
 import { KeyCode } from 'vs/base/common/keyCodes';

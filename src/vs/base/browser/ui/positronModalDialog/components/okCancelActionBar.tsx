@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./okCancelActionBar';
-require('react');
 import * as React from 'react';
 
 /**

@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./textInput';
-const React = require('react');
-import { forwardRef } from 'react';
+import * as React from 'react';
+import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 export interface TextInputProps {
 	label: string;

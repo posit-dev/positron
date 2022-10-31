@@ -3,8 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./okActionBar';
-require('react');
+
+// React Imports
 import * as React from 'react';
+// React Imports
 
 /**
  * okActionBarProps interface.
