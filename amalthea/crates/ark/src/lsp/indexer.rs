@@ -32,7 +32,7 @@ fn index_node(source: &str, node: &Node, index: &mut Vec<IndexedSymbol>) {
 fn index_node_function_definition(source: &str, node: &Node, index: &mut Vec<IndexedSymbol>) -> bool {
 
     // Check for assignment.
-    if !matches!(node.kind(), "left_assignment" | "equals_assignment") {
+    if !matches!(node.kind(), "<-" | "=") {
         return false;
     }
 
@@ -50,7 +50,7 @@ fn index_node_function_definition(source: &str, node: &Node, index: &mut Vec<Ind
         return false;
     });
 
-    if !matches!(rhs.kind(), "function_definition") {
+    if !matches!(rhs.kind(), "function") {
         return false;
     }
 

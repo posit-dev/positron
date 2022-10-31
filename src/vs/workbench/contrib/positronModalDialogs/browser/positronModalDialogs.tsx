@@ -10,10 +10,10 @@ import { IPositronModalDialogsService } from 'vs/workbench/services/positronModa
 import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/testContent';
 import { OKActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okActionBar';
 import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
-import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { SimpleTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/simpleTitleBar';
-import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
+import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
+import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 
 /**
  * PositronModalDialogs class.
@@ -47,7 +47,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			// The modal dialog component.
 			const ModalDialog = () => {
 				return (
-					<PositronModalDialog width={400} height={300} enter={acceptHandler} escape={acceptHandler}>
+					<PositronModalDialog width={400} height={300} accept={acceptHandler} cancel={acceptHandler}>
 						<SimpleTitleBar title={title} />
 						<ContentArea>
 							<TestContent message='Example' />
@@ -72,21 +72,27 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(this.layoutService.container);
 
 			// The accept handler.
-			const acceptHandler = (result: boolean) => {
+			const acceptHandler = () => {
 				positronModalDialogReactRenderer.destroy();
-				resolve(result);
+				resolve(true);
+			};
+
+			// The cancel handler.
+			const cancelHandler = () => {
+				positronModalDialogReactRenderer.destroy();
+				resolve(false);
 			};
 
 			// The modal dialog component.
 			const ModalDialog = () => {
 				// Render.
 				return (
-					<PositronModalDialog width={400} height={300} enter={() => acceptHandler(true)} escape={() => acceptHandler(false)}>
+					<PositronModalDialog width={400} height={300} accept={acceptHandler} cancel={cancelHandler}>
 						<SimpleTitleBar title={title} />
 						<ContentArea>
 							<TestContent message='Example' />
 						</ContentArea>
-						<OKCancelActionBar ok={() => acceptHandler(true)} cancel={() => acceptHandler(false)} />
+						<OKCancelActionBar accept={acceptHandler} cancel={cancelHandler} />
 					</PositronModalDialog>
 				);
 			};
