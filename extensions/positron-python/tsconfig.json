@@ -43,6 +43,7 @@
         "tmp"
     ],
     "include": [
+        "src/*",
         "src/client/**/*",
         "typings/*.d.ts",
         "../../src/vscode-dts/vscode.d.ts",
