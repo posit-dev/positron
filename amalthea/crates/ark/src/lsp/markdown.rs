@@ -39,7 +39,8 @@ impl<'a> MarkdownConverter<'a> {
 
     fn convert_element(&mut self, element: ElementRef<'a>) {
 
-        match element.value().name() {
+        let name = element.value().name();
+        match name {
 
             "code" => {
                 self.buffer.push('`');
@@ -50,7 +51,9 @@ impl<'a> MarkdownConverter<'a> {
             }
 
             "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                self.buffer.push_str("## ");
+                let count = name.chars().nth(1).unwrap_or('0').to_digit(10).unwrap_or(0);
+                self.buffer.push_str("#".repeat(count as usize).as_str());
+                self.buffer.push(' ');
                 for child in element.children() {
                     self.convert_node(child);
                 }

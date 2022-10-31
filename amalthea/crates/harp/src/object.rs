@@ -24,6 +24,8 @@ use crate::protect::RProtect;
 use crate::utils::r_check_length;
 use crate::utils::r_check_type;
 use crate::utils::r_typeof;
+use crate::vector::CharacterVector;
+use crate::vector::Vector;
 
 // Objects are protected using a doubly-linked list,
 // allowing for quick insertion and removal of objects.
@@ -99,7 +101,7 @@ unsafe fn unprotect(cell: SEXP) {
 }
 
 pub struct RObject {
-    pub data: SEXP,
+    pub sexp: SEXP,
     pub cell: SEXP,
 }
 
@@ -111,7 +113,7 @@ impl<T: Into<RObject>> RObjectExt<T> for RObject {
     unsafe fn elt(&self, index: T) -> crate::error::Result<RObject> {
         let index: RObject = index.into();
         RFunction::new("base", "[[")
-            .add(self.data)
+            .add(self.sexp)
             .add(index)
             .call()
     }
@@ -120,11 +122,11 @@ impl<T: Into<RObject>> RObjectExt<T> for RObject {
 impl RObject {
 
     pub unsafe fn new(data: SEXP) -> Self {
-        RObject { data, cell: protect(data) }
+        RObject { sexp: data, cell: protect(data) }
     }
 
     pub unsafe fn null() -> Self {
-        RObject { data: R_NilValue, cell: R_NilValue }
+        RObject { sexp: R_NilValue, cell: R_NilValue }
     }
 
     // A helper function that makes '.try_into()' more ergonomic to use.
@@ -145,17 +147,17 @@ impl Drop for RObject {
 impl Deref for RObject {
     type Target = SEXP;
     fn deref(&self) -> &Self::Target {
-        &self.data
+        &self.sexp
     }
 }
 
 impl DerefMut for RObject {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        &mut self.sexp
     }
 }
 
-///  -> RObject
+/// Convert other object types into RObjects.
 impl From<SEXP> for RObject {
     fn from(value: SEXP) -> Self {
         unsafe { RObject::new(value) }
@@ -224,7 +226,24 @@ impl From<Vec<String>> for RObject {
 }
 
 
-/// RObject ->
+/// Convert RObject into other types.
+
+impl From<RObject> for SEXP {
+    fn from(object: RObject) -> Self {
+        object.sexp
+    }
+}
+
+impl TryFrom<RObject> for CharacterVector {
+    type Error = crate::error::Error;
+
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_check_type(*value, &[STRSXP])?;
+            Ok(CharacterVector::wrap(value))
+        }
+    }
+}
 
 // TODO: Need to handle NA elements as well.
 impl TryFrom<RObject> for bool {
@@ -242,10 +261,15 @@ impl TryFrom<RObject> for String {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, &[STRSXP])?;
-            r_check_length(*value, 1)?;
 
-            let charsexp = STRING_ELT(*value, 0);
+            let types = &[CHARSXP | STRSXP | SYMSXP];
+            let charsexp = match r_typeof(*value) {
+                CHARSXP => *value,
+                STRSXP => { r_check_length(*value, 1)?; STRING_ELT(*value, 0) },
+                SYMSXP => PRINTNAME(*value),
+                _ => return Err(Error::UnexpectedType(r_typeof(*value), types.to_vec())),
+            };
+
             let utf8text = Rf_translateCharUTF8(charsexp);
             Ok(CStr::from_ptr(utf8text).to_str()?.to_string())
         }
