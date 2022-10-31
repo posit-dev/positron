@@ -171,7 +171,9 @@ jobs:
 
       # Compress universal client to a zip file
       - name: Create universal client archive
-        run: zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip VSCode-darwin-universal
+        run: |
+          cd VSCode-darwin-universal
+          zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip *
 
       # Create a GitHub release for the universal binary we just created.
       #
