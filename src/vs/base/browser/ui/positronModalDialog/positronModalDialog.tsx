@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronModalDialog';
-const React = require('react');
-import { PropsWithChildren, useCallback, useEffect } from 'react';
+import * as React from 'react';
+import { PropsWithChildren, useCallback, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 
 /**
  * Grossness.

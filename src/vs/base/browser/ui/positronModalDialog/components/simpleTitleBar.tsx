@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./simpleTitleBar';
-require('react');
 import * as React from 'react';
 
 /**

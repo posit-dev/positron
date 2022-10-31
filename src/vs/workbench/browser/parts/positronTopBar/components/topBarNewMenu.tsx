@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import React = require('react');
+import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';

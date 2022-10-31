@@ -2,8 +2,8 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import React = require('react');
-import { useEffect, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';

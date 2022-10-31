@@ -13,6 +13,7 @@ pub mod object;
 pub mod protect;
 pub mod test;
 pub mod utils;
+pub mod vector;
 
 pub fn initialize() {
     lock::initialize();

@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/css/positronToolsSideBarPart';
-const React = require('react');
+import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { Part } from 'vs/workbench/browser/part';
 import { ToolsSideBarFocused } from 'vs/workbench/common/contextkeys';

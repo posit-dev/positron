@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./directoryInput';
-const React = require('react');
+import * as React from 'react';
 
 export interface DirectoryInputProps {
 	label: string;

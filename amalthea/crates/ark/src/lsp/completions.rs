@@ -10,7 +10,6 @@ use std::path::Path;
 
 use anyhow::Result;
 use anyhow::bail;
-use ego_tree::NodeRef;
 use harp::eval::RParseEvalOptions;
 use harp::eval::r_parse_eval;
 use harp::exec::geterrmessage;
@@ -18,6 +17,8 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
+use harp::utils::r_envir_name;
+use harp::utils::r_formals;
 use lazy_static::lazy_static;
 use libR_sys::*;
 use log::*;
@@ -29,6 +30,7 @@ use scraper::Selector;
 use serde::Deserialize;
 use serde::Serialize;
 use stdext::*;
+use stdext::join::joined;
 use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::Command;
 use tower_lsp::lsp_types::CompletionItem;
@@ -120,6 +122,45 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
 }
 
+unsafe fn resolve_package_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+
+    let package = data.value.clone();
+    let topic = join!(package, "-package");
+
+    let html = RFunction::from(".rs.help.getHtmlHelpContents")
+        .param("topic", topic)
+        .param("package", package)
+        .call()?
+        .to::<String>()?;
+
+    let doc = Html::parse_document(html.as_str());
+    let mut markup = String::new();
+
+    // Get the page title header.
+    let selector = Selector::parse("h2").unwrap();
+    let header = doc.select(&selector).next().into_result()?;
+
+    markup.push_str("**");
+    markup.push_str(header.text().collect::<String>().as_str().trim());
+    markup.push_str("**");
+    markup.push_str("\n\n");
+
+    // Get the description.
+    let selector = Selector::parse("h3 + p").unwrap();
+    let description = doc.select(&selector).next().into_result()?;
+    markup.push_str(MarkdownConverter::new(*description).convert().trim());
+
+    let markup = MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: markup.trim().to_string(),
+    };
+
+    item.detail = None;
+    item.documentation = Some(Documentation::MarkupContent(markup));
+
+    Ok(())
+}
+
 unsafe fn resolve_function_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
 
     let html = RFunction::from(".rs.help.getHtmlHelpContents")
@@ -133,14 +174,18 @@ unsafe fn resolve_function_completion_item(item: &mut CompletionItem, data: &Com
     // Get the page title header.
     let selector = Selector::parse("h2").unwrap();
     let header = doc.select(&selector).next().into_result()?;
-    markup.push_str(MarkdownConverter::new(*header).convert());
 
+    // Add it as bold text. We don't use header-style markup as it
+    // introduces too much padding around the header field.
+    markup.push_str("**");
+    markup.push_str(header.text().collect::<String>().as_str().trim());
+    markup.push_str("**");
     markup.push_str("\n\n");
 
     // Get the description.
     let selector = Selector::parse("h3 + p").unwrap();
     let description = doc.select(&selector).next().into_result()?;
-    markup.push_str(MarkdownConverter::new(*description).convert());
+    markup.push_str(MarkdownConverter::new(*description).convert().trim());
 
     let markup = MarkupContent {
         kind: MarkupKind::Markdown,
@@ -173,8 +218,6 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
     //
     // Note that parameters might be parsed as part of different, multiple tables;
     // we need to iterate over all tables after the Arguments header.
-
-
     let doc = Html::parse_document(html.as_str());
     let selector = Selector::parse("h3").unwrap();
     let mut headers = doc.select(&selector);
@@ -193,9 +236,7 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
         // If it's a header, time to stop parsing.
         if element.value().name() == "h3" {
             break;
-        }
-
-        if element.value().name() != "table" {
+        } else if element.value().name() != "table" {
             continue;
         }
 
@@ -249,8 +290,9 @@ pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &Completi
 
     // Handle arguments specially.
     match data.kind {
+        CompletionKind::Package   => resolve_package_completion_item(item, data),
         CompletionKind::Parameter => resolve_argument_completion_item(item, data),
-        CompletionKind::Function => resolve_function_completion_item(item, data),
+        CompletionKind::Function  => resolve_function_completion_item(item, data),
         _ => {
             warn!("Unhandled completion kind '{:?}'", data.kind);
             Ok(())
@@ -321,16 +363,19 @@ unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Re
 
 }
 
-unsafe fn completion_item_from_function(name: &str) -> Result<CompletionItem> {
+unsafe fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: &str, parameters: &[T]) -> Result<CompletionItem> {
 
     let label = format!("{}()", name);
     let mut item = completion_item(label, CompletionData {
         kind: CompletionKind::Function,
-        source: None,
+        source: Some(envir.to_string()),
         value: name.to_string(),
     })?;
 
     item.kind = Some(CompletionItemKind::FUNCTION);
+
+    let detail = format!("{}({})", name, joined(parameters, ", "));
+    item.detail = Some(detail);
 
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
     item.insert_text = if is_syntactic(name) {
@@ -380,7 +425,10 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
     }
 
     if Rf_isFunction(object) != 0 {
-        return completion_item_from_function(name);
+        let envir = r_envir_name(envir)?;
+        let formals = r_formals(object)?;
+        let arguments = formals.iter().map(|formal| formal.name.as_str()).collect::<Vec<_>>();
+        return completion_item_from_function(name, envir.as_str(), &arguments);
     }
 
     let mut item = completion_item(name, CompletionData {
@@ -745,8 +793,9 @@ unsafe fn append_namespace_completions(_context: &CompletionContext, package: &s
 
     let strings = symbols.to::<Vec<String>>()?;
     for string in strings.iter() {
-        if let Ok(item) = completion_item_from_symbol(string, *namespace) {
-            completions.push(item);
+        match completion_item_from_symbol(string, *namespace) {
+            Ok(item) => completions.push(item),
+            Err(error) => error!("{:?}", error),
         }
     }
 
@@ -780,12 +829,7 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::
 
         item.detail = Some("[keyword]".to_string());
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-
-        item.insert_text = if snippet.1 == "return" {
-            Some(format!("{}()", snippet.1.to_string()))
-        } else {
-            Some(format!("{} ()", snippet.1.to_string()))
-        };
+        item.insert_text = Some(snippet.1.to_string());
 
         completions.push(item);
     }
@@ -835,8 +879,9 @@ unsafe fn append_search_path_completions(_context: &CompletionContext, completio
             });
         }
         for string in strings.iter() {
-            if let Ok(item) = completion_item_from_symbol(string, envir) {
-                completions.push(item);
+            match completion_item_from_symbol(string, envir) {
+                Ok(item) => completions.push(item),
+                Err(error) => error!("{:?}", error),
             }
         }
 
