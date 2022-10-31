@@ -82,7 +82,7 @@ export const showNewWorkspaceModalDialog = async (accessor: ServicesAccessor): P
 
 			// Render.
 			return (
-				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceDialogTitle', "New Workspace")} acceptHandler={acceptHandler} cancelHandler={cancelHandler}>
+				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceDialogTitle', "New Workspace")} accept={acceptHandler} cancel={cancelHandler}>
 					<TextInput
 						ref={directoryNameRef}
 						autoFocus label='Directory name'

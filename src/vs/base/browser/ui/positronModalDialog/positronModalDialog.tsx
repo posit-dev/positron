@@ -19,8 +19,8 @@ interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
  */
 export interface OKCancelModalDialogProps extends PositronModalDialogProps {
 	title: string;
-	acceptHandler: () => void;
-	cancelHandler: () => void;
+	accept: () => void;
+	cancel: () => void;
 }
 
 /**
@@ -46,8 +46,8 @@ export const OKCancelModalDialog = (props: PropsWithChildren<OKCancelModalDialog
 export interface PositronModalDialogProps {
 	width: number;
 	height: number;
-	enter?: () => void;
-	escape?: () => void;
+	accept?: () => void;
+	cancel?: () => void;
 }
 
 /**
@@ -66,11 +66,11 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		// Handle the event.
 		switch (event.key) {
 			case 'Enter':
-				props.enter?.();
+				props.accept?.();
 				suppressEvent();
 				break;
 			case 'Escape':
-				props.escape?.();
+				props.cancel?.();
 				suppressEvent();
 				break;
 		}

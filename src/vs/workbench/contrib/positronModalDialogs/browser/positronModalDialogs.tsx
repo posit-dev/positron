@@ -47,7 +47,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			// The modal dialog component.
 			const ModalDialog = () => {
 				return (
-					<PositronModalDialog width={400} height={300} enter={acceptHandler} escape={acceptHandler}>
+					<PositronModalDialog width={400} height={300} accept={acceptHandler} cancel={acceptHandler}>
 						<SimpleTitleBar title={title} />
 						<ContentArea>
 							<TestContent message='Example' />
@@ -87,12 +87,12 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			const ModalDialog = () => {
 				// Render.
 				return (
-					<PositronModalDialog width={400} height={300} enter={acceptHandler} escape={cancelHandler}>
+					<PositronModalDialog width={400} height={300} accept={acceptHandler} cancel={cancelHandler}>
 						<SimpleTitleBar title={title} />
 						<ContentArea>
 							<TestContent message='Example' />
 						</ContentArea>
-						<OKCancelActionBar acceptHandler={acceptHandler} cancelHandler={cancelHandler} />
+						<OKCancelActionBar accept={acceptHandler} cancel={cancelHandler} />
 					</PositronModalDialog>
 				);
 			};
