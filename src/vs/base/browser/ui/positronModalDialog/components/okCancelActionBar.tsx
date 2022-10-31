@@ -10,8 +10,8 @@ import * as React from 'react';
  * OKCancelActionBarProps interface.
  */
 interface OKCancelActionBarProps {
-	acceptHandler: () => void;
-	cancelHandler: () => void;
+	accept: () => void;
+	cancel: () => void;
 }
 
 /**
@@ -22,10 +22,10 @@ export const OKCancelActionBar = (props: OKCancelActionBarProps) => {
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
-			<a className='push-button default' tabIndex={0} role='button' onClick={props.acceptHandler}>
+			<a className='push-button default' tabIndex={0} role='button' onClick={props.accept}>
 				OK
 			</a>
-			<a className='push-button' tabIndex={0} role='button' onClick={props.cancelHandler}>
+			<a className='push-button' tabIndex={0} role='button' onClick={props.cancel}>
 				Cancel
 			</a>
 		</div>

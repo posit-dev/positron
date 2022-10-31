@@ -82,7 +82,7 @@ export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAcces
 
 			// Render.
 			return (
-				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceDialogTitle', "New Workspace from Git")} acceptHandler={acceptHandler} cancelHandler={cancelHandler}>
+				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceDialogTitle', "New Workspace from Git")} accept={acceptHandler} cancel={cancelHandler}>
 					<TextInput
 						ref={directoryNameRef}
 						autoFocus label='Repository URL'
