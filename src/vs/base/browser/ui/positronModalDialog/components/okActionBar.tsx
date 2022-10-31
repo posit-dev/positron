@@ -10,7 +10,8 @@ import * as React from 'react';
  * okActionBarProps interface.
  */
 interface OKActionBarProps {
-	ok: () => void;
+	okButtonTitle?: string;
+	accept: () => void;
 }
 
 /**
@@ -21,7 +22,7 @@ export const OKActionBar = (props: OKActionBarProps) => {
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
-			<a className='push-button default' tabIndex={0} role='button' onClick={props.ok}>
+			<a className='push-button default' tabIndex={0} role='button' onClick={props.accept}>
 				OK
 			</a>
 		</div>

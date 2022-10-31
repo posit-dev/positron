@@ -5,40 +5,11 @@
 import 'vs/css!./positronModalDialog';
 const React = require('react');
 import { PropsWithChildren, useCallback, useEffect } from 'react';
-import { SimpleTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/simpleTitleBar';
-import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
-import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 
 /**
  * Grossness.
  */
 interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
-
-/**
- * OKCancelModalDialogProps interface.
- */
-export interface OKCancelModalDialogProps extends PositronModalDialogProps {
-	title: string;
-	accept: () => void;
-	cancel: () => void;
-}
-
-/**
- * OKCancelModalDialog component.
- * @param props The properties.
- * @returns The component.
- */
-export const OKCancelModalDialog = (props: PropsWithChildren<OKCancelModalDialogProps>) => {
-	return (
-		<PositronModalDialog {...props}>
-			<SimpleTitleBar {...props} />
-			<ContentArea>
-				{props.children}
-			</ContentArea>
-			<OKCancelActionBar {...props} />
-		</PositronModalDialog>
-	);
-};
 
 /**
  * PositronModalDialogProps interface.

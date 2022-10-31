@@ -33,7 +33,7 @@ a.push-button {
 }
 
 a.push-button.default {
-	font-weight: 700;
+	background: var(--vscode-modalDialog-defaultButtonBackground);
 }
 
 a.push-button:hover {

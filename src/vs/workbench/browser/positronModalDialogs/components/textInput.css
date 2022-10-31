@@ -11,3 +11,19 @@
 	margin-top: 2px;
 	width: 98%;
 }
+
+.tata {
+	border: 1px solid red;
+	border-radius: 4px;
+	padding: 4px 4px;
+}
+
+/*
+.tata:active {
+	border: 1px solid green;
+}
+*/
+
+/* .tata:focus {
+	border: 1px solid green;
+} */

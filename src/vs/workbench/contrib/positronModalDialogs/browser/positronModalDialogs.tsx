@@ -52,7 +52,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 						<ContentArea>
 							<TestContent message='Example' />
 						</ContentArea>
-						<OKActionBar ok={acceptHandler} />
+						<OKActionBar accept={acceptHandler} />
 					</PositronModalDialog>
 				);
 			};

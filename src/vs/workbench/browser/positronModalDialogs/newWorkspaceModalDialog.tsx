@@ -10,9 +10,9 @@ import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { TextInput } from 'vs/workbench/browser/positronModalDialogs/components/textInput';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { CheckBoxInput } from 'vs/workbench/browser/positronModalDialogs/components/checkBoxInput';
 import { DirectoryInput } from 'vs/workbench/browser/positronModalDialogs/components/directoryInput';
+import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 
 /**

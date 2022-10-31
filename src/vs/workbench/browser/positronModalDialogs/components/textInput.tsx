@@ -19,6 +19,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>((props: Te
 			<label>
 				{props.label}: <br />
 				<input
+					className='tata'
 					ref={ref}
 					type='text'
 					value={props.value}
