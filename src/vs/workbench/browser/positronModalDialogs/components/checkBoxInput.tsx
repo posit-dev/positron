@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./checkBoxInput';
-const React = require('react');
+import * as React from 'react';
 
 export interface CheckBoxInputProps {
 	label: string;
