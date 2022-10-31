@@ -2,10 +2,10 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-const React = require('react');
+import * as React from 'react';
+import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
-import { useRef, useState } from 'react';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { TextInput } from 'vs/workbench/browser/positronModalDialogs/components/textInput';

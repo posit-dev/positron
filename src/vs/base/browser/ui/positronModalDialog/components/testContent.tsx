@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./testContent';
-const React = require('react');
-import { useEffect, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // TestContentProps interface.
 interface TestContentProps {
