@@ -17,4 +17,9 @@ vscode.lsif
 vscode.db
 /.profile-oss
 /cli/target
+
+# --- Start Positron ---
 .Rproj.user
+/extensions/positron-python/
+# --- End Positron ---
+

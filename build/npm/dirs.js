@@ -10,6 +10,7 @@ exports.dirs = [
 	'extensions',
 	// --- Start Positron ---
 	'extensions/ark',
+	'extensions/positron-python',
 	// --- End Positron ---
 	'extensions/configuration-editing',
 	'extensions/css-language-features',

@@ -150,3 +150,10 @@ function getHeaderInfo(rcFile) {
 		? { disturl, target }
 		: undefined;
 }
+
+
+// --- Start Positron ---
+// TOOD: make more robust against dirty working dir, etc.
+console.log(`Installing positron built-in extensions...`);
+cp.execSync('git -C positron-python pull || git clone git@github.com:posit-dev/positron-python.git positron-python', { cwd: 'extensions' })
+// --- End Positron ---
