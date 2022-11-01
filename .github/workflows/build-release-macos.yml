@@ -55,6 +55,8 @@ jobs:
       # Perform initial (arm64) dependency download/install
       - name: Install dependencies (arm64)
         run: yarn
+        env:
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
 
       # Build client for arm64
       - name: Build client (arm64)
@@ -91,6 +93,7 @@ jobs:
       - name: Install dependencies (x64)
         env:
           npm_config_arch: x64
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn
 
       # Build client for x64
