@@ -32,6 +32,7 @@ const extensionsPath = path.join(path.dirname(__dirname), 'extensions');
 const compilations = [
 	// --- Start Positron ---
 	'ark/tsconfig.json',
+	'positron-python/tsconfig.json',
 	// --- End Positron ---
 	'authentication-proxy/tsconfig.json',
 	'configuration-editing/build/tsconfig.json',
