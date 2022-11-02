@@ -12,10 +12,11 @@ use crate::utils::r_type2char;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Error {
-    ParseError(String, String),
-    EvaluationError(String, String),
+    HelpTopicNotFoundError { topic: String, package: Option<String> },
+    ParseError { code: String, message: String },
+    EvaluationError { code: String, message: String },
     UnsafeEvaluationError(String),
     UnexpectedLength(u32, u32),
     UnexpectedType(u32, Vec<u32>),
@@ -23,18 +24,34 @@ pub enum Error {
 }
 
 // empty implementation required for 'anyhow'
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::InvalidUtf8(source) => Some(source),
+            _ => None,
+        }
+    }
+
+}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
 
-            Error::ParseError(code, message) => {
+            Error::HelpTopicNotFoundError { topic, package } => {
+                match package {
+                    Some(package) => write!(f, "Help topic '{}' not available in package '{}'", topic, package),
+                    None => write!(f, "Help topic '{}' not available", topic),
+                }
+            }
+
+            Error::ParseError { code, message } => {
                 write!(f, "Error parsing {}: {}", code, message)
             }
 
-            Error::EvaluationError(expression, message) => {
-                write!(f, "Error evaluating {}: {}", expression, message)
+            Error::EvaluationError { code, message } => {
+                write!(f, "Error evaluating {}: {}", code, message)
             }
 
             Error::UnsafeEvaluationError(code) => {

@@ -99,7 +99,17 @@
     .rs.stopf("No help available for topic '%s'", topic)
 
   # Get the help documentation.
-  rd <- utils:::.getHelpFile(helpFiles[[1L]])
+  helpFile <- helpFiles[[1L]]
+  rd <- utils:::.getHelpFile(helpFile)
+
+  # Set 'package' now if it was unknown.
+  if (identical(package, "")) {
+    pattern <- "/library/([^/]+)/"
+    m <- regexec(pattern, helpFile, perl = TRUE)
+    matches <- regmatches(helpFile, m)
+    if (length(matches) && length(matches[[1L]] == 2L))
+      package <- matches[[1L]][[2L]]
+  }
 
   # Convert to html.
   htmlFile <- tempfile(fileext = ".html")

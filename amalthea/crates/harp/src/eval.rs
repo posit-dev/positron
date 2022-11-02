@@ -33,8 +33,10 @@ pub unsafe fn r_parse_eval(code: &str, options: RParseEvalOptions) -> Result<ROb
     let parsed_sexp = protect.add(R_ParseVector(string_sexp, 1, &mut status, R_NilValue));
 
     if status != ParseStatus_PARSE_OK {
-        let message = geterrmessage();
-        return Err(Error::ParseError(code.to_string(), message));
+        return Err(Error::ParseError {
+            code: code.to_string(),
+            message: geterrmessage(),
+        });
     }
 
     // Evaluate the provided code.
@@ -44,8 +46,10 @@ pub unsafe fn r_parse_eval(code: &str, options: RParseEvalOptions) -> Result<ROb
         let mut errc : i32 = 0;
         value = R_tryEvalSilent(expr, R_GlobalEnv, &mut errc);
         if errc != 0 {
-            let message = geterrmessage();
-            return Err(Error::EvaluationError(code.to_string(), message))
+            return Err(Error::EvaluationError {
+                code: code.to_string(),
+                message: geterrmessage()
+            });
         }
     }
 

@@ -32,6 +32,7 @@ use crate::lsp::completions::completion_context;
 use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition_context;
 use crate::lsp::document::Document;
+use crate::lsp::hover::hover;
 use crate::lsp::modules;
 use crate::request::Request;
 
@@ -261,7 +262,8 @@ impl LanguageServer for Backend {
         // 'visible' to the user.
 
         // build completion context
-        let context = unwrap!(completion_context(document.value_mut(), params), Err(error) => {
+        let context = completion_context(document.value_mut(), &params.text_document_position);
+        let context = unwrap!(context, Err(error) => {
             error!("{:?}", error);
             return Ok(None);
         });
@@ -338,10 +340,31 @@ impl LanguageServer for Backend {
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
         backend_trace!(self, "hover({:?})", params);
+
+        // get document reference
+        let uri = &params.text_document_position_params.text_document.uri;
+        let document = unwrap!(self.documents.get_mut(uri), None => {
+            backend_trace!(self, "hover(): No document associated with URI {}", uri);
+            return Ok(None);
+        });
+
+        // build completion context
+        let context = completion_context(&document, &params.text_document_position_params);
+        let context = unwrap!(context, Err(error) => {
+            error!("{:?}", error);
+            return Ok(None);
+        });
+
+        // request hover information
+        let result = unsafe {
+            unwrap!(hover(&document, &context), Err(error) => {
+                error!("{:?}", error);
+                return Ok(None);
+            })
+        };
+
         Ok(Some(Hover {
-            contents: HoverContents::Scalar(MarkedString::from_markdown(String::from(
-                "Hello world!",
-            ))),
+            contents: HoverContents::Markup(result),
             range: None,
         }))
     }

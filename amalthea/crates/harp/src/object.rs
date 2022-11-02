@@ -21,8 +21,8 @@ use crate::error::Error;
 use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
 use crate::protect::RProtect;
-use crate::utils::r_check_length;
-use crate::utils::r_check_type;
+use crate::utils::r_assert_length;
+use crate::utils::r_assert_type;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
 use crate::vector::Vector;
@@ -34,6 +34,10 @@ static mut PRECIOUS_LIST : Option<SEXP> = None;
 
 unsafe fn protect(object: SEXP) -> SEXP {
 
+    // Protect the incoming object, just in case.
+    Rf_protect(object);
+
+    // Initialize the precious list.
     PRECIOUS_LIST_ONCE.call_once(|| {
         let precious_list = Rf_cons(R_NilValue, Rf_cons(R_NilValue, R_NilValue));
         R_PreserveObject(precious_list);
@@ -43,9 +47,6 @@ unsafe fn protect(object: SEXP) -> SEXP {
     if object == R_NilValue {
         return R_NilValue;
     }
-
-    // Protect the incoming object, just in case.
-    Rf_protect(object);
 
     let precious_list = PRECIOUS_LIST.unwrap_unchecked();
 
@@ -123,6 +124,10 @@ impl RObject {
 
     pub unsafe fn new(data: SEXP) -> Self {
         RObject { sexp: data, cell: protect(data) }
+    }
+
+    pub unsafe fn view(data: SEXP) -> Self {
+        RObject { sexp: data, cell: R_NilValue }
     }
 
     pub unsafe fn null() -> Self {
@@ -239,7 +244,7 @@ impl TryFrom<RObject> for CharacterVector {
 
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, &[STRSXP])?;
+            r_assert_type(*value, &[STRSXP])?;
             Ok(CharacterVector::wrap(value))
         }
     }
@@ -250,8 +255,8 @@ impl TryFrom<RObject> for bool {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, &[LGLSXP])?;
-            r_check_length(*value, 1)?;
+            r_assert_type(*value, &[LGLSXP])?;
+            r_assert_length(*value, 1)?;
             return Ok(*LOGICAL(*value) != 0);
         }
     }
@@ -265,7 +270,7 @@ impl TryFrom<RObject> for String {
             let types = &[CHARSXP | STRSXP | SYMSXP];
             let charsexp = match r_typeof(*value) {
                 CHARSXP => *value,
-                STRSXP => { r_check_length(*value, 1)?; STRING_ELT(*value, 0) },
+                STRSXP => { r_assert_length(*value, 1)?; STRING_ELT(*value, 0) },
                 SYMSXP => PRINTNAME(*value),
                 _ => return Err(Error::UnexpectedType(r_typeof(*value), types.to_vec())),
             };
@@ -280,7 +285,7 @@ impl TryFrom<RObject> for Vec<String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, &[STRSXP, NILSXP])?;
+            r_assert_type(*value, &[STRSXP, NILSXP])?;
 
             let mut result : Vec<String> = Vec::new();
             let n = Rf_length(*value);
@@ -300,7 +305,7 @@ impl TryFrom<RObject> for i32 {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_length(*value, 1)?;
+            r_assert_length(*value, 1)?;
             match r_typeof(*value) {
                 INTSXP => { Ok((*INTEGER(*value)) as i32) }
                 REALSXP => { Ok((*REAL(*value)) as i32) }
@@ -314,10 +319,10 @@ impl TryFrom<RObject> for HashMap<String, String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
-            r_check_type(*value, &[STRSXP, VECSXP])?;
+            r_assert_type(*value, &[STRSXP, VECSXP])?;
 
             let names = Rf_getAttrib(*value, R_NamesSymbol);
-            r_check_type(names, &[STRSXP])?;
+            r_assert_type(names, &[STRSXP])?;
 
             let mut protect = RProtect::new();
             let value = protect.add(Rf_coerceVector(*value, STRSXP));

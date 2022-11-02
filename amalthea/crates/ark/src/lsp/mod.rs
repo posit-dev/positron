@@ -10,6 +10,7 @@ pub mod comm;
 pub mod completions;
 pub mod definitions;
 pub mod document;
+pub mod hover;
 pub mod indexer;
 pub mod markdown;
 pub mod modules;

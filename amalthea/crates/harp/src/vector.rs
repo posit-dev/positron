@@ -11,7 +11,7 @@ use libR_sys::*;
 
 use crate::error::Result;
 use crate::object::RObject;
-use crate::utils::r_check_capacity;
+use crate::utils::r_assert_capacity;
 
 pub trait Vector {
     type ElementType;
@@ -32,7 +32,7 @@ impl Vector for CharacterVector {
     }
 
     unsafe fn elt(&self, index: u32) -> Result<String> {
-        r_check_capacity(*self.object, index + 1)?;
+        r_assert_capacity(*self.object, index + 1)?;
         let charsexp = STRING_ELT(*self.object, index as isize);
         let cstr = Rf_translateCharUTF8(charsexp);
         let string = CStr::from_ptr(cstr).to_string_lossy().to_string();
