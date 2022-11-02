@@ -9,12 +9,9 @@
 
 use ego_tree::NodeRef;
 use scraper::ElementRef;
-use scraper::Html;
 use scraper::Node;
-use scraper::Selector;
 use scraper::node::Text;
 use stdext::join;
-use stdext::unwrap;
 
 pub fn md_codeblock(language: &str, code: &str) -> String {
     join!("``` ", language, "\n", code, "\n", "```", "\n")
@@ -84,42 +81,6 @@ pub fn elt_next(node: ElementRef) -> Option<ElementRef> {
 
 }
 
-// TODO: Better name; this is really "for each section in an R HTML help document"
-pub fn elt_foreach(doc: &Html, mut callback: impl FnMut(ElementRef, Vec<ElementRef>)) {
-
-    // find all h3 headers in the document
-    let selector = Selector::parse("h3").unwrap();
-    let headers = doc.select(&selector);
-
-    // iterate through them, and pass each (+ the 'body' of the node) to the callback
-    for header in headers {
-
-        // collect all the elements following up to the next header
-        let mut elements: Vec<ElementRef> = Vec::new();
-
-        // start with the current header
-        let mut elt = header;
-
-        // find the next element -- we might need to skip interleaving nodes
-        loop {
-
-            // get the next element (if any)
-            elt = unwrap!(elt_next(elt), None => { break });
-
-            // if we got an h3, assume that's the start of the next section
-            if matches!(elt.value().name(), "h3") { break }
-
-            // add it to our list of elements
-            elements.push(elt);
-
-        }
-
-        // execute the callback
-        callback(header, elements);
-
-    }
-
-}
 
 pub struct MarkdownConverter<'a> {
     node: NodeRef<'a, Node>,
