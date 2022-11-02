@@ -37,7 +37,7 @@ pub unsafe fn initialize() {
 
 }
 
-pub(crate) unsafe fn import(file: &str, envir: SEXP) {
+pub unsafe fn import(file: &str, envir: SEXP) {
 
     RFunction::new("base", "sys.source")
         .param("file", file)

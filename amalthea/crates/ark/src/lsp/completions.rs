@@ -45,9 +45,8 @@ use tree_sitter::Node;
 use tree_sitter::Point;
 use yaml_rust::YamlLoader;
 
-use crate::lsp::indexer::IndexedSymbol;
-use crate::lsp::indexer::index_document;
 use crate::lsp::document::Document;
+use crate::lsp::indexer;
 use crate::lsp::markdown::MarkdownConverter;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
@@ -725,23 +724,26 @@ unsafe fn append_argument_completions(context: &CompletionContext, callee: &str,
     info!("append_argument_completions({:?})", callee);
 
     // Check for a function defined in this document that can provide parameters.
+    // TODO: Get reference to workspace index, and then look for this document.
     // TODO: Move this to a separate 'resolve()' function which takes some 'callee'
     // and provides a definition for that (probably an enum?)
-    let index = index_document(context.document);
-    for symbol in index {
-        match symbol {
-            IndexedSymbol::Function { name, arguments } => {
-                if name == callee {
-                    for argument in arguments {
-                        match completion_item_from_argument(argument.as_str(), name.as_str()) {
-                            Ok(item) => completions.push(item),
-                            Err(error) => error!("{:?}", error),
-                        }
+    if let Some((_path, entry)) = indexer::find(callee) {
+
+        match entry.data {
+
+            indexer::IndexEntryData::Function { name, arguments } => {
+                for argument in arguments {
+                    match completion_item_from_argument(argument.as_str(), name.as_str()) {
+                        Ok(item) => completions.push(item),
+                        Err(error) => error!("{:?}", error),
                     }
-                    return Ok(());
                 }
-            }
+            },
+
+            _ => {}
+
         }
+
     }
 
     // TODO: Given the callee, we should also try to find its definition within
@@ -977,7 +979,7 @@ unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<Complet
 
 }
 
-pub(crate) fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> Result<bool> {
+pub fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> Result<bool> {
 
     // figure out the token / node at the cursor position. note that we use
     // the previous token here as the cursor itself will be located just past
@@ -1073,7 +1075,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 
 }
 
-pub(crate) fn append_document_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
+pub fn append_document_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     // get reference to AST
     let ast = context.document.ast()?;
