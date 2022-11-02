@@ -37,7 +37,7 @@ async function main() {
             '.npmrc',
 			'electron.napi.node',
 			'node.napi.node',
-			'_pydevd_bundle'
+			'pydevd'
         ],
         outAppPath,
         force: true

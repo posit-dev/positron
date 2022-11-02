@@ -43,7 +43,7 @@ async function main() {
 			'electron.napi.node', // ZeroMQ Electron architecture-specific pre-built binary
 			'node.napi.node',     // ZeroMQ Electron architecture-specific pre-built binary
 			// Exclusions from Python extension bundle
-			'_pydevd_bundle'      // Cython pre-built binary
+			'pydevd'              // Cython pre-built binaries for Python debugging
 			// --- End Positron ---
 		],
 		outAppPath,
