@@ -5,11 +5,6 @@
 //
 //
 
-use crate::kernel::KernelInfo;
-use crate::lsp;
-use crate::lsp::handler::Lsp;
-use crate::request::Request;
-
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::language::lsp_handler::LspHandler;
 use amalthea::socket::iopub::IOPubMessage;
@@ -38,11 +33,17 @@ use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
 use harp::object::RObject;
 use libR_sys::*;
-use log::{debug, trace, warn};
+use log::*;
 use serde_json::json;
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+
+use crate::kernel::KernelInfo;
+use crate::lsp;
+use crate::lsp::handler::Lsp;
+use crate::request::Request;
+
 
 pub struct Shell {
     req_sender: SyncSender<Request>,

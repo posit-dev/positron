@@ -21,7 +21,6 @@ use harp::utils::r_envir_name;
 use harp::utils::r_formals;
 use lazy_static::lazy_static;
 use libR_sys::*;
-use log::*;
 use regex::Captures;
 use regex::Regex;
 use scraper::ElementRef;
@@ -45,6 +44,7 @@ use tree_sitter::Node;
 use tree_sitter::Point;
 use yaml_rust::YamlLoader;
 
+use crate::*;
 use crate::lsp::indexer::IndexedSymbol;
 use crate::lsp::indexer::index_document;
 use crate::lsp::document::Document;

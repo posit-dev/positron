@@ -7,14 +7,10 @@
 
 #![allow(unused_unsafe)]
 
-use crate::control::Control;
-use crate::shell::Shell;
-use crate::version::detect_r;
 use amalthea::connection_file::ConnectionFile;
 use amalthea::kernel::Kernel;
 use amalthea::kernel_spec::KernelSpec;
 use amalthea::socket::iopub::IOPubMessage;
-use log::{debug, error, info};
 use std::env;
 use std::io::stdin;
 use std::sync::mpsc::sync_channel;
@@ -24,11 +20,15 @@ use stdext::unwrap;
 mod control;
 mod interface;
 mod kernel;
-mod logger;
+mod log;
 mod lsp;
 mod request;
 mod shell;
 mod version;
+
+use crate::control::Control;
+use crate::shell::Shell;
+use crate::version::detect_r;
 
 fn start_kernel(connection_file: ConnectionFile) {
 
@@ -214,7 +214,7 @@ fn main() {
     }
 
     // Initialize the logger.
-    logger::initialize(log_file.as_deref());
+    log::initialize(log_file.as_deref());
 
     // Initialize harp.
     harp::initialize();

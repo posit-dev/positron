@@ -8,7 +8,6 @@
 use std::path::Path;
 
 use anyhow::bail;
-use log::info;
 use stdext::*;
 use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::Location;
@@ -20,6 +19,7 @@ use tree_sitter::Point;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
+use crate::*;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::url::UrlExt;
 use crate::lsp::backend::Backend;
