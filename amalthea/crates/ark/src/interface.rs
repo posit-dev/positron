@@ -11,7 +11,6 @@ use harp::lock::R_RUNTIME_TASKS_PENDING;
 use harp::utils::r_get_option;
 use libR_sys::*;
 use libc::{c_char, c_int};
-use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
 use std::path::Path;
@@ -25,6 +24,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 use stdext::*;
 
+use crate::*;
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
 use crate::request::Request;

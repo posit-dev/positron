@@ -13,7 +13,6 @@ use std::sync::Mutex;
 
 use dashmap::DashMap;
 use harp::r_lock;
-use log::*;
 use regex::Regex;
 use serde_json::Value;
 use stdext::*;
@@ -24,6 +23,7 @@ use tower_lsp::lsp_types::request::GotoImplementationParams;
 use tower_lsp::lsp_types::request::GotoImplementationResponse;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use crate::*;
 use crate::lsp::completions::CompletionData;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::completions::append_session_completions;

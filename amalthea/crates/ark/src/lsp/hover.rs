@@ -6,12 +6,6 @@
 //
 
 use anyhow::*;
-use harp::exec::RFunction;
-use harp::exec::RFunctionExt;
-use log::info;
-use scraper::Html;
-use scraper::Selector;
-use stdext::push;
 use stdext::unwrap;
 use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::MarkupContent;
@@ -20,11 +14,10 @@ use tree_sitter::Node;
 
 use crate::lsp::completions::CompletionContext;
 use crate::lsp::document::Document;
-use crate::lsp::markdown::*;
-use crate::lsp::markdown::md_newline;
+use crate::lsp::help::RHtmlHelp;
 
 enum HoverContext {
-    Topic(String),
+    Topic { topic: String },
     QualifiedTopic { package: String, topic: String },
 }
 
@@ -74,7 +67,7 @@ fn hover_context(node: Node, context: &CompletionContext) -> Result<Option<Hover
 
         // otherwise, use it
         let topic = node.utf8_text(context.source.as_bytes())?;
-        return Ok(Some(HoverContext::Topic(topic.to_string())));
+        return Ok(Some(HoverContext::Topic { topic: topic.to_string() }))
 
     }
 
@@ -85,15 +78,12 @@ fn hover_context(node: Node, context: &CompletionContext) -> Result<Option<Hover
 /// SAFETY: Requires access to the R runtime.
 pub unsafe fn hover(_document: &Document, context: &CompletionContext) -> anyhow::Result<MarkupContent> {
 
-    // the markdown string, built from parsing HTML help
-    let mut markdown = String::new();
-
     // get the node
     let node = &context.node;
 
     // check for identifier
-    if !matches!(node.kind(), "identifier" | "keyword") {
-        bail!("hover(): ignorning node {}; not an identifier | keyword", node.to_sexp());
+    if !matches!(node.kind(), "identifier" | "keyword" | "string") {
+        bail!("hover(): ignoring node {}", node.to_sexp());
     }
 
     let ctx = hover_context(*node, context)?;
@@ -101,102 +91,19 @@ pub unsafe fn hover(_document: &Document, context: &CompletionContext) -> anyhow
         bail!("hover(): no hover context available");
     });
 
-    // get help document
-    let mut callback = RFunction::from(".rs.help.getHtmlHelpContents");
-    match ctx {
+    let help = match ctx {
 
         HoverContext::QualifiedTopic { package, topic } => {
-            callback.param("topic", topic);
-            callback.param("package", package);
+            RHtmlHelp::new(topic.as_str(), Some(package.as_str()))?
         }
 
-        HoverContext::Topic(topic) => {
-            callback.param("topic", topic);
+        HoverContext::Topic { topic } => {
+            RHtmlHelp::new(topic.as_str(), None)?
         }
 
-    }
+    };
 
-    // if this is a namespace-qualified call, we should add the package explicitly
-    let help = callback.call()?.to::<String>()?;
-
-    // parse as html
-    let doc = Html::parse_document(help.as_str());
-
-    // get topic + title; normally available in first table in the document
-    let selector = Selector::parse("table").unwrap();
-    let preamble = doc.select(&selector).next().into_result()?;
-
-    // try to get the first cell
-    let selector = Selector::parse("td").unwrap();
-    let cell = preamble.select(&selector).next().into_result()?;
-    let preamble = elt_text(cell);
-    push!(markdown, md_italic(&preamble), md_newline());
-
-    // get title
-    let selector = Selector::parse("head > title").unwrap();
-    let title = doc.select(&selector).next().into_result()?;
-    let mut title = elt_text(title);
-
-    // R prepends 'R: ' to the title, so remove it if that exists
-    if title.starts_with("R: ") {
-        title.replace_range(0..3, "");
-    }
-
-    push!(markdown, md_h2(&title), md_newline(), "------\n");
-
-    // iterate through the different sections in the help file
-    elt_foreach(&doc, |header, elements| {
-
-        // add a title
-        let header = elt_text(header);
-        markdown.push_str(md_h3(header.as_str()).as_str());
-        markdown.push_str(md_newline().as_str());
-
-        // add body
-        let body = if matches!(header.as_str(), "Usage" | "Examples") {
-
-            let mut buffer = String::new();
-            for elt in elements {
-                let code = md_codeblock("r", elt_text(elt).as_str());
-                buffer.push_str(code.as_str());
-            }
-            buffer
-
-        } else if matches!(header.as_str(), "Arguments") {
-
-            // create a buffer for table output
-            let mut buffer = String::new();
-
-            // add an empty header
-            buffer.push_str("|     |     |\n");
-            buffer.push_str("| --- | --- |");
-
-            // generate the markdown table
-            for elt in elements {
-                let converter = MarkdownConverter::new(*elt);
-                let table = converter.convert();
-                buffer.push_str(table.as_str());
-            }
-
-            buffer
-
-        } else {
-
-            let mut buffer = String::new();
-            for elt in elements {
-                let converter = MarkdownConverter::new(*elt);
-                let markdown = converter.convert();
-                buffer.push_str(markdown.as_str());
-            }
-
-            buffer
-        };
-
-        markdown.push_str(body.as_str());
-        markdown.push_str(md_newline().as_str());
-
-    });
-
+    let markdown = help.markdown()?;
 
     Ok(MarkupContent {
         kind: MarkupKind::Markdown,

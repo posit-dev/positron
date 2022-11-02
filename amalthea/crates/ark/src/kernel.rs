@@ -23,12 +23,12 @@ use harp::object::RObject;
 use harp::r_symbol;
 use harp::utils::r_inherits;
 use libR_sys::*;
-use log::*;
 use serde_json::json;
 use std::result::Result::Err;
 use std::result::Result::Ok;
 use std::sync::mpsc::{Sender, SyncSender};
 
+use crate::*;
 use crate::request::Request;
 
 /// Represents the Rust state of the R kernel

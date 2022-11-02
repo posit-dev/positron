@@ -5,10 +5,10 @@
 //
 //
 
-use log::info;
 use stdext::*;
 use tree_sitter::Node;
 
+use crate::*;
 use crate::lsp::document::Document;
 
 #[derive(Debug)]
