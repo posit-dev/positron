@@ -8,7 +8,7 @@
 use tower_lsp::lsp_types::Position;
 use tree_sitter::Point;
 
-pub(crate) trait PositionExt {
+pub trait PositionExt {
     fn as_point(&self) -> Point;
 }
 

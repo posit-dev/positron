@@ -56,7 +56,7 @@ fn _find_impl<Callback: FnMut(Node) -> bool>(this: &mut TreeCursor, callback: &m
 }
 
 // Extension trait for the TreeSitter cursor object.
-pub(crate) trait TreeCursorExt {
+pub trait TreeCursorExt {
 
     // Recurse through all nodes in an AST, invoking a callback as those nodes
     // are visited. The callback can return `false` to indicate that we shouldn't

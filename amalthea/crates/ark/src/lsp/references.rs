@@ -225,7 +225,7 @@ impl Backend {
 
     }
 
-    pub(crate) fn find_references(&self, params: ReferenceParams) -> Result<Vec<Location>, ()> {
+    pub fn find_references(&self, params: ReferenceParams) -> Result<Vec<Location>, ()> {
 
         // Create our locations vector.
         let mut locations : Vec<Location> = Vec::new();

@@ -10,7 +10,7 @@ use tree_sitter::Node;
 use tree_sitter::Point;
 use tree_sitter::Tree;
 
-pub(crate) trait TreeExt {
+pub trait TreeExt {
     fn node_at_point(&self, point: Point) -> Result<Node>;
 }
 

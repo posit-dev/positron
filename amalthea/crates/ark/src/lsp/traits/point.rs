@@ -24,7 +24,7 @@ fn compare(lhs: Point, rhs: Point) -> i32 {
 
 }
 
-pub(crate) trait PointExt {
+pub trait PointExt {
 
     fn as_position(self) -> Position;
     fn is_before(self, other: Point) -> bool;
