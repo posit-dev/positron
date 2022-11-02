@@ -1,9 +1,9 @@
 name: "Positron: Build macOS Release"
 
-# run builds daily at 4am UTC (midnight EST) for now, or manually
+# run builds daily at 2am UTC (10p EST) for now, or manually
 on:
   schedule:
-  - cron: "0 4 * * *"
+  - cron: "0 2 * * *"
   workflow_dispatch:
 
 jobs:
