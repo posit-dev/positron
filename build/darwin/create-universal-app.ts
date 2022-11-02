@@ -39,8 +39,11 @@ async function main() {
 			'MainMenu.nib', // Generated sequence is not deterministic with Xcode 13
 			'.npmrc',
 			// --- Start Positron ---
+			// Exclusions from ZeroMQ node module
 			'electron.napi.node', // ZeroMQ Electron architecture-specific pre-built binary
-			'node.napi.node'      // ZeroMQ Electron architecture-specific pre-built binary
+			'node.napi.node',     // ZeroMQ Electron architecture-specific pre-built binary
+			// Exclusions from Python extension bundle
+			'_pydevd_bundle'      // Cython pre-built binary
 			// --- End Positron ---
 		],
 		outAppPath,

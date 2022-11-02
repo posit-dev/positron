@@ -36,7 +36,8 @@ async function main() {
             'MainMenu.nib',
             '.npmrc',
 			'electron.napi.node',
-			'node.napi.node'
+			'node.napi.node',
+			'_pydevd_bundle'
         ],
         outAppPath,
         force: true
