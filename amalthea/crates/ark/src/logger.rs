@@ -22,8 +22,7 @@ lazy_static! {
     static ref RE_BACKTRACE_HEADER : Regex = Regex::new("^\\s*Stack\\s+backtrace:?\\s*$").unwrap();
 }
 
-// Entry-point for logging methods.
-pub fn _log_impl(level: log::Level, mut message: String) {
+fn annotate(mut message: String) -> String {
 
     // split into lines
     let mut lines = message.split("\n").collect::<Vec<_>>();
@@ -55,52 +54,8 @@ pub fn _log_impl(level: log::Level, mut message: String) {
         }
     }
 
-    // log it
-    ::log::log!(level, "{}", message)
+    message
 
-}
-
-// Logging macros used so we can more easily append information about
-// where an error occurred. Uses the backtrace information provided
-// by anyhow when available.
-#[macro_export]
-macro_rules! error {
-    ($($tokens:tt)*) => {{
-        let message = format!($($tokens)*);
-        $crate::log::_log_impl(::log::Level::Error, message)
-    }}
-}
-
-#[macro_export]
-macro_rules! warn {
-    ($($tokens:tt)*) => {{
-        let message = format!($($tokens)*);
-        $crate::log::_log_impl(::log::Level::Warn, message)
-    }}
-}
-
-#[macro_export]
-macro_rules! info {
-    ($($tokens:tt)*) => {{
-        let message = format!($($tokens)*);
-        $crate::log::_log_impl(::log::Level::Info, message)
-    }}
-}
-
-#[macro_export]
-macro_rules! debug {
-    ($($tokens:tt)*) => {{
-        let message = format!($($tokens)*);
-        $crate::log::_log_impl(::log::Level::Debug, message)
-    }}
-}
-
-#[macro_export]
-macro_rules! trace {
-    ($($tokens:tt)*) => {{
-        let message = format!($($tokens)*);
-        $crate::log::_log_impl(::log::Level::Trace, message)
-    }}
 }
 
 struct Logger {
@@ -149,17 +104,25 @@ impl log::Log for Logger {
         let now: DateTime<Utc> = SystemTime::now().into();
         let timestamp = now.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
 
-        // Generate message to log.
-        let message = format!(
-            "{} [{}-{}] {} {}:{}: {}",
+        // Generate prefix.
+        let prefix = format!(
+            "{} [{}-{}] {} {}:{}",
             timestamp,
             "ark",
             "unknown", // TODO: Current user?
             record.level(),
             record.file().unwrap_or("?"),
             record.line().unwrap_or(0),
-            record.args()
         );
+
+        // Generate message.
+        let message = format!("{}", record.args());
+
+        // Annotate with the error location if a stack trace is available.
+        let message = annotate(message);
+
+        // Generate message to log.
+        let message = format!("{}: {}", prefix, message);
 
         // Write to stdout.
         if record.level() == log::Level::Error {
