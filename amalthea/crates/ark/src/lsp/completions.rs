@@ -40,6 +40,7 @@ use tower_lsp::lsp_types::Documentation;
 use tower_lsp::lsp_types::InsertTextFormat;
 use tower_lsp::lsp_types::MarkupContent;
 use tower_lsp::lsp_types::MarkupKind;
+use tower_lsp::lsp_types::TextDocumentPositionParams;
 use tree_sitter::Node;
 use tree_sitter::Point;
 use yaml_rust::YamlLoader;
@@ -81,11 +82,10 @@ pub struct CompletionData {
 }
 
 pub struct CompletionContext<'a> {
-    pub document: &'a mut Document,
-    pub token: String,
+    pub document: &'a Document,
+    pub node: Node<'a>,
     pub source: String,
     pub point: Point,
-    pub params: CompletionParams,
 }
 
 fn is_syntactic(name: &str) -> bool {
@@ -231,7 +231,6 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
 
         // See if it's an element.
         let element = unwrap!(ElementRef::wrap(node), None => { continue });
-        info!("Element: {}", element.html());
 
         // If it's a header, time to stop parsing.
         if element.value().name() == "h3" {
@@ -264,7 +263,7 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
             }
 
             // We found the relevant parameter; add its documentation.
-            let mut converter = MarkdownConverter::new(*rhs);
+            let converter = MarkdownConverter::new(*rhs);
             let description = converter.convert();
 
             let markup = MarkupContent {
@@ -465,7 +464,7 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
 
 // This is used when providing completions for a parameter in a document
 // that is considered in-scope at the cursor position.
-fn completion_item_from_parameter(parameter: &str, context: &CompletionContext) -> Result<CompletionItem> {
+fn completion_item_from_parameter(parameter: &str, _context: &CompletionContext) -> Result<CompletionItem> {
 
     let mut item = completion_item(parameter, CompletionData {
         kind: CompletionKind::Parameter,
@@ -502,13 +501,13 @@ unsafe fn completion_item_from_argument(parameter: &str, callee: &str) -> Result
 
 }
 
-pub fn completion_context<'a>(document: &'a mut Document, params: CompletionParams) -> Result<CompletionContext<'a>> {
+pub fn completion_context<'a>(document: &'a Document, position: &TextDocumentPositionParams) -> Result<CompletionContext<'a>> {
 
     // get reference to AST
     let ast = document.ast()?;
 
     // try to find node at completion position
-    let mut point = params.text_document_position.position.as_point();
+    let mut point = position.position.as_point();
     if point.column > 1 {
         point.column -= 1;
     }
@@ -516,10 +515,9 @@ pub fn completion_context<'a>(document: &'a mut Document, params: CompletionPara
     // use the node to figure out the completion token
     let node = ast.node_at_point(point)?;
     let source = document.contents.to_string();
-    let token = node.utf8_text(source.as_bytes())?.to_string();
 
     // build completion context
-    Ok(CompletionContext { document, token, source, point, params })
+    Ok(CompletionContext { document, node, source, point })
 
 }
 
