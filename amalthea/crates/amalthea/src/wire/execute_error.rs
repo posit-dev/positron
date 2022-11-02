@@ -1,7 +1,7 @@
 /*
  * execute_error.rs
  *
- * Copyright (C) 2022 by RStudio, PBC
+ * Copyright (C) 2022 by Posit, PBC
  *
  */
 
