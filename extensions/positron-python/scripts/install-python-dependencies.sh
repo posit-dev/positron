@@ -4,7 +4,7 @@
 ROOT_DIR=$(git rev-parse --show-toplevel)
 
 # Does the "python3" command exist on the path?
-if ! command -v python3 &> /dev/null
+if command -v python3 &> /dev/null
 then
     # For the purposes of dependecy installation, use python3 to supply the
     # python command by creating a symlink in the temporary folder and then
