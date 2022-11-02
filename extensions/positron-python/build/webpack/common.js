@@ -29,6 +29,12 @@ exports.nodeModulesToExternalize = [
     'xml2js',
 ];
 exports.nodeModulesToReplacePaths = [...exports.nodeModulesToExternalize];
+
+// --- Start Positron ---
+// Don't externalize paths in built-in extension.
+exports.nodeModulesToReplacePaths = [];
+// --- End Positron ---
+//
 function getDefaultPlugins(name) {
     const plugins = [];
     // Only run the analyzer on a local machine or if required
