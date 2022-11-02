@@ -8,9 +8,9 @@
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use libR_sys::*;
+use log::*;
 use walkdir::WalkDir;
 
-use crate::*;
 
 pub unsafe fn initialize() {
 

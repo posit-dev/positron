@@ -11,6 +11,7 @@ use amalthea::connection_file::ConnectionFile;
 use amalthea::kernel::Kernel;
 use amalthea::kernel_spec::KernelSpec;
 use amalthea::socket::iopub::IOPubMessage;
+use log::*;
 use std::env;
 use std::io::stdin;
 use std::sync::mpsc::sync_channel;
@@ -20,7 +21,7 @@ use stdext::unwrap;
 mod control;
 mod interface;
 mod kernel;
-mod log;
+mod logger;
 mod lsp;
 mod request;
 mod shell;
@@ -214,7 +215,7 @@ fn main() {
     }
 
     // Initialize the logger.
-    log::initialize(log_file.as_deref());
+    logger::initialize(log_file.as_deref());
 
     // Initialize harp.
     harp::initialize();
