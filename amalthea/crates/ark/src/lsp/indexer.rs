@@ -5,6 +5,9 @@
 //
 //
 
+// TODO: Properly thread through handling of Results throughout.
+// TODO: Provide API for finding definitions in specific (set of) documents.
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::result::Result::Ok;

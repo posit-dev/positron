@@ -180,6 +180,8 @@ impl LanguageServer for Backend {
 
     async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
         backend_trace!(self, "did_change_workspace_folders({:?})", params);
+
+        // TODO: Re-start indexer with new folders.
     }
 
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
@@ -188,6 +190,8 @@ impl LanguageServer for Backend {
 
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
         backend_trace!(self, "did_change_watched_files({:?})", params);
+
+        // TODO: Re-index the changed files.
     }
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
@@ -227,6 +231,8 @@ impl LanguageServer for Backend {
                 backend_trace!(self, "doc.update(): unexpected error {}", error);
             }
         }
+
+        // TODO: Update document index.
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
@@ -390,6 +396,9 @@ impl LanguageServer for Backend {
             error!("{}", error);
             return Ok(None);
         });
+
+        // TODO: Move the rest of this into a separate function,
+        // living in the 'definitions' module.
 
         // search for a reference in the document index
         if matches!(context.node.kind(), "identifier") {
