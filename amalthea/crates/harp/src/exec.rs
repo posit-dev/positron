@@ -15,6 +15,7 @@ use crate::object::RObject;
 use crate::protect::RProtect;
 use crate::r_symbol;
 use crate::utils::r_inherits;
+use crate::utils::r_stringify;
 
 pub struct RArgument {
     pub name: String,
@@ -41,6 +42,24 @@ pub struct RFunction {
 pub trait RFunctionExt<T> {
     fn param(&mut self, name: &str, value: T) -> &mut Self;
     fn add(&mut self, value: T) -> &mut Self;
+}
+
+impl<T: Into<RObject>> RFunctionExt<Option<T>> for RFunction {
+
+    fn param(&mut self, name: &str, value: Option<T>) -> &mut Self {
+        if let Some(value) = value {
+            self._add(name, value.into());
+        }
+        self
+    }
+
+    fn add(&mut self, value: Option<T>) -> &mut Self {
+        if let Some(value) = value {
+            self._add("", value.into());
+        }
+        self
+    }
+
 }
 
 impl<T: Into<RObject>> RFunctionExt<T> for RFunction {
@@ -116,13 +135,10 @@ impl RFunction {
 
         if r_inherits(result, "error") {
 
-            let qualified_name = if self.package.is_empty() {
-                self.function.clone()
-            } else {
-                format!("{}::{}", self.package, self.function)
-            };
-
-            return Err(Error::EvaluationError(qualified_name, geterrmessage()));
+            return Err(Error::EvaluationError {
+                code: r_stringify(call, "\n")?,
+                message: geterrmessage(),
+            });
 
         }
 

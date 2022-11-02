@@ -20,7 +20,7 @@ use crate::r_symbol;
 use crate::vector::CharacterVector;
 use crate::vector::Vector;
 
-pub unsafe fn r_check_type(object: SEXP, expected: &[u32]) -> Result<u32> {
+pub unsafe fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
 
     let actual = TYPEOF(object) as u32;
     for candidate in expected.iter() {
@@ -33,7 +33,7 @@ pub unsafe fn r_check_type(object: SEXP, expected: &[u32]) -> Result<u32> {
 
 }
 
-pub unsafe fn r_check_capacity(object: SEXP, required: u32) -> Result<u32> {
+pub unsafe fn r_assert_capacity(object: SEXP, required: u32) -> Result<u32> {
 
     let actual = Rf_length(object) as u32;
     if actual < required {
@@ -44,7 +44,7 @@ pub unsafe fn r_check_capacity(object: SEXP, required: u32) -> Result<u32> {
 
 }
 
-pub unsafe fn r_check_length(object: SEXP, expected: u32) -> Result<u32> {
+pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
 
     let actual = Rf_length(object) as u32;
     if actual != expected {
@@ -83,7 +83,7 @@ pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
     }
 
     // validate we have a closure now
-    r_check_type(*object, &[CLOSXP])?;
+    r_assert_type(*object, &[CLOSXP])?;
 
     // get the formals
     let mut formals = FORMALS(*object);
@@ -106,7 +106,7 @@ pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
 
 pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
 
-    r_check_type(envir, &[ENVSXP])?;
+    r_assert_type(envir, &[ENVSXP])?;
 
     if R_IsPackageEnv(envir) != 0 {
         let name = RObject::from(R_PackageEnvName(envir));
@@ -120,5 +120,28 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
     }
 
     Ok(format!("{:p}", envir))
+
+}
+
+pub unsafe fn r_stringify(object: SEXP, delimiter: &str) -> Result<String> {
+
+    // handle SYMSXPs upfront
+    if r_typeof(object) == SYMSXP {
+        return RObject::view(object).to::<String>();
+    }
+
+    // call format on the object
+    let object = RFunction::new("base", "format")
+        .add(object)
+        .call()?;
+
+    // paste into a single string
+    let object = RFunction::new("base", "paste")
+        .add(object)
+        .param("collapse", delimiter)
+        .call()?
+        .to::<String>()?;
+
+    Ok(object)
 
 }
