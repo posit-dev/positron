@@ -21,9 +21,21 @@ impl std::error::Error for EmptyOptionError {}
 pub struct FalsyValueError {
 }
 
+impl std::error::Error for FalsyValueError {}
+
 impl std::fmt::Display for FalsyValueError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Unexpected falsy value")
+    }
+}
+
+pub trait IntoOption<T> {
+    fn ok(self) -> Option<T>;
+}
+
+impl IntoOption<bool> for bool {
+    fn ok(self) -> Option<bool> {
+        if self { Some(self) } else { None }
     }
 }
 

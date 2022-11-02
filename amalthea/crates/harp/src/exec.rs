@@ -135,9 +135,11 @@ impl RFunction {
 
         if r_inherits(result, "error") {
 
+            let code = r_stringify(call, "\n")?;
+            let message = geterrmessage();
             return Err(Error::EvaluationError {
-                code: r_stringify(call, "\n")?,
-                message: geterrmessage(),
+                code: code,
+                message: message,
             });
 
         }

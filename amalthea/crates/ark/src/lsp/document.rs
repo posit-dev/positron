@@ -77,6 +77,10 @@ impl Document {
         self.ast.as_ref().context("internal error: document has no AST")
     }
 
+    pub fn ast_mut(&mut self) -> Result<&mut Tree> {
+        self.ast.as_mut().context("internal error: document has no AST")
+    }
+
     pub fn update(&mut self, change: &TextDocumentContentChangeEvent) -> Result<()> {
 
         // Extract edit range. Nothing to do if there wasn't an edit.

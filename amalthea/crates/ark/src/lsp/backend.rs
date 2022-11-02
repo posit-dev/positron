@@ -33,6 +33,7 @@ use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition_context;
 use crate::lsp::document::Document;
 use crate::lsp::hover::hover;
+use crate::lsp::indexer;
 use crate::lsp::modules;
 use crate::request::Request;
 
@@ -46,7 +47,7 @@ macro_rules! backend_trace {
 }
 
 #[derive(Debug)]
-pub(crate) struct Workspace {
+pub struct Workspace {
     pub folders: Vec<Url>,
 }
 
@@ -59,7 +60,7 @@ impl Default for Workspace {
 }
 
 #[derive(Debug)]
-pub(crate) struct Backend {
+pub struct Backend {
     pub client: Client,
     pub documents: DashMap<Url, Document>,
     pub workspace: Arc<Mutex<Workspace>>,
@@ -101,10 +102,14 @@ impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         backend_trace!(self, "initialize({:#?})", params);
 
+        // initialize our support functions
+        r_lock! { modules::initialize() };
+
         // initialize the set of known workspaces
-        let mut folders: Vec<String> = Vec::new();
         if let Ok(mut workspace) = self.workspace.lock() {
+
             // initialize the workspace folders
+            let mut folders: Vec<String> = Vec::new();
             if let Some(workspace_folders) = params.workspace_folders {
                 for folder in workspace_folders.iter() {
                     workspace.folders.push(folder.uri.clone());
@@ -115,10 +120,11 @@ impl LanguageServer for Backend {
                     }
                 }
             }
-        }
 
-        // initialize our support functions
-        r_lock! { modules::initialize() };
+            // start indexing
+            indexer::start(folders);
+
+        }
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -374,16 +380,32 @@ impl LanguageServer for Backend {
 
         // get reference to document
         let uri = &params.text_document_position_params.text_document.uri;
-        let mut document = unwrap!(self.documents.get_mut(uri), None => {
+        let document = unwrap!(self.documents.get(uri), None => {
             backend_trace!(self, "completion(): No document associated with URI {}", uri);
             return Ok(None);
         });
 
         // build goto definition context
-        let context = unwrap!(goto_definition_context(&mut document, params), Err(error) => {
+        let context = unwrap!(goto_definition_context(&document, params), Err(error) => {
             error!("{}", error);
             return Ok(None);
         });
+
+        // search for a reference in the document index
+        if matches!(context.node.kind(), "identifier") {
+            let source = context.document.contents.to_string();
+            let symbol = context.node.utf8_text(source.as_bytes()).unwrap();
+            if let Some((path, entry)) = indexer::find(symbol) {
+                let link = LocationLink {
+                    origin_selection_range: None,
+                    target_uri: Url::from_file_path(path).unwrap(),
+                    target_range: entry.range,
+                    target_selection_range: entry.range,
+                };
+                let response = GotoDefinitionResponse::Link(vec![link]);
+                return Ok(Some(response));
+            }
+        }
 
         // TODO: We should see if we can find the referenced item in:
         //

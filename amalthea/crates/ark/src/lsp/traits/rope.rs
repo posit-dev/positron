@@ -9,7 +9,7 @@ use ropey::Rope;
 use tower_lsp::lsp_types::Position;
 use tree_sitter::Point;
 
-pub(crate) trait RopeExt {
+pub trait RopeExt {
     fn point_to_byte(&self, point: Point) -> usize;
     fn position_to_byte(&self, position: Position) -> usize;
 }
