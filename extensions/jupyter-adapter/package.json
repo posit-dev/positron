@@ -31,7 +31,8 @@
   "scripts": {
     "compile": "gulp compile-extension:jupyter-adapter",
     "postinstall": "scripts/postinstall.sh",
-    "watch": "gulp watch-extension:jupyter-adapter"
+    "watch": "gulp watch-extension:jupyter-adapter",
+    "vscode:prepublish": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.js compile-extension:search-result ./tsconfig.json"
   },
   "devDependencies": {
     "@types/uuid": "^8.3.3",
