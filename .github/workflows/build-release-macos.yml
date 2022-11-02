@@ -202,9 +202,3 @@ jobs:
           asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
           asset_content_type: application/zip
 
-      - name: Run unit tests
-        id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh
-        env:
-          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
-
