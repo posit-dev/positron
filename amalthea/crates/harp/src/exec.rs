@@ -16,6 +16,7 @@ use crate::protect::RProtect;
 use crate::r_symbol;
 use crate::utils::r_inherits;
 use crate::utils::r_stringify;
+use crate::utils::r_typeof;
 
 pub struct RArgument {
     pub name: String,
@@ -115,10 +116,19 @@ impl RFunction {
         // append arguments to the call
         let mut slot = CDR(call);
         for argument in self.arguments.iter() {
-            SETCAR(slot, argument.value.sexp);
+
+            // quote language objects by default
+            let mut sexp = argument.value.sexp;
+            if matches!(r_typeof(sexp), LANGSXP | SYMSXP | EXPRSXP) {
+                let quote = protect.add(Rf_lang3(r_symbol!("::"), r_symbol!("base"), r_symbol!("quote")));
+                sexp = protect.add(Rf_lang2(quote, sexp));
+            }
+
+            SETCAR(slot, sexp);
             if !argument.name.is_empty() {
                 SET_TAG(slot, r_symbol!(argument.name));
             }
+
             slot = CDR(slot);
         }
 
