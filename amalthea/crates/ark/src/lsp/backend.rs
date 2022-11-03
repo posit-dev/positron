@@ -207,38 +207,12 @@ impl LanguageServer for Backend {
     async fn symbol(&self, params: WorkspaceSymbolParams) -> Result<Option<Vec<SymbolInformation>>> {
         backend_trace!(self, "symbol({:?})", params);
 
-        let mut info : Vec<SymbolInformation> = Vec::new();
-
-        indexer::map(|path, entry| {
-
-            match &entry.data {
-
-                IndexEntryData::Function { name, arguments } => {
-
-                    info.push(SymbolInformation {
-                        name: name.to_string(),
-                        kind: SymbolKind::FUNCTION,
-                        location: Location {
-                            uri: Url::from_file_path(path).unwrap(),
-                            range: entry.range,
-                        },
-                        tags: None,
-                        deprecated: None,
-                        container_name: None,
-                    });
-
-                },
-
-                _ => {},
-
-            };
-
-            Ok(())
-
+        let response = unwrap!(symbols::symbols(self, &params), Err(error) => {
+            error!("{:?}", error);
+            return Ok(None);
         });
 
-        Ok(Some(info))
-
+        Ok(Some(response))
     }
 
     async fn document_symbol(&self, params: DocumentSymbolParams) -> Result<Option<DocumentSymbolResponse>> {

@@ -221,9 +221,9 @@ checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
 name = "cc"
-version = "1.0.73"
+version = "1.0.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
+checksum = "581f5dba903aac52ea3feb5ec4810848460ee833876f1f9b0fdeab1f19091574"
 
 [[package]]
 name = "cexpr"
@@ -1052,9 +1052,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.15.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e82dad04139b71a90c080c8463fe0dc7902db5192d939bd0950f074d014339e1"
+checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
 
 [[package]]
 name = "parking_lot"
@@ -1913,7 +1913,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-r"
 version = "0.19.5"
-source = "git+https://github.com/r-lib/tree-sitter-r?branch=next#8bf8f83983aa138545f8be556c22d3cba55c9e8c"
+source = "git+https://github.com/r-lib/tree-sitter-r?branch=next#f83c34d8bcd129b213a0e148964090413ce30fd4"
 dependencies = [
  "cc",
  "tree-sitter",

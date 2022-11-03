@@ -16,7 +16,7 @@ let runtime: positron.LanguageRuntime;
 export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath: string) {
 	// Check to see whether the Jupyter Adapter extension is installed
 	// and active. If so, we can start the language server.
-	const ext = vscode.extensions.getExtension('posit.jupyter-adapter');
+	const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
 	if (!ext) {
 		vscode.window.showErrorMessage(`Could not find Jupyter Adapter extension; can't register ARK.`);
 		return;
