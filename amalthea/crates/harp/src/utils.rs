@@ -80,6 +80,9 @@ pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
     let mut object = RObject::new(object);
     if r_typeof(*object) == BUILTINSXP || r_typeof(*object) == SPECIALSXP {
         object = RFunction::new("base", "args").add(*object).call()?;
+        if r_typeof(*object) != CLOSXP {
+            return Ok(Vec::new());
+        }
     }
 
     // validate we have a closure now

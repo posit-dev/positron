@@ -11,7 +11,7 @@ fn _fuzzy_matches(lhs: &str, rhs: &str) -> bool {
     let mut it = rhs.chars();
     let mut rch = match it.next() {
         Some(rhs) => rhs,
-        None => return false,
+        None => return true,
     };
 
     // now iterate over lhs characters, looking for matches in rhs
