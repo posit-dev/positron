@@ -19,7 +19,6 @@ use log::*;
 use regex::Regex;
 use serde_json::Value;
 use stdext::*;
-use stdext::unwrap::IntoResult;
 use tokio::net::TcpStream;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -37,11 +36,8 @@ use crate::lsp::definitions::goto_definition_context;
 use crate::lsp::document::Document;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
-use crate::lsp::indexer::IndexEntryData;
 use crate::lsp::modules;
 use crate::lsp::symbols;
-use crate::lsp::traits::cursor::TreeCursorExt;
-use crate::lsp::traits::url::UrlExt;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -223,7 +219,6 @@ impl LanguageServer for Backend {
             return Ok(None);
         });
 
-        info!("document_symbols(): {:?}", response);
         Ok(Some(DocumentSymbolResponse::Nested(response)))
 
     }
@@ -266,7 +261,13 @@ impl LanguageServer for Backend {
             }
         }
 
-        // TODO: Update document index.
+        // update index
+        if let Ok(path) = uri.to_file_path() {
+            info!("Updating index for file {}.", path.display());
+            let path = Path::new(&path);
+            indexer::update(&doc, &path);
+            info!("Finished updating index for file {}.", path.display());
+        }
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {

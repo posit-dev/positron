@@ -51,7 +51,21 @@ pub fn symbols(backend: &Backend, params: &WorkspaceSymbolParams) -> Result<Vec<
 
             },
 
-            _ => {},
+            IndexEntryData::Section { level, title } => {
+
+                info.push(SymbolInformation {
+                    name: title.to_string(),
+                    kind: SymbolKind::MODULE,
+                    location: Location {
+                        uri: Url::from_file_path(path).unwrap(),
+                        range: entry.range,
+                    },
+                    tags: None,
+                    deprecated: None,
+                    container_name: None,
+                });
+
+            },
 
         };
 

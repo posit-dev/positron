@@ -13,10 +13,12 @@ use std::path::Path;
 use std::result::Result::Ok;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use anyhow::*;
 use lazy_static::lazy_static;
 use log::*;
+use regex::Regex;
 use stdext::unwrap;
 use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::Range;
@@ -25,16 +27,18 @@ use walkdir::DirEntry;
 use walkdir::WalkDir;
 
 use crate::lsp::document::Document;
+use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 
 #[derive(Clone, Debug)]
 pub enum IndexEntryData {
     Function { name: String, arguments: Vec<String> },
-    Symbol { name: String },
+    Section { level: usize, title: String },
 }
 
 #[derive(Clone, Debug)]
 pub struct IndexEntry {
+    pub key: String,
     pub range: Range,
     pub data: IndexEntryData,
 }
@@ -45,14 +49,23 @@ type DocumentIndex = HashMap<DocumentSymbol, IndexEntry>;
 type WorkspaceIndex = Arc<Mutex<HashMap<DocumentPath, DocumentIndex>>>;
 
 lazy_static! {
-    static ref WORKSPACE_INDEX : WorkspaceIndex = Default::default();
+
+    static ref WORKSPACE_INDEX : WorkspaceIndex =
+        Default::default();
+
+    static ref RE_COMMENT_SECTION : Regex =
+        Regex::new(r"^\s*([#]+)\s*([^-][^#]*)\s*[#=-]{4,}\s*$").unwrap();
+
 }
 
 pub fn start(folders: Vec<String>) {
 
     // create a task that indexes these folders
-    info!("Spawning indexer.");
     let _handle = tokio::spawn(async move {
+
+        let now = SystemTime::now();
+        info!("Indexing started at {:?}.", now);
+
         for folder in folders {
             let walker = WalkDir::new(folder);
             for entry in walker.into_iter().filter_map(|e| filter_entry(e)) {
@@ -60,6 +73,10 @@ pub fn start(folders: Vec<String>) {
                     index_file(entry.path());
                 }
             }
+        }
+
+        if let Ok(elapsed) = now.elapsed() {
+            info!("Indexing finished after {:?}.", elapsed);
         }
     });
 
@@ -84,7 +101,7 @@ pub fn find(symbol: &str) -> Option<(String, IndexEntry)> {
 
 }
 
-pub fn map(mut callback: impl FnMut(&String, &IndexEntry) -> anyhow::Result<()>) {
+pub fn map(mut callback: impl FnMut(&String, &IndexEntry) -> Result<()>) {
 
     let index = unwrap!(WORKSPACE_INDEX.lock(), Err(error) => {
         error!("{:?}", error);
@@ -99,7 +116,11 @@ pub fn map(mut callback: impl FnMut(&String, &IndexEntry) -> anyhow::Result<()>)
 
 }
 
-fn insert(path: &Path, symbol: &str, entry: IndexEntry) {
+pub fn update(document: &Document, path: &Path) {
+    index_document(document, path);
+}
+
+fn insert(path: &Path, entry: IndexEntry) {
 
     let mut index = unwrap!(WORKSPACE_INDEX.lock(), Err(error) => {
         error!("{:?}", error);
@@ -112,7 +133,7 @@ fn insert(path: &Path, symbol: &str, entry: IndexEntry) {
     });
 
     let index = index.entry(path.to_string()).or_default();
-    index.insert(symbol.to_string(), entry);
+    index.insert(entry.key.clone(), entry);
 
 }
 
@@ -121,7 +142,7 @@ fn filter_entry(entry: walkdir::Result<DirEntry>) -> Option<DirEntry> {
     let entry = entry.ok()?;
 
     let name = entry.file_name().to_str()?;
-    if matches!(name, ".git" | "node_modules") {
+    if matches!(name, ".git" | "node_modules" | "renv") {
         return None;
     }
 
@@ -156,31 +177,33 @@ fn index_document(document: &Document, path: &Path) -> Result<()> {
 
     let root = ast.root_node();
     let mut cursor = root.walk();
-
-    // Move to first child.
-    cursor.goto_first_child();
-    index_node(path, &source, &cursor.node());
-
-    // Handle each sibling.
-    while cursor.goto_next_sibling() {
-        index_node(path, &source, &cursor.node());
+    for node in root.children(&mut cursor) {
+        if let Ok(entry) = index_node(path, &source, &node) {
+            if let Some(entry) = entry {
+                insert(path, entry)
+            }
+        }
     }
 
     Ok(())
 
 }
 
-fn index_node(path: &Path, source: &str, node: &Node) -> Result<()> {
+fn index_node(path: &Path, source: &str, node: &Node) -> Result<Option<IndexEntry>> {
 
-    if let Err(_) = index_node_function_definition(path, source, node) {
-        // TODO: Figure out when we should log errors.
+    if let Ok(entry) = index_function(path, source, node) {
+        return Ok(Some(entry));
     }
 
-    Ok(())
+    if let Ok(entry) = index_comment(path, source, node) {
+        return Ok(Some(entry));
+    }
+
+    Ok(None)
 
 }
 
-fn index_node_function_definition(path: &Path, source: &str, node: &Node) -> Result<()> {
+fn index_function(path: &Path, source: &str, node: &Node) -> Result<IndexEntry> {
 
     // Check for assignment.
     matches!(node.kind(), "<-" | "=").into_result()?;
@@ -209,8 +232,8 @@ fn index_node_function_definition(path: &Path, source: &str, node: &Node) -> Res
         }
     }
 
-    // Create the index entry.
-    let entry = IndexEntry {
+    Ok(IndexEntry {
+        key: name.to_string(),
         range: Range {
             start: lhs.start_position().as_position(),
             end: lhs.end_position().as_position(),
@@ -219,9 +242,34 @@ fn index_node_function_definition(path: &Path, source: &str, node: &Node) -> Res
             name: name.to_string(),
             arguments: arguments,
         }
-    };
+    })
 
-    insert(path, name, entry);
-    Ok(())
+}
+
+fn index_comment(path: &Path, source: &str, node: &Node) -> Result<IndexEntry> {
+
+    // check for comment
+    matches!(node.kind(), "comment").into_result()?;
+
+    // see if it looks like a section
+    let comment = node.utf8_text(source.as_bytes())?;
+    let matches = RE_COMMENT_SECTION.captures(comment).into_result()?;
+
+    let level = matches.get(1).into_result()?;
+    let title = matches.get(2).into_result()?;
+
+    let level = level.as_str().len();
+    let title = title.as_str().to_string();
+
+    info!("Indexing section: {} {}", level, title);
+
+    Ok(IndexEntry {
+        key: title.clone(),
+        range: Range {
+            start: node.start_position().as_position(),
+            end: node.end_position().as_position(),
+        },
+        data: IndexEntryData::Section { level, title }
+    })
 
 }
