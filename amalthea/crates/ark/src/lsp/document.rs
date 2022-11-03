@@ -47,7 +47,7 @@ pub struct Document {
     pub parser: Parser,
 
     // The document's AST.
-    pub ast: Option<Tree>,
+    pub ast: Tree,
 
 }
 
@@ -67,18 +67,10 @@ impl Document {
         // create a parser for this document
         let mut parser = Parser::new();
         parser.set_language(tree_sitter_r::language()).expect("failed to create parser");
-        let ast = parser.parse(contents, None);
+        let ast = parser.parse(contents, None).unwrap();
 
         // return generated document
         Self { contents: document, parser, ast }
-    }
-
-    pub fn ast(&self) -> Result<&Tree> {
-        self.ast.as_ref().context("internal error: document has no AST")
-    }
-
-    pub fn ast_mut(&mut self) -> Result<&mut Tree> {
-        self.ast.as_mut().context("internal error: document has no AST")
     }
 
     pub fn update(&mut self, change: &TextDocumentContentChangeEvent) -> Result<()> {
@@ -93,7 +85,7 @@ impl Document {
         // contents, because edit computations need to be done using the current
         // state of the document (prior to the edit being applied) so that byte
         // offsets can be computed correctly.
-        let ast = self.ast.as_mut().context("internal error: document has no AST")?;
+        let ast = &mut self.ast;
 
         let start_byte = self.contents.position_to_byte(range.start);
         let start_position = range.start.as_point();
@@ -120,7 +112,8 @@ impl Document {
         self.contents.insert(lhs, change.text.as_str());
 
         // We've edited the AST, and updated the document. We can now re-parse.
-        self.ast = self.parser.parse(self.contents.to_string(), Some(&ast));
+        let ast = self.parser.parse(self.contents.to_string(), Some(&self.ast));
+        self.ast = ast.unwrap();
 
         Ok(())
 

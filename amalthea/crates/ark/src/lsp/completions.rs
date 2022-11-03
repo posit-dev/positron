@@ -503,7 +503,7 @@ unsafe fn completion_item_from_argument(parameter: &str, callee: &str) -> Result
 pub fn completion_context<'a>(document: &'a Document, position: &TextDocumentPositionParams) -> Result<CompletionContext<'a>> {
 
     // get reference to AST
-    let ast = document.ast()?;
+    let ast = &document.ast;
 
     // try to find node at completion position
     let mut point = position.position.as_point();
@@ -719,14 +719,11 @@ unsafe fn append_call_completions(context: &CompletionContext, cursor_node: &Nod
 
 }
 
-unsafe fn append_argument_completions(context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_argument_completions({:?})", callee);
 
-    // Check for a function defined in this document that can provide parameters.
-    // TODO: Get reference to workspace index, and then look for this document.
-    // TODO: Move this to a separate 'resolve()' function which takes some 'callee'
-    // and provides a definition for that (probably an enum?)
+    // Check for a function defined in the workspace that can provide parameters.
     if let Some((_path, entry)) = indexer::find(callee) {
 
         match entry.data {
@@ -989,7 +986,7 @@ pub fn can_provide_completions(document: &mut Document, params: &CompletionParam
         point.column -= 1;
     }
 
-    let node = document.ast()?.node_at_point(point)?;
+    let node = document.ast.node_at_point(point)?;
     let source = document.contents.to_string();
     let value = node.utf8_text(source.as_bytes())?;
 
@@ -1010,7 +1007,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
     info!("append_session_completions()");
 
     // get reference to AST
-    let ast = context.document.ast()?;
+    let ast = &context.document.ast;
     let cursor_node = ast.node_at_point(context.point)?;
     let mut node = cursor_node;
 
@@ -1078,7 +1075,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 pub fn append_document_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     // get reference to AST
-    let ast = context.document.ast()?;
+    let ast = &context.document.ast;
     let mut node = ast.node_at_point(context.point)?;
 
     // skip comments
