@@ -24,10 +24,10 @@ export const OKCancelActionBar = (props: OKCancelActionBarProps) => {
 	// Render.
 	return (
 		<div className='ok-cancel-action-bar top-separator'>
-			<button className='action-bar-button default' tabIndex={0} onClick={props.accept}>
+			<button className='button action-bar-button default' tabIndex={0} onClick={props.accept}>
 				{props.okButtonTitle ?? localize('positronOK', "OK")}
 			</button>
-			<button className='action-bar-button' tabIndex={0} onClick={props.cancel}>
+			<button className='button action-bar-button' tabIndex={0} onClick={props.cancel}>
 				{props.cancelButtonTitle ?? localize('positronCancel', "Cancel")}
 			</button>
 		</div>
