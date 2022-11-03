@@ -78,7 +78,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "VS Code Emmet Tests",
+			"name": "Positron Emmet Tests",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"${workspaceFolder}/extensions/emmet/test-workspace",
@@ -96,7 +96,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "VS Code Configuration Editing Tests",
+			"name": "Positron Configuration Editing Tests",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}/extensions/configuration-editing",
@@ -113,7 +113,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "VS Code Git Tests",
+			"name": "Positron Git Tests",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"/tmp/my4g9l",
@@ -131,7 +131,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "VS Code Github Tests",
+			"name": "Positron Github Tests",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"${workspaceFolder}/extensions/github/testWorkspace",
@@ -149,7 +149,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "VS Code API Tests (single folder)",
+			"name": "Positron API Tests (single folder)",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				// "${workspaceFolder}", // Uncomment for running out of sources.
@@ -169,7 +169,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "VS Code API Tests (workspace)",
+			"name": "Positron API Tests (workspace)",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"${workspaceFolder}/extensions/vscode-api-tests/testworkspace.code-workspace",
@@ -187,7 +187,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "VS Code Tokenizer Tests",
+			"name": "Positron Tokenizer Tests",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"${workspaceFolder}/extensions/vscode-colorize-tests/test",
@@ -205,7 +205,7 @@
 		{
 			"type": "chrome",
 			"request": "attach",
-			"name": "Attach to VS Code",
+			"name": "Attach to Positron",
 			"browserAttachLocation": "workspace",
 			"port": 9222,
 			"outFiles": [
@@ -219,7 +219,7 @@
 		{
 			"type": "chrome",
 			"request": "launch",
-			"name": "Launch VS Code Internal",
+			"name": "Launch Positron Internal",
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
 			},
@@ -261,7 +261,7 @@
 		{
 			"type": "node",
 			"request": "launch",
-			"name": "VS Code Server (Web)",
+			"name": "Positron Server (Web)",
 			"runtimeExecutable": "${workspaceFolder}/scripts/code-server.sh",
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/scripts/code-server.bat",
@@ -300,7 +300,7 @@
 			"request": "launch",
 			"outFiles": [],
 			"perScriptSourcemaps": "yes",
-			"name": "VS Code Server (Web, Chrome)",
+			"name": "Positron Server (Web, Chrome)",
 			"url": "http://localhost:8080?tkn=dev-token",
 			"preLaunchTask": "Run code server",
 			"presentation": {
@@ -313,7 +313,7 @@
 			"request": "launch",
 			"outFiles": [],
 			"perScriptSourcemaps": "yes",
-			"name": "VS Code Server (Web, Edge)",
+			"name": "Positron Server (Web, Edge)",
 			"url": "http://localhost:8080?tkn=dev-token",
 			"pauseForSourceMap": false,
 			"preLaunchTask": "Run code server",
@@ -327,7 +327,7 @@
 			"request": "launch",
 			"outFiles": [],
 			"perScriptSourcemaps": "yes",
-			"name": "VS Code Web (Chrome)",
+			"name": "Positron Web (Chrome)",
 			"url": "http://localhost:8080",
 			"preLaunchTask": "Run code web",
 			"presentation": {
@@ -340,7 +340,7 @@
 			"request": "launch",
 			"outFiles": [],
 			"perScriptSourcemaps": "yes",
-			"name": "VS Code Web (Edge)",
+			"name": "Positron Web (Edge)",
 			"url": "http://localhost:8080",
 			"pauseForSourceMap": false,
 			"preLaunchTask": "Run code web",
@@ -451,7 +451,7 @@
 				"${workspaceFolder}/out/**/*.js"
 			],
 			"cascadeTerminateToConfigurations": [
-				"Attach to VS Code"
+				"Attach to Positron"
 			],
 			"env": {
 				"MOCHA_COLORS": "true"
@@ -473,7 +473,7 @@
 				"runtimeExecutable": "${workspaceFolder}/.build/electron/code-oss"
 			},
 			"cascadeTerminateToConfigurations": [
-				"Attach to VS Code"
+				"Attach to Positron"
 			],
 			"outputCapture": "std",
 			"args": [
@@ -524,10 +524,10 @@
 	],
 	"compounds": [
 		{
-			"name": "VS Code",
+			"name": "Positron",
 			"stopAll": true,
 			"configurations": [
-				"Launch VS Code Internal",
+				"Launch Positron Internal",
 				"Attach to Main Process",
 				"Attach to Extension Host",
 				"Attach to Shared Process",
@@ -541,7 +541,7 @@
 		{
 			"name": "Search, Renderer, and Main processes",
 			"configurations": [
-				"Launch VS Code Internal",
+				"Launch Positron Internal",
 				"Attach to Main Process",
 				"Attach to Search Process"
 			],
@@ -553,7 +553,7 @@
 		{
 			"name": "Renderer, Extension Host, and Main processes",
 			"configurations": [
-				"Launch VS Code Internal",
+				"Launch Positron Internal",
 				"Attach to Main Process",
 				"Attach to Extension Host"
 			],
@@ -565,7 +565,7 @@
 		{
 			"name": "Debug Unit Tests",
 			"configurations": [
-				"Attach to VS Code",
+				"Attach to Positron",
 				"Run Unit Tests"
 			],
 			"presentation": {
@@ -576,7 +576,7 @@
 		{
 			"name": "Debug Unit Tests (Current File)",
 			"configurations": [
-				"Attach to VS Code",
+				"Attach to Positron",
 				"Run Unit Tests For Current File"
 			],
 			"presentation": {
@@ -588,7 +588,7 @@
 			"name": "Renderer and Main processes",
 			"stopAll": true,
 			"configurations": [
-				"Launch VS Code Internal",
+				"Launch Positron Internal",
 				"Attach to Main Process"
 			],
 			"preLaunchTask": "Ensure Prelaunch Dependencies"
