@@ -2,14 +2,8 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-dialog-directory-input {
-	position: relative;
-	margin-top: 1em;
-	width: 100%;
-}
-
-.positron-dialog-directory-input input {
-	margin-top: 2px;
-	margin-right: 5px;
-	width: 77%;
+.positron-modal-dialog-box .vertical-stack {
+	gap: 16px;
+	display: flex;
+	flex-direction: column;
 }

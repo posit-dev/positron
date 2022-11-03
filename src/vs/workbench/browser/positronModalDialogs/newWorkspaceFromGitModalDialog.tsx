@@ -2,18 +2,20 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./newWorkspaceModalDialog';
 import * as React from 'react';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { TextInput } from 'vs/workbench/browser/positronModalDialogs/components/textInput';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
-import { CheckBoxInput } from 'vs/workbench/browser/positronModalDialogs/components/checkBoxInput';
-import { DirectoryInput } from 'vs/workbench/browser/positronModalDialogs/components/directoryInput';
+import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
+import { DirectoryInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledDirectoryInput';
+import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
+import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
+import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 
 /**
  * NewWorkspaceFromGitResult interface.
@@ -83,22 +85,23 @@ export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAcces
 			// Render.
 			return (
 				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceDialogTitle', "New Workspace from Git")} accept={acceptHandler} cancel={cancelHandler}>
-					<TextInput
-						ref={directoryNameRef}
-						autoFocus label='Repository URL'
-						value={newWorkspaceResult.repo}
-						onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, repo: e.target.value })}
-					/>
-					<DirectoryInput
-						label='Create workspace as subdirectory of'
-						value={newWorkspaceResult.parentDirectory}
-						onBrowse={browseHandler}
-						onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, parentDirectory: e.target.value })}
-					/>
-					<CheckBoxInput
-						label='Open in a new window' checked={newWorkspaceResult.newWindow}
-						onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, newWindow: e.target.checked })}
-					/>
+					<VerticalStack>
+						<LabeledTextInput
+							ref={directoryNameRef}
+							autoFocus label='Repository URL'
+							value={newWorkspaceResult.repo}
+							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, repo: e.target.value })}
+						/>
+						<DirectoryInput
+							label='Create workspace as subdirectory of'
+							value={newWorkspaceResult.parentDirectory}
+							onBrowse={browseHandler}
+							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, parentDirectory: e.target.value })}
+						/>
+					</VerticalStack>
+					<div className='fart'>
+						<Checkbox id='open-in-new-window' label='Open in a new window' onChanged={checked => setNewWorkspaceResult({ ...newWorkspaceResult, newWindow: checked })} />
+					</div>
 				</OKCancelModalDialog>
 			);
 		};

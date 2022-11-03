@@ -2,9 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./directoryInput';
+import 'vs/css!./labeledDirectoryInput';
 import * as React from 'react';
 
+/**
+ * DirectoryInputProps interface.
+ */
 export interface DirectoryInputProps {
 	label: string;
 	value: string;
@@ -12,21 +15,23 @@ export interface DirectoryInputProps {
 	onChange: React.ChangeEventHandler<HTMLInputElement>;
 }
 
+/**
+ * DirectoryInput component.
+ * @param props The properties
+ * @returns
+ */
 export const DirectoryInput: React.FC<DirectoryInputProps> = (props: DirectoryInputProps) => {
 	return (
-		<div className='positron-dialog-directory-input'>
+		<div className='labeled-directory-input'>
 			<label>
-				{props.label}: <br />
-				<input
-					readOnly
-					type='text'
-					value={props.value}
-					onChange={props.onChange}
-				/>
+				{props.label}:
+				<div className='directory-input'>
+					<input className='text-input' readOnly type='text' value={props.value} onChange={props.onChange} />
+					<button className='button1' tabIndex={0} onClick={props.onBrowse}>
+						Browse...
+					</button>
+				</div>
 			</label>
-			<button onClick={props.onBrowse}>
-				Browse...
-			</button>
 		</div>
 	);
 };

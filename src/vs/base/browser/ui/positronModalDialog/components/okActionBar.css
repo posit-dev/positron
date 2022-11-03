@@ -2,43 +2,46 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box-frame .ok-action-bar {
-	position: absolute;
-	bottom: 0;
+.positron-modal-dialog-box .ok-action-bar {
 	left: 0;
 	right: 0;
+	bottom: 0;
+	gap: 10px;
 	height: 64px;
 	display: flex;
-	justify-content: end;
-	align-items: center;
-	padding: 0 0px;
 	margin: 0 16px;
+	padding: 0 0px;
+	position: absolute;
+	align-items: center;
+	justify-content: end;
 }
 
-.positron-modal-dialog-box-frame .ok-action-bar.top-separator {
+.positron-modal-dialog-box .ok-action-bar.top-separator {
 	border-top: 1px solid var(--vscode-modalDialog-separator);
 }
 
-a.push-button {
-	border-radius: 5px;
-	background: var(--vscode-modalDialog-buttonBackground);
-	color: var(--vscode-modalDialog-buttonForeground);
-	height: 32px;
+.positron-modal-dialog-box .ok-action-bar .action-bar-button {
 	width: 80px;
+	height: 32px;
 	display: flex;
+	cursor: pointer;
+	border-radius: 5px;
 	align-items: center;
 	justify-content: center;
-	cursor: pointer;
+	border: 1px solid transparent;
+	color: var(--vscode-modalDialog-buttonForeground);
+	background: var(--vscode-modalDialog-defaultButtonBackground);
 }
 
-a.push-button.default {
-	font-weight: 700;
+.positron-modal-dialog-box .ok-action-bar .action-bar-button:hover {
+	background: var(--vscode-modalDialog-defaultButtonHoverBackground);
 }
 
-a.push-button:hover {
-	background: var(--vscode-modalDialog-buttonHoverBackground);
+.positron-modal-dialog-box .ok-action-bar .action-bar-button:focus {
+	outline: none;
 }
 
-a.push-button:active {
-	background: var(--vscode-modalDialog-buttonActiveBackground);
+.positron-modal-dialog-box .ok-action-bar .action-bar-button:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
 }

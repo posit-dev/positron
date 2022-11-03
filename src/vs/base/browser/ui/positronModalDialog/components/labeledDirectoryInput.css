@@ -1,0 +1,39 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box .labeled-directory-input {
+	width: 100%;
+}
+
+.positron-modal-dialog-box .labeled-directory-input .directory-input {
+	gap: 8px;
+	display: flex;
+	margin-top: 4px;
+}
+
+.positron-modal-dialog-box .labeled-directory-input .directory-input .text-input {
+	width: 100%;
+	padding: 4px;
+	border-radius: 4px;
+	background: var(--vscode-modalDialog-textInputBackground);
+	border: 1px solid var(--vscode-modalDialog-textInputBorder);
+}
+
+.positron-modal-dialog-box .labeled-directory-input .directory-input .button1 {
+	padding: 0 8px;
+	width: min-content;
+	border-radius: 5px;
+	border: 1px solid transparent;
+	color: var(--vscode-modalDialog-buttonForeground);
+	background: var(--vscode-modalDialog-buttonBackground);
+}
+
+.positron-modal-dialog-box .labeled-directory-input .directory-input .button1:focus {
+	outline: none;
+}
+
+.positron-modal-dialog-box .labeled-directory-input .directory-input .button1:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
+}

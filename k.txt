@@ -1,0 +1,6 @@
+"Cannot find module '/Users/brian.lambert/Downloads/VSCode-darwin-universal/Positron.app/Contents/Resources/app/node_modules.asar/vscode-policy-watcher/build/vscode-policy-watcher.node'
+Require stack:
+- /Users/brian.lambert/Downloads/VSCode-darwin-universal/Positron.app/Contents/Resources/app/node_modules.asar/bindings/bindings.js
+- /Users/brian.lambert/Downloads/VSCode-darwin-universal/Positron.app/Contents/Resources/app/node_modules.asar/vscode-policy-watcher/index.js
+- /Users/brian.lambert/Downloads/VSCode-darwin-universal/Positron.app/Contents/Resources/app/out/main.js
+- "

@@ -2,6 +2,6 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.test-content {
+.positron-modal-dialog-box .test-content {
 	color: var(--vscode-modalDialog-foreground);
 }

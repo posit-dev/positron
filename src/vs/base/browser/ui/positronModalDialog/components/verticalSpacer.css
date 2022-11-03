@@ -2,11 +2,6 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box .content-area {
-	top: 32px;
-	left: 0;
-	right: 0;
-	bottom: 64px;
-	padding: 16px;
-	position: absolute;
+.positron-modal-dialog-box .vertical-spacer {
+	margin-top: 8px;
 }
