@@ -82,7 +82,7 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"extensionDependencies": [
-		"posit.jupyter-adapter"
+		"vscode.jupyter-adapter"
 	],
 	"devDependencies": {
 		"@types/glob": "^7.2.0",
