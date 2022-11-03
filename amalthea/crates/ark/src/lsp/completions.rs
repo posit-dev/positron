@@ -10,6 +10,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use anyhow::bail;
+use ego_tree::iter::Values;
 use harp::eval::RParseEvalOptions;
 use harp::eval::r_parse_eval;
 use harp::exec::geterrmessage;
@@ -45,12 +46,14 @@ use tree_sitter::Node;
 use tree_sitter::Point;
 use yaml_rust::YamlLoader;
 
+use crate::lsp::backend::Backend;
 use crate::lsp::document::Document;
 use crate::lsp::indexer;
 use crate::lsp::markdown::MarkdownConverter;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
+use crate::lsp::traits::string::StringExt;
 use crate::lsp::traits::tree::TreeExt;
 
 lazy_static! {
@@ -361,12 +364,12 @@ unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Re
 
 }
 
-unsafe fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: &str, parameters: &[T]) -> Result<CompletionItem> {
+pub fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: Option<&str>, parameters: &[T]) -> Result<CompletionItem> {
 
     let label = format!("{}()", name);
     let mut item = completion_item(label, CompletionData {
         kind: CompletionKind::Function,
-        source: Some(envir.to_string()),
+        source: envir.map(|s| s.to_string()),
         value: name.to_string(),
     })?;
 
@@ -426,7 +429,7 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
         let envir = r_envir_name(envir)?;
         let formals = r_formals(object)?;
         let arguments = formals.iter().map(|formal| formal.name.as_str()).collect::<Vec<_>>();
-        return completion_item_from_function(name, envir.as_str(), &arguments);
+        return completion_item_from_function(name, Some(envir.as_str()), &arguments);
     }
 
     let mut item = completion_item(name, CompletionData {
@@ -1118,4 +1121,61 @@ pub fn append_document_completions(context: &CompletionContext, completions: &mu
 
     Ok(())
 
+}
+
+pub fn append_workspace_completions(backend: &Backend, context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
+
+    let token = if context.node.kind() == "identifier" {
+        context.node.utf8_text(context.source.as_bytes())?
+    } else {
+        ""
+    };
+
+    // get entries from the index
+    indexer::map(|path, symbol, entry| {
+
+        if !symbol.fuzzy_matches(token) {
+            return;
+        }
+
+        match &entry.data {
+
+            indexer::IndexEntryData::Function { name, arguments } => {
+
+                let mut completion = unwrap!(completion_item_from_function(name, None, arguments), Err(error) => {
+                    error!("{:?}", error);
+                    return;
+                });
+
+                // add some metadata about where the completion was found
+                let mut path = path.to_str().unwrap_or_default();
+                if let Ok(workspace) = backend.workspace.lock() {
+                    for folder in &workspace.folders {
+                        if let Ok(folder) = folder.to_file_path() {
+                            if let Some(folder) = folder.to_str() {
+                                if path.starts_with(folder) {
+                                    path = &path[folder.len() + 1..];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                let value = format!("Defined in `{}` on line {}.", path, entry.range.start.line + 1);
+                let markup = MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: value,
+                };
+
+                completion.documentation = Some(Documentation::MarkupContent(markup));
+                completions.push(completion);
+
+            }
+
+            indexer::IndexEntryData::Section { level: _, title: _ } => {}
+        }
+    });
+
+    Ok(())
 }

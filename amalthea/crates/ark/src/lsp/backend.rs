@@ -29,6 +29,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 use crate::lsp::completions::CompletionData;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::completions::append_session_completions;
+use crate::lsp::completions::append_workspace_completions;
 use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::completion_context;
 use crate::lsp::completions::resolve_completion_item;
@@ -326,6 +327,12 @@ impl LanguageServer for Backend {
 
         // add context-relevant completions
         let result = append_document_completions(&context, &mut completions);
+        if let Err(error) = result {
+            error!("{:?}", error);
+        }
+
+        // add workspace completions
+        let result = append_workspace_completions(&self, &context, &mut completions);
         if let Err(error) = result {
             error!("{:?}", error);
         }
