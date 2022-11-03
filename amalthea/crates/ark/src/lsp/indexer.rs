@@ -84,6 +84,21 @@ pub fn find(symbol: &str) -> Option<(String, IndexEntry)> {
 
 }
 
+pub fn map(mut callback: impl FnMut(&String, &IndexEntry) -> anyhow::Result<()>) {
+
+    let index = unwrap!(WORKSPACE_INDEX.lock(), Err(error) => {
+        error!("{:?}", error);
+        return;
+    });
+
+    for (path, index) in index.iter() {
+        for (symbol, entry) in index.iter() {
+            callback(path, entry);
+        }
+    }
+
+}
+
 fn insert(path: &Path, symbol: &str, entry: IndexEntry) {
 
     let mut index = unwrap!(WORKSPACE_INDEX.lock(), Err(error) => {

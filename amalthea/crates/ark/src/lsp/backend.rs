@@ -5,6 +5,8 @@
 //
 //
 
+#![allow(deprecated)]
+
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::mpsc::SyncSender;
@@ -17,6 +19,7 @@ use log::*;
 use regex::Regex;
 use serde_json::Value;
 use stdext::*;
+use stdext::unwrap::IntoResult;
 use tokio::net::TcpStream;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -34,7 +37,11 @@ use crate::lsp::definitions::goto_definition_context;
 use crate::lsp::document::Document;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
+use crate::lsp::indexer::IndexEntryData;
 use crate::lsp::modules;
+use crate::lsp::symbols;
+use crate::lsp::traits::cursor::TreeCursorExt;
+use crate::lsp::traits::url::UrlExt;
 use crate::request::Request;
 
 macro_rules! backend_trace {
@@ -99,6 +106,7 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
+
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         backend_trace!(self, "initialize({:#?})", params);
 
@@ -153,6 +161,8 @@ impl LanguageServer for Backend {
                 type_definition_provider: None,
                 implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
                 references_provider: Some(OneOf::Left(true)),
+                document_symbol_provider: Some(OneOf::Left(true)),
+                workspace_symbol_provider: Some(OneOf::Left(true)),
                 execute_command_provider: Some(ExecuteCommandOptions {
                     commands: vec!["dummy.do_something".to_string()],
                     work_done_progress_options: Default::default(),
@@ -194,6 +204,56 @@ impl LanguageServer for Backend {
         // TODO: Re-index the changed files.
     }
 
+    async fn symbol(&self, params: WorkspaceSymbolParams) -> Result<Option<Vec<SymbolInformation>>> {
+        backend_trace!(self, "symbol({:?})", params);
+
+        let mut info : Vec<SymbolInformation> = Vec::new();
+
+        indexer::map(|path, entry| {
+
+            match &entry.data {
+
+                IndexEntryData::Function { name, arguments } => {
+
+                    info.push(SymbolInformation {
+                        name: name.to_string(),
+                        kind: SymbolKind::FUNCTION,
+                        location: Location {
+                            uri: Url::from_file_path(path).unwrap(),
+                            range: entry.range,
+                        },
+                        tags: None,
+                        deprecated: None,
+                        container_name: None,
+                    });
+
+                },
+
+                _ => {},
+
+            };
+
+            Ok(())
+
+        });
+
+        Ok(Some(info))
+
+    }
+
+    async fn document_symbol(&self, params: DocumentSymbolParams) -> Result<Option<DocumentSymbolResponse>> {
+        backend_trace!(self, "document_symbols({})", params.text_document.uri);
+
+        let response = unwrap!(symbols::document_symbols(self, &params), Err(error) => {
+            error!("{:?}", error);
+            return Ok(None);
+        });
+
+        info!("document_symbols(): {:?}", response);
+        Ok(Some(DocumentSymbolResponse::Nested(response)))
+
+    }
+
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
         backend_trace!(self, "execute_command({:?})", params);
 
@@ -207,7 +267,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        backend_trace!(self, "did_open({:?}", params);
+        backend_trace!(self, "did_open({}", params.text_document.uri);
 
         self.documents.insert(
             params.text_document.uri,
