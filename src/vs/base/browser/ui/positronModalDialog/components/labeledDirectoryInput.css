@@ -12,14 +12,6 @@
 	margin-top: 4px;
 }
 
-.positron-modal-dialog-box .labeled-directory-input .directory-input .text-input {
-	width: 100%;
-	padding: 4px;
-	border-radius: 4px;
-	background: var(--vscode-modalDialog-textInputBackground);
-	border: 1px solid var(--vscode-modalDialog-textInputBorder);
-}
-
 .positron-modal-dialog-box .labeled-directory-input .directory-input .browse-button {
 	padding: 0 8px;
 	width: min-content;

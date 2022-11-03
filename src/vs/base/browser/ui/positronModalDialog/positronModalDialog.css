@@ -81,3 +81,17 @@
 	outline-offset: 2px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
+
+.positron-modal-dialog-box .text-input {
+	width: 100%;
+	padding: 4px;
+	border-radius: 4px;
+	box-sizing: border-box;
+	background: var(--vscode-modalDialog-textInputBackground);
+	border: 1px solid var(--vscode-modalDialog-textInputBorder);
+}
+
+.positron-modal-dialog-box .text-input::selection {
+	color: var(--vscode-modalDialog-textInputSelectionForeground);
+	background: var(--vscode-modalDialog-textInputSelectionBackground);
+}
