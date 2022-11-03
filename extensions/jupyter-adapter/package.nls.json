@@ -1,0 +1,5 @@
+
+{
+	"displayName": "Positron Jupyter Adapter",
+	"description": "Jupyter Kernel Protocol adapter for Positron Language Runtime"
+}
