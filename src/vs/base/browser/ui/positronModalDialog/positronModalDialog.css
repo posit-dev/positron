@@ -32,7 +32,8 @@
 	padding: 10px;
 	animation: fade-in 0.25s;
 	outline: none !important;
-	transform: translate3d(0px, 0px, 0px); /* Makes some devices run their hardware acceleration. */
+	/* Makes some devices run their hardware acceleration. */
+	transform: translate3d(0px, 0px, 0px);
 }
 
 .positron-modal-dialog-box {
@@ -46,4 +47,37 @@
 	background: var(--vscode-modalDialog-background);
 	border: 1px solid var(--vscode-modalDialog-border);
 	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+.positron-modal-dialog-box .button {
+	display: flex;
+	cursor: pointer;
+	border-radius: 5px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid transparent;
+	color: var(--vscode-modalDialog-buttonForeground);
+	background: var(--vscode-modalDialog-buttonBackground);
+}
+
+.positron-modal-dialog-box .button:hover {
+	background: var(--vscode-modalDialog-buttonHoverBackground);
+}
+
+
+.positron-modal-dialog-box .button.default {
+	background: var(--vscode-modalDialog-defaultButtonBackground);
+}
+
+.positron-modal-dialog-box .button.default:hover {
+	background: var(--vscode-modalDialog-defaultButtonHoverBackground);
+}
+
+.positron-modal-dialog-box .button:focus {
+	outline: none;
+}
+
+.positron-modal-dialog-box .button:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
 }
