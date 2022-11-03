@@ -40,8 +40,6 @@
 	display: flex;
 	overflow: hidden;
 	position: relative;
-	align-items: center;
-	justify-content: center;
 	border-radius: 15px 15px 5px 5px;
 	color: var(--vscode-modalDialog-foreground);
 	background: var(--vscode-modalDialog-background);
