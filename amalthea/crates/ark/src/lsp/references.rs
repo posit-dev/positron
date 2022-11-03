@@ -119,7 +119,7 @@ impl Backend {
         // Figure out the identifier we're looking for.
         let context = self.with_document(path.as_path(), |document| {
 
-            let ast = document.ast.as_ref().into_result()?;
+            let ast = &document.ast;
             let mut node = ast.root_node().descendant_for_point_range(point, point).into_result()?;
 
             // Check and see if we got an identifier. If we didn't, we might need to use
@@ -205,11 +205,7 @@ impl Backend {
 
     fn find_references_in_document(&self, context: &Context, path: &Path, document: &Document, locations: &mut Vec<Location>) {
 
-        let ast = unwrap!(document.ast.as_ref(), None => {
-            info!("no ast available");
-            return;
-        });
-
+        let ast = &document.ast;
         let contents = document.contents.to_string();
 
         let mut cursor = ast.walk();

@@ -6,7 +6,6 @@
 //
 
 use anyhow::Result;
-use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::GotoDefinitionParams;
 use tower_lsp::lsp_types::Range;
 use tree_sitter::Node;
@@ -26,7 +25,7 @@ pub struct GotoDefinitionContext<'a> {
 pub fn goto_definition_context<'a>(document: &'a Document, params: GotoDefinitionParams) -> Result<GotoDefinitionContext<'a>> {
 
     // get reference to AST
-    let ast = document.ast()?;
+    let ast = &document.ast;
 
     // try to find node at completion position
     let point = params.text_document_position_params.position.as_point();

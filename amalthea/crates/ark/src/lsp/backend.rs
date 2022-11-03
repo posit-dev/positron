@@ -263,10 +263,10 @@ impl LanguageServer for Backend {
 
         // update index
         if let Ok(path) = uri.to_file_path() {
-            info!("Updating index for file {}.", path.display());
             let path = Path::new(&path);
-            indexer::update(&doc, &path);
-            info!("Finished updating index for file {}.", path.display());
+            if let Err(error) = indexer::update(&doc, &path) {
+                error!("{:?}", error);
+            }
         }
     }
 
@@ -403,13 +403,20 @@ impl LanguageServer for Backend {
         });
 
         // request hover information
-        let result = unsafe {
-            unwrap!(hover(&document, &context), Err(error) => {
-                error!("{:?}", error);
-                return Ok(None);
-            })
-        };
+        let result = unsafe { hover(&document, &context) };
 
+        // unwrap errors
+        let result = unwrap!(result, Err(error) => {
+            error!("{:?}", error);
+            return Ok(None);
+        });
+
+        // unwrap empty options
+        let result = unwrap!(result, None => {
+            return Ok(None);
+        });
+
+        // we got a result; use it
         Ok(Some(Hover {
             contents: HoverContents::Markup(result),
             range: None,

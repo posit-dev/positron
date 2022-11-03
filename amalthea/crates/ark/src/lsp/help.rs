@@ -38,8 +38,6 @@ impl RHtmlHelp {
 
     }
 
-
-
     pub fn markdown(&self) -> Result<String> {
 
         let mut markdown = String::new();
@@ -78,6 +76,7 @@ impl RHtmlHelp {
             let body = if matches!(header.as_str(), "Usage" | "Examples") {
                 let mut buffer = String::new();
                 for elt in elements {
+                    if elt.value().name() == "hr" { break }
                     let code = md_codeblock("r", elt_text(elt).as_str());
                     buffer.push_str(code.as_str());
                 }

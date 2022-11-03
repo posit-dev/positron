@@ -10,7 +10,7 @@
 use std::result::Result::Ok;
 
 use anyhow::*;
-use log::error;
+use log::*;
 use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::DocumentSymbol;
 use tower_lsp::lsp_types::DocumentSymbolParams;
@@ -26,16 +26,22 @@ use crate::lsp::backend::Backend;
 use crate::lsp::indexer;
 use crate::lsp::indexer::IndexEntryData;
 use crate::lsp::traits::point::PointExt;
+use crate::lsp::traits::string::StringExt;
 
-pub fn symbols(backend: &Backend, params: &WorkspaceSymbolParams) -> Result<Vec<SymbolInformation>> {
+pub fn symbols(_backend: &Backend, params: &WorkspaceSymbolParams) -> Result<Vec<SymbolInformation>> {
 
+    let query = &params.query;
     let mut info : Vec<SymbolInformation> = Vec::new();
 
-    indexer::map(|path, entry| {
+    indexer::map(|path, symbol, entry| {
+
+        if !symbol.fuzzy_matches(query) {
+            return;
+        }
 
         match &entry.data {
 
-            IndexEntryData::Function { name, arguments } => {
+            IndexEntryData::Function { name, arguments: _ } => {
 
                 info.push(SymbolInformation {
                     name: name.to_string(),
@@ -51,7 +57,7 @@ pub fn symbols(backend: &Backend, params: &WorkspaceSymbolParams) -> Result<Vec<
 
             },
 
-            IndexEntryData::Section { level, title } => {
+            IndexEntryData::Section { level: _, title } => {
 
                 info.push(SymbolInformation {
                     name: title.to_string(),
@@ -69,8 +75,6 @@ pub fn symbols(backend: &Backend, params: &WorkspaceSymbolParams) -> Result<Vec<
 
         };
 
-        Ok(())
-
     });
 
     Ok(info)
@@ -83,7 +87,7 @@ pub fn document_symbols(backend: &Backend, params: &DocumentSymbolParams) -> Res
 
     let uri = &params.text_document.uri;
     let document = backend.documents.get(uri).into_result()?;
-    let ast = document.ast()?;
+    let ast = &document.ast;
     let contents = document.contents.to_string();
 
     let node = ast.root_node();
@@ -114,6 +118,17 @@ pub fn document_symbols(backend: &Backend, params: &DocumentSymbolParams) -> Res
 
 }
 
+fn is_indexable(node: &Node) -> bool {
+
+    // don't index 'arguments' or 'parameters'
+    if matches!(node.kind(), "arguments" | "parameters") {
+        return false;
+    }
+
+    true
+
+}
+
 fn index_node(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbols: &mut Vec<DocumentSymbol>) -> Result<bool> {
 
     // if we find an assignment, index it
@@ -127,9 +142,11 @@ fn index_node(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbo
     // by default, recurse into children
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        let result = index_node(&child, contents, parent, symbols);
-        if let Err(error) = result {
-            error!("{:?}", error);
+        if is_indexable(&child) {
+            let result = index_node(&child, contents, parent, symbols);
+            if let Err(error) = result {
+                error!("{:?}", error);
+            }
         }
     };
 

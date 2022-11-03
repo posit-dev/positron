@@ -38,12 +38,12 @@ fn hover_context(node: Node, context: &CompletionContext) -> Result<Option<Hover
         let lhs = node.child_by_field_name("lhs").into_result()?;
         let rhs = node.child_by_field_name("rhs").into_result()?;
 
-        if !matches!(lhs.kind(), "identifier" | "string") {
-            bail!("Ignoring '::' call with lhs {}", lhs.to_sexp());
-        }
+        let ok =
+            matches!(lhs.kind(), "identifier" | "string") &&
+            matches!(rhs.kind(), "identifier" | "string");
 
-        if !matches!(rhs.kind(), "identifier" | "string") {
-            bail!("Ignoring '::' call with rhs {}", rhs.to_sexp());
+        if !ok {
+            return Ok(None);
         }
 
         let package = lhs.utf8_text(context.source.as_bytes())?;
@@ -58,10 +58,11 @@ fn hover_context(node: Node, context: &CompletionContext) -> Result<Option<Hover
     // otherwise, check for an identifier or a string
     if matches!(node.kind(), "identifier" | "string" | "keyword") {
 
-        // bail if we're in an extraction operator
+        // only provide documentation for function calls for now,
+        // since bare identifiers might not match the topic we expect
         if let Some(parent) = node.parent() {
-            if matches!(parent.kind(), "$" | "@") {
-                bail!("ignoring identifier in extraction operator");
+            if parent.kind() != "call" {
+                return Ok(None);
             }
         }
 
@@ -76,19 +77,19 @@ fn hover_context(node: Node, context: &CompletionContext) -> Result<Option<Hover
 }
 
 /// SAFETY: Requires access to the R runtime.
-pub unsafe fn hover(_document: &Document, context: &CompletionContext) -> anyhow::Result<MarkupContent> {
+pub unsafe fn hover(_document: &Document, context: &CompletionContext) -> Result<Option<MarkupContent>> {
 
     // get the node
     let node = &context.node;
 
     // check for identifier
     if !matches!(node.kind(), "identifier" | "keyword" | "string") {
-        bail!("hover(): ignoring node {}", node.to_sexp());
+        return Ok(None);
     }
 
     let ctx = hover_context(*node, context)?;
     let ctx = unwrap!(ctx, None => {
-        bail!("hover(): no hover context available");
+        return Ok(None);
     });
 
     let help = match ctx {
@@ -105,9 +106,9 @@ pub unsafe fn hover(_document: &Document, context: &CompletionContext) -> anyhow
 
     let markdown = help.markdown()?;
 
-    Ok(MarkupContent {
+    Ok(Some(MarkupContent {
         kind: MarkupKind::Markdown,
         value: markdown,
-    })
+    }))
 
 }
