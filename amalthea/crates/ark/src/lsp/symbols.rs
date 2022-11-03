@@ -7,17 +7,61 @@
 
 #![allow(deprecated)]
 
+use std::result::Result::Ok;
+
 use anyhow::*;
 use log::error;
 use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::DocumentSymbol;
 use tower_lsp::lsp_types::DocumentSymbolParams;
+use tower_lsp::lsp_types::Location;
 use tower_lsp::lsp_types::Range;
+use tower_lsp::lsp_types::SymbolInformation;
 use tower_lsp::lsp_types::SymbolKind;
+use tower_lsp::lsp_types::Url;
+use tower_lsp::lsp_types::WorkspaceSymbolParams;
 use tree_sitter::Node;
 
 use crate::lsp::backend::Backend;
+use crate::lsp::indexer;
+use crate::lsp::indexer::IndexEntryData;
 use crate::lsp::traits::point::PointExt;
+
+pub fn symbols(backend: &Backend, params: &WorkspaceSymbolParams) -> Result<Vec<SymbolInformation>> {
+
+    let mut info : Vec<SymbolInformation> = Vec::new();
+
+    indexer::map(|path, entry| {
+
+        match &entry.data {
+
+            IndexEntryData::Function { name, arguments } => {
+
+                info.push(SymbolInformation {
+                    name: name.to_string(),
+                    kind: SymbolKind::FUNCTION,
+                    location: Location {
+                        uri: Url::from_file_path(path).unwrap(),
+                        range: entry.range,
+                    },
+                    tags: None,
+                    deprecated: None,
+                    container_name: None,
+                });
+
+            },
+
+            _ => {},
+
+        };
+
+        Ok(())
+
+    });
+
+    Ok(info)
+
+}
 
 pub fn document_symbols(backend: &Backend, params: &DocumentSymbolParams) -> Result<Vec<DocumentSymbol>> {
 
@@ -48,21 +92,22 @@ pub fn document_symbols(backend: &Backend, params: &DocumentSymbolParams) -> Res
         }
     };
 
+    // index from the root
     index_node(&node, &contents, &mut root, &mut symbols)?;
 
+    // return the children we found
     Ok(root.children.unwrap_or_default())
 
 }
 
-fn index_node(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbols: &mut Vec<DocumentSymbol>) -> Result<()> {
+fn index_node(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbols: &mut Vec<DocumentSymbol>) -> Result<bool> {
 
-    // if we find an assignment function definition, then push a new scope
+    // if we find an assignment, index it
     if matches!(node.kind(), "<-" | "=") {
-        let result = index_assignment(node, contents, parent, symbols);
-        if let Err(error) = result {
-            error!("{:?}", error);
+        match index_assignment(node, contents, parent, symbols) {
+            Ok(handled) => if handled { return Ok(true) },
+            Err(error) => error!("{:?}", error),
         }
-        return Ok(());
     }
 
     // by default, recurse into children
@@ -74,11 +119,11 @@ fn index_node(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbo
         }
     };
 
-    Ok(())
+    Ok(true)
 
 }
 
-fn index_assignment(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbols: &mut Vec<DocumentSymbol>) -> Result<()> {
+fn index_assignment(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbols: &mut Vec<DocumentSymbol>) -> Result<bool> {
 
     // check for assignment
     matches!(node.kind(), "<-" | "=").into_result()?;
@@ -88,11 +133,45 @@ fn index_assignment(node: &Node, contents: &String, parent: &mut DocumentSymbol,
     let rhs = node.child_by_field_name("rhs").into_result()?;
 
     // check for identifier on lhs, function on rhs
-    let ok =
+    let function =
         matches!(lhs.kind(), "identifier" | "string") &&
         matches!(rhs.kind(), "function");
 
-    ok.into_result()?;
+    if function {
+        return index_function(node, contents, parent, symbols);
+    }
+
+    // otherwise, just index as generic object
+    let name = lhs.utf8_text(contents.as_bytes())?;
+    let symbol = DocumentSymbol {
+        name: name.to_string(),
+        kind: SymbolKind::OBJECT,
+        detail: None,
+        children: Some(Vec::new()),
+        deprecated: None,
+        tags: None,
+        range: Range {
+            start: lhs.start_position().as_position(),
+            end: lhs.end_position().as_position(),
+        },
+        selection_range: Range {
+            start: lhs.start_position().as_position(),
+            end: lhs.end_position().as_position(),
+        }
+    };
+
+    // add this symbol to the parent node
+    parent.children.as_mut().unwrap().push(symbol);
+
+    Ok(true)
+
+}
+
+fn index_function(node: &Node, contents: &String, parent: &mut DocumentSymbol, symbols: &mut Vec<DocumentSymbol>) -> Result<bool> {
+
+    // check for lhs, rhs
+    let lhs = node.child_by_field_name("lhs").into_result()?;
+    let rhs = node.child_by_field_name("rhs").into_result()?;
 
     // start extracting the argument names
     let mut arguments : Vec<String> = Vec::new();
@@ -133,6 +212,6 @@ fn index_assignment(node: &Node, contents: &String, parent: &mut DocumentSymbol,
     let parent = parent.children.as_mut().unwrap().last_mut().unwrap();
     index_node(&rhs, contents, parent, symbols)?;
 
-    Ok(())
+    Ok(true)
 
 }
