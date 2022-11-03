@@ -1,7 +1,7 @@
 {
   "name": "jupyter-adapter",
-  "displayName": "Positron Jupyter Adapter",
-  "description": "Jupyter Kernel Protocol adapter for Positron Language Runtime",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "publisher": "posit",
   "version": "0.0.1",
   "engines": {
