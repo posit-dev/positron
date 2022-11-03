@@ -1016,42 +1016,62 @@ export const POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER = registerColor('po
 
 // Modal dialog background color.
 export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
-	dark: '#3b4144',
+	dark: '#252526',
 	light: '#f1f3f5',
-	hcDark: '#3b4144',
+	hcDark: '#252526',
 	hcLight: '#f1f3f5'
 }, localize('modalDialog.background', "Modal dialog background color."));
 
 // Modal dialog foreground color.
 export const MODAL_DIALOG_FOREGROUND = registerColor('modalDialog.foreground', {
-	dark: '#cfd0d0',
+	dark: '#cccccc',
 	light: '#000000',
-	hcDark: '#cfd0d0',
+	hcDark: '#cccccc',
 	hcLight: '#000000'
 }, localize('modalDialog.foreground', "Modal dialog foreground color."));
 
 // Modal dialog border color.
 export const MODAL_DIALOG_BORDER = registerColor('modalDialog.border', {
-	dark: '#3b4144',
-	light: '#dee1e5',
-	hcDark: '#3b4144',
-	hcLight: '#dee1e5'
+	dark: '#3a3d41',
+	light: darken(MODAL_DIALOG_BACKGROUND, 0.2),
+	hcDark: '#3a3d41',
+	hcLight: darken(MODAL_DIALOG_BACKGROUND, 0.2)
 }, localize('modalDialog.border', "Modal dialog border color."));
 
 // Modal dialog separator color.
 export const MODAL_DIALOG_SEPARATOR = registerColor('modalDialog.separator', {
-	dark: '#292f32',
-	light: '#dee1e5',
-	hcDark: '#292f32',
-	hcLight: '#dee1e5'
-}, localize('modalDialog.separator', "Modal dialog border color."));
+	dark: '#3a3d41',
+	light: darken(MODAL_DIALOG_BACKGROUND, 0.2),
+	hcDark: '#3a3d41',
+	hcLight: darken(MODAL_DIALOG_BACKGROUND, 0.2)
+}, localize('modalDialog.separator', "Modal dialog separator color."));
+
+
+// Modal dialog button background color.
+export const MODAL_DIALOG_FOCUS_BORDER = registerColor('modalDialog.focusBorder', {
+	dark: '#ff0000',
+	light: '#ff0000',
+	hcDark: '#ff0000',
+	hcLight: '#ff0000'
+	// dark: '#0e639c',
+	// light: '#007acc',
+	// hcDark: '#0e639c',
+	// hcLight: '#007acc'
+}, localize('modalDialog.focusBorder', "Modal dialog default focus border color."));
+
+
+// < --- Modal Dialog Title Bar --- >
 
 // Modal dialog title bar background color.
 export const MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor('modalDialog.titleBarBackground', {
-	dark: '#292f32',
-	light: '#dee1e5',
-	hcDark: '#292f32',
-	hcLight: '#dee1e5'
+	dark: '#3a3d41',
+	light: darken(MODAL_DIALOG_BACKGROUND, 0.2),
+	hcDark: '#3a3d41',
+	hcLight: darken(MODAL_DIALOG_BACKGROUND, 0.2)
+	// dark: '#3a3d41',
+	// light: darken(MODAL_DIALOG_BACKGROUND, 0.2),
+	// hcDark: '#3a3d41',
+	// hcLight: darken(MODAL_DIALOG_BACKGROUND, 0.2)
 }, localize('modalDialog.titleBarBackground', "Modal dialog title bar background color."));
 
 // Modal dialog title bar foreground color.
@@ -1062,36 +1082,103 @@ export const MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('modalDialog.titl
 	hcLight: '#000000'
 }, localize('modalDialog.titleBarForeground', "Modal dialog title bar foreground color."));
 
+// < --- Modal Dialog Button --- >
+
 // Modal dialog button background color.
 export const MODAL_DIALOG_BUTTON_BACKGROUND = registerColor('modalDialog.buttonBackground', {
-	dark: '#292f32',
-	light: '#dee1e5',
-	hcDark: '#292f32',
-	hcLight: '#dee1e5'
+	dark: '#3a3d41',
+	light: '#5f6a79',
+	hcDark: '#3a3d41',
+	hcLight: '#5f6a79'
 }, localize('modalDialog.buttonBackground', "Modal dialog button background color."));
 
 // Modal dialog button hover background color.
 export const MODAL_DIALOG_BUTTON_HOVER_BACKGROUND = registerColor('modalDialog.buttonHoverBackground', {
-	dark: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1),
-	light: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1),
-	hcDark: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1),
-	hcLight: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.1)
+	dark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	light: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcDark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcLight: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
 }, localize('modalDialog.buttonHoverBackground', "Modal dialog button hover background color."));
+
+
+
+// Modal dialog button background color.
+export const MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND = registerColor('modalDialog.defaultButtonBackground', {
+	dark: '#0e639c',
+	light: '#007acc',
+	hcDark: '#0e639c',
+	hcLight: '#007acc'
+}, localize('modalDialog.defaultButtonBackground', "Modal dialog default button background color."));
+
+// Modal dialog button hover background color.
+export const MODAL_DIALOG_DEFAULT_BUTTON_HOVER_BACKGROUND = registerColor('modalDialog.defaultButtonHoverBackground', {
+	dark: lighten(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
+	light: darken(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
+	hcDark: lighten(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
+	hcLight: darken(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15)
+}, localize('modalDialog.defaultButtonHoverBackground', "Modal dialog default button hover background color."));
+
+
+
+
+
+
+
+
+
+
+
 
 // Modal dialog button active background color.
 export const MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor('modalDialog.buttonActiveBackground', {
-	dark: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1),
-	light: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1),
-	hcDark: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1),
-	hcLight: darken(MODAL_DIALOG_BUTTON_HOVER_BACKGROUND, 0.1)
+	dark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	light: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcDark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcLight: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
 }, localize('modalDialog.buttonActiveBackground', "Modal dialog button active background color."));
+
 
 // Modal dialog button foreground color.
 export const MODAL_DIALOG_BUTTON_FOREGROUND = registerColor('modalDialog.buttonForeground', {
 	dark: '#cfd0d0',
-	light: '#000000',
+	light: '#ffffff',
 	hcDark: '#cfd0d0',
-	hcLight: '#000000'
+	hcLight: '#ffffff'
 }, localize('modalDialog.buttonForeground', "Modal dialog button foreground color."));
+
+
+// < --- Modal Dialog Text Input --- >
+
+// Modal dialog text input background color.
+export const MODAL_DIALOG_TEXT_INPUT_BACKGROUND = registerColor('modalDialog.textInputBackground', {
+	dark: '#3a3d41',
+	light: '#ffffff',
+	hcDark: '#3a3d41',
+	hcLight: '#ffffff'
+}, localize('modalDialog.textInputBackground', "Modal dialog text input background color."));
+
+// Modal dialog text input border color.
+export const MODAL_DIALOG_TEXT_INPUT_BORDER = registerColor('modalDialog.textInputBorder', {
+	dark: '#3a3d41',
+	light: '#3a78b1',
+	hcDark: '#3a3d41',
+	hcLight: '#3a78b1'
+}, localize('modalDialog.textInputBorder', "Modal dialog text input border."));
+
+// Modal dialog text input selection foreground color.
+export const MODAL_DIALOG_TEXT_INPUT_SELECTION_FOREGROUND = registerColor('modalDialog.textInputSelectionForeground', {
+	dark: '#ffffff',
+	light: '#3a78b1',
+	hcDark: '#ffffff',
+	hcLight: '#3a78b1'
+}, localize('modalDialog.textInputSelectionForeground', "Modal dialog text input selection foreground color."));
+
+// Modal dialog text input selection background color.
+export const MODAL_DIALOG_TEXT_INPUT_SELECTION_BACKGROUND = registerColor('modalDialog.textInputSelectionBackground', {
+	dark: '#0e639c',
+	light: '#3a78b1',
+	hcDark: '#0e639c',
+	hcLight: '#3a78b1'
+}, localize('modalDialog.textInputSelectionBackground', "Modal dialog text input selection background color."));
 
 // --- End Positron ---

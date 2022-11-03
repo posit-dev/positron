@@ -28,22 +28,22 @@
 	background: transparent;
 }
 
-.positron-modal-dialog-box {
+.positron-modal-dialog-container {
+	padding: 10px;
 	animation: fade-in 0.25s;
 	outline: none !important;
-	padding: 10px;
 	transform: translate3d(0px, 0px, 0px); /* Makes some devices run their hardware acceleration. */
 }
 
-.positron-modal-dialog-box-frame {
-	position: relative;
-	overflow: hidden;
-	border-radius: 15px 15px 5px 5px;
-	background: var(--vscode-modalDialog-background);
-	color: var(--vscode-modalDialog-foreground);
+.positron-modal-dialog-box {
 	display: flex;
+	overflow: hidden;
+	position: relative;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+	border-radius: 15px 15px 5px 5px;
+	color: var(--vscode-modalDialog-foreground);
+	background: var(--vscode-modalDialog-background);
 	border: 1px solid var(--vscode-modalDialog-border);
+	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }

@@ -5,40 +5,11 @@
 import 'vs/css!./positronModalDialog';
 import * as React from 'react';
 import { PropsWithChildren, useCallback, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { SimpleTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/simpleTitleBar';
-import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
-import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 
 /**
  * Grossness.
  */
 interface DocumentKeyboardEvent extends globalThis.KeyboardEvent { }
-
-/**
- * OKCancelModalDialogProps interface.
- */
-export interface OKCancelModalDialogProps extends PositronModalDialogProps {
-	title: string;
-	accept: () => void;
-	cancel: () => void;
-}
-
-/**
- * OKCancelModalDialog component.
- * @param props The properties.
- * @returns The component.
- */
-export const OKCancelModalDialog = (props: PropsWithChildren<OKCancelModalDialogProps>) => {
-	return (
-		<PositronModalDialog {...props}>
-			<SimpleTitleBar {...props} />
-			<ContentArea>
-				{props.children}
-			</ContentArea>
-			<OKCancelActionBar {...props} />
-		</PositronModalDialog>
-	);
-};
 
 /**
  * PositronModalDialogProps interface.
@@ -88,8 +59,8 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	// Render.
 	return (
 		<div className='positron-modal-dialog-shadow-container'>
-			<div className='positron-modal-dialog-box' role='dialog' tabIndex={-1}>
-				<div className='positron-modal-dialog-box-frame' style={{ width: props.width, height: props.height }}>
+			<div className='positron-modal-dialog-container' role='dialog' tabIndex={-1}>
+				<div className='positron-modal-dialog-box' style={{ width: props.width, height: props.height }}>
 					{props.children}
 				</div>
 			</div>

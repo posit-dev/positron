@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box .checkbox {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.positron-modal-dialog-box .checkbox-button {
+	width: 16px;
+	height: 16px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	border-radius: 3px;
+	justify-content: center;
+	color: var(--vscode-modalDialog-buttonForeground);
+	background: var(--vscode-modalDialog-buttonBackground);
+}
+
+.positron-modal-dialog-box .checkbox-button:focus {
+	outline: none;
+}
+
+.positron-modal-dialog-box .checkbox-button:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.positron-modal-dialog-box .checkbox-button .check-indicator {
+	color: white;
+	font-size: 12px;
+	font-weight: bold;
+}
