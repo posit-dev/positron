@@ -59,8 +59,8 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	// Render.
 	return (
 		<div className='positron-modal-dialog-shadow-container'>
-			<div className='positron-modal-dialog-box' role='dialog' tabIndex={-1}>
-				<div className='positron-modal-dialog-box-frame' style={{ width: props.width, height: props.height }}>
+			<div className='positron-modal-dialog-container' role='dialog' tabIndex={-1}>
+				<div className='positron-modal-dialog-box' style={{ width: props.width, height: props.height }}>
 					{props.children}
 				</div>
 			</div>

@@ -3,10 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./okActionBar';
-
-// React Imports
 import * as React from 'react';
-// React Imports
+import { localize } from 'vs/nls';
 
 /**
  * okActionBarProps interface.
@@ -24,8 +22,8 @@ export const OKActionBar = (props: OKActionBarProps) => {
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
-			<a className='push-button default' tabIndex={0} role='button' onClick={props.accept}>
-				OK
+			<a className='action-bar-button' tabIndex={0} role='button' onClick={props.accept}>
+				{props.okButtonTitle ?? localize('positronOK', "OK")}
 			</a>
 		</div>
 	);
