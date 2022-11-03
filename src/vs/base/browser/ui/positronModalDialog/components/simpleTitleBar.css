@@ -2,20 +2,20 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box-frame .simple-title-bar {
+.positron-modal-dialog-box .simple-title-bar {
 	position: absolute;
 	top: 0;
 	left: 0;
 	right: 0;
 	height: 32px;
-	background: var(--vscode-modalDialog-titleBarBackground);
-	color: var(--vscode-modalDialog-foreground);
 	display: flex;
-	align-items: center;
 	padding: 0 16px;
+	align-items: center;
+	color: var(--vscode-modalDialog-foreground);
+	background: var(--vscode-modalDialog-titleBarBackground);
 }
 
-.positron-modal-dialog-box-frame .simple-title-bar .simple-title-bar-title {
-	color: var(--vscode-modalDialog-titleBarForeground);
+.positron-modal-dialog-box .simple-title-bar .simple-title-bar-title {
 	overflow: hidden;
+	color: var(--vscode-modalDialog-titleBarForeground);
 }

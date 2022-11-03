@@ -4,11 +4,14 @@
 
 import 'vs/css!./okCancelActionBar';
 import * as React from 'react';
+import { localize } from 'vs/nls';
 
 /**
  * OKCancelActionBarProps interface.
  */
 interface OKCancelActionBarProps {
+	okButtonTitle?: string;
+	cancelButtonTitle?: string;
 	accept: () => void;
 	cancel: () => void;
 }
@@ -20,13 +23,13 @@ interface OKCancelActionBarProps {
 export const OKCancelActionBar = (props: OKCancelActionBarProps) => {
 	// Render.
 	return (
-		<div className='ok-action-bar top-separator'>
-			<a className='push-button default' tabIndex={0} role='button' onClick={props.accept}>
-				OK
-			</a>
-			<a className='push-button' tabIndex={0} role='button' onClick={props.cancel}>
-				Cancel
-			</a>
+		<div className='ok-cancel-action-bar top-separator'>
+			<button className='action-bar-button default' tabIndex={0} onClick={props.accept}>
+				{props.okButtonTitle ?? localize('positronOK', "OK")}
+			</button>
+			<button className='action-bar-button' tabIndex={0} onClick={props.cancel}>
+				{props.cancelButtonTitle ?? localize('positronCancel', "Cancel")}
+			</button>
 		</div>
 	);
 };
