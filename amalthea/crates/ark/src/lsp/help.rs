@@ -8,11 +8,13 @@
 use anyhow::*;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use regex::Regex;
 use scraper::ElementRef;
 use scraper::Html;
 use scraper::Selector;
 use stdext::push;
 use stdext::unwrap;
+use stdext::unwrap::IntoResult;
 
 use crate::lsp::markdown::*;
 
@@ -70,6 +72,7 @@ impl RHtmlHelp {
 
     }
 
+    #[allow(unused)]
     pub fn section(&self, name: &str) -> Option<Vec<ElementRef>> {
 
         // find all h3 headers in the document
@@ -107,6 +110,75 @@ impl RHtmlHelp {
         }
 
         Some(elements)
+
+    }
+
+    pub fn parameter(&self, name: &str) -> Result<Option<ElementRef>> {
+
+        // Find and parse the arguments in the HTML help. The help file has the structure:
+        //
+        // <h3>Arguments</h3>
+        //
+        // <table>
+        // <tr style="vertical-align: top;"><td><code>parameter</code></td>
+        // <td>
+        // Parameter documentation.
+        // </td></tr>
+        //
+        // Note that parameters might be parsed as part of different, multiple tables;
+        // we need to iterate over all tables after the Arguments header.
+        let selector = Selector::parse("h3").unwrap();
+        let mut headers = self.html.select(&selector);
+        let header = headers.find(|node| node.html() == "<h3>Arguments</h3>").into_result()?;
+
+        let mut elt = header;
+        loop {
+
+            // Get the next element.
+            elt = unwrap!(elt_next(elt), None => break);
+
+            // If it's a header, time to stop parsing.
+            if elt.value().name() == "h3" {
+                break;
+            }
+
+            // If it's not a table, skip it.
+            if elt.value().name() != "table" {
+                continue;
+            }
+
+            // Get the cells in this table.
+            // I really wish R included classes on these table elements...
+            let selector = Selector::parse(r#"tr[style="vertical-align: top;"] > td"#).unwrap();
+            let mut cells = elt.select(&selector);
+
+            // Start iterating through pairs of cells.
+            loop {
+
+                // Get the parameters. Note that multiple parameters might be contained
+                // within a single table cell, so we'll need to split that later.
+                let lhs = unwrap!(cells.next(), None => { break });
+                let parameters : String = lhs.text().collect();
+
+                // Get the parameter description. We'll convert this from HTML to Markdown.
+                let rhs = unwrap!(cells.next(), None => { break });
+
+                // Check and see if we've found the parameter we care about.
+                let pattern = Regex::new("\\s*,\\s*").unwrap();
+                let mut params = pattern.split(parameters.as_str());
+                let label = params.find(|&value| value == name);
+                if label.is_none() {
+                    continue;
+                }
+
+                // We found the node; return it.
+                return Ok(Some(rhs));
+
+            }
+
+        }
+
+        Ok(None)
 
     }
 

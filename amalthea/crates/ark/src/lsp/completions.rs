@@ -24,9 +24,6 @@ use libR_sys::*;
 use log::*;
 use regex::Captures;
 use regex::Regex;
-use scraper::ElementRef;
-use scraper::Html;
-use scraper::Selector;
 use serde::Deserialize;
 use serde::Serialize;
 use stdext::*;
@@ -116,7 +113,7 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 unsafe fn resolve_package_completion_item(item: &mut CompletionItem, package: &str) -> Result<()> {
 
     let topic = join!(package, "-package");
-    let help = RHtmlHelp::new(topic.as_str(), None)?;
+    let help = RHtmlHelp::new(topic.as_str(), Some(package))?;
     let markup = help.markdown()?;
 
     let markup = MarkupContent {
@@ -146,88 +143,31 @@ unsafe fn resolve_function_completion_item(item: &mut CompletionItem, name: &str
 
 }
 
+// TODO: Include package as well here?
 unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &str, function: &str) -> Result<()> {
 
-    let html = RFunction::from(".rs.help.getHtmlHelpContents")
-        .add(function)
-        .call()?
-        .to::<String>()?;
+    // Get help for this function.
+    let help = RHtmlHelp::new(function, None)?;
 
-    // Find and parse the arguments in the HTML help. The help file has the structure:
-    //
-    // <h3>Arguments</h3>
-    //
-    // <table>
-    // <tr style="vertical-align: top;"><td><code>parameter</code></td>
-    // <td>
-    // Parameter documentation.
-    // </td></tr>
-    //
-    // Note that parameters might be parsed as part of different, multiple tables;
-    // we need to iterate over all tables after the Arguments header.
-    let doc = Html::parse_document(html.as_str());
-    let selector = Selector::parse("h3").unwrap();
-    let mut headers = doc.select(&selector);
-    let header = headers.find(|node| node.html() == "<h3>Arguments</h3>").into_result()?;
+    // Extract the relevant parameter help.
+    let help = help.parameter(name)?;
+    let help = unwrap!(help, None => {
+        return Ok(());
+    });
 
-    let mut node = *header;
-    loop {
+    // We found the relevant parameter; add its documentation.
+    let converter = MarkdownConverter::new(*help);
+    let description = converter.convert();
 
-        // Get the next node.
-        node = unwrap!(node.next_sibling(), None => { break });
+    let markup = MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: description.to_string(),
+    };
 
-        // See if it's an element.
-        let element = unwrap!(ElementRef::wrap(node), None => { continue });
-
-        // If it's a header, time to stop parsing.
-        if element.value().name() == "h3" {
-            break;
-        } else if element.value().name() != "table" {
-            continue;
-        }
-
-        // I really wish R included classes on these table elements...
-        let selector = Selector::parse(r#"tr[style="vertical-align: top;"] > td"#).unwrap();
-        let mut cells = element.select(&selector);
-
-        // Start iterating through pairs of cells.
-        loop {
-
-            // Get the parameters. Note that multiple parameters might be contained
-            // within a single table cell, so we'll need to split that later.
-            let lhs = unwrap!(cells.next(), None => { break });
-            let parameters : String = lhs.text().collect();
-
-            // Get the parameter description. We'll convert this from HTML to Markdown.
-            let rhs = unwrap!(cells.next(), None => { break });
-
-            // Check and see if we've found the parameter we care about.
-            let pattern = Regex::new("\\s*,\\s*").unwrap();
-            let mut params = pattern.split(parameters.as_str());
-            let label = params.find(|&value| value == name);
-            if label.is_none() {
-                continue;
-            }
-
-            // We found the relevant parameter; add its documentation.
-            let converter = MarkdownConverter::new(*rhs);
-            let description = converter.convert();
-
-            let markup = MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: description.to_string(),
-            };
-
-            // Build the actual markup content.
-            // We found it; amend the documentation.
-            item.detail = Some(format!("{}()", function));
-            item.documentation = Some(Documentation::MarkupContent(markup));
-            return Ok(())
-
-        }
-
-    }
-
+    // Build the actual markup content.
+    // We found it; amend the documentation.
+    item.detail = Some(format!("{}()", function));
+    item.documentation = Some(Documentation::MarkupContent(markup));
     Ok(())
 
 }
@@ -366,6 +306,11 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
         }
     }
 
+    // TODO: For some functions (e.g. S4 generics?) the help file might be
+    // associated with a separate package. See 'stats4::AIC()' for one example.
+    //
+    // In other words, when creating a completion item for these functions,
+    // we should also figure out where we can receive the help from.
     if Rf_isFunction(object) != 0 {
         let envir = r_envir_name(envir)?;
         let formals = r_formals(object)?;
@@ -1052,6 +997,16 @@ pub fn append_workspace_completions(backend: &Backend, context: &CompletionConte
 
     // TODO: Don't provide completions if token is empty in certain contexts
     // (e.g. parameter completions or something like that)
+    if matches!(context.node.kind(), "::" | ":::") {
+        return Ok(());
+    }
+
+    if let Some(parent) = context.node.parent() {
+        if matches!(parent.kind(), "::" | ":::") {
+            return Ok(());
+        }
+    }
+
     let token = if context.node.kind() == "identifier" {
         context.node.utf8_text(context.source.as_bytes())?
     } else {
