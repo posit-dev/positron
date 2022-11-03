@@ -2,7 +2,7 @@
   "name": "jupyter-adapter",
   "displayName": "%displayName%",
   "description": "%description%",
-  "publisher": "posit",
+  "publisher": "vscode",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.61.0"
