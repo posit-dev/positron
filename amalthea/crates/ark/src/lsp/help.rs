@@ -13,7 +13,6 @@ use scraper::Html;
 use scraper::Selector;
 use stdext::push;
 use stdext::unwrap;
-use stdext::unwrap::IntoResult;
 
 use crate::lsp::markdown::*;
 
@@ -24,6 +23,9 @@ pub struct RHtmlHelp {
 impl RHtmlHelp {
 
     pub unsafe fn new(topic: &str, package: Option<&str>) -> Result<Self> {
+
+        // trim off a package prefix if necessary
+        let package = package.map(|s| s.replace("package:", ""));
 
         // get help document
         let contents = RFunction::from(".rs.help.getHtmlHelpContents")
@@ -38,23 +40,25 @@ impl RHtmlHelp {
 
     }
 
-    pub fn markdown(&self) -> Result<String> {
-
-        let mut markdown = String::new();
+    pub fn topic(&self) -> Option<String> {
 
         // get topic + title; normally available in first table in the document
         let selector = Selector::parse("table").unwrap();
-        let preamble = self.html.select(&selector).next().into_result()?;
+        let preamble = self.html.select(&selector).next()?;
 
         // try to get the first cell
         let selector = Selector::parse("td").unwrap();
-        let cell = preamble.select(&selector).next().into_result()?;
+        let cell = preamble.select(&selector).next()?;
         let preamble = elt_text(cell);
-        push!(markdown, md_italic(&preamble), md_newline());
 
-        // get title
+        Some(preamble)
+
+    }
+
+    pub fn title(&self) -> Option<String> {
+
         let selector = Selector::parse("head > title").unwrap();
-        let title = self.html.select(&selector).next().into_result()?;
+        let title = self.html.select(&selector).next()?;
         let mut title = elt_text(title);
 
         // R prepends 'R: ' to the title, so remove it if that exists
@@ -62,7 +66,62 @@ impl RHtmlHelp {
             title.replace_range(0..3, "");
         }
 
-        push!(markdown, md_h2(&title), md_newline(), "------\n");
+        Some(title)
+
+    }
+
+    pub fn section(&self, name: &str) -> Option<Vec<ElementRef>> {
+
+        // find all h3 headers in the document
+        let selector = Selector::parse("h3").unwrap();
+        let mut headers = self.html.select(&selector);
+
+        // search for the header with the matching name
+        let needle = format!("<h2>{}</h2>", name);
+        let header = headers.find(|elt| {
+            elt.inner_html() == needle
+        });
+
+        let header = match header {
+            Some(header) => header,
+            None => return None,
+        };
+
+        // start collecting elements
+        let mut elements : Vec<ElementRef> = Vec::new();
+        let mut elt = header;
+
+        loop {
+
+            elt = match elt_next(elt) {
+                Some(elt) => elt,
+                None => break,
+            };
+
+            if matches!(elt.value().name(), "h1" | "h2" | "h3") {
+                break;
+            }
+
+            elements.push(elt);
+
+        }
+
+        Some(elements)
+
+    }
+
+    pub fn markdown(&self) -> Result<String> {
+
+        let mut markdown = String::new();
+
+        // add topic
+        if let Some(topic) = self.topic() {
+            push!(markdown, md_italic(&topic), md_newline());
+        }
+
+        if let Some(title) = self.title() {
+            push!(markdown, md_h2(&title), md_newline(), "------\n");
+        }
 
         // iterate through the different sections in the help file
         for_each_section(&self.html, |header, elements| {

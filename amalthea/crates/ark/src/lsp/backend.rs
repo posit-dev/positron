@@ -364,9 +364,6 @@ impl LanguageServer for Backend {
         }
     }
 
-    // TODO: Use completion_resolve() to provide extra information about a completion.
-    // TODO: Tag completion items with a 'data' entry so we can look up information about
-    // them more easily.
     async fn completion_resolve(&self, mut item: CompletionItem) -> Result<CompletionItem> {
         backend_trace!(self, "completion_resolve({:?})", item);
 

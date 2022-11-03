@@ -10,7 +10,6 @@ use std::path::Path;
 
 use anyhow::Result;
 use anyhow::bail;
-use ego_tree::iter::Values;
 use harp::eval::RParseEvalOptions;
 use harp::eval::r_parse_eval;
 use harp::exec::geterrmessage;
@@ -48,6 +47,7 @@ use yaml_rust::YamlLoader;
 
 use crate::lsp::backend::Backend;
 use crate::lsp::document::Document;
+use crate::lsp::help::RHtmlHelp;
 use crate::lsp::indexer;
 use crate::lsp::markdown::MarkdownConverter;
 use crate::lsp::traits::cursor::TreeCursorExt;
@@ -64,23 +64,16 @@ lazy_static! {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-enum CompletionKind {
-    Function,
-    Object,
-    Parameter,
-    Package,
-    RoxygenTag,
-    Snippet,
-    Unknown,
-}
-
-// Completions should be tagged with a CompletionData object, so that further
-// information about a completion can be resolved lazily via the
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CompletionData {
-    kind: CompletionKind,
-    value: String,
-    source: Option<String>,
+pub enum CompletionData {
+    DataVariable { name: String, owner: String },
+    Function { name: String, package: Option<String> },
+    Object { name: String },
+    Package { name: String },
+    Parameter { name: String, function: String },
+    RoxygenTag { tag: String },
+    ScopeParameter { name: String },
+    ScopeVariable { name: String },
+    Snippet { text: String },
 }
 
 pub struct CompletionContext<'a> {
@@ -107,14 +100,10 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
     let result: Result<()> = local! {
 
         let lhs = node.child(0).into_result()?;
-        if !matches!(lhs.kind(), "identifier" | "string") {
-            bail!("expected an identifier or a string");
-        }
+        matches!(lhs.kind(), "identifier" | "string").into_result()?;
 
         let value = lhs.utf8_text(context.source.as_bytes())?;
-        if !matches!(value, "expression" | "local" | "quote" | "enquote" | "substitute" | "with" | "within") {
-            bail!("value is not an expected NSE symbol");
-        }
+        matches!(value, "expression" | "local" | "quote" | "enquote" | "substitute" | "with" | "within").into_result()?;
 
         Ok(())
 
@@ -124,37 +113,15 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
 }
 
-unsafe fn resolve_package_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+unsafe fn resolve_package_completion_item(item: &mut CompletionItem, package: &str) -> Result<()> {
 
-    let package = data.value.clone();
     let topic = join!(package, "-package");
-
-    let html = RFunction::from(".rs.help.getHtmlHelpContents")
-        .param("topic", topic)
-        .param("package", package)
-        .call()?
-        .to::<String>()?;
-
-    let doc = Html::parse_document(html.as_str());
-    let mut markup = String::new();
-
-    // Get the page title header.
-    let selector = Selector::parse("h2").unwrap();
-    let header = doc.select(&selector).next().into_result()?;
-
-    markup.push_str("**");
-    markup.push_str(header.text().collect::<String>().as_str().trim());
-    markup.push_str("**");
-    markup.push_str("\n\n");
-
-    // Get the description.
-    let selector = Selector::parse("h3 + p").unwrap();
-    let description = doc.select(&selector).next().into_result()?;
-    markup.push_str(MarkdownConverter::new(*description).convert().trim());
+    let help = RHtmlHelp::new(topic.as_str(), None)?;
+    let markup = help.markdown()?;
 
     let markup = MarkupContent {
         kind: MarkupKind::Markdown,
-        value: markup.trim().to_string(),
+        value: markup.to_string(),
     };
 
     item.detail = None;
@@ -163,31 +130,10 @@ unsafe fn resolve_package_completion_item(item: &mut CompletionItem, data: &Comp
     Ok(())
 }
 
-unsafe fn resolve_function_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+unsafe fn resolve_function_completion_item(item: &mut CompletionItem, name: &str, package: Option<&str>) -> Result<()> {
 
-    let html = RFunction::from(".rs.help.getHtmlHelpContents")
-        .add(data.value.as_str())
-        .call()?
-        .to::<String>()?;
-
-    let doc = Html::parse_document(html.as_str());
-    let mut markup = String::new();
-
-    // Get the page title header.
-    let selector = Selector::parse("h2").unwrap();
-    let header = doc.select(&selector).next().into_result()?;
-
-    // Add it as bold text. We don't use header-style markup as it
-    // introduces too much padding around the header field.
-    markup.push_str("**");
-    markup.push_str(header.text().collect::<String>().as_str().trim());
-    markup.push_str("**");
-    markup.push_str("\n\n");
-
-    // Get the description.
-    let selector = Selector::parse("h3 + p").unwrap();
-    let description = doc.select(&selector).next().into_result()?;
-    markup.push_str(MarkdownConverter::new(*description).convert().trim());
+    let help = RHtmlHelp::new(name, package)?;
+    let markup = help.markdown()?;
 
     let markup = MarkupContent {
         kind: MarkupKind::Markdown,
@@ -200,11 +146,10 @@ unsafe fn resolve_function_completion_item(item: &mut CompletionItem, data: &Com
 
 }
 
-unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &str, function: &str) -> Result<()> {
 
-    let source = data.source.as_ref().into_result()?;
     let html = RFunction::from(".rs.help.getHtmlHelpContents")
-        .add(source.as_ref())
+        .add(function)
         .call()?
         .to::<String>()?;
 
@@ -259,7 +204,7 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
             // Check and see if we've found the parameter we care about.
             let pattern = Regex::new("\\s*,\\s*").unwrap();
             let mut params = pattern.split(parameters.as_str());
-            let label = params.find(|&value| value == item.label);
+            let label = params.find(|&value| value == name);
             if label.is_none() {
                 continue;
             }
@@ -275,7 +220,7 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
 
             // Build the actual markup content.
             // We found it; amend the documentation.
-            item.detail = Some(format!("{}()", source));
+            item.detail = Some(format!("{}()", function));
             item.documentation = Some(Documentation::MarkupContent(markup));
             return Ok(())
 
@@ -287,19 +232,20 @@ unsafe fn resolve_argument_completion_item(item: &mut CompletionItem, data: &Com
 
 }
 
+#[allow(unused_variables)]
 pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
 
-    // Handle arguments specially.
-    match data.kind {
-        CompletionKind::Package   => resolve_package_completion_item(item, data),
-        CompletionKind::Parameter => resolve_argument_completion_item(item, data),
-        CompletionKind::Function  => resolve_function_completion_item(item, data),
-        _ => {
-            warn!("Unhandled completion kind '{:?}'", data.kind);
-            Ok(())
-        }
+    match data {
+        CompletionData::DataVariable { name, owner } => Ok(()),
+        CompletionData::Function { name, package } => resolve_function_completion_item(item, name, package.as_deref()),
+        CompletionData::Package { name } => resolve_package_completion_item(item, name),
+        CompletionData::Parameter { name, function } => resolve_parameter_completion_item(item, name, function),
+        CompletionData::Object { name } => Ok(()),
+        CompletionData::RoxygenTag { tag } => Ok(()),
+        CompletionData::ScopeVariable { name } => Ok(()),
+        CompletionData::ScopeParameter { name } => Ok(()),
+        CompletionData::Snippet { text } => Ok(()),
     }
-
 
 }
 
@@ -320,10 +266,9 @@ fn completion_item_from_assignment(node: &Node, source: &str) -> Result<Completi
 
     let label = lhs.utf8_text(source.as_bytes())?;
 
-    let mut item = completion_item(label, CompletionData {
-        kind: CompletionKind::Unknown,
-        source: None,
-        value: label.to_string(),
+    // TODO: Resolve functions that exist in-document here.
+    let mut item = completion_item(label, CompletionData::ScopeVariable {
+        name: label.to_string()
     })?;
 
     let detail = format!("Defined on line {}", lhs.start_position().row + 1);
@@ -342,10 +287,8 @@ fn completion_item_from_assignment(node: &Node, source: &str) -> Result<Completi
 
 unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Result<CompletionItem> {
 
-    let mut item = completion_item(package.to_string(), CompletionData {
-        kind: CompletionKind::Package,
-        source: None,
-        value: package.to_string(),
+    let mut item = completion_item(package.to_string(), CompletionData::Package {
+        name: package.to_string(),
     })?;
 
     item.kind = Some(CompletionItemKind::MODULE);
@@ -367,10 +310,9 @@ unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Re
 pub fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: Option<&str>, parameters: &[T]) -> Result<CompletionItem> {
 
     let label = format!("{}()", name);
-    let mut item = completion_item(label, CompletionData {
-        kind: CompletionKind::Function,
-        source: envir.map(|s| s.to_string()),
-        value: name.to_string(),
+    let mut item = completion_item(label, CompletionData::Function {
+        name: name.to_string(),
+        package: envir.map(|s| s.to_string()),
     })?;
 
     item.kind = Some(CompletionItemKind::FUNCTION);
@@ -395,19 +337,18 @@ pub fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: Option<&s
     return Ok(item);
 }
 
-unsafe fn completion_item_from_name(name: &str, callee: &str, enquote: bool) -> Result<CompletionItem> {
+unsafe fn completion_item_from_data_variable(name: &str, owner: &str, enquote: bool) -> Result<CompletionItem> {
 
-    let mut item = completion_item(name.to_string(), CompletionData {
-        kind: CompletionKind::Unknown,
-        source: Some(callee.to_string()),
-        value: name.to_string(),
+    let mut item = completion_item(name.to_string(), CompletionData::DataVariable {
+        name: name.to_string(),
+        owner: owner.to_string(),
     })?;
 
     if enquote {
         item.insert_text = Some(format!("\"{}\"", name));
     }
 
-    item.detail = Some(callee.to_string());
+    item.detail = Some(owner.to_string());
     item.kind = Some(CompletionItemKind::FIELD);
 
     Ok(item)
@@ -432,23 +373,14 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
         return completion_item_from_function(name, Some(envir.as_str()), &arguments);
     }
 
-    let mut item = completion_item(name, CompletionData {
-        kind: CompletionKind::Object,
-        source: None,
-        value: name.to_string()
+    let mut item = completion_item(name, CompletionData::Object {
+        name: name.to_string(),
     })?;
 
     item.detail = Some("(Object)".to_string());
     item.kind = Some(CompletionItemKind::STRUCT);
 
-    let data = CompletionData {
-        kind: CompletionKind::Object,
-        source: None,
-        value: name.to_string(),
-    };
-
-    item.data = Some(serde_json::to_value(data)?);
-    return Ok(item);
+    Ok(item)
 
 }
 
@@ -466,12 +398,10 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
 
 // This is used when providing completions for a parameter in a document
 // that is considered in-scope at the cursor position.
-fn completion_item_from_parameter(parameter: &str, _context: &CompletionContext) -> Result<CompletionItem> {
+fn completion_item_from_scope_parameter(parameter: &str, _context: &CompletionContext) -> Result<CompletionItem> {
 
-    let mut item = completion_item(parameter, CompletionData {
-        kind: CompletionKind::Parameter,
-        source: None,
-        value: parameter.to_string(),
+    let mut item = completion_item(parameter, CompletionData::ScopeParameter {
+        name: parameter.to_string(),
     })?;
 
     item.kind = Some(CompletionItemKind::VARIABLE);
@@ -479,13 +409,12 @@ fn completion_item_from_parameter(parameter: &str, _context: &CompletionContext)
 
 }
 
-unsafe fn completion_item_from_argument(parameter: &str, callee: &str) -> Result<CompletionItem> {
+unsafe fn completion_item_from_parameter(parameter: &str, callee: &str) -> Result<CompletionItem> {
 
     let label = quote_if_non_syntactic(parameter);
-    let mut item = completion_item(label, CompletionData {
-        kind: CompletionKind::Parameter,
-        source: Some(callee.to_string()),
-        value: parameter.to_string(),
+    let mut item = completion_item(label, CompletionData::Parameter {
+        name: parameter.to_string(),
+        function: callee.to_string(),
     })?;
 
     // TODO: It'd be nice if we could be smarter about how '...' completions are handled,
@@ -614,7 +543,7 @@ fn append_function_parameters(node: &Node, context: &CompletionContext, completi
         }
 
         let parameter = node.utf8_text(context.source.as_bytes()).into_result()?;
-        match completion_item_from_parameter(parameter, context) {
+        match completion_item_from_scope_parameter(parameter, context) {
             Ok(item) => completions.push(item),
             Err(error) => error!("{:?}", error),
         }
@@ -659,7 +588,7 @@ unsafe fn append_subset_completions(_context: &CompletionContext, callee: &str, 
         .to::<Vec<String>>()?;
 
     for name in names {
-        match completion_item_from_name(&name, callee, enquote) {
+        match completion_item_from_data_variable(&name, callee, enquote) {
             Ok(item) => completions.push(item),
             Err(error) => error!("{:?}", error),
         }
@@ -733,7 +662,7 @@ unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str
 
             indexer::IndexEntryData::Function { name, arguments } => {
                 for argument in arguments {
-                    match completion_item_from_argument(argument.as_str(), name.as_str()) {
+                    match completion_item_from_parameter(argument.as_str(), name.as_str()) {
                         Ok(item) => completions.push(item),
                         Err(error) => error!("{:?}", error),
                     }
@@ -762,7 +691,7 @@ unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str
 
         // Return the names of these formals.
         for string in strings.iter() {
-            match completion_item_from_argument(string, callee) {
+            match completion_item_from_parameter(string, callee) {
                 Ok(item) => completions.push(item),
                 Err(error) => error!("{:?}", error),
             }
@@ -821,10 +750,8 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::
     for snippet in snippets {
 
         let label = snippet.0.to_string();
-        let mut item = completion_item(label.to_string(), CompletionData {
-            kind: CompletionKind::Snippet,
-            source: None,
-            value: label.to_string(),
+        let mut item = completion_item(label.to_string(), CompletionData::Snippet {
+            text: label.clone(),
         })?;
 
         item.detail = Some("[keyword]".to_string());
@@ -937,10 +864,8 @@ unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<Complet
         });
 
         let label = name.to_string();
-        let mut item = completion_item(label.clone(), CompletionData {
-            kind: CompletionKind::RoxygenTag,
-            source: None,
-            value: label.clone(),
+        let mut item = completion_item(label.clone(), CompletionData::RoxygenTag {
+            tag: label.clone(),
         })?;
 
         // TODO: What is the appropriate icon for us to use here?
@@ -1125,6 +1050,8 @@ pub fn append_document_completions(context: &CompletionContext, completions: &mu
 
 pub fn append_workspace_completions(backend: &Backend, context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
+    // TODO: Don't provide completions if token is empty in certain contexts
+    // (e.g. parameter completions or something like that)
     let token = if context.node.kind() == "identifier" {
         context.node.utf8_text(context.source.as_bytes())?
     } else {
