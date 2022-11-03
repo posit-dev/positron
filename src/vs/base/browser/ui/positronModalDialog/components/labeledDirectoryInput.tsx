@@ -20,7 +20,7 @@ export interface DirectoryInputProps {
  * @param props The properties
  * @returns
  */
-export const DirectoryInput: React.FC<DirectoryInputProps> = (props: DirectoryInputProps) => {
+export const DirectoryInput = (props: DirectoryInputProps) => {
 	return (
 		<div className='labeled-directory-input'>
 			<label>

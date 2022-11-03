@@ -9,13 +9,14 @@ import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
+import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
 import { DirectoryInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledDirectoryInput';
 import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 
 /**
  * NewWorkspaceFromGitResult interface.
@@ -99,9 +100,9 @@ export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAcces
 							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, parentDirectory: e.target.value })}
 						/>
 					</VerticalStack>
-					<div className='fart'>
+					<VerticalSpacer>
 						<Checkbox id='open-in-new-window' label='Open in a new window' onChanged={checked => setNewWorkspaceResult({ ...newWorkspaceResult, newWindow: checked })} />
-					</div>
+					</VerticalSpacer>
 				</OKCancelModalDialog>
 			);
 		};
