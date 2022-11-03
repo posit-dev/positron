@@ -27,7 +27,7 @@ export const DirectoryInput: React.FC<DirectoryInputProps> = (props: DirectoryIn
 				{props.label}:
 				<div className='directory-input'>
 					<input className='text-input' readOnly type='text' value={props.value} onChange={props.onChange} />
-					<button className='button1' tabIndex={0} onClick={props.onBrowse}>
+					<button className='button browse-button' tabIndex={0} onClick={props.onBrowse}>
 						Browse...
 					</button>
 				</div>

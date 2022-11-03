@@ -23,25 +23,4 @@
 .positron-modal-dialog-box .ok-action-bar .action-bar-button {
 	width: 80px;
 	height: 32px;
-	display: flex;
-	cursor: pointer;
-	border-radius: 5px;
-	align-items: center;
-	justify-content: center;
-	border: 1px solid transparent;
-	color: var(--vscode-modalDialog-buttonForeground);
-	background: var(--vscode-modalDialog-defaultButtonBackground);
-}
-
-.positron-modal-dialog-box .ok-action-bar .action-bar-button:hover {
-	background: var(--vscode-modalDialog-defaultButtonHoverBackground);
-}
-
-.positron-modal-dialog-box .ok-action-bar .action-bar-button:focus {
-	outline: none;
-}
-
-.positron-modal-dialog-box .ok-action-bar .action-bar-button:focus-visible {
-	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder);
 }
