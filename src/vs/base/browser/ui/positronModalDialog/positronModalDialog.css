@@ -39,7 +39,7 @@
 .positron-modal-dialog-box {
 	display: flex;
 	overflow: hidden;
-	position: relative;
+	position: absolute;
 	border-radius: 15px 15px 5px 5px;
 	color: var(--vscode-modalDialog-foreground);
 	background: var(--vscode-modalDialog-background);
