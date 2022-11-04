@@ -77,7 +77,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		<div className='positron-modal-dialog-shadow-container'>
 			<div className='positron-modal-dialog-container' role='dialog' tabIndex={-1}>
 				<div ref={ref} className='positron-modal-dialog-box' style={{ width: props.width, height: props.height }}>
-					{props.title && <SimpleTitleBar {...props} move={moveHandler} />}
+					{props.title && <SimpleTitleBar {...props} onMoveDialog={moveHandler} />}
 					{props.children}
 				</div>
 			</div>
