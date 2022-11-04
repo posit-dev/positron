@@ -43,7 +43,7 @@ use tree_sitter::Point;
 use yaml_rust::YamlLoader;
 
 use crate::lsp::backend::Backend;
-use crate::lsp::document::Document;
+use crate::lsp::documents::Document;
 use crate::lsp::help::RHtmlHelp;
 use crate::lsp::indexer;
 use crate::lsp::markdown::MarkdownConverter;
@@ -110,12 +110,14 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
 
 }
 
-unsafe fn resolve_package_completion_item(item: &mut CompletionItem, package: &str) -> Result<()> {
+unsafe fn resolve_package_completion_item(item: &mut CompletionItem, package: &str) -> Result<bool> {
 
     let topic = join!(package, "-package");
-    let help = RHtmlHelp::new(topic.as_str(), Some(package))?;
-    let markup = help.markdown()?;
+    let help = unwrap!(RHtmlHelp::new(topic.as_str(), Some(package))?, None => {
+        return Ok(false);
+    });
 
+    let markup = help.markdown()?;
     let markup = MarkupContent {
         kind: MarkupKind::Markdown,
         value: markup.to_string(),
@@ -124,12 +126,15 @@ unsafe fn resolve_package_completion_item(item: &mut CompletionItem, package: &s
     item.detail = None;
     item.documentation = Some(Documentation::MarkupContent(markup));
 
-    Ok(())
+    Ok(true)
 }
 
-unsafe fn resolve_function_completion_item(item: &mut CompletionItem, name: &str, package: Option<&str>) -> Result<()> {
+unsafe fn resolve_function_completion_item(item: &mut CompletionItem, name: &str, package: Option<&str>) -> Result<bool> {
 
-    let help = RHtmlHelp::new(name, package)?;
+    let help = unwrap!(RHtmlHelp::new(name, package)?, None => {
+        return Ok(false);
+    });
+
     let markup = help.markdown()?;
 
     let markup = MarkupContent {
@@ -139,20 +144,21 @@ unsafe fn resolve_function_completion_item(item: &mut CompletionItem, name: &str
 
     item.documentation = Some(Documentation::MarkupContent(markup));
 
-    Ok(())
+    Ok(true)
 
 }
 
 // TODO: Include package as well here?
-unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &str, function: &str) -> Result<()> {
+unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &str, function: &str) -> Result<bool> {
 
     // Get help for this function.
-    let help = RHtmlHelp::new(function, None)?;
+    let help = unwrap!(RHtmlHelp::new(function, None)?, None => {
+        return Ok(false);
+    });
 
     // Extract the relevant parameter help.
-    let help = help.parameter(name)?;
-    let help = unwrap!(help, None => {
-        return Ok(());
+    let help = unwrap!(help.parameter(name)?, None => {
+        return Ok(false);
     });
 
     // We found the relevant parameter; add its documentation.
@@ -168,23 +174,23 @@ unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &st
     // We found it; amend the documentation.
     item.detail = Some(format!("{}()", function));
     item.documentation = Some(Documentation::MarkupContent(markup));
-    Ok(())
+    Ok(true)
 
 }
 
 #[allow(unused_variables)]
-pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<()> {
+pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<bool> {
 
     match data {
-        CompletionData::DataVariable { name, owner } => Ok(()),
+        CompletionData::DataVariable { name, owner } => Ok(false),
         CompletionData::Function { name, package } => resolve_function_completion_item(item, name, package.as_deref()),
         CompletionData::Package { name } => resolve_package_completion_item(item, name),
         CompletionData::Parameter { name, function } => resolve_parameter_completion_item(item, name, function),
-        CompletionData::Object { name } => Ok(()),
-        CompletionData::RoxygenTag { tag } => Ok(()),
-        CompletionData::ScopeVariable { name } => Ok(()),
-        CompletionData::ScopeParameter { name } => Ok(()),
-        CompletionData::Snippet { text } => Ok(()),
+        CompletionData::Object { name } => Ok(false),
+        CompletionData::RoxygenTag { tag } => Ok(false),
+        CompletionData::ScopeVariable { name } => Ok(false),
+        CompletionData::ScopeParameter { name } => Ok(false),
+        CompletionData::Snippet { text } => Ok(false),
     }
 
 }

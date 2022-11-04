@@ -13,7 +13,7 @@ use tower_lsp::lsp_types::MarkupKind;
 use tree_sitter::Node;
 
 use crate::lsp::completions::CompletionContext;
-use crate::lsp::document::Document;
+use crate::lsp::documents::Document;
 use crate::lsp::help::RHtmlHelp;
 
 enum HoverContext {
@@ -104,8 +104,11 @@ pub unsafe fn hover(_document: &Document, context: &CompletionContext) -> Result
 
     };
 
-    let markdown = help.markdown()?;
+    let help = unwrap!(help, None => {
+        return Ok(None);
+    });
 
+    let markdown = help.markdown()?;
     Ok(Some(MarkupContent {
         kind: MarkupKind::Markdown,
         value: markdown,

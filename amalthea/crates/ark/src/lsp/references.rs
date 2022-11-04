@@ -17,29 +17,16 @@ use tower_lsp::lsp_types::ReferenceParams;
 use tower_lsp::lsp_types::Url;
 use tree_sitter::Node;
 use tree_sitter::Point;
-use walkdir::DirEntry;
 use walkdir::WalkDir;
 
 
+use crate::lsp::indexer::filter_entry;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::url::UrlExt;
 use crate::lsp::backend::Backend;
-use crate::lsp::document::Document;
+use crate::lsp::documents::Document;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
-
-fn _filter_entry(entry: &DirEntry) -> bool {
-
-    // TODO: Figure out if we can read this from the front-end;
-    // the user has likely defined a set of workspace file filters
-    // that could control which files we search for references in.
-    let name = entry.file_name().to_str().unwrap_or("");
-    match name {
-        ".git" | "node_modules" => false,
-        _ => true,
-    }
-
-}
 
 enum ReferenceKind {
     SymbolName,        // a regular R symbol
@@ -178,7 +165,7 @@ impl Backend {
     fn find_references_in_folder(&self, context: &Context, path: &Path, locations: &mut Vec<Location>) {
 
         let walker = WalkDir::new(path);
-        for entry in walker.into_iter().filter_entry(|entry| _filter_entry(entry)) {
+        for entry in walker.into_iter().filter_entry(|entry| filter_entry(entry)) {
 
             let entry = unwrap!(entry, Err(_) => { continue; });
             let path = entry.path();

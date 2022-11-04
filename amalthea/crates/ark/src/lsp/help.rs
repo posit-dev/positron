@@ -8,6 +8,8 @@
 use anyhow::*;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::utils::r_typeof;
+use libR_sys::*;
 use regex::Regex;
 use scraper::ElementRef;
 use scraper::Html;
@@ -24,7 +26,7 @@ pub struct RHtmlHelp {
 
 impl RHtmlHelp {
 
-    pub unsafe fn new(topic: &str, package: Option<&str>) -> Result<Self> {
+    pub unsafe fn new(topic: &str, package: Option<&str>) -> Result<Option<Self>> {
 
         // trim off a package prefix if necessary
         let package = package.map(|s| s.replace("package:", ""));
@@ -33,12 +35,17 @@ impl RHtmlHelp {
         let contents = RFunction::from(".rs.help.getHtmlHelpContents")
             .param("topic", topic)
             .param("package", package)
-            .call()?
-            .to::<String>()?;
+            .call()?;
+
+        // check for NULL (implies no help available)
+        if r_typeof(*contents) == NILSXP {
+            return Ok(None);
+        }
 
         // parse as html
+        let contents = contents.to::<String>()?;
         let html = Html::parse_document(contents.as_str());
-        Ok(Self { html })
+        Ok(Some(Self { html }))
 
     }
 
