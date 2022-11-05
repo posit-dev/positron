@@ -83,7 +83,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		// Update the dialog box state.
 		setDialogBoxState(prevDialogBoxState => {
 			// Update the dialog box state. If the left or top position places the dialog box off the screen,
-			// move the dialog box left to keep it on screen.
+			// move the dialog box to keep it on screen.
 			const result: DialogBoxState = {
 				...prevDialogBoxState,
 				left: prevDialogBoxState.left + props.width <= dialogContainerRef.current.clientWidth ?
