@@ -267,7 +267,7 @@ impl TryFrom<RObject> for String {
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
 
-            let types = &[CHARSXP | STRSXP | SYMSXP];
+            let types = &[CHARSXP, STRSXP, SYMSXP];
             let charsexp = match r_typeof(*value) {
                 CHARSXP => *value,
                 STRSXP => { r_assert_length(*value, 1)?; STRING_ELT(*value, 0) },

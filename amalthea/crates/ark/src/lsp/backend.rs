@@ -34,7 +34,8 @@ use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::completion_context;
 use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition_context;
-use crate::lsp::document::Document;
+use crate::lsp::documents::DOCUMENT_INDEX;
+use crate::lsp::documents::Document;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
 use crate::lsp::modules;
@@ -66,7 +67,7 @@ impl Default for Workspace {
 #[derive(Debug)]
 pub struct Backend {
     pub client: Client,
-    pub documents: DashMap<Url, Document>,
+    pub documents: Arc<DashMap<Url, Document>>,
     pub workspace: Arc<Mutex<Workspace>>,
     #[allow(dead_code)]
     pub channel: SyncSender<Request>,
@@ -88,12 +89,12 @@ impl Backend {
         // then use that; otherwise, try to read the document from the provided
         // path and use that instead.
         let uri = unwrap!(Url::from_file_path(path), Err(_) => {
-            info!("couldn't construct uri from {:?}; using fallback", path);
+            info!("couldn't construct uri from {}; reading from disk instead", path.display());
             return fallback();
         });
 
         let document = unwrap!(self.documents.get(&uri), None => {
-            info!("no document for uri {:?}; using fallback", uri);
+            info!("no document for uri {}; reading from disk instead", uri);
             return fallback();
         });
 
@@ -364,9 +365,6 @@ impl LanguageServer for Backend {
         }
     }
 
-    // TODO: Use completion_resolve() to provide extra information about a completion.
-    // TODO: Tag completion items with a 'data' entry so we can look up information about
-    // them more easily.
     async fn completion_resolve(&self, mut item: CompletionItem) -> Result<CompletionItem> {
         backend_trace!(self, "completion_resolve({:?})", item);
 
@@ -534,7 +532,7 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
 
     let (service, socket) = LspService::new(|client| Backend {
         client: client,
-        documents: DashMap::new(),
+        documents: DOCUMENT_INDEX.clone(),
         workspace: Arc::new(Mutex::new(Workspace::default())),
         channel: channel,
     });

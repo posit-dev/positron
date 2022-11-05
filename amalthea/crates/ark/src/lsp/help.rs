@@ -8,6 +8,9 @@
 use anyhow::*;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::utils::r_typeof;
+use libR_sys::*;
+use regex::Regex;
 use scraper::ElementRef;
 use scraper::Html;
 use scraper::Selector;
@@ -23,38 +26,48 @@ pub struct RHtmlHelp {
 
 impl RHtmlHelp {
 
-    pub unsafe fn new(topic: &str, package: Option<&str>) -> Result<Self> {
+    pub unsafe fn new(topic: &str, package: Option<&str>) -> Result<Option<Self>> {
+
+        // trim off a package prefix if necessary
+        let package = package.map(|s| s.replace("package:", ""));
 
         // get help document
         let contents = RFunction::from(".rs.help.getHtmlHelpContents")
             .param("topic", topic)
             .param("package", package)
-            .call()?
-            .to::<String>()?;
+            .call()?;
+
+        // check for NULL (implies no help available)
+        if r_typeof(*contents) == NILSXP {
+            return Ok(None);
+        }
 
         // parse as html
+        let contents = contents.to::<String>()?;
         let html = Html::parse_document(contents.as_str());
-        Ok(Self { html })
+        Ok(Some(Self { html }))
 
     }
 
-    pub fn markdown(&self) -> Result<String> {
-
-        let mut markdown = String::new();
+    pub fn topic(&self) -> Option<String> {
 
         // get topic + title; normally available in first table in the document
         let selector = Selector::parse("table").unwrap();
-        let preamble = self.html.select(&selector).next().into_result()?;
+        let preamble = self.html.select(&selector).next()?;
 
         // try to get the first cell
         let selector = Selector::parse("td").unwrap();
-        let cell = preamble.select(&selector).next().into_result()?;
+        let cell = preamble.select(&selector).next()?;
         let preamble = elt_text(cell);
-        push!(markdown, md_italic(&preamble), md_newline());
 
-        // get title
+        Some(preamble)
+
+    }
+
+    pub fn title(&self) -> Option<String> {
+
         let selector = Selector::parse("head > title").unwrap();
-        let title = self.html.select(&selector).next().into_result()?;
+        let title = self.html.select(&selector).next()?;
         let mut title = elt_text(title);
 
         // R prepends 'R: ' to the title, so remove it if that exists
@@ -62,7 +75,132 @@ impl RHtmlHelp {
             title.replace_range(0..3, "");
         }
 
-        push!(markdown, md_h2(&title), md_newline(), "------\n");
+        Some(title)
+
+    }
+
+    #[allow(unused)]
+    pub fn section(&self, name: &str) -> Option<Vec<ElementRef>> {
+
+        // find all h3 headers in the document
+        let selector = Selector::parse("h3").unwrap();
+        let mut headers = self.html.select(&selector);
+
+        // search for the header with the matching name
+        let needle = format!("<h2>{}</h2>", name);
+        let header = headers.find(|elt| {
+            elt.inner_html() == needle
+        });
+
+        let header = match header {
+            Some(header) => header,
+            None => return None,
+        };
+
+        // start collecting elements
+        let mut elements : Vec<ElementRef> = Vec::new();
+        let mut elt = header;
+
+        loop {
+
+            elt = match elt_next(elt) {
+                Some(elt) => elt,
+                None => break,
+            };
+
+            if matches!(elt.value().name(), "h1" | "h2" | "h3") {
+                break;
+            }
+
+            elements.push(elt);
+
+        }
+
+        Some(elements)
+
+    }
+
+    pub fn parameter(&self, name: &str) -> Result<Option<ElementRef>> {
+
+        // Find and parse the arguments in the HTML help. The help file has the structure:
+        //
+        // <h3>Arguments</h3>
+        //
+        // <table>
+        // <tr style="vertical-align: top;"><td><code>parameter</code></td>
+        // <td>
+        // Parameter documentation.
+        // </td></tr>
+        //
+        // Note that parameters might be parsed as part of different, multiple tables;
+        // we need to iterate over all tables after the Arguments header.
+        let selector = Selector::parse("h3").unwrap();
+        let mut headers = self.html.select(&selector);
+        let header = headers.find(|node| node.html() == "<h3>Arguments</h3>").into_result()?;
+
+        let mut elt = header;
+        loop {
+
+            // Get the next element.
+            elt = unwrap!(elt_next(elt), None => break);
+
+            // If it's a header, time to stop parsing.
+            if elt.value().name() == "h3" {
+                break;
+            }
+
+            // If it's not a table, skip it.
+            if elt.value().name() != "table" {
+                continue;
+            }
+
+            // Get the cells in this table.
+            // I really wish R included classes on these table elements...
+            let selector = Selector::parse(r#"tr[style="vertical-align: top;"] > td"#).unwrap();
+            let mut cells = elt.select(&selector);
+
+            // Start iterating through pairs of cells.
+            loop {
+
+                // Get the parameters. Note that multiple parameters might be contained
+                // within a single table cell, so we'll need to split that later.
+                let lhs = unwrap!(cells.next(), None => { break });
+                let parameters : String = lhs.text().collect();
+
+                // Get the parameter description. We'll convert this from HTML to Markdown.
+                let rhs = unwrap!(cells.next(), None => { break });
+
+                // Check and see if we've found the parameter we care about.
+                let pattern = Regex::new("\\s*,\\s*").unwrap();
+                let mut params = pattern.split(parameters.as_str());
+                let label = params.find(|&value| value == name);
+                if label.is_none() {
+                    continue;
+                }
+
+                // We found the node; return it.
+                return Ok(Some(rhs));
+
+            }
+
+        }
+
+        Ok(None)
+
+    }
+
+    pub fn markdown(&self) -> Result<String> {
+
+        let mut markdown = String::new();
+
+        // add topic
+        if let Some(topic) = self.topic() {
+            push!(markdown, md_italic(&topic), md_newline());
+        }
+
+        if let Some(title) = self.title() {
+            push!(markdown, md_h2(&title), md_newline(), "------\n");
+        }
 
         // iterate through the different sections in the help file
         for_each_section(&self.html, |header, elements| {
