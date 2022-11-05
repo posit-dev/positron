@@ -96,7 +96,7 @@
   # Get the help file associated with this topic.
   helpFiles <- help(topic = (topic), package = if (nzchar(package)) package)
   if (length(helpFiles) == 0)
-    .rs.stopf("No help available for topic '%s'", topic)
+    return(NULL)
 
   # Get the help documentation.
   helpFile <- helpFiles[[1L]]

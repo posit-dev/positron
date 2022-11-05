@@ -10,7 +10,7 @@ use tower_lsp::lsp_types::GotoDefinitionParams;
 use tower_lsp::lsp_types::Range;
 use tree_sitter::Node;
 
-use crate::lsp::document::Document;
+use crate::lsp::documents::Document;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::tree::TreeExt;

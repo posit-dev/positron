@@ -52,6 +52,10 @@ function withNodeDefaults(/**@type WebpackConfig*/extConfig) {
 		},
 		externals: {
 			'vscode': 'commonjs vscode', // ignored because it doesn't exist,
+			// --- Start Positron ---
+			'positron': 'commonjs positron', // ignored because we inject positron via module loader
+			'deasync': 'commonjs deasync', // not shipped; dependency of jupyter-adapter
+			// --- End Positron ---
 			'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics', // ignored because we don't ship native module
 			'@opentelemetry/tracing': 'commonjs @opentelemetry/tracing' // ignored because we don't ship this module
 		},
