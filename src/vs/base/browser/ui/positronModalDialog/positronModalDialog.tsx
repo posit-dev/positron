@@ -82,7 +82,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	const resizeHandler = useCallback((e: UIEvent) => {
 		// Update the dialog box state.
 		setDialogBoxState(prevDialogBoxState => {
-			// If the left or top position places the dialog box off the screen, move the dialog box to keep it on screen.
+			// Update the dialog box state, making sure that it remains on screen.
 			const result: DialogBoxState = {
 				...prevDialogBoxState,
 				left: prevDialogBoxState.left + props.width <= dialogContainerRef.current.clientWidth ?
@@ -92,19 +92,24 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 					prevDialogBoxState.top :
 					Math.max(dialogContainerRef.current.clientHeight - props.height - kGutter, kGutter)
 			};
+
+			// Return the updated dialog box state.
 			return result;
 		});
 	}, []);
 
 	// Initialization.
 	useEffect(() => {
-		// Center the dialog.
+		// Center the dialog box.
 		setDialogBoxState(prevDialogBoxState => {
+			// Update the dialog box state, centering the dialog box.
 			const result: DialogBoxState = {
 				...prevDialogBoxState,
 				left: Math.max(dialogContainerRef.current.clientWidth / 2 - props.width / 2, kGutter),
 				top: Math.max(dialogContainerRef.current.clientHeight / 2 - props.height / 2, kGutter),
 			};
+
+			// Return the updated dialog box state.
 			return result;
 		});
 
@@ -140,7 +145,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 				dragOffsetTop: dialogBoxRef.current.offsetTop
 			};
 
-			// Return the dialog box state.
+			// Return the updated dialog box state.
 			return result;
 		});
 	};
