@@ -5,9 +5,6 @@
 //
 //
 
-// TODO: Properly thread through handling of Results throughout.
-// TODO: Provide API for finding definitions in specific (set of) documents.
-
 use std::collections::HashMap;
 use std::path::Path;
 use std::result::Result::Ok;
@@ -22,11 +19,13 @@ use regex::Regex;
 use stdext::unwrap;
 use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::Range;
+use tower_lsp::lsp_types::Url;
 use tree_sitter::Node;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
-use crate::lsp::document::Document;
+use crate::lsp::documents::DOCUMENT_INDEX;
+use crate::lsp::documents::Document;
 use crate::lsp::traits::point::PointExt;
 
 #[derive(Clone, Debug)]
@@ -44,8 +43,8 @@ pub struct IndexEntry {
 
 type DocumentPath = String;
 type DocumentSymbol = String;
-type DocumentIndex = HashMap<DocumentSymbol, IndexEntry>;
-type WorkspaceIndex = Arc<Mutex<HashMap<DocumentPath, DocumentIndex>>>;
+type DocumentSymbolIndex = HashMap<DocumentSymbol, IndexEntry>;
+type WorkspaceIndex = Arc<Mutex<HashMap<DocumentPath, DocumentSymbolIndex>>>;
 
 lazy_static! {
 
@@ -144,7 +143,7 @@ fn insert(path: &Path, entry: IndexEntry) {
 // TODO: Should we consult the project .gitignore for ignored files?
 // TODO: What about front-end ignores?
 // TODO: What about other kinds of ignores (e.g. revdepcheck)?
-fn filter_entry(entry: &DirEntry) -> bool {
+pub fn filter_entry(entry: &DirEntry) -> bool {
 
     let name = entry.file_name();
 
@@ -180,8 +179,14 @@ fn index_file(path: &Path) -> Result<bool> {
     let contents = String::from_utf8(contents)?;
     let document = Document::new(contents.as_str());
 
-    info!("Indexing document at path {}", path.display());
     index_document(&document, path)?;
+
+    if let Ok(url) = Url::from_file_path(path) {
+        let index = DOCUMENT_INDEX.clone();
+        if !index.contains_key(&url) {
+            index.insert(url, document);
+        }
+    }
 
     Ok(true)
 }

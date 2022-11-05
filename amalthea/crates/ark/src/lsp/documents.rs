@@ -5,9 +5,14 @@
 //
 //
 
+use std::sync::Arc;
+
 use anyhow::*;
+use dashmap::DashMap;
+use lazy_static::lazy_static;
 use ropey::Rope;
 use tower_lsp::lsp_types::TextDocumentContentChangeEvent;
+use tower_lsp::lsp_types::Url;
 use tree_sitter::InputEdit;
 use tree_sitter::Parser;
 use tree_sitter::Point;
@@ -15,6 +20,18 @@ use tree_sitter::Tree;
 
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::rope::RopeExt;
+
+lazy_static! {
+
+    // The document index. Stored as a global since various components need to
+    // access the document index, and we want to do so without needing to share
+    // too many pieces everywhere.
+    //
+    // Note that DashMap uses synchronization primitives internally, so we
+    // don't guard access to the map via a mutex.
+    pub static ref DOCUMENT_INDEX: Arc<DashMap<Url, Document>> = Default::default();
+
+}
 
 fn compute_point(point: Point, text: &str) -> Point {
 
