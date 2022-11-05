@@ -2,16 +2,25 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./simpleTitleBar';
+import 'vs/css!./titleBar';
 import * as React from 'react';
 import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 /**
- * SimpleTitleBarProps interface.
+ * MoveDialogEvent enumeration.
  */
-interface SimpleTitleBarProps {
+export enum MoveDialogEvent {
+	Start,
+	Move,
+	Stop
+}
+
+/**
+ * TitleBarProps interface.
+ */
+interface TitleBarProps {
 	title: string;
-	onMoveDialog?: (x: number, y: number) => void;
+	onMoveDialog?: (event: MoveDialogEvent, deltaX: number, deltaY: number) => void;
 }
 
 /**
@@ -20,33 +29,35 @@ interface SimpleTitleBarProps {
 type DocumentMouseEvent = globalThis.MouseEvent;
 
 /**
- * SimpleTitleBar component.
- * @param props A SimpleTitleBarProps that contains the properties for the component.
+ * TitleBar component.
+ * @param props A TitleBarProps that contains the properties for the component.
  */
-export const SimpleTitleBar = (props: SimpleTitleBarProps) => {
+export const TitleBar = (props: TitleBarProps) => {
 	// Mouse down handler.
 	const mouseDownHandler = (e: MouseEvent) => {
 		if (props.onMoveDialog) {
-			// Setup handling.
 			e.preventDefault();
-			let clientX = e.clientX;
-			let clientY = e.clientY;
+			e.stopPropagation();
+			const startingX = e.clientX;
+			const startingY = e.clientY;
+			props.onMoveDialog(MoveDialogEvent.Start, 0, 0);
 
 			// Mouse move handler.
 			const mouseMoveHandler = (e: DocumentMouseEvent) => {
-				e.preventDefault();
 				if (props.onMoveDialog) {
 					e.preventDefault();
-					props.onMoveDialog(clientX - e.clientX, clientY - e.clientY);
-					clientX = e.clientX;
-					clientY = e.clientY;
+					e.stopPropagation();
+					props.onMoveDialog(MoveDialogEvent.Move, e.clientX - startingX, e.clientY - startingY);
 				}
 			};
 
 			// Mouse up handler.
 			const mouseUpHandler = (e: DocumentMouseEvent) => {
+				e.preventDefault();
+				e.stopPropagation();
 				document.removeEventListener('mousemove', mouseMoveHandler);
 				document.removeEventListener('mouseup', mouseUpHandler);
+				props.onMoveDialog?.(MoveDialogEvent.Stop, e.clientX - startingX, e.clientY - startingY);
 			};
 
 			// Add our event handlers.
