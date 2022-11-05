@@ -8,7 +8,7 @@ import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'rea
 import { DraggableTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/draggableTitleBar';
 
 /**
- * The gutter where the dialog cannot be moved.
+ * The gutter where the dialog box cannot be moved.
  */
 const kGutter = 40;
 
@@ -86,17 +86,17 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 			let left = prevDialogBoxState.left;
 			let top = prevDialogBoxState.top;
 
-			// If the left position places the dialog off the screen to the right, move the dialog left to keep it on screen.
+			// If the left position places the dialog box off the screen to the right, move the dialog box left to keep it on screen.
 			if (left + props.width > dialogContainerRef.current.clientWidth) {
 				left = Math.max(dialogContainerRef.current.clientWidth - props.width - kGutter, kGutter);
 			}
 
-			// If the top position places the dialog off the screen to the bottom, move the dialog up to keep it on screen.
+			// If the top position places the dialog box off the screen to the bottom, move the dialog box up to keep it on screen.
 			if (top + props.height > dialogContainerRef.current.clientHeight) {
 				top = Math.max(dialogContainerRef.current.clientHeight - props.height - kGutter, kGutter);
 			}
 
-			// Update the dialog state.
+			// Update the dialog box state.
 			const result: DialogBoxState = {
 				...prevDialogBoxState,
 				left,
@@ -135,7 +135,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	const startDragHandler = () => {
 		// Update the dialog box state.
 		setDialogBoxState(prevDialogBoxState => {
-			// If the dialog cannot be moved because it is pinned at the left or pinned at the top,
+			// If the dialog box cannot be moved because it is pinned at the left or pinned at the top,
 			// do not enter dragging mode.
 			if (prevDialogBoxState.left + props.width >= dialogContainerRef.current.clientWidth ||
 				prevDialogBoxState.top + props.height >= dialogContainerRef.current.clientHeight) {
