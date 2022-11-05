@@ -82,25 +82,16 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	const resizeHandler = useCallback((e: UIEvent) => {
 		// Update the dialog box state.
 		setDialogBoxState(prevDialogBoxState => {
-			// Set the left and top.
-			let left = prevDialogBoxState.left;
-			let top = prevDialogBoxState.top;
-
-			// If the left position places the dialog box off the screen to the right, move the dialog box left to keep it on screen.
-			if (left + props.width > dialogContainerRef.current.clientWidth) {
-				left = Math.max(dialogContainerRef.current.clientWidth - props.width - kGutter, kGutter);
-			}
-
-			// If the top position places the dialog box off the screen to the bottom, move the dialog box up to keep it on screen.
-			if (top + props.height > dialogContainerRef.current.clientHeight) {
-				top = Math.max(dialogContainerRef.current.clientHeight - props.height - kGutter, kGutter);
-			}
-
-			// Update the dialog box state.
+			// Update the dialog box state. If the left or top position places the dialog box off the screen,
+			// move the dialog box left to keep it on screen.
 			const result: DialogBoxState = {
 				...prevDialogBoxState,
-				left,
-				top
+				left: prevDialogBoxState.left + props.width <= dialogContainerRef.current.clientWidth ?
+					prevDialogBoxState.left :
+					Math.max(dialogContainerRef.current.clientWidth - props.width - kGutter, kGutter),
+				top: prevDialogBoxState.top + props.height <= dialogContainerRef.current.clientHeight ?
+					prevDialogBoxState.top :
+					Math.max(dialogContainerRef.current.clientHeight - props.height - kGutter, kGutter)
 			};
 			return result;
 		});
@@ -169,12 +160,13 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 			return prevDialogBoxState;
 		}
 
-		// Compute the left and top values.
-		const left = Math.min(Math.max(prevDialogBoxState.dragOffsetLeft + x, kGutter), dialogContainerRef.current.clientWidth - props.width - kGutter);
-		const top = Math.min(Math.max(prevDialogBoxState.dragOffsetTop + y, kGutter), dialogContainerRef.current.clientHeight - props.height - kGutter);
-
 		// Update the dialog box state.
-		const result: DialogBoxState = { ...prevDialogBoxState, dragging, left, top };
+		const result: DialogBoxState = {
+			...prevDialogBoxState,
+			dragging,
+			left: Math.min(Math.max(prevDialogBoxState.dragOffsetLeft + x, kGutter), dialogContainerRef.current.clientWidth - props.width - kGutter),
+			top: Math.min(Math.max(prevDialogBoxState.dragOffsetTop + y, kGutter), dialogContainerRef.current.clientHeight - props.height - kGutter)
+		};
 
 		// Return the updated dialog box state.
 		return result;
