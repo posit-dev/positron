@@ -12,7 +12,7 @@
 	left: 0;
 	width: 100%;
 	height: 100%;
-	z-index: 2600;
+	z-index: 20000;
 	display: flex;
 	position: fixed;
 	align-items: center;
@@ -29,9 +29,14 @@
 }
 
 .positron-modal-dialog-container {
-	padding: 10px;
 	animation: fade-in 0.25s;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	position: absolute;
 	outline: none !important;
+	animation: fade-in 0.25s;
 	/* Makes some devices run their hardware acceleration. */
 	transform: translate3d(0px, 0px, 0px);
 }
@@ -40,6 +45,8 @@
 	display: flex;
 	overflow: hidden;
 	position: absolute;
+	/* top: 100px; */
+	/* left: 100px; */
 	border-radius: 15px 15px 5px 5px;
 	color: var(--vscode-modalDialog-foreground);
 	background: var(--vscode-modalDialog-background);
