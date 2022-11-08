@@ -1,0 +1,67 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as React from 'react';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IViewDescriptorService } from 'vs/workbench/common/views';
+import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
+
+export class PositronHelpViewPane extends ViewPane {
+
+	//
+	positronReactRenderer: PositronReactRenderer | undefined;
+
+	constructor(
+		options: IViewPaneOptions,
+		@IKeybindingService keybindingService: IKeybindingService,
+		@IContextMenuService contextMenuService: IContextMenuService,
+		@IConfigurationService configurationService: IConfigurationService,
+		@IContextKeyService contextKeyService: IContextKeyService,
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IInstantiationService instantiationService: IInstantiationService,
+		@IOpenerService openerService: IOpenerService,
+		@IThemeService themeService: IThemeService,
+		@ITelemetryService telemetryService: ITelemetryService,
+	) {
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
+	}
+
+	override focus(): void {
+		// Call the base class's method.
+		super.focus();
+	}
+
+	protected override renderBody(container: HTMLElement): void {
+		// Call the base class's method.
+		super.renderBody(container);
+
+		console.log(`renderBody called`);
+
+		// Render the Positron top bar component.
+		this.positronReactRenderer = new PositronReactRenderer(this.element);
+		this.positronReactRenderer.render(
+			<TestContent message='Help React' />
+		);
+	}
+
+	override layoutBody(height: number, width: number): void {
+		super.layoutBody(height, width);
+		console.log(`layoutBody called for ${width},${height}`);
+	}
+
+	private onDidChangeVisibility(visible: boolean): void {
+		console.log(`Visibility changed to ${visible}`);
+	}
+}
+

@@ -251,6 +251,10 @@ import 'vs/workbench/contrib/output/common/outputChannelModelService';
 import 'vs/workbench/contrib/output/browser/output.contribution';
 import 'vs/workbench/contrib/output/browser/outputView';
 
+// --- Start Positron ---
+import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
+// --- End Positron ---
+
 // Terminal
 import 'vs/workbench/contrib/terminal/common/environmentVariable.contribution';
 import 'vs/workbench/contrib/terminal/common/terminalExtensionPoints.contribution';
