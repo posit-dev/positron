@@ -143,6 +143,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronHelp",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/preferences",
 			"project": "vscode-workbench"
 		},
