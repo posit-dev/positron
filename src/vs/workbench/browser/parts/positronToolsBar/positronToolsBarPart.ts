@@ -12,7 +12,7 @@ import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IHoverService } from 'vs/workbench/services/hover/browser/hover';
 import { ActionsOrientation } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { ToolsBarFocused } from 'vs/workbench/common/contextkeys';
+import { PositronToolsBarFocused } from 'vs/workbench/common/contextkeys';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/common/themeService';
@@ -255,7 +255,7 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 
 		// Track focus.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this.element);
-		ToolsBarFocused.bindTo(scopedContextKeyService).set(true);
+		PositronToolsBarFocused.bindTo(scopedContextKeyService).set(true);
 
 		// Return this element.
 		return this.element;
@@ -275,32 +275,26 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 
 	toggleEnvironment(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.environmentToggleAction);
-		this.updateToolsSideBar();
 	}
 
 	togglePreview(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.previewToggleAction);
-		this.updateToolsSideBar();
 	}
 
 	toggleHelp(): void {
 		this.topToggleActionBar?.toggleToggleAction(this.helpToggleAction);
-		this.updateToolsSideBar();
 	}
 
 	togglePlot(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.plotToggleAction);
-		this.updateToolsSideBar();
 	}
 
 	toggleViewer(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.viewerToggleAction);
-		this.updateToolsSideBar();
 	}
 
 	togglePresentation(): void {
 		this.bottomToggleActionBar?.toggleToggleAction(this.presentationToggleAction);
-		this.updateToolsSideBar();
 	}
 
 	// Show methods.
@@ -309,42 +303,36 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.environmentToggleAction;
 		}
-		this.updateToolsSideBar();
 	}
 
 	showPreview(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.previewToggleAction;
 		}
-		this.updateToolsSideBar();
 	}
 
 	showHelp(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.helpToggleAction;
 		}
-		this.updateToolsSideBar();
 	}
 
 	showPlot(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.plotToggleAction;
 		}
-		this.updateToolsSideBar();
 	}
 
 	showViewer(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.viewerToggleAction;
 		}
-		this.updateToolsSideBar();
 	}
 
 	showPresentation(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.presentationToggleAction;
 		}
-		this.updateToolsSideBar();
 	}
 
 	// Other methods.
@@ -356,43 +344,6 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 	//#endregion IPositronToolsBarService
 
 	//#region Private Methods
-
-	// Shows / hides the tools bar.
-	private updateToolsSideBar(): void {
-
-		this.layoutService.setPartHidden(!this.topToggleActionBar?.activeToggleAction && !this.bottomToggleActionBar?.activeToggleAction, Parts.POSITRON_TOOLS_SIDE_BAR_PART);
-
-		switch (this.topToggleActionBar?.activeToggleAction) {
-			case this.environmentToggleAction:
-				this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Environment);
-				break;
-			case this.previewToggleAction:
-				this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Preview);
-				break;
-			case this.helpToggleAction:
-				this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Help);
-				break;
-			default:
-				this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Empty);
-				break;
-		}
-
-		switch (this.bottomToggleActionBar?.activeToggleAction) {
-			case this.plotToggleAction:
-				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Plot);
-				break;
-			case this.viewerToggleAction:
-				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Viewer);
-				break;
-			case this.presentationToggleAction:
-				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Presentation);
-				break;
-			default:
-				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Empty);
-				break;
-		}
-	}
-
 	//#endregion Private Methods
 }
 

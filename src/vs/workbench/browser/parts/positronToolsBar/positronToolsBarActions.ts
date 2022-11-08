@@ -4,7 +4,7 @@
 
 import { localize } from 'vs/nls';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
-import { ToolsBarVisibleContext } from 'vs/workbench/common/contextkeys';
+import { PositronToolsBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
@@ -24,7 +24,7 @@ export class ToggleToolsBarVisibilityAction extends Action2 {
 			},
 			category: Categories.View,
 			f1: true,
-			toggled: ToolsBarVisibleContext,
+			toggled: PositronToolsBarVisibleContext,
 			menu: [{
 				id: MenuId.MenubarAppearanceMenu,
 				group: '1_workbench_layout',

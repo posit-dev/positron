@@ -7,7 +7,7 @@ import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { Part } from 'vs/workbench/browser/part';
 import { KeyCode } from 'vs/base/common/keyCodes';
-import { TopBarFocused } from 'vs/workbench/common/contextkeys';
+import { PositronTopBarFocused } from 'vs/workbench/common/contextkeys';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -116,7 +116,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 		// Track focus
 		const scopedContextKeyService = this.contextKeyService.createScoped(this.element);
-		TopBarFocused.bindTo(scopedContextKeyService).set(true);
+		PositronTopBarFocused.bindTo(scopedContextKeyService).set(true);
 
 		// Return this element.
 		return this.element;
@@ -155,7 +155,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: 'workbench.top-bar.focusTopBar',
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyCode.Escape,
-	when: TopBarFocused,
+	when: PositronTopBarFocused,
 	handler: (accessor: ServicesAccessor) => {
 		const positronTopBarService = accessor.get(IPositronTopBarService);
 		positronTopBarService.focus();
