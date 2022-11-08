@@ -35,7 +35,7 @@ registerThemingParticipant((theme, collector) => {
 	// Get the tools bar background color.
 	const backgroundColor = theme.getColor(POSITRON_TOOLS_BAR_BACKGROUND);
 	if (backgroundColor) {
-		collector.addRule(`.monaco-workbench .part.tools-bar {
+		collector.addRule(`.monaco-workbench .part.positron-tools-bar {
 			background-color: ${backgroundColor};
 		}`);
 	}
@@ -43,7 +43,7 @@ registerThemingParticipant((theme, collector) => {
 	// Get the tools bar action container toggled background color.
 	const actionContainerToggledBackgroundColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND);
 	if (actionContainerToggledBackgroundColor) {
-		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-container.toggled {
+		collector.addRule(`.monaco-workbench .part.positron-tools-bar .action-bar-container .tools-bar-action-container.toggled {
 			background: ${actionContainerToggledBackgroundColor};
 		}`);
 	}
@@ -51,7 +51,7 @@ registerThemingParticipant((theme, collector) => {
 	// Get the tools bar action icon background color.
 	const actionIconBackgroundColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND);
 	if (actionIconBackgroundColor) {
-		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon {
+		collector.addRule(`.monaco-workbench .part.positron-tools-bar .action-bar-container .tools-bar-action-icon {
 			background: ${actionIconBackgroundColor};
 		}`);
 	}
@@ -59,7 +59,7 @@ registerThemingParticipant((theme, collector) => {
 	// Get the tools bar action icon background toggled color.
 	const actionIconBackgroundToggledColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED);
 	if (actionIconBackgroundToggledColor) {
-		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon.toggled {
+		collector.addRule(`.monaco-workbench .part.positron-tools-bar .action-bar-container .tools-bar-action-icon.toggled {
 			background: ${actionIconBackgroundToggledColor};
 		}`);
 	}
@@ -67,7 +67,7 @@ registerThemingParticipant((theme, collector) => {
 	// Get the tools bar action icon background hover color.
 	const actionIconBackgroundHoverColor = theme.getColor(POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_HOVER);
 	if (actionIconBackgroundHoverColor) {
-		collector.addRule(`.monaco-workbench .part.tools-bar .action-bar-container .tools-bar-action-icon:hover:not(.toggled) {
+		collector.addRule(`.monaco-workbench .part.positron-tools-bar .action-bar-container .tools-bar-action-icon:hover:not(.toggled) {
 			background: ${actionIconBackgroundHoverColor};
 		}`);
 	}
