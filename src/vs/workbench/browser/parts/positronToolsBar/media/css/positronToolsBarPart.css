@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.monaco-workbench .part.tools-bar {
+.monaco-workbench .part.positron-tools-bar {
 	box-sizing: border-box;
 	cursor: default;
 	width: 100%;
@@ -14,11 +14,11 @@
 }
 
 /* Don't draw a focus outline. */
-.monaco-workbench .part.tools-bar:focus {
+.monaco-workbench .part.positron-tools-bar:focus {
 	outline: none !important;
 }
 
-.monaco-workbench .part.tools-bar .action-bars-container {
+.monaco-workbench .part.positron-tools-bar .action-bars-container {
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
@@ -26,7 +26,7 @@
 }
 
 .monaco-workbench
-	.part.tools-bar
+	.part.positron-tools-bar
 	.action-bars-container
 	.action-bar-container {
 	display: flex;
@@ -35,7 +35,7 @@
 	padding: 0 0 0 0;
 }
 
-.monaco-workbench .part.tools-bar .actions-container {
+.monaco-workbench .part.positron-tools-bar .actions-container {
 	display: inline; /* remove space at the bottom. */
 }
 
