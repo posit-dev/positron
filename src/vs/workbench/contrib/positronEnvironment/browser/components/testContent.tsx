@@ -26,7 +26,7 @@ export const TestContent = (props: TestContentProps) => {
 
 	// Render.
 	return (
-		<div className='positron-help-test-content' >
+		<div className='positron-environment-test-content' >
 			<div>
 				Test Content
 			</div>

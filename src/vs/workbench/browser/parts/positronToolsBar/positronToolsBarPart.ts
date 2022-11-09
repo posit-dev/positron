@@ -27,6 +27,9 @@ import {
 	POSITRON_TOOLS_BAR_ACTION_CONTAINER_TOGGLED_BACKGROUND,
 	POSITRON_TOOLS_BAR_ACTION_ICON_BACKGROUND_TOGGLED
 } from 'vs/workbench/common/theme';
+import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
+import { ViewContainerLocation } from 'vs/workbench/common/views';
+import { POSITRON_ENVIRONMENT_VIEW_ID } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
 
 /**
  * Theme support.
@@ -194,12 +197,12 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 		@IHoverService hoverService: IHoverService,
 		@IStorageService storageService: IStorageService,
 		@IConfigurationService configurationService: IConfigurationService,
-		@IWorkbenchLayoutService workbenchLayoutService: IWorkbenchLayoutService,
+		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IPaneCompositePartService private readonly paneCompositePartService: IPaneCompositePartService
 	) {
-		super(Parts.POSITRON_TOOLS_BAR_PART, { hasTitle: false }, themeService, storageService, workbenchLayoutService);
-		this.hoverDelegate = new ToolsBarHoverDelegate(workbenchLayoutService, configurationService, hoverService);
-
+		super(Parts.POSITRON_TOOLS_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
+		this.hoverDelegate = new ToolsBarHoverDelegate(layoutService, configurationService, hoverService);
 	}
 
 	//#endregion Class Initialization
@@ -274,27 +277,45 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 	// Toggle methods.
 
 	toggleEnvironment(): void {
-		this.topToggleActionBar?.toggleToggleAction(this.environmentToggleAction);
+		if (this.topToggleActionBar) {
+			this.topToggleActionBar.toggleToggleAction(this.environmentToggleAction);
+			this.updateToolsSideBar();
+		}
 	}
 
 	togglePreview(): void {
-		this.topToggleActionBar?.toggleToggleAction(this.previewToggleAction);
+		if (this.topToggleActionBar) {
+			this.topToggleActionBar.toggleToggleAction(this.previewToggleAction);
+			this.updateToolsSideBar();
+		}
 	}
 
 	toggleHelp(): void {
-		this.topToggleActionBar?.toggleToggleAction(this.helpToggleAction);
+		if (this.topToggleActionBar) {
+			this.topToggleActionBar.toggleToggleAction(this.helpToggleAction);
+			this.updateToolsSideBar();
+		}
 	}
 
 	togglePlot(): void {
-		this.bottomToggleActionBar?.toggleToggleAction(this.plotToggleAction);
+		if (this.bottomToggleActionBar) {
+			this.bottomToggleActionBar.toggleToggleAction(this.plotToggleAction);
+			this.updateToolsSideBar();
+		}
 	}
 
 	toggleViewer(): void {
-		this.bottomToggleActionBar?.toggleToggleAction(this.viewerToggleAction);
+		if (this.bottomToggleActionBar) {
+			this.bottomToggleActionBar.toggleToggleAction(this.viewerToggleAction);
+			this.updateToolsSideBar();
+		}
 	}
 
 	togglePresentation(): void {
-		this.bottomToggleActionBar?.toggleToggleAction(this.presentationToggleAction);
+		if (this.bottomToggleActionBar) {
+			this.bottomToggleActionBar.toggleToggleAction(this.presentationToggleAction);
+			this.updateToolsSideBar();
+		}
 	}
 
 	// Show methods.
@@ -302,36 +323,42 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 	showEnvironment(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.environmentToggleAction;
+			this.updateToolsSideBar();
 		}
 	}
 
 	showPreview(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.previewToggleAction;
+			this.updateToolsSideBar();
 		}
 	}
 
 	showHelp(): void {
 		if (this.topToggleActionBar) {
 			this.topToggleActionBar.activeToggleAction = this.helpToggleAction;
+			this.updateToolsSideBar();
 		}
 	}
 
 	showPlot(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.plotToggleAction;
+			this.updateToolsSideBar();
 		}
 	}
 
 	showViewer(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.viewerToggleAction;
+			this.updateToolsSideBar();
 		}
 	}
 
 	showPresentation(): void {
 		if (this.bottomToggleActionBar) {
 			this.bottomToggleActionBar.activeToggleAction = this.presentationToggleAction;
+			this.updateToolsSideBar();
 		}
 	}
 
@@ -344,7 +371,78 @@ export class PositronToolsBarPart extends Part implements IPositronToolsBarServi
 	//#endregion IPositronToolsBarService
 
 	//#region Private Methods
-	//#endregion Private Methods
+
+	// Shows / hides the tools bar.
+	private updateToolsSideBar(): void {
+
+		// this.layoutService.setPartHidden(!this.topToggleActionBar?.activeToggleAction && !this.bottomToggleActionBar?.activeToggleAction, Parts.POSITRON_TOOLS_SIDE_BAR_PART);
+
+		switch (this.topToggleActionBar?.activeToggleAction) {
+			case this.environmentToggleAction:
+				this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Environment);
+				break;
+			case this.previewToggleAction:
+				this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Preview);
+				break;
+			case this.helpToggleAction:
+				{
+					this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Help);
+
+					// const paneCompositeService = accessor.get(IPaneCompositePartService);
+					// const layoutService = accessor.get(IWorkbenchLayoutService);
+
+					// Show auxiliary bar
+					if (!this.layoutService.isVisible(Parts.AUXILIARYBAR_PART)) {
+						this.layoutService.setPartHidden(false, Parts.AUXILIARYBAR_PART);
+					}
+
+					this.paneCompositePartService.openPaneComposite(POSITRON_ENVIRONMENT_VIEW_ID, ViewContainerLocation.AuxiliaryBar, true).then((x) => {
+						console.log(x);
+						console.log(`openPaneComposite returned ${x}`);
+					});
+
+					// this.paneCompositePartService.openPaneComposite(POSITRON_HELP_VIEW_ID, ViewContainerLocation.AuxiliaryBar, true).then((x) => {
+					// 	console.log(x);
+					// 	console.log('AJUAJA');
+					// });
+					// const composites = this.paneCompositePartService.getPaneComposites(ViewContainerLocation.AuxiliaryBar);
+
+					// const asfsadfsf: PaneCompositeDescriptor = this.paneCompositePartService.getPaneComposite(POSITRON_HELP_VIEW_ID, ViewContainerLocation.AuxiliaryBar);
+					// if (asfsadfsf) {
+					// 	this.paneCompositePartService.openPaneComposite(POSITRON_HELP_VIEW_ID, ViewContainerLocation.AuxiliaryBar, true);
+					// }
+
+					// console.log('aaa');
+
+					// Focus into active composite
+					//this.paneCompositePartService.getPaneComposites()
+					//this.paneCompositePartService.getPaneComposite()
+					// const composite = this.paneCompositePartService.getActivePaneComposite(ViewContainerLocation.AuxiliaryBar);
+					//composite?.focus();
+				}
+				break;
+			default:
+				this._onDidChangeTopMode.fire(PositronToolsBarTopMode.Empty);
+				break;
+		}
+
+		switch (this.bottomToggleActionBar?.activeToggleAction) {
+			case this.plotToggleAction:
+				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Plot);
+				break;
+			case this.viewerToggleAction:
+				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Viewer);
+				break;
+			case this.presentationToggleAction:
+				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Presentation);
+				break;
+			default:
+				this._onDidChangeBottomMode.fire(PositronToolsBarBottomMode.Empty);
+				break;
+		}
+	}
+
+	//#endregion Private Methods}
 }
 
 // Register the IPositronToolsBarService singleton.
