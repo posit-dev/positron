@@ -79,7 +79,10 @@ export class AuxiliaryBarPart extends BasePanelPart {
 			ActiveAuxiliaryContext.bindTo(contextKeyService),
 			AuxiliaryBarFocusContext.bindTo(contextKeyService),
 			{
-				useIcons: true,
+				// --- Start Positron ---
+				// Do not use icons.
+				useIcons: false,
+				// --- End Positron ---
 				hasTitle: true,
 				borderWidth: () => (this.getColor(SIDE_BAR_BORDER) || this.getColor(contrastBorder)) ? 1 : 0,
 			}
