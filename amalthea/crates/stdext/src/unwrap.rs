@@ -30,11 +30,11 @@ impl std::fmt::Display for FalsyValueError {
 }
 
 pub trait IntoOption<T> {
-    fn ok(self) -> Option<T>;
+    fn into_option(self) -> Option<T>;
 }
 
 impl IntoOption<bool> for bool {
-    fn ok(self) -> Option<bool> {
+    fn into_option(self) -> Option<bool> {
         if self { Some(self) } else { None }
     }
 }

@@ -122,6 +122,12 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
         return Ok(package);
     }
 
+    let name = Rf_getAttrib(envir, r_symbol!("name"));
+    if r_typeof(name) == STRSXP {
+        let name = RObject::view(name).to::<String>()?;
+        return Ok(name);
+    }
+
     Ok(format!("{:p}", envir))
 
 }
