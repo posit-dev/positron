@@ -8,9 +8,9 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IContextKeyService, IContextKey } from 'vs/platform/contextkey/common/contextkey';
 import { InputFocusedContext, IsMacContext, IsLinuxContext, IsWindowsContext, IsWebContext, IsMacNativeContext, IsDevelopmentContext, IsIOSContext, ProductQualityContext, IsMobileContext } from 'vs/platform/contextkey/common/contextkeys';
 // --- Start Positron ---
-// Add PositronTopBarVisibleContext and PositronToolsBarVisibleContext to the import.
+// Add PositronTopBarVisibleContext to the import.
 // These have been placed at the beginning so they can be easily identified.
-import { PositronTopBarVisibleContext, PositronToolsBarVisibleContext, SplitEditorsVertically, InEditorZenModeContext, ActiveEditorCanRevertContext, ActiveEditorGroupLockedContext, ActiveEditorCanSplitInGroupContext, SideBySideEditorActiveContext, AuxiliaryBarVisibleContext, SideBarVisibleContext, PanelAlignmentContext, PanelMaximizedContext, PanelVisibleContext, ActiveEditorContext, EditorsVisibleContext, TextCompareEditorVisibleContext, TextCompareEditorActiveContext, ActiveEditorGroupEmptyContext, MultipleEditorGroupsContext, EditorTabsVisibleContext, IsCenteredLayoutContext, ActiveEditorGroupIndexContext, ActiveEditorGroupLastContext, ActiveEditorReadonlyContext, EditorAreaVisibleContext, ActiveEditorAvailableEditorIdsContext, DirtyWorkingCopiesContext, EmptyWorkspaceSupportContext, EnterMultiRootWorkspaceSupportContext, HasWebFileSystemAccess, IsFullscreenContext, OpenFolderWorkspaceSupportContext, RemoteNameContext, VirtualWorkspaceContext, WorkbenchStateContext, WorkspaceFolderCountContext, PanelPositionContext, TemporaryWorkspaceContext } from 'vs/workbench/common/contextkeys';
+import { PositronTopBarVisibleContext, SplitEditorsVertically, InEditorZenModeContext, ActiveEditorCanRevertContext, ActiveEditorGroupLockedContext, ActiveEditorCanSplitInGroupContext, SideBySideEditorActiveContext, AuxiliaryBarVisibleContext, SideBarVisibleContext, PanelAlignmentContext, PanelMaximizedContext, PanelVisibleContext, ActiveEditorContext, EditorsVisibleContext, TextCompareEditorVisibleContext, TextCompareEditorActiveContext, ActiveEditorGroupEmptyContext, MultipleEditorGroupsContext, EditorTabsVisibleContext, IsCenteredLayoutContext, ActiveEditorGroupIndexContext, ActiveEditorGroupLastContext, ActiveEditorReadonlyContext, EditorAreaVisibleContext, ActiveEditorAvailableEditorIdsContext, DirtyWorkingCopiesContext, EmptyWorkspaceSupportContext, EnterMultiRootWorkspaceSupportContext, HasWebFileSystemAccess, IsFullscreenContext, OpenFolderWorkspaceSupportContext, RemoteNameContext, VirtualWorkspaceContext, WorkbenchStateContext, WorkspaceFolderCountContext, PanelPositionContext, TemporaryWorkspaceContext } from 'vs/workbench/common/contextkeys';
 // --- End Positron ---
 import { TEXT_DIFF_EDITOR_ID, EditorInputCapabilities, SIDE_BY_SIDE_EDITOR_ID, DEFAULT_EDITOR_ASSOCIATION } from 'vs/workbench/common/editor';
 import { trackFocus, addDisposableListener, EventType } from 'vs/base/browser/dom';
@@ -84,7 +84,6 @@ export class WorkbenchContextKeysHandler extends Disposable {
 
 	// --- Start Positron ---
 	private positronTopBarVisibleContext: IContextKey<boolean>;
-	private positronToolsBarVisibleContext: IContextKey<boolean>;
 	// --- End Positron ---
 
 	constructor(
@@ -218,10 +217,6 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		// Positron Top Bar
 		this.positronTopBarVisibleContext = PositronTopBarVisibleContext.bindTo(this.contextKeyService);
 		this.positronTopBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOP_BAR_PART));
-
-		// Positron Tools Bar
-		this.positronToolsBarVisibleContext = PositronToolsBarVisibleContext.bindTo(this.contextKeyService);
-		this.positronToolsBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOOLS_BAR_PART));
 		// --- End Positron ---
 
 		// Auxiliary Bar
@@ -280,7 +275,6 @@ export class WorkbenchContextKeysHandler extends Disposable {
 			this.auxiliaryBarVisibleContext.set(this.layoutService.isVisible(Parts.AUXILIARYBAR_PART));
 			// --- Start Positron ---
 			this.positronTopBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOP_BAR_PART));
-			this.positronToolsBarVisibleContext.set(this.layoutService.isVisible(Parts.POSITRON_TOOLS_BAR_PART));
 			// --- End Positron ---
 		}));
 
