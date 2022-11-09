@@ -14,9 +14,9 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
+import { TestContent } from 'vs/workbench/contrib/positronOutline/browser/components/testContent';
 
-export class PositronHelpViewPane extends ViewPane {
+export class PositronOutlineViewPane extends ViewPane {
 
 	// The PositronReactRenderer.
 	positronReactRenderer: PositronReactRenderer | undefined;
@@ -51,7 +51,7 @@ export class PositronHelpViewPane extends ViewPane {
 		// Render the Positron top bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<TestContent message='Help React' />
+			<TestContent message='Outline React' />
 		);
 	}
 

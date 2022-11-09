@@ -143,7 +143,19 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronEnvironment",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronHelp",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronOutline",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronPreview",
 			"project": "vscode-workbench"
 		},
 		{
