@@ -4,15 +4,15 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
-export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
+export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
 
-export const POSITRON_HELP_SERVICE_ID = 'positronHelpService';
+export const POSITRON_PREVIEW_SERVICE_ID = 'positronPreviewService';
 
-export const IPositronHelpService = createDecorator<IPositronHelpService>(POSITRON_HELP_SERVICE_ID);
+export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
 /**
- * IPositronHelpService interface.
+ * IPositronPreviewService interface.
  */
-export interface IPositronHelpService {
+export interface IPositronPreviewService {
 	readonly _serviceBrand: undefined;
 }

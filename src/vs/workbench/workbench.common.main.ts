@@ -252,7 +252,10 @@ import 'vs/workbench/contrib/output/browser/output.contribution';
 import 'vs/workbench/contrib/output/browser/outputView';
 
 // --- Start Positron ---
+import 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment.contribution';
 import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
+import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';
+import 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 // --- End Positron ---
 
 // Terminal
