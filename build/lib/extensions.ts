@@ -153,11 +153,18 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string):
 					// source map handling:
 					// * rewrite sourceMappingURL
 					// * save to disk so that upload-task picks this up
-					const contents = (<Buffer>data.contents).toString('utf8');
-					data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
-						return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
-					}), 'utf8');
-
+					// --- Start Positron ---
+					// Added test to skip `.node` execeutables when rewriting
+					// source map URLs; these files exist in extensions with
+					// native code (such as the Jupyter Adapter), and are
+					// corrupted when treated as UTF-8.
+					if (!data.path.endsWith('.node')) {
+						const contents = (<Buffer>data.contents).toString('utf8');
+						data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
+							return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
+						}), 'utf8');
+					}
+					// --- End Positron ---
 					this.emit('data', data);
 				}));
 		});
