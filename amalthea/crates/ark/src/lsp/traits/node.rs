@@ -5,6 +5,7 @@
 //
 //
 
+use stdext::all;
 use tree_sitter::{Node, TreeCursor};
 
 fn _dump_impl(cursor: &mut TreeCursor, source: &str, indent: &str, output: &mut String) {
@@ -42,12 +43,39 @@ fn _dump_impl(cursor: &mut TreeCursor, source: &str, indent: &str, output: &mut 
 
 pub trait NodeExt {
     fn dump(&self, source: &str) -> String;
+    fn is_call(&self) -> bool;
+    fn is_unary_operator(&self) -> bool;
+    fn is_binary_operator(&self) -> bool;
+
 }
 
 impl NodeExt for Node<'_> {
+
     fn dump(&self, source: &str) -> String {
         let mut output = "\n".to_string();
         _dump_impl(&mut self.walk(), source, "", &mut output);
         return output;
     }
+
+    fn is_call(&self) -> bool {
+        matches!(self.kind(), "call")
+    }
+
+    fn is_unary_operator(&self) -> bool {
+
+        all! {
+            self.child_by_field_name("operand").is_some()
+        }
+
+    }
+
+    fn is_binary_operator(&self) -> bool {
+
+        all! {
+            self.child_by_field_name("operand").is_none()
+            self.child_by_field_name("operator").is_some()
+        }
+
+    }
+
 }
