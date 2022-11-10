@@ -523,7 +523,7 @@ class ExtensionsScanner extends Disposable {
 					return null;
 				}
 				// --- Start Positron ---
-				// Exclude the built-in 'r' extension, as 'ark' provides its facilities (and more).
+				// Exclude the built-in 'r' extension, as 'positron-r' provides its facilities (and more).
 				if (input.type === ExtensionType.System && c.name === 'r') {
 					return null;
 				}

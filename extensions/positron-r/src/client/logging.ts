@@ -8,10 +8,10 @@ let _traceOutputChannel: vscode.OutputChannel | undefined;
 
 export function initializeLogging(context: vscode.ExtensionContext) {
 
-    const config = vscode.workspace.getConfiguration("ark");
-    const tracingEnabled = config.get<boolean>("trace.server");
+    const config = vscode.workspace.getConfiguration('positron.r');
+    const tracingEnabled = config.get<boolean>('trace.server');
     if (tracingEnabled) {
-        _traceOutputChannel = vscode.window.createOutputChannel("ARK Language Serve (Trace)");
+        _traceOutputChannel = vscode.window.createOutputChannel("Positron R Language Server (Trace)");
     }
 
 }
