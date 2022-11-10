@@ -13,7 +13,7 @@
 	"activationEvents": [
 		"onStartupFinished"
 	],
-	"main": "./out/client/extension.js",
+	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
@@ -25,13 +25,13 @@
 			"type": "object",
 			"title": "Positron R Language Pack",
 			"properties": {
-				"ark.kernel.path": {
+				"positron.r.kernel.path": {
 					"scope": "window",
 					"type": "string",
           "default": "",
 					"description": "Path on disk to the ARK kernel executable. Temporary setting until the kernel is embedded in the extension / language pack."
         },
-				"ark.trace.server": {
+				"positron.r.trace.server": {
 					"scope": "window",
 					"type": "string",
 					"enum": [
