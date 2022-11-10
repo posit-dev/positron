@@ -35,9 +35,13 @@ async function main() {
             'Info.plist',
             'MainMenu.nib',
             '.npmrc',
-			'electron.napi.node',
-			'node.napi.node',
-			'pydevd'
+            // --- Start Positron ---
+            // Exclusions from ZeroMQ node module
+            'electron.napi.node',
+            'node.napi.node',
+            // Exclusions from Python extension bundle
+            'pydevd' // Cython pre-built binaries for Python debugging
+            // --- End Positron ---
         ],
         outAppPath,
         force: true

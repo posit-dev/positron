@@ -7,11 +7,29 @@
 
 'use strict';
 
+const path = require('path');
 const withDefaults = require('../shared.webpack.config');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = withDefaults({
 	context: __dirname,
 	entry: {
 		extension: './src/extension.ts',
 	},
+	node: {
+		__dirname: false
+	},
+	plugins: [
+		...withDefaults.nodePlugins(__dirname),
+		// Copy the ZeroMQ binaries to the output folder; they are loaded
+		// at runtime by the extension, but Webpack doesn't know about them.
+		new CopyWebpackPlugin({
+			patterns: [
+				{
+					from: 'node_modules/zeromq/build/Release/zeromq.node',
+					to: '../build/Release/zeromq.node'
+				},
+			],
+		}),
+	],
 });
