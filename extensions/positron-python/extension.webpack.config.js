@@ -18,6 +18,12 @@ module.exports = withDefaults({
     entry: {
         extension: './src/client/extension.ts',
     },
+    externals: [
+        'vscode',
+        'commonjs',
+        'applicationinsights-native-metrics',
+        '@opentelemetry/tracing',
+    ],
     output: {
         filename: '[name].js',
         path: path.join(__dirname, 'dist', 'client'),
