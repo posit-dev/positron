@@ -64,8 +64,8 @@ export async function activateLsp(context: vscode.ExtensionContext): Promise<num
 			traceOutputChannel: traceOutputChannel(),
 		};
 
-		trace('Creating ARK language client...');
-		client = new LanguageClient('ark', 'ARK Language Server', serverOptions, clientOptions);
+		trace('Creating Positron R language client...');
+		client = new LanguageClient('positron-r', 'Positron R Language Server', serverOptions, clientOptions);
 		client.onDidChangeState(event => {
 			trace(`ARK language client state changed ${event.oldState} => ${event.newState}`);
 		});
@@ -73,7 +73,7 @@ export async function activateLsp(context: vscode.ExtensionContext): Promise<num
 		context.subscriptions.push(client.start());
 
 		client.onReady().then(() => {
-			trace('ARK language client is ready');
+			trace('Positron R language client is ready');
 		});
 	});
 }

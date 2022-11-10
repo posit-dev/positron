@@ -1,7 +1,7 @@
 {
-	"name": "ark",
-	"displayName": "ark",
-	"description": "Language Features for the Amalthea R Kernel",
+	"name": "positron-r",
+	"displayName": "R",
+	"description": "R Language Pack for Positron",
 	"version": "0.0.2",
 	"publisher": "vscode",
 	"engines": {
@@ -17,13 +17,13 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "ark.setKernelPath",
-				"title": "ARK: Set Kernel Path"
+				"command": "positronR.setKernelPath",
+				"title": "R: Set Kernel Path"
 			}
 		],
 		"configuration": {
 			"type": "object",
-			"title": "R Language Runtime (ARK)",
+			"title": "Positron R Language Pack",
 			"properties": {
 				"ark.kernel.path": {
 					"scope": "window",

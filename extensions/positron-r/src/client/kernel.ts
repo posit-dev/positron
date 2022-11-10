@@ -25,7 +25,7 @@ export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath:
 	// We have a kernel path; use the VS Code file system API to see if it exists on disk.
 	const fs = require('fs');
 	if (!fs.existsSync(kernelPath)) {
-		vscode.window.showErrorMessage(`ARK kernel path specified in 'ark.kernel.path' setting does not exist: ${kernelPath}`);
+		vscode.window.showErrorMessage(`ARK kernel path specified in 'positron.r.kernel.path' setting does not exist: ${kernelPath}`);
 		return;
 	}
 

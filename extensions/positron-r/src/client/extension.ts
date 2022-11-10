@@ -10,19 +10,19 @@ import { initializeLogging, trace, traceOutputChannel } from './logging';
 
 export function activate(context: vscode.ExtensionContext) {
 
-	// Read the ark.kernel.path setting to determine the path to the
+	// Read the positron.r.kernel.path setting to determine the path to the
 	// R kernel executable.
 	//
 	// TODO: We should enumerate R installations on the system instead of
 	// requiring the user to specify the path.
-	const arkConfig = vscode.workspace.getConfiguration('ark');
+	const arkConfig = vscode.workspace.getConfiguration('positron.r');
 	const kernelPath = arkConfig.get<string>('kernel.path');
 	if (kernelPath) {
 		// We have a kernel path; create a language runtime for it.
 		adaptJupyterKernel(context, kernelPath);
 	} else {
 		// No kernel path yet; wait for the user to set one.
-		console.info('No kernel path specified in ark.kernel.path; not registering R language runtime.');
+		console.info('No kernel path specified in positron.r.kernel.path; not registering R language runtime.');
 	}
 
 	// Initialize logging tools.
