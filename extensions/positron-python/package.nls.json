@@ -1,4 +1,6 @@
 {
+    "displayName": "Python",
+    "description": "IntelliSense (Pylance), Linting, Debugging (multi-threaded, remote), Jupyter Notebooks, code formatting, refactoring, unit tests, and more.",
     "python.command.python.sortImports.title": "Sort Imports",
     "python.command.python.startREPL.title": "Start REPL",
     "python.command.python.createEnvironment.title": "Create Environment",
