@@ -68,6 +68,10 @@ function getTranlationsLoader() {
             },
         });
     }
-    return loaders;
+    // --- Start Positron ---
+    // Do not use the vscode-nls-dev loader for Positron; it is incompatible with
+    // the way localization works in built-in extensions.
+    return [];
+    // --- End Positron ---
 }
 exports.getTranlationsLoader = getTranlationsLoader;
