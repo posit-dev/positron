@@ -54,6 +54,7 @@ macro_rules! join {
 mod tests {
     #[test]
     fn test_join() {
+        assert_eq!(join!("abc"), "abc");
         assert_eq!(join!("abc", "def"), "abcdef");
         assert_eq!(join!("abc".to_string(), "def"), "abcdef");
 
