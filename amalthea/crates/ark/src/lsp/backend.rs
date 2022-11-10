@@ -349,15 +349,27 @@ impl LanguageServer for Backend {
         // characters at the end (e.g. completions starting with `.`)
         let pattern = Regex::new(r"^\w").unwrap();
         for item in &mut completions {
-            if item.kind == Some(CompletionItemKind::VARIABLE) {
-                item.sort_text = Some(join!["1", item.label]);
-            } else if item.kind == Some(CompletionItemKind::FIELD) {
-                item.sort_text = Some(join!["2", item.label]);
-            } else if pattern.is_match(&item.label) {
-                item.sort_text = Some(join!["3", item.label]);
-            } else {
-                item.sort_text = Some(join!["4", item.label]);
+
+            case! {
+
+                item.kind == Some(CompletionItemKind::FIELD) => {
+                    item.sort_text = Some(join!["1", item.label]);
+                }
+
+                item.kind == Some(CompletionItemKind::VARIABLE) => {
+                    item.sort_text = Some(join!["2", item.label]);
+                }
+
+                pattern.is_match(&item.label) => {
+                    item.sort_text = Some(join!["3", item.label]);
+                }
+
+                => {
+                    item.sort_text = Some(join!["4", item.label]);
+                }
+
             }
+
         }
 
         if !completions.is_empty() {

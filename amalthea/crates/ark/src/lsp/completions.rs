@@ -1029,6 +1029,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
     }
 
     let mut use_search_path = true;
+    let mut found_call_completions = false;
 
     loop {
 
@@ -1043,7 +1044,9 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 
         // If we landed on a 'call', then we should provide parameter completions
         // for the associated callee if possible.
-        if node.kind() == "call" {
+        if !found_call_completions && node.kind() == "call" {
+
+            found_call_completions = true;
 
             // Check for library() completions.
             match append_call_library_completions(context, &cursor, &node, completions) {

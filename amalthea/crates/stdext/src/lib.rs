@@ -7,6 +7,7 @@
 
 pub mod all;
 pub mod any;
+pub mod case;
 pub mod local;
 pub mod join;
 pub mod push;
@@ -33,7 +34,7 @@ macro_rules! cstr {
 
     ($value:expr) => {{
         use std::os::raw::c_char;
-        let value = [$value, "\0"].concat();
+        let value = $crate::join!($value, "\0");
         value.as_ptr() as *mut c_char
     }};
 }

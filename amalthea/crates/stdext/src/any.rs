@@ -7,7 +7,7 @@
 
 #[macro_export]
 macro_rules! any {
-    ($($expr:expr)*) => {{
+    ($($expr:expr$(,)?)*) => {{
         let result = false;
         $(let result = result || $expr;)*
         result
