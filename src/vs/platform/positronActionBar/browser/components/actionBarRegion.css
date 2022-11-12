@@ -2,22 +2,22 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.top-bar-region {
+.action-bar-region {
 	flex: 1;
 	display: flex;
 	overflow: visible;
 	z-index: 2000;
 }
 
-.top-bar-region-left {
+.action-bar-region-left {
 	justify-content: flex-start;
 }
 
-.top-bar-region-center {
+.action-bar-region-center {
 	justify-content: center;
 	align-items: center;
 }
 
-.top-bar-region-right {
+.action-bar-region-right {
 	justify-content: flex-end;
 }

@@ -2,36 +2,36 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.top-bar-button {
+.action-bar-button {
 	cursor: pointer;
 	padding: 2px 0;
 	overflow: visible;
 	color: var(--vscode-positronTopBar-foreground);
 }
 
-.top-bar-button-face {
+.action-bar-button-face {
 	display: flex;
 	position: relative;
 	padding: 0 2px;
 }
 
-.top-bar-button-text {
+.action-bar-button-text {
 	margin-top: 4px;
 	margin-left: 2px;
 	margin-right: 4px;
 	font-size: 12px;
 }
 
-.top-bar-button-face:hover {
+.action-bar-button-face:hover {
 	border-radius: 6px;
 	background: var(--vscode-positronTopBar-hoverBackground);
 }
 
-.disabled .top-bar-button-face:hover {
+.disabled .action-bar-button-face:hover {
 	background: transparent;
 }
 
-.top-bar-button-icon {
+.action-bar-button-icon {
 	width: 28px;
 	height: 28px;
 	align-items: center;
@@ -40,15 +40,15 @@
 	display: flex !important;
 }
 
-.top-bar-button-icon::before {
+.action-bar-button-icon::before {
 	color: var(--vscode-positronTopBar-foreground);
 }
 
-.disabled .top-bar-button-icon::before {
+.disabled .action-bar-button-icon::before {
 	color: var(--vscode-positronTopBar-disabledForeground)
 }
 
-.top-bar-button-drop-down-arrow {
+.action-bar-button-drop-down-arrow {
 	width: 10px;
 	height: 28px;
 	align-items: center;
@@ -57,10 +57,10 @@
 	display: flex !important;
 }
 
-.top-bar-button-drop-down-arrow::before {
+.action-bar-button-drop-down-arrow::before {
 	color: var(--vscode-positronTopBar-foreground);
 }
 
-.disabled .top-bar-button-drop-down-arrow::before {
+.disabled .action-bar-button-drop-down-arrow::before {
 	color: var(--vscode-positronTopBar-disabledForeground)
 }

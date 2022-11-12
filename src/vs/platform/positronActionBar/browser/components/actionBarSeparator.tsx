@@ -2,18 +2,18 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topBarSeparator';
+import 'vs/css!./actionBarSeparator';
 import * as React from 'react';
 
 /**
- * TopBarSeparator component.
+ * ActionBarSeparator component.
  * @returns The component.
  */
-export const TopBarSeparator = () => {
+export const ActionBarSeparator = () => {
 	// Render.
 	return (
-		<div className='top-bar-separator'>
-			<div className='top-bar-separator-icon codicon codicon-positron-separator' />
+		<div className='action-bar-separator'>
+			<div className='action-bar-separator-icon codicon codicon-positron-separator' />
 		</div>
 	);
 };

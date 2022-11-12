@@ -4,38 +4,30 @@
 
 import 'vs/css!./media/css/positronTopBar';
 import * as React from 'react';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { TopBarRegion } from 'vs/workbench/browser/parts/positronTopBar/components/topBarRegion/topBarRegion';
-import { PositronTopBarContextProvider } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
-import { TopBarSeparator } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSeparator/topBarSeparator';
-import { TopBarCommandButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandButton';
-import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
-import { TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarNewMenu';
-import { TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
+import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { TopBarNewMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarNewMenu';
+import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBar';
+import { TopBarOpenMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { TopBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopBar/components/topBarWorkspaceMenu';
+import { PositronTopBarContextProvider } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
+import { ActionBarCommandButton } from 'vs/platform/positronActionBar/browser/components/actionBarCommandButton';
+import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
+import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { TopBarCommandCenter } from 'vs/workbench/browser/parts/positronTopBar/components/topBarCommandCenter/topBarCommandCenter';
 
 /**
  * PositronTopBarServices interface. Defines the set of services that are required by the Positron top bar.
  */
-export interface PositronTopBarServices {
-	commandService: ICommandService;
-	configurationService: IConfigurationService;
-	contextKeyService: IContextKeyService;
-	contextMenuService: IContextMenuService;
+export interface PositronTopBarServices extends PositronActionBarServices {
 	hostService: IHostService;
-	keybindingService: IKeybindingService;
 	labelService: ILabelService;
 	layoutService: ILayoutService;
 	quickInputService: IQuickInputService;
@@ -57,27 +49,29 @@ interface PositronTopBarProps extends PositronTopBarServices { }
 export const PositronTopBar = (props: PositronTopBarProps) => {
 	// Render.
 	return (
-		<PositronTopBarContextProvider {...props}>
-			<div className='positron-top-bar'>
-				<TopBarRegion align='left'>
-					<TopBarNewMenu />
-					<TopBarSeparator />
-					<TopBarOpenMenu />
-					<TopBarSeparator />
-					<TopBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
-					<TopBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
-				</TopBarRegion>
+		<PositronActionBarContextProvider {...props}>
+			<PositronTopBarContextProvider {...props}>
+				<div className='positron-top-bar'>
+					<ActionBarRegion align='left'>
+						<TopBarNewMenu />
+						<ActionBarSeparator />
+						<TopBarOpenMenu />
+						<ActionBarSeparator />
+						<ActionBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
+						<ActionBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
+					</ActionBarRegion>
 
-				<TopBarRegion align='center'>
-					<TopBarCommandButton iconId='positron-chevron-left' commandId={NavigateBackwardsAction.ID} />
-					<TopBarCommandButton iconId='positron-chevron-right' commandId={NavigateForwardAction.ID} />
-					<TopBarCommandCenter {...props} />
-				</TopBarRegion>
+					<ActionBarRegion align='center'>
+						<ActionBarCommandButton iconId='positron-chevron-left' commandId={NavigateBackwardsAction.ID} />
+						<ActionBarCommandButton iconId='positron-chevron-right' commandId={NavigateForwardAction.ID} />
+						<TopBarCommandCenter {...props} />
+					</ActionBarRegion>
 
-				<TopBarRegion align='right'>
-					<TopBarWorkspaceMenu />
-				</TopBarRegion>
-			</div>
-		</PositronTopBarContextProvider>
+					<ActionBarRegion align='right'>
+						<TopBarWorkspaceMenu />
+					</ActionBarRegion>
+				</div>
+			</PositronTopBarContextProvider>
+		</PositronActionBarContextProvider>
 	);
 };
