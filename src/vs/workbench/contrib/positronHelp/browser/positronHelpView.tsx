@@ -11,10 +11,11 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { PositronHelp } from 'vs/workbench/contrib/positronHelp/browser/positronHelp';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 export class PositronHelpViewPane extends ViewPane {
 
@@ -24,6 +25,7 @@ export class PositronHelpViewPane extends ViewPane {
 	constructor(
 		options: IViewPaneOptions,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@ICommandService private readonly commandService: ICommandService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -46,22 +48,23 @@ export class PositronHelpViewPane extends ViewPane {
 		// Call the base class's method.
 		super.renderBody(container);
 
-		console.log(`renderBody called`);
-
 		// Render the Positron top bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<TestContent message='Help React' />
+			<PositronHelp
+				commandService={this.commandService}
+				configurationService={this.configurationService}
+				contextKeyService={this.contextKeyService}
+				contextMenuService={this.contextMenuService}
+				keybindingService={this.keybindingService} />
 		);
 	}
 
 	override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
-		console.log(`layoutBody called for ${width},${height}`);
 	}
 
 	private onDidChangeVisibility(visible: boolean): void {
-		console.log(`Visibility changed to ${visible}`);
 	}
 }
 

@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.top-bar-separator {
+.action-bar-separator {
 	width: 7px;
 	height: 32px;
 	align-items: center;
@@ -11,7 +11,7 @@
 	display: flex !important;
 }
 
-.top-bar-separator-icon {
+.action-bar-separator-icon {
 	width: 7px;
 	height: 28px;
 	align-items: center;
@@ -20,6 +20,6 @@
 	display: flex !important;
 }
 
-.top-bar-separator-icon::before {
+.action-bar-separator-icon::before {
 	color: var(--vscode-positronTopBar-separator);
 }

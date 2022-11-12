@@ -2,27 +2,27 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topBarRegion';
+import 'vs/css!./actionBarRegion';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 
 /**
- * TopBarRegionProps interface.
+ * ActionBarRegionProps interface.
  */
-interface TopBarRegionProps {
+interface ActionBarRegionProps {
 	align: 'left' | 'center' | 'right';
 }
 
 /**
- * TopBarRegionProps component.
- * @param props A TopBarRegionProps that contains the component properties.
+ * ActionBarRegionProps component.
+ * @param props An ActionBarRegionProps that contains the component properties.
  * @returns The component.
  */
-export const TopBarRegion = (props: PropsWithChildren<TopBarRegionProps>) => {
+export const ActionBarRegion = (props: PropsWithChildren<ActionBarRegionProps>) => {
 
 	// Render.
 	return (
-		<div className={`top-bar-region top-bar-region-${props.align}`}>
+		<div className={`action-bar-region top-bar-region-${props.align}`}>
 			{props.children}
 		</div>
 	);

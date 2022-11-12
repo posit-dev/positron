@@ -2,31 +2,32 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./actionBarCommandButton';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
-import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
+import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 /**
- * TopBarCommandButtonProps interface.
+ * ActionBarCommandButtonProps interface.
  */
-interface TopBarCommandButtonProps {
+interface ActionBarCommandButtonProps {
 	iconId: string;
 	align?: 'left' | 'right';
 	commandId: string;
 }
 
 /**
- * TopBarCommandButton component.
- * @param props A TopBarCommandButtonProps that contains the component properties.
+ * ActionBarCommandButton component.
+ * @param props An ActionBarCommandButtonProps that contains the component properties.
  * @returns The component.
  */
-export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
+export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
-	const positronTopBarContext = usePositronTopBarContext();
-	const [enabled, setEnabled] = useState(positronTopBarContext.isCommandEnabled(props.commandId));
+	const positronActionBarContext = usePositronActionBarContext();
+	const [enabled, setEnabled] = useState(positronActionBarContext.isCommandEnabled(props.commandId));
 
 	// Add our event handlers.
 	useEffect(() => {
@@ -40,10 +41,10 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 			const keys = new Set(commandInfo.precondition.keys());
 
 			// Add the context key service change tracker.
-			disposableStore.add(positronTopBarContext.contextKeyService.onDidChangeContext(e => {
+			disposableStore.add(positronActionBarContext.contextKeyService.onDidChangeContext(e => {
 				// If any of the precondition keys are affected, update the enabled state.
 				if (e.affectsSome(keys)) {
-					setEnabled(positronTopBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
+					setEnabled(positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
 				}
 			}));
 		}
@@ -53,7 +54,7 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	}, []);
 
 	// Handlers.
-	const executeHandler = () => positronTopBarContext.commandService.executeCommand(props.commandId);
+	const executeHandler = () => positronActionBarContext.commandService.executeCommand(props.commandId);
 
 	// Returns a dynamic tooltip for the command button.
 	const tooltip = (): string | undefined => {
@@ -64,7 +65,7 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 		}
 
 		// Get the keybinding label for the command from the keybinding service.
-		const keybindingLabel = positronTopBarContext.keybindingService.lookupKeybinding(props.commandId)?.getLabel();
+		const keybindingLabel = positronActionBarContext.keybindingService.lookupKeybinding(props.commandId)?.getLabel();
 
 		// If there's no keybinding label, return the title as the tooltip.
 		if (!keybindingLabel) {
@@ -76,7 +77,5 @@ export const TopBarCommandButton = (props: TopBarCommandButtonProps) => {
 	};
 
 	// Render.
-	return (
-		<TopBarButton {...props} tooltip={tooltip} enabled={enabled} onClick={executeHandler} />
-	);
+	return <ActionBarButton {...props} tooltip={tooltip} enabled={enabled} onClick={executeHandler} />;
 };

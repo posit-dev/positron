@@ -6,10 +6,8 @@ import 'vs/css!./topBarConsoleSelect';
 import * as React from 'react';
 import { TopBarSelectBox } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSelectBox/topBarSelectBox';
 
-
 export interface TopBarConsoleSelectProps {
 }
-
 
 export const TopBarConsoleSelect = (props: TopBarConsoleSelectProps) => {
 
@@ -25,6 +23,4 @@ export const TopBarConsoleSelect = (props: TopBarConsoleSelectProps) => {
 			</span>
 		</TopBarSelectBox>
 	);
-
-
 };

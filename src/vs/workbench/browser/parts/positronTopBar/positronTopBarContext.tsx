@@ -28,6 +28,6 @@ export const PositronTopBarContextProvider = (props: PropsWithChildren<PositronT
 };
 
 /**
- * Export useQuartoPubContext to simplify using the Positron top bar context object.
+ * Export usePositronTopBarContext to simplify using the Positron top bar context object.
  */
 export const usePositronTopBarContext = () => useContext(PositronTopBarContext);

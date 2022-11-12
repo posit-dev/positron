@@ -5,7 +5,6 @@
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
-import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
 import { URI } from 'vs/base/common/uri';
 import { isMacintosh } from 'vs/base/common/platform';
 import { Action, IAction, Separator } from 'vs/base/common/actions';
@@ -18,6 +17,8 @@ import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { OpenRecentAction } from 'vs/workbench/browser/actions/windowActions';
 import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
@@ -27,20 +28,21 @@ const MAX_MENU_RECENT_ENTRIES = 10;
  */
 export const TopBarOpenMenu = () => {
 	// Hooks.
+	const positronActionBarContext = usePositronActionBarContext()!;
 	const positronTopBarContext = usePositronTopBarContext()!;
 
 	// fetch actions when menu is shown
 	const actions = async () => {
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = positronTopBarContext.createCommandAction(id, label);
+			const action = positronActionBarContext.createCommandAction(id, label);
 			if (action) {
 				actions.push(action);
 			}
 		};
 
 		// core open actions
-		if (IsMacNativeContext.getValue(positronTopBarContext.contextKeyService)) {
+		if (IsMacNativeContext.getValue(positronActionBarContext.contextKeyService)) {
 			addAction(OpenFileFolderAction.ID, localize('positronOpenFile', "Open File..."));
 		} else {
 			addAction(OpenFileAction.ID);
@@ -69,7 +71,7 @@ export const TopBarOpenMenu = () => {
 
 	// Render.
 	return (
-		<TopBarMenuButton
+		<ActionBarMenuButton
 			iconId='positron-open'
 			actions={actions}
 			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}

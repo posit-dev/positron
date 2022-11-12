@@ -46,8 +46,6 @@ export class PositronPreviewViewPane extends ViewPane {
 		// Call the base class's method.
 		super.renderBody(container);
 
-		console.log(`renderBody called`);
-
 		// Render the Positron top bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
@@ -57,11 +55,9 @@ export class PositronPreviewViewPane extends ViewPane {
 
 	override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
-		console.log(`layoutBody called for ${width},${height}`);
 	}
 
 	private onDidChangeVisibility(visible: boolean): void {
-		console.log(`Visibility changed to ${visible}`);
 	}
 }
 
