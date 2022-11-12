@@ -2,19 +2,19 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.tool-tip-container {
+.action-bar-tool-tip-container {
 	position: relative;
 	overflow: visible;
 	font-size: 13px;
 }
 
-.tool-tip-wrapper {
+.action-bar-tool-tip-wrapper {
 	display: flex;
 	overflow: visible;
 	position: relative;
 }
 
-.tool-tip {
+.action-bar-tool-tip {
 	top: 32px;
 	padding: 6px 6px;
 	position: absolute;
@@ -25,15 +25,15 @@
 	border: 1px solid var(--vscode-positronToolTip-border);
 }
 
-.tool-tip-left {
+.action-bar-tool-tip-left {
 	left: 0;
 }
 
-.tool-tip-right {
+.action-bar-tool-tip-right {
 	right: 0;
 }
 
-.tool-tip-text {
+.action-bar-tool-tip-text {
 	width: max-content;
 	height: max-content;
 }

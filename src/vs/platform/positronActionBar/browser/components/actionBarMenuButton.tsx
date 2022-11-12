@@ -2,17 +2,18 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./actionBarMenuButton';
 import * as React from 'react';
-import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
-import { TopBarButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarButton/topBarButton';
 import { IAction } from 'vs/base/common/actions';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
+import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 /**
- * TopBarMenuButtonProps interface.
+ * ActionBarMenuButtonProps interface.
  */
-interface TopBarMenuButtonProps {
+interface ActionBarMenuButtonProps {
 	iconId: string;
 	text?: string;
 	align?: 'left' | 'right';
@@ -21,13 +22,13 @@ interface TopBarMenuButtonProps {
 }
 
 /**
- * TopBarCommandButton component.
- * @param props A TopBarCommandButtonProps that contains the component properties.
+ * ActionBarCommandButton component.
+ * @param props An ActionBarMenuButtonProps that contains the component properties.
  * @returns The component.
  */
-export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
+export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Hooks.
-	const positronTopBarContext = usePositronTopBarContext();
+	const positronActionBarContext = usePositronActionBarContext();
 	const buttonRef = React.useRef<HTMLDivElement>(undefined!);
 
 	// Handlers.
@@ -37,12 +38,12 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 				return;
 			}
 
-			positronTopBarContext.setMenuShowing(true);
-			positronTopBarContext.contextMenuService.showContextMenu({
+			positronActionBarContext.setMenuShowing(true);
+			positronActionBarContext.contextMenuService.showContextMenu({
 				getActions: () => actions,
-				getAnchor: () => buttonRef.current!,
+				getAnchor: () => buttonRef.current,
 				getKeyBinding: (action: IAction) => {
-					return positronTopBarContext.keybindingService.lookupKeybinding(action.id);
+					return positronActionBarContext.keybindingService.lookupKeybinding(action.id);
 				},
 				getActionsContext: (event?: IContextMenuEvent) => {
 					if (event) {
@@ -56,16 +57,14 @@ export const TopBarMenuButton = (props: TopBarMenuButtonProps) => {
 						return undefined;
 					}
 				},
-				onHide: () => positronTopBarContext.setMenuShowing(false),
+				onHide: () => positronActionBarContext.setMenuShowing(false),
 				anchorAlignment: AnchorAlignment.LEFT,
 				anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
-				contextKeyService: positronTopBarContext.contextKeyService
+				contextKeyService: positronActionBarContext.contextKeyService
 			});
 		});
 	};
 
 	// Render.
-	return (
-		<TopBarButton {...props} ref={buttonRef} dropDown={true} onClick={clickHandler} />
-	);
+	return <ActionBarButton {...props} ref={buttonRef} dropDown={true} onClick={clickHandler} />;
 };

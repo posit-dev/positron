@@ -8,9 +8,10 @@ import { IAction, Separator } from 'vs/base/common/actions';
 import { OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
 import { recentMenuActions } from 'vs/workbench/browser/parts/positronTopBar/components/topBarOpenMenu';
-import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction, PositronOpenWorkspaceInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 
 const kCloseFolder = 'workbench.action.closeFolder';
 const kWorkbenchSettings = 'workbench.action.openWorkspaceSettings';
@@ -18,13 +19,14 @@ const kDuplicateWorkspace = 'workbench.action.duplicateWorkspaceInNewWindow';
 
 export const TopBarWorkspaceMenu = () => {
 	// Hooks.
+	const positronActionBarContext = usePositronActionBarContext();
 	const positronTopBarContext = usePositronTopBarContext();
 
 	// fetch actions when menu is shown
 	const actions = async () => {
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = positronTopBarContext.createCommandAction(id, label);
+			const action = positronActionBarContext.createCommandAction(id, label);
 			if (action) {
 				actions.push(action);
 			}
@@ -55,7 +57,7 @@ export const TopBarWorkspaceMenu = () => {
 
 	// Render.
 	return (
-		<TopBarMenuButton
+		<ActionBarMenuButton
 			iconId='root-folder'
 			align='right'
 			actions={actions}

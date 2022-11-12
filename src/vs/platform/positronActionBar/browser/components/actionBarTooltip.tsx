@@ -2,27 +2,27 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./tooltip';
+import 'vs/css!./actionBarTooltip';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 /**
- * TooltipProps interface.
+ * ActionBarTooltipProps interface.
  */
-interface TooltipProps {
+interface ActionBarTooltipProps {
 	align?: 'left' | 'right';
 	tooltip: string | (() => string | undefined) | undefined;
 }
 
 /**
- * Tooltip component.
- * @param props A TooltipProps that contains the component properties.
+ * ActionBarTooltip component.
+ * @param props An ActionBarTooltipProps that contains the component properties.
  * @returns The component.
  */
-export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
+export const ActionBarTooltip = (props: PropsWithChildren<ActionBarTooltipProps>) => {
 	// Hooks.
-	const positronTopBarContext = usePositronTopBarContext();
+	const positronActionBarContext = usePositronActionBarContext();
 	const [mouseInside, setMouseInside] = useState(false);
 	const [tooltip, setTooltip] = useState<string | undefined>(undefined);
 	const [showTooltip, setShowTooltip] = useState(false);
@@ -49,7 +49,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 		}
 
 		// Get the show tooltip delay.
-		const showTooltipDelay = positronTopBarContext.showTooltipDelay();
+		const showTooltipDelay = positronActionBarContext.showTooltipDelay();
 
 		// If we should show the toolip immediately, do it.
 		if (!showTooltipDelay) {
@@ -59,12 +59,12 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 
 		// Set up a timeout to show the tooltip.
 		const timeout = setTimeout(() => {
-			if (!positronTopBarContext.menuShowing) {
+			if (!positronActionBarContext.menuShowing) {
 				setShowTooltip(true);
 			}
 		}, showTooltipDelay);
 		return () => clearTimeout(timeout);
-	}, [positronTopBarContext, mouseInside]);
+	}, [positronActionBarContext, mouseInside]);
 
 	// Mouse enter handler.
 	const mouseEnterHandler = () => {
@@ -77,7 +77,7 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 		if (showTooltip) {
 			// Hide the toolip and refresh the tooltip keep alive so that the next tooltip will be shown immediately.
 			setShowTooltip(false);
-			positronTopBarContext.refreshTooltipKeepAlive();
+			positronActionBarContext.refreshTooltipKeepAlive();
 		}
 	};
 
@@ -89,13 +89,13 @@ export const Tooltip = (props: PropsWithChildren<TooltipProps>) => {
 
 	// Render.
 	return (
-		<div className='tool-tip-container'>
-			<div className='tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onClick={clickHandler}>
+		<div className='action-bar-tool-tip-container'>
+			<div className='action-bar-tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onClick={clickHandler}>
 				{props.children}
 			</div>
 			{showTooltip &&
-				<div className={`tool-tip tool-tip-${props.align ?? 'left'}`}>
-					<div className='tool-tip-text'>{tooltip}</div>
+				<div className={`action-bar-tool-tip action-bar-tool-tip-${props.align ?? 'left'}`}>
+					<div className='action-bar-tool-tip-text'>{tooltip}</div>
 				</div>}
 		</div>
 	);

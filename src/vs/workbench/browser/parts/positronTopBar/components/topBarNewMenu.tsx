@@ -5,8 +5,8 @@
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
-import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
-import { TopBarMenuButton } from 'vs/workbench/browser/parts/positronTopBar/components/topBarMenuButton';
+import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
@@ -15,13 +15,13 @@ import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'v
  */
 export const TopBarNewMenu = () => {
 	// Hooks.
-	const positronTopBarContext = usePositronTopBarContext();
+	const positronActionBarContext = usePositronActionBarContext();
 
 	// fetch actions when menu is shown
 	const actions = async () => {
 		const actions: IAction[] = [];
 		const addAction = (id: string, label?: string) => {
-			const action = positronTopBarContext.createCommandAction(id, label);
+			const action = positronActionBarContext.createCommandAction(id, label);
 			if (action) {
 				actions.push(action);
 			}
@@ -40,7 +40,7 @@ export const TopBarNewMenu = () => {
 
 	// compontent
 	return (
-		<TopBarMenuButton
+		<ActionBarMenuButton
 			iconId='positron-new'
 			actions={actions}
 			tooltip={localize('positronNewFileWorkspace', "New File/Workspace")}
