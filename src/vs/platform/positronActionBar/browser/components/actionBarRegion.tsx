@@ -22,7 +22,7 @@ export const ActionBarRegion = (props: PropsWithChildren<ActionBarRegionProps>) 
 
 	// Render.
 	return (
-		<div className={`action-bar-region top-bar-region-${props.align}`}>
+		<div className={`action-bar-region action-bar-region-${props.align}`}>
 			{props.children}
 		</div>
 	);

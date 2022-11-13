@@ -33,6 +33,8 @@ interface PositronActionBarProps extends PositronActionBarServices { }
  */
 export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProps>) => {
 	return (
-		<div className='yaya'>Positron Action Bar</div>
+		<div className='positron-action-bar'>
+			{props.children}
+		</div>
 	);
 };
