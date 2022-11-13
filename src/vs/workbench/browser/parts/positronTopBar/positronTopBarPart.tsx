@@ -2,31 +2,31 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./media/css/positronTopBarPart';
+import 'vs/css!./positronTopBarPart';
 import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { Part } from 'vs/workbench/browser/part';
 import { KeyCode } from 'vs/base/common/keyCodes';
-import { PositronTopBarFocused } from 'vs/workbench/common/contextkeys';
+import { ILabelService } from 'vs/platform/label/common/label';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { IHostService } from 'vs/workbench/services/host/browser/host';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { PositronTopBarFocused } from 'vs/workbench/common/contextkeys';
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/components/positronTopBar';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IPositronTopBarService } from 'vs/workbench/services/positronTopBar/browser/positronTopBarService';
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
-import { ILabelService } from 'vs/platform/label/common/label';
-import { IHostService } from 'vs/workbench/services/host/browser/host';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**

@@ -5,7 +5,7 @@
 import 'vs/css!./topBarCommandCenter';
 import * as React from 'react';
 import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
-import { TopBarSelectBox } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSelectBox/topBarSelectBox';
+import { TopBarSelectBox } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSelectBox';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 
 /**

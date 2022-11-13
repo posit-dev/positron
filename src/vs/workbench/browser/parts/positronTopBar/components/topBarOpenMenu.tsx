@@ -2,6 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./topBarOpenMenu';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';

@@ -2,6 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./topBarNewMenu';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
