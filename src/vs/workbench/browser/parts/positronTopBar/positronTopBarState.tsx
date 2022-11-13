@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
+import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/components/positronTopBar';
 import { IWorkspaceContextService, IWorkspaceFolder } from 'vs/platform/workspace/common/workspace';
 
 /**

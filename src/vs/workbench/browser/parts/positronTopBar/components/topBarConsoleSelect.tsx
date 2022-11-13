@@ -4,7 +4,7 @@
 
 import 'vs/css!./topBarConsoleSelect';
 import * as React from 'react';
-import { TopBarSelectBox } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSelectBox/topBarSelectBox';
+import { TopBarSelectBox } from 'vs/workbench/browser/parts/positronTopBar/components/topBarSelectBox';
 
 export interface TopBarConsoleSelectProps {
 }
