@@ -5,3 +5,7 @@
 .positron-modal-dialog-box .labeled-text-input {
 	width: 100%;
 }
+
+.positron-modal-dialog-box .labeled-text-input .text-input {
+	margin-top: 4px;
+}

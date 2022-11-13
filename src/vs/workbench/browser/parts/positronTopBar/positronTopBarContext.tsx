@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/components/positronTopBar';
+import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
 import { PositronTopBarState, usePositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
 
 /**
