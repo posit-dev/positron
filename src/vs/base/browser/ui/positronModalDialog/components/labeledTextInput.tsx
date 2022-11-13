@@ -24,7 +24,7 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 	return (
 		<div className='labeled-text-input'>
 			<label>
-				{props.label}: <br />
+				{props.label}:
 				<input className='text-input' ref={ref} type='text' value={props.value} autoFocus={props.autoFocus} onChange={props.onChange} />
 			</label>
 		</div>

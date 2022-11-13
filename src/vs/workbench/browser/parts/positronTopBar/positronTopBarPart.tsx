@@ -22,7 +22,7 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/components/positronTopBar';
+import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
