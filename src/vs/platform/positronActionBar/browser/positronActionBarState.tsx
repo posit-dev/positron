@@ -6,14 +6,28 @@ import { useEffect, useState } from 'react';
 import { Action } from 'vs/base/common/actions';
 import { unmnemonicLabel } from 'vs/base/common/labels';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBar';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-// import { IWorkspaceContextService, IWorkspaceFolder } from 'vs/platform/workspace/common/workspace';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * The tooltip reset timeout in milliseconds.
  */
 const kTooltipReset = 500;
+
+/**
+ * PositronActionBarServices interface. Defines the set of services that are required by a Positron action bar.
+ */
+export interface PositronActionBarServices {
+	commandService: ICommandService;
+	configurationService: IConfigurationService;
+	contextKeyService: IContextKeyService;
+	contextMenuService: IContextMenuService;
+	keybindingService: IKeybindingService;
+}
 
 /**
  * The Positron action bar state.
