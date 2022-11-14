@@ -29,7 +29,7 @@
 					"scope": "window",
 					"type": "string",
           "default": "",
-					"description": "Path on disk to the ARK kernel executable. Temporary setting until the kernel is embedded in the extension / language pack."
+					"description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel."
         },
 				"positron.r.trace.server": {
 					"scope": "window",

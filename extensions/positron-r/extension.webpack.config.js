@@ -22,7 +22,7 @@ module.exports = withDefaults({
 			patterns: [
 				{
 					from: './amalthea/target/debug/ark',
-					to: './bin/ark'
+					to: './bin'
 				},
 			],
 		}),
