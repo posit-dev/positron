@@ -11,8 +11,15 @@ fi
 SCRIPTDIR=$(cd "$(dirname -- "${BASH_SOURCE[0]}")"; pwd -P)
 pushd "${SCRIPTDIR}/../amalthea"
 
+# If RUST_TARGET is set, forward its value to cargo. We do this in order to
+# cross-compile an x86_64 version of the kernel on an ARM64 (Apple Silicon)
+# machine.
+if [ -n "${RUST_TARGET}" ]; then
+	CARGO_TARGET="--target ${RUST_TARGET}"
+fi
+
 # Build the kernel
-cargo build
+cargo build ${CARGO_TARGT}
 
 popd
 

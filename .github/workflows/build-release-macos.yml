@@ -56,6 +56,7 @@ jobs:
       - name: Install dependencies (arm64)
         run: yarn
         env:
+          RUST_TARGET: aarch64-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
 
       # Build client for arm64
@@ -93,6 +94,7 @@ jobs:
       - name: Install dependencies (x64)
         env:
           npm_config_arch: x64
+          RUST_TARGET: x86_64-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn
 
