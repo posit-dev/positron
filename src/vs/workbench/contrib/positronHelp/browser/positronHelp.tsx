@@ -12,6 +12,8 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { TestContent } from 'vs/workbench/contrib/positronEnvironment/browser/components/testContent';
+import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 
 /**
  * PositronHelpProps interface.
@@ -31,7 +33,15 @@ export interface PositronHelpProps {
 export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 	return (
 		<div>
-			<PositronActionBar {...props} />
+			<PositronActionBarContextProvider {...props}>
+				<PositronActionBar>
+					<ActionBarButton iconId='positron-save' tooltip={'uauaua'}></ActionBarButton>
+					<ActionBarButton iconId='positron-save' tooltip={'uauaua'}></ActionBarButton>
+					<ActionBarButton iconId='positron-save' tooltip={'uauaua'}></ActionBarButton>
+					<ActionBarButton iconId='positron-save' tooltip={'uauaua'}></ActionBarButton>
+				</PositronActionBar>
+			</PositronActionBarContextProvider>
+
 			<TestContent message='Help React' />
 		</div>
 	);
