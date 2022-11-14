@@ -75,9 +75,11 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
+    "compile-kernel": "./scripts/compile-kernel.sh",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
+    "preinstall": "npm run compile-kernel",
 		"lint": "eslint src --ext ts",
 		"test": "node ./out/test/runTest.js"
 	},
