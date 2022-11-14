@@ -3924,6 +3924,10 @@ export interface ISuggestOptions {
 	 */
 	shareSuggestSelections?: boolean;
 	/**
+	 * Select suggestions when triggered via quick suggest or trigger characters
+	 */
+	selectQuickSuggestions?: boolean;
+	/**
 	 * Enable or disable icons in suggestions. Defaults to true.
 	 */
 	showIcons?: boolean;
@@ -4075,6 +4079,7 @@ class EditorSuggest extends BaseEditorOption<EditorOption.suggest, ISuggestOptio
 			snippetsPreventQuickSuggestions: true,
 			localityBonus: false,
 			shareSuggestSelections: false,
+			selectQuickSuggestions: true,
 			showIcons: true,
 			showStatusBar: false,
 			preview: false,
@@ -4336,6 +4341,7 @@ class EditorSuggest extends BaseEditorOption<EditorOption.suggest, ISuggestOptio
 			snippetsPreventQuickSuggestions: boolean(input.snippetsPreventQuickSuggestions, this.defaultValue.filterGraceful),
 			localityBonus: boolean(input.localityBonus, this.defaultValue.localityBonus),
 			shareSuggestSelections: boolean(input.shareSuggestSelections, this.defaultValue.shareSuggestSelections),
+			selectQuickSuggestions: boolean(input.selectQuickSuggestions, this.defaultValue.selectQuickSuggestions),
 			showIcons: boolean(input.showIcons, this.defaultValue.showIcons),
 			showStatusBar: boolean(input.showStatusBar, this.defaultValue.showStatusBar),
 			preview: boolean(input.preview, this.defaultValue.preview),
