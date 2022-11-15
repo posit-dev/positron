@@ -895,7 +895,7 @@ export const WINDOW_INACTIVE_BORDER = registerColor('window.inactiveBorder', {
 
 // --- Start Positron ---
 
-// < --- Positron Topol Tip --- >
+// < --- Positron Tool Tip --- >
 
 // The Positron tool tip background color.
 export const POSITRON_TOOL_TIP_BACKGROUND = registerColor('positronToolTip.background', {
