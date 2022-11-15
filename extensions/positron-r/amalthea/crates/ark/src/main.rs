@@ -158,6 +158,12 @@ Available options:
 
 fn main() {
 
+    #[cfg(target_os = "macos")]
+    {
+        // Unset DYLD_INSERT_LIBRARIES if it was passed down
+        std::env::remove_var("DYLD_INSERT_LIBRARIES");
+    }
+
     // Get an iterator over all the command-line arguments
     let mut argv = std::env::args();
 

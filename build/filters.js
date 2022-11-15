@@ -28,7 +28,7 @@ module.exports.all = [
 	'!**/node_modules/**',
 
 	// --- Start Positron ---
-	'!amalthea/**/*',
+	'!**/amalthea/**/*',
 	// --- End Positron ---
 ];
 
@@ -63,7 +63,7 @@ module.exports.unicodeFilter = [
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
 
 	// --- Start Positron ---
-	'!amalthea/**/*',
+	'!**/amalthea/**/*',
 	// --- End Positron ---
 ];
 
@@ -141,7 +141,7 @@ module.exports.indentationFilter = [
 	// --- End Positron ---
 
 	// --- Start Positron ---
-	'!amalthea/**/*',
+	'!**/amalthea/**/*',
 	// --- End Positron ---
 ];
 
@@ -181,7 +181,7 @@ module.exports.copyrightFilter = [
 	'!src/vs/editor/test/node/classification/typescript-test.ts',
 
 	// --- Start Positron ---
-	'!amalthea/**/*',
+	'!**/amalthea/**/*',
 	// --- End Positron ---
 ];
 
@@ -205,7 +205,7 @@ module.exports.tsFormattingFilter = [
 	'!extensions/html-language-features/server/lib/jquery.d.ts',
 
 	// --- Start Positron ---
-	'!amalthea/**/*',
+	'!**/amalthea/**/*',
 	// --- End Positron ---
 ];
 
