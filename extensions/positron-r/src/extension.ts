@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 		adaptJupyterKernel(context, kernelPath);
 	} else {
 		// No kernel path specified; try the default (embedded) kernel.
-		const embeddedKernel = path.join(context.extensionPath, 'bin', 'ark');
+		const embeddedKernel = path.join(context.extensionPath, 'dist', 'bin', 'ark');
 		const fs = require('fs');
 		if (fs.existsSync(embeddedKernel)) {
 			adaptJupyterKernel(context, embeddedKernel);
