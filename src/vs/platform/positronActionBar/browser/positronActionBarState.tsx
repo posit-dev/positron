@@ -102,7 +102,7 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 		return services.contextKeyService.contextMatchesRules(commandInfo.precondition);
 	};
 
-	// Return the Positron top bar state.
+	// Return the Positron top action bar state.
 	return {
 		...services,
 		createCommandAction,

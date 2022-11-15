@@ -2,7 +2,17 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-help {
+.monaco-workbench .part.positron-top-action-bar {
+	width: 100%;
+	height: 100%;
+	cursor: default;
+	box-sizing: border-box;
+	font-size: 12px;
+	justify-content: left;
+	align-items: center;
+	display: flex;
+	overflow: visible;
+
 	/* PositronActionBar variable. */
 	--positronActionBar-border: var(--vscode-positronTopActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronTopActionBar-separator);
@@ -11,3 +21,9 @@
 	--positronActionBar-hoverBackground: var(--vscode-positronTopActionBar-hoverBackground);
 	--positronActionBar-disabledForeground: var(--vscode-positronTopActionBar-disabledForeground);
 }
+
+/* Don't draw a focus outline. */
+.monaco-workbench .part.positron-top-action-bar:focus {
+	outline: none !important;
+}
+

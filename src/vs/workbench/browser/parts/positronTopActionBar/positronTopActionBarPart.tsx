@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronTopBarPart';
+import 'vs/css!./positronTopActionBarPart';
 import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { Part } from 'vs/workbench/browser/part';
@@ -12,7 +12,7 @@ import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { PositronTopBarFocused } from 'vs/workbench/common/contextkeys';
+import { PositronTopActionBarFocused } from 'vs/workbench/common/contextkeys';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
@@ -22,23 +22,23 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { PositronTopBar } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
+import { PositronTopActionBar } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { IPositronTopBarService } from 'vs/workbench/services/positronTopBar/browser/positronTopBarService';
+import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
- * PositronTopBarPart class.
+ * PositronTopActionBarPart class.
  */
-export class PositronTopBarPart extends Part implements IPositronTopBarService {
+export class PositronTopActionBarPart extends Part implements IPositronTopActionBarService {
 
 	declare readonly _serviceBrand: undefined;
 
 	// #region IView
 
-	readonly height: number = 36;
+	readonly height: number = 34;
 	readonly minimumWidth: number = 0;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 
@@ -82,7 +82,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService
 	) {
-		super(Parts.POSITRON_TOP_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
+		super(Parts.POSITRON_TOP_ACTION_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
 
 	//#endregion Class Initialization
@@ -95,10 +95,10 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 		this.element = parent;
 		this.element.tabIndex = 0;
 
-		// Render the Positron top bar component.
+		// Render the Positron top action bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<PositronTopBar
+			<PositronTopActionBar
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
@@ -116,7 +116,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 		// Track focus
 		const scopedContextKeyService = this.contextKeyService.createScoped(this.element);
-		PositronTopBarFocused.bindTo(scopedContextKeyService).set(true);
+		PositronTopActionBarFocused.bindTo(scopedContextKeyService).set(true);
 
 		// Return this element.
 		return this.element;
@@ -124,7 +124,7 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 	toJSON(): object {
 		return {
-			type: Parts.POSITRON_TOP_BAR_PART
+			type: Parts.POSITRON_TOP_ACTION_BAR_PART
 		};
 	}
 
@@ -138,26 +138,26 @@ export class PositronTopBarPart extends Part implements IPositronTopBarService {
 
 	//#endregion Part Class
 
-	//#region IPositronTopBarService
+	//#region IPositronTopActionBarService
 
 	focus(): void {
 		this.element.focus();
 	}
 
-	//#endregion IPositronTopBarService
+	//#endregion IPositronTopActionBarService
 }
 
-registerSingleton(IPositronTopBarService, PositronTopBarPart, InstantiationType.Eager);
+registerSingleton(IPositronTopActionBarService, PositronTopActionBarPart, InstantiationType.Eager);
 
 // Keybindings
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
-	id: 'workbench.top-bar.focusTopBar',
+	id: 'workbench.top-bar.focusTopActionBar',
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyCode.Escape,
-	when: PositronTopBarFocused,
+	when: PositronTopActionBarFocused,
 	handler: (accessor: ServicesAccessor) => {
-		const positronTopBarService = accessor.get(IPositronTopBarService);
-		positronTopBarService.focus();
+		const positronTopActionBarService = accessor.get(IPositronTopActionBarService);
+		positronTopActionBarService.focus();
 	}
 });

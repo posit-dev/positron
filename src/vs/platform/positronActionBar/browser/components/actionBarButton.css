@@ -6,7 +6,7 @@
 	cursor: pointer;
 	padding: 2px 0;
 	overflow: visible;
-	color: var(--vscode-positronTopBar-foreground);
+	color: var(--positronActionBar-foreground);
 }
 
 .action-bar-button-face {
@@ -24,7 +24,7 @@
 
 .action-bar-button-face:hover {
 	border-radius: 6px;
-	background: var(--vscode-positronTopBar-hoverBackground);
+	background: var(--positronActionBar-hoverBackground);
 }
 
 .disabled .action-bar-button-face:hover {
@@ -41,11 +41,11 @@
 }
 
 .action-bar-button-icon::before {
-	color: var(--vscode-positronTopBar-foreground);
+	color: var(--positronActionBar-foreground);
 }
 
 .disabled .action-bar-button-icon::before {
-	color: var(--vscode-positronTopBar-disabledForeground)
+	color: var(--positronActionBar-disabledForeground);
 }
 
 .action-bar-button-drop-down-arrow {
@@ -58,9 +58,9 @@
 }
 
 .action-bar-button-drop-down-arrow::before {
-	color: var(--vscode-positronTopBar-foreground);
+	color: var(--positronActionBar-foreground);
 }
 
 .disabled .action-bar-button-drop-down-arrow::before {
-	color: var(--vscode-positronTopBar-disabledForeground)
+	color: var(--positronActionBar-disabledForeground);
 }

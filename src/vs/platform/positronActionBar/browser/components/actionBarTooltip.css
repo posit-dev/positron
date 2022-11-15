@@ -23,6 +23,7 @@
 	display: inline-block;
 	background: var(--vscode-positronToolTip-background);
 	border: 1px solid var(--vscode-positronToolTip-border);
+	z-index: 500 !important;
 }
 
 .action-bar-tool-tip-left {
