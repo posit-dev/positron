@@ -29,7 +29,7 @@
 					"scope": "window",
 					"type": "string",
           "default": "",
-					"description": "Path on disk to the ARK kernel executable. Temporary setting until the kernel is embedded in the extension / language pack."
+					"description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel."
         },
 				"positron.r.trace.server": {
 					"scope": "window",
@@ -75,9 +75,11 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
+    "compile-kernel": "./scripts/compile-kernel.sh",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
+    "preinstall": "npm run compile-kernel",
 		"lint": "eslint src --ext ts",
 		"test": "node ./out/test/runTest.js"
 	},

@@ -39,8 +39,10 @@ async function main() {
             // Exclusions from ZeroMQ node module
             'electron.napi.node',
             'node.napi.node',
-            // Exclusions from Python extension bundle
-            'pydevd' // Cython pre-built binaries for Python debugging
+            // Exclusions from Python language pack (positron-python)
+            'pydevd',
+            // Exclusions from R language pack (positron-r)
+            'amalthea' // R backend sources
             // --- End Positron ---
         ],
         outAppPath,
