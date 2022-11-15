@@ -39,6 +39,15 @@ export class PositronHelpViewPane extends ViewPane {
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 	}
 
+	public override dispose(): void {
+		if (this.positronReactRenderer) {
+			this.positronReactRenderer.destroy();
+			this.positronReactRenderer = undefined;
+		}
+
+		super.dispose();
+	}
+
 	override focus(): void {
 		// Call the base class's method.
 		super.focus();
@@ -48,7 +57,7 @@ export class PositronHelpViewPane extends ViewPane {
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Render the Positron top bar component.
+		// Render the Positron top action bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
 			<PositronHelp

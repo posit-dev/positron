@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topBarNewMenu';
+import 'vs/css!./topActionBarNewMenu';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
@@ -11,10 +11,10 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
- * TopBarNewMenu component.
+ * TopActionBarNewMenu component.
  * @returns The component.
  */
-export const TopBarNewMenu = () => {
+export const TopActionBarNewMenu = () => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
 

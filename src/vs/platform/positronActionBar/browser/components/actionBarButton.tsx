@@ -11,7 +11,7 @@ import { ActionBarTooltip } from 'vs/platform/positronActionBar/browser/componen
  * ActionBarButtonProps interface.
  */
 export interface ActionBarButtonProps {
-	iconId: string;
+	iconId?: string;
 	text?: string;
 	dropDown?: boolean;
 	align?: 'left' | 'right';
@@ -34,8 +34,8 @@ export const ActionBarButton = forwardRef<HTMLDivElement, ActionBarButtonProps>(
 		<ActionBarTooltip {...props}>
 			<div ref={ref} className={className} onClick={props.onClick}>
 				<div className='action-bar-button-face'>
-					<div className={`action-bar-button-icon codicon codicon-${props.iconId}`}></div>
-					{props.text ? <div className='action-bar-button-text'>{props.text}</div> : null}
+					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} />}
+					{props.text && <div className='action-bar-button-text'>{props.text}</div>}
 					{props.dropDown && <div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />}
 				</div>
 			</div>

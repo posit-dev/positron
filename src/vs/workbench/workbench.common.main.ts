@@ -52,7 +52,7 @@ import 'vs/workbench/browser/parts/statusbar/statusbarPart';
 import 'vs/workbench/browser/parts/views/viewsService';
 
 // --- Start Positron ---
-import 'vs/workbench/browser/parts/positronTopBar/positronTopBarPart';
+import 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarPart';
 // --- End Positron ---
 
 //#endregion

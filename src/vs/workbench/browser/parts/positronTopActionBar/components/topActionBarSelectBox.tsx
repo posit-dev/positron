@@ -2,19 +2,19 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topBarSelectBox';
+import 'vs/css!./topActionBarSelectBox';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronClassNames';
 
-export interface TopBarSelectBoxProps {
+export interface TopActionBarSelectBoxProps {
 	onClick?: (event: React.MouseEvent) => void;
 	onDropDownClick?: (event: React.MouseEvent) => void;
 	className?: string;
 }
 
-export const TopBarSelectBox = (props: PropsWithChildren<TopBarSelectBoxProps>) => {
-
+export const TopActionBarSelectBox = (props: PropsWithChildren<TopActionBarSelectBoxProps>) => {
+	// Create the class names.
 	const classNames = positronClassNames(
 		'top-bar-select-box',
 		{ 'top-bar-select-box-drop-down-click': props.onDropDownClick },

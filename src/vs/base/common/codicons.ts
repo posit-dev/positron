@@ -574,6 +574,11 @@ export class Codicon implements CSSIcon {
 	public static readonly positronOutline = new Codicon('positron-outline', { fontCharacter: '\\f23b' });
 	public static readonly positronPlot = new Codicon('positron-plot', { fontCharacter: '\\f23c' });
 	public static readonly positronPreview = new Codicon('positron-preview', { fontCharacter: '\\f23d' });
+	public static readonly positronLeftArrow = new Codicon('positron-left-arrow', { fontCharacter: '\\f23e' });
+	public static readonly positronRightArrow = new Codicon('positron-right-arrow', { fontCharacter: '\\f23f' });
+	public static readonly positronHome = new Codicon('positron-home', { fontCharacter: '\\f240' });
+	public static readonly positronRefresh = new Codicon('positron-refresh', { fontCharacter: '\\f241' });
+	public static readonly positronShowInNewWindow = new Codicon('positron-open-in-new-window', { fontCharacter: '\\f242' });
 	// --- End Positron ---
 
 	// derived icons, that could become separate icons
