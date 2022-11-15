@@ -50,7 +50,7 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 						<ActionBarButton iconId='positron-refresh' tooltip={localize('positronRefreshTopic', "Refresh topic")} align='right' />
 					</ActionBarRegion>
 				</PositronActionBar>
-				<PositronActionBar>
+				<PositronActionBar borderBottom={true}>
 					<ActionBarRegion align='left'>
 						<ActionBarButton text='Home' dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
 					</ActionBarRegion>
