@@ -56,6 +56,7 @@ jobs:
       - name: Install dependencies (arm64)
         run: yarn
         env:
+          RUST_TARGET: aarch64-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
 
       # Build client for arm64
@@ -93,6 +94,7 @@ jobs:
       - name: Install dependencies (x64)
         env:
           npm_config_arch: x64
+          RUST_TARGET: x86_64-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn
 
@@ -153,6 +155,8 @@ jobs:
       #   chokes if any files (other than binaries) that differ between x64 and
       #   arm64.
       #
+      # - Do the same for the `amalthea` build folder
+      #
       # - Copy the 'nls.metadata.json' files from x64 to arm64. These files are
       #   semantically identical in both builds, but due to unstable dictionary
       #   key sorting, they don't hash identically.
@@ -160,6 +164,8 @@ jobs:
         run: |
           rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
           rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
+          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/positron-r/amalthea
+          rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/positron-r/amalthea
           find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
 
       # Glue together the arm64 and x64 binaries with lipo to create a
