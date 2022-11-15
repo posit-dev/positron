@@ -4,22 +4,22 @@
 
 import { useEffect, useState } from 'react';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronTopBarServices } from 'vs/workbench/browser/parts/positronTopBar/positronTopBar';
+import { PositronTopActionBarServices } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
 import { IWorkspaceContextService, IWorkspaceFolder } from 'vs/platform/workspace/common/workspace';
 
 /**
- * The Positron top bar state.
+ * The Positron top action bar state.
  */
-export interface PositronTopBarState extends PositronTopBarServices {
+export interface PositronTopActionBarState extends PositronTopActionBarServices {
 	workspaceFolder?: IWorkspaceFolder;
 }
 
 /**
- * The usePositronTopBarState custom hook.
- * @param services A PositronTopBarServices that contains the Positron top bar services.
+ * The usePositronTopActionBarState custom hook.
+ * @param services A PositronTopActionBarServices that contains the Positron top action bar services.
  * @returns The hook.
  */
-export const usePositronTopBarState = (services: PositronTopBarServices): PositronTopBarState => {
+export const usePositronTopActionBarState = (services: PositronTopActionBarServices): PositronTopActionBarState => {
 	// Hooks.
 	const [workspaceFolder, setWorkspaceFolder] = useState<IWorkspaceFolder | undefined>(singleWorkspaceFolder(services.workspaceContextService));
 
@@ -34,7 +34,7 @@ export const usePositronTopBarState = (services: PositronTopBarServices): Positr
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Return the Positron top bar state.
+	// Return the Positron top action bar state.
 	return {
 		...services,
 		workspaceFolder

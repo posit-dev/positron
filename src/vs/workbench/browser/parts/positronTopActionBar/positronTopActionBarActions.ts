@@ -6,24 +6,24 @@ import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-import { PositronTopBarVisibleContext } from 'vs/workbench/common/contextkeys';
+import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
-export class ToggleTopBarVisibilityAction extends Action2 {
+export class ToggleTopActionBarVisibilityAction extends Action2 {
 
-	static readonly ID = 'workbench.action.togglePositronTopBarVisibility';
+	static readonly ID = 'workbench.action.togglePositronTopActionBarVisibility';
 
 	constructor() {
 		super({
-			id: ToggleTopBarVisibilityAction.ID,
+			id: ToggleTopActionBarVisibilityAction.ID,
 			title: {
-				value: localize('togglePositronTopBarVisibility', "Toggle Top Bar Visibility"),
-				mnemonicTitle: localize({ key: 'miTopBar', comment: ['&& denotes a mnemonic'] }, "&&Top Bar"),
+				value: localize('togglePositronTopActionBarVisibility', "Toggle Top Bar Visibility"),
+				mnemonicTitle: localize({ key: 'miTopActionBar', comment: ['&& denotes a mnemonic'] }, "&&Top Bar"),
 				original: 'Toggle Top Bar Visibility'
 			},
 			category: Categories.View,
 			f1: true,
-			toggled: PositronTopBarVisibleContext,
+			toggled: PositronTopActionBarVisibleContext,
 			menu: [{
 				id: MenuId.MenubarAppearanceMenu,
 				group: '1_workbench_layout',
@@ -34,20 +34,20 @@ export class ToggleTopBarVisibilityAction extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		layoutService.setPartHidden(layoutService.isVisible(Parts.POSITRON_TOP_BAR_PART), Parts.POSITRON_TOP_BAR_PART);
+		layoutService.setPartHidden(layoutService.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART), Parts.POSITRON_TOP_ACTION_BAR_PART);
 	}
 }
 
-registerAction2(ToggleTopBarVisibilityAction);
+registerAction2(ToggleTopActionBarVisibilityAction);
 
-registerAction2(class FocusTopBarAction extends Action2 {
-	static readonly ID = 'workbench.action.focusPositronTopBar';
-	static readonly LABEL = localize('focusTopBar', "Focus Top Bar");
+registerAction2(class FocusTopActionBarAction extends Action2 {
+	static readonly ID = 'workbench.action.focusPositronTopActionBar';
+	static readonly LABEL = localize('focusTopActionBar', "Focus Top Bar");
 
 	constructor() {
 		super({
-			id: FocusTopBarAction.ID,
-			title: { value: FocusTopBarAction.LABEL, original: 'Focus Top Bar' },
+			id: FocusTopActionBarAction.ID,
+			title: { value: FocusTopActionBarAction.LABEL, original: 'Focus Top Bar' },
 			category: Categories.View,
 			f1: true
 		});
@@ -55,6 +55,6 @@ registerAction2(class FocusTopBarAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		layoutService.focusPart(Parts.POSITRON_TOP_BAR_PART);
+		layoutService.focusPart(Parts.POSITRON_TOP_ACTION_BAR_PART);
 	}
 });

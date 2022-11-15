@@ -2,35 +2,35 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topBarOpenMenu';
+import 'vs/css!./topActionBarOpenMenu';
 import * as React from 'react';
 import { localize } from 'vs/nls';
-import { usePositronTopBarContext } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarContext';
 import { URI } from 'vs/base/common/uri';
 import { isMacintosh } from 'vs/base/common/platform';
-import { Action, IAction, Separator } from 'vs/base/common/actions';
-import { IRecent, isRecentFolder, isRecentWorkspace } from 'vs/platform/workspaces/common/workspaces';
-import { IOpenRecentAction } from 'vs/workbench/browser/parts/titlebar/menubarControl';
-import { IWindowOpenable } from 'vs/platform/window/common/window';
 import { unmnemonicLabel } from 'vs/base/common/labels';
-import { PositronTopBarState } from 'vs/workbench/browser/parts/positronTopBar/positronTopBarState';
-import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
-import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
+import { IWindowOpenable } from 'vs/platform/window/common/window';
+import { Action, IAction, Separator } from 'vs/base/common/actions';
 import { OpenRecentAction } from 'vs/workbench/browser/actions/windowActions';
+import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
+import { IOpenRecentAction } from 'vs/workbench/browser/parts/titlebar/menubarControl';
 import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { IRecent, isRecentFolder, isRecentWorkspace } from 'vs/platform/workspaces/common/workspaces';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { PositronTopActionBarState } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarState';
+import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
+import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
 /**
- * TopBarOpenMenu component.
+ * TopActionBarOpenMenu component.
  * @returns The component.
  */
-export const TopBarOpenMenu = () => {
+export const TopActionBarOpenMenu = () => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext()!;
-	const positronTopBarContext = usePositronTopBarContext()!;
+	const positronTopActionBarContext = usePositronTopActionBarContext()!;
 
 	// fetch actions when menu is shown
 	const actions = async () => {
@@ -53,11 +53,11 @@ export const TopBarOpenMenu = () => {
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
-		const recent = await positronTopBarContext.workspacesService.getRecentlyOpened();
-		if (recent && positronTopBarContext) {
+		const recent = await positronTopActionBarContext.workspacesService.getRecentlyOpened();
+		if (recent && positronTopActionBarContext) {
 			const recentActions = [
-				...recentMenuActions(recent.workspaces, positronTopBarContext),
-				...recentMenuActions(recent.files, positronTopBarContext)
+				...recentMenuActions(recent.workspaces, positronTopActionBarContext),
+				...recentMenuActions(recent.files, positronTopActionBarContext)
 			];
 			if (recentActions.length > 0) {
 				actions.push(...recentActions);
@@ -80,7 +80,7 @@ export const TopBarOpenMenu = () => {
 	);
 };
 
-export function recentMenuActions(recent: IRecent[], context: PositronTopBarState,) {
+export function recentMenuActions(recent: IRecent[], context: PositronTopActionBarState,) {
 	const actions: IAction[] = [];
 	if (recent.length > 0) {
 		for (let i = 0; i < MAX_MENU_RECENT_ENTRIES && i < recent.length; i++) {
@@ -92,7 +92,7 @@ export function recentMenuActions(recent: IRecent[], context: PositronTopBarStat
 }
 
 // based on code in menubarControl.ts
-function createOpenRecentMenuAction(context: PositronTopBarState, recent: IRecent): IOpenRecentAction {
+function createOpenRecentMenuAction(context: PositronTopActionBarState, recent: IRecent): IOpenRecentAction {
 
 	let label: string;
 	let uri: URI;

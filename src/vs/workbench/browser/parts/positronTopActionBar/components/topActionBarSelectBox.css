@@ -5,9 +5,9 @@
 .top-bar-select-box {
 	display: flex;
 	align-items: stretch;
-	color: var(--vscode-positronTopBar-foreground);
-	background-color: var(--vscode-positronTopBar-selectBoxBackground);
-	border: 1px solid var(--vscode-positronTopBar-border);
+	color: var(--positronActionBar-foreground);
+	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
+	border: 1px solid var(--vscode-positronTopActionBar-border);
 	overflow: hidden;
 	margin: 0 6px;
 	border-top-left-radius: 6px;
@@ -46,9 +46,9 @@
 .top-bar-select-box:HOVER,
 .top-bar-select-box-main:HOVER,
 .top-bar-select-box-drop-down:HOVER {
-	background-color: var(--vscode-positronTopBar-hoverBackground);
+	background-color: var(--positronActionBar-hoverBackground);
 }
 
 .top-bar-select-box-drop-down-click:HOVER {
-	background-color: var(--vscode-positronTopBar-hoverBackground);
+	background-color: var(--positronActionBar-hoverBackground);
 }

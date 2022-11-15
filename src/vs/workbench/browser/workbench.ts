@@ -339,7 +339,7 @@ export class Workbench extends Layout {
 		for (const { id, role, classes, options } of [
 			{ id: Parts.TITLEBAR_PART, role: 'contentinfo', classes: ['titlebar'] },
 			// --- Start Positron ---
-			{ id: Parts.POSITRON_TOP_BAR_PART, role: 'appbar', classes: ['positron-top-bar'] },
+			{ id: Parts.POSITRON_TOP_ACTION_BAR_PART, role: 'appbar', classes: ['positron-top-action-bar'] },
 			// --- End Positron ---
 			{ id: Parts.BANNER_PART, role: 'banner', classes: ['banner'] },
 			{ id: Parts.ACTIVITYBAR_PART, role: 'none', classes: ['activitybar', this.getSideBarPosition() === Position.LEFT ? 'left' : 'right'] }, // Use role 'none' for some parts to make screen readers less chatty #114892

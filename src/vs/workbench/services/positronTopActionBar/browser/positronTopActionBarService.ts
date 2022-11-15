@@ -9,9 +9,9 @@ import { ThemeIcon } from 'vs/platform/theme/common/themeService';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
 /**
- * IPositronTopBarItem interface.
+ * IPositronTopActionBarItem interface.
  */
-export interface IPositronTopBarItem {
+export interface IPositronTopActionBarItem {
 	readonly id: string;
 	readonly icon: ThemeIcon | URI | undefined;
 	readonly message: string | MarkdownString;
@@ -21,14 +21,14 @@ export interface IPositronTopBarItem {
 }
 
 /**
- * IPositronTopBarService service identifier.
+ * IPositronTopActionBarService service identifier.
  */
-export const IPositronTopBarService = createDecorator<IPositronTopBarService>('positronTopBarService');
+export const IPositronTopActionBarService = createDecorator<IPositronTopActionBarService>('positronTopActionBarService');
 
 /**
- * IPositronTopBarService interface.
+ * IPositronTopActionBarService interface.
  */
-export interface IPositronTopBarService {
+export interface IPositronTopActionBarService {
 
 	readonly _serviceBrand: undefined;
 

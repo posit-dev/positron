@@ -190,7 +190,7 @@ export function appendToCommandPalette(id: string, title: ILocalizedString, cate
 	// MenuId.MenubarFileMenu (look for 'MenuId.MenubarFileMenu' below) with the right
 	// precondition (DirtyWorkingCopiesContext) so the command will be enabled and disabled
 	// on the menu. We need that same precondition in CommandCenter so the command will be
-	// enabled and disabled on the Positron top bar, too.
+	// enabled and disabled on the Positron top action bar, too.
 	if (id === SAVE_FILES_COMMAND_ID) {
 		CommandCenter.addCommandInfo({
 			id,
