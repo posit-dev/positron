@@ -915,6 +915,14 @@ export const POSITRON_TOOL_TIP_BORDER = registerColor('positronToolTip.border', 
 
 // < --- Positron Top Action Bar --- >
 
+// The Positron top action bar border color.
+export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBar.border', {
+	dark: '#313638',
+	light: '#e3e6e8',
+	hcDark: '#313638',
+	hcLight: '#e3e6e8'
+}, localize('positronTopActionBar.border', "Positron top action bar border color."));
+
 // The Positron top action bar background color.
 export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActionBar.background', {
 	dark: '#3b4144',
@@ -947,13 +955,13 @@ export const POSITRON_TOP_ACTION_BAR_SEPARATOR = registerColor('positronTopActio
 	hcLight: '#dfe3e6'
 }, localize('positronTopActionBar.separator', "Positron top action bar separator color."));
 
-// The Positron top action bar border color.
-export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBar.border', {
+// The Positron top action bar select box border color.
+export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BORDER = registerColor('positronTopActionBar.selectBoxBorder', {
 	dark: '#17191a',
 	light: '#cad0d6',
 	hcDark: '#17191a',
 	hcLight: '#cad0d6'
-}, localize('positronTopActionBar.border', "Positron top action bar border color."));
+}, localize('positronTopActionBar.selectBoxBorder', "Positron top action bar select box border color."));
 
 // The Positron top action bar select box background color.
 export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BACKGROUND = registerColor('positronTopActionBar.selectBoxBackground', {
@@ -963,13 +971,63 @@ export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BACKGROUND = registerColor('posi
 	hcLight: '#eceff2'
 }, localize('positronTopActionBar.selectBoxBackground', "Positron top action bar select box background color."));
 
-// The Positron top action bar select box hover color.
+// The Positron top action bar hover background color.
 export const POSITRON_TOP_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronTopActionBar.hoverBackground', {
 	dark: '#292f32',
 	light: '#dae1ea',
 	hcDark: '#292f32',
 	hcLight: '#dae1ea'
 }, localize('positronTopActionBar.hoverBackground', "Positron top action bar hover background color."));
+
+// < --- Positron Side Action Bar --- >
+
+// The Positron side action bar border color.
+export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideActionBar.border', {
+	dark: '#313638',
+	light: '#e3e6e8',
+	hcDark: '#313638',
+	hcLight: '#e3e6e8'
+}, localize('positronSideActionBar.border', "Positron side action bar border color."));
+
+// The Positron side action bar background color.
+export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideActionBar.background', {
+	dark: '#3b4144',
+	light: '#f1f3f5',
+	hcDark: '#3b4144',
+	hcLight: '#f1f3f5'
+}, localize('positronSideActionBar.background', "Positron side action bar background color."));
+
+// The Positron side action bar foreground color.
+export const POSITRON_SIDE_ACTION_BAR_FOREGROUND = registerColor('positronSideActionBar.foreground', {
+	dark: '#acbece',
+	light: '#75828D',
+	hcDark: '#acbece',
+	hcLight: '#75828D'
+}, localize('positronSideActionBar.foreground', "Positron side action bar foreground color."));
+
+// The Positron side action bar disabled foreground color.
+export const POSITRON_SIDE_ACTION_BAR_DISABLED_FOREGROUND = registerColor('positronSideActionBar.disabledForeground', {
+	dark: '#5f6b74',
+	light: '#b9c0c6',
+	hcDark: '#6e7c88',
+	hcLight: '#b9c0c6'
+}, localize('positronSideActionBar.disabledForeground', "Positron side action bar disabled foreground color."));
+
+// The Positron side action bar separator color.
+export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideActionBar.separator', {
+	dark: '#2f3436',
+	light: '#dfe3e6',
+	hcDark: '#2f3436',
+	hcLight: '#dfe3e6'
+}, localize('positronSideActionBar.separator', "Positron side action bar separator color."));
+
+// The Positron side action bar hover background color.
+export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
+	dark: '#292f32',
+	light: '#dae1ea',
+	hcDark: '#292f32',
+	hcLight: '#dae1ea'
+}, localize('positronSideActionBar.hoverBackground', "Positron top action bar hover background color."));
 
 // < --- Modal Dialog --- >
 

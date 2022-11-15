@@ -4,10 +4,10 @@
 
 .positron-help {
 	/* PositronActionBar variable. */
-	--positronActionBar-border: var(--vscode-positronTopActionBar-border);
-	--positronActionBar-separator: var(--vscode-positronTopActionBar-separator);
-	--positronActionBar-background: var(--vscode-positronTopActionBar-background);
-	--positronActionBar-foreground: var(--vscode-positronTopActionBar-foreground);
-	--positronActionBar-hoverBackground: var(--vscode-positronTopActionBar-hoverBackground);
-	--positronActionBar-disabledForeground: var(--vscode-positronTopActionBar-disabledForeground);
+	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
+	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
+	--positronActionBar-background: var(--vscode-positronSideActionBar-background);
+	--positronActionBar-foreground: var(--vscode-positronSideActionBar-foreground);
+	--positronActionBar-hoverBackground: var(--vscode-positronSideActionBar-hoverBackground);
+	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
 }

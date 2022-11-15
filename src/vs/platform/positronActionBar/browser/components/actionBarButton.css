@@ -13,12 +13,11 @@
 	display: flex;
 	position: relative;
 	padding: 0 2px;
+	align-items: center;
 }
 
 .action-bar-button-text {
-	margin-top: 4px;
-	margin-left: 2px;
-	margin-right: 4px;
+	margin: 0 4px;
 	font-size: 12px;
 }
 
