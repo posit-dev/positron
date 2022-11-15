@@ -73,6 +73,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			'env': {
 				'RUST_LOG': 'trace', // eslint-disable-line
 				'R_HOME': rHome, // eslint-disable-line
+				'DYLD_INSERT_LIBRARIES': `${rHome}/lib/libR.dylib`, // eslint-disable-line
 				'RUST_BACKTRACE': '1' // eslint-disable-line
 			}
 		};
