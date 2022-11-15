@@ -2,12 +2,11 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.top-bar-command-center {
+.top-action-bar-command-center {
 	width: 30vw;
 	max-width: 400px;
 }
 
-.top-bar-command-center>.top-bar-select-box-main {
+.top-action-bar-command-center>.top-action-bar-select-box-main {
 	justify-content: center;
 }
-

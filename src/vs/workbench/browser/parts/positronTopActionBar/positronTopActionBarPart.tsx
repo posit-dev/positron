@@ -152,7 +152,7 @@ registerSingleton(IPositronTopActionBarService, PositronTopActionBarPart, Instan
 // Keybindings
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
-	id: 'workbench.top-bar.focusTopActionBar',
+	id: 'workbench.top-action-bar.focusTopActionBar',
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyCode.Escape,
 	when: PositronTopActionBarFocused,

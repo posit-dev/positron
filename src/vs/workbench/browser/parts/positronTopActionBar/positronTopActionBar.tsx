@@ -52,7 +52,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	return (
 		<PositronTopActionBarContextProvider {...props}>
 			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar>
+				<PositronActionBar borderTop={true} borderBottom={true}>
 					<ActionBarRegion align='left'>
 						<TopActionBarNewMenu />
 						<ActionBarSeparator />

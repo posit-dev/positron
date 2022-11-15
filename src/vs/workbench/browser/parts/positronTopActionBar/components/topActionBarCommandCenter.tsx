@@ -37,7 +37,7 @@ export const TopActionBarCommandCenter = (props: TopActionBarCommandCenterProps)
 
 	// Render.
 	return (
-		<TopActionBarSelectBox className='top-bar-command-center' onClick={clickHandler} onDropDownClick={dropDownClickHandler}>
+		<TopActionBarSelectBox className='top-action-bar-command-center' onClick={clickHandler} onDropDownClick={dropDownClickHandler}>
 			<span className='codicon codicon-search'></span>
 			<span>Search</span>
 		</TopActionBarSelectBox>

@@ -16,18 +16,18 @@ export interface TopActionBarSelectBoxProps {
 export const TopActionBarSelectBox = (props: PropsWithChildren<TopActionBarSelectBoxProps>) => {
 	// Create the class names.
 	const classNames = positronClassNames(
-		'top-bar-select-box',
-		{ 'top-bar-select-box-drop-down-click': props.onDropDownClick },
+		'top-action-bar-select-box',
+		{ 'top-action-bar-select-box-drop-down-click': props.onDropDownClick },
 		props.className
 	);
 
 	// Render.
 	return (
 		<div className={classNames}>
-			<div className='top-bar-select-box-main' onClick={props.onClick}>
+			<div className='top-action-bar-select-box-main' onClick={props.onClick}>
 				{props.children}
 			</div>
-			<div className='top-bar-select-box-drop-down' onClick={props.onDropDownClick || props.onClick}>
+			<div className='top-action-bar-select-box-drop-down' onClick={props.onDropDownClick || props.onClick}>
 				<span className='codicon codicon-chevron-down'></span>
 			</div>
 		</div>

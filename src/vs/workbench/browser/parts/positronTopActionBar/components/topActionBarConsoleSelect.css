@@ -2,12 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.top-bar-select-box.top-bar-console-select {
+.top-action-bar-select-box.top-action-bar-console-select {
 	width: auto;
 	margin: auto 15px auto 0;
 }
 
-.top-bar-console-select>.top-bar-select-box-main>.top-bar-console-select-text {
+.top-action-bar-console-select>.top-action-bar-select-box-main>.top-action-bar-console-select-text {
 	padding-left: 6px;
 	padding-right: 6px;
 }

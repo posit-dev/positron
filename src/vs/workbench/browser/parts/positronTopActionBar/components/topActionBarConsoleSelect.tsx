@@ -17,8 +17,8 @@ export const TopActionBarConsoleSelect = (props: TopActionBarConsoleSelectProps)
 
 	// Render.
 	return (
-		<TopActionBarSelectBox className='top-bar-console-select' onClick={clickHandler}>
-			<span className='top-bar-console-select-text'>
+		<TopActionBarSelectBox className='top-action-bar-console-select' onClick={clickHandler}>
+			<span className='top-action-bar-console-select-text'>
 				Console: Python
 			</span>
 		</TopActionBarSelectBox>

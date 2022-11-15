@@ -2,12 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.top-bar-select-box {
+.top-action-bar-select-box {
 	display: flex;
 	align-items: stretch;
 	color: var(--positronActionBar-foreground);
 	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
-	border: 1px solid var(--vscode-positronTopActionBar-border);
+	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
 	overflow: hidden;
 	margin: 0 6px;
 	border-top-left-radius: 6px;
@@ -18,37 +18,36 @@
 	cursor: pointer;
 }
 
-.top-bar-select-box-main {
+.top-action-bar-select-box-main {
 	display: inline-flex;
 	width: 100%;
 }
 
-.top-bar-select-box>.top-bar-select-box-main .codicon::before {
+.top-action-bar-select-box>.top-action-bar-select-box-main .codicon::before {
 	font-size: 14px;
 	opacity: .8;
 	margin: auto 4px;
 }
 
-.top-bar-select-box-main>span {
+.top-action-bar-select-box-main>span {
 	padding: 3px 3px 0 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.top-bar-select-box-drop-down {
+.top-action-bar-select-box-drop-down {
 	margin-left: auto;
 	padding: 3px 3px 0 0;
 	width: 16px;
 	flex-shrink: 0;
 }
 
-
-.top-bar-select-box:HOVER,
-.top-bar-select-box-main:HOVER,
-.top-bar-select-box-drop-down:HOVER {
+.top-action-bar-select-box:hover,
+.top-action-bar-select-box-main:hover,
+.top-action-bar-select-box-drop-down:hover {
 	background-color: var(--positronActionBar-hoverBackground);
 }
 
-.top-bar-select-box-drop-down-click:HOVER {
+.top-action-bar-select-box-drop-down-click:hover {
 	background-color: var(--positronActionBar-hoverBackground);
 }
