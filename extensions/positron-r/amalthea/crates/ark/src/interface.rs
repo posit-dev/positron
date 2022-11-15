@@ -14,8 +14,6 @@ use libc::{c_char, c_int};
 use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
-use std::path::Path;
-use std::process::Command;
 use std::sync::MutexGuard;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender, SyncSender};
@@ -220,24 +218,6 @@ pub fn start_r(
 
     // Start thread to listen to execution requests
     thread::spawn(move || listen(receiver, rprompt_recv));
-
-    // TODO: This is a band-aid, intended to make sure that 'ark' binds
-    // against the version of R it was actually compiled against. The real
-    // fix here is to ensure that 'ark' doesn't actually link against any
-    // specific version of libR, and inject the right version of R when
-    // 'ark' is launched via DYLD_INSERT_LIBRARIES (for macOS).
-    #[cfg(target_os = "macos")]
-    {
-        let command = format!("/usr/sbin/lsof -Fn -p {} | /usr/bin/grep /libR.dylib | /usr/bin/cut -c2-", std::process::id());
-        let output = Command::new("/bin/sh").arg("-c").arg(command).output();
-        if let Ok(output) = output {
-            let stdout = String::from_utf8(output.stdout).unwrap();
-            let libpath = Path::new(stdout.trim());
-            let home = libpath.parent().unwrap().parent().unwrap();
-            trace!("ark loaded {}; using R_HOME {}", libpath.to_string_lossy(), home.to_string_lossy());
-            std::env::set_var("R_HOME", home);
-        }
-    }
 
     unsafe {
 
