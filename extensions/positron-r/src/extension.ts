@@ -11,10 +11,6 @@ import { initializeLogging, trace, traceOutputChannel } from './logging';
 
 export function activate(context: vscode.ExtensionContext) {
 
-	// TODO: This always registers an R kernel, even if R isn't installed.
-	// We should register the same number of language runtimes as R
-	// installations (whether it's zero or five).
-
 	// First, check to see whether there is an override for the kernel path.
 	const arkConfig = vscode.workspace.getConfiguration('positron.r');
 	const kernelPath = arkConfig.get<string>('kernel.path');
