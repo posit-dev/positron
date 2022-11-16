@@ -6,18 +6,20 @@
 	flex: 1;
 	display: flex;
 	overflow: visible;
-	margin: 0 4px;
 }
 
 .action-bar-region-left {
 	justify-content: flex-start;
+	margin-right: 4px;
 }
 
 .action-bar-region-center {
 	justify-content: center;
 	align-items: center;
+	margin: 0 4px;
 }
 
 .action-bar-region-right {
 	justify-content: flex-end;
+	margin-left: 4px;
 }

@@ -27,3 +27,6 @@
 	outline: none !important;
 }
 
+.monaco-workbench .part.positron-top-action-bar > .positron-top-action-bar-container {
+	margin: 0 20px;
+}
