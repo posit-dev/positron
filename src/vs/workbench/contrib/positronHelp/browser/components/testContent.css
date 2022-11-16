@@ -3,6 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-help-test-content {
-	margin: 10px;
+	margin: 10px 20px;
 	color: var(--vscode-modalDialog-foreground); /* Temporary */
 }
