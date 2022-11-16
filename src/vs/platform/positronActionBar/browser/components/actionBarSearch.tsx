@@ -29,26 +29,9 @@ export const ActionBarSearch = () => {
 		setSearchText('');
 	};
 
-	// Input change change handler.
-	const inputChangeHandler = (e: ChangeEvent<HTMLInputElement>) => {
-		setSearchText(e.target.value);
-	};
-
-	// Create the actionclass names.
-	const actionBarSearchClassNames = positronClassNames(
-		'action-bar-search',
-		{ 'focused': focused }
-	);
-
-	// Create the class names.
-	const cancelButtonClassNames = positronClassNames(
-		'action-bar-search-button',
-		{ 'disabled': searchText === '' }
-	);
-
 	// Render.
 	return (
-		<div className={actionBarSearchClassNames}>
+		<div className={positronClassNames('action-bar-search', { 'focused': focused })}>
 			<button className='action-bar-search-button' onClick={searchButtonClickHandler}>
 				<div className='action-bar-search-button-icon codicon codicon-positron-search-icon' />
 			</button>
@@ -59,9 +42,9 @@ export const ActionBarSearch = () => {
 				placeholder={localize('positronSearchPlaceholder', "Search")}
 				onFocus={() => setFocused(true)}
 				onBlur={() => setFocused(false)}
-				onChange={inputChangeHandler} />
-			<button className={cancelButtonClassNames} onClick={cancelButtonClickHandler}>
-				<div className='action-bar-search-button-icon codicon codicon-positron-search-cancel' />
+				onChange={(e) => setSearchText(e.target.value)} />
+			<button className='action-bar-search-button' onClick={cancelButtonClickHandler}>
+				<div className={positronClassNames('action-bar-search-button-icon', 'codicon', 'codicon-positron-search-cancel', { 'disabled': searchText === '' })} />
 			</button>
 		</div>
 	);
