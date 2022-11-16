@@ -1,3 +1,51 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
+
+.action-bar-search {
+	display: flex;
+	margin: 2px 4px;
+	border-radius: 4px;
+	align-items: center;
+	border: 1px solid var(--positronActionBar-border);
+}
+
+.action-bar-search.focused {
+	border: 1px solid var(--vscode-focusBorder);
+}
+
+.action-bar-search .clear-button {
+	width: 18px;
+	height: 18px;
+	border: none;
+	margin: 0 4px;
+	display: flex;
+	cursor: pointer;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+}
+
+.action-bar-search .clear-button .clear-button-icon {
+	font-size: 28px;
+}
+
+.action-bar-search .text-input {
+	width: 120px;
+	padding: 4px;
+	border-radius: 4px;
+	box-sizing: border-box;
+	outline: none !important;
+	background: var(--positronActionBar-textInputBackground);
+	border: 1px solid var(--positronActionBar-textInputBorder);
+}
+
+.action-bar-search .text-input::placeholder {
+	opacity: 0.5;
+	color: var(--positronActionBar-foreground);
+}
+
+.action-bar-search .text-input::selection {
+	color: var(--positronActionBar-textInputSelectionForeground);
+	background: var(--positronActionBar-textInputSelectionBackground);
+}
