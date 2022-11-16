@@ -26,10 +26,6 @@
 	background: transparent;
 }
 
-.action-bar-search .action-bar-search-button.disabled {
-	opacity: 0.5;
-}
-
 .action-bar-search .action-bar-search-button:focus {
 	outline: none;
 }
@@ -43,6 +39,10 @@
 .action-bar-search .action-bar-search-button .action-bar-search-button-icon {
 	font-size: 28px;
 	color: var(--positronActionBar-foreground);
+}
+
+.action-bar-search .action-bar-search-button .action-bar-search-button-icon.disabled {
+	opacity: 0.5;
 }
 
 .action-bar-search .text-input {
