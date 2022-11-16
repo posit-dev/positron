@@ -6,7 +6,7 @@
 	width: 100%;
 	display: flex;
 	background: var(--positronActionBar-background);
-	padding: 0 14px;
+	padding: var(--positronActionBar-padding);
 	box-sizing: border-box;
 }
 

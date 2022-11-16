@@ -10,7 +10,7 @@ export interface TopActionBarConsoleSelectProps {
 }
 
 export const TopActionBarConsoleSelect = (props: TopActionBarConsoleSelectProps) => {
-
+	// Click handler.
 	const clickHandler = () => {
 
 	};

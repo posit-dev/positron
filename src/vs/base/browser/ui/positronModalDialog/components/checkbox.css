@@ -18,7 +18,8 @@
 	justify-content: center;
 	color: var(--vscode-modalDialog-buttonForeground);
 	background: var(--vscode-modalDialog-checkboxBackground);
-	border: 1px solid var(--vscode-modalDialog-checkboxBorder);}
+	border: 1px solid var(--vscode-modalDialog-checkboxBorder);
+}
 
 .positron-modal-dialog-box .checkbox-button:focus {
 	outline: none;

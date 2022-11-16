@@ -17,6 +17,7 @@ import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/component
 import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
 
 /**
  * PositronHelpProps interface.
@@ -55,6 +56,7 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 						<ActionBarButton text='Home' dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
+						<ActionBarSearch />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</PositronActionBarContextProvider>

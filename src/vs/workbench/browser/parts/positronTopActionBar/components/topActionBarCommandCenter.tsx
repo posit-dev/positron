@@ -22,7 +22,7 @@ export const TopActionBarCommandCenter = (props: TopActionBarCommandCenterProps)
 	// Hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
-	// Handlers.
+	// Ckick handler.
 	const clickHandler = () => {
 		positronTopActionBarContext.quickInputService.quickAccess.show(undefined, {
 			providerOptions: {
@@ -31,6 +31,7 @@ export const TopActionBarCommandCenter = (props: TopActionBarCommandCenterProps)
 		});
 	};
 
+	// DropDownCkick handler.
 	const dropDownClickHandler = () => {
 		positronTopActionBarContext.quickInputService.quickAccess.show('?');
 	};
