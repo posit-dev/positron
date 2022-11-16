@@ -13,6 +13,7 @@ import { positronClassNames } from 'vs/base/common/positronClassNames';
 interface PositronActionBarProps {
 	borderTop?: boolean;
 	borderBottom?: boolean;
+	padding?: number;
 }
 
 /**
@@ -26,8 +27,6 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 		{ 'border-top': props?.borderTop },
 		{ 'border-bottom': props?.borderBottom },
 	);
-
-	console.log(`HERE!!!!!!!!!! ${classNames}`);
 
 	// Render.
 	return (
