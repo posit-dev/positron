@@ -979,6 +979,38 @@ export const POSITRON_TOP_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronT
 	hcLight: '#dae1ea'
 }, localize('positronTopActionBar.hoverBackground', "Positron top action bar hover background color."));
 
+// The Positron top action bar text input background color.
+export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('positronTopActionBar.textInputBackground', {
+	dark: '#3a3d41',
+	light: '#ffffff',
+	hcDark: '#3a3d41',
+	hcLight: '#ffffff'
+}, localize('positronTopActionBar.textInputBackground', "Positron top action bar text input background color."));
+
+// The Positron top action bar text input border color.
+export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_BORDER = registerColor('positronTopActionBar.textInputBorder', {
+	dark: '#3a3d41',
+	light: '#5f6a79',
+	hcDark: '#3a3d41',
+	hcLight: '#5f6a79'
+}, localize('positronTopActionBar.textInputBorder', "Positron top action bar text input border."));
+
+// The Positron top action bar text input selection foreground color.
+export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_SELECTION_FOREGROUND = registerColor('positronTopActionBar.textInputSelectionForeground', {
+	dark: '#ffffff',
+	light: '#ffffff',
+	hcDark: '#ffffff',
+	hcLight: '#ffffff'
+}, localize('positronTopActionBar.textInputSelectionForeground', "Positron top action bar text input selection foreground color."));
+
+// The Positron top action bar text input selection background color.
+export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = registerColor('positronTopActionBar.textInputSelectionBackground', {
+	dark: '#0e639c',
+	light: '#007acc',
+	hcDark: '#0e639c',
+	hcLight: '#007acc'
+}, localize('positronTopActionBar.textInputSelectionBackground', "Positron top action bar text input selection background color."));
+
 // < --- Positron Side Action Bar --- >
 
 // The Positron side action bar border color.
@@ -1027,7 +1059,39 @@ export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positron
 	light: '#dae1ea',
 	hcDark: '#0c0c0d',
 	hcLight: '#dae1ea'
-}, localize('positronSideActionBar.hoverBackground', "Positron top action bar hover background color."));
+}, localize('positronSideActionBar.hoverBackground', "Positron side action bar hover background color."));
+
+// The Positron side action bar text input background color.
+export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('positronSideActionBar.textInputBackground', {
+	dark: '#252526',
+	light: '#ffffff',
+	hcDark: '#3a3d41',
+	hcLight: '#ffffff'
+}, localize('positronSideActionBar.textInputBackground', "Positron side action bar text input background color."));
+
+// The Positron side action bar text input border color.
+export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BORDER = registerColor('positronSideActionBar.textInputBorder', {
+	dark: '#252526',
+	light: '#5f6a79',
+	hcDark: '#3a3d41',
+	hcLight: '#5f6a79'
+}, localize('positronSideActionBar.textInputBorder', "Positron side action bar text input border."));
+
+// The Positron side action bar text input selection foreground color.
+export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_SELECTION_FOREGROUND = registerColor('positronSideActionBar.textInputSelectionForeground', {
+	dark: '#ffffff',
+	light: '#ffffff',
+	hcDark: '#ffffff',
+	hcLight: '#ffffff'
+}, localize('positronSideActionBar.textInputSelectionForeground', "Positron side action bar text input selection foreground color."));
+
+// The Positron side action bar text input selection background color.
+export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = registerColor('positronSideActionBar.textInputSelectionBackground', {
+	dark: '#0e639c',
+	light: '#007acc',
+	hcDark: '#0e639c',
+	hcLight: '#007acc'
+}, localize('positronSideActionBar.textInputSelectionBackground', "Positron side action bar text input selection background color."));
 
 // < --- Modal Dialog --- >
 

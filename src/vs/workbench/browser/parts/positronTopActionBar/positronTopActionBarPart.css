@@ -14,12 +14,17 @@
 	overflow: visible;
 
 	/* PositronActionBar variable. */
+	--positronActionBar-padding: 0 4px;
 	--positronActionBar-border: var(--vscode-positronTopActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronTopActionBar-separator);
 	--positronActionBar-background: var(--vscode-positronTopActionBar-background);
 	--positronActionBar-foreground: var(--vscode-positronTopActionBar-foreground);
 	--positronActionBar-hoverBackground: var(--vscode-positronTopActionBar-hoverBackground);
 	--positronActionBar-disabledForeground: var(--vscode-positronTopActionBar-disabledForeground);
+	--positronActionBar-textInputBackground: var(--vscode-positronTopActionBar-textInputBackground);
+	--positronActionBar-textInputBorder: var(--vscode-positronTopActionBar-textInputBorder);
+	--positronActionBar-textInputSelectionForeground: var(--vscode-positronTopActionBar-textInputSelectionForeground);
+	--positronActionBar-textInputSelectionBackground: var(--vscode-positronTopActionBar-textInputSelectionBackground);
 }
 
 /* Don't draw a focus outline. */
