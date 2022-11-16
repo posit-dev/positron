@@ -28,9 +28,9 @@ serde = { version = "1.0.133", features = ["derive"] }
 serde_json = "1.0.59"
 stdext = { path = "../stdext" }
 tokio = { version = "1.17.0", features = ["full"] }
-tower-lsp = "0.16.0"
+tower-lsp = "0.17.0"
 tree-sitter = "0.20.6"
-tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "next" }
+tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "main" }
 walkdir = "2"
 yaml-rust = "0.4.5"
 

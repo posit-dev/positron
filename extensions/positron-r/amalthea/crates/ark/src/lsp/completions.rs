@@ -210,26 +210,38 @@ fn completion_item(label: impl AsRef<str>, data: CompletionData) -> Result<Compl
 
 }
 
-fn completion_item_from_assignment(node: &Node, source: &str) -> Result<CompletionItem> {
+fn completion_item_from_assignment(node: &Node, context: &CompletionContext) -> Result<CompletionItem> {
 
     let lhs = node.child_by_field_name("lhs").into_result()?;
     let rhs = node.child_by_field_name("rhs").into_result()?;
 
-    let label = lhs.utf8_text(source.as_bytes())?;
+    let label = lhs.utf8_text(context.source.as_bytes())?;
 
     // TODO: Resolve functions that exist in-document here.
     let mut item = completion_item(label, CompletionData::ScopeVariable {
         name: label.to_string()
     })?;
 
-    let detail = format!("Defined on line {}", lhs.start_position().row + 1);
-    item.detail = Some(detail);
+    let markup = MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: format!("Defined in this document on line {}.", lhs.start_position().row + 1),
+    };
+
+    item.detail = Some(label.to_string());
+    item.documentation = Some(Documentation::MarkupContent(markup));
     item.kind = Some(CompletionItemKind::VARIABLE);
 
     if rhs.kind() == "function" {
+
+        if let Some(parameters) = rhs.child_by_field_name("parameters") {
+            let parameters = parameters.utf8_text(context.source.as_bytes())?;
+            item.detail = Some(join!(label, parameters));
+        }
+
         item.kind = Some(CompletionItemKind::FUNCTION);
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
         item.insert_text = Some(format!("{}($0)", label));
+
     }
 
     return Ok(item);
@@ -453,7 +465,7 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
                 // check that the left-hand side is an identifier or a string
                 if let Some(child) = node.child(0) {
                     if matches!(child.kind(), "identifier" | "string") {
-                        match completion_item_from_assignment(&node, &context.source) {
+                        match completion_item_from_assignment(&node, context) {
                             Ok(item) => completions.push(item),
                             Err(error) => error!("{:?}", error),
                         }
