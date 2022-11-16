@@ -33,7 +33,7 @@ impl Lsp {
 
 #[async_trait]
 impl LspHandler for Lsp {
-    fn start(&self, tcp_address: String) -> Result<(), amalthea::error::Error>  {
+    fn start(&self, tcp_address: String) -> Result<(), amalthea::error::Error> {
         let sender = self.req_sender.clone();
         thread::spawn(move || {
 
