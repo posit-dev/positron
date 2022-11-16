@@ -14,7 +14,7 @@
 	border: 1px solid var(--vscode-focusBorder);
 }
 
-.action-bar-search .clear-button {
+.action-bar-search .action-bar-search-button {
 	width: 18px;
 	height: 18px;
 	border: none;
@@ -26,8 +26,23 @@
 	background: transparent;
 }
 
-.action-bar-search .clear-button .clear-button-icon {
+.action-bar-search .action-bar-search-button.disabled {
+	opacity: 0.5;
+}
+
+.action-bar-search .action-bar-search-button:focus {
+	outline: none;
+}
+
+.action-bar-search .action-bar-search-button:focus-visible {
+	border-radius: 3px;
+	outline-offset: 0;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.action-bar-search .action-bar-search-button .action-bar-search-button-icon {
 	font-size: 28px;
+	color: var(--positronActionBar-foreground);
 }
 
 .action-bar-search .text-input {
