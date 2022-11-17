@@ -1,0 +1,8 @@
+{
+	"binaries": [
+		{
+			"from": "node_modules/zeromq/build/Release/zeromq.node",
+			"to": "build/Release"
+		}
+	]
+}

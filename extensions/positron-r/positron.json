@@ -1,0 +1,8 @@
+{
+	"binaries": [
+		{
+			"from": "./amalthea/target/debug/ark",
+			"to": "./dist/bin"
+		}
+	]
+}

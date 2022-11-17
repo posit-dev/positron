@@ -4,7 +4,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildExtensionMedia = exports.webpackExtensions = exports.translatePackageJSON = exports.scanBuiltinExtensions = exports.packageMarketplaceExtensionsStream = exports.packageLocalExtensionsStream = exports.fromGithub = exports.fromMarketplace = void 0;
+exports.copyExtensionBinaries = exports.buildExtensionMedia = exports.webpackExtensions = exports.translatePackageJSON = exports.scanBuiltinExtensions = exports.packageMarketplaceExtensionsStream = exports.packageLocalExtensionsStream = exports.fromGithub = exports.fromMarketplace = void 0;
 const es = require("event-stream");
 const fs = require("fs");
 const cp = require("child_process");
@@ -133,18 +133,10 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName) {
                 // source map handling:
                 // * rewrite sourceMappingURL
                 // * save to disk so that upload-task picks this up
-                // --- Start Positron ---
-                // Added test to skip `.node` execeutables when rewriting
-                // source map URLs; these files exist in extensions with
-                // native code (such as the Jupyter Adapter), and are
-                // corrupted when treated as UTF-8.
-                if (!data.path.endsWith('.node')) {
-                    const contents = data.contents.toString('utf8');
-                    data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
-                        return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
-                    }), 'utf8');
-                }
-                // --- End Positron ---
+                const contents = data.contents.toString('utf8');
+                data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
+                    return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
+                }), 'utf8');
                 this.emit('data', data);
             }));
         });
@@ -527,3 +519,35 @@ async function buildExtensionMedia(isWatch, outputRoot) {
     })));
 }
 exports.buildExtensionMedia = buildExtensionMedia;
+// --- Start Positron ---
+async function copyExtensionBinaries(outputRoot) {
+    return new Promise((resolve, _reject) => {
+        // Collect all the extensions with Positron-specific metadata.
+        const binaryMetadata = _.flatten(glob.sync('extensions/*/positron.json')
+            .map(metadataPath => {
+            const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
+            if (metadata.binaries) {
+                return metadata.binaries.map((bin) => {
+                    const stat = fs.statSync(path.join(path.dirname(metadataPath), bin.from));
+                    return {
+                        ...bin,
+                        exe: (stat.mode & 0o100) !== 0,
+                        base: path.basename(path.dirname(metadataPath)),
+                    };
+                });
+            }
+            return null;
+        }));
+        fancyLog(`Found ${binaryMetadata.length} Positron extensions`);
+        fancyLog(`${JSON.stringify(binaryMetadata)}`);
+        // Create a stream of all the binaries.
+        es.merge(...binaryMetadata.map((bin) => {
+            return gulp.src(path.join('extensions', bin.base, bin.from)).pipe(gulp.dest(path.join(outputRoot, bin.base, bin.to)));
+        }), util2.setExecutableBit(binaryMetadata
+            .filter((bin) => bin.exe)
+            .map((bin) => path.join(outputRoot, bin.base, bin.to))));
+        resolve();
+    });
+}
+exports.copyExtensionBinaries = copyExtensionBinaries;
+// --- End Positron ---

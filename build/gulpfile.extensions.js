@@ -252,6 +252,14 @@ exports.compileExtensionMediaBuildTask = compileExtensionMediaBuildTask;
 
 //#endregion
 
+// --- Start Positron ---
+
+const copyExtensionBinariesTask = task.define('copy-extension-binaries', () => { ext.copyExtensionBinaries('.build/extensions'); });
+gulp.task(copyExtensionBinariesTask);
+exports.copyExtensionBinariesTask = copyExtensionBinariesTask;
+
+// --- End Positron ---
+
 //#region Azure Pipelines
 
 const cleanExtensionsBuildTask = task.define('clean-extensions-build', util.rimraf('.build/extensions'));
@@ -259,6 +267,7 @@ const compileExtensionsBuildTask = task.define('compile-extensions-build', task.
 	cleanExtensionsBuildTask,
 	task.define('bundle-marketplace-extensions-build', () => ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest('.build'))),
 	task.define('bundle-extensions-build', () => ext.packageLocalExtensionsStream(false).pipe(gulp.dest('.build'))),
+	copyExtensionBinariesTask
 ));
 
 gulp.task(compileExtensionsBuildTask);
