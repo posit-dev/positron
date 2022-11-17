@@ -5,7 +5,7 @@
 import 'vs/css!./actionBarSearch';
 import * as React from 'react';
 import { localize } from 'vs/nls';
-import { ChangeEvent, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronClassNames';
 
 /**

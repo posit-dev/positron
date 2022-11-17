@@ -49,10 +49,10 @@
 	width: 120px;
 	padding: 4px;
 	border-radius: 4px;
+	border: none !important;
 	box-sizing: border-box;
+	background: transparent;
 	outline: none !important;
-	background: var(--positronActionBar-textInputBackground);
-	border: 1px solid var(--positronActionBar-textInputBorder);
 }
 
 .action-bar-search .text-input::placeholder {
