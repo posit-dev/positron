@@ -133,18 +133,10 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName) {
                 // source map handling:
                 // * rewrite sourceMappingURL
                 // * save to disk so that upload-task picks this up
-                // --- Start Positron ---
-                // Added test to skip `.node` execeutables when rewriting
-                // source map URLs; these files exist in extensions with
-                // native code (such as the Jupyter Adapter), and are
-                // corrupted when treated as UTF-8.
-                if (!data.path.endsWith('.node')) {
-                    const contents = data.contents.toString('utf8');
-                    data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
-                        return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
-                    }), 'utf8');
-                }
-                // --- End Positron ---
+                const contents = data.contents.toString('utf8');
+                data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
+                    return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
+                }), 'utf8');
                 this.emit('data', data);
             }));
         });
@@ -316,6 +308,30 @@ function packageLocalExtensionsStream(forWeb) {
         const dependenciesSrc = _.flatten(productionDependencies.map(d => path.relative(root, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]));
         result = es.merge(localExtensionsStream, gulp.src(dependenciesSrc, { base: '.' }));
     }
+    // --- Start Positron ---
+    // Collect all the extensions with Positron-specific metadata.
+    const binaryMetadata = _.flatten(glob.sync('extensions/*/positron.json')
+        .map(metadataPath => {
+        const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
+        if (metadata.binaries) {
+            return metadata.binaries.map((bin) => {
+                return {
+                    from: path.join(path.dirname(metadataPath), bin.from),
+                    to: path.join(path.dirname(metadataPath), bin.to)
+                };
+            });
+        }
+        return null;
+    }));
+    fancyLog(`Found ${binaryMetadata.length} Positron extensions`);
+    fancyLog(`${JSON.stringify(binaryMetadata)}`);
+    // Create a stream of all the binaries.
+    const binaryStream = es.merge(...binaryMetadata.map((bin) => {
+        return gulp.src(bin.from).pipe(gulp.dest(bin.to));
+    }));
+    fancyLog(`Created binary stream: ${JSON.stringify(binaryStream)}`);
+    result = es.merge(result, binaryStream);
+    // --- End Positron ---
     return (result
         .pipe(util2.setExecutableBit(['**/*.sh'])));
 }
