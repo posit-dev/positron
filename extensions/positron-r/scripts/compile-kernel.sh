@@ -19,7 +19,7 @@ if [ -n "${RUST_TARGET}" ]; then
 fi
 
 # Build the kernel
-cargo build ${CARGO_TARGT}
+cargo build ${CARGO_TARGET}
 
 popd
 
