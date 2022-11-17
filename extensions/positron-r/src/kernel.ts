@@ -40,8 +40,11 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 	const rInstallations: Array<string> = [];
 
+	const { execSync } = require('child_process');
+
 	// Discover R installations.
 	// TODO: Needs to handle Linux and Windows
+	// TODO: Needs to handle other installation locations (like RSwitch)
 
 	// Look for the default R installation on macOS
 	if (fs.existsSync('/Library/Frameworks/R.framework/Resources')) {
@@ -52,7 +55,6 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	try {
 		// Try R RHOME to get the installation path; run under bash so we get $PATH
 		// set as the user would expect.
-		const { execSync } = require('child_process');
 		const rHome = execSync('R RHOME', { shell: '/bin/bash', encoding: 'utf8' }).trim();
 		if (fs.existsSync(rHome)) {
 			// Add the R installation to the list (if it's not already there)
@@ -71,9 +73,22 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 	// Loop over the R installations and create a language runtime for each one.
 	const disposables: vscode.Disposable[] = rInstallations.map(rHome => {
+
+		// Get the version of the R installation
+		let rVersion = "";
+		try {
+			rVersion = execSync(
+				`${rHome}/bin/R --vanilla -s -e 'cat(R.Version()$major,R.Version()$minor, sep=".")'`,
+				{ shell: '/bin/bash', encoding: 'utf8' })
+				.trim();
+		} catch (e) {
+			console.error(`Error getting R version: ${e}`);
+		}
+
+		// Create a kernel spec for this R installation
 		const kernelSpec = {
 			'argv': [kernelPath, '--connection_file', '{connection_file}'],
-			'display_name': `R: ${rHome}`, // eslint-disable-line
+			'display_name': `R ${rVersion}: ${rHome}`, // eslint-disable-line
 			'language': 'R',
 			'env': {
 				'RUST_LOG': 'trace', // eslint-disable-line
