@@ -28,6 +28,7 @@ export class LanguageRuntimeAdapter
 	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	constructor(private readonly _spec: JupyterKernelSpec,
+		version: string,
 		private readonly _lsp: () => Promise<number> | null,
 		private readonly _channel: vscode.OutputChannel) {
 		this._kernel = new JupyterKernel(this._spec, this._channel);
@@ -36,7 +37,7 @@ export class LanguageRuntimeAdapter
 		this.metadata = {
 			language: this._spec.language,
 			name: this._spec.display_name,
-			version: '0.0.1',
+			version: version,
 			id: uuidv4(),
 		};
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
