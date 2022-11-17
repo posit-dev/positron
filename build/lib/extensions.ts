@@ -375,36 +375,6 @@ export function packageLocalExtensionsStream(forWeb: boolean): Stream {
 		result = es.merge(localExtensionsStream, gulp.src(dependenciesSrc, { base: '.' }));
 	}
 
-	// --- Start Positron ---
-	// Collect all the extensions with Positron-specific metadata.
-	const binaryMetadata = _.flatten(
-		(<string[]>glob.sync('extensions/*/positron.json'))
-			.map(metadataPath => {
-				const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
-				if (metadata.binaries) {
-					return metadata.binaries.map((bin: any) => {
-						return {
-							...bin,
-							base: path.dirname(metadataPath),
-						};
-					});
-				}
-				return null;
-			})
-	);
-	fancyLog(`Found ${binaryMetadata.length} Positron extensions`);
-	fancyLog(`${JSON.stringify(binaryMetadata)}`);
-
-	// Create a stream of all the binaries.
-	const binaryStream = es.merge(
-		...binaryMetadata.map((bin: any) => {
-			return gulp.src(path.join(bin.base, bin.from)).pipe(gulp.dest(bin.to));
-		}));
-	fancyLog(`Created binary stream: ${JSON.stringify(binaryStream)}`);
-	result = es.merge(result, binaryStream);
-
-	// --- End Positron ---
-
 	return (
 		result
 			.pipe(util2.setExecutableBit(['**/*.sh']))
@@ -640,3 +610,43 @@ export async function buildExtensionMedia(isWatch: boolean, outputRoot?: string)
 		outputRoot: outputRoot ? path.join(root, outputRoot, path.dirname(p)) : undefined
 	})));
 }
+
+// --- Start Positron ---
+export async function copyExtensionBinaries(outputRoot: string) {
+	return new Promise<void>((resolve, _reject) => {
+		// Collect all the extensions with Positron-specific metadata.
+		const binaryMetadata = _.flatten(
+			(<string[]>glob.sync('extensions/*/positron.json'))
+				.map(metadataPath => {
+					const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
+					if (metadata.binaries) {
+						return metadata.binaries.map((bin: any) => {
+							const stat = fs.statSync(path.join(path.dirname(metadataPath), bin.from));
+							return {
+								...bin,
+								exe: (stat.mode & 0o100) !== 0,
+								base: path.basename(path.dirname(metadataPath)),
+							};
+						});
+					}
+					return null;
+				})
+		);
+		fancyLog(`Found ${binaryMetadata.length} Positron extensions`);
+		fancyLog(`${JSON.stringify(binaryMetadata)}`);
+
+		// Create a stream of all the binaries.
+		es.merge(
+			...binaryMetadata.map((bin: any) => {
+				return gulp.src(path.join('extensions', bin.base, bin.from)).pipe(
+					gulp.dest(path.join(outputRoot, bin.base, bin.to))
+				);
+			}),
+			util2.setExecutableBit(binaryMetadata
+				.filter((bin: any) => bin.exe)
+				.map((bin: any) => path.join(outputRoot, bin.base, bin.to))));
+
+		resolve();
+	});
+}
+// --- End Positron ---

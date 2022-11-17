@@ -4,7 +4,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildExtensionMedia = exports.webpackExtensions = exports.translatePackageJSON = exports.scanBuiltinExtensions = exports.packageMarketplaceExtensionsStream = exports.packageLocalExtensionsStream = exports.fromGithub = exports.fromMarketplace = void 0;
+exports.copyExtensionBinaries = exports.buildExtensionMedia = exports.webpackExtensions = exports.translatePackageJSON = exports.scanBuiltinExtensions = exports.packageMarketplaceExtensionsStream = exports.packageLocalExtensionsStream = exports.fromGithub = exports.fromMarketplace = void 0;
 const es = require("event-stream");
 const fs = require("fs");
 const cp = require("child_process");
@@ -308,30 +308,6 @@ function packageLocalExtensionsStream(forWeb) {
         const dependenciesSrc = _.flatten(productionDependencies.map(d => path.relative(root, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]));
         result = es.merge(localExtensionsStream, gulp.src(dependenciesSrc, { base: '.' }));
     }
-    // --- Start Positron ---
-    // Collect all the extensions with Positron-specific metadata.
-    const binaryMetadata = _.flatten(glob.sync('extensions/*/positron.json')
-        .map(metadataPath => {
-        const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
-        if (metadata.binaries) {
-            return metadata.binaries.map((bin) => {
-                return {
-                    from: path.join(path.dirname(metadataPath), bin.from),
-                    to: path.join(path.dirname(metadataPath), bin.to)
-                };
-            });
-        }
-        return null;
-    }));
-    fancyLog(`Found ${binaryMetadata.length} Positron extensions`);
-    fancyLog(`${JSON.stringify(binaryMetadata)}`);
-    // Create a stream of all the binaries.
-    const binaryStream = es.merge(...binaryMetadata.map((bin) => {
-        return gulp.src(bin.from).pipe(gulp.dest(bin.to));
-    }));
-    fancyLog(`Created binary stream: ${JSON.stringify(binaryStream)}`);
-    result = es.merge(result, binaryStream);
-    // --- End Positron ---
     return (result
         .pipe(util2.setExecutableBit(['**/*.sh'])));
 }
@@ -543,3 +519,35 @@ async function buildExtensionMedia(isWatch, outputRoot) {
     })));
 }
 exports.buildExtensionMedia = buildExtensionMedia;
+// --- Start Positron ---
+async function copyExtensionBinaries(outputRoot) {
+    return new Promise((resolve, _reject) => {
+        // Collect all the extensions with Positron-specific metadata.
+        const binaryMetadata = _.flatten(glob.sync('extensions/*/positron.json')
+            .map(metadataPath => {
+            const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
+            if (metadata.binaries) {
+                return metadata.binaries.map((bin) => {
+                    const stat = fs.statSync(path.join(path.dirname(metadataPath), bin.from));
+                    return {
+                        ...bin,
+                        exe: (stat.mode & 0o100) !== 0,
+                        base: path.basename(path.dirname(metadataPath)),
+                    };
+                });
+            }
+            return null;
+        }));
+        fancyLog(`Found ${binaryMetadata.length} Positron extensions`);
+        fancyLog(`${JSON.stringify(binaryMetadata)}`);
+        // Create a stream of all the binaries.
+        es.merge(...binaryMetadata.map((bin) => {
+            return gulp.src(path.join('extensions', bin.base, bin.from)).pipe(gulp.dest(path.join(outputRoot, bin.base, bin.to)));
+        }), util2.setExecutableBit(binaryMetadata
+            .filter((bin) => bin.exe)
+            .map((bin) => path.join(outputRoot, bin.base, bin.to))));
+        resolve();
+    });
+}
+exports.copyExtensionBinaries = copyExtensionBinaries;
+// --- End Positron ---
