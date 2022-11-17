@@ -47,7 +47,6 @@ use crate::lsp::backend::Backend;
 use crate::lsp::documents::Document;
 use crate::lsp::help::RHtmlHelp;
 use crate::lsp::indexer;
-use crate::lsp::markdown::MarkdownConverter;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
@@ -162,18 +161,9 @@ unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &st
     });
 
     // Extract the relevant parameter help.
-    let help = unwrap!(help.parameter(name)?, None => {
+    let markup = unwrap!(help.parameter(name)?, None => {
         return Ok(false);
     });
-
-    // We found the relevant parameter; add its documentation.
-    let converter = MarkdownConverter::new(*help);
-    let description = converter.convert();
-
-    let markup = MarkupContent {
-        kind: MarkupKind::Markdown,
-        value: description.to_string(),
-    };
 
     // Build the actual markup content.
     // We found it; amend the documentation.
@@ -292,8 +282,8 @@ pub fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: Option<&s
 
     // provide parameter completions after completiong function
     item.command = Some(Command {
-        title: "Trigger Suggest".to_string(),
-        command: "editor.action.triggerSuggest".to_string(),
+        title: "Trigger Parameter Hints".to_string(),
+        command: "editor.action.triggerParameterHints".to_string(),
         ..Default::default()
     });
 
@@ -665,7 +655,7 @@ unsafe fn append_call_library_completions(context: &CompletionContext, cursor: &
 
 }
 
-unsafe fn append_call_completions(context: &CompletionContext, cursor: &Node, node: &Node, completions: &mut Vec<CompletionItem>) -> Result<()> {
+unsafe fn append_call_completions(context: &CompletionContext, _cursor: &Node, node: &Node, completions: &mut Vec<CompletionItem>) -> Result<()> {
     let callee = node.child(0).into_result()?.utf8_text(context.source.as_bytes())?;
     append_argument_completions(context, &callee, completions)
 }
