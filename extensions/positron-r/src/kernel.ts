@@ -64,6 +64,11 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		// Just swallow this; it's okay if there's no R on the $PATH
 	}
 
+	// Record existing value of DYLD_FALLBACK_LIBRARY_PATH so we can prepend to
+	// it below. We use this to ensure that the R installation loaded by the
+	// kernel is the one the user selected.
+	const dyldFallbackLibraryPath = process.env['DYLD_FALLBACK_LIBRARY_PATH'];
+
 	// Loop over the R installations and create a language runtime for each one.
 	const disposables: vscode.Disposable[] = rInstallations.map(rHome => {
 		const kernelSpec = {
@@ -74,6 +79,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 				'RUST_LOG': 'trace', // eslint-disable-line
 				'R_HOME': rHome, // eslint-disable-line
 				'DYLD_INSERT_LIBRARIES': `${rHome}/lib/libR.dylib`, // eslint-disable-line
+				'DYLD_FALLBACK_LIBRARY_PATH': `${rHome}/lib:${dyldFallbackLibraryPath}`, // eslint-disable-line
 				'RUST_BACKTRACE': '1' // eslint-disable-line
 			}
 		};
