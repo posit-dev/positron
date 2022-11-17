@@ -612,15 +612,27 @@ export async function buildExtensionMedia(isWatch: boolean, outputRoot?: string)
 }
 
 // --- Start Positron ---
+// This Gulp task is used to copy binaries verbatim from built-in extensions to
+// the output folder. VS Code's built-in extensions are webpacked, and weback
+// doesn't support copying binaries in any useful way (even with
+// CopyWebpackPlugin, binaries are UTF corrupted and lose executable
+// permissions), so we need to do it in a separate task.
 export async function copyExtensionBinaries(outputRoot: string) {
 	return new Promise<void>((resolve, _reject) => {
-		// Collect all the extensions with Positron-specific metadata.
+		// Collect all the Positron extension metadata for binaries that need to
+		// be copied.  The Positron extension metadata lives in the
+		// `positron.json` file in the extension's root directory.
 		const binaryMetadata = _.flatten(
 			(<string[]>glob.sync('extensions/*/positron.json'))
 				.map(metadataPath => {
+					// Read the metadata file.
 					const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
+
+					// Resolve the paths to the binaries.
 					if (metadata.binaries) {
 						return metadata.binaries.map((bin: any) => {
+							// Check the executable bit. Gulp can lose this on
+							// copy, so we may need to restore it later.
 							const stat = fs.statSync(path.join(path.dirname(metadataPath), bin.from));
 							return {
 								...bin,
@@ -632,16 +644,20 @@ export async function copyExtensionBinaries(outputRoot: string) {
 					return null;
 				})
 		);
-		fancyLog(`Found ${binaryMetadata.length} Positron extensions`);
-		fancyLog(`${JSON.stringify(binaryMetadata)}`);
+
+		fancyLog(`Copying binaries for ${binaryMetadata.length} built-in Positron extensions`);
 
 		// Create a stream of all the binaries.
 		es.merge(
+			// Map the metadata to a stream of Vinyl files from the source to the
+			// destination.
 			...binaryMetadata.map((bin: any) => {
 				return gulp.src(path.join('extensions', bin.base, bin.from)).pipe(
 					gulp.dest(path.join(outputRoot, bin.base, bin.to))
 				);
 			}),
+
+			// Restore the executable bit on the binaries that had it.
 			util2.setExecutableBit(binaryMetadata
 				.filter((bin: any) => bin.exe)
 				.map((bin: any) => path.join(outputRoot, bin.base, bin.to))));
