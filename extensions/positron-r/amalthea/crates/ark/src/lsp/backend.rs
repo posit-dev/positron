@@ -39,6 +39,7 @@ use crate::lsp::documents::Document;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
 use crate::lsp::modules;
+use crate::lsp::signature_help::signature_help;
 use crate::lsp::symbols;
 use crate::request::Request;
 
@@ -154,7 +155,17 @@ impl LanguageServer for Backend {
                     all_commit_characters: None,
                     ..Default::default()
                 }),
-                signature_help_provider: None,
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec![
+                        "(".to_string(),
+                        ",".to_string(),
+                        "=".to_string(),
+                    ]),
+                    retrigger_characters: None,
+                    work_done_progress_options: WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                }),
                 definition_provider: Some(OneOf::Left(true)),
                 type_definition_provider: None,
                 implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
@@ -440,6 +451,32 @@ impl LanguageServer for Backend {
             contents: HoverContents::Markup(result),
             range: None,
         }))
+    }
+
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+
+        // get document reference
+        let uri = &params.text_document_position_params.text_document.uri;
+        let document = unwrap!(self.documents.get_mut(uri), None => {
+            backend_trace!(self, "signature_help(): No document associated with URI {}", uri);
+            return Ok(None);
+        });
+
+        // request signature help
+        let result = unsafe { signature_help(document.value(), &params) };
+
+        // unwrap errors
+        let result = unwrap!(result, Err(error) => {
+            error!("{:?}", error);
+            return Ok(None);
+        });
+
+        // unwrap empty options
+        let result = unwrap!(result, None => {
+            return Ok(None);
+        });
+
+        Ok(Some(result))
     }
 
     async fn goto_definition(&self, params: GotoDefinitionParams) -> Result<Option<GotoDefinitionResponse>> {

@@ -1,13 +1,14 @@
-// 
+//
 // cursor.rs
-// 
+//
 // Copyright (C) 2022 by Posit, PBC
-// 
-// 
+//
+//
 
 use tree_sitter::{Node, Point, TreeCursor};
 
 use crate::lsp::traits::point::PointExt;
+use crate::lsp::traits::range::RangeExt;
 
 fn _recurse_impl<Callback: FnMut(Node) -> bool>(this: &mut TreeCursor, callback: &mut Callback) {
 
@@ -55,6 +56,26 @@ fn _find_impl<Callback: FnMut(Node) -> bool>(this: &mut TreeCursor, callback: &m
 
 }
 
+fn _find_leaf_impl(mut node: Node, point: Point) -> Node {
+
+    let mut cursor = node.walk();
+
+    for child in node.children(&mut cursor) {
+        if child.range().contains_point(point) {
+            return _find_leaf_impl(child, point);
+        }
+    }
+
+    for child in node.children(&mut cursor) {
+        if child.start_position().is_before_or_equal(point) {
+            node = child;
+        }
+    }
+
+    node
+
+}
+
 // Extension trait for the TreeSitter cursor object.
 pub trait TreeCursorExt {
 
@@ -67,13 +88,13 @@ pub trait TreeCursorExt {
     // will be returned.
     fn find<Callback: FnMut(Node) -> bool>(&mut self, callback: Callback) -> bool;
 
-    // Find the node closest to the requested point (if any). The node closest
-    // to this point will be used.
-    fn goto_point(&mut self, point: Point);
-
     // Move the cursor to the parent node satisfying some callback condition.
     fn find_parent<Callback: FnMut(Node) -> bool>(&mut self, callback: Callback) -> bool;
-    
+
+    // Find a leaf node in the AST. The leaf node either at the requested point,
+    // or the leaf node closest (but not after) the requested point, will be returned.
+    fn find_leaf(&mut self, point: Point) -> Node;
+
 }
 
 impl TreeCursorExt for TreeCursor<'_> {
@@ -84,19 +105,6 @@ impl TreeCursorExt for TreeCursor<'_> {
 
     fn find<Callback: FnMut(Node) -> bool>(&mut self, mut callback: Callback) -> bool {
         _find_impl(self, &mut callback)
-    }
-
-    fn goto_point(&mut self, point: Point) {
-
-        // TODO: logic here is not quite right
-        self.recurse(|node| {
-            if node.start_position().is_before_or_equal(point) {
-                return true;
-            } else {
-                return false;
-            }
-        });
-
     }
 
     fn find_parent<Callback: FnMut(Node) -> bool>(&mut self, mut callback: Callback) -> bool {
@@ -111,5 +119,9 @@ impl TreeCursorExt for TreeCursor<'_> {
 
     }
 
+    fn find_leaf(&mut self, point: Point) -> Node {
+        let node = self.node();
+        _find_leaf_impl(node, point)
+    }
 
 }

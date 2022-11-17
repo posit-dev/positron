@@ -17,6 +17,7 @@ pub mod indexer;
 pub mod markdown;
 pub mod modules;
 pub mod references;
+pub mod signature_help;
 pub mod symbols;
 pub mod traits;
 pub mod util;

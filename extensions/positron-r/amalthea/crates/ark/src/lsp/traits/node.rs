@@ -43,10 +43,12 @@ fn _dump_impl(cursor: &mut TreeCursor, source: &str, indent: &str, output: &mut 
 
 pub trait NodeExt {
     fn dump(&self, source: &str) -> String;
+
+    fn find_parent(&self, callback: impl Fn(&Node) -> bool) -> Option<Node>;
+
     fn is_call(&self) -> bool;
     fn is_unary_operator(&self) -> bool;
     fn is_binary_operator(&self) -> bool;
-
 }
 
 impl NodeExt for Node<'_> {
@@ -55,6 +57,24 @@ impl NodeExt for Node<'_> {
         let mut output = "\n".to_string();
         _dump_impl(&mut self.walk(), source, "", &mut output);
         return output;
+    }
+
+    fn find_parent(&self, callback: impl Fn(&Node) -> bool) -> Option<Node> {
+
+        let mut node = *self;
+        loop {
+
+            if callback(&node) {
+                return Some(node);
+            }
+
+            node = match node.parent() {
+                Some(node) => node,
+                None => return None,
+            }
+
+        }
+
     }
 
     fn is_call(&self) -> bool {

@@ -17,11 +17,18 @@ use scraper::Selector;
 use stdext::push;
 use stdext::unwrap;
 use stdext::unwrap::IntoResult;
+use tower_lsp::lsp_types::MarkupContent;
+use tower_lsp::lsp_types::MarkupKind;
 
 use crate::lsp::markdown::*;
 
 pub struct RHtmlHelp {
     html: Html,
+}
+
+pub enum Status {
+    Done,
+    KeepGoing,
 }
 
 impl RHtmlHelp {
@@ -120,7 +127,7 @@ impl RHtmlHelp {
 
     }
 
-    pub fn parameter(&self, name: &str) -> Result<Option<ElementRef>> {
+    pub fn parameters(&self, mut callback: impl FnMut(&Vec<&str>, &ElementRef) -> Status) -> Result<()> {
 
         // Find and parse the arguments in the HTML help. The help file has the structure:
         //
@@ -165,27 +172,52 @@ impl RHtmlHelp {
                 // Get the parameters. Note that multiple parameters might be contained
                 // within a single table cell, so we'll need to split that later.
                 let lhs = unwrap!(cells.next(), None => { break });
-                let parameters : String = lhs.text().collect();
+                let names : String = lhs.text().collect();
 
-                // Get the parameter description. We'll convert this from HTML to Markdown.
+                // Get the parameters associated with this description.
+                let pattern = Regex::new("\\s*,\\s*").unwrap();
+                let names = pattern.split(names.as_str()).collect::<Vec<_>>();
+
+                // Get the parameter description.
                 let rhs = unwrap!(cells.next(), None => { break });
 
-                // Check and see if we've found the parameter we care about.
-                let pattern = Regex::new("\\s*,\\s*").unwrap();
-                let mut params = pattern.split(parameters.as_str());
-                let label = params.find(|&value| value == name);
-                if label.is_none() {
-                    continue;
-                }
-
-                // We found the node; return it.
-                return Ok(Some(rhs));
+                // Execute the callback.
+                match callback(&names, &rhs) {
+                    Status::Done => return Ok(()),
+                    Status::KeepGoing => {},
+                };
 
             }
 
+            // If we got here, we managed to find and parse the argument table.
+            break;
+
         }
 
-        Ok(None)
+        Ok(())
+
+    }
+
+    pub fn parameter(&self, name: &str) -> Result<Option<MarkupContent>> {
+
+        let mut result = None;
+        self.parameters(|params, node| {
+
+            for param in params {
+                if *param == name {
+                    result = Some(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: MarkdownConverter::new(**node).convert(),
+                    });
+                    return Status::Done;
+                }
+            }
+
+            return Status::KeepGoing;
+
+        })?;
+
+        Ok(result)
 
     }
 
