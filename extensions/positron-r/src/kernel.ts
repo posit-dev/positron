@@ -88,7 +88,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		// Create a kernel spec for this R installation
 		const kernelSpec = {
 			'argv': [kernelPath, '--connection_file', '{connection_file}'],
-			'display_name': `R ${rVersion}: ${rHome}`, // eslint-disable-line
+			'display_name': `R: ${rHome}`, // eslint-disable-line
 			'language': 'R',
 			'env': {
 				'RUST_LOG': 'trace', // eslint-disable-line
@@ -100,7 +100,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(kernelSpec, () => {
+		runtime = ext.exports.adaptKernel(kernelSpec, rVersion ?? '0.0.1', () => {
 			return activateLsp(context);
 		});
 
