@@ -2,7 +2,7 @@
 	"binaries": [
 		{
 			"from": "./amalthea/target/debug/ark",
-			"to": "./bin"
+			"to": "./dist/bin"
 		}
 	]
 }
