@@ -11,6 +11,7 @@ import { Codicon } from 'vs/base/common/codicons';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { ILogService } from 'vs/platform/log/common/log';
 
 export function registerLanguageRuntimeActions() {
 	const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -84,6 +85,61 @@ export function registerLanguageRuntimeActions() {
 					}
 				}
 			}
+		}
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LanguageRuntimeCommandId.Interrupt,
+				title: { value: nls.localize('workbench.action.language.runtime.interrupt', "Interrupt Active Language Runtime"), original: 'Interrupt Active Language Runtime' },
+				f1: true,
+				category,
+				icon: Codicon.stop,
+				// TODO: Add 'keybinding' member with a default keybinding
+				description: {
+					description: 'workbench.action.language.runtime.interrupt',
+					args: [{
+						name: 'options',
+						schema: {
+							type: 'object'
+						}
+					}]
+				}
+			});
+		}
+
+		/**
+		 * Interrupts the active language runtime
+		 *
+		 * @param accessor The service accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// Retrieve services
+			const languageService = accessor.get(ILanguageRuntimeService);
+			const logService = accessor.get(ILogService);
+
+			const active = languageService.getActiveRuntimes();
+			if (active.length < 1) {
+				// Tell the user there are no active runtimes
+				throw new Error('No language runtimes are active.');
+			}
+
+			// Interrupt the active runtime
+			if (active.length > 1) {
+				// TODO: It will be possible in the future for multiple runtimes
+				// to be active at once. When this is true, we will need more
+				// sophisiticated logic here; for example:
+				//
+				// - which runtime is currently in the busy state?
+				// - which runtime is currently visible in on or more panes?
+				//
+				// For now, we'll just interrupt the first one.
+				logService.warn('More than one language runtime is active. Interrupting only the first.');
+			}
+
+			// Interrupt the runtime
+			active[0].interrupt();
 		}
 	});
 }
