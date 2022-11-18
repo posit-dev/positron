@@ -581,6 +581,10 @@ export class Codicon implements CSSIcon {
 	public static readonly positronOpenInNewWindow = new Codicon('positron-open-in-new-window', { fontCharacter: '\\f242' });
 	public static readonly positronSearchIcon = new Codicon('positron-search-icon', { fontCharacter: '\\f243' });
 	public static readonly positronSearchCancel = new Codicon('positron-search-cancel', { fontCharacter: '\\f244' });
+	public static readonly positronChevronDown = new Codicon('positron-chevron-down', { fontCharacter: '\\f245' });
+	public static readonly positronChevronUp = new Codicon('positron-chevron-up', { fontCharacter: '\\f246' });
+	public static readonly positronClear = new Codicon('positron-clear', { fontCharacter: '\\f247' });
+
 	// --- End Positron ---
 
 	// derived icons, that could become separate icons

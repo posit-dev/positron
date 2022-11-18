@@ -11,6 +11,7 @@ import { positronClassNames } from 'vs/base/common/positronClassNames';
  * PositronActionBarProps interface.
  */
 interface PositronActionBarProps {
+	size: 'small' | 'large';
 	borderTop?: boolean;
 	borderBottom?: boolean;
 	padding?: number;
@@ -26,6 +27,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 		'positron-action-bar',
 		{ 'border-top': props?.borderTop },
 		{ 'border-bottom': props?.borderBottom },
+		props.size
 	);
 
 	// Render.

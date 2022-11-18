@@ -1063,7 +1063,7 @@ export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positron
 
 // The Positron side action bar text input background color.
 export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('positronSideActionBar.textInputBackground', {
-	dark: '#252526',
+	dark: '#3a3d41',
 	light: '#ffffff',
 	hcDark: '#3a3d41',
 	hcLight: '#ffffff'
@@ -1073,7 +1073,7 @@ export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('pos
 export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BORDER = registerColor('positronSideActionBar.textInputBorder', {
 	dark: '#252526',
 	light: '#5f6a79',
-	hcDark: '#3a3d41',
+	hcDark: '#252526',
 	hcLight: '#5f6a79'
 }, localize('positronSideActionBar.textInputBorder', "Positron side action bar text input border."));
 

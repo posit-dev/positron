@@ -5,9 +5,25 @@
 .positron-action-bar {
 	width: 100%;
 	display: flex;
-	background: var(--positronActionBar-background);
-	padding: var(--positronActionBar-padding);
+	align-items: center;
 	box-sizing: border-box;
+	height: var(--positronActionBar-height);
+	padding: var(--positronActionBar-padding);
+	background: var(--positronActionBar-background);
+}
+
+.positron-action-bar.small {
+	--positronActionBar-height: 32px;
+	--positronActionBar-iconSize: 26px;
+	--positronActionBar-tooltipTop: 28px;
+	--positronActionBar-iconFontSize: 22px;
+}
+
+.positron-action-bar.large {
+	--positronActionBar-height: 34px;
+	--positronActionBar-iconSize: 28px;
+	--positronActionBar-tooltipTop: 32px;
+	--positronActionBar-iconFontSize: 24px;
 }
 
 .positron-action-bar.border-top {

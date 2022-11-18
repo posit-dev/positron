@@ -1,0 +1,92 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.action-bar-find-a {
+	display: flex;
+	align-items: center;
+}
+
+.action-bar-find {
+	display: flex;
+	margin: 0px 2px;
+	border-radius: 4px;
+	align-items: center;
+	background: var(--positronActionBar-textInputBackground);
+	border: 1px solid var(--positronActionBar-textInputBorder);
+}
+
+.action-bar-find.focused {
+	border: 1px solid var(--vscode-focusBorder);
+}
+
+.action-bar-find .text-input {
+	width: 100px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	border: none !important;
+	box-sizing: border-box;
+	background: transparent;
+	outline: none !important;
+}
+
+.action-bar-find .text-input::placeholder {
+	opacity: 0.5;
+	color: var(--positronActionBar-foreground);
+}
+
+.action-bar-find .text-input::selection {
+	color: var(--positronActionBar-textInputSelectionForeground);
+	background: var(--positronActionBar-textInputSelectionBackground);
+}
+
+.action-bar-find .action-bar-find-counter {
+	margin-right: 8px;
+	color: var(--positronActionBar-foreground);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.action-bar-find .action-bar-find-button {
+	width: 18px;
+	height: 18px;
+	border: none;
+	margin: 0 4px;
+	display: flex;
+	cursor: pointer;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+}
+
+.action-bar-find .action-bar-find-button:focus {
+	outline: none;
+}
+
+.action-bar-find .action-bar-find-button:focus-visible {
+	border-radius: 3px;
+	outline-offset: 0;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.action-bar-find .action-bar-find-button .action-bar-find-button-icon {
+	font-size: 28px;
+	color: var(--positronActionBar-foreground);
+}
+
+.action-bar-find .action-bar-find-button .action-bar-find-button-icon.disabled {
+	opacity: 0.5;
+}

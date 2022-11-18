@@ -10,12 +10,12 @@
 }
 
 .action-bar-separator-icon {
-	width: 7px;
-	height: 28px;
 	align-items: center;
 	justify-content: center;
-	font-size: 24px !important;
 	display: flex !important;
+	height: var(--positronActionBar-iconSize);
+	width: calc(var(--positronActionBar-iconSize) / 4);
+	font-size: var(--positronActionBar-iconFontSize) !important;
 }
 
 .action-bar-separator-icon::before {

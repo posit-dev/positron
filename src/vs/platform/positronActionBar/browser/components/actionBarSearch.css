@@ -2,9 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+/* THIS IS NOT CURRENTLY BEING USED. IT WAS KEPT AROUND BECAUSE I ANTICIPATE THAT IT WILL */
+/* BE USED IN THE FUTURE AND I DON'T WANT TO HAVE TO REWRITE IT. */
+
 .action-bar-search {
 	display: flex;
-	margin: 2px 4px;
+	margin: 0px 4px;
 	border-radius: 4px;
 	align-items: center;
 	border: 1px solid var(--positronActionBar-border);
@@ -46,7 +49,7 @@
 }
 
 .action-bar-search .text-input {
-	width: 120px;
+	width: 100px;
 	padding: 4px;
 	border-radius: 4px;
 	border: none !important;
