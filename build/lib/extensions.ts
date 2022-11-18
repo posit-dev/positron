@@ -633,10 +633,15 @@ export async function copyExtensionBinaries(outputRoot: string) {
 						return metadata.binaries.map((bin: any) => {
 							// Check the executable bit. Gulp can lose this on
 							// copy, so we may need to restore it later.
-							const stat = fs.statSync(path.join(path.dirname(metadataPath), bin.from));
+							const src = path.join(path.dirname(metadataPath), bin.from);
+							let isExecutable = false;
+							if (fs.existsSync(src)) {
+								const stat = fs.statSync(src);
+								isExecutable = (stat.mode & 0o100) !== 0;
+							}
 							return {
 								...bin,
-								exe: (stat.mode & 0o100) !== 0,
+								exe: isExecutable,
 								base: path.basename(path.dirname(metadataPath)),
 							};
 						});
@@ -645,7 +650,7 @@ export async function copyExtensionBinaries(outputRoot: string) {
 				})
 		);
 
-		fancyLog(`Copying binaries for ${binaryMetadata.length} built-in Positron extensions`);
+		fancyLog(`Copying ${binaryMetadata.length} binary sets for built-in Positron extensions`);
 
 		// Create a stream of all the binaries.
 		es.merge(
