@@ -15,15 +15,15 @@
 }
 
 .action-bar-tool-tip {
-	top: 32px;
 	padding: 6px 6px;
 	position: absolute;
 	width: fit-content;
 	border-radius: 6px;
 	display: inline-block;
+	z-index: 500 !important;
 	background: var(--vscode-positronToolTip-background);
 	border: 1px solid var(--vscode-positronToolTip-border);
-	z-index: 500 !important;
+	top: var(--positronActionBar-tooltipTop);
 }
 
 .action-bar-tool-tip-left {

@@ -4,15 +4,25 @@
 
 import 'vs/css!./actionBarSearch';
 import * as React from 'react';
-import { localize } from 'vs/nls';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronClassNames';
 
+/* THIS IS NOT CURRENTLY BEING USED. IT WAS KEPT AROUND BECAUSE I ANTICIPATE THAT IT WILL */
+/* BE USED IN THE FUTURE AND I DON'T WANT TO HAVE TO REWRITE IT. */
+
+/**
+ * ActionBarSearchProps interface.
+ */
+interface ActionBarSearchProps {
+	placeholder: string;
+}
+
 /**
  * ActionBarSearch component.
+ * @param props An ActionBarSearchProps that contains the component properties.
  * @returns The component.
  */
-export const ActionBarSearch = () => {
+export const ActionBarSearch = (props: ActionBarSearchProps) => {
 	// Hooks.
 	const [focused, setFocused] = useState(false);
 	const [searchText, setSearchText] = useState('');
@@ -39,7 +49,7 @@ export const ActionBarSearch = () => {
 				ref={inputRef}
 				type='text'
 				className='text-input'
-				placeholder={localize('positronSearchPlaceholder', "Search")}
+				placeholder={props.placeholder}
 				onFocus={() => setFocused(true)}
 				onBlur={() => setFocused(false)}
 				onChange={(e) => setSearchText(e.target.value)} />
