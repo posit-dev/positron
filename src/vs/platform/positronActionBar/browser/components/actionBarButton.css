@@ -4,7 +4,6 @@
 
 .action-bar-button {
 	cursor: pointer;
-	padding: 2px 0;
 	overflow: visible;
 	color: var(--positronActionBar-foreground);
 }
@@ -12,7 +11,6 @@
 .action-bar-button-face {
 	display: flex;
 	position: relative;
-	padding: 0 2px;
 	align-items: center;
 }
 
@@ -31,12 +29,12 @@
 }
 
 .action-bar-button-icon {
-	width: 28px;
-	height: 28px;
 	align-items: center;
 	justify-content: center;
-	font-size: 24px !important;
 	display: flex !important;
+	width: var(--positronActionBar-iconSize);
+	height: var(--positronActionBar-iconSize);
+	font-size: var(--positronActionBar-iconFontSize) !important;
 }
 
 .action-bar-button-icon::before {
@@ -49,11 +47,11 @@
 
 .action-bar-button-drop-down-arrow {
 	width: 10px;
-	height: 28px;
 	align-items: center;
 	justify-content: left;
 	font-size: 18px !important;
 	display: flex !important;
+	height: var(--positronActionBar-iconSize);
 }
 
 .action-bar-button-drop-down-arrow::before {

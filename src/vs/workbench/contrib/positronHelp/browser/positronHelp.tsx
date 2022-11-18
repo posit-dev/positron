@@ -17,7 +17,7 @@ import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/component
 import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
+import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 
 /**
  * PositronHelpProps interface.
@@ -39,7 +39,7 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 	return (
 		<div className='positron-help'>
 			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar>
+				<PositronActionBar size='small'>
 					<ActionBarRegion align='left'>
 						<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} />
 						<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} />
@@ -48,15 +48,14 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 						<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarButton iconId='positron-refresh' tooltip={localize('positronRefreshTopic', "Refresh topic")} align='right' />
 					</ActionBarRegion>
 				</PositronActionBar>
-				<PositronActionBar borderBottom={true}>
+				<PositronActionBar size='small' borderBottom={true}>
 					<ActionBarRegion align='left'>
 						<ActionBarButton text='Home' dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
+						<ActionBarFind placeholder={localize('positronFindPlaceholder', "find")} />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarSearch />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</PositronActionBarContextProvider>
