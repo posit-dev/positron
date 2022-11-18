@@ -30,7 +30,7 @@ stdext = { path = "../stdext" }
 tokio = { version = "1.17.0", features = ["full"] }
 tower-lsp = "0.17.0"
 tree-sitter = "0.20.6"
-tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "main" }
+tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "next" }
 walkdir = "2"
 yaml-rust = "0.4.5"
 
