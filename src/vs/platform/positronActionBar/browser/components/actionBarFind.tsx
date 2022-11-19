@@ -16,6 +16,7 @@ import { localize } from 'vs/nls';
  * ActionBarFindProps interface.
  */
 interface ActionBarFindProps {
+	hidden: boolean;
 	placeholder: string;
 }
 
@@ -53,7 +54,7 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 
 	// Render.
 	return (
-		<div className='action-bar-find-container'>
+		<div className='action-bar-find-container' style={{ display: props.hidden ? 'none' : 'flex' }}>
 			<div className={positronClassNames('action-bar-find-input', { 'focused': focused })}>
 				<input
 					ref={inputRef}
