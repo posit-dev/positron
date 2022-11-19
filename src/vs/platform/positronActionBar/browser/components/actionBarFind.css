@@ -2,12 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.action-bar-find-a {
+.action-bar-find-container {
 	display: flex;
 	align-items: center;
 }
 
-.action-bar-find {
+.action-bar-find-input {
 	display: flex;
 	margin: 0px 2px;
 	border-radius: 4px;
@@ -16,11 +16,11 @@
 	border: 1px solid var(--positronActionBar-textInputBorder);
 }
 
-.action-bar-find.focused {
+.action-bar-find-input.focused {
 	border: 1px solid var(--vscode-focusBorder);
 }
 
-.action-bar-find .text-input {
+.action-bar-find-input .text-input {
 	width: 100px;
 	padding: 4px 8px;
 	border-radius: 4px;
@@ -30,17 +30,17 @@
 	outline: none !important;
 }
 
-.action-bar-find .text-input::placeholder {
+.action-bar-find-input .text-input::placeholder {
 	opacity: 0.5;
 	color: var(--positronActionBar-foreground);
 }
 
-.action-bar-find .text-input::selection {
+.action-bar-find-input .text-input::selection {
 	color: var(--positronActionBar-textInputSelectionForeground);
 	background: var(--positronActionBar-textInputSelectionBackground);
 }
 
-.action-bar-find .action-bar-find-counter {
+.action-bar-find-input .action-bar-find-counter {
 	margin-right: 8px;
 	color: var(--positronActionBar-foreground);
 }

@@ -2,7 +2,24 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from 'vs/base/common/event';
 import { createRoot, Root } from 'react-dom/client';
+
+/**
+ * ISize interface.
+ */
+export interface ISize {
+	width: number;
+	height: number;
+}
+
+/**
+ * IReactComponentContainer interface.
+ */
+export interface IReactComponentContainer {
+	readonly onSizeChanged: Event<ISize>;
+	readonly onVisibilityChanged: Event<boolean>;
+}
 
 /**
  * PositronReactRenderer class.
