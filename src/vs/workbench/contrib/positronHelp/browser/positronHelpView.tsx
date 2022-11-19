@@ -3,13 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { Event, Emitter } from 'vs/base/common/event';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { PositronHelp } from 'vs/workbench/contrib/positronHelp/browser/positronHelp';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -17,10 +18,18 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 
-export class PositronHelpViewPane extends ViewPane {
+export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
 
 	// The PositronReactRenderer.
 	positronReactRenderer: PositronReactRenderer | undefined;
+
+	// The onSizeChanged event.
+	private _onSizeChanged = this._register(new Emitter<ISize>());
+	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
+
+	// The onVisibilityChanged event.
+	private _onVisibilityChanged = this._register(new Emitter<boolean>());
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -61,6 +70,7 @@ export class PositronHelpViewPane extends ViewPane {
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
 			<PositronHelp
+				reactComponentContainer={this}
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
@@ -71,9 +81,16 @@ export class PositronHelpViewPane extends ViewPane {
 
 	override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
+
+		// Raise the onSizeChanged event.
+		this._onSizeChanged.fire({
+			width,
+			height
+		});
 	}
 
 	private onDidChangeVisibility(visible: boolean): void {
+		// Raise the onVisibilityChanged event.
+		this._onVisibilityChanged.fire(visible);
 	}
 }
-

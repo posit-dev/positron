@@ -4,25 +4,28 @@
 
 import 'vs/css!./positronHelp';
 import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
+import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
+import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 
 /**
  * PositronHelpProps interface.
  */
 export interface PositronHelpProps {
+	reactComponentContainer: IReactComponentContainer;
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
 	contextKeyService: IContextKeyService;
@@ -30,11 +33,31 @@ export interface PositronHelpProps {
 	keybindingService: IKeybindingService;
 }
 
+
 /**
  * PositronHelp component.
  * @param props A PositronHelpProps that contains the component properties.
  */
 export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
+	// Add IReactComponentContainer event handlers.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onSizeChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(e => {
+			console.log(`PositronHelp got onSizeChanged ${e.width},${e.height}`);
+		}));
+
+		// Add the onVisibilityChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(e => {
+			console.log(`PositronHelp got onVisibilityChanged ${e}`);
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, []);
+
 	// Render.
 	return (
 		<div className='positron-help'>
