@@ -16,6 +16,7 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 interface ActionBarMenuButtonProps {
 	iconId: string;
 	text?: string;
+	maxTextWidth?: number;
 	align?: 'left' | 'right';
 	tooltip: string;
 	actions: () => Promise<readonly IAction[]>;

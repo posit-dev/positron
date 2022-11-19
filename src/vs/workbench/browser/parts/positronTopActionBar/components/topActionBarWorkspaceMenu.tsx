@@ -63,6 +63,7 @@ export const TopActionBarWorkspaceMenu = () => {
 			align='right'
 			actions={actions}
 			text={positronTopActionBarContext.workspaceFolder ? positronTopActionBarContext.workspaceFolder.name : undefined}
+			maxTextWidth={200}
 			tooltip={positronTopActionBarContext.workspaceFolder?.uri?.fsPath || ''}
 		/>
 	);

@@ -14,6 +14,7 @@ import { positronClassNames } from 'vs/base/common/positronClassNames';
 export interface ActionBarButtonProps {
 	iconId?: string;
 	text?: string;
+	maxTextWidth?: number;
 	dropDown?: boolean;
 	align?: 'left' | 'right';
 	layout?: 'loose' | 'tight';
@@ -40,7 +41,7 @@ export const ActionBarButton = forwardRef<HTMLDivElement, ActionBarButtonProps>(
 			<div ref={ref} className={classNames} onClick={props.onClick}>
 				<div className='action-bar-button-face' style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }}>
 					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} />}
-					{props.text && <div className='action-bar-button-text'>{props.text}</div>}
+					{props.text && <div className='action-bar-button-text' style={{ maxWidth: props.maxTextWidth !== undefined ? props.maxTextWidth : 'none' }}>{props.text}</div>}
 					{props.dropDown && <div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />}
 				</div>
 			</div>
