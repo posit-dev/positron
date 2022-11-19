@@ -41,10 +41,7 @@ export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCo
 
 	//#region IView
 
-	// --- Start Positron ---
-	// readonly minimumWidth: number = 170;
-	readonly minimumWidth: number = 250;
-	// --- End Positron ---
+	readonly minimumWidth: number = 170;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 	readonly minimumHeight: number = 0;
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;
