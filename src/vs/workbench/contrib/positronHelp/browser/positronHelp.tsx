@@ -69,7 +69,7 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 					<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
 				</PositronActionBar>
 				<PositronActionBar size='small' borderBottom={true}>
-					<ActionBarButton text='Home And Home Home And Home Home And Home Home And Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
+					<ActionBarButton text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
 					<ActionBarFind placeholder={localize('positronFindPlaceholder', "find")} />
 				</PositronActionBar>
 			</PositronActionBarContextProvider>
