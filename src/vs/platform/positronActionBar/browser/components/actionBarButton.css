@@ -17,6 +17,9 @@
 .action-bar-button-text {
 	margin: 0 4px;
 	font-size: 12px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 .action-bar-button-face:hover {
