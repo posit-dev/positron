@@ -14,7 +14,6 @@
 	overflow: visible;
 
 	/* PositronActionBar variable. */
-	--positronActionBar-padding: 0 4px;
 	--positronActionBar-border: var(--vscode-positronTopActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronTopActionBar-separator);
 	--positronActionBar-background: var(--vscode-positronTopActionBar-background);

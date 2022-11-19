@@ -3,14 +3,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 .action-bar-find-container {
+	min-width: 180px;
 	display: flex;
 	align-items: center;
 }
 
 .action-bar-find-input {
+	width: 100%;
 	display: flex;
-	margin: 0px 2px;
 	border-radius: 4px;
+	margin-right: 2px;
 	align-items: center;
 	background: var(--positronActionBar-textInputBackground);
 	border: 1px solid var(--positronActionBar-textInputBorder);
@@ -21,7 +23,7 @@
 }
 
 .action-bar-find-input .text-input {
-	width: 120px;
+	width: 100%;
 	padding: 4px 8px;
 	border-radius: 4px;
 	border: none !important;

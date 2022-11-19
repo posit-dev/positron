@@ -12,9 +12,11 @@ import { positronClassNames } from 'vs/base/common/positronClassNames';
  */
 interface PositronActionBarProps {
 	size: 'small' | 'large';
+	gap?: number;
 	borderTop?: boolean;
 	borderBottom?: boolean;
-	padding?: number;
+	paddingLeft: number;
+	paddingRight: number;
 }
 
 /**
@@ -32,7 +34,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 
 	// Render.
 	return (
-		<div className={classNames}>
+		<div className={classNames} style={{ gap: props.gap !== undefined ? props.gap : 0, paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}>
 			{props.children}
 		</div>
 	);

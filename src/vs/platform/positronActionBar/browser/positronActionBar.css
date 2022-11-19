@@ -8,7 +8,6 @@
 	align-items: center;
 	box-sizing: border-box;
 	height: var(--positronActionBar-height);
-	padding: var(--positronActionBar-padding);
 	background: var(--positronActionBar-background);
 }
 
