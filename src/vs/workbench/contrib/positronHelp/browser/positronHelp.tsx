@@ -4,7 +4,7 @@
 
 import 'vs/css!./positronHelp';
 import * as React from 'react';
-import { PropsWithChildren, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -38,6 +38,9 @@ export interface PositronHelpProps {
  * @param props A PositronHelpProps that contains the component properties.
  */
 export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
+	// Hooks.
+	const [findHidden, setFindHidden] = useState(false);
+
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -45,6 +48,7 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(e => {
+			setFindHidden(e.width < 320);
 			console.log(`PositronHelp got onSizeChanged ${e.width},${e.height}`);
 		}));
 
@@ -70,7 +74,7 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 				</PositronActionBar>
 				<PositronActionBar size='small' borderBottom={true}>
 					<ActionBarButton text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
-					<ActionBarFind placeholder={localize('positronFindPlaceholder', "find")} />
+					<ActionBarFind hidden={findHidden} placeholder={localize('positronFindPlaceholder', "find")} />
 				</PositronActionBar>
 			</PositronActionBarContextProvider>
 
