@@ -17,7 +17,6 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
@@ -63,23 +62,15 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 		<div className='positron-help'>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='small'>
-					<ActionBarRegion align='left'>
-						<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} />
-						<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} />
-						<ActionBarButton iconId='positron-home' tooltip={localize('positronShowPositronHelp', "Show Positron help")} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
-					</ActionBarRegion>
-					<ActionBarRegion align='right'>
-					</ActionBarRegion>
+					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} />
+					<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} />
+					<ActionBarButton iconId='positron-home' tooltip={localize('positronShowPositronHelp', "Show Positron help")} />
+					<ActionBarSeparator />
+					<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
 				</PositronActionBar>
 				<PositronActionBar size='small' borderBottom={true}>
-					<ActionBarRegion align='left'>
-						<ActionBarButton text='Home' dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
-						<ActionBarFind placeholder={localize('positronFindPlaceholder', "find")} />
-					</ActionBarRegion>
-					<ActionBarRegion align='right'>
-					</ActionBarRegion>
+					<ActionBarButton text='Home' dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
+					<ActionBarFind placeholder={localize('positronFindPlaceholder', "find")} />
 				</PositronActionBar>
 			</PositronActionBarContextProvider>
 
