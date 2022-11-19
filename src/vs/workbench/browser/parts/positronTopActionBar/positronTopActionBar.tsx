@@ -24,6 +24,9 @@ import { ActionBarCommandButton } from 'vs/platform/positronActionBar/browser/co
 import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
+// Constants.
+const kHorizontalPadding = 4;
+
 /**
  * PositronTopActionBarServices interface. Defines the set of services that are required by the Positron top action bar.
  */
@@ -52,7 +55,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	return (
 		<PositronTopActionBarContextProvider {...props}>
 			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar size='large' borderBottom={true}>
+				<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
 					<ActionBarRegion align='left'>
 						<TopActionBarNewMenu />
 						<ActionBarSeparator />

@@ -4,7 +4,6 @@
 
 .positron-help {
 	/* PositronActionBar variable. */
-	--positronActionBar-padding: 0 14px;
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
 	--positronActionBar-background: var(--vscode-positronSideActionBar-background);

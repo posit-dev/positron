@@ -11,6 +11,7 @@ import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-i
  */
 interface ActionBarRegionProps {
 	align: 'left' | 'center' | 'right';
+	gap?: number;
 }
 
 /**
@@ -22,7 +23,7 @@ export const ActionBarRegion = (props: PropsWithChildren<ActionBarRegionProps>) 
 
 	// Render.
 	return (
-		<div className={`action-bar-region action-bar-region-${props.align}`}>
+		<div className={`action-bar-region action-bar-region-${props.align}`} style={{ gap: props.gap !== undefined ? props.gap : 0 }}>
 			{props.children}
 		</div>
 	);
