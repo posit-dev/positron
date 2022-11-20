@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.checkOnSave.extraArgs": [
+        "--target-dir", "${workspaceFolder}/target/check"
+    ]
+}
