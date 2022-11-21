@@ -2,9 +2,29 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+// Types.
 type Value = string | number | undefined;
 type Mapping = Record<string, unknown>;
 type Argument = Value | Mapping;
+
+/**
+ * optionalValue function. Returns the value, if it is not undefined; otherwise, returns the default value.
+ * @param value The optional value.
+ * @param defaultValue The default value.
+ * @returns The value, if it is not undefined; otherwise, the default value.
+ */
+export const optionalValue = (value: number | string | undefined, defaultValue: number | string) => {
+	return value !== undefined ? value : defaultValue;
+};
+
+/**
+ * optionalBoolean function. Returns the value, if it is not undefined; otherwise, returns false.
+ * @param value The optional value.
+ * @returns The value, if it is not undefined; otherwise, false.
+ */
+export const optionalBoolean = (value: boolean | undefined) => {
+	return value !== undefined && value;
+};
 
 /**
  * positronClassNames function.

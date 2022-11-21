@@ -5,7 +5,7 @@
 import 'vs/css!./positronActionBar';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { positronClassNames } from 'vs/base/common/positronClassNames';
+import { optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
  * PositronActionBarProps interface.
@@ -34,7 +34,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 
 	// Render.
 	return (
-		<div className={classNames} style={{ gap: props.gap !== undefined ? props.gap : 0, paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}>
+		<div className={classNames} style={{ gap: optionalValue(props.gap, 0), paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}>
 			{props.children}
 		</div>
 	);

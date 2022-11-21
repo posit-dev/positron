@@ -5,7 +5,7 @@
 import 'vs/css!./topActionBarSelectBox';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { positronClassNames } from 'vs/base/common/positronClassNames';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 export interface TopActionBarSelectBoxProps {
 	onClick?: (event: React.MouseEvent) => void;

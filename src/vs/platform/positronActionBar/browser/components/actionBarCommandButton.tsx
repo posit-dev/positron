@@ -27,7 +27,7 @@ interface ActionBarCommandButtonProps {
 export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
-	const [enabled, setEnabled] = useState(positronActionBarContext.isCommandEnabled(props.commandId));
+	const [disabled, setDisabled] = useState(!positronActionBarContext.isCommandEnabled(props.commandId));
 
 	// Add our event handlers.
 	useEffect(() => {
@@ -44,7 +44,7 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 			disposableStore.add(positronActionBarContext.contextKeyService.onDidChangeContext(e => {
 				// If any of the precondition keys are affected, update the enabled state.
 				if (e.affectsSome(keys)) {
-					setEnabled(positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
+					setDisabled(!positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
 				}
 			}));
 		}
@@ -77,5 +77,5 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	};
 
 	// Render.
-	return <ActionBarButton {...props} tooltip={tooltip} enabled={enabled} onClick={executeHandler} />;
+	return <ActionBarButton {...props} tooltip={tooltip} disabled={disabled} onClick={executeHandler} />;
 };

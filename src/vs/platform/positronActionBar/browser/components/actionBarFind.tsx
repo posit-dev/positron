@@ -5,7 +5,7 @@
 import 'vs/css!./actionBarFind';
 import * as React from 'react';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { positronClassNames } from 'vs/base/common/positronClassNames';
+import { optionalBoolean, positronClassNames } from 'vs/base/common/positronUtilities';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { localize } from 'vs/nls';
 
@@ -17,7 +17,7 @@ import { localize } from 'vs/nls';
  */
 interface ActionBarFindProps {
 	width: number;
-	hidden: boolean;
+	hidden?: boolean;
 	placeholder: string;
 }
 
@@ -55,7 +55,7 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 
 	// Render.
 	return (
-		<div className='action-bar-find-container' style={{ width: props.width, display: props.hidden ? 'none' : 'flex' }}>
+		<div className='action-bar-find-container' style={{ width: props.width, display: optionalBoolean(props.hidden) ? 'none' : 'flex' }}>
 			<div className={positronClassNames('action-bar-find-input', { 'focused': focused })}>
 				<input
 					ref={inputRef}
