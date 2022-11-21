@@ -82,7 +82,6 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 					{!alternateFind && (
 						<ActionBarFind
 							width={300}
-							hidden={alternateFind}
 							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
 							onFindTextChanged={findText => {
