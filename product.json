@@ -14,16 +14,6 @@
 	"serverApplicationName": "positron-server",
 	"serverDataFolderName": ".positron-server",
 	"tunnelApplicationName": "positron-tunnel",
-	"tunnelApplicationConfig": {
-		"authenticationProviders": {
-			"github": {
-				"scopes": [
-					"user:email",
-					"read:org"
-				]
-			}
-		}
-	},
 	"win32DirName": "RStudio Positron",
 	"win32NameVersion": "RStudio Positron",
 	"win32RegValueName": "CodeOSS",
