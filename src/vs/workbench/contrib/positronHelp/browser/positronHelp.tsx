@@ -77,10 +77,16 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 					<ActionBarSeparator />
 					<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
 				</PositronActionBar>
-				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={!findHidden} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarButton ref={historyButtonRef} text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
-					<ActionBarFind width={300} hidden={findHidden} placeholder={localize('positronFindPlaceholder', "find")} />
+					{!findHidden && <ActionBarFind width={300} hidden={findHidden} placeholder={localize('positronFindPlaceholder', "find")} />}
+
 				</PositronActionBar>
+				{findHidden && (
+					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+						<ActionBarFind width={300} placeholder={localize('positronFindPlaceholder', "find")} />
+					</PositronActionBar>
+				)}
 			</PositronActionBarContextProvider>
 			<TestContent message='Help React' />
 		</div>
