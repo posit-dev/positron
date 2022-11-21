@@ -5,20 +5,18 @@
 import 'vs/css!./actionBarFind';
 import * as React from 'react';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { optionalBoolean, positronClassNames } from 'vs/base/common/positronUtilities';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { localize } from 'vs/nls';
-
-/* THIS IS NOT CURRENTLY BEING USED. IT WAS KEPT AROUND BECAUSE I ANTICIPATE THAT IT WILL */
-/* BE USED IN THE FUTURE AND I DON'T WANT TO HAVE TO REWRITE IT. */
+import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 
 /**
  * ActionBarFindProps interface.
  */
 interface ActionBarFindProps {
 	width: number;
-	hidden?: boolean;
 	placeholder: string;
+	initialFindText?: string;
+	onFindTextChanged: (findText: string) => void;
 }
 
 /**
@@ -29,14 +27,14 @@ interface ActionBarFindProps {
 export const ActionBarFind = (props: ActionBarFindProps) => {
 	// Hooks.
 	const [focused, setFocused] = useState(false);
-	const [findText, setFindText] = useState('');
+	const [findText, setFindText] = useState(props.initialFindText ?? '');
 	const inputRef = useRef<HTMLInputElement>(undefined!);
 
-	// // Cancel button click handler.
-	// const cancelButtonClickHandler = () => {
-	// 	inputRef.current.value = '';
-	// 	setFindText('');
-	// };
+	// Input change handler.
+	const inputChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setFindText(e.target.value);
+		props.onFindTextChanged(e.target.value);
+	};
 
 	// Button find previous click handler.
 	const buttonFindPreviousClickHandler = () => {
@@ -55,16 +53,17 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 
 	// Render.
 	return (
-		<div className='action-bar-find-container' style={{ width: props.width, display: optionalBoolean(props.hidden) ? 'none' : 'flex' }}>
+		<div className='action-bar-find-container' style={{ width: props.width }}>
 			<div className={positronClassNames('action-bar-find-input', { 'focused': focused })}>
 				<input
 					ref={inputRef}
 					type='text'
 					className='text-input'
 					placeholder={props.placeholder}
+					value={findText}
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
-					onChange={(e) => setFindText(e.target.value)} />
+					onChange={inputChangeHandler} />
 				<div className='action-bar-find-counter'>1/3</div>
 			</div>
 			<ActionBarButton layout='tight' iconId='positron-chevron-up' tooltip={localize('positronFindPrevious', "Find previous")} onClick={buttonFindPreviousClickHandler} />

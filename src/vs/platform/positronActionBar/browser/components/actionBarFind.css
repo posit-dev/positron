@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .action-bar-find-container {
-	min-width: 180px;
 	display: flex;
 	align-items: center;
 }

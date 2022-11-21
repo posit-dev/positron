@@ -89,8 +89,9 @@ export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAcces
 					<VerticalStack>
 						<LabeledTextInput
 							ref={directoryNameRef}
-							autoFocus label='Repository URL'
 							value={newWorkspaceResult.repo}
+							label='Repository URL'
+							autoFocus
 							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, repo: e.target.value })}
 						/>
 						<DirectoryInput

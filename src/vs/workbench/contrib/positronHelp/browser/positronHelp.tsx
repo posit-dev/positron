@@ -44,7 +44,8 @@ export interface PositronHelpProps {
 export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
-	const [findHidden, setFindHidden] = useState(false);
+	const [alternateFind, setAlternateFind] = useState(false);
+	const [findText, setFindText] = useState('');
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -53,8 +54,7 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
-			// Hide find when it won't fit.
-			setFindHidden(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
+			setAlternateFind(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
 		}));
 
 		// Add the onVisibilityChanged event handler.
@@ -77,14 +77,28 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 					<ActionBarSeparator />
 					<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
 				</PositronActionBar>
-				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={!findHidden} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={!alternateFind} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarButton ref={historyButtonRef} text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
-					{!findHidden && <ActionBarFind width={300} hidden={findHidden} placeholder={localize('positronFindPlaceholder', "find")} />}
-
+					{!alternateFind && (
+						<ActionBarFind
+							width={300}
+							hidden={alternateFind}
+							placeholder={localize('positronFindPlaceholder', "find")}
+							initialFindText={findText}
+							onFindTextChanged={findText => {
+								setFindText(findText);
+							}} />
+					)}
 				</PositronActionBar>
-				{findHidden && (
+				{alternateFind && (
 					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-						<ActionBarFind width={300} placeholder={localize('positronFindPlaceholder', "find")} />
+						<ActionBarFind
+							width={300}
+							placeholder={localize('positronFindPlaceholder', "find")}
+							initialFindText={findText}
+							onFindTextChanged={findText => {
+								setFindText(findText);
+							}} />
 					</PositronActionBar>
 				)}
 			</PositronActionBarContextProvider>
