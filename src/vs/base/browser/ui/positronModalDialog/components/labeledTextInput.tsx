@@ -4,7 +4,7 @@
 
 import 'vs/css!./labeledTextInput';
 import * as React from 'react';
-import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { ChangeEventHandler, forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 /**
  * LabeledTextInputProps interface.
@@ -12,8 +12,8 @@ import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 export interface LabeledTextInputProps {
 	label: string;
 	value: string;
-	onChange: React.ChangeEventHandler<HTMLInputElement>;
 	autoFocus?: boolean;
+	onChange: ChangeEventHandler<HTMLInputElement>;
 }
 
 /**
