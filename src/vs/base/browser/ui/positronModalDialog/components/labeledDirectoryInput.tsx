@@ -4,6 +4,7 @@
 
 import 'vs/css!./labeledDirectoryInput';
 import * as React from 'react';
+import { ChangeEventHandler } from 'react'; // eslint-disable-line no-duplicate-imports
 
 /**
  * DirectoryInputProps interface.
@@ -12,7 +13,7 @@ export interface DirectoryInputProps {
 	label: string;
 	value: string;
 	onBrowse: VoidFunction;
-	onChange: React.ChangeEventHandler<HTMLInputElement>;
+	onChange: ChangeEventHandler<HTMLInputElement>;
 }
 
 /**
