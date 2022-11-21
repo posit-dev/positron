@@ -16,7 +16,7 @@ import { createPositronApiFactoryAndRegisterActors } from 'vs/workbench/api/comm
 
 class WorkerRequireInterceptor extends RequireInterceptor {
 
-	_installInterceptor() { }
+	protected _installInterceptor() { }
 
 	getModule(request: string, parent: URI): undefined | any {
 		for (const alternativeModuleName of this._alternatives) {

@@ -43,6 +43,8 @@ import { IStringDictionary } from 'vs/base/common/collections';
 import { IUserDataProfileService } from 'vs/workbench/services/userDataProfile/common/userDataProfile';
 import { IUserDataProfilesService } from 'vs/platform/userDataProfile/common/userDataProfile';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
+import { ImplicitActivationEvents } from 'vs/platform/extensionManagement/common/implicitActivationEvents';
+
 // --- Start Positron ---
 import { validatePositronExtensionManifest } from 'vs/platform/extensions/common/positronExtensionValidator';
 // --- End Positron ---
@@ -664,6 +666,8 @@ export class WebExtensionsScannerService extends Disposable implements IWebExten
 				engines: { vscode: '*' },
 			};
 		}
+
+		ImplicitActivationEvents.updateManifest(manifest);
 
 		const packageNLSUri = webExtension.packageNLSUris?.get(Language.value().toLowerCase());
 		if (packageNLSUri || webExtension.fallbackPackageNLSUri) {
