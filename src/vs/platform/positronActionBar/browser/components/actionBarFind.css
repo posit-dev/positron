@@ -42,6 +42,7 @@
 }
 
 .action-bar-find-input .action-bar-find-counter {
+	font-size: 10px;
 	margin-right: 8px;
 	color: var(--positronActionBar-foreground);
 }
