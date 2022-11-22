@@ -143,3 +143,16 @@
 .repl-error-collapsed .repl-error-stack-frames {
 	display: none;
 }
+
+.repl-status-message {
+	margin-top: 5px;
+	margin-bottom: 5px;
+	margin-left: 10px;
+	font-size: 11px;
+	text-transform: uppercase;
+	display: flex;
+}
+
+.repl-status-message span {
+	margin: 3px;
+}

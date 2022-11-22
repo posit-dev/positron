@@ -24,6 +24,7 @@ export class LanguageRuntimeAdapter
 	private readonly _kernel: JupyterKernel;
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
+	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _lspPort: number | null = null;
 	readonly metadata: positron.LanguageRuntimeMetadata;
 
@@ -84,6 +85,17 @@ export class LanguageRuntimeAdapter
 	 * Interrupts the kernel.
 	 */
 	public interrupt(): void {
+
+		// Ensure kernel is in an interruptible state
+		if (this._kernelState === positron.RuntimeState.Uninitialized) {
+			throw new Error('Cannot interrupt kernel; it has not started.');
+		}
+
+		if (this._kernelState === positron.RuntimeState.Exiting ||
+			this._kernelState === positron.RuntimeState.Exited) {
+			throw new Error('Cannot interrupt kernel; it has already exited.');
+		}
+
 		this._channel.appendLine(`Interrupting ${this.metadata.language}`);
 		return this._kernel.interrupt();
 	}
@@ -279,6 +291,7 @@ export class LanguageRuntimeAdapter
 	 */
 	onStatus(status: positron.RuntimeState) {
 		this._channel.appendLine(`Kernel status changed to ${status}`);
+		this._kernelState = status;
 		this._state.fire(status);
 	}
 
