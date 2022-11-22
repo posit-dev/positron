@@ -1,0 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-help-container {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+.positron-help-content {
+	flex-grow: 1;
+	margin-left: 20px;
+	overflow-y: scroll;
+}
