@@ -17,7 +17,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { IHelpResult, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 
 export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
 
@@ -31,6 +31,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The onVisibilityChanged event.
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+
+	private _helpContainer!: HTMLElement;
+
+	private _helpResult!: IHelpResult;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -48,6 +52,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
+
+		this._register(positronHelpService.onRenderHelp(e => {
+			console.log('PositronHelpViewPane got onRenderHelp');
+			console.log(e);
+			if (this._helpResult) {
+				this._helpResult.element.remove();
+				this._helpResult.dispose();
+			}
+			this._helpResult = e;
+			this._helpContainer.appendChild(this._helpResult.element);
+		}));
 	}
 
 	public override dispose(): void {
@@ -64,12 +79,16 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super.focus();
 	}
 
-	protected override renderBody(container: HTMLElement): void {
-		// Call the base class's method.
-		super.renderBody(container);
+	protected override renderBody(parent: HTMLElement): void {
+		super.renderBody(parent);
+
+		const contentContainer = document.createElement('div');
+		contentContainer.className = 'content';
+		parent.appendChild(contentContainer);
+
 
 		// Render the Positron top action bar component.
-		this.positronReactRenderer = new PositronReactRenderer(this.element);
+		this.positronReactRenderer = new PositronReactRenderer(contentContainer);
 		this.positronReactRenderer.render(
 			<PositronHelp
 				reactComponentContainer={this}
@@ -80,6 +99,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				keybindingService={this.keybindingService}
 				positronHelpService={this.positronHelpService} />
 		);
+
+		// const dd = document.createElement('iframe');
+
+		this._helpContainer = document.createElement('div');
+		this._helpContainer.className = 'content';
+		this._helpContainer.style.background = 'red';
+		parent.appendChild(this._helpContainer);
 	}
 
 	override layoutBody(height: number, width: number): void {

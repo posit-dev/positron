@@ -4,7 +4,11 @@
 
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { IHelpResult, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
+import { ILanguageService } from 'vs/editor/common/languages/language';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { MarkdownString } from 'vs/base/common/htmlContent';
 
 /**
  * PositronHelpService class.
@@ -13,13 +17,29 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 	declare readonly _serviceBrand: undefined;
 
-	// The onSizeChanged event.
-	private _onRenderHelp = this._register(new Emitter<string>());
-	readonly onRenderHelp: Event<string> = this._onRenderHelp.event;
+	private _markdownRenderer: MarkdownRenderer;
 
-	openHelpMarkdown(markdown: string) {
+	// The onSizeChanged event.
+	private _onRenderHelp = this._register(new Emitter<IHelpResult>());
+	readonly onRenderHelp: Event<IHelpResult> = this._onRenderHelp.event;
+
+	constructor(
+		@ILanguageService languageService: ILanguageService,
+		@IOpenerService openerService: IOpenerService
+	) {
+		super();
+
+		this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
+		this._store.add(this._markdownRenderer);
+	}
+
+	openHelpMarkdown(markdown: MarkdownString) {
 		console.log(`+++++++++++++++ PositronHelpService openHelpMarkdown ${markdown}`);
-		this._onRenderHelp.fire('jajaj');
+
+		const result = this._markdownRenderer.render(markdown);
+		console.log('Rendered result:');
+		console.log(result);
+		this._onRenderHelp.fire(result);
 	}
 
 	openHelpURL(url: string) {
