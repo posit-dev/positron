@@ -7,8 +7,8 @@ import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle'
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -35,7 +35,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	constructor(
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
-		@ILanguageService private readonly _languageService: ILanguageService
+		@ILanguageService private readonly _languageService: ILanguageService,
 	) {
 		super();
 		this._register(this._languageService.onDidEncounterLanguage((language) => {
@@ -85,6 +85,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				this.startLanguageRuntime(runtime);
 			}
 		}
+
+		// Ensure that we remove the runtime from the set of active runtimes
+		// when it exits.
+		this._register(runtime.onDidChangeRuntimeState((state) => {
+			if (state === RuntimeState.Exited) {
+				// Remove the runtime from the set of active runtimes, since it's
+				// no longer active.
+				const index = this._activeRuntimes.indexOf(runtime);
+				if (index >= 0) {
+					this._activeRuntimes.splice(index, 1);
+				}
+			}
+		}));
 
 		return toDisposable(() => {
 			this._runtimes.delete(runtime.metadata.id);
