@@ -7,6 +7,7 @@ import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle'
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 
 /**
@@ -16,16 +17,52 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/** Needed for service branding in dependency injector */
 	declare readonly _serviceBrand: undefined;
 
+	/** A map of languages to the runtimes that can service that language  */
 	private readonly _runtimes: Map<String, ILanguageRuntime> = new Map();
 
+	/** A map of all currently active runtimes. */
+	private readonly _activeRuntimes: ILanguageRuntime[] = [];
+
+	/** An event that fires when a runtime starts. */
 	private readonly _onDidStartRuntime = this._register(new Emitter<ILanguageRuntime>);
+
+	// The set of active (encountered) languages. This is used to help orchestrate
+	// the implicit runtime startup.
+	private readonly _activeLanguages = new Set<string>();
+
 	readonly onDidStartRuntime = this._onDidStartRuntime.event;
 
 	constructor(
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
+		@ILanguageService private readonly _languageService: ILanguageService,
 	) {
 		super();
+		this._register(this._languageService.onDidEncounterLanguage((language) => {
+			this._activeLanguages.add(language);
+			this.startRuntimeImplicitly(language);
+		}));
+	}
+
+	/**
+	 * Start a runtime implicitly when a language is encountered
+	 */
+	startRuntimeImplicitly(language: string): void {
+		// Ignore if there's already an active runtime for this language
+		if (this.getActiveLanguageRuntimes(language).length > 0) {
+			return;
+		}
+
+		// Get all the runtimes that match the language
+		const runtimes = Array.from(this._runtimes.values()).filter(
+			runtime => runtime.metadata.language === language);
+
+		// If there are no runtimes, elect the first one. This isn't random; the
+		// runtimes are sorted by priority when registered by the extension.
+		if (runtimes.length > 0) {
+			this._logService.trace(`Language ${language} encountered; automatically starting ${runtimes[0].metadata.name}`);
+			this.startLanguageRuntime(runtimes[0]);
+		}
 	}
 
 	/**
@@ -36,7 +73,32 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 */
 	registerRuntime(runtime: ILanguageRuntime): IDisposable {
 		this._runtimes.set(runtime.metadata.id, runtime);
-		this._logService.trace(`Added new language runtime: ${runtime.metadata.language} (${runtime.metadata.id})`);
+		this._logService.trace(`Added new language runtime (${runtime.metadata.language}) ${runtime.metadata.language} (${runtime.metadata.id})`);
+
+		// If there's an active language that matches this runtime, see if
+		// there's already an active runtime for this language. If not, start
+		// the runtime right away.
+		if (this._activeLanguages.has(runtime.metadata.language)) {
+			const active = this.getActiveLanguageRuntimes(runtime.metadata.language);
+			if (active.length === 0) {
+				this._logService.trace(`Language ${runtime.metadata.language} is active; automatically starting ${runtime.metadata.name}`);
+				this.startLanguageRuntime(runtime);
+			}
+		}
+
+		// Ensure that we remove the runtime from the set of active runtimes
+		// when it exits.
+		this._register(runtime.onDidChangeRuntimeState((state) => {
+			if (state === RuntimeState.Exited) {
+				// Remove the runtime from the set of active runtimes, since it's
+				// no longer active.
+				const index = this._activeRuntimes.indexOf(runtime);
+				if (index >= 0) {
+					this._activeRuntimes.splice(index, 1);
+				}
+			}
+		}));
+
 		return toDisposable(() => {
 			this._runtimes.delete(runtime.metadata.id);
 		});
@@ -82,20 +144,33 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	private startLanguageRuntime(runtime: ILanguageRuntime): void {
 		this._logService.trace(`Language runtime starting: '${runtime.metadata.language}' (${runtime.metadata.id})`);
+
+		// Move this runtime to the active list. Note that we can't rely on runtime
+		// state because the runtime start event is asynchronous.
+		this._activeRuntimes.push(runtime);
+
 		runtime.start().then(info => {
 			// Execute the Focus into Console command using the command service
 			// to expose the REPL for the new runtime.
 			this._commandService.executeCommand('workbench.panel.console.focus');
 		});
+
+		// Add an event listener to remove the runtime from the active list
+		// when it exits.
+		const disposable = runtime.onDidChangeRuntimeState((e) => {
+			if (e === RuntimeState.Exited) {
+				this._activeRuntimes.splice(this._activeRuntimes.indexOf(runtime), 1);
+			}
+			disposable.dispose();
+		});
+
 		this._onDidStartRuntime.fire(runtime);
 	}
 
 	getActiveLanguageRuntimes(language: string | null): Array<ILanguageRuntime> {
-		return Array.from(this._runtimes.values()).filter(runtime => {
-			return runtime.getRuntimeState() !== RuntimeState.Uninitialized &&
-				runtime.getRuntimeState() !== RuntimeState.Exited &&
-				(language === null || runtime.metadata.language === language);
-		});
+		return this._activeRuntimes.filter(runtime =>
+			language === null || runtime.metadata.language === language
+		);
 	}
 
 	/**
@@ -104,7 +179,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @returns All active runtimes
 	 */
 	getActiveRuntimes(): Array<ILanguageRuntime> {
-		return this.getActiveLanguageRuntimes(null);
+		return this._activeRuntimes;
 	}
 }
 
