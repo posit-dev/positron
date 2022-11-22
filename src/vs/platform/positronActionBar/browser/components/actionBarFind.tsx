@@ -70,9 +70,9 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					onChange={inputChangeHandler} />
 				<div className='action-bar-find-counter'>1/3</div>
 			</div>
-			<ActionBarButton layout='tight' iconId='positron-chevron-up' tooltip={localize('positronFindPrevious', "Find previous")} onClick={buttonFindPreviousClickHandler} />
-			<ActionBarButton layout='tight' iconId='positron-chevron-down' tooltip={localize('positronFindNext', "Find next")} onClick={buttonFindNextClickHandler} />
-			<ActionBarButton layout='tight' iconId='positron-clear' tooltip={localize('positronClearFind', "Clear find")} onClick={buttonClearClickHandler} />
+			<ActionBarButton layout='tight' iconId='positron-chevron-up' align='right' tooltip={localize('positronFindPrevious', "Find previous")} onClick={buttonFindPreviousClickHandler} />
+			<ActionBarButton layout='tight' iconId='positron-chevron-down' align='right' tooltip={localize('positronFindNext', "Find next")} onClick={buttonFindNextClickHandler} />
+			<ActionBarButton layout='tight' iconId='positron-clear' align='right' tooltip={localize('positronClearFind', "Clear find")} onClick={buttonClearClickHandler} />
 		</div>
 	);
 };

@@ -20,6 +20,7 @@ import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/component
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { MarkdownString } from 'vs/base/common/htmlContent';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -68,7 +69,8 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 
 		// Add IPositronHelpService event handlers.
 		disposableStore.add(props.positronHelpService.onRenderHelp(help => {
-			console.log(`PositronHelp got onRenderHelp ${help}`);
+			console.log('PositronHelp got onRenderHelp');
+			console.log(help);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -79,6 +81,17 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 	const findTextChangedHandler = (findText: string) => {
 		console.log('FIND TEXT CHANGED CALLBACK');
 		setFindText(findText);
+	};
+
+	const findPreviousHandler = () => {
+		props.positronHelpService.findPrevious();
+		props.positronHelpService.openHelpMarkdown(new MarkdownString(
+			`This is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\n***The End***`
+		));
+	};
+
+	const findNextHandler = () => {
+		props.positronHelpService.findNext();
 	};
 
 	// Render.
@@ -100,12 +113,8 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
 							onFindTextChanged={findTextChangedHandler}
-							onFindPrevious={() => {
-								props.positronHelpService.findPrevious();
-							}}
-							onFindNext={() => {
-								props.positronHelpService.findNext();
-							}} />
+							onFindPrevious={findPreviousHandler}
+							onFindNext={findNextHandler} />
 					)}
 				</PositronActionBar>
 				{alternateFind && (
@@ -115,12 +124,8 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
 							onFindTextChanged={findTextChangedHandler}
-							onFindPrevious={() => {
-								props.positronHelpService.findPrevious();
-							}}
-							onFindNext={() => {
-								props.positronHelpService.findNext();
-							}} />
+							onFindPrevious={findPreviousHandler}
+							onFindNext={findNextHandler} />
 					</PositronActionBar>
 				)}
 			</PositronActionBarContextProvider>
