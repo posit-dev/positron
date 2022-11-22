@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { IReplInputSubmitEvent, ReplInput } from 'vs/workbench/contrib/repl/browser/replInput';
+import { IReplCancelExecutionEvent, IReplInputSubmitEvent, ReplInput } from 'vs/workbench/contrib/repl/browser/replInput';
 import { ReplOutput } from 'vs/workbench/contrib/repl/browser/replOutput';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -22,6 +22,12 @@ export enum ReplCellState {
 
 	/** The cell is currently executing the user input. */
 	ReplCellExecuting,
+
+	/** The user has requested that the execution be canceled. */
+	ReplCellCancelling,
+
+	/** The execution didn't complete because it was cancelled */
+	ReplCellCompletedCancelled,
 
 	/** The cell has successfully completed execution. */
 	ReplCellCompletedOk,
@@ -44,10 +50,12 @@ export interface IReplCellStateChange {
 export class ReplCell extends Disposable {
 
 	readonly onDidSubmitInput: Event<IReplInputSubmitEvent>;
+	readonly onDidCancelExecution: Event<IReplCancelExecutionEvent>;
 	readonly onMouseWheel: Event<IMouseWheelEvent>;
 	readonly onDidChangeCellState: Event<IReplCellStateChange>;
 	readonly onDidChangeHeight: Event<void>;
 	private readonly _onDidChangeCellState;
+	private readonly _onDidCancelExecution;
 
 	private _container: HTMLElement;
 
@@ -76,6 +84,9 @@ export class ReplCell extends Disposable {
 		this.onDidChangeCellState((e) => {
 			this.renderStateChange(e);
 		});
+
+		this._onDidCancelExecution = this._register(new Emitter<IReplCancelExecutionEvent>());
+		this.onDidCancelExecution = this._onDidCancelExecution.event;
 
 		// Create unique handle
 		this._handle = ReplCell._counter++;
@@ -107,6 +118,22 @@ export class ReplCell extends Disposable {
 		this._indicator.classList.add('repl-indicator');
 		this._indicator.setAttribute('role', 'presentation');
 		this._container.appendChild(this._indicator);
+
+		// Create stop button with codicon
+		const stopButton = document.createElement('button');
+		stopButton.classList.add('repl-stop-button');
+		stopButton.setAttribute('role', 'button');
+		stopButton.setAttribute('aria-label', 'Cancel execution');
+		const stopButtonIcon = document.createElement('span');
+		stopButtonIcon.classList.add('codicon', 'codicon-stop');
+		stopButton.appendChild(stopButtonIcon);
+		this._container.appendChild(stopButton);
+
+		// Wire stop button
+		stopButton.addEventListener('click', (e) => {
+			this.setState(ReplCellState.ReplCellCancelling);
+			this._onDidCancelExecution.fire({});
+		});
 
 		// Copy the editor's font settings to the output area
 

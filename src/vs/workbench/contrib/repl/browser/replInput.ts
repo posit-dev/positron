@@ -39,6 +39,12 @@ export interface IReplInputSubmitEvent {
 	focus: boolean;
 }
 
+/**
+ * Event fired when the input execution is cancelled
+ */
+export interface IReplCancelExecutionEvent {
+}
+
 export class ReplInput extends Disposable {
 
 	private readonly _onDidSubmitInput;
