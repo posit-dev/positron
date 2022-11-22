@@ -273,6 +273,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Restarts the kernel
 	 */
 	public async restart() {
+
+		// Update status
+		this.setStatus(positron.RuntimeState.Exiting);
+
 		// Request that the kernel shut down
 		this.shutdown(true);
 
