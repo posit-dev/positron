@@ -381,7 +381,13 @@ export class ReplInstanceView extends Disposable {
 				return;
 			}
 
-			// Otherwise, add a new cell.
+			// Otherwise, we have just finished restarting. Add an informative
+			// message and a new cell to accept the first input in the new
+			// session.
+			const msg = new ReplStatusMessage(
+				'check-all', `${this._kernel.metadata.name} started`);
+			msg.render(this._cellContainer);
+
 			this.addCell(this._hadFocus);
 		}
 		else if (state === RuntimeState.Exited ||
@@ -408,6 +414,6 @@ export class ReplInstanceView extends Disposable {
 			}
 		}
 
-		this._scroller.scanDomNode();
+		this.scrollToBottom();
 	}
 }
