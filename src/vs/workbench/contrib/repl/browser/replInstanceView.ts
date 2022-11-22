@@ -9,7 +9,8 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -133,6 +134,10 @@ export class ReplInstanceView extends Disposable {
 		this._kernel.onDidCompleteStartup(info => {
 			this._bannerContainer.innerText = info.banner;
 			this._scroller.scanDomNode();
+		});
+
+		this._kernel.onDidChangeRuntimeState((state) => {
+			this.renderStateChange(state);
 		});
 
 		// Clear REPL when event signals the user has requested it
@@ -356,5 +361,53 @@ export class ReplInstanceView extends Disposable {
 		cell.onDidChangeHeight(() => {
 			this._scroller.scanDomNode();
 		});
+
+		cell.onDidCancelExecution(() => {
+			this._kernel.interrupt();
+		});
+	}
+
+	/**
+	 * Updates the rendered instance view to display the current state of the
+	 * language runtime.
+	 *
+	 * @param state The new runtime state
+	 */
+	private renderStateChange(state: RuntimeState) {
+		if (state === RuntimeState.Ready) {
+			// The language runtime is ready to execute code. If there's
+			// already a cell ready and awaiting input, leave it alone.
+			if (this._activeCell && this._activeCell.getState() === ReplCellState.ReplCellInput) {
+				return;
+			}
+
+			// Otherwise, add a new cell.
+			this.addCell(this._hadFocus);
+		}
+		else if (state === RuntimeState.Exited ||
+			state === RuntimeState.Offline) {
+
+			const cell = this._activeCell;
+
+			// Mark the current cell execution as cancelled, if it is
+			// currently executing.
+			if (cell && cell.getState() === ReplCellState.ReplCellExecuting) {
+				cell.setState(ReplCellState.ReplCellCompletedCancelled);
+			}
+
+			if (state === RuntimeState.Exited) {
+				const msg = new ReplStatusMessage(
+					'info', `${this._kernel.metadata.name} exited`);
+				msg.render(this._cellContainer);
+			}
+
+			if (state === RuntimeState.Offline) {
+				const msg = new ReplStatusMessage(
+					'debug-disconnect', `${this._kernel.metadata.name} is offline`);
+				msg.render(this._cellContainer);
+			}
+		}
+
+		this._scroller.scanDomNode();
 	}
 }
