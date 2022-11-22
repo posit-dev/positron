@@ -5,10 +5,13 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 import { ReplInstance } from 'vs/workbench/contrib/repl/browser/replInstance';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
+import * as nls from 'vs/nls';
+import Severity from 'vs/base/common/severity';
 
 /**
  * The implementation of IReplService
@@ -32,7 +35,8 @@ export class ReplService extends Disposable implements IReplService {
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private _logService: ILogService,
-		@ILanguageService private readonly _languageService: ILanguageService
+		@ILanguageService private readonly _languageService: ILanguageService,
+		@IDialogService private readonly _dialogService: IDialogService
 	) {
 		super();
 
@@ -134,6 +138,29 @@ export class ReplService extends Disposable implements IReplService {
 		// Store the instance and fire event to listeners
 		this._instances.push(instance);
 		this._onDidStartRepl.fire(instance);
+
+		// When the REPL exits, see if the user wants to restart it.
+		this._register(kernel.onDidChangeRuntimeState((state) => {
+			if (state === RuntimeState.Exited) {
+				this.promptToRestartRuntime(kernel);
+			}
+		}));
+
 		return instance;
+	}
+
+	private promptToRestartRuntime(runtime: ILanguageRuntime): void {
+		// Ask the dialog service to prompt the user for a restart
+		this._dialogService.show(Severity.Info,
+			nls.localize('restartRuntime', '{0} exited. Would you like to restart it?',
+				runtime.metadata.name),
+			[
+				nls.localize('restart', 'Restart'),
+				nls.localize('cancel', 'Cancel')
+			]).then(result => {
+				if (result.choice === 0) {
+					this._languageRuntimeService.startRuntime(runtime.metadata.id);
+				}
+			});
 	}
 }

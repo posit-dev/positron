@@ -24,6 +24,7 @@ export class LanguageRuntimeAdapter
 	private readonly _kernel: JupyterKernel;
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
+	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _lspPort: number | null = null;
 	readonly metadata: positron.LanguageRuntimeMetadata;
 
@@ -84,6 +85,17 @@ export class LanguageRuntimeAdapter
 	 * Interrupts the kernel.
 	 */
 	public interrupt(): void {
+
+		// Ensure kernel is in an interruptible state
+		if (this._kernelState === positron.RuntimeState.Uninitialized) {
+			throw new Error('Cannot interrupt kernel; it has not started.');
+		}
+
+		if (this._kernelState === positron.RuntimeState.Exiting ||
+			this._kernelState === positron.RuntimeState.Exited) {
+			throw new Error('Cannot interrupt kernel; it has already exited.');
+		}
+
 		this._channel.appendLine(`Interrupting ${this.metadata.language}`);
 		return this._kernel.interrupt();
 	}
@@ -99,9 +111,12 @@ export class LanguageRuntimeAdapter
 		// Reject if the kernel is already running; only in the Unintialized state
 		// can we start the kernel
 		if (this._kernel.status() !== positron.RuntimeState.Uninitialized) {
-			this._channel.appendLine(`Not started (already running)`);
-			Promise.reject('Kernel is already running');
+			this._channel.appendLine(`Not started (already running or starting up)`);
+			Promise.reject('Kernel is already started or running');
 		}
+
+		// Update the kernel's state to Initializing
+		this.onStatus(positron.RuntimeState.Initializing);
 
 		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
 			if (this._lsp) {
@@ -276,6 +291,7 @@ export class LanguageRuntimeAdapter
 	 */
 	onStatus(status: positron.RuntimeState) {
 		this._channel.appendLine(`Kernel status changed to ${status}`);
+		this._kernelState = status;
 		this._state.fire(status);
 	}
 

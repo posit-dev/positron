@@ -76,11 +76,27 @@
 	position: absolute;
 	opacity: 0;
 	top: 10px;
-	right: 10px;
+	right: 20px;
 	display: none;
 }
 
 .repl-cell-executing .repl-indicator {
+	display: block;
+}
+
+.repl-stop-button {
+	width: 8px;
+	height: 8px;
+	position: absolute;
+	top: 5px;
+	right: 10px;
+	background: none;
+	border: none;
+	display: none;
+	cursor: pointer;
+}
+
+.repl-cell-executing .repl-stop-button {
 	display: block;
 }
 
@@ -126,4 +142,17 @@
 
 .repl-error-collapsed .repl-error-stack-frames {
 	display: none;
+}
+
+.repl-status-message {
+	margin-top: 5px;
+	margin-bottom: 5px;
+	margin-left: 10px;
+	font-size: 11px;
+	text-transform: uppercase;
+	display: flex;
+}
+
+.repl-status-message span {
+	margin: 3px;
 }
