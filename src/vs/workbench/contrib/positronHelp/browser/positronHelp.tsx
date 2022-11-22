@@ -14,6 +14,7 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { TestContent } from 'vs/workbench/contrib/positronHelp/browser/components/testContent';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
@@ -35,6 +36,7 @@ export interface PositronHelpProps {
 	contextKeyService: IContextKeyService;
 	contextMenuService: IContextMenuService;
 	keybindingService: IKeybindingService;
+	positronHelpService: IPositronHelpService;
 }
 
 /**
@@ -52,6 +54,8 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Add IReactComponentContainer event handlers.
+
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setAlternateFind(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
@@ -62,9 +66,20 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 			console.log(`PositronHelp got onVisibilityChanged ${visibility}`);
 		}));
 
+		// Add IPositronHelpService event handlers.
+		disposableStore.add(props.positronHelpService.onRenderHelp(help => {
+			console.log(`PositronHelp got onRenderHelp ${help}`);
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
+
+	// Find text changed handler.
+	const findTextChangedHandler = (findText: string) => {
+		console.log('FIND TEXT CHANGED CALLBACK');
+		setFindText(findText);
+	};
 
 	// Render.
 	return (
@@ -84,8 +99,12 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 							width={300}
 							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
-							onFindTextChanged={findText => {
-								setFindText(findText);
+							onFindTextChanged={findTextChangedHandler}
+							onFindPrevious={() => {
+								props.positronHelpService.findPrevious();
+							}}
+							onFindNext={() => {
+								props.positronHelpService.findNext();
 							}} />
 					)}
 				</PositronActionBar>
@@ -95,8 +114,12 @@ export const PositronHelp = (props: PropsWithChildren<PositronHelpProps>) => {
 							width={300}
 							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
-							onFindTextChanged={findText => {
-								setFindText(findText);
+							onFindTextChanged={findTextChangedHandler}
+							onFindPrevious={() => {
+								props.positronHelpService.findPrevious();
+							}}
+							onFindNext={() => {
+								props.positronHelpService.findNext();
 							}} />
 					</PositronActionBar>
 				)}
