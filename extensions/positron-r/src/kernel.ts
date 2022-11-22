@@ -36,9 +36,34 @@ export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath:
 	});
 }
 
+function getRVersion(rHome: string): string {
+	// Get the version of the R installation
+	const { execSync } = require('child_process');
+	let rVersion = "";
+	try {
+		rVersion = execSync(
+			`${rHome}/bin/R --vanilla -s -e 'cat(R.Version()$major,R.Version()$minor, sep=".")'`,
+			{ shell: '/bin/bash', encoding: 'utf8' })
+			.trim();
+	} catch (e) {
+		console.error(`Error getting R version: ${e}`);
+	}
+	return rVersion;
+}
+
 export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.ExtensionContext, kernelPath: string): vscode.Disposable {
 
-	const rInstallations: Array<string> = [];
+	class RInstallation {
+		public readonly rHome: string;
+		public readonly rVersion: string;
+
+		constructor(rHome: string) {
+			this.rHome = rHome;
+			this.rVersion = getRVersion(rHome);
+		}
+	}
+
+	const rInstallations: Array<RInstallation> = [];
 
 	const { execSync } = require('child_process');
 
@@ -48,7 +73,8 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 	// Look for the default R installation on macOS
 	if (fs.existsSync('/Library/Frameworks/R.framework/Resources')) {
-		rInstallations.push('/Library/Frameworks/R.framework/Resources');
+		rInstallations.push(
+			new RInstallation('/Library/Frameworks/R.framework/Resources'));
 	}
 
 	// Look for an R installation on the $PATH (e.g. installed via Homebrew)
@@ -58,13 +84,20 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		const rHome = execSync('R RHOME', { shell: '/bin/bash', encoding: 'utf8' }).trim();
 		if (fs.existsSync(rHome)) {
 			// Add the R installation to the list (if it's not already there)
-			if (rInstallations.indexOf(rHome) === -1) {
-				rInstallations.push(rHome);
+			if (rInstallations.filter(r => r.rHome === rHome).length === 0) {
+				rInstallations.push(new RInstallation(rHome));
 			}
 		}
 	} catch (err) {
 		// Just swallow this; it's okay if there's no R on the $PATH
 	}
+
+	// Sort the R installations by version number, descending. This ensures that
+	// we'll use the most recent version of R if R is installed in multiple
+	// places.
+	rInstallations.sort((a, b) => {
+		return b.rVersion.localeCompare(a.rVersion);
+	});
 
 	// Record existing value of DYLD_FALLBACK_LIBRARY_PATH so we can prepend to
 	// it below. We use this to ensure that the R installation loaded by the
@@ -74,33 +107,22 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	// Loop over the R installations and create a language runtime for each one.
 	const disposables: vscode.Disposable[] = rInstallations.map(rHome => {
 
-		// Get the version of the R installation
-		let rVersion = "";
-		try {
-			rVersion = execSync(
-				`${rHome}/bin/R --vanilla -s -e 'cat(R.Version()$major,R.Version()$minor, sep=".")'`,
-				{ shell: '/bin/bash', encoding: 'utf8' })
-				.trim();
-		} catch (e) {
-			console.error(`Error getting R version: ${e}`);
-		}
-
 		// Create a kernel spec for this R installation
 		const kernelSpec = {
 			'argv': [kernelPath, '--connection_file', '{connection_file}'],
-			'display_name': `R: ${rHome}`, // eslint-disable-line
-			'language': 'R',
+			'display_name': `R: ${rHome.rHome}`, // eslint-disable-line
+			'language': 'r',
 			'env': {
 				'RUST_LOG': 'trace', // eslint-disable-line
-				'R_HOME': rHome, // eslint-disable-line
-				'DYLD_INSERT_LIBRARIES': `${rHome}/lib/libR.dylib`, // eslint-disable-line
-				'DYLD_FALLBACK_LIBRARY_PATH': `${rHome}/lib:${dyldFallbackLibraryPath}`, // eslint-disable-line
+				'R_HOME': rHome.rHome, // eslint-disable-line
+				'DYLD_INSERT_LIBRARIES': `${rHome.rHome}/lib/libR.dylib`, // eslint-disable-line
+				'DYLD_FALLBACK_LIBRARY_PATH': `${rHome.rHome}/lib:${dyldFallbackLibraryPath}`, // eslint-disable-line
 				'RUST_BACKTRACE': '1' // eslint-disable-line
 			}
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(kernelSpec, rVersion ?? '0.0.1', () => {
+		runtime = ext.exports.adaptKernel(kernelSpec, rHome.rVersion ?? '0.0.1', () => {
 			return activateLsp(context);
 		});
 

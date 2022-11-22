@@ -99,9 +99,12 @@ export class LanguageRuntimeAdapter
 		// Reject if the kernel is already running; only in the Unintialized state
 		// can we start the kernel
 		if (this._kernel.status() !== positron.RuntimeState.Uninitialized) {
-			this._channel.appendLine(`Not started (already running)`);
-			Promise.reject('Kernel is already running');
+			this._channel.appendLine(`Not started (already running or starting up)`);
+			Promise.reject('Kernel is already started or running');
 		}
+
+		// Update the kernel's state to Initializing
+		this.onStatus(positron.RuntimeState.Initializing);
 
 		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
 			if (this._lsp) {
