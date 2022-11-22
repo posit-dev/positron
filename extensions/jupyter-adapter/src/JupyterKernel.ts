@@ -77,6 +77,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._status = positron.RuntimeState.Uninitialized;
 		this._key = crypto.randomBytes(16).toString('hex');
 		this._sessionId = crypto.randomBytes(16).toString('hex');
+
+		// Listen to our own status change events
+		this.on('status', (status: positron.RuntimeState) => {
+			this.onStatusChange(status);
+		});
 	}
 
 	/**
@@ -170,11 +175,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		});
 		this._process.on('close', (code) => {
 			this.setStatus(positron.RuntimeState.Exited);
-
-			// Dispose all sockets so they don't try to connect to the
-			// now-defunct kernel
-			this.disposeAllSockets();
-
 			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
 		});
 		this._process.once('spawn', () => {
@@ -538,5 +538,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private setStatus(status: positron.RuntimeState) {
 		this.emit('status', status);
 		this._status = status;
+	}
+
+	/**
+	 * Processes a kernel status change
+	 *
+	 * @param status The new status of the kernel
+	 */
+	private onStatusChange(status: positron.RuntimeState) {
+		if (status === positron.RuntimeState.Exited) {
+			// Stop checking for heartbeats
+			if (this._heartbeatTimer) {
+				clearTimeout(this._heartbeatTimer);
+				this._heartbeatTimer = null;
+			}
+
+			// Dispose all sockets so they don't try to connect to the
+			// now-defunct kernel
+			this.disposeAllSockets();
+		}
 	}
 }
