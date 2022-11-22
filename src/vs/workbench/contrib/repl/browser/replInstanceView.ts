@@ -367,11 +367,22 @@ export class ReplInstanceView extends Disposable {
 		});
 	}
 
+	/**
+	 * Updates the rendered instance view to display the current state of the
+	 * language runtime.
+	 *
+	 * @param state The new runtime state
+	 */
 	private renderStateChange(state: RuntimeState) {
 		if (state === RuntimeState.Ready) {
-			const msg = new ReplStatusMessage(
-				'check-all', `${this._kernel.metadata.name} startup complete`);
-			msg.render(this._cellContainer);
+			// The language runtime is ready to execute code. If there's
+			// already a cell ready and awaiting input, leave it alone.
+			if (this._activeCell && this._activeCell.getState() === ReplCellState.ReplCellInput) {
+				return;
+			}
+
+			// Otherwise, add a new cell.
+			this.addCell(this._hadFocus);
 		}
 		else if (state === RuntimeState.Exited ||
 			state === RuntimeState.Offline) {
