@@ -17,6 +17,8 @@ interface ActionBarFindProps {
 	placeholder: string;
 	initialFindText?: string;
 	onFindTextChanged: (findText: string) => void;
+	onFindPrevious: () => void;
+	onFindNext: () => void;
 }
 
 /**
@@ -38,17 +40,19 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 
 	// Button find previous click handler.
 	const buttonFindPreviousClickHandler = () => {
-		console.log('Find previous was clicked');
+		props.onFindPrevious();
 	};
 
 	// Button find next click handler.
 	const buttonFindNextClickHandler = () => {
-		console.log('Find next was clicked');
+		props.onFindNext();
 	};
 
 	// Button clear click handler.
 	const buttonClearClickHandler = () => {
-		console.log(`Clear was clicked ${findText}`);
+		inputRef.current.value = '';
+		setFindText('');
+		props.onFindTextChanged('');
 	};
 
 	// Render.

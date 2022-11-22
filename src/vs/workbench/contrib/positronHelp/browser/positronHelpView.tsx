@@ -17,6 +17,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 
 export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
 
@@ -43,6 +44,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@ITelemetryService telemetryService: ITelemetryService,
+		@IPositronHelpService private readonly positronHelpService: IPositronHelpService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
@@ -75,7 +77,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
-				keybindingService={this.keybindingService} />
+				keybindingService={this.keybindingService}
+				positronHelpService={this.positronHelpService} />
 		);
 	}
 
