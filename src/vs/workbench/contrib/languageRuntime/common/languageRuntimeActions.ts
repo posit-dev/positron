@@ -80,6 +80,8 @@ export function registerLanguageRuntimeActions() {
 						// Start the runtime if there aren't any active
 						if (languageService.getActiveRuntimes().length < 1) {
 							languageService.startRuntime(runtime.metadata.id);
+						} else {
+							throw new Error('Only one language runtime can be active at a time.');
 						}
 						break;
 					}
