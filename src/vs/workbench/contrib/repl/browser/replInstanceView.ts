@@ -52,6 +52,9 @@ export class ReplInstanceView extends Disposable {
 	/** Whether we had focus when the last code execution occurred */
 	private _hadFocus: boolean = false;
 
+	/** The state of the kernel */
+	private _kernelState: RuntimeState = RuntimeState.Uninitialized;
+
 	constructor(private readonly _instance: IReplInstance,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService) {
@@ -374,14 +377,46 @@ export class ReplInstanceView extends Disposable {
 	 * @param state The new runtime state
 	 */
 	private renderStateChange(state: RuntimeState) {
-		if (state === RuntimeState.Ready) {
+		// Update kernel state
+		const oldState = this._kernelState;
+		this._kernelState = state;
+
+		if (state === RuntimeState.Starting) {
+			// If the kernel is entering the Starting state but was previously in
+			// the Exiting state, it must have restarted; otherwise it would have
+			// been in the Exited state.
+			//
+			// Consider: We may need a special state for "restarting" to
+			// distinguish it from "exiting".
+			if (oldState === RuntimeState.Exiting) {
+
+				// If we had an active cell waiting for input, clean it up so we
+				// can insert the status message beneath it.  A new cell will be
+				// created momentarily when the kernel finishes starting.
+				if (this._activeCell && this._activeCell.getState() === ReplCellState.ReplCellInput) {
+					this._hadFocus = this._activeCell.hasFocus();
+					this._activeCell.getDomNode().remove();
+					this._activeCell = undefined;
+				}
+				const msg = new ReplStatusMessage(
+					'refresh', `${this._kernel.metadata.name} restarting`);
+				msg.render(this._cellContainer);
+			}
+		}
+		else if (state === RuntimeState.Ready) {
 			// The language runtime is ready to execute code. If there's
 			// already a cell ready and awaiting input, leave it alone.
 			if (this._activeCell && this._activeCell.getState() === ReplCellState.ReplCellInput) {
 				return;
 			}
 
-			// Otherwise, add a new cell.
+			// Otherwise, we have just finished restarting. Add an informative
+			// message and a new cell to accept the first input in the new
+			// session.
+			const msg = new ReplStatusMessage(
+				'check-all', `${this._kernel.metadata.name} started`);
+			msg.render(this._cellContainer);
+
 			this.addCell(this._hadFocus);
 		}
 		else if (state === RuntimeState.Exited ||
@@ -408,6 +443,6 @@ export class ReplInstanceView extends Disposable {
 			}
 		}
 
-		this._scroller.scanDomNode();
+		this.scrollToBottom();
 	}
 }

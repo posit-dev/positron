@@ -80,6 +80,8 @@ export function registerLanguageRuntimeActions() {
 						// Start the runtime if there aren't any active
 						if (languageService.getActiveRuntimes().length < 1) {
 							languageService.startRuntime(runtime.metadata.id);
+						} else {
+							throw new Error('Only one language runtime can be active at a time.');
 						}
 						break;
 					}
@@ -140,6 +142,48 @@ export function registerLanguageRuntimeActions() {
 
 			// Interrupt the runtime
 			active[0].interrupt();
+		}
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LanguageRuntimeCommandId.Restart,
+				title: { value: nls.localize('workbench.action.language.runtime.restart', "Restart Active Language Runtime"), original: 'Restart Active Language Runtime' },
+				f1: true,
+				category,
+				icon: Codicon.refresh,
+				// TODO: Add 'keybinding' member with a default keybinding
+				description: {
+					description: 'workbench.action.language.runtime.restart',
+					args: [{
+						name: 'options',
+						schema: {
+							type: 'object'
+						}
+					}]
+				}
+			});
+		}
+
+		/**
+		 * Restarts the active language runtime
+		 *
+		 * @param accessor The service accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const languageService = accessor.get(ILanguageRuntimeService);
+			const logService = accessor.get(ILogService);
+			const active = languageService.getActiveRuntimes();
+			if (active.length < 1) {
+				throw new Error('Cannot restart; no language runtimes are active.');
+			}
+
+			if (active.length > 1) {
+				logService.warn('More than one language runtime is active. Restarting only the first.');
+			}
+
+			active[0].restart();
 		}
 	});
 }

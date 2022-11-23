@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 
@@ -122,7 +122,11 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
 		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, this._proxy);
 		this._runtimes.set(handle, adapter);
-		this._languageRuntimeService.registerRuntime(adapter);
+
+		// Consider - do we need a flag (on the API side) to indicate whether
+		// the runtime should be started implicitly?
+		this._languageRuntimeService.registerRuntime(adapter,
+			LanguageRuntimeStartupBehavior.Implicit);
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
