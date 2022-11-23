@@ -8,6 +8,10 @@
 	flex-direction: column;
 }
 
+.positron-help-action-bars-container {
+	height: min-content;
+}
+
 .positron-help-content {
 	flex-grow: 1;
 	margin-left: 20px;
