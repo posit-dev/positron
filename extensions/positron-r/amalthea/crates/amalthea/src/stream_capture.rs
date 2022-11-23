@@ -6,7 +6,7 @@
  *
  */
 
-use std::{sync::mpsc::SyncSender, os::unix::prelude::RawFd};
+use std::{sync::mpsc::SyncSender, os::unix::prelude::{RawFd, AsRawFd}};
 use log::{warn, trace};
 
 use crate::{error::Error, socket::iopub::IOPubMessage, wire::stream::{Stream, StreamOutput}};
@@ -38,8 +38,8 @@ impl StreamCapture {
         let mut poll_fds = [stdout_poll, stderr_poll];
         loop {
             trace!("Polling for output");
-            let fd = match nix::poll::poll(&mut poll_fds, 1000) {
-                Ok(fd) => fd,
+            let count = match nix::poll::poll(&mut poll_fds, 1000) {
+                Ok(c) => c,
                 Err(e) => {
                     if (e as i32) == nix::errno::Errno::EINTR as i32 {
                         break;
@@ -49,34 +49,47 @@ impl StreamCapture {
                 }
             };
 
-            // Read from the polled file descriptor (up to 1024 bytes)
-            let mut buf = [0; 1024];
-            let bytes = match nix::unistd::read(fd, &mut buf) {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    warn!("Error reading from stream (fd {}): {}", fd, e);
-                    continue;
-                }
-            };
-            trace!("Emitting stream data ({} bytes on {})", bytes, fd);
+            // No data available; likely timed out waiting for data. Try again.
+            if count == 0 {
+                continue;
+            }
 
-            // Coerce the file descriptor to a stream type
-            let stream = match fd {
-                fd if fd == stdout_fd => Stream::Stdout,
-                fd if fd == stderr_fd => Stream::Stderr,
-                _ => {
-                    warn!("Unknown file descriptor: {}", fd);
-                    continue;
-                }
-            };
+            // Loop through the poll fds and check for data.
+            for poll_fd in poll_fds.iter() {
+                if poll_fd.revents().unwrap().contains(nix::poll::PollFlags::POLLIN) {
+                    let fd: RawFd = poll_fd.as_raw_fd();
+                    let stream = if fd == stdout_fd {
+                        Stream::Stdout
+                    } else if fd == stderr_fd {
+                        Stream::Stderr
+                    } else {
+                        warn!("Unknown stream fd: {}", fd);
+                        continue;
+                    };
 
-            // Send the data to the IOPub socket
-            if let Err(err) = iopub_sender.send(IOPubMessage::Stream(StreamOutput{
-                stream,
-                text: String::from_utf8(buf[..bytes].to_vec()).unwrap(),
-            })) {
-                warn!("Error sending stream data to IOPub socket: {}", err);
-            };
+                    let mut buf = [0u8; 1024];
+                    let count = match nix::unistd::read(fd, &mut buf) {
+                        Ok(count) => count,
+                        Err(e) => {
+                            warn!("Error reading stream data: {}", e);
+                            continue;
+                        }
+                    };
+
+                    // No data available; likely timed out waiting for data. Try again.
+                    if count == 0 {
+                        continue;
+                    }
+
+                    let data = String::from_utf8_lossy(&buf[..count]).to_string();
+                    let output = StreamOutput{stream, text: data };
+                    let message = IOPubMessage::Stream(output);
+                    if let Err(e) = iopub_sender.send(message) {
+                        warn!("Error sending stream data to iopub: {}", e);
+                        continue;
+                    }
+                }
+            }
         };
         warn!("Stream capture thread exiting after interrupt");
         Ok(())

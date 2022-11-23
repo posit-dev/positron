@@ -124,12 +124,12 @@ impl log::Log for Logger {
         // Generate message to log.
         let message = format!("{}: {}", prefix, message);
 
-        // Write to stdout.
-        if record.level() == log::Level::Error {
-            eprintln!("{}", message);
-        } else {
-            println!("{}", message);
-        }
+        // Write to stdout. TODO: Reintroduce with an option to turn off.
+        // if record.level() == log::Level::Error {
+        //     eprintln!("{}", message);
+        // } else {
+        //     println!("{}", message);
+        // }
 
         // Also write to log file if enabled.
         if let Some(mutex) = self.mutex.as_ref() {
