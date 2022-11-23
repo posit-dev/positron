@@ -32,9 +32,4 @@ macro_rules! cstr {
         value.as_ptr() as *mut c_char
     }};
 
-    ($value:expr) => {{
-        use std::os::raw::c_char;
-        let value = $crate::join!($value, "\0");
-        value.as_ptr() as *mut c_char
-    }};
 }

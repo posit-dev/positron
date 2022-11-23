@@ -5,37 +5,51 @@
 //
 //
 
+use std::ffi::CStr;
+use std::os::raw::c_void;
+
 use libR_sys::*;
+use log::error;
+use log::info;
 use stdext::cstr;
 
-pub fn initialize() {
-    unsafe { register_methods() };
-}
+static mut R_ROUTINES : Vec<R_CallMethodDef> = Vec::new();
 
-#[no_mangle]
-pub extern "C" fn example() -> *mut std::os::raw::c_void {
-    panic!("I guess it worked!");
-}
+pub unsafe fn r_add_routine(name: &str, routine: *const (), nargs: i32) {
 
-pub unsafe fn register_methods() {
+    info!("Adding routine: {}", name);
+    let fun = std::mem::transmute::<*const (), unsafe extern "C" fn() -> *mut c_void>(routine as _);
 
-    let mut routines : Vec<R_CallMethodDef> = vec![];
-
-    // for testing
-    routines.push(R_CallMethodDef {
-        name: cstr!("rs_example"),
-        fun: Some(example),
-        numArgs: 0,
+    let name = Box::new(cstr!(name));
+    R_ROUTINES.push(R_CallMethodDef {
+        name: cstr!(name),
+        fun: Some(fun),
+        numArgs: nargs,
     });
 
+}
+
+pub unsafe fn r_register_routines() {
+
     // end with a null struct
-    routines.push(R_CallMethodDef {
+    R_ROUTINES.push(R_CallMethodDef {
         name: std::ptr::null(),
         fun: None,
         numArgs: 0,
     });
 
     let info = R_getEmbeddingDllInfo();
-    R_registerRoutines(info, std::ptr::null(), routines.as_ptr(), std::ptr::null(), std::ptr::null());
+    if info.is_null() {
+        error!("internal error: no embedding DllInfo available");
+        return;
+    }
+
+    for routine in R_ROUTINES.iter() {
+        let name = CStr::from_ptr(routine.name);
+        info!("Routine name: '{}'", name.to_string_lossy());
+    }
+
+    info!("Registering embedded routines: {:#?}", R_ROUTINES);
+    R_registerRoutines(info, std::ptr::null(), R_ROUTINES.as_ptr(), std::ptr::null(), std::ptr::null());
 
 }
