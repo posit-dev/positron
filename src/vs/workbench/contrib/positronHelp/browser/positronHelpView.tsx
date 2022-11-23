@@ -9,17 +9,17 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { PositronHelpActionBars } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActionBars';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { ICommandService } from 'vs/platform/commands/common/commands';
+import { PositronHelpActionBars } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActionBars';
 import { IHelpResult, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 
 /**
  * PositronHelpViewPane class.
