@@ -6,7 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { NotebookLanguageRuntime } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeNotebook';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, LanguageRuntimeStartupBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IWorkbenchContribution } from 'vs/workbench/common/contributions';
@@ -73,7 +73,8 @@ export class NotebookBridgeContribution extends Disposable implements IWorkbench
 		try {
 			this._languageRuntimeService.registerRuntime(this._instantiationService.createInstance(
 				NotebookLanguageRuntime,
-				kernel));
+				kernel),
+				LanguageRuntimeStartupBehavior.Explicit);
 		} catch (err) {
 			this._logService.warn(`Can't register notebook kernel ${kernel.id} as a language runtime: ${err}`);
 		}

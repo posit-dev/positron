@@ -11,12 +11,14 @@ pub mod exec;
 pub mod lock;
 pub mod object;
 pub mod protect;
+pub mod routines;
 pub mod test;
 pub mod utils;
 pub mod vector;
 
 pub fn initialize() {
     lock::initialize();
+    routines::initialize();
 }
 
 #[macro_export]

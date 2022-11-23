@@ -9,6 +9,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 export const enum LanguageRuntimeCommandId {
 	Select = 'workbench.action.languageRuntime.select',
 	Interrupt = 'workbench.action.languageRuntime.interrupt',
+	Restart = 'workbench.action.languageRuntime.restart',
 }
 
 export interface INotebookBridgeService {

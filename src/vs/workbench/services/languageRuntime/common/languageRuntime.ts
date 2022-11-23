@@ -4,7 +4,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -19,6 +19,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	/** A map of languages to the runtimes that can service that language  */
 	private readonly _runtimes: Map<String, ILanguageRuntime> = new Map();
+
+	/** A map of runtime IDs to the runtime's desired startup behavior */
+	private readonly _startupBehaviors: Map<String, LanguageRuntimeStartupBehavior> = new Map();
 
 	/** A map of all currently active runtimes. */
 	private readonly _activeRuntimes: ILanguageRuntime[] = [];
@@ -53,9 +56,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			return;
 		}
 
-		// Get all the runtimes that match the language
+		// Get all the runtimes that match the language and have implicit
+		// startup behavior
 		const runtimes = Array.from(this._runtimes.values()).filter(
-			runtime => runtime.metadata.language === language);
+			runtime =>
+				runtime.metadata.language === language &&
+				this._startupBehaviors.has(runtime.metadata.id) &&
+				this._startupBehaviors.get(runtime.metadata.id) ===
+				LanguageRuntimeStartupBehavior.Implicit);
 
 		// If there are no runtimes, elect the first one. This isn't random; the
 		// runtimes are sorted by priority when registered by the extension.
@@ -71,14 +79,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param runtime The runtime to register
 	 * @returns A disposable that unregisters the runtime
 	 */
-	registerRuntime(runtime: ILanguageRuntime): IDisposable {
+	registerRuntime(runtime: ILanguageRuntime,
+		startupBehavior: LanguageRuntimeStartupBehavior): IDisposable {
 		this._runtimes.set(runtime.metadata.id, runtime);
+		this._startupBehaviors.set(runtime.metadata.id, startupBehavior);
 		this._logService.trace(`Added new language runtime (${runtime.metadata.language}) ${runtime.metadata.language} (${runtime.metadata.id})`);
 
-		// If there's an active language that matches this runtime, see if
-		// there's already an active runtime for this language. If not, start
-		// the runtime right away.
-		if (this._activeLanguages.has(runtime.metadata.language)) {
+		// If the runtime allows for implicit startup, and there's an active
+		// language that matches this runtime, see if there's already an active
+		// runtime for this language. If not, start the runtime right away.
+		if (startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+			this._activeLanguages.has(runtime.metadata.language)) {
 			const active = this.getActiveLanguageRuntimes(runtime.metadata.language);
 			if (active.length === 0) {
 				this._logService.trace(`Language ${runtime.metadata.language} is active; automatically starting ${runtime.metadata.name}`);

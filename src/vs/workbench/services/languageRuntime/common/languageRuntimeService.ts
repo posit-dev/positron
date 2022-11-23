@@ -127,6 +127,14 @@ export enum LanguageRuntimeMessageType {
 	State = 'state',
 }
 
+export enum LanguageRuntimeStartupBehavior {
+	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+	Implicit = 'implicit',
+
+	/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+	Explicit = 'explicit',
+}
+
 export interface ILanguageRuntimeState extends ILanguageRuntimeMessage {
 	/** The new state */
 	state: RuntimeOnlineState;
@@ -202,9 +210,10 @@ export interface ILanguageRuntimeService {
 	 * Register a new language runtime
 	 *
 	 * @param runtime The LanguageRuntime to register
+	 * @param startupBehavior The desired startup behavior for the runtime
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
-	registerRuntime(runtime: ILanguageRuntime): IDisposable;
+	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
 	 * Returns the list of all registered runtimes
