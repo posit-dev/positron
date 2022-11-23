@@ -4,6 +4,7 @@
 
 import 'vs/css!./positronHelpView';
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
@@ -13,13 +14,16 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { PositronHelp } from 'vs/workbench/contrib/positronHelp/browser/positronHelp';
+import { PositronHelpActionBars } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActionBars';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IHelpResult, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 
+/**
+ * PositronHelpViewPane class.
+ */
 export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
 
 	// The PositronReactRenderer.
@@ -33,27 +37,31 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
 
+	// The help container - contains the entire help UI.
 	private _helpContainer!: HTMLElement;
 
-	private _helpToolbars!: HTMLElement;
+	// The help action bars container - contains the PositronHelpActionBars component.
+	private _helpActionBarsContainer!: HTMLElement;
 
+	// The help content that is currently being renderd.
 	private _helpContent!: HTMLElement;
 
 	private _helpResult!: IHelpResult;
 
+	// Constructor.
 	constructor(
 		options: IViewPaneOptions,
-		@IKeybindingService keybindingService: IKeybindingService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
-		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
+		@IKeybindingService keybindingService: IKeybindingService,
 		@IOpenerService openerService: IOpenerService,
-		@IThemeService themeService: IThemeService,
+		@IPositronHelpService private readonly positronHelpService: IPositronHelpService,
 		@ITelemetryService telemetryService: ITelemetryService,
-		@IPositronHelpService private readonly positronHelpService: IPositronHelpService
+		@IThemeService themeService: IThemeService,
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
@@ -85,34 +93,37 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	}
 
 	protected override renderBody(parent: HTMLElement): void {
+		// Call the base class's method.
 		super.renderBody(parent);
 
-		this._helpContainer = document.createElement('div');
-		this._helpContainer.className = 'positron-help-container';
+		// Append the help container.
+		this._helpContainer = DOM.$('.positron-help-container');
 		parent.appendChild(this._helpContainer);
 
-		this._helpToolbars = document.createElement('div');
-		this._helpContainer.appendChild(this._helpToolbars);
+		// Append the help action bars container.
+		this._helpActionBarsContainer = DOM.$('.positron-help-action-bars-container');
+		this._helpContainer.appendChild(this._helpActionBarsContainer);
 
-		// Render the Positron top action bar component.
-		this.positronReactRenderer = new PositronReactRenderer(this._helpToolbars);
+		// Render the Positron help action bars component.
+		this.positronReactRenderer = new PositronReactRenderer(this._helpActionBarsContainer);
 		this.positronReactRenderer.render(
-			<PositronHelp
-				reactComponentContainer={this}
+			<PositronHelpActionBars
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
-				positronHelpService={this.positronHelpService} />
+				positronHelpService={this.positronHelpService}
+				reactComponentContainer={this} />
 		);
 
-		this._helpContent = document.createElement('div');
-		this._helpContent.className = 'positron-help-content';
+		// Append the help content.
+		this._helpContent = DOM.$('.positron-help-content');
 		this._helpContainer.appendChild(this._helpContent);
 	}
 
 	override layoutBody(height: number, width: number): void {
+		// Call the base class's method.
 		super.layoutBody(height, width);
 
 		// Raise the onSizeChanged event.

@@ -34,11 +34,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	}
 
 	openHelpMarkdown(markdown: MarkdownString) {
-		console.log(`+++++++++++++++ PositronHelpService openHelpMarkdown ${markdown}`);
-
 		const result = this._markdownRenderer.render(markdown);
-		console.log('Rendered result:');
-		console.log(result);
 		this._onRenderHelp.fire(result);
 	}
 
