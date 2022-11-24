@@ -7,7 +7,7 @@
  */
 
 use std::{sync::mpsc::SyncSender, os::unix::prelude::{RawFd, AsRawFd}};
-use log::{warn, trace};
+use log::warn;
 
 use crate::{error::Error, socket::iopub::IOPubMessage, wire::stream::{Stream, StreamOutput}};
 
@@ -15,6 +15,8 @@ pub struct StreamCapture {
     iopub_sender: SyncSender<IOPubMessage>,
 }
 
+/// StreamCapture captures the output of a stream and sends it to the IOPub
+/// socket.
 impl StreamCapture {
     pub fn new(
         iopub_sender: SyncSender<IOPubMessage>,
@@ -24,23 +26,35 @@ impl StreamCapture {
         }
     }
 
+    /// Listens to stdout and stderr and sends the output to the IOPub socket.
+    /// Does not return.
     pub fn listen(&self) {
         if let Err(err) = Self::output_capture(self.iopub_sender.clone()) {
             warn!("Error capturing output; stdout/stderr won't be forwarded: {}", err);
         };
     }
 
+    /// Captures stdout and stderr streams
     fn output_capture(iopub_sender: SyncSender<IOPubMessage>) -> Result<(), Error> {
+        // Create redirected file descriptors for stdout and stderr. These are
+        // pipes into which stdout/stderr are redirected.
         let stdout_fd = Self::redirect_fd(nix::libc::STDOUT_FILENO)?;
         let stderr_fd = Self::redirect_fd(nix::libc::STDERR_FILENO)?;
+
+        // Create poll descriptors for both streams. These are used as
+        // arguments to a poll(2) wrapper.
         let stdout_poll = nix::poll::PollFd::new(stdout_fd, nix::poll::PollFlags::POLLIN);
         let stderr_poll = nix::poll::PollFd::new(stderr_fd, nix::poll::PollFlags::POLLIN);
         let mut poll_fds = [stdout_poll, stderr_poll];
+
         loop {
-            trace!("Polling for output");
+            // Wait for data to be available on either stdout or stderr.  This
+            // blocks until data is available, the streams are interrupted, or
+            // the timeout occurs.
             let count = match nix::poll::poll(&mut poll_fds, 1000) {
                 Ok(c) => c,
                 Err(e) => {
+                    // If the poll was interrupted, stop listening.
                     if (e as i32) == nix::errno::Errno::EINTR as i32 {
                         break;
                     }
@@ -54,10 +68,11 @@ impl StreamCapture {
                 continue;
             }
 
-            // Loop through the poll fds and check for data.
+            // See which stream has data available.
             for poll_fd in poll_fds.iter() {
                 if poll_fd.revents().unwrap().contains(nix::poll::PollFlags::POLLIN) {
                     let fd: RawFd = poll_fd.as_raw_fd();
+                    // Look up the stream name from its file descriptor.
                     let stream = if fd == stdout_fd {
                         Stream::Stdout
                     } else if fd == stderr_fd {
@@ -67,27 +82,8 @@ impl StreamCapture {
                         continue;
                     };
 
-                    let mut buf = [0u8; 1024];
-                    let count = match nix::unistd::read(fd, &mut buf) {
-                        Ok(count) => count,
-                        Err(e) => {
-                            warn!("Error reading stream data: {}", e);
-                            continue;
-                        }
-                    };
-
-                    // No data available; likely timed out waiting for data. Try again.
-                    if count == 0 {
-                        continue;
-                    }
-
-                    let data = String::from_utf8_lossy(&buf[..count]).to_string();
-                    let output = StreamOutput{stream, text: data };
-                    let message = IOPubMessage::Stream(output);
-                    if let Err(e) = iopub_sender.send(message) {
-                        warn!("Error sending stream data to iopub: {}", e);
-                        continue;
-                    }
+                    // Read the data from the stream and send it to iopub.
+                    Self::fd_to_iopub(fd, stream, iopub_sender.clone());
                 }
             }
         };
@@ -95,6 +91,33 @@ impl StreamCapture {
         Ok(())
     }
 
+    /// Reads data from a file descriptor and sends it to the IOPub socket.
+    fn fd_to_iopub(fd: RawFd, stream: Stream, iopub_sender: SyncSender<IOPubMessage>) {
+        // Read up to 1024 bytes from the stream into `buf`
+        let mut buf = [0u8; 1024];
+        let count = match nix::unistd::read(fd, &mut buf) {
+            Ok(count) => count,
+            Err(e) => {
+                warn!("Error reading stream data: {}", e);
+                return;
+            }
+        };
+
+        // No bytes read? Nothing to send.
+        if count == 0 {
+            return;
+        }
+
+        // Convert the UTF-8 bytes to a string.
+        let data = String::from_utf8_lossy(&buf[..count]).to_string();
+        let output = StreamOutput{stream, text: data };
+
+        // Create and send the IOPub
+        let message = IOPubMessage::Stream(output);
+        if let Err(e) = iopub_sender.send(message) {
+            warn!("Error sending stream data to iopub: {}", e);
+        }
+    }
 
     /// Redirects a standard output stream to a pipe and returns the read end of
     /// the pipe.
