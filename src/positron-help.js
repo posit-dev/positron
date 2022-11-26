@@ -22,10 +22,12 @@ window.addEventListener('message', (event) => {
 	if (event.data.command === 'find') {
 		if (window.find) {
 			findText = event.data.findText;
+			console.log(`FDIND '${findText}'`);
 			if (findText) {
-				console.log(`FDIND '${findText}'`);
 				window.find(findText, false, false, true, false, true);
 				window.focus();
+			} else {
+				window.getSelection().removeAllRanges();
 			}
 		}
 	} else if (event.data.command === 'find-previous') {
@@ -35,10 +37,6 @@ window.addEventListener('message', (event) => {
 	} else if (event.data.command === 'find-next') {
 		if (window.find) {
 			window.find(findText, false, false, false, false, true);
-		}
-	} else if (event.data.command === 'cancel-find') {
-		if (window.find) {
-			window.find();
 		}
 	}
 }, false);
