@@ -167,7 +167,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				onFind={findHandler}
 				onFindPrevious={findPrevious}
 				onFindNext={findNext}
-				onCancelFind={() => console.log('++++++++++++++++')}
+				onCancelFind={() => findHandler('')}
 			/>
 		);
 
