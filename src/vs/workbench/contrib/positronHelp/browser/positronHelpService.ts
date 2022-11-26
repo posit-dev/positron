@@ -10,6 +10,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { IMarkdownRenderResult, MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
+import { FileAccess } from 'vs/base/common/network';
 
 // The TrustedTypePolicy for the Positron help renderer.
 export const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -17,7 +18,9 @@ export const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronH
 	createScript: value => value
 });
 
-const monacoBaseUrl = MonacoEnvironment && MonacoEnvironment.baseUrl ? MonacoEnvironment.baseUrl : '../../../../';
+//const baseUrl = '../../../../';
+
+const baseUrl = './oss-dev/static/out/';
 
 /**
  * PositronHelpService class.
@@ -48,6 +51,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		super();
 		this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
 		this._store.add(this._markdownRenderer);
+
+		const yack = FileAccess.asBrowserUri('positron-help.js');
+		console.log(`we would look in ${yack}`);
 	}
 
 	/**
@@ -60,7 +66,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			return;
 		}
 
-		console.log(monacoBaseUrl);
+		console.log(baseUrl);
 
 		const markdownRenderResult = this._markdownRenderer.render(markdown);
 		try {
@@ -136,7 +142,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 						height: inherit;
 					}
 				</style>
-				<script src="${monacoBaseUrl}positron-help.js"></script>
+				<script src="${FileAccess.asBrowserUri('positron-help.js')}"></script>
 			</head>
 			<body>
 				<div>Hello</div>
