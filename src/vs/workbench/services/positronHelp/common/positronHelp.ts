@@ -23,13 +23,5 @@ export interface IPositronHelpService {
 
 	openHelpMarkdown(markdown: MarkdownString): void;
 
-	find(findText: string): void;
-
 	openHelpURL(url: string): void;
-
-	findTextChanged(findText: string): void;
-
-	findPrevious(): void;
-
-	findNext(): void;
 }
