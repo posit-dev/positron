@@ -4,24 +4,41 @@
 
 console.log('POSITRON HELP SCRIPT LOADED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
 
-const findText = 'Here is some bold text';
+// The find text.
+let findText = undefined;
 
 window.addEventListener('load', function () {
-	console.log('The window loaded!!');
 	if (window.find) {
-		console.log('The window has a find method!');
-		console.log(window.find);
-		const result = window.find('Here is some bold text');
-		console.log(`Find result is ${result}`);
-		console.log(window.origin);
+		console.log('The window has a find method.');
 	}
 });
 
 window.addEventListener('message', (event) => {
-	console.log(`The window received a message! ${event.data}`);
-	if (event.data === 'find-previous') {
-		window.find(findText, false, true, true, false, true);
-	} else if (event.data === 'find-next') {
-		window.find(findText, false, false, true, false, true);
+	console.log('The window received a message!');
+	console.log(event.data);
+
+	// syntax : window.find(aString, aCaseSensitive, aBackwards, aWrapAround, aWholeWord, aSearchInFrames, aShowDialog);
+
+	if (event.data.command === 'find') {
+		if (window.find) {
+			findText = event.data.findText;
+			if (findText) {
+				console.log(`FDIND '${findText}'`);
+				window.find(findText, false, false, true, false, true);
+				window.focus();
+			}
+		}
+	} else if (event.data.command === 'find-previous') {
+		if (window.find) {
+			window.find(findText, false, true, false, false, true);
+		}
+	} else if (event.data.command === 'find-next') {
+		if (window.find) {
+			window.find(findText, false, false, false, false, true);
+		}
+	} else if (event.data.command === 'cancel-find') {
+		if (window.find) {
+			window.find();
+		}
 	}
 }, false);

@@ -18,10 +18,6 @@ export const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronH
 	createScript: value => value
 });
 
-//const baseUrl = '../../../../';
-
-const baseUrl = './oss-dev/static/out/';
-
 /**
  * PositronHelpService class.
  */
@@ -51,9 +47,6 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		super();
 		this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
 		this._store.add(this._markdownRenderer);
-
-		const yack = FileAccess.asBrowserUri('positron-help.js');
-		console.log(`we would look in ${yack}`);
 	}
 
 	/**
@@ -65,8 +58,6 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		if (!ttPolicyPositronHelp) {
 			return;
 		}
-
-		console.log(baseUrl);
 
 		const markdownRenderResult = this._markdownRenderer.render(markdown);
 		try {
@@ -109,24 +100,13 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this._onRenderHelp.fire(ttPolicyPositronHelp.createHTML(this._markdownRenderResult.element.innerHTML.replace(regex, '<mark>$&</mark>')));
 	}
 
-	findTextChanged(findText: string) {
-		console.log(`+++++++++++++++ PositronHelpService findTextChanged ${findText}`);
-	}
-
-	findPrevious() {
-		console.log('+++++++++++++++ PositronHelpService findPrevious');
-	}
-
-	findNext() {
-		console.log('+++++++++++++++ PositronHelpService findNext');
-	}
-
 	/**
 	 * Renders the help document.
 	 * @param helpContent The help content.
 	 * @returns The help document.
 	 */
 	renderHelpDocument(helpContent: string): string {
+		// Create the nonce.
 		const nonce = generateUuid();
 
 		return `<!DOCTYPE html>
@@ -136,6 +116,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src https:; script-src 'self'; style-src 'nonce-${nonce}';">
 				<style nonce="${nonce}">
 					body {
+						background: white;
 						display: flex;
 						flex-direction: column;
 						padding: 0;
