@@ -17,3 +17,9 @@
 	margin-left: 20px;
 	overflow-y: scroll;
 }
+
+.positron-help-frame {
+	border: none;
+	flex-grow: 1;
+	overflow-y: scroll;
+}
