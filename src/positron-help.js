@@ -6,6 +6,7 @@ console.log('POSITRON HELP SCRIPT LOADED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
 
 // The find text.
 let findText = undefined;
+let results = false;
 
 window.addEventListener('load', function () {
 	if (window.find) {
@@ -14,29 +15,26 @@ window.addEventListener('load', function () {
 });
 
 window.addEventListener('message', (event) => {
-	console.log('The window received a message!');
-	console.log(event.data);
-
-	// syntax : window.find(aString, aCaseSensitive, aBackwards, aWrapAround, aWholeWord, aSearchInFrames, aShowDialog);
-
-	if (event.data.command === 'find') {
-		if (window.find) {
+	if (window.find) {
+		if (event.data.command === 'find') {
 			findText = event.data.findText;
-			console.log(`FDIND '${findText}'`);
-			if (findText) {
-				window.find(findText, false, false, true, false, true);
+			results = findText && window.find(findText, false, false, true, false, true);
+
+			if (results) {
 				window.focus();
 			} else {
 				window.getSelection().removeAllRanges();
 			}
-		}
-	} else if (event.data.command === 'find-previous') {
-		if (window.find) {
-			window.find(findText, false, true, false, false, true);
-		}
-	} else if (event.data.command === 'find-next') {
-		if (window.find) {
-			window.find(findText, false, false, false, false, true);
+		} else if (event.data.command === 'find-previous') {
+			if (results) {
+				window.find(findText, false, true, false, false, true);
+				window.focus();
+			}
+		} else if (event.data.command === 'find-next') {
+			if (results) {
+				window.find(findText, false, false, false, false, true);
+				window.focus();
+			}
 		}
 	}
 }, false);
