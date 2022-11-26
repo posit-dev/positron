@@ -195,7 +195,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
 		if (this._helpIFrame?.contentWindow) {
 			this._helpIFrame.contentWindow.postMessage(positronHelpCommand);
-			this._helpIFrame.contentWindow.focus();
 		}
 	}
 }
