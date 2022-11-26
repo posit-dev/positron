@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronHelp';
+import 'vs/css!./positronHelpActions';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -27,9 +27,9 @@ const kPaddingLeft = 14;
 const kPaddingRight = 4;
 
 /**
- * PositronHelpActionBarsProps interface.
+ * PositronHelpActionsProps interface.
  */
-export interface PositronHelpActionBarsProps {
+export interface PositronHelpActionsProps {
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
 	contextKeyService: IContextKeyService;
@@ -37,13 +37,19 @@ export interface PositronHelpActionBarsProps {
 	keybindingService: IKeybindingService;
 	positronHelpService: IPositronHelpService;
 	reactComponentContainer: IReactComponentContainer;
+
+	onPreviousTopic: () => void;
+	onNextTopic: () => void;
+	onFind: (findText: string) => void;
+	onFindPrevious: () => void;
+	onFindNext: () => void;
 }
 
 /**
- * PositronHelpActionBars component.
- * @param props A PositronHelpActionBarsProps that contains the component properties.
+ * PositronHelpActions component.
+ * @param props A PositronHelpActionsProps that contains the component properties.
  */
-export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActionBarsProps>) => {
+export const PositronHelpActions = (props: PropsWithChildren<PositronHelpActionsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
 	const [alternateFind, setAlternateFind] = useState(false);
@@ -75,16 +81,6 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Previous topic handler.
-	const previousTopicHandler = () => {
-
-	};
-
-	// Next topic handler.
-	const nextTopicHandler = () => {
-
-	};
-
 	// Home handler.
 	const homeHandler = () => {
 		props.positronHelpService.openHelpMarkdown(new MarkdownString(
@@ -97,26 +93,26 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 		setFindText(findText);
 	};
 
-	// Find previous handler.
-	const findPreviousHandler = () => {
-		props.positronHelpService.findPrevious();
-	};
+	// // Find previous handler.
+	// const findPreviousHandler = () => {
+	// 	props.positronHelpService.findPrevious();
+	// };
 
-	// Find next handler.
-	const findNextHandler = () => {
-		props.positronHelpService.findNext();
-	};
+	// // Find next handler.
+	// const findNextHandler = () => {
+	// 	props.positronHelpService.findNext();
+	// };
 
 	// Render.
 	return (
 		<div className='positron-help'>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={previousTopicHandler} />
-					<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} onClick={nextTopicHandler} />
+					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={props.onPreviousTopic} />
+					<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} onClick={props.onNextTopic} />
 					<ActionBarButton iconId='positron-home' tooltip={localize('positronShowPositronHelp', "Show Positron help")} onClick={homeHandler} />
 					<ActionBarSeparator />
-					<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
+					<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} onClick={() => props.positronHelpService.find(findText)} />
 				</PositronActionBar>
 				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={!alternateFind} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarButton ref={historyButtonRef} text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
@@ -126,8 +122,8 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
 							onFindTextChanged={findTextChangedHandler}
-							onFindPrevious={findPreviousHandler}
-							onFindNext={findNextHandler} />
+							onFindPrevious={() => props.onFindPrevious()}
+							onFindNext={() => props.onFindNext()} />
 					)}
 				</PositronActionBar>
 				{alternateFind && (
@@ -137,8 +133,8 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
 							onFindTextChanged={findTextChangedHandler}
-							onFindPrevious={findPreviousHandler}
-							onFindNext={findNextHandler} />
+							onFindPrevious={() => props.onFindPrevious()}
+							onFindNext={() => props.onFindNext()} />
 					</PositronActionBar>
 				)}
 			</PositronActionBarContextProvider>
