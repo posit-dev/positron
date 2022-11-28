@@ -149,7 +149,8 @@ Available options:
 --connection_file FILE   Start the kernel with the given JSON connection file
                          (see the Jupyter kernel documentation for details)
 --version                Print the version of Ark
---log FILE               Log to the given file
+--log FILE               Log to the given file (if not specified, stdout/stderr
+                         will be used)
 --install                Install the kernel spec for Ark
 --help                   Print this help message
 "#

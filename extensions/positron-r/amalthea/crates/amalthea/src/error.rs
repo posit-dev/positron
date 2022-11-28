@@ -37,6 +37,7 @@ pub enum Error {
     ReceiveError(String),
     ZmqError(String, zmq::Error),
     CannotLockSocket(String, String),
+    SysError(String, nix::Error),
 }
 
 impl fmt::Display for Error {
@@ -161,6 +162,9 @@ impl fmt::Display for Error {
             }
             Error::CannotLockSocket(name, op) => {
                 write!(f, "Cannot lock ZeroMQ socket '{}' for {}", name, op)
+            }
+            Error::SysError(context, err) => {
+                write!(f, "{} failed: system/libc error '{}'", context, err)
             }
         }
     }
