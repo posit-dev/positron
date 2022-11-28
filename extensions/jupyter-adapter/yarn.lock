@@ -81,6 +81,11 @@
   dependencies:
     "@types/node" "*"
 
+"@types/tail@^2.2.1":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@types/tail/-/tail-2.2.1.tgz#ca8d8ea542cf3fefbdac9e8f131ae04990596f1e"
+  integrity sha512-j75Gs5MiIpNR14wztQ4vtViUqxZi+lcgflyXC7P9iMgNnMab7XcV5p+2590IO3njsWWn5l8C+55ILk2CDDyaHg==
+
 "@types/uuid@^8.3.3":
   version "8.3.4"
   resolved "https://registry.yarnpkg.com/@types/uuid/-/uuid-8.3.4.tgz#bd86a43617df0594787d38b735f55c805becf1bc"
@@ -1084,6 +1089,11 @@ supports-color@^7.1.0:
   integrity sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==
   dependencies:
     has-flag "^4.0.0"
+
+tail@^2.2.4:
+  version "2.2.4"
+  resolved "https://registry.yarnpkg.com/tail/-/tail-2.2.4.tgz#90dd4c5a174a3fa39dcb65a1df1950a4a0093a41"
+  integrity sha512-PX8klSxW1u3SdgDrDeewh5GNE+hkJ4h02JvHfV6YrHqWOVJ88nUdSQqtsUf/gWhgZlPAws3fiZ+F1f8euspcuQ==
 
 tar@^6.0.5, tar@^6.1.11, tar@^6.1.2:
   version "6.1.11"

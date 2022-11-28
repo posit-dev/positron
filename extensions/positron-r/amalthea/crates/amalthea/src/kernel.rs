@@ -18,6 +18,7 @@ use crate::socket::iopub::IOPubMessage;
 use crate::socket::shell::Shell;
 use crate::socket::socket::Socket;
 use crate::socket::stdin::Stdin;
+use crate::stream_capture::StreamCapture;
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -66,7 +67,8 @@ impl Kernel {
             self.connection.endpoint(self.connection.shell_port),
         )?;
         let shell_clone = shell_handler.clone();
-        thread::spawn(move || Self::shell_thread(shell_socket, iopub_sender, shell_clone));
+        let iopub_sender_clone = iopub_sender.clone();
+        thread::spawn(move || Self::shell_thread(shell_socket, iopub_sender_clone, shell_clone));
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to
         // the client. IOPub only broadcasts messages, so it listens to other
@@ -106,6 +108,9 @@ impl Kernel {
         )?;
         let shell_clone = shell_handler.clone();
         thread::spawn(move || Self::stdin_thread(stdin_socket, shell_clone));
+
+        // Create the thread that handles stdout and stderr
+        thread::spawn(move || Self::output_capture_thread(iopub_sender));
 
         // Create the Control ROUTER/DEALER socket
         let control_socket = Socket::new(
@@ -164,12 +169,22 @@ impl Kernel {
         Ok(())
     }
 
+    /// Starts the stdin thread.
     fn stdin_thread(
         socket: Socket,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
     ) -> Result<(), Error> {
         let stdin = Stdin::new(socket, shell_handler);
         stdin.listen();
+        Ok(())
+    }
+
+    /// Starts the output capture thread.
+    fn output_capture_thread(
+        iopub_sender: SyncSender<IOPubMessage>,
+    ) -> Result<(), Error> {
+        let output_capture = StreamCapture::new(iopub_sender);
+        output_capture.listen();
         Ok(())
     }
 }

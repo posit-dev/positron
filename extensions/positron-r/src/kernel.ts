@@ -109,7 +109,9 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 		// Create a kernel spec for this R installation
 		const kernelSpec = {
-			'argv': [kernelPath, '--connection_file', '{connection_file}'],
+			'argv': [kernelPath,
+				'--connection_file', '{connection_file}',
+				'--log', '{log_file}'],
 			'display_name': `R: ${rHome.rHome}`, // eslint-disable-line
 			'language': 'r',
 			'env': {
