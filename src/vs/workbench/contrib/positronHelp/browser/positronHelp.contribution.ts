@@ -54,13 +54,10 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 class PositronHelpContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
-		@IPositronHelpService private readonly positronHelpService: IPositronHelpService,
+		@IPositronHelpService positronHelpService: IPositronHelpService,
 	) {
 		super();
 		this.registerActions();
-
-		// Temp.
-		console.log(this.positronHelpService);
 	}
 
 	private registerActions(): void {

@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
+import { FileAccess } from 'vs/base/common/network';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { MarkdownString } from 'vs/base/common/htmlContent';
@@ -10,7 +11,6 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { IMarkdownRenderResult, MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
-import { FileAccess } from 'vs/base/common/network';
 
 // The TrustedTypePolicy for the Positron help renderer.
 export const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -109,7 +109,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		// Create the nonce.
 		const nonce = generateUuid();
 
-		return `<!DOCTYPE html>
+		// Render the help document.
+		return `
+		<!DOCTYPE html>
 		<html>
 			<head>
 				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
