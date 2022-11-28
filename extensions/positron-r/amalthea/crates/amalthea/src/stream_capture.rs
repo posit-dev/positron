@@ -70,7 +70,16 @@ impl StreamCapture {
 
             // See which stream has data available.
             for poll_fd in poll_fds.iter() {
-                if poll_fd.revents().unwrap().contains(nix::poll::PollFlags::POLLIN) {
+
+                // Skip this fd if it doesn't have any new events.
+                let revents = match poll_fd.revents() {
+                    Some(r) => r,
+                    None => continue,
+                };
+
+                // If the stream has input (POLLIN), read it and send it to the
+                // IOPub socket.
+                if revents.contains(nix::poll::PollFlags::POLLIN) {
                     let fd: RawFd = poll_fd.as_raw_fd();
                     // Look up the stream name from its file descriptor.
                     let stream = if fd == stdout_fd {
