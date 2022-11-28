@@ -14,6 +14,7 @@ import { JupyterExecuteInput } from './JupyterExecuteInput';
 import { JupyterKernelInfoReply } from './JupyterKernelInfoReply';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterErrorReply } from './JupyterErrorReply';
+import { JupyterStreamOutput } from './JupyterStreamOutput';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -196,6 +197,9 @@ export class LanguageRuntimeAdapter
 			case 'execute_input':
 				this.onExecuteInput(msg, message as JupyterExecuteInput);
 				break;
+			case 'stream':
+				this.onStreamOutput(msg, message as JupyterStreamOutput);
+				break;
 			case 'status':
 				this.onKernelStatus(msg, message as JupyterKernelStatus);
 				break;
@@ -249,6 +253,26 @@ export class LanguageRuntimeAdapter
 			parent_id: message.originId,
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any
+		} as positron.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Converts a Jupyter stream message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The stream message
+	 */
+	onStreamOutput(message: JupyterMessagePacket, data: JupyterStreamOutput) {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			type: data.name === 'stderr' ?
+				positron.LanguageRuntimeMessageType.Error :
+				positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': data.text
+			} as any
 		} as positron.LanguageRuntimeOutput);
 	}
 
