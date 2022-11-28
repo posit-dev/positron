@@ -18,7 +18,6 @@ pub mod vector;
 
 pub fn initialize() {
     lock::initialize();
-    routines::initialize();
 }
 
 #[macro_export]
