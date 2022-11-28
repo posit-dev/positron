@@ -44,6 +44,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tokio",
  "uuid",
  "zmq",
 ]
@@ -92,6 +93,7 @@ dependencies = [
  "libc",
  "log",
  "nix",
+ "once_cell",
  "parking_lot",
  "regex",
  "ropey",
@@ -703,6 +705,7 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 name = "harp"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "libR-sys",
  "log",
  "stdext",

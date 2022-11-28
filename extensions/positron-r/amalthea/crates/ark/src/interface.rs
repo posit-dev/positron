@@ -8,7 +8,6 @@
 use amalthea::socket::iopub::IOPubMessage;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
-use harp::routines::r_add_routine;
 use harp::routines::r_register_routines;
 use harp::utils::r_get_option;
 use libR_sys::*;
