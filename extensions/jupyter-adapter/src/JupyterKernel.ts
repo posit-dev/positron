@@ -28,6 +28,7 @@ import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { StringDecoder } from 'string_decoder';
+import { Tail } from 'tail';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -38,6 +39,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/** The log file (path to a text file) */
 	private _logFile: string | null;
+	private _logTail: any;
 
 	/** The kernel's current state */
 	private _status: positron.RuntimeState;
@@ -68,6 +70,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._process = null;
 		this._connectionFile = null;
 		this._logFile = null;
+		this._logTail = null;
 
 		this._control = null;
 		this._shell = null;
@@ -148,10 +151,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				return this._connectionFile;
 			}
 
-			// Replace {log_file} with the log file path (not all kernels
-			// support this)
+			// Replace {log_file} with the log file path. Not all kernels
+			// have this argument.
 			if (arg === '{log_file}') {
+				// Create output log file
 				this._logFile = path.join(kerneldir, 'output.log');
+
+				// Ensure the file exists
+				fs.writeFileSync(this._logFile, '');
+
 				return this._logFile;
 			}
 
@@ -192,6 +200,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		});
 		this._process.once('spawn', () => {
 			this._channel.appendLine(`${this._spec.display_name} kernel started`);
+
+			// Begin streaming logs
+			output.appendLine(`${this._spec.display_name} kernel started (pid ${this._process!.pid})`);
+			this.streamLogFileToChannel(output);
+
 			this._heartbeat?.socket().once('message', (msg: string) => {
 
 				this._channel.appendLine('Receieved initial heartbeat: ' + msg);
@@ -433,6 +446,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	public dispose() {
+		// Clean up file watcher for log file
+		if (this._logTail) {
+			this._logTail.close();
+		}
+
 		// Clean up connection and log files
 		if (this._connectionFile) {
 			fs.rmSync(this._connectionFile);
@@ -577,5 +595,31 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// now-defunct kernel
 			this.disposeAllSockets();
 		}
+	}
+
+	/**
+	 * Streams a log file to the output channel
+	 */
+	private streamLogFileToChannel(output: vscode.OutputChannel) {
+		output.appendLine('Streaming log file: ' + this._logFile);
+		try {
+			this._logTail = new Tail(this._logFile!,
+				{ fromBeginning: true, useWatchFile: true });
+		} catch (err) {
+			this._channel.appendLine(`Error streaming log file ${this._logFile}: ${err}`);
+			return;
+		}
+
+		// Establish a listener for new lines in the log file
+		this._logTail.on('line', function (data: string) {
+			output.appendLine(data);
+		});
+		this._logTail.on('error', function (error: string) {
+			output.appendLine(error);
+		});
+
+		// Start watching the log file. This streams output until the kernel is
+		// disposed.
+		this._logTail.watch();
 	}
 }
