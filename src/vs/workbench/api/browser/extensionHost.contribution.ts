@@ -75,6 +75,7 @@ import './mainThreadAuthentication';
 import './mainThreadTimeline';
 import './mainThreadTesting';
 import './mainThreadSecretState';
+import './mainThreadProfilContentHandlers';
 
 // --- Begin Positron ---
 import './positron/mainThreadLanguageRuntime';
