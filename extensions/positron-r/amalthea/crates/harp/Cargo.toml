@@ -7,6 +7,6 @@ Tools for integrating R and Rust.
 """
 
 [dependencies]
-libR-sys = "0.3.0"
+libR-sys = { git = "https://github.com/kevinushey/libR-sys", branch = "feature/dynamic-lookup" }
 log = "0.4.17"
 stdext = { path = "../stdext" }
