@@ -33,3 +33,18 @@ macro_rules! cstr {
     }};
 
 }
+
+#[cfg(test)]
+mod tests {
+
+    use std::os::raw::c_char;
+
+    use super::*;
+
+    #[test]
+    fn test_cstr() {
+        let string = cstr!("Hello");
+        assert_eq!(string, b"Hello\0".as_ptr() as *mut c_char);
+    }
+}
+

@@ -6,5 +6,5 @@
 #
 
 options(browser = function(url) {
-    .Call("rs_browseUrl", package = "(embedding)")
+    .Call("ps_browseUrl", package = "(embedding)")
 })

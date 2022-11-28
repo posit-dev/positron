@@ -43,6 +43,8 @@ use crate::lsp::signature_help::signature_help;
 use crate::lsp::symbols;
 use crate::request::Request;
 
+pub static CLIENT: OnceCell<Client> = OnceCell::new();
+
 macro_rules! backend_trace {
 
     ($self: expr, $($rest: expr),*) => {{
@@ -113,25 +115,23 @@ impl LanguageServer for Backend {
         r_lock! { modules::initialize() };
 
         // initialize the set of known workspaces
-        if let Ok(mut workspace) = self.workspace.lock() {
+        let mut workspace = self.workspace.lock();
 
-            // initialize the workspace folders
-            let mut folders: Vec<String> = Vec::new();
-            if let Some(workspace_folders) = params.workspace_folders {
-                for folder in workspace_folders.iter() {
-                    workspace.folders.push(folder.uri.clone());
-                    if let Ok(path) = folder.uri.to_file_path() {
-                        if let Some(path) = path.to_str() {
-                            folders.push(path.to_string());
-                        }
+        // initialize the workspace folders
+        let mut folders: Vec<String> = Vec::new();
+        if let Some(workspace_folders) = params.workspace_folders {
+            for folder in workspace_folders.iter() {
+                workspace.folders.push(folder.uri.clone());
+                if let Ok(path) = folder.uri.to_file_path() {
+                    if let Some(path) = path.to_str() {
+                        folders.push(path.to_string());
                     }
                 }
             }
-
-            // start indexing
-            indexer::start(folders);
-
         }
+
+        // start indexing
+        indexer::start(folders);
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -578,14 +578,23 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     debug!("Connecting to LSP client at '{}'", address);
     let stream = TcpStream::connect(address).await.unwrap();
     let (read, write) = tokio::io::split(stream);
+
     #[cfg(feature = "runtime-agnostic")]
     let (read, write) = (read.compat(), write.compat_write());
 
-    let (service, socket) = LspService::new(|client| Backend {
-        client: client,
-        documents: DOCUMENT_INDEX.clone(),
-        workspace: Arc::new(Mutex::new(Workspace::default())),
-        channel: channel,
+    let (service, socket) = LspService::new(|client| {
+
+        // initialize global client (needs to be visible for R routines)
+        CLIENT.set(client.clone()).unwrap();
+
+        // create backend
+        Backend {
+            client: client,
+            documents: DOCUMENT_INDEX.clone(),
+            workspace: Arc::new(Mutex::new(Workspace::default())),
+            channel: channel,
+        }
+
     });
 
     Server::new(read, write, socket).serve(service).await;

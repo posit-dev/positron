@@ -9,7 +9,6 @@ use std::ffi::CStr;
 use std::ffi::CString;
 
 use libR_sys::*;
-use stdext::cstr;
 
 use crate::error::Error;
 use crate::error::Result;
@@ -72,12 +71,7 @@ pub unsafe fn r_get_option<T: TryFrom<RObject, Error = Error>>(name: &str) -> Re
 }
 
 pub unsafe fn r_inherits(object: SEXP, class: &str) -> bool {
-
-    let class = match CString::new(class) {
-        Ok(string) => string,
-        Err(error) => return false,
-    };
-
+    let class = CString::new(class).unwrap();
     return Rf_inherits(object, class.as_ptr()) != 0;
 
 }
