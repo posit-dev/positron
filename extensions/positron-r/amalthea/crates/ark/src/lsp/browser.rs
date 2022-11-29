@@ -5,20 +5,22 @@
 //
 //
 
+use harp::object::RObject;
 use libR_sys::*;
-use tokio::runtime::Runtime;
-use tower_lsp::lsp_types::MessageType;
-
-use crate::lsp::backend::CLIENT;
+use stdext::local;
 
 #[harp::register]
 pub unsafe extern "C" fn ps_browse_url(url: SEXP) -> SEXP {
 
-    let runtime = Runtime::new().unwrap();
-    runtime.block_on(async move {
-        let client = CLIENT.get().unwrap().lock();
-        client.log_message(MessageType::INFO, "This is a message from an R callback!").await;
-    });
+    let result : anyhow::Result<()> = local! {
+        let url = RObject::view(url).to::<String>()?;
+        let _output = std::process::Command::new("open").arg(url).output()?;
+        Ok(())
+    };
 
-    R_NilValue
+    match result {
+        Ok(_) => Rf_ScalarLogical(1),
+        Err(_) => Rf_ScalarLogical(0),
+    }
+
 }
