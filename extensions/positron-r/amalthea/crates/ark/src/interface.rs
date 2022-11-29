@@ -8,6 +8,7 @@
 use amalthea::socket::iopub::IOPubMessage;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
+use harp::routines::r_register_routines;
 use harp::utils::r_get_option;
 use libR_sys::*;
 use libc::{c_char, c_int};
@@ -29,6 +30,7 @@ use crate::request::Request;
 
 extern "C" {
     fn R_ProcessEvents();
+    fn run_Rmainloop();
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
 }
 
@@ -254,10 +256,14 @@ pub fn start_r(
         // Listen for polled events
         R_PolledEvents = Some(r_polled_events);
 
-        // Does not return
-        trace!("Entering R main loop");
-        Rf_mainloop();
-        trace!("Exiting R main loop");
+        // Set up main loop
+        setup_Rmainloop();
+
+        // Register embedded routines
+        r_register_routines();
+
+        // Run the main loop -- does not return
+        run_Rmainloop();
     }
 }
 

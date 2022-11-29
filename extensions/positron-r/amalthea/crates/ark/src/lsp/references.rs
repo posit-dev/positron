@@ -224,12 +224,11 @@ impl Backend {
         });
 
         // Now, start searching through workspace folders for references to that identifier.
-        if let Ok(workspace) = self.workspace.lock() {
-            for folder in workspace.folders.iter() {
-                if let Ok(path) = folder.to_file_path() {
-                    info!("searching references in folder {}", path.display());
-                    self.find_references_in_folder(&context, &path, &mut locations);
-                }
+        let workspace = self.workspace.lock();
+        for folder in workspace.folders.iter() {
+            if let Ok(path) = folder.to_file_path() {
+                info!("searching references in folder {}", path.display());
+                self.find_references_in_folder(&context, &path, &mut locations);
             }
         }
 

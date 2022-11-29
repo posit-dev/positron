@@ -32,9 +32,19 @@ macro_rules! cstr {
         value.as_ptr() as *mut c_char
     }};
 
-    ($value:expr) => {{
-        use std::os::raw::c_char;
-        let value = $crate::join!($value, "\0");
-        value.as_ptr() as *mut c_char
-    }};
 }
+
+#[cfg(test)]
+mod tests {
+
+    use std::os::raw::c_char;
+
+    use super::*;
+
+    #[test]
+    fn test_cstr() {
+        let string = cstr!("Hello");
+        assert_eq!(string, b"Hello\0".as_ptr() as *mut c_char);
+    }
+}
+

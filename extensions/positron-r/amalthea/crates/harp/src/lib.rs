@@ -16,6 +16,8 @@ pub mod test;
 pub mod utils;
 pub mod vector;
 
+pub use harp_macros::register;
+
 pub fn initialize() {
     lock::initialize();
 }

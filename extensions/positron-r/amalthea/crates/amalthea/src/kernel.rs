@@ -66,6 +66,7 @@ impl Kernel {
             None,
             self.connection.endpoint(self.connection.shell_port),
         )?;
+
         let shell_clone = shell_handler.clone();
         let iopub_sender_clone = iopub_sender.clone();
         thread::spawn(move || Self::shell_thread(shell_socket, iopub_sender_clone, shell_clone));

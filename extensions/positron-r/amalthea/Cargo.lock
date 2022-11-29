@@ -84,6 +84,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "ctor",
  "dashmap",
  "ego-tree",
  "harp",
@@ -92,7 +93,8 @@ dependencies = [
  "libR-sys",
  "libc",
  "log",
- "nix 0.24.2",
+ "nix",
+ "once_cell",
  "parking_lot",
  "regex",
  "ropey",
@@ -360,6 +362,16 @@ name = "cssparser-macros"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfae75de57f2b2e85e8768c3ea840fd159c8f33e2b6522c7835b7abac81be16e"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "ctor"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d2301688392eb071b0bf1a37be05c469d3cc4dbbd95df672fe28ab021e6a096"
 dependencies = [
  "quote",
  "syn",
@@ -704,9 +716,21 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 name = "harp"
 version = "0.1.0"
 dependencies = [
+ "ctor",
+ "harp-macros",
+ "lazy_static",
  "libR-sys",
  "log",
  "stdext",
+]
+
+[[package]]
+name = "harp-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
