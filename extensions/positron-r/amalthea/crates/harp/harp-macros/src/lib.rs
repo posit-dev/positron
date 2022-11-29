@@ -7,6 +7,7 @@
 
 use proc_macro::TokenStream;
 use quote::ToTokens;
+use quote::format_ident;
 use quote::quote;
 
 extern crate proc_macro;
@@ -65,11 +66,14 @@ pub fn register(_attr: TokenStream, item: TokenStream) -> TokenStream {
     name.push_str("\0");
     let name = syn::LitByteStr::new(name.as_bytes(), ident.span());
 
+    // Give a name to the registration function.
+    let register = format_ident!("_{}_call_method_def", ident);
+
     // Define a separate function that produces this for us.
     let registration = quote! {
 
         #[ctor::ctor]
-        fn register() {
+        fn #register() {
 
             unsafe {
                 harp::routines::add(R_CallMethodDef {

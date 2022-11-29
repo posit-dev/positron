@@ -93,7 +93,7 @@ dependencies = [
  "libR-sys",
  "libc",
  "log",
- "nix",
+ "nix 0.24.2",
  "once_cell",
  "parking_lot",
  "regex",
