@@ -6,6 +6,7 @@
  */
 
 use crate::error::Error;
+use crate::event::positron_event::PositronEvent;
 use crate::language::shell_handler::ShellHandler;
 use crate::socket::iopub::IOPubMessage;
 use crate::socket::socket::Socket;
@@ -29,6 +30,7 @@ use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
 use futures::executor::block_on;
 use log::{debug, trace, warn};
+use std::sync::mpsc::Receiver;
 use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, Mutex};
 
@@ -40,6 +42,9 @@ pub struct Shell {
 
     /// Sends messages to the IOPub socket (owned by another thread)
     iopub_sender: SyncSender<IOPubMessage>,
+
+    /// Receives events from other threads and dispatches them to the front end
+    event_receiver: Receiver<PositronEvent>,
 
     /// Language-provided shell handler object
     handler: Arc<Mutex<dyn ShellHandler>>,
@@ -54,12 +59,14 @@ impl Shell {
     pub fn new(
         socket: Socket,
         iopub_sender: SyncSender<IOPubMessage>,
+        event_receiver: Receiver<PositronEvent>,
         handler: Arc<Mutex<dyn ShellHandler>>,
     ) -> Self {
         Self {
-            socket: socket,
-            iopub_sender: iopub_sender,
-            handler: handler,
+            socket,
+            iopub_sender,
+            event_receiver,
+            handler,
         }
     }
 
