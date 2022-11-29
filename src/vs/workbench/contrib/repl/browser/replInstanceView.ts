@@ -278,10 +278,11 @@ export class ReplInstanceView extends Disposable {
 
 		// Ask the kernel to execute the code
 		const cell = this._activeCell!;
-		this._kernel.execute(code, RuntimeCodeExecutionMode.Interactive,
-			RuntimeErrorBehavior.Stop).then(id => {
-				this._executedCells.set(id, cell);
-			});
+		this._executedCells.set(cell.getExecutionId(), cell);
+		this._kernel.execute(code,
+			cell.getExecutionId(),
+			RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Stop);
 
 		// Mark the cell as executing
 		cell.setState(ReplCellState.ReplCellExecuting);

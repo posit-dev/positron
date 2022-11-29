@@ -69,17 +69,20 @@ export class LanguageRuntimeAdapter
 	 * Executes a fragment of code in the kernel.
 	 *
 	 * @param code The code to execute.
+	 * @param id A unique execution ID supplied by the caller; this is used to
+	 *   correlate the execution with the results in subsequent messages.
 	 * @param mode The execution mode.
 	 * @param errorBehavior The error behavior.
 	 */
 	public execute(code: string,
+		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
-		errorBehavior: positron.RuntimeErrorBehavior): Thenable<string> {
+		errorBehavior: positron.RuntimeErrorBehavior): void {
 
 		this._channel.appendLine(`Sending code to ${this.metadata.language}: ${code}`);
 
 		// Forward execution request to the kernel
-		return this._kernel.execute(code, mode, errorBehavior);
+		this._kernel.execute(code, id, mode, errorBehavior);
 	}
 
 	/**

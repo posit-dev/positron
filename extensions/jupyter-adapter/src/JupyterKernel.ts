@@ -366,15 +366,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Executes a fragment of code in the kernel.
 	 *
 	 * @param code The code to execute.
+	 * @param id A client-provided ID for the execution.
 	 * @param mode The execution mode.
 	 * @param errorBehavior The error behavior.
 	 */
 	public execute(code: string,
+		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
-		errorBehavior: positron.RuntimeErrorBehavior): Thenable<string> {
-
-		// Create an identifier for the execution request
-		const executionId = uuidv4();
+		errorBehavior: positron.RuntimeErrorBehavior): void {
 
 		// Create the message to send to the kernel
 		const msg: JupyterExecuteRequest = {
@@ -398,17 +397,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Send the execution request to the kernel
-		return new Promise<string>((resolve, reject) => {
-			this.send(executionId, 'execute_request', this._shell!, msg)
-				.then(() => {
-					// Return the execution request ID after successful
-					// submission
-					resolve(executionId);
-				}).catch((err) => {
-					// Fail if we couldn't connect to the socket
-					reject(err);
-				});
-		});
+		this.send(id, 'execute_request', this._shell!, msg)
+			.catch((err) => {
+				// Fail if we couldn't connect to the socket
+				this._channel.appendLine(`Failed to send execute_request for ${code} (id ${id}): ${err}`);
+			});
 	}
 
 	/**

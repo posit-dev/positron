@@ -184,10 +184,11 @@ export interface ILanguageRuntime {
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
 
-	/** Execute code in the runtime; returns the ID of the code execution. */
+	/** Execute code in the runtime */
 	execute(code: string,
+		id: string,
 		mode: RuntimeCodeExecutionMode,
-		errorBehavior: RuntimeErrorBehavior): Thenable<string>;
+		errorBehavior: RuntimeErrorBehavior): void;
 
 	start(): Thenable<ILanguageRuntimeInfo>;
 

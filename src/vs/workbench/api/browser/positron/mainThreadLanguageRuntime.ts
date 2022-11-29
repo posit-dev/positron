@@ -56,8 +56,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		return this._currentState;
 	}
 
-	execute(code: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<string> {
-		return this._proxy.$executeCode(this.handle, code, mode, errorBehavior);
+	execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
+		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior);
 	}
 
 	interrupt(): void {
