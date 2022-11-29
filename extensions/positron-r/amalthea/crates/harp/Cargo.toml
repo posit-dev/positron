@@ -7,7 +7,7 @@ Tools for integrating R and Rust.
 """
 
 [dependencies]
-ctor = "*"
+ctor = "0.1.26"
 harp-macros = { path = "./harp-macros" }
 lazy_static = "1.4.0"
 libR-sys = { git = "https://github.com/kevinushey/libR-sys", branch = "feature/dynamic-lookup" }

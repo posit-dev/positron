@@ -26,16 +26,8 @@ pub unsafe fn r_register_routines() {
         return;
     }
 
-    // Transform into version expected by R.
-    //
-    // Note that we use this sort of secondary indirection to ensure that
-    // the C strings for e.g. routine names remain alive through the lifetime
-    // of the application. In theory, we could use static C strings and some
-    // clever Rust macros to accomplish something similar, but this was the
-    // most straightforward way to make progress for now.
-    let routines = &mut R_ROUTINES;
-
     // Make sure we have an "empty" routine at the end.
+    let routines = &mut R_ROUTINES;
     routines.push(R_CallMethodDef {
         name: std::ptr::null(),
         fun: None,
