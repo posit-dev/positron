@@ -1185,14 +1185,13 @@ pub fn append_workspace_completions(backend: &Backend, context: &CompletionConte
 
                 // add some metadata about where the completion was found
                 let mut path = path.to_str().unwrap_or_default();
-                if let Ok(workspace) = backend.workspace.lock() {
-                    for folder in &workspace.folders {
-                        if let Ok(folder) = folder.to_file_path() {
-                            if let Some(folder) = folder.to_str() {
-                                if path.starts_with(folder) {
-                                    path = &path[folder.len() + 1..];
-                                    break;
-                                }
+                let workspace = backend.workspace.lock();
+                for folder in &workspace.folders {
+                    if let Ok(folder) = folder.to_file_path() {
+                        if let Some(folder) = folder.to_str() {
+                            if path.starts_with(folder) {
+                                path = &path[folder.len() + 1..];
+                                break;
                             }
                         }
                     }
