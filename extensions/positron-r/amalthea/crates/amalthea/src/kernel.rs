@@ -19,6 +19,7 @@ use crate::socket::shell::Shell;
 use crate::socket::socket::Socket;
 use crate::socket::stdin::Stdin;
 use crate::stream_capture::StreamCapture;
+use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -32,6 +33,12 @@ pub struct Kernel {
 
     /// The unique session information for this kernel session.
     session: Session,
+
+    /// Sends messages to the IOPub socket
+    iopub_sender: SyncSender<IOPubMessage>,
+
+    /// Receives message sent to the IOPub socket
+    iopub_receiver: Option<Receiver<IOPubMessage>>,
 }
 
 impl Kernel {
@@ -39,20 +46,22 @@ impl Kernel {
     pub fn new(file: ConnectionFile) -> Result<Kernel, Error> {
         let key = file.key.clone();
 
+        let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);
+
         Ok(Self {
             connection: file,
             session: Session::create(key)?,
+            iopub_sender,
+            iopub_receiver: Some(iopub_receiver),
         })
     }
 
     /// Connects the Kernel to the front end
     pub fn connect(
-        &self,
+        &mut self,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         control_handler: Arc<Mutex<dyn ControlHandler>>,
-        lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
-        iopub_sender: SyncSender<IOPubMessage>,
-        iopub_receiver: Receiver<IOPubMessage>,
+        lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>
     ) -> Result<(), Error> {
         let ctx = zmq::Context::new();
 
@@ -68,7 +77,7 @@ impl Kernel {
         )?;
 
         let shell_clone = shell_handler.clone();
-        let iopub_sender_clone = iopub_sender.clone();
+        let iopub_sender_clone = self.create_iopub_sender();
         thread::spawn(move || Self::shell_thread(shell_socket, iopub_sender_clone, shell_clone));
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to
@@ -82,7 +91,8 @@ impl Kernel {
             None,
             self.connection.endpoint(self.connection.iopub_port),
         )?;
-        thread::spawn(move || Self::iopub_thread(iopub_socket, iopub_receiver));
+        let receiver = self.iopub_receiver.take().unwrap();
+        thread::spawn(move || Self::iopub_thread(iopub_socket, receiver));
 
         // Create the heartbeat socket and start a thread to listen for
         // heartbeat messages.
@@ -111,6 +121,7 @@ impl Kernel {
         thread::spawn(move || Self::stdin_thread(stdin_socket, shell_clone));
 
         // Create the thread that handles stdout and stderr
+        let iopub_sender = self.create_iopub_sender();
         thread::spawn(move || Self::output_capture_thread(iopub_sender));
 
         // Create the Control ROUTER/DEALER socket
@@ -137,6 +148,11 @@ impl Kernel {
         // kernel to exit.
         Self::control_thread(control_socket, control_handler);
         Ok(())
+    }
+
+    /// Returns a copy of the IOPub sending channel.
+    pub fn create_iopub_sender(&self) -> SyncSender<IOPubMessage> {
+        self.iopub_sender.clone()
     }
 
     /// Starts the control thread
