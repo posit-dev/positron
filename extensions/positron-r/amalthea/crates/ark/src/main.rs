@@ -24,7 +24,6 @@ mod kernel;
 mod logger;
 mod lsp;
 mod request;
-mod routines;
 mod shell;
 mod version;
 

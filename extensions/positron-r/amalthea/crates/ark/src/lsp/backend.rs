@@ -44,7 +44,7 @@ use crate::lsp::signature_help::signature_help;
 use crate::lsp::symbols;
 use crate::request::Request;
 
-pub static CLIENT: OnceCell<Client> = OnceCell::new();
+pub static CLIENT: OnceCell<Mutex<Client>> = OnceCell::new();
 
 macro_rules! backend_trace {
 
@@ -586,7 +586,7 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     let (service, socket) = LspService::new(|client| {
 
         // initialize global client (needs to be visible for R routines)
-        CLIENT.set(client.clone()).unwrap();
+        CLIENT.set(Mutex::new(client.clone())).unwrap();
 
         // create backend
         Backend {

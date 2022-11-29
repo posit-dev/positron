@@ -5,35 +5,17 @@
 //
 //
 
-use std::ffi::CString;
-use std::ffi::c_void;
-use std::sync::Arc;
-use std::sync::Mutex;
-
-use lazy_static::lazy_static;
 use libR_sys::*;
 use log::error;
 use log::info;
 
-struct RCallRoutine {
-    pub name: CString,
-    pub func: Option<unsafe extern "C" fn() -> *mut c_void>,
-    pub nargs: i32,
-}
+static mut R_ROUTINES : Vec<R_CallMethodDef> = vec![];
 
-lazy_static! {
-    static ref R_ROUTINES: Arc<Mutex<Vec<RCallRoutine>>> = Arc::new(Default::default());
-}
-
-pub unsafe fn r_add_call_method(name: &str, func: unsafe extern "C" fn() -> SEXP, nargs: i32) {
-
-    let mut routines = R_ROUTINES.lock().unwrap();
-    let func = std::mem::transmute(func);
-    routines.push(RCallRoutine {
-        name: CString::new(name).unwrap(),
-        func: Some(func),
-        nargs: nargs,
-    })
+// NOTE: This function is used via the #[harp::register] macro,
+// which ensures that routines are initialized and executed on
+// application startup.
+pub unsafe fn add(def: R_CallMethodDef) {
+    R_ROUTINES.push(def);
 }
 
 pub unsafe fn r_register_routines() {
@@ -44,9 +26,6 @@ pub unsafe fn r_register_routines() {
         return;
     }
 
-    // Collect our routines.
-    let routines = R_ROUTINES.lock().unwrap();
-
     // Transform into version expected by R.
     //
     // Note that we use this sort of secondary indirection to ensure that
@@ -54,13 +33,7 @@ pub unsafe fn r_register_routines() {
     // of the application. In theory, we could use static C strings and some
     // clever Rust macros to accomplish something similar, but this was the
     // most straightforward way to make progress for now.
-    let mut routines = routines.iter().map(|routine| {
-        R_CallMethodDef {
-            name: routine.name.as_ptr(),
-            fun: routine.func,
-            numArgs: routine.nargs,
-        }
-    }).collect::<Vec<_>>();
+    let routines = &mut R_ROUTINES;
 
     // Make sure we have an "empty" routine at the end.
     routines.push(R_CallMethodDef {

@@ -27,7 +27,6 @@ use stdext::*;
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
 use crate::request::Request;
-use crate::routines::register_call_methods;
 
 extern "C" {
     fn R_ProcessEvents();
@@ -261,7 +260,6 @@ pub fn start_r(
         setup_Rmainloop();
 
         // Register embedded routines
-        register_call_methods();
         r_register_routines();
 
         // Run the main loop -- does not return
