@@ -10,11 +10,9 @@
 use amalthea::connection_file::ConnectionFile;
 use amalthea::kernel::Kernel;
 use amalthea::kernel_spec::KernelSpec;
-use amalthea::socket::iopub::IOPubMessage;
 use log::*;
 use std::env;
 use std::io::stdin;
-use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use stdext::unwrap;
 
@@ -33,13 +31,17 @@ use crate::version::detect_r;
 
 fn start_kernel(connection_file: ConnectionFile) {
 
-    // This channel delivers execution status and other iopub messages from
-    // other threads to the iopub thread
-    let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);
-
-    let shell_sender = iopub_sender.clone();
+    // Create a new kernel from the connection file
+    let mut kernel = match Kernel::new(connection_file) {
+        Ok(k) => k,
+        Err(e) => {
+            error!("Failed to create kernel: {}", e);
+            return;
+        }
+    };
 
     // Create the shell handler; this is the main entry point for the kernel
+    let shell_sender = kernel.create_iopub_sender();
     let shell = Shell::new(shell_sender);
 
     // Create the LSP client; not all Amalthea kernels provide one, but ARK
@@ -54,22 +56,16 @@ fn start_kernel(connection_file: ConnectionFile) {
 
     // Create the kernel
     let shell = Arc::new(Mutex::new(shell));
-    let kernel = Kernel::new(connection_file);
-    match kernel {
-        Ok(k) => match k.connect(shell, control, Some(lsp), iopub_sender, iopub_receiver) {
-            Ok(()) => {
-                let mut s = String::new();
-                println!("R Kernel exiting.");
-                if let Err(err) = stdin().read_line(&mut s) {
-                    error!("Could not read from stdin: {:?}", err);
-                }
+    match kernel.connect(shell, control, Some(lsp)) {
+        Ok(()) => {
+            let mut s = String::new();
+            println!("R Kernel exiting.");
+            if let Err(err) = stdin().read_line(&mut s) {
+                error!("Could not read from stdin: {:?}", err);
             }
-            Err(err) => {
-                error!("Couldn't connect to front end: {:?}", err);
-            }
-        },
+        }
         Err(err) => {
-            error!("Couldn't create kernel: {:?}", err);
+            error!("Couldn't connect to front end: {:?}", err);
         }
     }
 }
