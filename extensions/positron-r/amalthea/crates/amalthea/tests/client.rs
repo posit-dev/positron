@@ -6,7 +6,6 @@
  */
 
 use amalthea::kernel::Kernel;
-use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::execute_input::ExecuteInput;
 use amalthea::wire::execute_request::ExecuteRequest;
 use amalthea::wire::execute_result::ExecuteResult;
@@ -17,7 +16,6 @@ use amalthea::wire::status::{ExecutionState, KernelStatus};
 use amalthea::wire::wire_message::WireMessage;
 use log::info;
 use serde_json;
-use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -27,25 +25,18 @@ mod shell;
 
 #[test]
 fn test_kernel() {
-    // This channel delivers execution status and other iopub messages from
-    // other threads to the iopub thread
-    let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);
-
-    let shell_sender = iopub_sender.clone();
-    let shell = Arc::new(Mutex::new(shell::Shell::new(shell_sender)));
-    let control = Arc::new(Mutex::new(control::Control {}));
     let frontend = frontend::Frontend::new();
     let connection_file = frontend.get_connection_file();
+    let mut kernel = Kernel::new(connection_file).unwrap();
+    let shell_sender = kernel.create_iopub_sender();
+    let shell = Arc::new(Mutex::new(shell::Shell::new(shell_sender)));
+    let control = Arc::new(Mutex::new(control::Control {}));
 
     // Create the thread that will run the Amalthea kernel
     thread::spawn(move || {
-        let kernel = Kernel::new(connection_file).unwrap();
-        kernel
-            .connect(shell,
+        kernel.connect(shell,
                 control,
-                None, // No LSP in test kernel
-                iopub_sender,
-                iopub_receiver)
+                None)
             .unwrap();
     });
 
