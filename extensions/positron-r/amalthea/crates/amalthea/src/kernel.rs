@@ -67,8 +67,8 @@ impl Kernel {
         )?;
 
         let shell_clone = shell_handler.clone();
-        tokio::spawn(async move {
-            Self::shell_thread(shell_socket, iopub_sender, shell_clone);
+        thread::spawn(move || {
+            Self::shell_thread(shell_socket, iopub_sender, shell_clone).unwrap();
         });
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to

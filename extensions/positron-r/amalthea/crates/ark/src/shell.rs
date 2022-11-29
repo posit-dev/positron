@@ -58,7 +58,7 @@ impl Shell {
         let iopub_sender = iopub.clone();
         let (req_sender, req_receiver) = sync_channel::<Request>(1);
         let (init_sender, init_receiver) = channel::<KernelInfo>();
-        tokio::spawn(async move {
+        thread::spawn(move || {
             Self::execution_thread(iopub_sender, req_receiver, init_sender);
         });
 
