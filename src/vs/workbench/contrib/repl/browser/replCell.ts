@@ -237,6 +237,13 @@ export class ReplCell extends Disposable {
 	}
 
 	/**
+	 * Returns a unique execution ID for the cell
+	 */
+	getExecutionId(): string {
+		return `exec-${this._handle}`;
+	}
+
+	/**
 	 * Checks the focus state of the cell.
 	 *
 	 * @returns Whether the underlying input control is focused
