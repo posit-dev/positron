@@ -6,6 +6,7 @@
 //
 
 pub mod backend;
+pub mod browser;
 pub mod comm;
 pub mod completions;
 pub mod definitions;
