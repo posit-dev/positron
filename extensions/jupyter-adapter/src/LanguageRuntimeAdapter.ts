@@ -14,6 +14,7 @@ import { JupyterExecuteInput } from './JupyterExecuteInput';
 import { JupyterKernelInfoReply } from './JupyterKernelInfoReply';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterErrorReply } from './JupyterErrorReply';
+import { JupyterStreamOutput } from './JupyterStreamOutput';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -68,17 +69,20 @@ export class LanguageRuntimeAdapter
 	 * Executes a fragment of code in the kernel.
 	 *
 	 * @param code The code to execute.
+	 * @param id A unique execution ID supplied by the caller; this is used to
+	 *   correlate the execution with the results in subsequent messages.
 	 * @param mode The execution mode.
 	 * @param errorBehavior The error behavior.
 	 */
 	public execute(code: string,
+		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
-		errorBehavior: positron.RuntimeErrorBehavior): Thenable<string> {
+		errorBehavior: positron.RuntimeErrorBehavior): void {
 
 		this._channel.appendLine(`Sending code to ${this.metadata.language}: ${code}`);
 
 		// Forward execution request to the kernel
-		return this._kernel.execute(code, mode, errorBehavior);
+		this._kernel.execute(code, id, mode, errorBehavior);
 	}
 
 	/**
@@ -196,6 +200,9 @@ export class LanguageRuntimeAdapter
 			case 'execute_input':
 				this.onExecuteInput(msg, message as JupyterExecuteInput);
 				break;
+			case 'stream':
+				this.onStreamOutput(msg, message as JupyterStreamOutput);
+				break;
 			case 'status':
 				this.onKernelStatus(msg, message as JupyterKernelStatus);
 				break;
@@ -249,6 +256,26 @@ export class LanguageRuntimeAdapter
 			parent_id: message.originId,
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any
+		} as positron.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Converts a Jupyter stream message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The stream message
+	 */
+	onStreamOutput(message: JupyterMessagePacket, data: JupyterStreamOutput) {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			type: data.name === 'stderr' ?
+				positron.LanguageRuntimeMessageType.Error :
+				positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': data.text
+			} as any
 		} as positron.LanguageRuntimeOutput);
 	}
 

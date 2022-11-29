@@ -59,7 +59,12 @@ fn annotate(mut message: String) -> String {
 }
 
 struct Logger {
+    /// The log level (set with the RUST_LOG environment variable)
     level: log::Level,
+
+    /// A mutex to ensure that only one thread is writing to the log file at a
+    /// time; None if no log file has been specified (we log to stdout in this
+    /// case)
     mutex: Option<Mutex<File>>,
 }
 
@@ -124,20 +129,20 @@ impl log::Log for Logger {
         // Generate message to log.
         let message = format!("{}: {}", prefix, message);
 
-        // Write to stdout.
-        if record.level() == log::Level::Error {
-            eprintln!("{}", message);
-        } else {
-            println!("{}", message);
-        }
-
-        // Also write to log file if enabled.
         if let Some(mutex) = self.mutex.as_ref() {
+            // Write to log file if one is specified.
             if let Ok(mut file) = mutex.lock() {
                 let status = writeln!(file, "{}", message);
                 if let Err(error) = status {
                     eprintln!("Error writing to log file: {}", error);
                 }
+            }
+        } else {
+            // If no log file is specified, write to stdout.
+            if record.level() == log::Level::Error {
+                eprintln!("{}", message);
+            } else {
+                println!("{}", message);
             }
         }
 

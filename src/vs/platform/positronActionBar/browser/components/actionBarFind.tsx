@@ -16,6 +16,7 @@ interface ActionBarFindProps {
 	width: number;
 	placeholder: string;
 	initialFindText?: string;
+
 	onFindTextChanged: (findText: string) => void;
 	onFindPrevious: () => void;
 	onFindNext: () => void;
@@ -29,29 +30,11 @@ interface ActionBarFindProps {
 export const ActionBarFind = (props: ActionBarFindProps) => {
 	// Hooks.
 	const [focused, setFocused] = useState(false);
-	const [findText, setFindText] = useState(props.initialFindText ?? '');
 	const inputRef = useRef<HTMLInputElement>(undefined!);
-
-	// Input change handler.
-	const inputChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setFindText(e.target.value);
-		props.onFindTextChanged(e.target.value);
-	};
-
-	// Button find previous click handler.
-	const buttonFindPreviousClickHandler = () => {
-		props.onFindPrevious();
-	};
-
-	// Button find next click handler.
-	const buttonFindNextClickHandler = () => {
-		props.onFindNext();
-	};
 
 	// Button clear click handler.
 	const buttonClearClickHandler = () => {
 		inputRef.current.value = '';
-		setFindText('');
 		props.onFindTextChanged('');
 	};
 
@@ -64,14 +47,14 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					type='text'
 					className='text-input'
 					placeholder={props.placeholder}
-					value={findText}
+					value={props.initialFindText ?? ''}
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
-					onChange={inputChangeHandler} />
+					onChange={e => props.onFindTextChanged(e.target.value)} />
 				<div className='action-bar-find-counter'>1/3</div>
 			</div>
-			<ActionBarButton layout='tight' iconId='positron-chevron-up' align='right' tooltip={localize('positronFindPrevious', "Find previous")} onClick={buttonFindPreviousClickHandler} />
-			<ActionBarButton layout='tight' iconId='positron-chevron-down' align='right' tooltip={localize('positronFindNext', "Find next")} onClick={buttonFindNextClickHandler} />
+			<ActionBarButton layout='tight' iconId='positron-chevron-up' align='right' tooltip={localize('positronFindPrevious', "Find previous")} onClick={() => props.onFindPrevious()} />
+			<ActionBarButton layout='tight' iconId='positron-chevron-down' align='right' tooltip={localize('positronFindNext', "Find next")} onClick={() => props.onFindNext()} />
 			<ActionBarButton layout='tight' iconId='positron-clear' align='right' tooltip={localize('positronClearFind', "Clear find")} onClick={buttonClearClickHandler} />
 		</div>
 	);

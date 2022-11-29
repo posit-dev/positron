@@ -189,10 +189,11 @@ declare module 'positron' {
 		/** An object that emits he current state of the runtime */
 		onDidChangeRuntimeState: vscode.Event<RuntimeState>;
 
-		/** Execute code in the runtime; returns the ID of the code execution. */
+		/** Execute code in the runtime */
 		execute(code: string,
+			id: string,
 			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): Thenable<string>;
+			errorBehavior: RuntimeErrorBehavior): void;
 
 		/** Start the runtime; returns a Thenable that resolves with information about the runtime. */
 		start(): Thenable<LanguageRuntimeInfo>;

@@ -6,6 +6,7 @@ import 'vs/css!./positronHelpView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
+import { MarkdownString } from 'vs/base/common/htmlContent';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -17,9 +18,17 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { PositronHelpActionBars } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActionBars';
-import { IHelpResult, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { PositronHelpActions } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActions';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+
+/**
+ * PositronHelpCommand interface.
+ */
+interface PositronHelpCommand {
+	command: string;
+	findText?: string;
+}
 
 /**
  * PositronHelpViewPane class.
@@ -43,10 +52,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The help action bars container - contains the PositronHelpActionBars component.
 	private _helpActionBarsContainer!: HTMLElement;
 
-	// The help content that is currently being renderd.
-	private _helpContent!: HTMLElement;
-
-	private _helpResult!: IHelpResult;
+	// The help iframe.
+	private _helpIFrame?: HTMLIFrameElement;
 
 	// Constructor.
 	constructor(
@@ -64,17 +71,22 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
-		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 
-		this._register(this.positronHelpService.onRenderHelp(e => {
-			console.log('PositronHelpViewPane got onRenderHelp');
-			console.log(e);
-			if (this._helpResult) {
-				this._helpResult.element.remove();
-				this._helpResult.dispose();
+		// Register event handlers.
+		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
+		this._register(this.positronHelpService.onRenderHelp(helpResult => {
+
+			// Remove the previous help iframe.
+			if (this._helpIFrame) {
+				this._helpIFrame.remove();
 			}
-			this._helpResult = e;
-			this._helpContent.appendChild(this._helpResult.element);
+
+			// Append the new help iframe and render the help result.
+			this._helpIFrame = DOM.$('iframe.positron-help-frame');
+			this._helpContainer.appendChild(this._helpIFrame);
+			this._helpIFrame.contentWindow?.document.open();
+			this._helpIFrame.contentWindow?.document.write(helpResult as unknown as string);
+			this._helpIFrame.contentWindow?.document.close();
 		}));
 	}
 
@@ -104,22 +116,46 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._helpActionBarsContainer = DOM.$('.positron-help-action-bars-container');
 		this._helpContainer.appendChild(this._helpActionBarsContainer);
 
+		const homeHandler = () => {
+			this.positronHelpService.openHelpMarkdown(new MarkdownString(
+				`This is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\n***The Real End***\n\n`
+			));
+		};
+
+		// Find handler.
+		const findHandler = (findText: string) => {
+			this.postHelpIFrameMessage({ command: 'find', findText });
+		};
+
+		// Find previous handler.
+		const findPrevious = () => {
+			this.postHelpIFrameMessage({ command: 'find-previous' });
+		};
+
+		// Find next handler.
+		const findNext = () => {
+			this.postHelpIFrameMessage({ command: 'find-next' });
+		};
+
 		// Render the Positron help action bars component.
 		this.positronReactRenderer = new PositronReactRenderer(this._helpActionBarsContainer);
 		this.positronReactRenderer.render(
-			<PositronHelpActionBars
+			<PositronHelpActions
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
-				positronHelpService={this.positronHelpService}
-				reactComponentContainer={this} />
+				reactComponentContainer={this}
+				onPreviousTopic={() => console.log('Previous topic made it to the Positron help view.')}
+				onNextTopic={() => console.log('Next topic made it to the Positron help view.')}
+				onHome={homeHandler}
+				onFind={findHandler}
+				onFindPrevious={findPrevious}
+				onFindNext={findNext}
+				onCancelFind={() => findHandler('')}
+			/>
 		);
-
-		// Append the help content.
-		this._helpContent = DOM.$('.positron-help-content');
-		this._helpContainer.appendChild(this._helpContent);
 	}
 
 	override layoutBody(height: number, width: number): void {
@@ -136,5 +172,11 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private onDidChangeVisibility(visible: boolean): void {
 		// Raise the onVisibilityChanged event.
 		this._onVisibilityChanged.fire(visible);
+	}
+
+	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
+		if (this._helpIFrame?.contentWindow) {
+			this._helpIFrame.contentWindow.postMessage(positronHelpCommand);
+		}
 	}
 }
