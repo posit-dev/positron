@@ -5,6 +5,7 @@
 //
 //
 
+use amalthea::event::positron_event::PositronEvent;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::exception::Exception;
 use amalthea::wire::execute_input::ExecuteInput;
@@ -106,6 +107,14 @@ impl Kernel {
                 }
             }
             Request::EstablishInputChannel(sender) => self.establish_input_handler(sender.clone()),
+            Request::DeliverEvent(event) =>  self.handle_event(event)
+        }
+    }
+
+    /// Handle an event from the back end to the front end
+    pub fn handle_event(&mut self, event: &PositronEvent){
+        if let Err(err) = self.iopub.send(IOPubMessage::Event(event.clone())) {
+            warn!("Error attempting to deliver client event: {}", err);
         }
     }
 

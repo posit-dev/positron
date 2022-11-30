@@ -12,6 +12,7 @@ pub trait PositronEventType {
     fn event_type(&self) -> String;
 }
 
+#[derive(Clone)]
 pub enum PositronEvent {
     ShowMessage(ShowMessage),
 }
