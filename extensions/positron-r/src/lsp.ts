@@ -7,11 +7,7 @@ import * as vscode from 'vscode';
 import {
 	LanguageClient,
 	LanguageClientOptions,
-	ServerOptions,
-	TransportKind,
 	createClientSocketTransport,
-	MessageTransports,
-	MessageReader
 } from 'vscode-languageclient/node';
 
 import { trace, traceOutputChannel } from './logging';
@@ -66,6 +62,7 @@ export async function activateLsp(context: vscode.ExtensionContext): Promise<num
 
 		trace('Creating Positron R language client...');
 		client = new LanguageClient('positron-r', 'Positron R Language Server', serverOptions, clientOptions);
+
 		client.onDidChangeState(event => {
 			trace(`ARK language client state changed ${event.oldState} => ${event.newState}`);
 		});
@@ -74,7 +71,29 @@ export async function activateLsp(context: vscode.ExtensionContext): Promise<num
 
 		client.onReady().then(() => {
 			trace('Positron R language client is ready');
+
+			// Placeholder for custom notification.
+			setTimeout(async () => {
+
+				trace('Sending a "positron/request" request.');
+				try {
+					const response = await client.sendRequest('positron/request', { value: 42 });
+					trace(`Got a response: ${response}`);
+				} catch (error) {
+					trace(`Error sending request: ${error}`);
+				}
+
+				trace('Sending a "positron/notification" notification.');
+				try {
+					client.sendNotification('positron/notification');
+				} catch (error) {
+					trace(`Error sending notification: ${error}`);
+				}
+
+
+			}, 5000);
 		});
+
 	});
 }
 

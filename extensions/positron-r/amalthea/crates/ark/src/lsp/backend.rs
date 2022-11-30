@@ -34,7 +34,7 @@ use crate::lsp::completions::append_workspace_completions;
 use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::completion_context;
 use crate::lsp::completions::resolve_completion_item;
-use crate::lsp::definitions::goto_definition_context;
+use crate::lsp::definitions::goto_definition;
 use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::documents::Document;
 use crate::lsp::hover::hover;
@@ -44,7 +44,11 @@ use crate::lsp::signature_help::signature_help;
 use crate::lsp::symbols;
 use crate::request::Request;
 
-pub static CLIENT: OnceCell<Mutex<Client>> = OnceCell::new();
+pub static CLIENT: OnceCell<Client> = OnceCell::new();
+
+pub fn get_client() -> Client {
+    CLIENT.get().unwrap().clone()
+}
 
 macro_rules! backend_trace {
 
@@ -491,47 +495,13 @@ impl LanguageServer for Backend {
         });
 
         // build goto definition context
-        let context = unwrap!(goto_definition_context(&document, params), Err(error) => {
+        let result = unwrap!(unsafe { goto_definition(&document, params) }, Err(error) => {
             error!("{}", error);
             return Ok(None);
         });
 
-        // TODO: Move the rest of this into a separate function,
-        // living in the 'definitions' module.
+        Ok(result)
 
-        // search for a reference in the document index
-        if matches!(context.node.kind(), "identifier") {
-            let source = context.document.contents.to_string();
-            let symbol = context.node.utf8_text(source.as_bytes()).unwrap();
-            if let Some((path, entry)) = indexer::find(symbol) {
-                let link = LocationLink {
-                    origin_selection_range: None,
-                    target_uri: Url::from_file_path(path).unwrap(),
-                    target_range: entry.range,
-                    target_selection_range: entry.range,
-                };
-                let response = GotoDefinitionResponse::Link(vec![link]);
-                return Ok(Some(response));
-            }
-        }
-
-        // TODO: We should see if we can find the referenced item in:
-        //
-        // 1. The document's current AST,
-        // 2. The public functions from other documents in the project,
-        // 3. A definition in the R session (which we could open in a virtual document)
-        //
-        // If we can't find a definition, then we can return the referenced item itself,
-        // which will tell Positron to instead try to look for references for that symbol.
-        let link = LocationLink {
-            origin_selection_range: Some(context.range),
-            target_uri: context.params.text_document_position_params.text_document.uri,
-            target_range: context.range,
-            target_selection_range: context.range,
-        };
-
-        let response = GotoDefinitionResponse::Link(vec![link]);
-        Ok(Some(response))
     }
 
     async fn goto_implementation(&self, params: GotoImplementationParams) -> Result<Option<GotoImplementationResponse>> {
@@ -559,6 +529,29 @@ impl LanguageServer for Backend {
     }
 }
 
+// Custom methods for the backend.
+//
+// NOTE: Request / notification methods _must_ accept a params object,
+// even for notifications that don't include any auxiliary data.
+//
+// I'm not positive, but I think this is related to the way VSCode
+// serializes parameters for notifications / requests when no data
+// is supplied. Instead of supplying "nothing", it supplies something
+// like `[null]` which tower_lsp seems to quietly reject when attempting
+// to invoke the registered method.
+impl Backend {
+
+    async fn request(&self, params: Option<Value>) -> Result<i32> {
+        error!("Request: {:?}", params);
+        Ok(42)
+    }
+
+    async fn notification(&self, params: Option<Value>) {
+        error!("Notification: {:?}", params);
+    }
+
+}
+
 #[tokio::main]
 pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
@@ -583,20 +576,27 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     let (read, write) = (read.compat(), write.compat_write());
 
-    let (service, socket) = LspService::new(|client| {
+    let init = |client| {
 
         // initialize global client (needs to be visible for R routines)
-        CLIENT.set(Mutex::new(client.clone())).unwrap();
+        CLIENT.set(client).unwrap();
 
         // create backend
-        Backend {
-            client: client,
+        let backend = Backend {
+            client: get_client(),
             documents: DOCUMENT_INDEX.clone(),
             workspace: Arc::new(Mutex::new(Workspace::default())),
             channel: channel,
-        }
+        };
 
-    });
+        backend
+
+    };
+
+    let (service, socket) = LspService::build(init)
+        .custom_method("positron/request", Backend::request)
+        .custom_method("positron/notification", Backend::notification)
+        .finish();
 
     Server::new(read, write, socket).serve(service).await;
 }
