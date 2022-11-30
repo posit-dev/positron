@@ -18,7 +18,7 @@ pub struct ShowMessage {
 /// Note that the message type of an error reply is generally adjusted to match
 /// its request type (e.g. foo_request => foo_reply)
 impl PositronEventType for ShowMessage {
-    fn event_type() -> String {
+    fn event_type(&self) -> String {
         String::from("show_message")
     }
 }

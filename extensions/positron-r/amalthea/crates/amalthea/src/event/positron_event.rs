@@ -9,7 +9,7 @@ use super::show_message::ShowMessage;
 
 /// Trait used to extract the event type from an event (for serialization)
 pub trait PositronEventType {
-    fn event_type() -> String;
+    fn event_type(&self) -> String;
 }
 
 pub enum PositronEvent {

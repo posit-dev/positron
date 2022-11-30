@@ -7,7 +7,6 @@
 
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
-use crate::event::positron_event::PositronEvent;
 use crate::language::control_handler::ControlHandler;
 use crate::language::lsp_handler::LspHandler;
 use crate::language::shell_handler::ShellHandler;
@@ -40,12 +39,6 @@ pub struct Kernel {
 
     /// Receives message sent to the IOPub socket
     iopub_receiver: Option<Receiver<IOPubMessage>>,
-
-    /// Sends events to the shell socket
-    event_sender: SyncSender<PositronEvent>,
-
-    /// Receives events
-    event_receiver: Option<Receiver<PositronEvent>>,
 }
 
 impl Kernel {
@@ -54,15 +47,12 @@ impl Kernel {
         let key = file.key.clone();
 
         let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);
-        let (event_sender, event_receiver) = sync_channel::<PositronEvent>(10);
 
         Ok(Self {
             connection: file,
             session: Session::create(key)?,
             iopub_sender,
             iopub_receiver: Some(iopub_receiver),
-            event_sender,
-            event_receiver: Some(event_receiver),
         })
     }
 
@@ -87,9 +77,8 @@ impl Kernel {
         )?;
 
         let shell_clone = shell_handler.clone();
-        let event_receiver = self.event_receiver.take().unwrap();
         let iopub_sender_clone = self.create_iopub_sender();
-        thread::spawn(move || Self::shell_thread(shell_socket, iopub_sender_clone, event_receiver, shell_clone));
+        thread::spawn(move || Self::shell_thread(shell_socket, iopub_sender_clone, shell_clone));
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to
         // the client. IOPub only broadcasts messages, so it listens to other
@@ -166,11 +155,6 @@ impl Kernel {
         self.iopub_sender.clone()
     }
 
-    /// Returns a copy of the event sending channel.
-    pub fn create_event_sender(&self) -> SyncSender<PositronEvent> {
-        self.event_sender.clone()
-    }
-
     /// Starts the control thread
     fn control_thread(socket: Socket, handler: Arc<Mutex<dyn ControlHandler>>) {
         let control = Control::new(socket, handler);
@@ -181,10 +165,9 @@ impl Kernel {
     fn shell_thread(
         socket: Socket,
         iopub_sender: SyncSender<IOPubMessage>,
-        event_receiver: Receiver<PositronEvent>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
     ) -> Result<(), Error> {
-        let mut shell = Shell::new(socket, iopub_sender.clone(), event_receiver, shell_handler);
+        let mut shell = Shell::new(socket, iopub_sender.clone(), shell_handler);
         shell.listen();
         Ok(())
     }
