@@ -38,6 +38,7 @@ use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::documents::Document;
 use crate::lsp::global::ClientInstance;
 use crate::lsp::global::INSTANCE;
+use crate::lsp::global::get_instance;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
 use crate::lsp::modules;
@@ -574,14 +575,14 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     let init = |client| {
 
         // initialize global client (needs to be visible for R routines)
-        INSTANCE.set(Mutex::new(ClientInstance {
-            client: client.clone(),
+        INSTANCE.set(ClientInstance {
+            client,
             channel: channel.clone(),
-        })).unwrap();
+        }).unwrap();
 
         // create backend
         let backend = Backend {
-            client: get_client(),
+            client: get_instance().client,
             documents: DOCUMENT_INDEX.clone(),
             workspace: Arc::new(Mutex::new(Workspace::default())),
             channel: channel,
