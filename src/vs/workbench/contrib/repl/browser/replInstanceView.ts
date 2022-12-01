@@ -9,7 +9,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeEventType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
@@ -127,6 +127,14 @@ export class ReplInstanceView extends Disposable {
 					cell.emitError(errMsg.name, errMsg.message, errMsg.traceback);
 				} else {
 					this._logService.warn(`Received error ${JSON.stringify(errMsg)} for unknown code execution ${errMsg.parent_id}`);
+				}
+			} else if (msg.type === LanguageRuntimeMessageType.Event) {
+				const evt = msg as ILanguageRuntimeEvent;
+				if (evt.name === LanguageRuntimeEventType.ShowMessage) {
+					const data = evt.data as ShowMessageEvent;
+					const msg = new ReplStatusMessage(
+						'info', `${data.message}`);
+					msg.render(this._cellContainer);
 				}
 			}
 
