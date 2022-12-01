@@ -22,4 +22,6 @@ pub mod signature_help;
 pub mod symbols;
 pub mod traits;
 pub mod util;
+pub mod show_message;
+pub mod global;
 

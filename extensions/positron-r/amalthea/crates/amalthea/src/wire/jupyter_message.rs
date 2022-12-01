@@ -38,6 +38,8 @@ use crate::wire::status::KernelStatus;
 use crate::wire::wire_message::WireMessage;
 use serde::{Deserialize, Serialize};
 
+use super::client_event::ClientEvent;
+
 /// Represents a Jupyter message
 #[derive(Debug, Clone)]
 pub struct JupyterMessage<T> {
@@ -92,6 +94,7 @@ pub enum Message {
     CommInfoRequest(JupyterMessage<CommInfoRequest>),
     CommOpen(JupyterMessage<CommOpen>),
     CommMsg(JupyterMessage<CommMsg>),
+    ClientEvent(JupyterMessage<ClientEvent>),
 }
 
 /// Represents status returned from kernel inside messages.
@@ -133,6 +136,7 @@ impl TryFrom<&Message> for WireMessage {
             Message::CommInfoRequest(msg) => WireMessage::try_from(msg),
             Message::CommOpen(msg) => WireMessage::try_from(msg),
             Message::CommMsg(msg) => WireMessage::try_from(msg),
+            Message::ClientEvent(msg) => WireMessage::try_from(msg),
         }
     }
 }

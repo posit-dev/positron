@@ -15,3 +15,4 @@ pub mod session;
 pub mod socket;
 pub mod wire;
 pub mod stream_capture;
+pub mod event;

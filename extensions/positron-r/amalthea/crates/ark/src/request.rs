@@ -1,11 +1,11 @@
-// 
+//
 // request.rs
-// 
+//
 // Copyright (C) 2022 by Posit, PBC
-// 
-// 
+//
+//
 
-use amalthea::wire::execute_request::ExecuteRequest;
+use amalthea::{wire::execute_request::ExecuteRequest, event::positron_event::PositronEvent};
 use amalthea::wire::execute_response::ExecuteResponse;
 use amalthea::wire::input_request::ShellInputRequest;
 use std::sync::mpsc::{Sender, SyncSender};
@@ -18,6 +18,9 @@ pub enum Request {
 
     /// Establish a channel to the front end to send input requests
     EstablishInputChannel(SyncSender<ShellInputRequest>),
+
+    /// Deliver an event to the front end
+    DeliverEvent(PositronEvent),
 
     /// Shut down the R execution thread
     Shutdown(bool),
