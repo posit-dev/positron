@@ -6,7 +6,9 @@
  */
 
 use crate::error::Error;
+use crate::event::positron_event::PositronEvent;
 use crate::socket::socket::Socket;
+use crate::wire::client_event::ClientEvent;
 use crate::wire::execute_error::ExecuteError;
 use crate::wire::execute_input::ExecuteInput;
 use crate::wire::execute_result::ExecuteResult;
@@ -40,6 +42,7 @@ pub enum IOPubMessage {
     ExecuteError(ExecuteError),
     ExecuteInput(ExecuteInput),
     Stream(StreamOutput),
+    Event(PositronEvent)
 }
 
 impl IOPub {
@@ -94,12 +97,19 @@ impl IOPub {
             IOPubMessage::ExecuteError(msg) => self.send_message(msg),
             IOPubMessage::ExecuteInput(msg) => self.send_message(msg),
             IOPubMessage::Stream(msg) => self.send_message(msg),
+            IOPubMessage::Event(msg) => self.send_event(msg),
         }
     }
 
     /// Send a message using the underlying socket with the given content.
     fn send_message<T: ProtocolMessage>(&self, content: T) -> Result<(), Error> {
         let msg = JupyterMessage::<T>::create(content, self.context.clone(), &self.socket.session);
+        msg.send(&self.socket)
+    }
+
+    /// Send an event
+    fn send_event(&self, event: PositronEvent) -> Result<(), Error> {
+        let msg = JupyterMessage::<ClientEvent>::create(ClientEvent::from(event), self.context.clone(), &self.socket.session);
         msg.send(&self.socket)
     }
 

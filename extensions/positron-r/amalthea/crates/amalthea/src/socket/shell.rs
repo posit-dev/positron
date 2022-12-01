@@ -57,9 +57,9 @@ impl Shell {
         handler: Arc<Mutex<dyn ShellHandler>>,
     ) -> Self {
         Self {
-            socket: socket,
-            iopub_sender: iopub_sender,
-            handler: handler,
+            socket,
+            iopub_sender,
+            handler,
         }
     }
 
