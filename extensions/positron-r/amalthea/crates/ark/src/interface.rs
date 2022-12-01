@@ -5,8 +5,9 @@
 //
 //
 
+use amalthea::event::busy::BusyEvent;
 use amalthea::event::positron_event::PositronEvent;
-use amalthea::event::show_message::ShowMessage;
+use amalthea::event::show_message::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
@@ -186,8 +187,27 @@ pub extern "C" fn r_show_message(buf: *const c_char) {
     let kernel = mutex.lock().unwrap();
 
     // Create an event representing the message
-    let event = PositronEvent::ShowMessage(ShowMessage{
+    let event = PositronEvent::ShowMessage(ShowMessageEvent{
         message: message.to_str().unwrap().to_string(),
+    });
+
+    // Have the kernel deliver the event to the front end
+    kernel.send_event(event);
+}
+
+/**
+ * Invoked by R to change busy state
+ */
+#[no_mangle]
+pub extern "C" fn r_busy(which: i32) {
+    // Convert the message to a string
+    // Wait for a lock on the kernel
+    let mutex = unsafe { KERNEL.as_ref().unwrap() };
+    let kernel = mutex.lock().unwrap();
+
+    // Create an event representing the new busy state
+    let event = PositronEvent::Busy(BusyEvent{
+        busy: which != 0,
     });
 
     // Have the kernel deliver the event to the front end
@@ -279,6 +299,7 @@ pub fn start_r(
         ptr_R_WriteConsoleEx = Some(r_write_console);
         ptr_R_ReadConsole = Some(r_read_console);
         ptr_R_ShowMessage = Some(r_show_message);
+        ptr_R_Busy = Some(r_busy);
 
         // Listen for polled events
         R_PolledEvents = Some(r_polled_events);

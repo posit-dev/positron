@@ -31,6 +31,7 @@ impl From<PositronEvent> for ClientEvent {
     fn from(event: PositronEvent) -> Self {
         match event {
             PositronEvent::ShowMessage(message) => Self::as_evt(message),
+            PositronEvent::Busy(message) => Self::as_evt(message),
             // Future event types go here
         }
     }
