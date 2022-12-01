@@ -5,6 +5,8 @@
 //
 //
 
+use amalthea::event::positron_event::PositronEvent;
+use amalthea::event::show_message::ShowMessage;
 use amalthea::socket::iopub::IOPubMessage;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
@@ -160,12 +162,36 @@ pub extern "C" fn r_read_console(
 
 }
 
+/**
+ * Invoked by R to write output to the console.
+ */
 #[no_mangle]
 pub extern "C" fn r_write_console(buf: *const c_char, _buflen: i32, otype: i32) {
     let content = unsafe { CStr::from_ptr(buf) };
     let mutex = unsafe { KERNEL.as_ref().unwrap() };
     let mut kernel = mutex.lock().unwrap();
     kernel.write_console(content.to_str().unwrap(), otype);
+}
+
+/**
+ * Invoked by R to show a message to the user.
+ */
+#[no_mangle]
+pub extern "C" fn r_show_message(buf: *const c_char) {
+    // Convert the message to a string
+    let message = unsafe { CStr::from_ptr(buf) };
+
+    // Wait for a lock on the kernel
+    let mutex = unsafe { KERNEL.as_ref().unwrap() };
+    let kernel = mutex.lock().unwrap();
+
+    // Create an event representing the message
+    let event = PositronEvent::ShowMessage(ShowMessage{
+        message: message.to_str().unwrap().to_string(),
+    });
+
+    // Have the kernel deliver the event to the front end
+    kernel.send_event(event);
 }
 
 #[no_mangle]
@@ -252,6 +278,7 @@ pub fn start_r(
         ptr_R_WriteConsole = None;
         ptr_R_WriteConsoleEx = Some(r_write_console);
         ptr_R_ReadConsole = Some(r_read_console);
+        ptr_R_ShowMessage = Some(r_show_message);
 
         // Listen for polled events
         R_PolledEvents = Some(r_polled_events);
