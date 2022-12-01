@@ -5,7 +5,7 @@
  *
  */
 
-use super::show_message::ShowMessage;
+use super::{show_message::ShowMessageEvent, busy::BusyEvent};
 
 /// Trait used to extract the event type from an event (for serialization)
 pub trait PositronEventType {
@@ -14,5 +14,6 @@ pub trait PositronEventType {
 
 #[derive(Clone)]
 pub enum PositronEvent {
-    ShowMessage(ShowMessage),
+    ShowMessage(ShowMessageEvent),
+    Busy(BusyEvent)
 }
