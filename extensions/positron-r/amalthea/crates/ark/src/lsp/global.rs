@@ -9,9 +9,8 @@ use std::sync::mpsc::SyncSender;
 use tower_lsp::Client;
 use crate::request::Request;
 use once_cell::sync::OnceCell;
-use parking_lot::Mutex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClientInstance {
     pub client: Client,
     pub channel: SyncSender<Request>
@@ -19,4 +18,8 @@ pub struct ClientInstance {
 
 // This global instance of the LSP client and request channel is used for
 // context in the R callback functions.
-pub static INSTANCE: OnceCell<Mutex<ClientInstance>> = OnceCell::new();
+pub static INSTANCE: OnceCell<ClientInstance> = OnceCell::new();
+
+pub fn get_instance() -> ClientInstance {
+    INSTANCE.get().unwrap().clone()
+}

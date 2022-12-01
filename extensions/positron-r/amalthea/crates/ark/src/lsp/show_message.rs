@@ -25,7 +25,7 @@ pub unsafe extern "C" fn ps_show_message(message: SEXP) -> SEXP {
         // Get the global instance of the channel used to deliver requests to the
         // front end, and send a request to show the message
         if let Some(inst) = INSTANCE.get() {
-            if let Err(err) = inst.lock().channel.send(Request::DeliverEvent(PositronEvent::ShowMessage(ShowMessage{message: msg}))) {
+            if let Err(err) = inst.channel.send(Request::DeliverEvent(PositronEvent::ShowMessage(ShowMessage{message: msg}))) {
                 anyhow::bail!("Failed to send message to front end: {}", err);
             }
         } else {
