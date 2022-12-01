@@ -314,4 +314,11 @@ impl Kernel {
     pub fn establish_input_handler(&mut self, sender: SyncSender<ShellInputRequest>) {
         self.input_requestor = Some(sender);
     }
+
+    /// Sends an event to the front end (Positron-specific)
+    pub fn send_event(&self, event: PositronEvent) {
+        if let Err(err) = self.iopub.send(IOPubMessage::Event(event)) {
+            warn!("Could not publish event on iopub: {}", err);
+        }
+    }
 }
