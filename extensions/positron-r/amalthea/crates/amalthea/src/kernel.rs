@@ -91,8 +91,8 @@ impl Kernel {
             None,
             self.connection.endpoint(self.connection.iopub_port),
         )?;
-        let receiver = self.iopub_receiver.take().unwrap();
-        thread::spawn(move || Self::iopub_thread(iopub_socket, receiver));
+        let iopub_receiver = self.iopub_receiver.take().unwrap();
+        thread::spawn(move || Self::iopub_thread(iopub_socket, iopub_receiver));
 
         // Create the heartbeat socket and start a thread to listen for
         // heartbeat messages.
