@@ -15,7 +15,6 @@ use std::sync::mpsc::SyncSender;
 use dashmap::DashMap;
 use harp::r_lock;
 use log::*;
-use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use regex::Regex;
 use serde_json::Value;
@@ -37,14 +36,14 @@ use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition_context;
 use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::documents::Document;
+use crate::lsp::global::ClientInstance;
+use crate::lsp::global::INSTANCE;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
 use crate::lsp::modules;
 use crate::lsp::signature_help::signature_help;
 use crate::lsp::symbols;
 use crate::request::Request;
-
-pub static CLIENT: OnceCell<Mutex<Client>> = OnceCell::new();
 
 macro_rules! backend_trace {
 
@@ -586,7 +585,10 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
     let (service, socket) = LspService::new(|client| {
 
         // initialize global client (needs to be visible for R routines)
-        CLIENT.set(Mutex::new(client.clone())).unwrap();
+        INSTANCE.set(Mutex::new(ClientInstance {
+            client: client.clone(),
+            channel: channel.clone(),
+        })).unwrap();
 
         // create backend
         Backend {
