@@ -24,6 +24,14 @@ declare module 'positron' {
 
 		/** A message representing a change in the runtime's online state */
 		State = 'state',
+
+		/** A message representing a runtime event */
+		Event = 'event',
+	}
+
+	/** The set of possible language runtime events */
+	export enum LanguageRuntimeEventType {
+		ShowMessage = 'show_message'
 	}
 
 	/**
@@ -110,6 +118,20 @@ declare module 'positron' {
 
 		/** The type of event */
 		type: LanguageRuntimeMessageType;
+	}
+
+	export interface LanguageRuntimeEventData { }
+
+	/**
+	 * LanguageRuntimeEvent is an interface that defines an event occurring
+	 * in a language runtime, usually to trigger some action on the front end.
+	 */
+	export interface LanguageRuntimeEvent extends LanguageRuntimeMessage {
+		/** The name of the event */
+		name: LanguageRuntimeEventType;
+
+		/** The event's data */
+		data: LanguageRuntimeEventData;
 	}
 
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
