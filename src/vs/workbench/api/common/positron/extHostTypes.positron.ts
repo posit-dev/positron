@@ -63,7 +63,16 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a change in the runtime's online state */
 	State = 'state',
+
+	/** A message representing a runtime event */
+	Event = 'event',
 }
+
+/** The set of possible language runtime events */
+export enum LanguageRuntimeEventType {
+	ShowMessage = 'show_message'
+}
+
 
 /**
  * Possible code execution modes for a language runtime
