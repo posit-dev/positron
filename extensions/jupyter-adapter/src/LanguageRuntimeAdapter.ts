@@ -16,6 +16,7 @@ import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterErrorReply } from './JupyterErrorReply';
 import { JupyterStreamOutput } from './JupyterStreamOutput';
 import { PositronEvent } from './PositronEvent';
+import { JupyterInputRequest } from './JupyterInputRequest';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -210,7 +211,27 @@ export class LanguageRuntimeAdapter
 			case 'client_event':
 				this.onPositronEvent(msg, message as PositronEvent);
 				break;
+			case 'input_request':
+				this.onInputRequest(msg, message as JupyterInputRequest);
+				break;
 		}
+	}
+
+	/**
+	 * Handles an input_request message from the kernel.
+	 *
+	 * @param message The message packet
+	 * @param req The input request
+	 */
+	private onInputRequest(message: JupyterMessagePacket, req: JupyterInputRequest): void {
+		// Send the input request to the client.
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			type: positron.LanguageRuntimeMessageType.Prompt,
+			prompt: req.prompt,
+			password: req.password,
+		} as positron.LanguageRuntimePrompt);
 	}
 
 	/**

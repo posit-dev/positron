@@ -29,6 +29,15 @@ export interface ILanguageRuntimeOutput extends ILanguageRuntimeMessage {
 	data: Map<string, string>;
 }
 
+/** LanguageRuntimePrompt is a LanguageRuntimeMessage representing a prompt for input */
+export interface ILanguageRuntimePrompt extends ILanguageRuntimeMessage {
+	/** The prompt text */
+	prompt: string;
+
+	/** Whether this is a password prompt (and typing should be hidden)  */
+	password: boolean;
+}
+
 /**
  * The set of possible statuses for a language runtime
  */
@@ -122,6 +131,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing an error that occurred while executing user code */
 	Error = 'error',
+
+	/** A message representing a prompt for user input */
+	Prompt = 'prompt',
 
 	/** A message representing a change in the runtime's online state */
 	State = 'state',
