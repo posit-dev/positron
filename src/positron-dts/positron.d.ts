@@ -22,6 +22,9 @@ declare module 'positron' {
 		/** A message representing an error that occurred while executing user code */
 		Error = 'error',
 
+		/** A message representing a prompt for user input */
+		Prompt = 'prompt',
+
 		/** A message representing a change in the runtime's online state */
 		State = 'state',
 
@@ -147,6 +150,15 @@ declare module 'positron' {
 
 		/** The execution count */
 		execution_count: number;
+	}
+
+	/** LanguageRuntimePrompt is a LanguageRuntimeMessage representing a prompt for input */
+	export interface LanguageRuntimePrompt extends LanguageRuntimeMessage {
+		/** The prompt text */
+		prompt: string;
+
+		/** Whether this is a password prompt (and typing should be hidden)  */
+		password: boolean;
 	}
 
 	/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
