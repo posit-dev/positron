@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+amalthea-macros = { path = "./amalthea-macros" }
 async-trait = "0.1.53"
 chrono = "0.4.19"
 crypto-common = "0.1.1"

@@ -30,6 +30,7 @@ dependencies = [
 name = "amalthea"
 version = "0.1.0"
 dependencies = [
+ "amalthea-macros",
  "async-trait",
  "chrono",
  "crypto-common",
@@ -47,6 +48,15 @@ dependencies = [
  "sha2",
  "uuid",
  "zmq",
+]
+
+[[package]]
+name = "amalthea-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
