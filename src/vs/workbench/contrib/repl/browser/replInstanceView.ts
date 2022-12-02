@@ -9,8 +9,10 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeEventType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeEventType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
+import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
+import Severity from 'vs/base/common/severity';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -57,7 +59,8 @@ export class ReplInstanceView extends Disposable {
 
 	constructor(private readonly _instance: IReplInstance,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ILogService private readonly _logService: ILogService) {
+		@ILogService private readonly _logService: ILogService,
+		@IDialogService private readonly _dialogService: IDialogService) {
 		super();
 		this._kernel = this._instance.kernel;
 
@@ -136,6 +139,8 @@ export class ReplInstanceView extends Disposable {
 						'info', `${data.message}`);
 					msg.render(this._cellContainer);
 				}
+			} else if (msg.type === LanguageRuntimeMessageType.Prompt) {
+				this.showPrompt(msg as ILanguageRuntimePrompt);
 			}
 
 			this.scrollToBottom();
@@ -376,6 +381,30 @@ export class ReplInstanceView extends Disposable {
 
 		cell.onDidCancelExecution(() => {
 			this._kernel.interrupt();
+		});
+	}
+
+	/**
+	 *
+	 * @param prompt The prompt to display
+	 */
+	private showPrompt(prompt: ILanguageRuntimePrompt) {
+		this._dialogService.input(
+			Severity.Info,
+			prompt.prompt,
+			[], // Buttons
+			[{
+				type: prompt.password ? 'password' : 'text',
+			}]
+		).then((result) => {
+			if (result &&
+				result.values &&
+				result.values.length > 0 &&
+				result.values[0]) {
+				this._kernel.replyToPrompt(prompt.id, result.values[0]);
+			} else {
+				this._kernel.replyToPrompt(prompt.id, '');
+			}
 		});
 	}
 
