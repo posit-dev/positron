@@ -17,7 +17,7 @@ ego-tree = "0.6.2"
 harp = { path = "../harp" }
 html5ever = "0.26.0"
 lazy_static = "1.4.0"
-libR-sys = { git = "https://github.com/kevinushey/libR-sys", branch = "feature/dynamic-lookup" }
+libR-sys = "0.3.0"
 libc = "0.2"
 log = "0.4.14"
 once_cell = "1.16.0"
@@ -46,4 +46,4 @@ rpath = true
 # Note that this typically requires the `llvm` and `clang` packages to be
 # installed on the build host.
 [target.'cfg(all(target_os="linux", target_arch="aarch64"))'.dependencies]
-libR-sys = { git = "https://github.com/kevinushey/libR-sys", branch = "feature/dynamic-lookup", features = ["use-bindgen"] }
+libR-sys = { version = "0.3.0", features = ["use-bindgen"] }

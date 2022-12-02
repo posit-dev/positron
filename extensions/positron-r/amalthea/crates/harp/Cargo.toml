@@ -10,6 +10,6 @@ Tools for integrating R and Rust.
 ctor = "0.1.26"
 harp-macros = { path = "./harp-macros" }
 lazy_static = "1.4.0"
-libR-sys = { git = "https://github.com/kevinushey/libR-sys", branch = "feature/dynamic-lookup" }
+libR-sys = "0.3.0"
 log = "0.4.17"
 stdext = { path = "../stdext" }
