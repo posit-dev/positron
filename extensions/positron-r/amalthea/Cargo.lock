@@ -868,10 +868,12 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 [[package]]
 name = "libR-sys"
 version = "0.3.0"
-source = "git+https://github.com/kevinushey/libR-sys?branch=feature/dynamic-lookup#3f022f21b9b09b583136fc51379cb80e66984036"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a97fd689379c62156b5c9b7b368d118ef660ad8c220a2f3e4c655529ad52384"
 dependencies = [
  "bindgen",
  "regex",
+ "winapi",
 ]
 
 [[package]]

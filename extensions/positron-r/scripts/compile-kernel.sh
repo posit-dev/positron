@@ -29,13 +29,12 @@ if [ -n "${RUST_TARGET}" ]; then
 fi
 
 # Build the kernel!
-cargo build ${CARGO_TARGET}
+cargo build --release ${CARGO_TARGET}
 
-# If we built a cross-compiled version of the ark kernel, copy it to the right
-# place; it is always expected in target/debug.
+# If we built a cross-compiled version of the ark kernel, copy it to the right place.
 if [ -n "${RUST_TARGET}" ]; then
-	mkdir -p "target/debug"
-	cp "target/${RUST_TARGET}/debug/ark" "target/debug/ark"
+	mkdir -p "target/release"
+	cp "target/${RUST_TARGET}/release/ark" "target/release/ark"
 fi
 
 popd
