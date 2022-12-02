@@ -28,9 +28,9 @@
 				"positron.r.kernel.path": {
 					"scope": "window",
 					"type": "string",
-          "default": "",
+					"default": "",
 					"description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel."
-        },
+				},
 				"positron.r.trace.server": {
 					"scope": "window",
 					"type": "string",
@@ -39,47 +39,48 @@
 						"messages",
 						"verbose"
 					],
-          "enumDescriptions": [
-              "No tracing.",
-              "Log messages from the server to the output panel.",
-              "Log messages from the server as well as verbose output."
-          ],
+					"enumDescriptions": [
+						"No tracing.",
+						"Log messages from the server to the output panel.",
+						"Log messages from the server as well as verbose output."
+					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
 				}
 			}
 		},
-        "languages": [
-            {
-                "id": "r",
-                "extensions": [
-                    ".R",
-                    ".r",
-                    ".rprofile"
-                ],
-                "aliases": [
-                    "R",
-                    "r"
-                ],
-                "configuration": "./language-configuration.json"
-            }
+		"languages": [
+			{
+				"id": "r",
+				"extensions": [
+					".R",
+					".r",
+					".rprofile"
+				],
+				"aliases": [
+					"R",
+					"r"
+				],
+				"configuration": "./language-configuration.json"
+			}
 
-        ],
-        "grammars": [
-            {
-                "language": "r",
-                "scopeName": "source.r",
-                "path": "./syntaxes/r.tmGrammar.gen.json"
-            }
-        ]
+		],
+		"grammars": [
+			{
+				"language": "r",
+				"scopeName": "source.r",
+				"path": "./syntaxes/r.tmGrammar.gen.json"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
-    "compile-kernel": "./scripts/compile-kernel.sh",
+		"compile-kernel": "./scripts/compile-kernel.sh",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
-    "preinstall": "npm run compile-kernel",
+		"preinstall": "npm run compile-kernel",
+		"postinstall": "node ./scripts/post-install.js",
 		"lint": "eslint src --ext ts",
 		"test": "node ./out/test/runTest.js"
 	},
