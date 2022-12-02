@@ -20,13 +20,33 @@ fn invalid_return_type(stream: impl ToTokens) -> ! {
     panic!("Invalid return type `{}`: registered routines must return a SEXP.", stream.to_token_stream());
 }
 
+fn invalid_extern(stream: impl ToTokens) -> ! {
+    panic!("Invalid signature `{}`: registered routines must be 'extern \"C\"'.", stream.to_token_stream());
+}
+
 #[proc_macro_attribute]
 pub fn register(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Get metadata about the function being registered.
     let function : syn::ItemFn = syn::parse(item).unwrap();
 
-    // Make sure that the function only accepts SEXPs, and returns a SEXP.
+    // Make sure the function is 'extern "C"'.
+    let abi = match function.sig.abi {
+        Some(ref abi) => abi,
+        None => invalid_extern(function.sig),
+    };
+
+    let name = match abi.name {
+        Some(ref name) => name,
+        None => invalid_extern(function.sig),
+    };
+
+    let name = name.to_token_stream().to_string();
+    if name != "\"C\"" {
+        invalid_extern(function.sig);
+    }
+
+    // Make sure that the function only accepts SEXPs.
     for input in function.sig.inputs.iter() {
 
         let pattern = match input {
