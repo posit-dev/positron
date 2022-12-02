@@ -60,6 +60,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior);
 	}
 
+	replyToPrompt(id: string, value: string): void {
+		this._proxy.$replyToPrompt(this.handle, id, value);
+	}
+
 	interrupt(): void {
 		return this._proxy.$interruptLanguageRuntime(this.handle);
 	}
