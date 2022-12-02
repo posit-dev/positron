@@ -251,15 +251,23 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		});
 	}
 
+	replyToPrompt(id: string, value: string): void {
+		// This notebook API doesn't support prompting the user for input
+		throw new Error('Method not implemented.');
+	}
+
 	interrupt(): void {
+		// Notebook kernel liftime is managed elsewhere
 		throw new Error('Method not implemented.');
 	}
 
 	restart(): void {
+		// Notebook kernel liftime is managed elsewhere
 		throw new Error('Method not implemented.');
 	}
 
 	shutdown(): void {
+		// Notebook kernel liftime is managed elsewhere
 		throw new Error('Method not implemented.');
 	}
 }

@@ -225,6 +225,11 @@ export interface ILanguageRuntime {
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior): void;
 
+	/** Reply to an input prompt that the runtime issued
+	 * (via a LanguageRuntimePrompt message)
+	 */
+	replyToPrompt(id: string, value: string): void;
+
 	start(): Thenable<ILanguageRuntimeInfo>;
 
 	/** Interrupt the runtime */

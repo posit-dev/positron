@@ -18,6 +18,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 export interface ExtHostLanguageRuntimeShape {
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void;
+	$replyToPrompt(handle: number, id: string, response: string): void;
 	$interruptLanguageRuntime(handle: number): void;
 	$restartLanguageRuntime(handle: number): void;
 	$shutdownLanguageRuntime(handle: number): void;
