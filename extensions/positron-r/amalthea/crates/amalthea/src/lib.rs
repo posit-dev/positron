@@ -5,6 +5,10 @@
  *
  */
 
+mod positron {
+    pub use amalthea_macros::event;
+}
+
 pub mod connection_file;
 pub mod error;
 pub mod event;
