@@ -229,6 +229,9 @@ declare module 'positron' {
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): void;
 
+		/** Reply to a prompt issued by the runtime */
+		replyToPrompt(id: string, reply: string): void;
+
 		/** Start the runtime; returns a Thenable that resolves with information about the runtime. */
 		start(): Thenable<LanguageRuntimeInfo>;
 

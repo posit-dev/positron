@@ -27,6 +27,7 @@ import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
+import { JupyterInputReply } from './JupyterInputReply';
 import { StringDecoder } from 'string_decoder';
 import { Tail } from 'tail';
 
@@ -59,6 +60,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/** The LSP port (if the LSP has been started) */
 	private _lspClientPort: number | null;
+
+	/**
+	 * A map of IDs to pending input requests; used to match up input replies
+	 * with the correct request
+	 */
+	private _inputRequests: Map<string, JupyterMessageHeader> = new Map();
 
 	private _heartbeatTimer: NodeJS.Timeout | null;
 	private _lastHeartbeat: number;
@@ -237,6 +244,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._stdin.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._key, this._channel);
 			if (msg !== null) {
+				// If this is an input request, save the header so we can
+				// can line it up with the client's response.
+				if (msg.header.msg_type === 'input_request') {
+					this._inputRequests.set(msg.header.msg_id, msg.header);
+				}
 				this.emitMessage(JupyterSockets.stdin, msg);
 			}
 		});
@@ -405,6 +417,36 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
+	 * Reply to an input prompt issued by the kernel.
+	 *
+	 * @param id The ID of the input request
+	 * @param value The value to send to the kernel
+	 */
+	public replyToPrompt(id: string, value: string) {
+		// Create the message body
+		const msg: JupyterInputReply = {
+			value: value
+		};
+
+		// Attempt to find the prompt request that we are replying to
+		const parent = this._inputRequests.get(id);
+		if (parent) {
+			// Found it! Send the reply
+			this._channel.appendLine(`Sending input reply for ${id}: ${value}`);
+			this.sendToSocket(uuidv4(), 'input_reply', this._stdin!, parent, msg);
+
+			// Remove the request from the map now that we've replied
+			this._inputRequests.delete(id);
+		} else {
+			// Couldn't find the request? Send the response anyway; most likely
+			// the kernel doesn't care (it is probably waiting for this specific
+			// response)
+			this._channel.appendLine(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
+			this.send(uuidv4(), 'input_reply', this._stdin!, msg);
+		}
+	}
+
+	/**
 	 * Send a message to the kernel
 	 *
 	 * @param packet The message package
@@ -492,7 +534,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Sends a message to the kernel.
+	 * Sends a message to the kernel. Convenience method for messages with no parent
+	 * message.
 	 *
 	 * @param id The unique ID of the message
 	 * @param type The type of the message
@@ -500,12 +543,25 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param message The body of the message
 	 */
 	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec): Promise<void> {
+		return this.sendToSocket(id, type, dest, {} as JupyterMessageHeader, message);
+	}
+
+	/**
+	 * Sends a message to the kernel.
+	 *
+	 * @param id The unique ID of the message
+	 * @param type The type of the message
+	 * @param dest The socket to which the message should be sent
+	 * @param parent The parent message header (if any, {} if no parent)
+	 * @param message The body of the message
+	 */
+	private sendToSocket(id: string, type: string, dest: JupyterSocket, parent: JupyterMessageHeader, message: JupyterMessageSpec): Promise<void> {
 		const msg: JupyterMessage = {
 			buffers: [],
 			content: message,
 			header: this.generateMessageHeader(id, type),
 			metadata: new Map(),
-			parent_header: {} as JupyterMessageHeader // eslint-disable-line
+			parent_header: parent
 		};
 		this._channel.appendLine(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
 		return new Promise<void>((resolve, reject) => {

@@ -60,6 +60,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimes[handle].execute(code, id, mode, errorBehavior);
 	}
 
+	$replyToPrompt(handle: number, id: string, response: string): void {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot reply to prompt: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		this._runtimes[handle].replyToPrompt(id, response);
+	}
+
 	public registerLanguageRuntime(
 		runtime: positron.LanguageRuntime): IDisposable {
 

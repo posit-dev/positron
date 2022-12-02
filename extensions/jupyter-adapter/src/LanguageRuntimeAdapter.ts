@@ -88,6 +88,17 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
+	 * Replies to an input prompt from the kernel.
+	 *
+	 * @param id The ID of the prompt to which user responded
+	 * @param reply The user's response
+	 */
+	public replyToPrompt(id: string, reply: string): void {
+		this._channel.appendLine(`Sending reply to prompt ${id}: ${reply}`);
+		this._kernel.replyToPrompt(id, reply);
+	}
+
+	/**
 	 * Interrupts the kernel.
 	 */
 	public interrupt(): void {
