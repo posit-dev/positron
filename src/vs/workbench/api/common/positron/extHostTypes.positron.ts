@@ -61,6 +61,9 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing an error that occurred while executing user code */
 	Error = 'error',
 
+	/** A message representing a prompt for user input */
+	Prompt = 'prompt',
+
 	/** A message representing a change in the runtime's online state */
 	State = 'state',
 
