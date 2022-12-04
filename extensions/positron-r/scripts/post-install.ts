@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
 
 // On macOS, we use install_name_tool to fix up the link to libR.dylib.
 // This is done instead of '-undefined dynamic_lookup' since it avoids
