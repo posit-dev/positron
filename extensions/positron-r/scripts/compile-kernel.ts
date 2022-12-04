@@ -7,8 +7,8 @@ import { copyFileSync, mkdirSync } from 'fs';
 import { chdir, env, exit } from 'process';
 
 // Check whether cargo is available
-const whichCargo = spawnSync('which', ['cargo'], { encoding: 'utf-8' });
-if (whichCargo.status !== 0 || whichCargo.error) {
+const whichCargoResult = spawnSync('which', ['cargo'], { encoding: 'utf-8' });
+if (whichCargoResult.status !== 0 || whichCargoResult.error) {
 	console.log(`cargo is not available; skipping build of Amalthea kernel.`);
 	exit(1);
 }
@@ -17,19 +17,19 @@ if (whichCargo.status !== 0 || whichCargo.error) {
 chdir(`${__dirname}/../amalthea`);
 
 // Start building the arguments to cargo build
-const args = ['build', '--release'];
+const cargoBuildArgs = ['build', '--release'];
 
 // If RUST_TARGET is set, use it
 const rustTarget = env['RUST_TARGET'];
 if (rustTarget) {
 	env['PKG_CONFIG_ALLOW_CROSS'] = '1';
-	args.push('--target', rustTarget);
+	cargoBuildArgs.push('--target', rustTarget);
 }
 
 // Build it!
-const buildResult = spawnSync('cargo', args, { encoding: 'utf-8', stdio: 'inherit' });
-if (buildResult.status !== 0 || buildResult.error) {
-	console.log(`ERROR: cargo build failed [exit status ${buildResult.status}]`);
+const cargoBuildResult = spawnSync('cargo', cargoBuildArgs, { encoding: 'utf-8', stdio: 'inherit' });
+if (cargoBuildResult.status !== 0 || cargoBuildResult.error) {
+	console.log(`ERROR: cargo build failed [exit status ${cargoBuildResult.status}]`);
 	exit(1);
 }
 
