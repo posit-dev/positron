@@ -68,6 +68,17 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 /// Ensures that the kernel is only ever initialized once
 static INIT: Once = Once::new();
 
+fn process_events() {
+    unsafe {
+        R_ProcessEvents();
+
+        let fdset = R_checkActivity(0, 1);
+        if !fdset.is_null() {
+            R_runHandlers(R_InputHandlers, fdset);
+        }
+    }
+}
+
 fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {
 
     // TODO: What if the input is too large for the buffer?
@@ -135,7 +146,7 @@ pub extern "C" fn r_read_console(
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
                 // Process events.
-                unsafe { R_ProcessEvents() };
+                process_events();
 
                 if let Some(input) = response {
                     on_console_input(buf, buflen, input);
@@ -158,11 +169,7 @@ pub extern "C" fn r_read_console(
                         // that some R features (e.g. the help server) run in
                         // response to input handlers, so we need to make sure
                         // those run here as well.
-                        unsafe {
-                            let fdset = R_checkActivity(0, 1);
-                            R_runHandlers(R_InputHandlers, fdset);
-                            R_ProcessEvents();
-                        }
+                        process_events();
 
                         // Keep waiting for console input.
                         continue;
