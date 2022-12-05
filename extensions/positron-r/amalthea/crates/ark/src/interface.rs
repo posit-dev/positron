@@ -72,10 +72,14 @@ fn process_events() {
     unsafe {
         R_ProcessEvents();
 
+        // Run handlers if we have data available. This is necessary
+        // for things like the HTML help server, which will listen
+        // for requests on an open socket() which would then normally
+        // be handled in a select() call when reading input from stdin.
+        //
+        // https://github.com/wch/r-source/blob/4ca6439c1ffc76958592455c44d83f95d5854b2a/src/unix/sys-std.c#L1084-L1086
         let fdset = R_checkActivity(0, 1);
-        if !fdset.is_null() {
-            R_runHandlers(R_InputHandlers, fdset);
-        }
+        R_runHandlers(R_InputHandlers, fdset);
     }
 }
 
@@ -133,6 +137,10 @@ pub extern "C" fn r_read_console(
 
     // Match with a timeout. Necessary because we need to
     // pump the event loop while waiting for console input.
+    //
+    // Alternatively, we could try to figure out the file
+    // descriptors that R has open and select() on those for
+    // available data?
     loop {
 
         // Release the R runtime lock while we're waiting for input.
@@ -165,10 +173,7 @@ pub extern "C" fn r_read_console(
 
                     Timeout => {
 
-                        // Pump the event loop, and run event handlers.  Note
-                        // that some R features (e.g. the help server) run in
-                        // response to input handlers, so we need to make sure
-                        // those run here as well.
+                        // Process events.
                         process_events();
 
                         // Keep waiting for console input.
