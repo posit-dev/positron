@@ -5,9 +5,9 @@
 //
 //
 
-use amalthea::event::busy::BusyEvent;
-use amalthea::event::positron_event::PositronEvent;
-use amalthea::event::show_message::ShowMessageEvent;
+use amalthea::events::BusyEvent;
+use amalthea::events::PositronEvent;
+use amalthea::events::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
@@ -18,6 +18,7 @@ use libc::{c_char, c_int};
 use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
+use std::os::raw::c_void;
 use std::sync::MutexGuard;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender, SyncSender};
@@ -32,8 +33,16 @@ use crate::kernel::KernelInfo;
 use crate::request::Request;
 
 extern "C" {
+
+    // NOTE: Some of these routines don't really return (or use) void pointers,
+    // but because we never introspect these values directly and they're always
+    // passed around in R as pointers, it suffices to just use void pointers.
+    fn R_checkActivity(usec: i32, ignore_stdin: i32) -> *const c_void;
+    fn R_runHandlers(handlers: *const c_void, fdset: *const c_void);
     fn R_ProcessEvents();
     fn run_Rmainloop();
+
+    pub static mut R_InputHandlers: *const c_void;
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
 }
 
@@ -125,6 +134,9 @@ pub extern "C" fn r_read_console(
                 // Take back the lock after we've received some console input.
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
+                // Process events.
+                unsafe { R_ProcessEvents() };
+
                 if let Some(input) = response {
                     on_console_input(buf, buflen, input);
                 }
@@ -142,8 +154,15 @@ pub extern "C" fn r_read_console(
 
                     Timeout => {
 
-                        // Pump the event loop.
-                        unsafe { R_ProcessEvents() };
+                        // Pump the event loop, and run event handlers.  Note
+                        // that some R features (e.g. the help server) run in
+                        // response to input handlers, so we need to make sure
+                        // those run here as well.
+                        unsafe {
+                            let fdset = R_checkActivity(0, 1);
+                            R_runHandlers(R_InputHandlers, fdset);
+                            R_ProcessEvents();
+                        }
 
                         // Keep waiting for console input.
                         continue;

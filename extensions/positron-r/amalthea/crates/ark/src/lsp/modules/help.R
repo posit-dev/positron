@@ -5,6 +5,11 @@
 #
 #
 
+options(help_type = "html")
+
+# Start the R help server on startup
+suppressMessages(tools::startDynamicHelp(start = TRUE))
+
 .rs.help.getHtmlHelpContents <- function(topic, package = "") {
 
   # If a package name is encoded into 'topic', split that here.
