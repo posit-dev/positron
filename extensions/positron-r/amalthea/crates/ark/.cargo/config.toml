@@ -1,0 +1,4 @@
+
+# Required since we don't build against an x86_64 build of R on arm64 macOS.
+[target.x86_64-apple-darwin]
+rustflags = ["-Clink-args=-undefined dynamic_lookup"]
