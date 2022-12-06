@@ -8,17 +8,11 @@
 	flex-direction: column;
 }
 
-.positron-help-action-bars-container {
+.positron-help-actions-container {
 	height: min-content;
 }
 
-.positron-help-content {
-	flex-grow: 1;
-	margin-left: 20px;
-	overflow-y: scroll;
-}
-
-.positron-help-frame {
+.positron-help-iframe {
 	border: none;
 	flex-grow: 1;
 	overflow-y: scroll;

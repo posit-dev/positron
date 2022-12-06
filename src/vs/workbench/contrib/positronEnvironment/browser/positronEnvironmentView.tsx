@@ -16,6 +16,8 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
 
 /**
  * PositronEnvironmentViewPane class.
@@ -39,27 +41,45 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	// The environment action bars container - contains the PositronEnvironmentActionBars component.
 	//private _environmentActionBarsContainer!: HTMLElement;
 
-	// Constructor.
+	/**
+	 * Constructor.
+	 * @param options The IViewPaneOptions for the view pane.
+	 * @param commandService The ICommandService.
+	 * @param configurationService The IConfigurationService.
+	 * @param contextKeyService The IContextKeyService.
+	 * @param contextMenuService The IContextMenuService.
+	 * @param instantiationService The IInstantiationService.
+	 * @param keybindingService The IKeybindingService.
+	 * @param openerService The IOpenerService.
+	 * @param positronEnvironmentService The IPositronEnvironmentService.
+	 * @param telemetryService The ITelemetryService.
+	 * @param themeService The IThemeService.
+	 * @param viewDescriptorService The IViewDescriptorService.
+	 */
 	constructor(
 		options: IViewPaneOptions,
-		@IKeybindingService keybindingService: IKeybindingService,
-		@IContextMenuService contextMenuService: IContextMenuService,
+		@ICommandService commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
-		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
+		@IKeybindingService keybindingService: IKeybindingService,
 		@IOpenerService openerService: IOpenerService,
-		@IThemeService themeService: IThemeService,
+		@IPositronEnvironmentService positronEnvironmentService: IPositronEnvironmentService,
 		@ITelemetryService telemetryService: ITelemetryService,
+		@IThemeService themeService: IThemeService,
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 
 		// Register event handlers.
-		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
+		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChanged.fire(this.isBodyVisible())));
 	}
 
-	// Dispose method.
+	/**
+	 * Dispose method.
+	 */
 	public override dispose(): void {
 		// Destroy the PositronReactRenderer.
 		if (this._positronReactRenderer) {
@@ -71,13 +91,18 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		super.dispose();
 	}
 
-	// Focus override.
+	/**
+	 * focus override method.
+	 */
 	override focus(): void {
 		// Call the base class's method.
 		super.focus();
 	}
 
-	// Render body override.
+	/**
+	 * renderBody override method.
+	 * @param container The container HTMLElement.
+	 */
 	protected override renderBody(container: HTMLElement): void {
 		// Call the base class's method.
 		super.renderBody(container);
@@ -89,12 +114,13 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		);
 	}
 
-	// Layout body override.
+	/**
+	 * layoutBody override method.
+	 * @param height The height of the body.
+	 * @param width The width of the body.
+	 */
 	override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
-	}
-
-	private onDidChangeVisibility(visible: boolean): void {
 	}
 }
 
