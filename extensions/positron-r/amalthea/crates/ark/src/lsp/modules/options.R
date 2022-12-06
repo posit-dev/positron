@@ -5,6 +5,10 @@
 #
 #
 
+# Enable HTML help
+options(help_type = "html")
+
+# Use custom browser implementation
 options(browser = function(url) {
     .Call("ps_browse_url", as.character(url), PACKAGE = "(embedding)")
 })

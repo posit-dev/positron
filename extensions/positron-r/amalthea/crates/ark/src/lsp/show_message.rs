@@ -5,7 +5,7 @@
 //
 //
 
-use amalthea::event::{show_message::ShowMessageEvent, positron_event::PositronEvent};
+use amalthea::events::{ShowMessageEvent, PositronEvent};
 use harp::object::RObject;
 use libR_sys::*;
 use stdext::local;

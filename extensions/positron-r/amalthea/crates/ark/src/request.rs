@@ -5,7 +5,7 @@
 //
 //
 
-use amalthea::{wire::execute_request::ExecuteRequest, event::positron_event::PositronEvent};
+use amalthea::{wire::execute_request::ExecuteRequest, events::PositronEvent};
 use amalthea::wire::execute_response::ExecuteResponse;
 use amalthea::wire::input_request::ShellInputRequest;
 use std::sync::mpsc::{Sender, SyncSender};

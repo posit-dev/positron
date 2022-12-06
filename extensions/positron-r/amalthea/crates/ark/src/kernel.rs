@@ -5,7 +5,7 @@
 //
 //
 
-use amalthea::event::positron_event::PositronEvent;
+use amalthea::events::PositronEvent;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::exception::Exception;
 use amalthea::wire::execute_input::ExecuteInput;
@@ -317,6 +317,7 @@ impl Kernel {
 
     /// Sends an event to the front end (Positron-specific)
     pub fn send_event(&self, event: PositronEvent) {
+        info!("Sending Positron event: {:?}", event);
         if let Err(err) = self.iopub.send(IOPubMessage::Event(event)) {
             warn!("Could not publish event on iopub: {}", err);
         }

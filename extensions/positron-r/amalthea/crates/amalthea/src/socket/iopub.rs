@@ -6,7 +6,7 @@
  */
 
 use crate::error::Error;
-use crate::event::positron_event::PositronEvent;
+use crate::events::PositronEvent;
 use crate::socket::socket::Socket;
 use crate::wire::client_event::ClientEvent;
 use crate::wire::execute_error::ExecuteError;
