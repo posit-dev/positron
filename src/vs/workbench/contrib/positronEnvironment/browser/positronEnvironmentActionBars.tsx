@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronHelpActionBars';
+import 'vs/css!./positronEnvironmentActionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -23,11 +23,11 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
 const kPaddingRight = 4;
-const kFindTimeout = 800;
+
 /**
- * PositronHelpActionBarsProps interface.
+ * PositronEnvironmentActionBarsProps interface.
  */
-export interface PositronHelpActionBarsProps {
+export interface PositronEnvironmentActionBarsProps {
 	// Services.
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
@@ -47,10 +47,10 @@ export interface PositronHelpActionBarsProps {
 }
 
 /**
- * PositronHelpActionBars component.
- * @param props A PositronHelpActionBarsProps that contains the component properties.
+ * PositronEnvironmentActionBars component.
+ * @param props A PositronEnvironmentActionBarsProps that contains the component properties.
  */
-export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActionBarsProps>) => {
+export const PositronHelpActionBars = (props: PropsWithChildren<PositronEnvironmentActionBarsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
@@ -79,13 +79,11 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 		if (findText === '') {
 			return props.onCancelFind();
 		} else {
-			// Start the find timeout.
-			const findTimeout = setTimeout(() => {
+			const timeout = setTimeout(() => {
 				props.onFind(findText);
-			}, kFindTimeout);
+			}, 1000);
 
-			// Clear the find timeout.
-			return () => clearTimeout(findTimeout);
+			return () => clearTimeout(timeout);
 		}
 	}, [findText]);
 
