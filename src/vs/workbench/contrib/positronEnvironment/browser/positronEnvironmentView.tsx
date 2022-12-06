@@ -37,8 +37,8 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
 
-	// The environment container - contains the entire environment UI.
-	private _environmentContainer!: HTMLElement;
+	// The Positron environment container - contains the entire Positron environment UI.
+	private _positronEnvironmentContainer!: HTMLElement;
 
 	// The environment action bars container - contains the PositronEnvironmentActionBars component.
 	//private _environmentActionBarsContainer!: HTMLElement;
@@ -109,9 +109,9 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Append the environment container.
-		this._environmentContainer = DOM.$('.positron-help-container');
-		container.appendChild(this._environmentContainer);
+		// Append the Positron environment container.
+		this._positronEnvironmentContainer = DOM.$('.positron-environment-container');
+		container.appendChild(this._positronEnvironmentContainer);
 
 		// Render the Positron environment component.
 		this._positronReactRenderer = new PositronReactRenderer(this.element);
