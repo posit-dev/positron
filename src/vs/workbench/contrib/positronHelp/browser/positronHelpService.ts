@@ -10,10 +10,10 @@ import { MarkdownString } from 'vs/base/common/htmlContent';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
-import { IMarkdownRenderResult, MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
+import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
 
-// The TrustedTypePolicy for the Positron help renderer.
-export const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
+// The TrustedTypePolicy for rendering.
+const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
 	createHTML: value => value,
 	createScript: value => value
 });
@@ -27,9 +27,6 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 	// The markdown renderer.
 	private _markdownRenderer: MarkdownRenderer;
-
-	// The current markdown render result.
-	private _markdownRenderResult?: IMarkdownRenderResult;
 
 	// The onSizeChanged event.
 	private _onRenderHelp = this._register(new Emitter<TrustedHTML | undefined>());
@@ -78,29 +75,6 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	}
 
 	/**
-	 * Performs a find operation.
-	 * @param findText The find text.
-	 */
-	find(findText: string) {
-		// If find is not possible, return.
-		if (!ttPolicyPositronHelp || !this._markdownRenderResult) {
-			return;
-		}
-
-		// If there's no find text, return the help.
-		if (findText === '') {
-			this._onRenderHelp.fire(ttPolicyPositronHelp.createHTML(this._markdownRenderResult.element.innerHTML));
-			return;
-		}
-
-		const regex = new RegExp(findText, 'gi');
-
-		// const yack = this._markdownRenderResult.element.innerHTML = ttPolicyPositronHelp.createHTML(this._markdownRenderResult.element.innerHTML.replace(regex, '<mark>$&</mark>')) as unknown as string;
-
-		this._onRenderHelp.fire(ttPolicyPositronHelp.createHTML(this._markdownRenderResult.element.innerHTML.replace(regex, '<mark>$&</mark>')));
-	}
-
-	/**
 	 * Renders the help document.
 	 * @param helpContent The help content.
 	 * @returns The help document.
@@ -118,7 +92,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src https:; script-src 'self'; style-src 'nonce-${nonce}';">
 				<style nonce="${nonce}">
 					body {
-						background: white;
+						background: transparent;
 						display: flex;
 						flex-direction: column;
 						padding: 0;
