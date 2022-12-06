@@ -5,9 +5,9 @@
 //
 //
 
-use amalthea::event::busy::BusyEvent;
-use amalthea::event::positron_event::PositronEvent;
-use amalthea::event::show_message::ShowMessageEvent;
+use amalthea::events::BusyEvent;
+use amalthea::events::PositronEvent;
+use amalthea::events::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
@@ -18,6 +18,7 @@ use libc::{c_char, c_int};
 use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
+use std::os::raw::c_void;
 use std::sync::MutexGuard;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender, SyncSender};
@@ -32,8 +33,16 @@ use crate::kernel::KernelInfo;
 use crate::request::Request;
 
 extern "C" {
+
+    // NOTE: Some of these routines don't really return (or use) void pointers,
+    // but because we never introspect these values directly and they're always
+    // passed around in R as pointers, it suffices to just use void pointers.
+    fn R_checkActivity(usec: i32, ignore_stdin: i32) -> *const c_void;
+    fn R_runHandlers(handlers: *const c_void, fdset: *const c_void);
     fn R_ProcessEvents();
     fn run_Rmainloop();
+
+    pub static mut R_InputHandlers: *const c_void;
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
 }
 
@@ -58,6 +67,21 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 
 /// Ensures that the kernel is only ever initialized once
 static INIT: Once = Once::new();
+
+fn process_events() {
+    unsafe {
+        R_ProcessEvents();
+
+        // Run handlers if we have data available. This is necessary
+        // for things like the HTML help server, which will listen
+        // for requests on an open socket() which would then normally
+        // be handled in a select() call when reading input from stdin.
+        //
+        // https://github.com/wch/r-source/blob/4ca6439c1ffc76958592455c44d83f95d5854b2a/src/unix/sys-std.c#L1084-L1086
+        let fdset = R_checkActivity(0, 1);
+        R_runHandlers(R_InputHandlers, fdset);
+    }
+}
 
 fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {
 
@@ -113,6 +137,10 @@ pub extern "C" fn r_read_console(
 
     // Match with a timeout. Necessary because we need to
     // pump the event loop while waiting for console input.
+    //
+    // Alternatively, we could try to figure out the file
+    // descriptors that R has open and select() on those for
+    // available data?
     loop {
 
         // Release the R runtime lock while we're waiting for input.
@@ -124,6 +152,9 @@ pub extern "C" fn r_read_console(
 
                 // Take back the lock after we've received some console input.
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
+
+                // Process events.
+                process_events();
 
                 if let Some(input) = response {
                     on_console_input(buf, buflen, input);
@@ -142,8 +173,8 @@ pub extern "C" fn r_read_console(
 
                     Timeout => {
 
-                        // Pump the event loop.
-                        unsafe { R_ProcessEvents() };
+                        // Process events.
+                        process_events();
 
                         // Keep waiting for console input.
                         continue;
