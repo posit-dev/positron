@@ -5,7 +5,9 @@
  *
  */
 
-use crate::{wire::jupyter_message::MessageType, event::positron_event::{PositronEvent, PositronEventType}};
+use crate::events::PositronEvent;
+use crate::events::PositronEventType;
+use crate::{wire::jupyter_message::MessageType};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -32,6 +34,7 @@ impl From<PositronEvent> for ClientEvent {
         match event {
             PositronEvent::ShowMessage(message) => Self::as_evt(message),
             PositronEvent::Busy(message) => Self::as_evt(message),
+            PositronEvent::ShowHelpUrl(url) => Self::as_evt(url),
             // Future event types go here
         }
     }
