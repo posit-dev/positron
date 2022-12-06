@@ -585,6 +585,11 @@ export class Codicon implements CSSIcon {
 	public static readonly positronChevronDown = new Codicon('positron-chevron-down', { fontCharacter: '\\f245' });
 	public static readonly positronChevronUp = new Codicon('positron-chevron-up', { fontCharacter: '\\f246' });
 	public static readonly positronClear = new Codicon('positron-clear', { fontCharacter: '\\f247' });
+	public static readonly positronClean = new Codicon('positron-clean', { fontCharacter: '\\f248' });
+	public static readonly positronEnvironment = new Codicon('positron-environment', { fontCharacter: '\\f249' });
+	public static readonly positronImportData = new Codicon('positron-import-data', { fontCharacter: '\\f24a' });
+	public static readonly positronList = new Codicon('positron-list', { fontCharacter: '\\f24b' });
+	public static readonly positronTable = new Codicon('positron-table', { fontCharacter: '\\f24c' });
 
 	// --- End Positron ---
 
