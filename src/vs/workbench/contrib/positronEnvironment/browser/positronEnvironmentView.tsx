@@ -2,11 +2,14 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./positronEnvironmentView';
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -16,7 +19,6 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
 
 /**
@@ -36,7 +38,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
 
 	// The environment container - contains the entire environment UI.
-	//private _environmentContainer!: HTMLElement;
+	private _environmentContainer!: HTMLElement;
 
 	// The environment action bars container - contains the PositronEnvironmentActionBars component.
 	//private _environmentActionBarsContainer!: HTMLElement;
@@ -107,7 +109,11 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Render the Positron top action bar component.
+		// Append the environment container.
+		this._environmentContainer = DOM.$('.positron-help-container');
+		container.appendChild(this._environmentContainer);
+
+		// Render the Positron environment component.
 		this._positronReactRenderer = new PositronReactRenderer(this.element);
 		this._positronReactRenderer.render(
 			<PositronEnvironment />

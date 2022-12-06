@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronHelpActions';
+import 'vs/css!./positronHelpActionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -25,9 +25,10 @@ const kPaddingLeft = 14;
 const kPaddingRight = 4;
 
 /**
- * PositronHelpActionsProps interface.
+ * PositronHelpActionBarsProps interface.
  */
-export interface PositronHelpActionsProps {
+export interface PositronHelpActionBarsProps {
+	// Services.
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
 	contextKeyService: IContextKeyService;
@@ -35,10 +36,10 @@ export interface PositronHelpActionsProps {
 	keybindingService: IKeybindingService;
 	reactComponentContainer: IReactComponentContainer;
 
+	// Event callbacks.
 	onPreviousTopic: () => void;
 	onNextTopic: () => void;
 	onHome: () => void;
-
 	onFind: (findText: string) => void;
 	onFindPrevious: () => void;
 	onFindNext: () => void;
@@ -46,10 +47,10 @@ export interface PositronHelpActionsProps {
 }
 
 /**
- * PositronHelpActions component.
- * @param props A PositronHelpActionsProps that contains the component properties.
+ * PositronHelpActionBars component.
+ * @param props A PositronHelpActionBarsProps that contains the component properties.
  */
-export const PositronHelpActions = (props: PropsWithChildren<PositronHelpActionsProps>) => {
+export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActionBarsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
@@ -88,7 +89,7 @@ export const PositronHelpActions = (props: PropsWithChildren<PositronHelpActions
 
 	// Render.
 	return (
-		<div className='positron-help'>
+		<div className='positron-help-action-bars'>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={() => props.onPreviousTopic()} />

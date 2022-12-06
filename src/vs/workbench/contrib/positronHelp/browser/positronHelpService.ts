@@ -93,6 +93,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				<style nonce="${nonce}">
 					body {
 						background: transparent;
+						font-family: sans-serif;
+						font-size: 10px;
 						display: flex;
 						flex-direction: column;
 						padding: 0;
