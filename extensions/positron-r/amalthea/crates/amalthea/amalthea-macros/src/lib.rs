@@ -19,14 +19,17 @@ pub fn event(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let generated = quote! {
 
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        #original
+
         impl PositronEventType for #ident {
             fn event_type(&self) -> String {
                 String::from(#attr)
             }
         }
+
     };
 
-    let all = quote! { #original #generated };
-    all.into()
+    generated.into()
 
 }

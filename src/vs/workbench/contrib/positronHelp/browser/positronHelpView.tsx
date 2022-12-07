@@ -36,7 +36,7 @@ interface PositronHelpCommand {
 export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
 
 	// The PositronReactRenderer.
-	positronReactRenderer: PositronReactRenderer | undefined;
+	private _positronReactRenderer: PositronReactRenderer | undefined;
 
 	// The onSizeChanged event.
 	private _onSizeChanged = this._register(new Emitter<ISize>());
@@ -70,12 +70,12 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
+		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 
 		// Register event handlers.
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 		this._register(this.positronHelpService.onRenderHelp(helpResult => {
-
 			// Remove the previous help iframe.
 			if (this._helpIFrame) {
 				this._helpIFrame.remove();
@@ -90,15 +90,19 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		}));
 	}
 
+	// Dispose method.
 	public override dispose(): void {
-		if (this.positronReactRenderer) {
-			this.positronReactRenderer.destroy();
-			this.positronReactRenderer = undefined;
+		// Destroy the PositronReactRenderer.
+		if (this._positronReactRenderer) {
+			this._positronReactRenderer.destroy();
+			this._positronReactRenderer = undefined;
 		}
 
+		// Call the base class's dispose method.
 		super.dispose();
 	}
 
+	// Focus override.
 	override focus(): void {
 		// Call the base class's method.
 		super.focus();
@@ -138,8 +142,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		};
 
 		// Render the Positron help action bars component.
-		this.positronReactRenderer = new PositronReactRenderer(this._helpActionBarsContainer);
-		this.positronReactRenderer.render(
+		this._positronReactRenderer = new PositronReactRenderer(this._helpActionBarsContainer);
+		this._positronReactRenderer.render(
 			<PositronHelpActions
 				commandService={this.commandService}
 				configurationService={this.configurationService}
@@ -158,6 +162,11 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		);
 	}
 
+	/**
+	 * layoutBody override.
+	 * @param height The height of the body.
+	 * @param width The width of the body.
+	 */
 	override layoutBody(height: number, width: number): void {
 		// Call the base class's method.
 		super.layoutBody(height, width);
@@ -174,6 +183,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._onVisibilityChanged.fire(visible);
 	}
 
+	/**
+	 * Posts a message to the help iframe.
+	 * @param positronHelpCommand The PositronHelpCommand to post.
+	 */
 	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
 		if (this._helpIFrame?.contentWindow) {
 			this._helpIFrame.contentWindow.postMessage(positronHelpCommand);

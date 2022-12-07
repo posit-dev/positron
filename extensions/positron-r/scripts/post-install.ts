@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { execSync } from 'child_process';
+import { existsSync } from 'fs';
 
 // On macOS, we use install_name_tool to fix up the link to libR.dylib.
 // This is done instead of '-undefined dynamic_lookup' since it avoids
@@ -10,7 +11,13 @@ import { execSync } from 'child_process';
 if (process.platform === 'darwin') {
 
 	// Get the path to the ark executable.
+	// Note that the intention is that we only run this for
+	// package (release) builds, so this file might not exist
+	// in development configurations. That's okay.
 	const arkPath = 'amalthea/target/release/ark';
+	if (!existsSync(arkPath)) {
+		process.exit(0);
+	}
 
 	// Figure out what version of R that we linked to.
 	const otoolCommand = `otool -L "${arkPath}" | grep libR.dylib | awk "{ print $1 }"`;
