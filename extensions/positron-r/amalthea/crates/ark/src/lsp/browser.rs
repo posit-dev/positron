@@ -10,6 +10,7 @@ use amalthea::events::ShowHelpUrlEvent;
 use harp::exec::RFunction;
 use harp::object::RObject;
 use libR_sys::*;
+use log::info;
 
 use crate::interface::KERNEL;
 
@@ -36,13 +37,14 @@ unsafe fn ps_browse_url_impl(url: SEXP) -> anyhow::Result<()> {
         .call()?
         .to::<i32>()?;
 
-    let prefix = format!("http://127.0.0.1:{}", port);
+    let prefix = format!("http://127.0.0.1:{}/", port);
     if url.starts_with(&prefix) {
 
         let event = PositronEvent::ShowHelpUrl(ShowHelpUrlEvent {
             url: url,
         });
 
+        info!("Sending ShowHelpUrl event: {:#?}", event);
         let kernel = KERNEL.as_ref().unwrap().lock().unwrap();
         kernel.send_event(event);
 

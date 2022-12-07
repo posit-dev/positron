@@ -3,8 +3,13 @@
     "tasks": [
         {
             "type": "process",
-            "command": "yarn",
             "label": "Build Ark",
+            "command": "yarn",
+            "options": {
+                "env": {
+                    "ARK_BUILD_TYPE": "debug"
+                }
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true

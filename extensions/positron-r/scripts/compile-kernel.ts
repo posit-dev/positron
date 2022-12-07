@@ -16,8 +16,14 @@ if (whichCargoResult.status !== 0 || whichCargoResult.error) {
 // Enter the kernel directory
 chdir(`${__dirname}/../amalthea`);
 
-// Start building the arguments to cargo build
-const cargoBuildArgs = ['build', '--release'];
+// Start building the arguments to cargo build.
+const cargoBuildArgs = ['build'];
+
+// Perform a release build if requested.
+const buildType = env['ARK_BUILD_TYPE'] ?? 'release';
+if (buildType === 'release') {
+	cargoBuildArgs.push('--release');
+}
 
 // If RUST_TARGET is set, use it
 const rustTarget = env['RUST_TARGET'];
