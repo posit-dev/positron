@@ -15,6 +15,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
+import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
@@ -23,6 +24,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
 const kPaddingRight = 4;
+const kFindTimeout = 800;
 
 /**
  * PositronEnvironmentActionBarsProps interface.
@@ -37,9 +39,8 @@ export interface PositronEnvironmentActionBarsProps {
 	reactComponentContainer: IReactComponentContainer;
 
 	// Event callbacks.
-	onPreviousTopic: () => void;
-	onNextTopic: () => void;
-	onHome: () => void;
+	onLoadWorkspace: () => void;
+	onSaveWorkspaceAs: () => void;
 	onFind: (findText: string) => void;
 	onFindPrevious: () => void;
 	onFindNext: () => void;
@@ -50,11 +51,11 @@ export interface PositronEnvironmentActionBarsProps {
  * PositronEnvironmentActionBars component.
  * @param props A PositronEnvironmentActionBarsProps that contains the component properties.
  */
-export const PositronHelpActionBars = (props: PropsWithChildren<PositronEnvironmentActionBarsProps>) => {
+export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronEnvironmentActionBarsProps>) => {
 	// Hooks.
-	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
-	const [alternateFindUI, setAlternateFindUI] = useState(false);
+	const runtimeButtonRef = useRef<HTMLDivElement>(undefined!);
 	const [findText, setFindText] = useState('');
+	const [alternateFindUI, setAlternateFindUI] = useState(false);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -63,7 +64,7 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronEnvironm
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
-			setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
+			setAlternateFindUI(size.width - kPaddingLeft - runtimeButtonRef.current.offsetWidth - kSecondaryActionBarGap < 500);
 		}));
 
 		// Add the onVisibilityChanged event handler.
@@ -79,11 +80,13 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronEnvironm
 		if (findText === '') {
 			return props.onCancelFind();
 		} else {
-			const timeout = setTimeout(() => {
+			// Start the find timeout.
+			const findTimeout = setTimeout(() => {
 				props.onFind(findText);
-			}, 1000);
+			}, kFindTimeout);
 
-			return () => clearTimeout(timeout);
+			// Clear the find timeout.
+			return () => clearTimeout(findTimeout);
 		}
 	}, [findText]);
 
@@ -92,35 +95,49 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronEnvironm
 		<div className='positron-help-action-bars'>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={() => props.onPreviousTopic()} />
-					<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} onClick={() => props.onNextTopic()} />
-					<ActionBarButton iconId='positron-home' tooltip={localize('positronShowPositronHelp', "Show Positron help")} onClick={() => props.onHome()} />
-					<ActionBarSeparator />
-					<ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} />
+					<ActionBarRegion align='left'>
+						<ActionBarButton iconId='positron-open' tooltip={localize('positronLoadWorkspace', "Load workspace")} onClick={() => props.onLoadWorkspace()} />
+						<ActionBarButton iconId='positron-save' tooltip={localize('positronSaveWorkspace', "Save workspace as")} onClick={() => props.onSaveWorkspaceAs()} />
+						<ActionBarSeparator />
+						<ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} />
+						<ActionBarSeparator />
+						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearObjects', "Clear workspace objects")} />
+					</ActionBarRegion>
+					<ActionBarRegion align='right'>
+						<ActionBarButton iconId='positron-list' text='List' dropDown={true} />
+						<ActionBarSeparator />
+						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} />
+					</ActionBarRegion>
 				</PositronActionBar>
-				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={!alternateFindUI} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarButton ref={historyButtonRef} text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
-					{!alternateFindUI && (
-						<ActionBarFind
-							width={300}
-							placeholder={localize('positronFindPlaceholder', "find")}
-							initialFindText={findText}
-							onFindTextChanged={setFindText}
-							onFindPrevious={props.onFindPrevious}
-							onFindNext={props.onFindNext} />
+				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+					<ActionBarRegion align='left'>
+						<ActionBarButton ref={runtimeButtonRef} text='R' dropDown={true} tooltip={localize('positronRuntime', "Select runtime")} />
+						<ActionBarSeparator />
+						<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />
+					</ActionBarRegion>
+					<ActionBarRegion align='right'>
+						{!alternateFindUI && (
+							<ActionBarFind
+								width={200}
+								placeholder={localize('positronFindPlaceholder', "find")}
+								initialFindText={findText}
+								onFindTextChanged={setFindText}
+								onFindPrevious={props.onFindPrevious}
+								onFindNext={props.onFindNext} />
+						)}
+					</ActionBarRegion>
+					{alternateFindUI && (
+						<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+							<ActionBarFind
+								width={200}
+								placeholder={localize('positronFindPlaceholder', "find")}
+								initialFindText={findText}
+								onFindTextChanged={setFindText}
+								onFindPrevious={props.onFindPrevious}
+								onFindNext={props.onFindNext} />
+						</PositronActionBar>
 					)}
 				</PositronActionBar>
-				{alternateFindUI && (
-					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-						<ActionBarFind
-							width={300}
-							placeholder={localize('positronFindPlaceholder', "find")}
-							initialFindText={findText}
-							onFindTextChanged={setFindText}
-							onFindPrevious={props.onFindPrevious}
-							onFindNext={props.onFindNext} />
-					</PositronActionBar>
-				)}
 			</PositronActionBarContextProvider>
 		</div>
 	);

@@ -35,9 +35,6 @@ interface PositronHelpCommand {
  */
 export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
 
-	// The PositronReactRenderer for the PositronHelpActions component.
-	private _positronReactRendererHelpActionBars: PositronReactRenderer | undefined;
-
 	// The onSizeChanged event.
 	private _onSizeChanged = this._register(new Emitter<ISize>());
 	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
@@ -51,6 +48,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	// The help action bars container - contains the PositronHelpActionBars component.
 	private _helpActionBarsContainer!: HTMLElement;
+
+	// The PositronReactRenderer for the PositronHelpActionBars component.
+	private _positronReactRendererHelpActionBars: PositronReactRenderer | undefined;
 
 	// The help iframe.
 	private _helpIFrame?: HTMLIFrameElement;
@@ -108,7 +108,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Destroy the PositronReactRenderer for the PositronHelpActions component.
+		// Destroy the PositronReactRenderer for the PositronHelpActionBars component.
 		if (this._positronReactRendererHelpActionBars) {
 			this._positronReactRendererHelpActionBars.destroy();
 			this._positronReactRendererHelpActionBars = undefined;

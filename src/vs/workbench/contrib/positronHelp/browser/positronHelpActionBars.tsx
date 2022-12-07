@@ -24,6 +24,7 @@ const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
 const kPaddingRight = 4;
 const kFindTimeout = 800;
+
 /**
  * PositronHelpActionBarsProps interface.
  */

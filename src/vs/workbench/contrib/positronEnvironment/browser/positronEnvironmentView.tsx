@@ -17,17 +17,15 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
+// import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
+import { PositronEnvironmentActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActionBars';
 
 /**
  * PositronEnvironmentViewPane class.
  */
 export class PositronEnvironmentViewPane extends ViewPane implements IReactComponentContainer {
-
-	// The PositronReactRenderer.
-	private _positronReactRenderer: PositronReactRenderer | undefined;
 
 	// The onSizeChanged event.
 	private _onSizeChanged = this._register(new Emitter<ISize>());
@@ -41,7 +39,10 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	private _positronEnvironmentContainer!: HTMLElement;
 
 	// The environment action bars container - contains the PositronEnvironmentActionBars component.
-	//private _environmentActionBarsContainer!: HTMLElement;
+	private _environmentActionBarsContainer!: HTMLElement;
+
+	// The PositronReactRenderer for the PositronEnvironmentActionBars component.
+	private _positronReactRendererEnvironmentActionBars: PositronReactRenderer | undefined;
 
 	/**
 	 * Constructor.
@@ -60,7 +61,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@ICommandService commandService: ICommandService,
+		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
@@ -83,10 +84,10 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * Dispose method.
 	 */
 	public override dispose(): void {
-		// Destroy the PositronReactRenderer.
-		if (this._positronReactRenderer) {
-			this._positronReactRenderer.destroy();
-			this._positronReactRenderer = undefined;
+		// Destroy the PositronReactRenderer for the PositronEnvironmentActionBars component.
+		if (this._positronReactRendererEnvironmentActionBars) {
+			this._positronReactRendererEnvironmentActionBars.destroy();
+			this._positronReactRendererEnvironmentActionBars = undefined;
 		}
 
 		// Call the base class's dispose method.
@@ -113,10 +114,39 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronEnvironmentContainer = DOM.$('.positron-environment-container');
 		container.appendChild(this._positronEnvironmentContainer);
 
-		// Render the Positron environment component.
-		this._positronReactRenderer = new PositronReactRenderer(this.element);
-		this._positronReactRenderer.render(
-			<PositronEnvironment />
+		// Append the environment action bars container.
+		this._environmentActionBarsContainer = DOM.$('.environment-action-bars-container');
+		this._positronEnvironmentContainer.appendChild(this._environmentActionBarsContainer);
+
+		// Find handler.
+		const findHandler = (findText: string) => {
+		};
+
+		// Find previous handler.
+		const findPrevious = () => {
+		};
+
+		// Find next handler.
+		const findNext = () => {
+		};
+
+		// Render the PositronEnvironmentActionBars component.
+		this._positronReactRendererEnvironmentActionBars = new PositronReactRenderer(this._environmentActionBarsContainer);
+		this._positronReactRendererEnvironmentActionBars.render(
+			<PositronEnvironmentActionBars
+				commandService={this.commandService}
+				configurationService={this.configurationService}
+				contextKeyService={this.contextKeyService}
+				contextMenuService={this.contextMenuService}
+				keybindingService={this.keybindingService}
+				reactComponentContainer={this}
+				onLoadWorkspace={() => console.log('Load workspace made it to the Positron environment view.')}
+				onSaveWorkspaceAs={() => console.log('Save workspace as made it to the Positron environment view.')}
+				onFind={findHandler}
+				onFindPrevious={findPrevious}
+				onFindNext={findNext}
+				onCancelFind={() => findHandler('')}
+			/>
 		);
 	}
 
