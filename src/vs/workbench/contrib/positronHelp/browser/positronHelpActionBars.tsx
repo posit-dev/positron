@@ -53,7 +53,7 @@ export interface PositronHelpActionBarsProps {
  */
 export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActionBarsProps>) => {
 	// Hooks.
-	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
+	const historyButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
 	const [findText, setFindText] = useState('');
 
@@ -106,7 +106,6 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 					{!alternateFindUI && (
 						<ActionBarFind
 							width={300}
-							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
 							onFindTextChanged={setFindText}
 							onFindPrevious={props.onFindPrevious}
@@ -117,7 +116,6 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 						<ActionBarFind
 							width={300}
-							placeholder={localize('positronFindPlaceholder', "find")}
 							initialFindText={findText}
 							onFindTextChanged={setFindText}
 							onFindPrevious={props.onFindPrevious}
