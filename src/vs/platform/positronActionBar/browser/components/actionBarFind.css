@@ -13,6 +13,7 @@
 	border-radius: 4px;
 	margin-right: 2px;
 	align-items: center;
+	font-size: 12px;
 	background: var(--positronActionBar-textInputBackground);
 	border: 1px solid var(--positronActionBar-textInputBorder);
 }
@@ -39,12 +40,6 @@
 .action-bar-find-input .text-input::selection {
 	color: var(--positronActionBar-textInputSelectionForeground);
 	background: var(--positronActionBar-textInputSelectionBackground);
-}
-
-.action-bar-find-input .action-bar-find-counter {
-	font-size: 10px;
-	margin-right: 8px;
-	color: var(--positronActionBar-foreground);
 }
 
 

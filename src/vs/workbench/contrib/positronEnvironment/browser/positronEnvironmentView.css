@@ -2,18 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-help-container {
+.positron-environment-container {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
 }
 
-.positron-help-container .help-action-bars-container {
+.positron-environment-container .environment-action-bars-container {
 	height: min-content;
-}
-
-.positron-help-container .help-iframe {
-	border: none;
-	flex-grow: 1;
-	overflow-y: scroll;
 }
