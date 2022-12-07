@@ -570,11 +570,11 @@ export class Codicon implements CSSIcon {
 	public static readonly positronLeftChevron = new Codicon('positron-chevron-left', { fontCharacter: '\\f236' });
 	public static readonly positronRightChevron = new Codicon('positron-chevron-right', { fontCharacter: '\\f237' });
 	public static readonly positronSeparator = new Codicon('positron-separator', { fontCharacter: '\\f238' });
-	public static readonly positronEnvironment = new Codicon('positron-environment', { fontCharacter: '\\f239' });
-	public static readonly positronHelp = new Codicon('positron-help', { fontCharacter: '\\f23a' });
-	public static readonly positronOutline = new Codicon('positron-outline', { fontCharacter: '\\f23b' });
-	public static readonly positronPlot = new Codicon('positron-plot', { fontCharacter: '\\f23c' });
-	public static readonly positronPreview = new Codicon('positron-preview', { fontCharacter: '\\f23d' });
+	public static readonly positronEnvironmentView = new Codicon('positron-environment-view', { fontCharacter: '\\f239' });
+	public static readonly positronHelpView = new Codicon('positron-help-view', { fontCharacter: '\\f23a' });
+	public static readonly positronOutlineView = new Codicon('positron-outline-view', { fontCharacter: '\\f23b' });
+	public static readonly positronPlotView = new Codicon('positron-plot-view', { fontCharacter: '\\f23c' });
+	public static readonly positronPreviewView = new Codicon('positron-preview-view', { fontCharacter: '\\f23d' });
 	public static readonly positronLeftArrow = new Codicon('positron-left-arrow', { fontCharacter: '\\f23e' });
 	public static readonly positronRightArrow = new Codicon('positron-right-arrow', { fontCharacter: '\\f23f' });
 	public static readonly positronHome = new Codicon('positron-home', { fontCharacter: '\\f240' });
@@ -585,6 +585,11 @@ export class Codicon implements CSSIcon {
 	public static readonly positronChevronDown = new Codicon('positron-chevron-down', { fontCharacter: '\\f245' });
 	public static readonly positronChevronUp = new Codicon('positron-chevron-up', { fontCharacter: '\\f246' });
 	public static readonly positronClear = new Codicon('positron-clear', { fontCharacter: '\\f247' });
+	public static readonly positronClean = new Codicon('positron-clean', { fontCharacter: '\\f248' });
+	public static readonly positronEnvironment = new Codicon('positron-environment', { fontCharacter: '\\f249' });
+	public static readonly positronImportData = new Codicon('positron-import-data', { fontCharacter: '\\f24a' });
+	public static readonly positronList = new Codicon('positron-list', { fontCharacter: '\\f24b' });
+	public static readonly positronTable = new Codicon('positron-table', { fontCharacter: '\\f24c' });
 
 	// --- End Positron ---
 

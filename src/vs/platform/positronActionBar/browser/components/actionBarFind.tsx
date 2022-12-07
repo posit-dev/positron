@@ -51,7 +51,6 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
 					onChange={e => props.onFindTextChanged(e.target.value)} />
-				<div className='action-bar-find-counter'>1/3</div>
 			</div>
 			<ActionBarButton layout='tight' iconId='positron-chevron-up' align='right' tooltip={localize('positronFindPrevious', "Find previous")} onClick={() => props.onFindPrevious()} />
 			<ActionBarButton layout='tight' iconId='positron-chevron-down' align='right' tooltip={localize('positronFindNext', "Find next")} onClick={() => props.onFindNext()} />

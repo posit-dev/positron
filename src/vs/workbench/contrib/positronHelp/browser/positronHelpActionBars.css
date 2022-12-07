@@ -2,8 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-help {
-	/* PositronActionBar variable. */
+.positron-help-action-bars {
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
 	--positronActionBar-background: var(--vscode-positronSideActionBar-background);

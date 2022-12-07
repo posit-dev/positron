@@ -18,7 +18,7 @@ export interface ActionBarButtonProps {
 	dropDown?: boolean;
 	align?: 'left' | 'right';
 	layout?: 'loose' | 'tight';
-	tooltip: string | (() => string | undefined) | undefined;
+	tooltip?: string | (() => string | undefined);
 	disabled?: boolean;
 	onClick?: React.MouseEventHandler;
 }
