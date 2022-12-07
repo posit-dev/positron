@@ -73,14 +73,14 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "yarn run compile",
 		"compile-kernel": "./scripts/compile-kernel.sh",
 		"compile-syntax": "ts-node scripts/compile-syntax.ts",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile && npm run lint",
-		"preinstall": "npm run compile-kernel",
-		"postinstall": "node scripts/post-install.js",
+		"pretest": "yarn run compile && yarn run lint",
+		"preinstall": "yarn run compile-kernel",
+		"postinstall": "ts-node scripts/post-install.ts",
 		"lint": "eslint src --ext ts",
 		"test": "node ./out/test/runTest.js"
 	},
