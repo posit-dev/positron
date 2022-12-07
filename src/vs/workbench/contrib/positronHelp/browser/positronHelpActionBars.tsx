@@ -2,7 +2,7 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronHelpActions';
+import 'vs/css!./positronHelpActionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -23,11 +23,13 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
 const kPaddingRight = 4;
+const kFindTimeout = 800;
 
 /**
- * PositronHelpActionsProps interface.
+ * PositronHelpActionBarsProps interface.
  */
-export interface PositronHelpActionsProps {
+export interface PositronHelpActionBarsProps {
+	// Services.
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
 	contextKeyService: IContextKeyService;
@@ -35,10 +37,10 @@ export interface PositronHelpActionsProps {
 	keybindingService: IKeybindingService;
 	reactComponentContainer: IReactComponentContainer;
 
+	// Event callbacks.
 	onPreviousTopic: () => void;
 	onNextTopic: () => void;
 	onHome: () => void;
-
 	onFind: (findText: string) => void;
 	onFindPrevious: () => void;
 	onFindNext: () => void;
@@ -46,10 +48,10 @@ export interface PositronHelpActionsProps {
 }
 
 /**
- * PositronHelpActions component.
- * @param props A PositronHelpActionsProps that contains the component properties.
+ * PositronHelpActionBars component.
+ * @param props A PositronHelpActionBarsProps that contains the component properties.
  */
-export const PositronHelpActions = (props: PropsWithChildren<PositronHelpActionsProps>) => {
+export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActionBarsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
@@ -78,17 +80,19 @@ export const PositronHelpActions = (props: PropsWithChildren<PositronHelpActions
 		if (findText === '') {
 			return props.onCancelFind();
 		} else {
-			const timeout = setTimeout(() => {
+			// Start the find timeout.
+			const findTimeout = setTimeout(() => {
 				props.onFind(findText);
-			}, 1000);
+			}, kFindTimeout);
 
-			return () => clearTimeout(timeout);
+			// Clear the find timeout.
+			return () => clearTimeout(findTimeout);
 		}
 	}, [findText]);
 
 	// Render.
 	return (
-		<div className='positron-help'>
+		<div className='positron-help-action-bars'>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={() => props.onPreviousTopic()} />

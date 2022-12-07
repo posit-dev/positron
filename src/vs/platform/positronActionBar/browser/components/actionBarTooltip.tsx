@@ -12,7 +12,7 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
  */
 interface ActionBarTooltipProps {
 	align?: 'left' | 'right';
-	tooltip: string | (() => string | undefined) | undefined;
+	tooltip?: string | (() => string | undefined);
 }
 
 /**
