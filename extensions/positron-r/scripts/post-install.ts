@@ -5,6 +5,7 @@
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
+import { env, exit } from 'process';
 
 // On macOS, we use install_name_tool to fix up the link to libR.dylib.
 //
@@ -17,26 +18,20 @@ import { normalize } from 'path';
 // ends up in the library load list, we have to modify that after the fact anyhow.
 if (process.platform === 'darwin') {
 
-	// Get the path to the ark executable. We try to run this for both 'debug'
-	// and 'release' builds, as otherwise one might encounter errors when trying
-	// to run development builds of 'ark' against versions of R different from
-	// the one it was compiled against.
-	for (const buildType of ['debug', 'release']) {
-
-		const arkPath = normalize(`${__dirname}/../amalthea/target/${buildType}/ark`);
-		if (!existsSync(arkPath)) {
-			continue;
-		}
-
-		// Figure out what version of R that we linked to.
-		const otoolCommand = `otool -L '${arkPath}' | grep libR.dylib | cut -c2- | cut -d' ' -f1`;
-		const oldLibraryPath = execSync(otoolCommand, { encoding: 'utf-8' }).trim();
-
-		// Change that to use @rpath instead. We don't actually set an @rpath in the compiled
-		// executable (we inject R via DYLD_INSERT_LIBRARIES) so this is mainly just hygiene.
-		const newLibraryPath = '@rpath/libR.dylib';
-		execSync(`install_name_tool -change "${oldLibraryPath}" "${newLibraryPath}" "${arkPath}"`);
-
+	// Get the path to the ark executable.
+	const buildType = env['ARK_BUILD_TYPE'] ?? 'release';
+	const arkPath = normalize(`${__dirname}/../amalthea/target/${buildType}/ark`);
+	if (!existsSync(arkPath)) {
+		exit(0);
 	}
+
+	// Figure out what version of R that we linked to.
+	const otoolCommand = `otool -L '${arkPath}' | grep libR.dylib | cut -c2- | cut -d' ' -f1`;
+	const oldLibraryPath = execSync(otoolCommand, { encoding: 'utf-8' }).trim();
+
+	// Change that to use @rpath instead. We don't actually set an @rpath in the compiled
+	// executable (we inject R via DYLD_INSERT_LIBRARIES) so this is mainly just hygiene.
+	const newLibraryPath = '@rpath/libR.dylib';
+	execSync(`install_name_tool -change "${oldLibraryPath}" "${newLibraryPath}" "${arkPath}"`);
 
 }
