@@ -73,7 +73,8 @@ export enum LanguageRuntimeMessageType {
 
 /** The set of possible language runtime events */
 export enum LanguageRuntimeEventType {
-	ShowMessage = 'show_message'
+	ShowMessage = 'show_message',
+	ShowHelpUrl = 'show_help_url',
 }
 
 

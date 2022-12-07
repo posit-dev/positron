@@ -144,7 +144,8 @@ export enum LanguageRuntimeMessageType {
 
 /** The set of possible language runtime events */
 export enum LanguageRuntimeEventType {
-	ShowMessage = 'show_message'
+	ShowMessage = 'show_message',
+	ShowHelpUrl = 'show_help_url',
 }
 
 export enum LanguageRuntimeStartupBehavior {
@@ -176,6 +177,11 @@ export interface LanguageRuntimeEventData { }
 export interface ShowMessageEvent extends LanguageRuntimeEventData {
 	/** The message to show */
 	message: string;
+}
+
+export interface ShowHelpUrlEvent extends LanguageRuntimeEventData {
+	/** The Help URL to display in the Help pane */
+	url: string;
 }
 
 export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
