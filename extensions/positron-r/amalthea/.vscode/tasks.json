@@ -2,28 +2,13 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "cargo",
-            "command": "build",
-            "problemMatcher": [
-                "$rustc"
-            ],
+            "type": "process",
+            "command": "yarn",
+            "label": "Build Ark",
             "group": {
                 "kind": "build",
                 "isDefault": true
-            },
-            "label": "rust: cargo build"
-        },
-        {
-            "type": "cargo",
-            "command": "update",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
-            "label": "rust: cargo update"
+            }
         }
     ]
 }
