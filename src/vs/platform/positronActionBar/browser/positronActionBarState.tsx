@@ -2,10 +2,9 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Action, IAction } from 'vs/base/common/actions';
 import { unmnemonicLabel } from 'vs/base/common/labels';
-import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -50,13 +49,6 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 	// Hooks.
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
 	const [menuShowing, setMenuShowing] = useState(false);
-
-	// Add event handlers.
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-
-		return () => disposableStore.dispose();
-	}, []);
 
 	/**
 	 * Appends a command action.
