@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
-import { Action } from 'vs/base/common/actions';
+import { Action, IAction } from 'vs/base/common/actions';
 import { unmnemonicLabel } from 'vs/base/common/labels';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -33,7 +33,7 @@ export interface PositronActionBarServices {
  * The Positron action bar state.
  */
 export interface PositronActionBarState extends PositronActionBarServices {
-	createCommandAction(commandId: string, label?: string): Action | undefined;
+	appendCommandAction(actions: IAction[], id: string, label?: string): void;
 	isCommandEnabled(commandId: string): boolean;
 	showTooltipDelay(): number;
 	refreshTooltipKeepAlive(): void;
@@ -59,26 +59,24 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 	}, []);
 
 	/**
-	 * Creates a command action.
-	 * @param commandId The command ID.
-	 * @param label The optional label.
-	 * @returns The command action, if it was successfully created; otherwise, undefined.
+	 * Appends a command action.
+	 * @param actions The set of actions to append the command action to.
+	 * @param id The ID of the command action.
+	 * @param label The optional label of the command action.
 	 */
-	const createCommandAction = (commandId: string, label?: string) => {
+	const appendCommandAction = (actions: IAction[], commandId: string, label?: string) => {
 		// Get the command info from the command center.
 		const commandInfo = CommandCenter.commandInfo(commandId);
-		if (!commandInfo) {
-			return undefined;
+		if (commandInfo) {
+			// Determine whether the command action will be enabled and set the label to use.
+			const enabled = !commandInfo.precondition || services.contextKeyService.contextMatchesRules(commandInfo.precondition);
+			label = label || (typeof (commandInfo.title) === 'string' ? commandInfo.title : commandInfo.title.value);
+
+			// Create the command action and push it.
+			actions.push(new Action(commandId, unmnemonicLabel(label), undefined, enabled, () => {
+				services.commandService.executeCommand(commandId);
+			}));
 		}
-
-		// Determine whether the command action will be enabled and set the label to use.
-		const enabled = !commandInfo.precondition || services.contextKeyService.contextMatchesRules(commandInfo.precondition);
-		label = label || (typeof (commandInfo.title) === 'string' ? commandInfo.title : commandInfo.title.value);
-
-		// Create and return the action.
-		return new Action(commandId, unmnemonicLabel(label), undefined, enabled, () => {
-			services.commandService.executeCommand(commandId);
-		});
 	};
 
 	/**
@@ -105,7 +103,7 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 	// Return the Positron top action bar state.
 	return {
 		...services,
-		createCommandAction,
+		appendCommandAction,
 		isCommandEnabled,
 		showTooltipDelay: () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : services.configurationService.getValue<number>('workbench.hover.delay'),
 		refreshTooltipKeepAlive: () => setLastTooltipHiddenAt(new Date().getTime()),

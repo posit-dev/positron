@@ -34,22 +34,15 @@ export const TopActionBarOpenMenu = () => {
 
 	// fetch actions when menu is shown
 	const actions = async () => {
-		const actions: IAction[] = [];
-		const addAction = (id: string, label?: string) => {
-			const action = positronActionBarContext.createCommandAction(id, label);
-			if (action) {
-				actions.push(action);
-			}
-		};
-
 		// core open actions
+		const actions: IAction[] = [];
 		if (IsMacNativeContext.getValue(positronActionBarContext.contextKeyService)) {
-			addAction(OpenFileFolderAction.ID, localize('positronOpenFile', "Open File..."));
+			positronActionBarContext.appendCommandAction(actions, OpenFileFolderAction.ID, localize('positronOpenFile', "Open File..."));
 		} else {
-			addAction(OpenFileAction.ID);
+			positronActionBarContext.appendCommandAction(actions, OpenFileAction.ID);
 		}
 
-		addAction(OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
+		positronActionBarContext.appendCommandAction(actions, OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
@@ -62,9 +55,9 @@ export const TopActionBarOpenMenu = () => {
 			if (recentActions.length > 0) {
 				actions.push(...recentActions);
 				actions.push(new Separator());
-				addAction(OpenRecentAction.ID);
+				positronActionBarContext.appendCommandAction(actions, OpenRecentAction.ID);
 				actions.push(new Separator());
-				addAction(ClearRecentFilesAction.ID);
+				positronActionBarContext.appendCommandAction(actions, ClearRecentFilesAction.ID);
 			}
 		}
 		return actions;
