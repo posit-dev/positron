@@ -3,9 +3,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 .action-bar-button {
+	padding: 0;
+	border: none;
 	cursor: pointer;
 	overflow: visible;
+	background: transparent;
 	color: var(--positronActionBar-foreground);
+}
+
+.action-bar-button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder);
 }
 
 .action-bar-button-face {

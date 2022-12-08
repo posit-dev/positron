@@ -7,12 +7,12 @@
 	to { opacity: 1; }
 }
 
-.action-bar-find-container {
+.action-bar-filter-container {
 	display: flex;
 	align-items: center;
 }
 
-.action-bar-find-input {
+.action-bar-filter-input {
 	width: 100%;
 	display: flex;
 	border-radius: 4px;
@@ -23,11 +23,11 @@
 	border: 1px solid var(--positronActionBar-textInputBorder);
 }
 
-.action-bar-find-input.focused {
+.action-bar-filter-input.focused {
 	border: 1px solid var(--vscode-focusBorder);
 }
 
-.action-bar-find-input .text-input {
+.action-bar-filter-input .text-input {
 	width: 100%;
 	padding: 4px 8px;
 	border-radius: 4px;
@@ -37,17 +37,17 @@
 	outline: none !important;
 }
 
-.action-bar-find-input .text-input::placeholder {
+.action-bar-filter-input .text-input::placeholder {
 	opacity: 0.5;
 	color: var(--positronActionBar-foreground);
 }
 
-.action-bar-find-input .text-input::selection {
+.action-bar-filter-input .text-input::selection {
 	color: var(--positronActionBar-textInputSelectionForeground);
 	background: var(--positronActionBar-textInputSelectionBackground);
 }
 
-.action-bar-find-input .clear-button {
+.action-bar-filter-input .clear-button {
 	padding: 0;
 	width: 16px;
 	height: 16px;
@@ -59,43 +59,7 @@
 	animation: fadeIn 150ms ease-out;
 }
 
-.action-bar-find-input .clear-button:focus-visible {
+.action-bar-filter-input .clear-button:focus-visible {
 	border-radius: 3px;
 	outline: 1px solid var(--vscode-focusBorder);
-}
-
-.action-bar-find-buttons {
-	display: flex;
-	animation: fadeIn 150ms ease-out;
-}
-
-.action-bar-find .action-bar-find-button {
-	width: 18px;
-	height: 18px;
-	border: none;
-	margin: 0 4px;
-	display: flex;
-	cursor: pointer;
-	align-items: center;
-	justify-content: center;
-	background: transparent;
-}
-
-.action-bar-find .action-bar-find-button:focus {
-	outline: none;
-}
-
-.action-bar-find .action-bar-find-button:focus-visible {
-	border-radius: 3px;
-	outline-offset: 0;
-	outline: 1px solid var(--vscode-focusBorder);
-}
-
-.action-bar-find .action-bar-find-button .action-bar-find-button-icon {
-	font-size: 28px;
-	color: var(--positronActionBar-foreground);
-}
-
-.action-bar-find .action-bar-find-button .action-bar-find-button-icon.disabled {
-	opacity: 0.5;
 }

@@ -5,11 +5,14 @@
 let findText = undefined;
 let findResult = false;
 
+window.localStorage.setItem('foo', 'bar');
+
 window.addEventListener('message', (event) => {
 	if (window.find) {
 		if (event.data.command === 'find') {
 			findText = event.data.findText;
 			findResult = findText && window.find(findText, false, false, true, false, true);
+			window.sessionStorage.setItem(event.data.identifier, `${findResult}`);
 			if (findResult) {
 				window.focus();
 			} else {
