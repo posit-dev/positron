@@ -142,11 +142,13 @@ export enum LanguageRuntimeMessageType {
 	Event = 'event',
 }
 
-/** The set of possible language runtime events */
+/** begin positron-language-runtime-event-type */
 export enum LanguageRuntimeEventType {
+	Busy = 'busy',
 	ShowMessage = 'show_message',
 	ShowHelpUrl = 'show_help_url',
 }
+/** end positron-language-runtime-event-type */
 
 export enum LanguageRuntimeStartupBehavior {
 	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
@@ -174,15 +176,26 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 
 export interface LanguageRuntimeEventData { }
 
-export interface ShowMessageEvent extends LanguageRuntimeEventData {
-	/** The message to show */
-	message: string;
-}
+/** begin positron-language-runtime-service-events */
+export interface BusyEvent extends LanguageRuntimeEventData {
 
-export interface ShowHelpUrlEvent extends LanguageRuntimeEventData {
-	/** The Help URL to display in the Help pane */
-	url: string;
+	/** Whether the runtime is busy. */
+	busy: boolean;
+
 }
+export interface ShowMessageEvent extends LanguageRuntimeEventData {
+
+	/** The message to show to the user. */
+	message: string;
+
+}
+export interface ShowHelpUrlEvent extends LanguageRuntimeEventData {
+
+	/** The URL to be shown in the Help pane. */
+	url: string;
+
+}
+/** end positron-language-runtime-service-events */
 
 export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
 	/** The event name */
