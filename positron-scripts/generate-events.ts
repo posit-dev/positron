@@ -220,6 +220,9 @@ function generateLanguageRuntimeEventDefinitions() {
 	const lines: string[] = [];
 
 	for (const event of events) {
+
+		const comment = event.comment.trimEnd().replace(/(^|\n)/g, '$1// ');
+		lines.push(comment);
 		lines.push(`export interface ${event.name} extends LanguageRuntimeEventData {`);
 		lines.push('');
 		for (const param of event.params) {

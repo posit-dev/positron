@@ -177,18 +177,23 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 export interface LanguageRuntimeEventData { }
 
 /** begin positron-language-runtime-service-events */
+// Represents a change in the runtime's busy state.
+// Note that this represents the busy state of the underlying computation engine, not the busy state of the kernel.
+// The kernel is busy when it is processing a request, but the runtime is busy only when a computation is running.
 export interface BusyEvent extends LanguageRuntimeEventData {
 
 	/** Whether the runtime is busy. */
 	busy: boolean;
 
 }
+// Use this event to show a message to the user.
 export interface ShowMessageEvent extends LanguageRuntimeEventData {
 
 	/** The message to show to the user. */
 	message: string;
 
 }
+// Show a URL in the Help pane.
 export interface ShowHelpUrlEvent extends LanguageRuntimeEventData {
 
 	/** The URL to be shown in the Help pane. */
