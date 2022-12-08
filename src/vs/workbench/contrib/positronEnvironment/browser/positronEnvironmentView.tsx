@@ -119,15 +119,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronEnvironmentContainer.appendChild(this._environmentActionBarsContainer);
 
 		// Find handler.
-		const findHandler = (findText: string) => {
-		};
-
-		// Find previous handler.
-		const findPrevious = () => {
-		};
-
-		// Find next handler.
-		const findNext = () => {
+		const filterHandler = (findText: string) => {
 		};
 
 		// Render the PositronEnvironmentActionBars component.
@@ -142,10 +134,8 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 				reactComponentContainer={this}
 				onLoadWorkspace={() => console.log('Load workspace made it to the Positron environment view.')}
 				onSaveWorkspaceAs={() => console.log('Save workspace as made it to the Positron environment view.')}
-				onFind={findHandler}
-				onFindPrevious={findPrevious}
-				onFindNext={findNext}
-				onCancelFind={() => findHandler('')}
+				onFilter={filterHandler}
+				onCancelFilter={() => filterHandler('')}
 			/>
 		);
 	}

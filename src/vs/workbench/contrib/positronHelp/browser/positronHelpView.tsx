@@ -5,6 +5,7 @@
 import 'vs/css!./positronHelpView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
+import * as uuid from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { MarkdownString } from 'vs/base/common/htmlContent';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
@@ -26,6 +27,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
  * PositronHelpCommand interface.
  */
 interface PositronHelpCommand {
+	identifier: string;
 	command: string;
 	findText?: string;
 }
@@ -152,17 +154,30 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 		// Find handler.
 		const findHandler = (findText: string) => {
-			this.postHelpIFrameMessage({ command: 'find', findText });
+			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find', findText });
+		};
+
+		// Find handler.
+		const checkFindResultsHandler = () => {
+			if (this._helpIFrame?.contentWindow && this._lastPositronHelpCommand) {
+				const result = this._helpIFrame.contentWindow.sessionStorage.getItem(this._lastPositronHelpCommand.identifier);
+				if (result) {
+					return result === 'true';
+				}
+			}
+
+			// Result is not available.
+			return undefined;
 		};
 
 		// Find previous handler.
 		const findPrevious = () => {
-			this.postHelpIFrameMessage({ command: 'find-previous' });
+			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find-previous' });
 		};
 
 		// Find next handler.
 		const findNext = () => {
-			this.postHelpIFrameMessage({ command: 'find-next' });
+			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find-next' });
 		};
 
 		// Render the PositronHelpActionBars component.
@@ -179,6 +194,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				onNextTopic={() => console.log('Next topic made it to the Positron help view.')}
 				onHome={homeHandler}
 				onFind={findHandler}
+				onCheckFindResults={checkFindResultsHandler}
 				onFindPrevious={findPrevious}
 				onFindNext={findNext}
 				onCancelFind={() => findHandler('')}
@@ -202,13 +218,22 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		});
 	}
 
+	private _lastPositronHelpCommand: PositronHelpCommand | undefined;
+
 	/**
 	 * Posts a message to the help iframe.
 	 * @param positronHelpCommand The PositronHelpCommand to post.
 	 */
 	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
+		// Make sure there is a help iframe.
 		if (this._helpIFrame?.contentWindow) {
+			// Post the message to the help iframe.
 			this._helpIFrame.contentWindow.postMessage(positronHelpCommand);
+			if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
+				this._lastPositronHelpCommand = positronHelpCommand;
+			} else {
+				this._lastPositronHelpCommand = undefined;
+			}
 		}
 	}
 }

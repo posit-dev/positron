@@ -14,8 +14,8 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { ActionBarFilter } from 'vs/platform/positronActionBar/browser/components/actionBarFilter';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
@@ -23,7 +23,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 // Constants.
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
-const kPaddingRight = 4;
+const kPaddingRight = 8;
 const kFindTimeout = 800;
 
 /**
@@ -41,10 +41,8 @@ export interface PositronEnvironmentActionBarsProps {
 	// Event callbacks.
 	onLoadWorkspace: () => void;
 	onSaveWorkspaceAs: () => void;
-	onFind: (findText: string) => void;
-	onFindPrevious: () => void;
-	onFindNext: () => void;
-	onCancelFind: () => void;
+	onFilter: (filterText: string) => void;
+	onCancelFilter: () => void;
 }
 
 /**
@@ -53,8 +51,8 @@ export interface PositronEnvironmentActionBarsProps {
  */
 export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronEnvironmentActionBarsProps>) => {
 	// Hooks.
-	const runtimeButtonRef = useRef<HTMLDivElement>(undefined!);
-	const [findText, setFindText] = useState('');
+	const runtimeButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const [filterText, setFilterText] = useState('');
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
 
 	// Add IReactComponentContainer event handlers.
@@ -77,18 +75,18 @@ export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronE
 
 	// Find text change handler.
 	useEffect(() => {
-		if (findText === '') {
-			return props.onCancelFind();
+		if (filterText === '') {
+			return props.onCancelFilter();
 		} else {
 			// Start the find timeout.
 			const findTimeout = setTimeout(() => {
-				props.onFind(findText);
+				props.onFilter(filterText);
 			}, kFindTimeout);
 
 			// Clear the find timeout.
 			return () => clearTimeout(findTimeout);
 		}
-	}, [findText]);
+	}, [filterText]);
 
 	// Render.
 	return (
@@ -117,24 +115,18 @@ export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronE
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						{!alternateFindUI && (
-							<ActionBarFind
+							<ActionBarFilter
 								width={200}
-								placeholder={localize('positronFindPlaceholder', "find")}
-								initialFindText={findText}
-								onFindTextChanged={setFindText}
-								onFindPrevious={props.onFindPrevious}
-								onFindNext={props.onFindNext} />
+								initialFilterText={filterText}
+								onFilterTextChanged={setFilterText} />
 						)}
 					</ActionBarRegion>
 					{alternateFindUI && (
 						<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-							<ActionBarFind
+							<ActionBarFilter
 								width={200}
-								placeholder={localize('positronFindPlaceholder', "find")}
-								initialFindText={findText}
-								onFindTextChanged={setFindText}
-								onFindPrevious={props.onFindPrevious}
-								onFindNext={props.onFindNext} />
+								initialFilterText={filterText}
+								onFilterTextChanged={setFilterText} />
 						</PositronActionBar>
 					)}
 				</PositronActionBar>

@@ -28,7 +28,7 @@ export interface ActionBarButtonProps {
  * @param props An ActionBarButtonProps that contains the component properties.
  * @returns The component.
  */
-export const ActionBarButton = forwardRef<HTMLDivElement, ActionBarButtonProps>((props: ActionBarButtonProps, ref) => {
+export const ActionBarButton = forwardRef<HTMLButtonElement, ActionBarButtonProps>((props: ActionBarButtonProps, ref) => {
 	// Create the class names.
 	const classNames = positronClassNames(
 		'action-bar-button',
@@ -38,13 +38,13 @@ export const ActionBarButton = forwardRef<HTMLDivElement, ActionBarButtonProps>(
 	// Render.
 	return (
 		<ActionBarTooltip {...props}>
-			<div ref={ref} className={classNames} onClick={props.onClick}>
+			<button ref={ref} className={classNames} onClick={props.onClick}>
 				<div className='action-bar-button-face' style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }}>
 					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} />}
 					{props.text && <div className='action-bar-button-text' style={{ maxWidth: optionalValue(props.maxTextWidth, 'none') }}>{props.text}</div>}
 					{props.dropDown && <div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />}
 				</div>
-			</div>
+			</button>
 		</ActionBarTooltip>
 	);
 });
