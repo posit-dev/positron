@@ -10,7 +10,7 @@ import { chdir, env, exit } from 'process';
 const whichCargoResult = spawnSync('which', ['cargo'], { encoding: 'utf-8' });
 if (whichCargoResult.status !== 0 || whichCargoResult.error) {
 	console.log(`cargo is not available; skipping build of Amalthea kernel.`);
-	exit(1);
+	exit(0);
 }
 
 // Enter the kernel directory
