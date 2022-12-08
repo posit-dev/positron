@@ -147,6 +147,7 @@ pub trait PositronEventType {
 
 	const eventsEnum = generateRustPositronEventEnum();
 	rustEvents.push(eventsEnum);
+	rustEvents.push('');
 
 	writeFileSync(rustEventsFile, rustEvents.join('\n'));
 
