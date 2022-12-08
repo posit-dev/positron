@@ -22,8 +22,9 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 // Constants.
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
-const kPaddingRight = 4;
+const kPaddingRight = 8;
 const kFindTimeout = 800;
+const kPollTimeout = 200;
 
 /**
  * PositronHelpActionBarsProps interface.
@@ -42,6 +43,7 @@ export interface PositronHelpActionBarsProps {
 	onNextTopic: () => void;
 	onHome: () => void;
 	onFind: (findText: string) => void;
+	onCheckFindResults: () => boolean | undefined;
 	onFindPrevious: () => void;
 	onFindNext: () => void;
 	onCancelFind: () => void;
@@ -56,6 +58,8 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 	const historyButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
 	const [findText, setFindText] = useState('');
+	const [pollFindResults, setPollFindResults] = useState(false);
+	const [findResults, setFindResults] = useState(false);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -75,20 +79,50 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Find text change handler.
+	// Find text effect.
 	useEffect(() => {
 		if (findText === '') {
+			setFindResults(false);
 			return props.onCancelFind();
 		} else {
 			// Start the find timeout.
-			const findTimeout = setTimeout(() => {
+			const timeout = setTimeout(() => {
+				setFindResults(false);
 				props.onFind(findText);
+				setPollFindResults(true);
 			}, kFindTimeout);
 
-			// Clear the find timeout.
-			return () => clearTimeout(findTimeout);
+			// Return the cleanup.
+			return () => clearTimeout(timeout);
 		}
 	}, [findText]);
+
+	// Poll find results effect.
+	useEffect(() => {
+		if (!pollFindResults) {
+			return;
+		} else {
+			// Start the poll find results interval.
+			let counter = 0;
+			const interval = setInterval(() => {
+				const checkFindResults = props.onCheckFindResults();
+				console.log(`Poll for find results was ${checkFindResults}`);
+				if (checkFindResults === undefined) {
+					if (++counter < 30) {
+						return;
+					}
+				} else {
+					setFindResults(checkFindResults);
+				}
+
+				// Clear poll find results.
+				setPollFindResults(false);
+			}, kPollTimeout);
+
+			// Return the cleanup.
+			return () => clearInterval(interval);
+		}
+	}, [pollFindResults]);
 
 	// Render.
 	return (
@@ -106,6 +140,7 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 					{!alternateFindUI && (
 						<ActionBarFind
 							width={300}
+							findResults={findResults}
 							initialFindText={findText}
 							onFindTextChanged={setFindText}
 							onFindPrevious={props.onFindPrevious}
@@ -116,6 +151,7 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 						<ActionBarFind
 							width={300}
+							findResults={findResults}
 							initialFindText={findText}
 							onFindTextChanged={setFindText}
 							onFindPrevious={props.onFindPrevious}

@@ -15,6 +15,7 @@ import { ActionBarButton } from 'vs/platform/positronActionBar/browser/component
 interface ActionBarFindProps {
 	width: number;
 	initialFindText?: string;
+	findResults: boolean;
 	onFindTextChanged: (findText: string) => void;
 	onFindPrevious: () => void;
 	onFindNext: () => void;
@@ -44,6 +45,8 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 		props.onFindTextChanged('');
 	};
 
+	console.log(`Rendering action bar find with find results of ${props.findResults}`);
+
 	// Render.
 	return (
 		<div className='action-bar-find-container' style={{ width: props.width }}>
@@ -63,8 +66,12 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					</button>
 				)}
 			</div>
-			<ActionBarButton layout='tight' iconId='positron-chevron-up' align='right' tooltip={localize('positronFindPrevious', "Find previous")} onClick={() => props.onFindPrevious!()} />
-			<ActionBarButton layout='tight' iconId='positron-chevron-down' align='right' tooltip={localize('positronFindNext', "Find next")} onClick={() => props.onFindNext!()} />
+			{props.findResults && (
+				<div className='action-bar-find-buttons'>
+					<ActionBarButton layout='tight' iconId='positron-chevron-up' align='right' tooltip={localize('positronFindPrevious', "Find previous")} onClick={() => props.onFindPrevious!()} />
+					<ActionBarButton layout='tight' iconId='positron-chevron-down' align='right' tooltip={localize('positronFindNext', "Find next")} onClick={() => props.onFindNext!()} />
+				</div>
+			)}
 		</div>
 	);
 };
