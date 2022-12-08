@@ -19,7 +19,7 @@ interface ActionBarMenuButtonProps {
 	maxTextWidth?: number;
 	align?: 'left' | 'right';
 	tooltip: string;
-	actions: () => Promise<readonly IAction[]>;
+	actions: () => readonly IAction[] | Promise<readonly IAction[]>;
 }
 
 /**
@@ -33,36 +33,36 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	const buttonRef = React.useRef<HTMLButtonElement>(undefined!);
 
 	// Handlers.
-	const clickHandler = () => {
-		props.actions().then(actions => {
-			if (!actions.length) {
-				return;
-			}
+	const clickHandler = async () => {
+		// Get the actions.
+		const actions = await props.actions();
+		if (!actions.length) {
+			return;
+		}
 
-			positronActionBarContext.setMenuShowing(true);
-			positronActionBarContext.contextMenuService.showContextMenu({
-				getActions: () => actions,
-				getAnchor: () => buttonRef.current,
-				getKeyBinding: (action: IAction) => {
-					return positronActionBarContext.keybindingService.lookupKeybinding(action.id);
-				},
-				getActionsContext: (event?: IContextMenuEvent) => {
-					if (event) {
-						return new KeyboardEvent('keydown', {
-							ctrlKey: event.ctrlKey,
-							shiftKey: event.shiftKey,
-							metaKey: event.metaKey,
-							altKey: event.altKey
-						});
-					} else {
-						return undefined;
-					}
-				},
-				onHide: () => positronActionBarContext.setMenuShowing(false),
-				anchorAlignment: AnchorAlignment.LEFT,
-				anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
-				contextKeyService: positronActionBarContext.contextKeyService
-			});
+		positronActionBarContext.setMenuShowing(true);
+		positronActionBarContext.contextMenuService.showContextMenu({
+			getActions: () => actions,
+			getAnchor: () => buttonRef.current,
+			getKeyBinding: (action: IAction) => {
+				return positronActionBarContext.keybindingService.lookupKeybinding(action.id);
+			},
+			getActionsContext: (event?: IContextMenuEvent) => {
+				if (event) {
+					return new KeyboardEvent('keydown', {
+						ctrlKey: event.ctrlKey,
+						shiftKey: event.shiftKey,
+						metaKey: event.metaKey,
+						altKey: event.altKey
+					});
+				} else {
+					return undefined;
+				}
+			},
+			onHide: () => positronActionBarContext.setMenuShowing(false),
+			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
+			contextKeyService: positronActionBarContext.contextKeyService
 		});
 	};
 
