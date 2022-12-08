@@ -21,21 +21,12 @@ export const TopActionBarNewMenu = () => {
 	// fetch actions when menu is shown
 	const actions = async () => {
 		const actions: IAction[] = [];
-		const addAction = (id: string, label?: string) => {
-			const action = positronActionBarContext.createCommandAction(id, label);
-			if (action) {
-				actions.push(action);
-			}
-		};
-
-		// core new actions
-		addAction('workbench.action.files.newUntitledFile', localize('positronNewFile', "New File"));
+		positronActionBarContext.appendCommandAction(actions, 'workbench.action.files.newUntitledFile', localize('positronNewFile', "New File"));
 		actions.push(new Separator());
-		addAction(PositronNewWorkspaceAction.ID);
-		addAction(PositronNewWorkspaceFromGitAction.ID);
+		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceAction.ID);
+		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceFromGitAction.ID);
 		actions.push(new Separator());
-		addAction('workbench.action.newWindow');
-
+		positronActionBarContext.appendCommandAction(actions, 'workbench.action.newWindow');
 		return actions;
 	};
 

@@ -26,33 +26,23 @@ export const TopActionBarWorkspaceMenu = () => {
 	// fetch actions when menu is shown
 	const actions = async () => {
 		const actions: IAction[] = [];
-		const addAction = (id: string, label?: string) => {
-			const action = positronActionBarContext.createCommandAction(id, label);
-			if (action) {
-				actions.push(action);
-			}
-		};
-
-		addAction(PositronNewWorkspaceAction.ID);
-		addAction(PositronNewWorkspaceFromGitAction.ID);
+		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceAction.ID);
+		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceFromGitAction.ID);
 		actions.push(new Separator());
-		addAction(OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
-		addAction(PositronOpenWorkspaceInNewWindowAction.ID);
-		addAction(kCloseFolder);
+		positronActionBarContext.appendCommandAction(actions, OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
+		positronActionBarContext.appendCommandAction(actions, PositronOpenWorkspaceInNewWindowAction.ID);
+		positronActionBarContext.appendCommandAction(actions, kCloseFolder);
 		actions.push(new Separator());
-		addAction(kDuplicateWorkspace, localize('positronDuplicateWorkspace', "Duplicate Workspace"));
-
+		positronActionBarContext.appendCommandAction(actions, kDuplicateWorkspace, localize('positronDuplicateWorkspace', "Duplicate Workspace"));
 		const recent = await positronTopActionBarContext.workspacesService.getRecentlyOpened();
 		if (positronTopActionBarContext && recent?.workspaces?.length) {
 			actions.push(new Separator());
 			actions.push(...recentMenuActions(recent.workspaces, positronTopActionBarContext));
 			actions.push(new Separator());
-			addAction(ClearRecentFilesAction.ID);
+			positronActionBarContext.appendCommandAction(actions, ClearRecentFilesAction.ID);
 		}
-
 		actions.push(new Separator());
-		addAction(kWorkbenchSettings);
-
+		positronActionBarContext.appendCommandAction(actions, kWorkbenchSettings);
 		return actions;
 	};
 

@@ -64,11 +64,6 @@
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.action-bar-find-buttons {
-	display: flex;
-	animation: fadeIn 150ms ease-out;
-}
-
 .action-bar-find .action-bar-find-button {
 	width: 18px;
 	height: 18px;
