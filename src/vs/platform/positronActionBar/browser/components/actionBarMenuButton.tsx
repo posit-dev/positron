@@ -30,7 +30,7 @@ interface ActionBarMenuButtonProps {
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
-	const buttonRef = React.useRef<HTMLDivElement>(undefined!);
+	const buttonRef = React.useRef<HTMLButtonElement>(undefined!);
 
 	// Handlers.
 	const clickHandler = () => {
