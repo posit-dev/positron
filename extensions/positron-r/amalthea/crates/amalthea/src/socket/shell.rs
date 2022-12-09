@@ -5,6 +5,8 @@
  *
  */
 
+use crate::comm::comm_channel::Comm;
+use crate::comm::comm_channel::CommChannel;
 use crate::error::Error;
 use crate::language::shell_handler::ShellHandler;
 use crate::socket::iopub::IOPubMessage;
@@ -23,14 +25,17 @@ use crate::wire::is_complete_request::IsCompleteRequest;
 use crate::wire::jupyter_message::JupyterMessage;
 use crate::wire::jupyter_message::Message;
 use crate::wire::jupyter_message::ProtocolMessage;
+use crate::wire::jupyter_message::Status;
 use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
 use futures::executor::block_on;
 use log::{debug, trace, warn};
+use std::collections::HashMap;
 use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, Mutex};
+use std::str::FromStr;
 
 /// Wrapper for the Shell socket; receives requests for execution, etc. from the
 /// front end and handles them or dispatches them to the execution thread.
@@ -43,6 +48,9 @@ pub struct Shell {
 
     /// Language-provided shell handler object
     handler: Arc<Mutex<dyn ShellHandler>>,
+
+    /// Map of open comm channels (UUID to CommChannel)
+    open_comms: HashMap<String, Box<dyn CommChannel>>,
 }
 
 impl Shell {
@@ -60,6 +68,7 @@ impl Shell {
             socket,
             iopub_sender,
             handler,
+            open_comms: HashMap::new(),
         }
     }
 
@@ -104,7 +113,7 @@ impl Shell {
             Message::CommInfoRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_comm_info_request(h, r))
             }
-            Message::CommOpen(req) => self.handle_request(req, |h, r| self.handle_comm_open(h, r)),
+            Message::CommOpen(req) => self.handle_comm_open(req),
             Message::CommMsg(req) => self.handle_request(req, |h, r| self.handle_comm_msg(h, r)),
             Message::InspectRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_inspect_request(h, r))
@@ -231,41 +240,91 @@ impl Shell {
     /// Handle a request for open comms
     fn handle_comm_info_request(
         &self,
-        handler: &dyn ShellHandler,
+        _handler: &dyn ShellHandler,
         req: JupyterMessage<CommInfoRequest>,
     ) -> Result<(), Error> {
         debug!("Received request for open comms: {:?}", req);
-        match block_on(handler.handle_comm_info_request(&req.content)) {
-            Ok(reply) => req.send_reply(reply, &self.socket),
-            Err(err) => req.send_error::<CommInfoReply>(err, &self.socket),
+
+        // Convert our internal map of open comms to a JSON object
+        let mut info = serde_json::Map::new();
+        for (comm_id, comm) in &self.open_comms {
+            info.insert(
+                comm_id.clone(),
+                serde_json::Value::String(comm.as_ref().target_name()),
+            );
         }
+
+        // Form a reply and send it
+        let reply = CommInfoReply {
+            status: Status::Ok,
+            comms: serde_json::Value::Object(info),
+        };
+        req.send_reply(reply, &self.socket)
     }
 
     /// Handle a request to open a comm
     fn handle_comm_open(
-        &self,
-        handler: &dyn ShellHandler,
+        &mut self,
         req: JupyterMessage<CommOpen>,
     ) -> Result<(), Error> {
         debug!("Received request to open comm: {:?}", req);
-        if let Err(err) = block_on(handler.handle_comm_open(&req.content)) {
-            req.send_error::<CommMsg>(err, &self.socket)
-        } else {
-            Ok(())
+
+        // Lock the shell handler object on this thread
+        let handler = self.handler.lock().unwrap();
+
+        let comm = match Comm::from_str(&req.content.target_name) {
+            Ok(comm) => comm,
+            Err(err) => {
+                // If the target name is not recognized, emit a warning.
+                // Consider: should we have pass unrecognized target names
+                // through to the handler?
+                warn!("Failed to open comm; target name '{}' is unrecognized: {}",
+                    &req.content.target_name, err);
+                return Err(Error::UnknownCommName(req.content.target_name));
+            }
+        };
+
+        match block_on(handler.handle_comm_open(comm)) {
+            Err(err) => {
+                req.send_error::<CommMsg>(err, &self.socket)
+            },
+            Ok(comm) => match comm {
+                Some(comm) => match self.open_comms.insert(req.content.comm_id.clone(), comm) {
+                    Some(_) => {
+                        // We already knew about this comm; warn and discard
+                        warn!("Comm {} was already open", req.content.comm_id);
+                        Ok(())
+                    },
+                    None => {
+                        Ok(())
+                    }
+                },
+                None => {
+                    // The comm is known to us, but not supported by the
+                    // underlying handler.
+                    Err(Error::UnknownCommName(req.content.target_name))
+                }
+            }
         }
     }
 
     /// Handle a request to send a comm message
     fn handle_comm_msg(
         &self,
-        handler: &dyn ShellHandler,
+        _handler: &dyn ShellHandler,
         req: JupyterMessage<CommMsg>,
     ) -> Result<(), Error> {
         debug!("Received request to send a message on a comm: {:?}", req);
-        match block_on(handler.handle_comm_msg(&req.content)) {
-            Ok(reply) => Ok(reply),
-            Err(err) => req.send_error::<CommMsg>(err, &self.socket),
-        }
+        // Look for the comm in our open comms
+        let comm = match self.open_comms.get(&req.content.comm_id) {
+            Some(comm) => comm,
+            None => {
+                warn!("Received a message on an unknown comm: {}", req.content.comm_id);
+                return Err(Error::UnknownCommId(req.content.comm_id));
+            }
+        };
+        comm.send_request(&req.content.data);
+        Ok(())
     }
 
     /// Handle a request for code inspection
