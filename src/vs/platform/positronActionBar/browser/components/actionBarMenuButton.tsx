@@ -18,7 +18,7 @@ interface ActionBarMenuButtonProps {
 	text?: string;
 	maxTextWidth?: number;
 	align?: 'left' | 'right';
-	tooltip: string;
+	tooltip?: string | (() => string | undefined);
 	actions: () => readonly IAction[] | Promise<readonly IAction[]>;
 }
 

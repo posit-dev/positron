@@ -19,6 +19,8 @@ import { ActionBarFilter } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ListGridActionBarMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/listGridActionBarMenuButton';
+import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -91,46 +93,48 @@ export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronE
 	// Render.
 	return (
 		<div className='positron-help-action-bars'>
-			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarRegion align='left'>
-						<ActionBarButton iconId='positron-open' tooltip={localize('positronLoadWorkspace', "Load workspace")} onClick={() => props.onLoadWorkspace()} />
-						<ActionBarButton iconId='positron-save' tooltip={localize('positronSaveWorkspace', "Save workspace as")} onClick={() => props.onSaveWorkspaceAs()} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearObjects', "Clear workspace objects")} />
-					</ActionBarRegion>
-					<ActionBarRegion align='right'>
-						<ActionBarButton iconId='positron-list' text='List' dropDown={true} />
-						<ActionBarSeparator />
-						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} />
-					</ActionBarRegion>
-				</PositronActionBar>
-				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarRegion align='left'>
-						<ActionBarButton ref={runtimeButtonRef} text='R' dropDown={true} tooltip={localize('positronRuntime', "Select runtime")} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />
-					</ActionBarRegion>
-					<ActionBarRegion align='right'>
-						{!alternateFindUI && (
-							<ActionBarFilter
-								width={200}
-								initialFilterText={filterText}
-								onFilterTextChanged={setFilterText} />
+			<PositronEnvironmentContextProvider>
+				<PositronActionBarContextProvider {...props}>
+					<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+						<ActionBarRegion align='left'>
+							<ActionBarButton iconId='positron-open' tooltip={localize('positronLoadWorkspace', "Load workspace")} onClick={() => props.onLoadWorkspace()} />
+							<ActionBarButton iconId='positron-save' tooltip={localize('positronSaveWorkspace', "Save workspace as")} onClick={() => props.onSaveWorkspaceAs()} />
+							<ActionBarSeparator />
+							<ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} />
+							<ActionBarSeparator />
+							<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearObjects', "Clear workspace objects")} />
+						</ActionBarRegion>
+						<ActionBarRegion align='right'>
+							<ListGridActionBarMenuButton />
+							<ActionBarSeparator />
+							<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} />
+						</ActionBarRegion>
+					</PositronActionBar>
+					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+						<ActionBarRegion align='left'>
+							<ActionBarButton ref={runtimeButtonRef} text='R' dropDown={true} tooltip={localize('positronRuntime', "Select runtime")} />
+							<ActionBarSeparator />
+							<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />
+						</ActionBarRegion>
+						<ActionBarRegion align='right'>
+							{!alternateFindUI && (
+								<ActionBarFilter
+									width={200}
+									initialFilterText={filterText}
+									onFilterTextChanged={setFilterText} />
+							)}
+						</ActionBarRegion>
+						{alternateFindUI && (
+							<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+								<ActionBarFilter
+									width={200}
+									initialFilterText={filterText}
+									onFilterTextChanged={setFilterText} />
+							</PositronActionBar>
 						)}
-					</ActionBarRegion>
-					{alternateFindUI && (
-						<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-							<ActionBarFilter
-								width={200}
-								initialFilterText={filterText}
-								onFilterTextChanged={setFilterText} />
-						</PositronActionBar>
-					)}
-				</PositronActionBar>
-			</PositronActionBarContextProvider>
+					</PositronActionBar>
+				</PositronActionBarContextProvider>
+			</PositronEnvironmentContextProvider>
 		</div>
 	);
 };
