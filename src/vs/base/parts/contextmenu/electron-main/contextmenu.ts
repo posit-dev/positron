@@ -10,9 +10,29 @@ import { CONTEXT_MENU_CHANNEL, CONTEXT_MENU_CLOSE_CHANNEL, IPopupOptions, ISeria
 
 export function registerContextMenuListener(): void {
 	validatedIpcMain.on(CONTEXT_MENU_CHANNEL, (event: IpcMainEvent, contextMenuId: number, items: ISerializableContextMenuItem[], onClickChannel: string, options?: IPopupOptions) => {
+		const menu = createMenu(event, onClickChannel, items);
+
 		// --- Start Positron ---
-		// Added options for IPopupOptions.
-		const menu = createMenu(event, onClickChannel, items, options);
+		// If the user has dev tools opened, append the "Inspect Element" menu item to the context menu.
+		if (options && event.sender.isDevToolsOpened()) {
+			menu.append(new MenuItem({
+				type: 'separator'
+			}));
+
+			menu.append(new MenuItem({
+				type: 'normal',
+				label: 'Inspect Element',
+				click: (menuItem, browserWindow, contextmenuEvent) => {
+					const webContents = browserWindow?.webContents;
+					if (webContents) {
+						// TODO (kevin): I had trouble convincing Electron to bring the devtools
+						// window to the front, so we just take the easy way out and re-open the page.
+						webContents.closeDevTools();
+						webContents.inspectElement(options.x || 0, options.y || 0);
+					}
+				}
+			}));
+		}
 		// --- End Positron ---
 
 		menu.popup({
@@ -32,10 +52,7 @@ export function registerContextMenuListener(): void {
 	});
 }
 
-// --- Start Positron ---
-// Added options for IPopupOptions.
-function createMenu(event: IpcMainEvent, onClickChannel: string, items: ISerializableContextMenuItem[], options?: IPopupOptions): Menu {
-	// --- End Positron ---
+function createMenu(event: IpcMainEvent, onClickChannel: string, items: ISerializableContextMenuItem[]): Menu {
 	const menu = new Menu();
 
 	items.forEach(item => {
@@ -71,29 +88,6 @@ function createMenu(event: IpcMainEvent, onClickChannel: string, items: ISeriali
 
 		menu.append(menuitem);
 	});
-
-	// --- Start Positron ---
-	// If the user has dev tools opened, append the "Inspect Element" menu item to the context menu.
-	if (options && event.sender.isDevToolsOpened()) {
-		menu.append(new MenuItem({
-			type: 'separator'
-		}));
-
-		menu.append(new MenuItem({
-			type: 'normal',
-			label: 'Inspect Element',
-			click: (menuItem, browserWindow, contextmenuEvent) => {
-				const webContents = browserWindow?.webContents;
-				if (webContents) {
-					// TODO (kevin): I had trouble convincing Electron to bring the devtools
-					// window to the front, so we just take the easy way out and re-open the page.
-					webContents.closeDevTools();
-					webContents.inspectElement(options.x || 0, options.y || 0);
-				}
-			}
-		}));
-	}
-	// --- End Positron ---
 
 	return menu;
 }
