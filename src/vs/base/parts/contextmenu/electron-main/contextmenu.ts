@@ -74,7 +74,7 @@ function createMenu(event: IpcMainEvent, onClickChannel: string, items: ISeriali
 // TODO (kevin): Only in development builds?
 function maybeAddInspectElementMenuItem(menu: Menu, event: IpcMainEvent, options?: IPopupOptions) {
 
-	if (!options) {
+	if (!options || !event.sender.isDevToolsOpened()) {
 		return;
 	}
 
