@@ -7,6 +7,11 @@ import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { env, exit } from 'process';
 
+// Compile the R kernel
+execSync('yarn run compile-kernel', {
+	stdio: 'inherit'
+});
+
 // On macOS, we use install_name_tool to fix up the link to libR.dylib.
 //
 // Note that we still try to link with '-undefined dynamic_lookup', just to
