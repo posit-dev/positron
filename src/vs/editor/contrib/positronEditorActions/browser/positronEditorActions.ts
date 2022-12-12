@@ -70,8 +70,8 @@ function addPositronCommentMarkers(model: ITextModel, selection: Selection, mark
 
 	// Compute the end position.
 	// If the end selection ends before the start selection, assume that this is
-	// because the user had expands the selection and perhaps the end anchor of
-	// the selection lies at the start of the intended selection.
+	// because the user has expanded the selection and perhaps the end anchor of
+	// the selection lies on the line after the intended end of the selection.
 	let endPosition;
 	if (selection.endColumn <= selection.selectionStartColumn) {
 		endPosition = <IPosition>{
