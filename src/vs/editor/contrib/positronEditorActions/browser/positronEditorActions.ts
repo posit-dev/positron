@@ -73,10 +73,6 @@ export class AddPositronCommentMarkersAction extends EditorAction {
 			label: 'Positron: Add Positron Comment Markers',
 			alias: 'Positron: Add Positron Comment Markers',
 			precondition: ContextKeyExpr.and(IsDevelopmentContext, EditorContextKeys.writable),
-			kbOpts: {
-				kbExpr: EditorContextKeys.editorTextFocus,
-				weight: KeybindingWeight.EditorContrib
-			}
 		});
 	}
 
