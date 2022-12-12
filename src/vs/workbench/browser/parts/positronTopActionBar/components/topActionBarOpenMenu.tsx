@@ -20,6 +20,7 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 import { PositronTopActionBarState } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarState';
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+import { Verbosity } from 'vs/platform/label/common/label';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 
@@ -95,12 +96,12 @@ function createOpenRecentMenuAction(context: PositronTopActionBarState, recent: 
 
 	if (isRecentFolder(recent)) {
 		uri = recent.folderUri;
-		label = recent.label || context.labelService.getWorkspaceLabel(uri, { verbose: true });
+		label = recent.label || context.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
 		commandId = 'openRecentFolder';
 		openable = { folderUri: uri };
 	} else if (isRecentWorkspace(recent)) {
 		uri = recent.workspace.configPath;
-		label = recent.label || context.labelService.getWorkspaceLabel(recent.workspace, { verbose: true });
+		label = recent.label || context.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
 		commandId = 'openRecentWorkspace';
 		openable = { workspaceUri: uri };
 	} else {
