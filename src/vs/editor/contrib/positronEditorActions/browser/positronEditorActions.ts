@@ -69,21 +69,10 @@ function addPositronCommentMarkers(model: ITextModel, selection: Selection, mark
 	};
 
 	// Compute the end position.
-	// If the end selection ends before the start selection, assume that this is
-	// because the user has expanded the selection and perhaps the end anchor of
-	// the selection lies on the line after the intended end of the selection.
-	let endPosition;
-	if (selection.endColumn <= selection.selectionStartColumn) {
-		endPosition = <IPosition>{
-			lineNumber: selection.endLineNumber - 1,
-			column: Infinity,
-		};
-	} else {
-		endPosition = <IPosition>{
-			lineNumber: selection.endLineNumber,
-			column: Infinity,
-		};
-	}
+	const endPosition = <IPosition>{
+		lineNumber: selection.endLineNumber,
+		column: Infinity,
+	};
 
 	// Inherit the indentation from the first line.
 	const startLine = model.getLineContent(startPosition.lineNumber);
@@ -97,7 +86,7 @@ function addPositronCommentMarkers(model: ITextModel, selection: Selection, mark
 		},
 		{
 			range: Range.fromPositions(endPosition, endPosition),
-			text: `\n${indent}${markers.endText}\n`,
+			text: `\n${indent}${markers.endText}`,
 		},
 	];
 
