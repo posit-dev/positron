@@ -83,6 +83,7 @@
     "node-pty": "0.11.0-beta11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-window": "^1.8.8",
     "spdlog": "^0.13.0",
     "tas-client-umd": "0.1.6",
     "v8-inspect-profiler": "^0.1.0",

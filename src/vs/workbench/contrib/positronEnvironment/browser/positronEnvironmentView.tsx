@@ -17,9 +17,9 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-// import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
+import { PositronEnvironmentData } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentData';
 import { PositronEnvironmentActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActionBars';
 
 /**
@@ -41,8 +41,14 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	// The environment action bars container - contains the PositronEnvironmentActionBars component.
 	private _environmentActionBarsContainer!: HTMLElement;
 
+	// The environment data container - contains the PositronEnvironmentData component.
+	private _environmentDataContainer!: HTMLElement;
+
 	// The PositronReactRenderer for the PositronEnvironmentActionBars component.
 	private _positronReactRendererEnvironmentActionBars: PositronReactRenderer | undefined;
+
+	// The PositronReactRenderer for the PositronEnvironmentData component.
+	private _positronReactRendererEnvironmentData: PositronReactRenderer | undefined;
 
 	/**
 	 * Constructor.
@@ -118,7 +124,11 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._environmentActionBarsContainer = DOM.$('.environment-action-bars-container');
 		this._positronEnvironmentContainer.appendChild(this._environmentActionBarsContainer);
 
-		// Find handler.
+		// Append the environment container.
+		this._environmentDataContainer = DOM.$('.environment-data-container');
+		this._positronEnvironmentContainer.appendChild(this._environmentDataContainer);
+
+		// Filter handler.
 		const filterHandler = (findText: string) => {
 		};
 
@@ -126,6 +136,22 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronReactRendererEnvironmentActionBars = new PositronReactRenderer(this._environmentActionBarsContainer);
 		this._positronReactRendererEnvironmentActionBars.render(
 			<PositronEnvironmentActionBars
+				commandService={this.commandService}
+				configurationService={this.configurationService}
+				contextKeyService={this.contextKeyService}
+				contextMenuService={this.contextMenuService}
+				keybindingService={this.keybindingService}
+				reactComponentContainer={this}
+				onLoadWorkspace={() => console.log('Load workspace made it to the Positron environment view.')}
+				onSaveWorkspaceAs={() => console.log('Save workspace as made it to the Positron environment view.')}
+				onFilter={filterHandler}
+				onCancelFilter={() => filterHandler('')}
+			/>
+		);
+
+		this._positronReactRendererEnvironmentData = new PositronReactRenderer(this._environmentDataContainer);
+		this._positronReactRendererEnvironmentData.render(
+			<PositronEnvironmentData
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
