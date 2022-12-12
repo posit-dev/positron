@@ -12,6 +12,7 @@ use strum_macros::EnumString;
 pub trait CommChannel: Send {
     fn send_request(&self, data: &Value);
     fn target_name(&self) -> String;
+    fn close(&self);
 }
 
 #[derive(EnumString, PartialEq)]

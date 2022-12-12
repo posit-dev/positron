@@ -11,6 +11,7 @@ use crate::error::Error;
 use crate::language::shell_handler::ShellHandler;
 use crate::socket::iopub::IOPubMessage;
 use crate::socket::socket::Socket;
+use crate::wire::comm_close::CommClose;
 use crate::wire::comm_info_reply::CommInfoReply;
 use crate::wire::comm_info_request::CommInfoRequest;
 use crate::wire::comm_msg::CommMsg;
@@ -115,6 +116,7 @@ impl Shell {
             }
             Message::CommOpen(req) => self.handle_comm_open(req),
             Message::CommMsg(req) => self.handle_request(req, |h, r| self.handle_comm_msg(h, r)),
+            Message::CommClose(req) => self.handle_comm_close(req),
             Message::InspectRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_inspect_request(h, r))
             }
@@ -276,8 +278,9 @@ impl Shell {
             Ok(comm) => comm,
             Err(err) => {
                 // If the target name is not recognized, emit a warning.
-                // Consider: should we have pass unrecognized target names
-                // through to the handler?
+                // Consider: should we pass unrecognized target names
+                // through to the handler to extend support to comm types
+                // that we don't know about?
                 warn!("Failed to open comm; target name '{}' is unrecognized: {}",
                     &req.content.target_name, err);
                 return Err(Error::UnknownCommName(req.content.target_name));
@@ -324,6 +327,30 @@ impl Shell {
             }
         };
         comm.send_request(&req.content.data);
+        Ok(())
+    }
+
+    /// Handle a request to close a comm
+    fn handle_comm_close(
+        &mut self,
+        req: JupyterMessage<CommClose>,
+    ) -> Result<(), Error> {
+        // Look for the comm in our open comms
+        debug!("Received request to close comm: {:?}", req);
+        let comm = match self.open_comms.get(&req.content.comm_id) {
+            Some(comm) => comm,
+            None => {
+                warn!("Received a request to close unknown or already closed comm: {}", req.content.comm_id);
+                return Err(Error::UnknownCommId(req.content.comm_id));
+            }
+        };
+
+        // Close the comm
+        comm.close();
+
+        // Remove the comm from the set of open comms
+        self.open_comms.remove(&req.content.comm_id);
+
         Ok(())
     }
 
