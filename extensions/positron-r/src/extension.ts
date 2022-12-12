@@ -25,8 +25,14 @@ function activateKernel(context: vscode.ExtensionContext) {
 		return adaptJupyterKernel(context, embeddedKernel);
 	}
 
-	// Still no kernel? Try the source path.
-	const devKernel = path.join(context.extensionPath, 'amalthea', 'target', 'debug', 'ark');
+	// Still no kernel? Try the locally built kernel (Debug).
+	let devKernel = path.join(context.extensionPath, 'amalthea', 'target', 'debug', 'ark');
+	if (fs.existsSync(devKernel)) {
+		return adaptJupyterKernel(context, devKernel);
+	}
+
+	// Still no kernel? Try the locally built kernel (Release).
+	devKernel = path.join(context.extensionPath, 'amalthea', 'target', 'release', 'ark');
 	if (fs.existsSync(devKernel)) {
 		return adaptJupyterKernel(context, devKernel);
 	}

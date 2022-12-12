@@ -79,7 +79,6 @@
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"pretest": "yarn run compile && yarn run lint",
-		"preinstall": "yarn run compile-kernel",
 		"postinstall": "ts-node scripts/post-install.ts",
 		"lint": "eslint src --ext ts",
 		"test": "node ./out/test/runTest.js"
