@@ -11,7 +11,6 @@ import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ITextModel } from 'vs/editor/common/model';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 
 export function addPositronCommentMarkers(model: ITextModel, selection: Selection): ISingleEditOperation[] {
 
