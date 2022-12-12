@@ -2,25 +2,25 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronEnvironment';
+import 'vs/css!./positronEnvironmentData';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 import { TestContent } from 'vs/workbench/contrib/positronEnvironment/browser/components/testContent';
 
 /**
- * PositronEnvironmentProps interface.
+ * PositronEnvironmentDataProps interface.
  */
-export interface PositronEnvironmentProps {
+export interface PositronEnvironmentDataProps {
 }
 
 /**
- * PositronEnvironment component.
- * @param props A PositronEnvironmentProps that contains the component properties.
+ * PositronEnvironmentData component.
+ * @param props A PositronEnvironmentDataProps that contains the component properties.
  */
-export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentProps>) => {
+export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentDataProps>) => {
 	return (
 		<div>
-			<TestContent message='Environment React' />
+			<TestContent message='Environment Data React' />
 		</div>
 	);
 };
