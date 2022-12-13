@@ -20,7 +20,7 @@ interface ActionBarSearchProps {
 /**
  * ActionBarSearch component.
  * @param props An ActionBarSearchProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarSearch = (props: ActionBarSearchProps) => {
 	// Hooks.

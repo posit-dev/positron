@@ -54,6 +54,7 @@ const kInitialDialogBoxState: DialogBoxState = {
 /**
  * PositronModalDialog component.
  * @param props A PositronModalDialogProps that contains the component properties.
+ * @returns The rendered component.
  */
 export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialogProps>) => {
 	// Hooks.
