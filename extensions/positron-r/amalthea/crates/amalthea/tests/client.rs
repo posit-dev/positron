@@ -5,7 +5,7 @@
  *
  */
 
-use amalthea::kernel::Kernel;
+use amalthea::kernel::{Kernel, StreamBehavior};
 use amalthea::wire::comm_close::CommClose;
 use amalthea::wire::comm_info_request::CommInfoRequest;
 use amalthea::wire::comm_open::CommOpen;
@@ -41,7 +41,7 @@ fn test_kernel() {
 
     // Create the thread that will run the Amalthea kernel
     thread::spawn(move || {
-        match kernel.connect(shell, control, None) {
+        match kernel.connect(shell, control, None, StreamBehavior::None) {
             Ok(_) => {
                 info!("Kernel connection initiated");
             },
