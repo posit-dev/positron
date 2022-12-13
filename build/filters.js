@@ -138,6 +138,7 @@ module.exports.indentationFilter = [
 	// --- Start Positron ---
 	'!src/react.js',
 	'!src/react-dom.js',
+	'!src/react-window.js',
 	// --- End Positron ---
 
 	// --- Start Positron ---
