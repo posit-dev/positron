@@ -24,7 +24,7 @@ interface ActionBarFindProps {
 /**
  * ActionBarFind component.
  * @param props An ActionBarFindProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarFind = (props: ActionBarFindProps) => {
 	// Hooks.
@@ -44,8 +44,6 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 		setFindText('');
 		props.onFindTextChanged('');
 	};
-
-	console.log(`Rendering action bar find with find results of ${props.findResults}`);
 
 	// Render.
 	return (

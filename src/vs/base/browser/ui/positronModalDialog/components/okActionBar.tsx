@@ -16,7 +16,8 @@ interface OKActionBarProps {
 
 /**
  * OKActionBar component.
- * @param props An OKActionBarProps that contains the properties for the component.
+ * @param props An OKActionBarProps that contains the component properties.
+ * @returns The rendered component.
  */
 export const OKActionBar = (props: OKActionBarProps) => {
 	// Render.

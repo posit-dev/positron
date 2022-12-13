@@ -22,8 +22,8 @@ export interface OKCancelModalDialogProps extends PositronModalDialogProps {
 
 /**
  * OKCancelModalDialog component.
- * @param props The properties.
- * @returns The component.
+ * @param props A PropsWithChildren<OKCancelModalDialogProps> that contains the component properties.
+ * @returns The rendered component.
  */
 export const OKCancelModalDialog = (props: PropsWithChildren<OKCancelModalDialogProps>) => {
 	// Render.
