@@ -6,6 +6,7 @@
  */
 
 use amalthea::kernel::Kernel;
+use amalthea::wire::comm_close::CommClose;
 use amalthea::wire::comm_info_request::CommInfoRequest;
 use amalthea::wire::comm_open::CommOpen;
 use amalthea::wire::execute_input::ExecuteInput;
@@ -317,5 +318,11 @@ fn test_kernel() {
             );
         }
     }
+
+    // Test closing the comm we just opened
+    info!("Sending comm close request to the kernel");
+    frontend.send_shell(CommClose {
+        comm_id: comm_id.to_string(),
+    });
 
 }
