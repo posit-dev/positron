@@ -298,8 +298,7 @@ fn test_kernel() {
         data: serde_json::Value::Null,
     });
 
-    info!("Requesting comm info from the kernel");
-    let comm_id = "A3A6D0EA-1443-4F70-B059-F423E445B8D6";
+    info!("Requesting comm info from the kernel (to test opening)");
     frontend.send_shell(CommInfoRequest {
         target_name: "environment".to_string(),
     });
@@ -324,5 +323,27 @@ fn test_kernel() {
     frontend.send_shell(CommClose {
         comm_id: comm_id.to_string(),
     });
+
+    // Test to see if the comm is still in the list of comms after closing it
+    // (it should not be)
+    info!("Requesting comm info from the kernel (to test closing)");
+    frontend.send_shell(CommInfoRequest {
+        target_name: "environment".to_string(),
+    });
+    let reply = frontend.receive_shell();
+    match reply {
+        Message::CommInfoReply(request) => {
+            info!("Got comm info: {:?}", request);
+            // Ensure the comm we just closed not present in the list of comms
+            let comms = request.content.comms.as_object().unwrap();
+            assert!(!comms.contains_key(comm_id));
+        }
+        _ => {
+            panic!(
+                "Unexpected message received (expected comm info): {:?}",
+                reply
+            );
+        }
+    }
 
 }
