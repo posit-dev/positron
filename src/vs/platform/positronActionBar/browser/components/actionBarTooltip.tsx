@@ -18,7 +18,7 @@ interface ActionBarTooltipProps {
 /**
  * ActionBarTooltip component.
  * @param props An ActionBarTooltipProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarTooltip = (props: PropsWithChildren<ActionBarTooltipProps>) => {
 	// Hooks.

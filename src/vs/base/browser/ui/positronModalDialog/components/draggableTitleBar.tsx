@@ -23,7 +23,8 @@ type DocumentMouseEvent = globalThis.MouseEvent;
 
 /**
  * DraggableTitleBar component.
- * @param props A DraggableTitleBarProps that contains the properties for the component.
+ * @param props A DraggableTitleBarProps that contains the component properties.
+ * @returns The rendered component.
  */
 export const DraggableTitleBar = (props: DraggableTitleBarProps) => {
 	// Mouse down handler.

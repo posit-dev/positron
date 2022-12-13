@@ -22,6 +22,7 @@ interface PositronActionBarProps {
 /**
  * PositronActionBar component.
  * @param props A PositronActionBarProps that contains the component properties.
+ * @returns The rendered component.
  */
 export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProps>) => {
 	// Create the class names.

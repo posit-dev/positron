@@ -52,6 +52,7 @@ export interface PositronHelpActionBarsProps {
 /**
  * PositronHelpActionBars component.
  * @param props A PositronHelpActionBarsProps that contains the component properties.
+ * @returns The rendered component.
  */
 export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActionBarsProps>) => {
 	// Hooks.
