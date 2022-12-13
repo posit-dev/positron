@@ -41,6 +41,23 @@ pub struct Shell {
     execution_count: u32,
 }
 
+pub struct TestComm {
+}
+
+impl CommChannel for TestComm {
+    fn send_request(&self, _data: &serde_json::Value) {
+        // No-op for test comm
+    }
+
+    fn target_name(&self) -> String {
+        "test.comm".to_string()
+    }
+
+    fn close(&self) {
+        // No-op for test comm
+    }
+}
+
 /// Stub implementation of the shell handler for test harness
 impl Shell {
     pub fn new(iopub: SyncSender<IOPubMessage>) -> Self {
@@ -227,14 +244,16 @@ impl ShellHandler for Shell {
     }
 
     async fn handle_comm_open(&self, _req: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
-        // No comms supported
-        Ok(None)
+        // Open a test comm channel; this test comm channel is used for every
+        // comm open request (regardless of the target name)
+        Ok(Some(Box::new(TestComm{})))
     }
 
     async fn handle_input_reply(&self, _msg: &InputReply) -> Result<(), Exception> {
         // NYI
         Ok(())
     }
+
 
     fn establish_input_handler(&mut self, handler: SyncSender<ShellInputRequest>) {
         self.input_sender = Some(handler);

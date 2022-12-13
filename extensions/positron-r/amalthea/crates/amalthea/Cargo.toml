@@ -26,3 +26,4 @@ strum_macros = "0.24"
 [dev-dependencies]
 rand = "0.8.5"
 portpicker = "0.1.1"
+env_logger = "0.10.0"
