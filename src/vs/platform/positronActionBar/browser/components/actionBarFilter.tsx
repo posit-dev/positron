@@ -20,7 +20,7 @@ interface ActionBarFilterProps {
 /**
  * ActionBarFilter component.
  * @param props An ActionBarFilterProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarFilter = (props: ActionBarFilterProps) => {
 	// Hooks.

@@ -57,6 +57,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The help iframe.
 	private _helpIFrame?: HTMLIFrameElement;
 
+	// The last Positron help command that was sent to the help iframe.
+	private _lastPositronHelpCommand: PositronHelpCommand | undefined;
+
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
@@ -217,8 +220,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			height
 		});
 	}
-
-	private _lastPositronHelpCommand: PositronHelpCommand | undefined;
 
 	/**
 	 * Posts a message to the help iframe.

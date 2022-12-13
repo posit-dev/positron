@@ -50,6 +50,7 @@ export interface PositronEnvironmentActionBarsProps {
 /**
  * PositronEnvironmentActionBars component.
  * @param props A PositronEnvironmentActionBarsProps that contains the component properties.
+ * @returns The rendered component.
  */
 export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronEnvironmentActionBarsProps>) => {
 	// Hooks.

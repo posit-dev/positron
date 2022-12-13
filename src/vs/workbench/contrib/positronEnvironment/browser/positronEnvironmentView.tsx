@@ -35,6 +35,9 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
 
+	private _width: number;
+	private _height: number;
+
 	// The Positron environment container - contains the entire Positron environment UI.
 	private _positronEnvironmentContainer!: HTMLElement;
 
@@ -81,6 +84,9 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+
+		this._width = 0;
+		this._height = 0;
 
 		// Register event handlers.
 		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChanged.fire(this.isBodyVisible())));
@@ -132,6 +138,8 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		const filterHandler = (findText: string) => {
 		};
 
+		console.log(`PositronEnvironmentViewPane.renderBody called ${this._width},${this._height}`);
+
 		// Render the PositronEnvironmentActionBars component.
 		this._positronReactRendererEnvironmentActionBars = new PositronReactRenderer(this._environmentActionBarsContainer);
 		this._positronReactRendererEnvironmentActionBars.render(
@@ -149,20 +157,13 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 			/>
 		);
 
+		// Render the PositronEnvironmentData component.
 		this._positronReactRendererEnvironmentData = new PositronReactRenderer(this._environmentDataContainer);
 		this._positronReactRendererEnvironmentData.render(
 			<PositronEnvironmentData
-				commandService={this.commandService}
-				configurationService={this.configurationService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				keybindingService={this.keybindingService}
-				reactComponentContainer={this}
-				onLoadWorkspace={() => console.log('Load workspace made it to the Positron environment view.')}
-				onSaveWorkspaceAs={() => console.log('Save workspace as made it to the Positron environment view.')}
-				onFilter={filterHandler}
-				onCancelFilter={() => filterHandler('')}
-			/>
+				height={this._height - 64}
+				initialHeight={() => this._height - 64}
+				reactComponentContainer={this} />
 		);
 	}
 
@@ -172,7 +173,19 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * @param width The width of the body.
 	 */
 	override layoutBody(height: number, width: number): void {
+		console.log(`+++++++PositronEnvironmentViewPane - layoutBody called ${width},${height}`);
+		// Call the base class's method.
 		super.layoutBody(height, width);
+
+		// Set the width and height.
+		this._width = width;
+		this._height = height;
+
+		// Raise the onSizeChanged event.
+		this._onSizeChanged.fire({
+			width,
+			height
+		});
 	}
 }
 

@@ -25,7 +25,7 @@ interface ActionBarMenuButtonProps {
 /**
  * ActionBarCommandButton component.
  * @param props An ActionBarMenuButtonProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Hooks.

@@ -26,7 +26,7 @@ export interface ActionBarButtonProps {
 /**
  * ActionBarButton component.
  * @param props An ActionBarButtonProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarButton = forwardRef<HTMLButtonElement, ActionBarButtonProps>((props: ActionBarButtonProps, ref) => {
 	// Create the class names.

@@ -11,3 +11,7 @@
 .positron-environment-container .environment-action-bars-container {
 	height: min-content;
 }
+
+.positron-environment-container .environment-data-container {
+	flex-grow: 1;
+}

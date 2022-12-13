@@ -18,8 +18,8 @@ export interface DirectoryInputProps {
 
 /**
  * DirectoryInput component.
- * @param props The properties
- * @returns
+ * @param props A DirectoryInputProps that contains the component properties.
+ * @returns The rendered component.
  */
 export const DirectoryInput = (props: DirectoryInputProps) => {
 	return (

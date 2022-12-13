@@ -1,3 +1,19 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
+
+.list-item {
+	padding-left: 6px;
+	display: flex;
+	align-items: center;
+}
+
+.list-item-even, .list-item-odd {
+	background-color: white;
+	display: flex;
+	align-items: center;
+}
+
+.list-item-even {
+	filter: brightness(85%);
+}

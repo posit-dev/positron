@@ -22,7 +22,7 @@ interface ActionBarCommandButtonProps {
 /**
  * ActionBarCommandButton component.
  * @param props An ActionBarCommandButtonProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.

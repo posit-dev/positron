@@ -48,7 +48,7 @@ interface PositronTopActionBarProps extends PositronTopActionBarServices { }
 /**
  * PositronTopActionBar component.
  * @param props A PositronTopActionBarProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	// Render.
