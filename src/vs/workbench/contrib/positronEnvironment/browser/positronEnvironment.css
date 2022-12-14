@@ -18,3 +18,7 @@
 	--positronActionBar-textInputSelectionForeground: var(--vscode-positronSideActionBar-textInputSelectionForeground);
 	--positronActionBar-textInputSelectionBackground: var(--vscode-positronSideActionBar-textInputSelectionBackground);
 }
+
+.positron-environment .positron-environment-action-bars {
+	height: min-content;
+}
