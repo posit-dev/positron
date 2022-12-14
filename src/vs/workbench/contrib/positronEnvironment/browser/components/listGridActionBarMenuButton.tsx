@@ -7,7 +7,8 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { PositronEnvironmentViewMode, usePositronEnvironmentState } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
+import { PositronEnvironmentViewMode } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
+import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
  * ListGridActionBarMenuButton component.
@@ -15,7 +16,7 @@ import { PositronEnvironmentViewMode, usePositronEnvironmentState } from 'vs/wor
  */
 export const ListGridActionBarMenuButton = () => {
 	// Hooks.
-	const positronEnvironmentContext = usePositronEnvironmentState();
+	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	// Builds the actions.
 	const actions = () => {

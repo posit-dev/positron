@@ -10,7 +10,6 @@ import { ILanguageRuntime, ILanguageRuntimeService, LanguageRuntimeStartupBehavi
  * MockLanguageRuntimeService class.
  */
 export class MockLanguageRuntimeService extends Disposable implements ILanguageRuntimeService {
-
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
 
@@ -31,13 +30,22 @@ export class MockLanguageRuntimeService extends Disposable implements ILanguageR
 	// the implicit runtime startup.
 	private readonly _activeLanguages = new Set<string>();
 
-	// Constructor.
+	/**
+	 * Constructor.
+	 */
 	constructor() {
+		// Initialize base disposable functionality
 		super();
 	}
 
 	/**
-	 * Start a runtime implicitly when a language is encountered
+	 * Start a runtime implicitly when a language is encountered.
+	 */
+
+	/**
+	 * Start a runtime implicitly when a language is encountered.
+	 * @param language The
+	 * @returns
 	 */
 	startRuntimeImplicitly(language: string): void {
 		// Ignore if there's already an active runtime for this language.

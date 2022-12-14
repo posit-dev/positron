@@ -191,21 +191,21 @@ export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
  */
 export interface ILanguageRuntimeMetadata {
 	/** A unique identifier for this runtime */
-	id: string;
+	readonly id: string;
 
 	/** The language identifier for this runtime. */
-	language: string;
+	readonly language: string;
 
 	/** The name of the runtime. */
-	name: string;
+	readonly name: string;
 
 	/** The version of the runtime. */
-	version: string;
+	readonly version: string;
 }
 
 export interface ILanguageRuntime {
 	/** The language runtime's static metadata */
-	metadata: ILanguageRuntimeMetadata;
+	readonly metadata: ILanguageRuntimeMetadata;
 
 	/** An object that emits language runtime events */
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
