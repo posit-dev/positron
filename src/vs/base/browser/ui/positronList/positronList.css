@@ -1,0 +1,13 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-list-container {
+	position: relative;
+	will-change: transform;
+	overflow: auto;
+}
+
+.positron-list-container .list-contents {
+	background: transparent;
+}
