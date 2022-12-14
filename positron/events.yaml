@@ -1,0 +1,30 @@
+
+- name: BusyEvent
+  comment: >
+    Represents a change in the runtime's busy state.
+
+    Note that this represents the busy state of the underlying computation engine,
+    not the busy state of the kernel.
+
+    The kernel is busy when it is processing a request,
+    but the runtime is busy only when a computation is running.
+  params:
+  - name: busy
+    type: boolean
+    comment: Whether the runtime is busy.
+
+- name: ShowMessageEvent
+  comment: >
+    Use this event to show a message to the user.
+  params:
+  - name: message
+    type: string
+    comment: The message to show to the user.
+
+- name: ShowHelpUrlEvent
+  comment: >
+    Show a URL in the Help pane.
+  params:
+  - name: url
+    type: string
+    comment: The URL to be shown in the Help pane.

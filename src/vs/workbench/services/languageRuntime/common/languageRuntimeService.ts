@@ -5,6 +5,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -142,11 +143,6 @@ export enum LanguageRuntimeMessageType {
 	Event = 'event',
 }
 
-/** The set of possible language runtime events */
-export enum LanguageRuntimeEventType {
-	ShowMessage = 'show_message'
-}
-
 export enum LanguageRuntimeStartupBehavior {
 	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
 	Implicit = 'implicit',
@@ -169,13 +165,6 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 
 	/** The error stack trace */
 	traceback: Array<string>;
-}
-
-export interface LanguageRuntimeEventData { }
-
-export interface ShowMessageEvent extends LanguageRuntimeEventData {
-	/** The message to show */
-	message: string;
 }
 
 export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
