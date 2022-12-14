@@ -9,11 +9,12 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeEventType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState, ShowHelpUrlEvent, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { LanguageRuntimeEventType, ShowHelpUrlEvent, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
