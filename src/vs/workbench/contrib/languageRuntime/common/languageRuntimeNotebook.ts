@@ -182,16 +182,13 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		return this._currentState;
 	}
 
-	execute(code: string): Thenable<string> {
+	execute(code: string, id: string): Thenable<string> {
 
 		// Ensure we aren't already executing a cell
 		if (this._executingCellId) {
 			this._logService.error(`Cell execution of ${this._executingCellId} already in progress`);
 			throw new Error(`Cell execution of ${this._executingCellId}  already in progress`);
 		}
-
-		// Create a unique execution ID.
-		const id = 'cell-exe-' + NotebookLanguageRuntime._msgCounter++;
 
 		// Replace the "cell" contents with what the user entered
 		this._nbTextModel.applyEdits([{

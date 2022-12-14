@@ -32,14 +32,14 @@ export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath:
 	}
 
 	withActiveExtension(ext, () => {
-		return registerArkKernel(ext!, context, kernelPath as string);
+		registerArkKernel(ext!, context, kernelPath as string);
 	});
 }
 
 function getRVersion(rHome: string): string {
 	// Get the version of the R installation
 	const { execSync } = require('child_process');
-	let rVersion = "";
+	let rVersion = '';
 	try {
 		rVersion = execSync(
 			`${rHome}/bin/R --vanilla -s -e 'cat(R.Version()$major,R.Version()$minor, sep=".")'`,
@@ -51,7 +51,7 @@ function getRVersion(rHome: string): string {
 	return rVersion;
 }
 
-export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.ExtensionContext, kernelPath: string): vscode.Disposable {
+export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.ExtensionContext, kernelPath: string): void {
 
 	class RInstallation {
 		public readonly rHome: string;
@@ -132,9 +132,8 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		return positron.runtime.registerLanguageRuntime(runtime);
 	});
 
-	// Return a disposable that will dispose of all the language runtime providers.
-	return Disposable.create(() => {
-		disposables.forEach(d => d.dispose());
-	});
+	// Ensure that the language runtime registrations are torn down when the
+	// extension is deactivated.
+	context.subscriptions.push(...disposables);
 }
 

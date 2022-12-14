@@ -182,6 +182,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		}
 
 		console.log(`+++++++PositronEnvironmentViewPane - layoutBody called ${width},${height}`);
+
 		// Call the base class's method.
 		super.layoutBody(height, width);
 

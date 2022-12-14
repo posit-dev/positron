@@ -192,9 +192,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		}
 
 		// Create separate output channel to show standard output from the kernel
-		const output = vscode.window.createOutputChannel(this._spec.display_name);
 		const decoder = new StringDecoder('utf8');
 		this._process = spawn(args[0], args.slice(1), options);
+		const output = vscode.window.createOutputChannel(
+			`${this._spec.display_name} (${this._process.pid})`);
 		this._process.stderr?.on('data', (data) => {
 			output.append(decoder.write(data));
 		});
@@ -204,6 +205,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._process.on('close', (code) => {
 			this.setStatus(positron.RuntimeState.Exited);
 			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
+
+			// Remove the output channel if the kernel exited normally
+			if (code === 0) {
+				output.dispose();
+			}
 		});
 		this._process.once('spawn', () => {
 			this._channel.appendLine(`${this._spec.display_name} kernel started`);
