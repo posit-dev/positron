@@ -161,7 +161,6 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronReactRendererEnvironmentData = new PositronReactRenderer(this._environmentDataContainer);
 		this._positronReactRendererEnvironmentData.render(
 			<PositronEnvironmentData
-				height={this._height - 64}
 				initialHeight={() => this._height - 64}
 				reactComponentContainer={this} />
 		);
