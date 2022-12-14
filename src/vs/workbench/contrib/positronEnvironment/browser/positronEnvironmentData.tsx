@@ -8,6 +8,9 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { PositronList } from 'vs/base/browser/ui/positronList/positronList';
+
+const reactWindow = false;
 
 /**
  * PositronEnvironmentDataProps interface.
@@ -16,7 +19,6 @@ export interface PositronEnvironmentDataProps {
 	initialHeight: () => number;
 	reactComponentContainer: IReactComponentContainer;
 }
-
 
 /**
  * TemporaryRow component.
@@ -66,9 +68,16 @@ export const PositronEnvironmentData = (props: PropsWithChildren<PositronEnviron
 	// Render.
 	return (
 		<div>
-			<List height={height} itemCount={1000} itemSize={28} width='100%'>
-				{TemporaryRow}
-			</List>
+			{reactWindow && (
+				<List height={height} itemCount={1000} itemSize={28} width='100%'>
+					{TemporaryRow}
+				</List>
+			)}
+			{!reactWindow && (
+				<PositronList height={height}>
+
+				</PositronList>
+			)}
 		</div>
 	);
 };
