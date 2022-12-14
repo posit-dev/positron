@@ -16,12 +16,6 @@ async function main(): Promise<void> {
 
 	// --- Start Positron ---
 
-	// enable codesign debug output
-	const debug = process.env['CODESIGN_DEBUG'];
-	if (debug) {
-		process.env['DEBUG'] = 'electron-osx-sign';
-	}
-
 	// set up codesign identity
 	let identity = process.env['CODESIGN_IDENTITY'];
 	let identityValidation = true;

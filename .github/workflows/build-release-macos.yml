@@ -186,7 +186,7 @@ jobs:
           export AGENT_BUILDDIRECTORY="$(pwd)"
           export AGENT_TEMPDIRECTORY="${TMPDIR}"
           export VSCODE_ARCH=universal
-          export CODESIGN_DEBUG=1
+          export DEBUG=electron-osx-sign
           npx ts-node build/darwin/sign.ts
 
       # Compress universal client to a zip file
