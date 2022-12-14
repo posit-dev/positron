@@ -11,6 +11,8 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
+import { ILanguageRuntimeEvent, ILanguageRuntimeService, LanguageRuntimeMessageType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LanguageRuntimeEventType, ShowHelpUrlEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 // The TrustedTypePolicy for rendering.
 const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -36,12 +38,32 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Constructor.
 	 * @param languageService The ILanguageService for the markdown renderer.
 	 * @param openerService The IOpenerService for the markdown renderer.
+	 * @param languageRuntimeService The language runtime service, whose runtimes will emit Help events.
 	 */
 	constructor(
 		@ILanguageService languageService: ILanguageService,
-		@IOpenerService openerService: IOpenerService
+		@IOpenerService openerService: IOpenerService,
+		@ILanguageRuntimeService languageRuntimeService: ILanguageRuntimeService,
 	) {
 		super();
+
+		// Listen for runtime events relevant to the Help service.
+		//
+		// TODO (kevin): use a more explicit interface for listening to
+		// language runtime events, rather than connecting through the
+		// language runtime service.
+		languageRuntimeService.onDidStartRuntime(runtime => {
+			runtime.onDidReceiveRuntimeMessage(message => {
+				if (message.type === LanguageRuntimeMessageType.Event) {
+					const event = message as ILanguageRuntimeEvent;
+					if (event.name === LanguageRuntimeEventType.ShowHelpUrl) {
+						const data = event.data as ShowHelpUrlEvent;
+						this.openHelpURL(data.url);
+					}
+				}
+			});
+		});
+
 		this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
 		this._store.add(this._markdownRenderer);
 	}
