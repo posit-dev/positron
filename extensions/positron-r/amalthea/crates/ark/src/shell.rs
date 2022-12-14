@@ -38,6 +38,7 @@ use std::thread;
 
 use crate::kernel::KernelInfo;
 use crate::request::Request;
+use crate::comm::environment::EnvironmentInstance;
 
 
 pub struct Shell {
@@ -212,10 +213,15 @@ impl ShellHandler for Shell {
     }
 
     /// Handles a request to open a new comm channel
-    async fn handle_comm_open(&self, _comm: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
-
-        // TODO
-        Ok(None)
+    async fn handle_comm_open(&self, comm: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
+        match comm {
+            Comm::Environment => {
+                Ok(Some(Box::new(EnvironmentInstance{})))
+            }
+            _ => {
+                Ok(None)
+            }
+        }
     }
 
     /// Handles a reply to an input_request; forwarded from the Stdin channel

@@ -5,7 +5,9 @@
  *
  */
 
-pub struct EnvironmentComm {
+use super::comm_channel::CommChannel;
+
+pub trait EnvironmentComm: CommChannel {
 
 }
 

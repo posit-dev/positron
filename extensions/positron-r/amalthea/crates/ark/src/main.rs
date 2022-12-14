@@ -24,6 +24,7 @@ mod lsp;
 mod request;
 mod shell;
 mod version;
+mod comm;
 
 use crate::control::Control;
 use crate::shell::Shell;
