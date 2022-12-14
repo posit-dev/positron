@@ -52,6 +52,10 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		// TODO (kevin): use a more explicit interface for listening to
 		// language runtime events, rather than connecting through the
 		// language runtime service.
+		//
+		// TODO (kevin): is it possible that the help service could be
+		// instantiated _after_ a runtime was started? do we need to do
+		// anything explicit to force sequencing of startup events here?
 		languageRuntimeService.onDidStartRuntime(runtime => {
 			runtime.onDidReceiveRuntimeMessage(message => {
 				if (message.type === LanguageRuntimeMessageType.Event) {
