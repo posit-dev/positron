@@ -17,7 +17,7 @@ import { JupyterErrorReply } from './JupyterErrorReply';
 import { JupyterStreamOutput } from './JupyterStreamOutput';
 import { PositronEvent } from './PositronEvent';
 import { JupyterInputRequest } from './JupyterInputRequest';
-import { JupyterCommMsg } from './JupyterCommMsg';
+import { RuntimeClientAdapter } from './RuntimeClientAdapter';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -30,7 +30,7 @@ export class LanguageRuntimeAdapter
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _lspPort: number | null = null;
-	private readonly _comms: Map<string, any> = new Map();
+	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	constructor(private readonly _spec: JupyterKernelSpec,
@@ -183,17 +183,30 @@ export class LanguageRuntimeAdapter
 		});
 	}
 
+	/**
+	 * Restarts the kernel.
+	 */
 	public restart(): void {
 		this._kernel.shutdown(true);
 		this._kernel.start(this._lspPort ?? 0);
 	}
 
+	/**
+	 * Shuts down the kernel permanently.
+	 */
 	public shutdown(): void {
 		this._kernel.shutdown(false);
 	}
 
-	public createClient(_type: positron.RuntimeClientType): positron.RuntimeClientInstance | null {
-		throw new Error('Method not implemented.');
+	public createClient(type: positron.RuntimeClientType): positron.RuntimeClientInstance | null {
+		if (type === positron.RuntimeClientType.Environment) {
+			this._channel.appendLine(`Creating ${type} client for ${this.metadata.language}`);
+			const adapter = new RuntimeClientAdapter(type, this._kernel);
+			this._comms.set(adapter.getId(), adapter);
+		} else {
+			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.language} (not supported)`);
+		}
+		return null;
 	}
 
 	onMessage(msg: JupyterMessagePacket) {
@@ -231,25 +244,7 @@ export class LanguageRuntimeAdapter
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
-			case 'comm_msg':
-				this.onCommMessage(msg, message as JupyterCommMsg);
-				break;
 		}
-	}
-
-	/**
-	 * Dispatches a message to the appropriate comm target.
-	 *
-	 * @param message The message packet
-	 * @param commMsg The comm message
-	 */
-	private onCommMessage(_message: JupyterMessagePacket, commMsg: JupyterCommMsg): void {
-		if (!this._comms.has(commMsg.comm_id)) {
-			this._channel.appendLine(`Warning: Received message destined for ${commMsg.comm_id}, but no comm with that id is open`);
-			return;
-		}
-
-		// TODO: This is where we dispatch the message to the comm
 	}
 
 	/**
@@ -398,7 +393,20 @@ export class LanguageRuntimeAdapter
 		this._state.fire(status);
 	}
 
+	/**
+	 * Dispose of the runtime.
+	 */
 	public dispose() {
+		// Turn off all listeners
+		this._kernel.removeListener('message', this.onMessage);
+		this._kernel.removeListener('status', this.onStatus);
+
+		// Tear down all open comms
+		for (const comm of this._comms.values()) {
+			comm.dispose();
+		}
+
+		// Tell the kernel to shut down
 		this.shutdown();
 	}
 }

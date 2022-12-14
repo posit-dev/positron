@@ -19,6 +19,7 @@ import { JupyterMessage } from './JupyterMessage';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommOpen } from './JupyterCommOpen';
+import { JupyterCommClose } from './JupyterCommClose';
 import { v4 as uuidv4 } from 'uuid';
 import { JupyterShutdownRequest } from './JupyterShutdownRequest';
 import { JupyterInterruptRequest } from './JupyterInterruptRequest';
@@ -303,6 +304,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Dispatch it
 		this.send(uuidv4(), 'comm_open', this._shell!, msg);
+	}
+
+	/**
+	 * Closes a communications channel (comm) with the kernel.
+	 */
+	public closeComm(id: string) {
+		// Create the message to send to the kernel
+		const msg: JupyterCommClose = {
+			comm_id: id  // eslint-disable-line
+		};
+
+		// Dispatch it
+		this.send(uuidv4(), 'comm_close', this._shell!, msg);
 	}
 
 	/**
