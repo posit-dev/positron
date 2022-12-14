@@ -107,6 +107,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			this._helpIFrame.contentWindow?.document.write(helpResult as unknown as string);
 			this._helpIFrame.contentWindow?.document.close();
 		}));
+
+		this._register(this.positronHelpService.onShowHelpUrl(uri => {
+			// TODO (kevin): how do we convince VSCode to iframe the R help server?
+		}));
 	}
 
 	/**

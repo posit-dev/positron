@@ -13,6 +13,7 @@ import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
 import { ILanguageRuntimeEvent, ILanguageRuntimeService, LanguageRuntimeMessageType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { LanguageRuntimeEventType, ShowHelpUrlEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { URI } from 'vs/base/common/uri';
 
 // The TrustedTypePolicy for rendering.
 const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -30,9 +31,13 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	// The markdown renderer.
 	private _markdownRenderer: MarkdownRenderer;
 
-	// The onSizeChanged event.
+	// The onRenderHelp event.
 	private _onRenderHelp = this._register(new Emitter<TrustedHTML | undefined>());
 	readonly onRenderHelp: Event<TrustedHTML | undefined> = this._onRenderHelp.event;
+
+	// The onShowHelpUrl event.
+	private _onShowHelpUrl = this._register(new Emitter<URI>());
+	readonly onShowHelpUrl: Event<URI> = this._onShowHelpUrl.event;
 
 	/**
 	 * Constructor.
@@ -62,7 +67,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 					const event = message as ILanguageRuntimeEvent;
 					if (event.name === LanguageRuntimeEventType.ShowHelpUrl) {
 						const data = event.data as ShowHelpUrlEvent;
-						this.openHelpURL(data.url);
+						this.openHelpUrl(data.url);
 					}
 				}
 			});
@@ -96,8 +101,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Opens the specified help URL.
 	 * @param url The help URL.
 	 */
-	openHelpURL(url: string) {
-		console.log(`+++++++++++++++ PositronHelpService openHelpURL ${url}`);
+	openHelpUrl(url: string) {
+		const uri = URI.parse(url, true);
+		this._onShowHelpUrl.fire(uri);
 	}
 
 	/**
