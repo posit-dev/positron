@@ -17,6 +17,7 @@ import { JupyterErrorReply } from './JupyterErrorReply';
 import { JupyterStreamOutput } from './JupyterStreamOutput';
 import { PositronEvent } from './PositronEvent';
 import { JupyterInputRequest } from './JupyterInputRequest';
+import { JupyterCommMsg } from './JupyterCommMsg';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -29,6 +30,7 @@ export class LanguageRuntimeAdapter
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _lspPort: number | null = null;
+	private readonly _comms: Map<string, any> = new Map();
 	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	constructor(private readonly _spec: JupyterKernelSpec,
@@ -225,7 +227,25 @@ export class LanguageRuntimeAdapter
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
+			case 'comm_msg':
+				this.onCommMessage(msg, message as JupyterCommMsg);
+				break;
 		}
+	}
+
+	/**
+	 * Dispatches a message to the appropriate comm target.
+	 *
+	 * @param message The message packet
+	 * @param commMsg The comm message
+	 */
+	private onCommMessage(_message: JupyterMessagePacket, commMsg: JupyterCommMsg): void {
+		if (!this._comms.has(commMsg.comm_id)) {
+			this._channel.appendLine(`Warning: Received message destined for ${commMsg.comm_id}, but no comm with that id is open`);
+			return;
+		}
+
+		// TODO: This is where we dispatch the message to the comm
 	}
 
 	/**

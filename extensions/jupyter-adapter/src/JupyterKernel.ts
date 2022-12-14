@@ -287,6 +287,25 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
+	 * Opens a new communications channel (comm) with the kernel.
+	 *
+	 * @param targetName The name of the target comm to create.
+	 * @param id The ID of the comm to create.
+	 * @param data Data to send to the comm.
+	 */
+	public openComm(targetName: string, id: string, data: any) {
+		// Create the message to send to the kernel
+		const msg: JupyterCommOpen = {
+			target_name: targetName,  // eslint-disable-line
+			comm_id: id,  // eslint-disable-line
+			data: data
+		};
+
+		// Dispatch it
+		this.send(uuidv4(), 'comm_open', this._shell!, msg);
+	}
+
+	/**
 	 * Get the kernel's display name
 	 *
 	 * @returns The kernel's display name
