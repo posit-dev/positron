@@ -187,7 +187,7 @@ jobs:
           export AGENT_TEMPDIRECTORY="${TMPDIR}"
           export VSCODE_ARCH=universal
           export CODESIGN_DEBUG=1
-          ts-node build/darwin/sign.ts
+          npx ts-node build/darwin/sign.ts
 
       # Compress universal client to a zip file
       - name: Create universal client archive
