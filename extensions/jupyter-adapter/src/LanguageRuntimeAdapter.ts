@@ -192,6 +192,10 @@ export class LanguageRuntimeAdapter
 		this._kernel.shutdown(false);
 	}
 
+	public createClient(_type: positron.RuntimeClientType): positron.RuntimeClientInstance | null {
+		throw new Error('Method not implemented.');
+	}
+
 	onMessage(msg: JupyterMessagePacket) {
 		const message = msg.message;
 
