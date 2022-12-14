@@ -17,11 +17,10 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
-import { PositronEnvironmentData } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentData';
-import { PositronEnvironmentActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActionBars';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * PositronEnvironmentViewPane class.
@@ -36,23 +35,14 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
 
-	private _width: number;
-	private _height: number;
+	// The last known height.
+	private _height = 0;
 
 	// The Positron environment container - contains the entire Positron environment UI.
 	private _positronEnvironmentContainer!: HTMLElement;
 
-	// The environment action bars container - contains the PositronEnvironmentActionBars component.
-	private _environmentActionBarsContainer!: HTMLElement;
-
-	// The environment data container - contains the PositronEnvironmentData component.
-	private _environmentDataContainer!: HTMLElement;
-
-	// The PositronReactRenderer for the PositronEnvironmentActionBars component.
-	private _positronReactRendererEnvironmentActionBars: PositronReactRenderer | undefined;
-
-	// The PositronReactRenderer for the PositronEnvironmentData component.
-	private _positronReactRendererEnvironmentData: PositronReactRenderer | undefined;
+	// The PositronReactRenderer for the PositronEnvironment component.
+	private _positronReactRenderer: PositronReactRenderer | undefined;
 
 	/**
 	 * Constructor.
@@ -87,9 +77,6 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 
-		this._width = 0;
-		this._height = 0;
-
 		// Register event handlers.
 		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChanged.fire(this.isBodyVisible())));
 	}
@@ -98,10 +85,10 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * Dispose method.
 	 */
 	public override dispose(): void {
-		// Destroy the PositronReactRenderer for the PositronEnvironmentActionBars component.
-		if (this._positronReactRendererEnvironmentActionBars) {
-			this._positronReactRendererEnvironmentActionBars.destroy();
-			this._positronReactRendererEnvironmentActionBars = undefined;
+		// Destroy the PositronReactRenderer for the PositronEnvironment component.
+		if (this._positronReactRenderer) {
+			this._positronReactRenderer.destroy();
+			this._positronReactRenderer = undefined;
 		}
 
 		// Call the base class's dispose method.
@@ -128,43 +115,19 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronEnvironmentContainer = DOM.$('.positron-environment-container');
 		container.appendChild(this._positronEnvironmentContainer);
 
-		// Append the environment action bars container.
-		this._environmentActionBarsContainer = DOM.$('.environment-action-bars-container');
-		this._positronEnvironmentContainer.appendChild(this._environmentActionBarsContainer);
-
-		// Append the environment container.
-		this._environmentDataContainer = DOM.$('.environment-data-container');
-		this._positronEnvironmentContainer.appendChild(this._environmentDataContainer);
-
-		// Filter handler.
-		const filterHandler = (findText: string) => {
-		};
-
-		console.log(`PositronEnvironmentViewPane.renderBody called ${this._width},${this._height}`);
-
-		// Render the PositronEnvironmentActionBars component.
-		this._positronReactRendererEnvironmentActionBars = new PositronReactRenderer(this._environmentActionBarsContainer);
-		this._positronReactRendererEnvironmentActionBars.render(
-			<PositronEnvironmentActionBars
+		// Create the PositronReactRenderer for the PositronEnvironment component and render it.
+		this._positronReactRenderer = new PositronReactRenderer(this._positronEnvironmentContainer);
+		this._positronReactRenderer.render(
+			<PositronEnvironment
 				commandService={this._commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				languageRuntimeService={this._languageRuntimeService}
 				reactComponentContainer={this}
-				onLoadWorkspace={() => console.log('Load workspace made it to the Positron environment view.')}
-				onSaveWorkspaceAs={() => console.log('Save workspace as made it to the Positron environment view.')}
-				onFilter={filterHandler}
-				onCancelFilter={() => filterHandler('')}
+				initialHeight={this._height}
 			/>
-		);
-
-		// Render the PositronEnvironmentData component.
-		this._positronReactRendererEnvironmentData = new PositronReactRenderer(this._environmentDataContainer);
-		this._positronReactRendererEnvironmentData.render(
-			<PositronEnvironmentData
-				initialHeight={() => this._height - 64}
-				reactComponentContainer={this} />
 		);
 	}
 
@@ -174,20 +137,10 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * @param width The width of the body.
 	 */
 	override layoutBody(height: number, width: number): void {
-		const foo = this._languageRuntimeService.getAllRuntimes();
-		console.log(foo);
-		for (let i = 0; i < foo.length; i++) {
-			const ld = foo[i];
-			console.log(`Entry '${i}' ID '${ld.metadata.id}' LANGUAGE '${ld.metadata.language}' NAME '${ld.metadata.name}' VERSION '${ld.metadata.version}' STATE '${ld.getRuntimeState()}'`);
-		}
-
-		console.log(`+++++++PositronEnvironmentViewPane - layoutBody called ${width},${height}`);
-
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
-		// Set the width and height.
-		this._width = width;
+		// Set the last known height.
 		this._height = height;
 
 		// Raise the onSizeChanged event.
@@ -197,4 +150,3 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		});
 	}
 }
-

@@ -5,8 +5,8 @@
 import 'vs/css!./positronList';
 import * as React from 'react';
 import { PropsWithChildren, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ListItem } from 'vs/base/browser/ui/positronList/components/listItem';
-import { FooBar } from 'vs/base/browser/ui/positronList/components/fooBar';
+import { PositronListItem } from 'vs/base/browser/ui/positronList/positronListItem';
+import { PositronListItemContent } from 'vs/base/browser/ui/positronList/positronListItemContent';
 
 /**
  * PositronListSource interface.
@@ -42,24 +42,28 @@ export const PositronList = (props: PropsWithChildren<PositronListProps>) => {
 		console.log(`scrollTop: ${listContainerRef.current.scrollTop}`);
 	};
 
-	const yoodle = () => {
+	/**
+	 * TestItems component.
+	 * @returns The rendered component.
+	 */
+	const TestItems = () => {
 		return (
 			<>
-				<ListItem top={0} height={25}>
-					<FooBar>
+				<PositronListItem top={0} height={25}>
+					<PositronListItemContent>
 						List Item 1
-					</FooBar>
-				</ListItem>
-				<ListItem top={25} height={25}>
-					<FooBar>
+					</PositronListItemContent>
+				</PositronListItem>
+				<PositronListItem top={25} height={25}>
+					<PositronListItemContent>
 						List Item 2
-					</FooBar>
-				</ListItem>
-				<ListItem top={50} height={25}>
-					<FooBar>
+					</PositronListItemContent>
+				</PositronListItem>
+				<PositronListItem top={50} height={25}>
+					<PositronListItemContent>
 						List Item 3
-					</FooBar>
-				</ListItem>
+					</PositronListItemContent>
+				</PositronListItem>
 			</>
 		);
 	};
@@ -68,7 +72,7 @@ export const PositronList = (props: PropsWithChildren<PositronListProps>) => {
 	return (
 		<div ref={listContainerRef} className='positron-list-container' style={{ height: props.height }} onScroll={scrollHandler}>
 			<div className='list-contents' style={{ height: 26000 }}>
-				{yoodle()}
+				<TestItems />
 			</div>
 		</div>
 	);

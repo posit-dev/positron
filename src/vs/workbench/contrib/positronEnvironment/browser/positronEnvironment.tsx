@@ -2,12 +2,13 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronEnvironmentActionBars';
+import 'vs/css!./positronEnvironment';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { PositronList } from 'vs/base/browser/ui/positronList/positronList';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
@@ -15,48 +16,46 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarFilter } from 'vs/platform/positronActionBar/browser/components/actionBarFilter';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { ActionBarFilter } from 'vs/platform/positronActionBar/browser/components/actionBarFilter';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ListGridActionBarMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/listGridActionBarMenuButton';
+import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
+import { ListGridActionBarMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/listGridActionBarMenuButton';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
 const kPaddingRight = 8;
-const kFindTimeout = 800;
+const kFilterTimeout = 800;
 
 /**
- * PositronEnvironmentActionBarsProps interface.
+ * PositronEnvironmentProps interface.
  */
-export interface PositronEnvironmentActionBarsProps {
+export interface PositronEnvironmentProps extends PositronEnvironmentServices {
 	// Services.
-	commandService: ICommandService;
-	configurationService: IConfigurationService;
-	contextKeyService: IContextKeyService;
-	contextMenuService: IContextMenuService;
-	keybindingService: IKeybindingService;
-	reactComponentContainer: IReactComponentContainer;
+	readonly commandService: ICommandService;
+	readonly configurationService: IConfigurationService;
+	readonly contextKeyService: IContextKeyService;
+	readonly contextMenuService: IContextMenuService;
+	readonly keybindingService: IKeybindingService;
+	readonly reactComponentContainer: IReactComponentContainer;
 
-	// Event callbacks.
-	onLoadWorkspace: () => void;
-	onSaveWorkspaceAs: () => void;
-	onFilter: (filterText: string) => void;
-	onCancelFilter: () => void;
+	// Properties.
+	readonly initialHeight: number;
 }
 
 /**
- * PositronEnvironmentActionBars component.
- * @param props A PositronEnvironmentActionBarsProps that contains the component properties.
+ * PositronEnvironment component.
+ * @param props A PositronEnvironmentProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronEnvironmentActionBarsProps>) => {
+export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentProps>) => {
 	// Hooks.
 	const runtimeButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const [height, setHeight] = useState(props.initialHeight);
 	const [filterText, setFilterText] = useState('');
-	const [alternateFindUI, setAlternateFindUI] = useState(false);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -65,7 +64,7 @@ export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronE
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
-			setAlternateFindUI(size.width - kPaddingLeft - runtimeButtonRef.current.offsetWidth - kSecondaryActionBarGap < 500);
+			setHeight(size.height);
 		}));
 
 		// Add the onVisibilityChanged event handler.
@@ -79,27 +78,37 @@ export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronE
 	// Find text change handler.
 	useEffect(() => {
 		if (filterText === '') {
-			return props.onCancelFilter();
+			return setFilterText('');
 		} else {
-			// Start the find timeout.
-			const findTimeout = setTimeout(() => {
-				props.onFilter(filterText);
-			}, kFindTimeout);
+			// Start the filter timeout.
+			const filterTimeout = setTimeout(() => {
+				console.log('Filter text changed - do filtering');
+			}, kFilterTimeout);
 
 			// Clear the find timeout.
-			return () => clearTimeout(findTimeout);
+			return () => clearTimeout(filterTimeout);
 		}
 	}, [filterText]);
 
+	// Load workspace handler.
+	const loadWorkspaceHandler = () => {
+		console.log('loadWorkspaceHandler called');
+	};
+
+	// Save workspace handler.
+	const saveWorkspaceHandler = () => {
+		console.log('loadWorkspaceHandler called');
+	};
+
 	// Render.
 	return (
-		<div className='positron-help-action-bars'>
-			<PositronEnvironmentContextProvider>
+		<PositronEnvironmentContextProvider {...props}>
+			<div className='positron-environment'>
 				<PositronActionBarContextProvider {...props}>
 					<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 						<ActionBarRegion align='left'>
-							<ActionBarButton iconId='positron-open' tooltip={localize('positronLoadWorkspace', "Load workspace")} onClick={() => props.onLoadWorkspace()} />
-							<ActionBarButton iconId='positron-save' tooltip={localize('positronSaveWorkspace', "Save workspace as")} onClick={() => props.onSaveWorkspaceAs()} />
+							<ActionBarButton iconId='positron-open' tooltip={localize('positronLoadWorkspace', "Load workspace")} onClick={() => loadWorkspaceHandler()} />
+							<ActionBarButton iconId='positron-save' tooltip={localize('positronSaveWorkspace', "Save workspace as")} onClick={() => saveWorkspaceHandler()} />
 							<ActionBarSeparator />
 							<ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} />
 							<ActionBarSeparator />
@@ -118,24 +127,17 @@ export const PositronEnvironmentActionBars = (props: PropsWithChildren<PositronE
 							<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />
 						</ActionBarRegion>
 						<ActionBarRegion align='right'>
-							{!alternateFindUI && (
-								<ActionBarFilter
-									width={200}
-									initialFilterText={filterText}
-									onFilterTextChanged={setFilterText} />
-							)}
+							<ActionBarFilter
+								width={200}
+								initialFilterText={filterText}
+								onFilterTextChanged={setFilterText} />
 						</ActionBarRegion>
-						{alternateFindUI && (
-							<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-								<ActionBarFilter
-									width={200}
-									initialFilterText={filterText}
-									onFilterTextChanged={setFilterText} />
-							</PositronActionBar>
-						)}
 					</PositronActionBar>
 				</PositronActionBarContextProvider>
-			</PositronEnvironmentContextProvider>
-		</div>
+				<PositronList height={height - 64}>
+
+				</PositronList>
+			</div>
+		</PositronEnvironmentContextProvider>
 	);
 };

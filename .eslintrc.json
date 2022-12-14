@@ -486,7 +486,6 @@
 							// --- Start Positron ---
 							"react",
 							"react-dom/client",
-							"react-window",
 							// --- End Positron ---
 
 							"vscode-notebook-renderer", // Type only import
