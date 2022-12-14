@@ -2,6 +2,6 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-list-container .positron-list-contents .list-item {
+.positron-list-container .positron-list-contents .positron-list-item {
 	background: transparent;
 }

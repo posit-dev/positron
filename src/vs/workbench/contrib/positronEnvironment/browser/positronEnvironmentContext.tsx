@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronEnvironmentState, usePositronEnvironmentState } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
+import { PositronEnvironmentServices, PositronEnvironmentState, usePositronEnvironmentState } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 
 /**
  * Create the Positron environment context.
@@ -14,9 +14,9 @@ const PositronEnvironmentContext = createContext<PositronEnvironmentState>(undef
 /**
  * Export the PositronEnvironmentContextProvider provider
  */
-export const PositronEnvironmentContextProvider = (props: PropsWithChildren) => {
+export const PositronEnvironmentContextProvider = (props: PropsWithChildren<PositronEnvironmentServices>) => {
 	// Hooks.
-	const positronEnvironmentBarState = usePositronEnvironmentState();
+	const positronEnvironmentBarState = usePositronEnvironmentState(props);
 
 	// Render.
 	return (
