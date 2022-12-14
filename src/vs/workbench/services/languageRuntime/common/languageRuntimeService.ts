@@ -5,6 +5,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -142,14 +143,6 @@ export enum LanguageRuntimeMessageType {
 	Event = 'event',
 }
 
-/** begin positron-language-runtime-event-type */
-export enum LanguageRuntimeEventType {
-	Busy = 'busy',
-	ShowMessage = 'show_message',
-	ShowHelpUrl = 'show_help_url',
-}
-/** end positron-language-runtime-event-type */
-
 export enum LanguageRuntimeStartupBehavior {
 	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
 	Implicit = 'implicit',
@@ -173,34 +166,6 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 	/** The error stack trace */
 	traceback: Array<string>;
 }
-
-export interface LanguageRuntimeEventData { }
-
-/** begin positron-language-runtime-service-events */
-// Represents a change in the runtime's busy state.
-// Note that this represents the busy state of the underlying computation engine, not the busy state of the kernel.
-// The kernel is busy when it is processing a request, but the runtime is busy only when a computation is running.
-export interface BusyEvent extends LanguageRuntimeEventData {
-
-	/** Whether the runtime is busy. */
-	busy: boolean;
-
-}
-// Use this event to show a message to the user.
-export interface ShowMessageEvent extends LanguageRuntimeEventData {
-
-	/** The message to show to the user. */
-	message: string;
-
-}
-// Show a URL in the Help pane.
-export interface ShowHelpUrlEvent extends LanguageRuntimeEventData {
-
-	/** The URL to be shown in the Help pane. */
-	url: string;
-
-}
-/** end positron-language-runtime-service-events */
 
 export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
 	/** The event name */

@@ -79,7 +79,6 @@ export enum LanguageRuntimeEventType {
 }
 /** end positron-language-runtime-event-type */
 
-
 /**
  * Possible code execution modes for a language runtime
  */
