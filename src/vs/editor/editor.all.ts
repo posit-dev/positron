@@ -57,6 +57,10 @@ import 'vs/editor/contrib/wordOperations/browser/wordOperations';
 import 'vs/editor/contrib/wordPartOperations/browser/wordPartOperations';
 import 'vs/editor/contrib/readOnlyMessage/browser/contribution';
 
+// --- Start Positron ---
+import 'vs/editor/contrib/positronEditorActions/browser/positronEditorActions';
+// --- End Positron ---
+
 // Load up these strings even in VSCode, even if they are not used
 // in order to get them translated
 import 'vs/editor/common/standaloneStrings';
