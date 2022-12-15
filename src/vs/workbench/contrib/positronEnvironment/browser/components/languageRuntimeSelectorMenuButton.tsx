@@ -4,7 +4,7 @@
 
 import 'vs/css!./languageRuntimeSelectorMenuButton';
 import * as React from 'react';
-import { IAction } from 'vs/base/common/actions';
+import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
@@ -27,10 +27,26 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 				class: undefined,
 				enabled: true,
 				run: () => {
-					//positronEnvironmentContext.setEnvironmentViewMode(PositronEnvironmentViewMode.List);
+					positronEnvironmentContext.setCurrentLanguageEnvironment(languageEnvironment);
 				}
 			});
 		});
+
+		if (actions.length) {
+			actions.push(new Separator());
+		}
+
+		actions.push({
+			id: '00000000-0000-0000-0000-000000000000',
+			label: 'None',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => {
+				positronEnvironmentContext.setCurrentLanguageEnvironment(undefined);
+			}
+		});
+
 		return actions;
 	};
 
@@ -39,7 +55,7 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			text='?'
+			text={positronEnvironmentContext.currentLanguageEnvironment?.displayName ?? 'None'}
 			actions={actions}
 		/>
 	);

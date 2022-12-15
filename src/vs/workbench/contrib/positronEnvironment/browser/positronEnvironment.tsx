@@ -4,7 +4,7 @@
 
 import 'vs/css!./positronEnvironment';
 import * as React from 'react';
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -53,7 +53,6 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
  */
 export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentProps>) => {
 	// Hooks.
-	const runtimeButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const [height, setHeight] = useState(props.initialHeight);
 	const [filterText, setFilterText] = useState('');
 
@@ -124,7 +123,6 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 						<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 							<ActionBarRegion align='left'>
 								<LanguageRuntimeSelectorMenuButton />
-								<ActionBarButton ref={runtimeButtonRef} text='R' dropDown={true} tooltip={localize('positronRuntime', "Select runtime")} />
 								<ActionBarSeparator />
 								<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />
 							</ActionBarRegion>
