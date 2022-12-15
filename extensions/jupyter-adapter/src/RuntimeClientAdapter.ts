@@ -42,6 +42,10 @@ export class RuntimeClientAdapter implements positron.RuntimeClientInstance {
 		this.onMessage = this.onMessage.bind(this);
 		this._kernel.addListener('message', this.onMessage);
 
+		// Bind to status stream from kernel
+		this.onStatus = this.onStatus.bind(this);
+		this._kernel.addListener('status', this.onStatus);
+
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
 		this._kernel.openComm(this._type, this.id, null);
@@ -89,6 +93,19 @@ export class RuntimeClientAdapter implements positron.RuntimeClientInstance {
 	}
 
 	/**
+	 * Responds to a change in the kernel status.
+	 *
+	 * @param status The new kernel status
+	 */
+	onStatus(status: positron.RuntimeState) {
+		// If the kernel exits while we are connected, we are now closed
+		if (status === positron.RuntimeState.Exited &&
+			this._currentState === positron.RuntimeClientState.Connected) {
+			this._state.fire(positron.RuntimeClientState.Closed);
+		}
+	}
+
+	/**
 	 * Process a comm_msg message from the kernel. This usually represents
 	 * an event from the server that should be forwarded to the client, or
 	 * a response to a request from the client.
@@ -130,6 +147,7 @@ export class RuntimeClientAdapter implements positron.RuntimeClientInstance {
 	 */
 	dispose() {
 		this._kernel.removeListener('message', this.onMessage);
+		this._kernel.removeListener('status', this.onStatus);
 
 		// If the comm channel is still open, close it from our end.
 		if (this.getClientState() === positron.RuntimeClientState.Connected) {
