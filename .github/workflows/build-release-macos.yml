@@ -126,12 +126,14 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      # Download arm64 and x64 binaries
+
+      # Download arm64 client
       - name: Download arm64 client
         uses: actions/download-artifact@v3
         with:
           name: positron-darwin-arm64-archive
 
+      # Download x64 client
       - name: Download x64 client
         uses: actions/download-artifact@v3
         with:
@@ -177,6 +179,15 @@ jobs:
         run: |
           export AGENT_BUILDDIRECTORY=$(pwd)
           node build/darwin/create-universal-app.js
+
+      # codesign the generated bundle
+      - name: Codesign client
+        run: |
+          export AGENT_BUILDDIRECTORY="$(pwd)"
+          export AGENT_TEMPDIRECTORY="${TMPDIR}"
+          export VSCODE_ARCH=universal
+          export DEBUG=electron-osx-sign
+          npx ts-node build/darwin/sign.ts
 
       # Compress universal client to a zip file
       - name: Create universal client archive
