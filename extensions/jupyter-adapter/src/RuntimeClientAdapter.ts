@@ -66,6 +66,20 @@ export class RuntimeClientAdapter implements positron.RuntimeClientInstance {
 	}
 
 	/**
+	 * Returns the client ID
+	 */
+	public getClientId(): string {
+		return this.id;
+	}
+
+	/**
+	 * Returns the type of the client
+	 */
+	public getClientType(): positron.RuntimeClientType {
+		return this._type;
+	}
+
+	/**
 	 * Closes the communications channel between the client and the runtime.
 	 */
 	public close() {
@@ -123,6 +137,8 @@ export class RuntimeClientAdapter implements positron.RuntimeClientInstance {
 		if (this._currentState === positron.RuntimeClientState.Opening) {
 			this._state.fire(positron.RuntimeClientState.Connected);
 		}
+
+		// TODO: forward message to client
 	}
 
 	/**

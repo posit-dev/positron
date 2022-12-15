@@ -253,6 +253,8 @@ declare module 'positron' {
 	export interface RuntimeClientInstance extends vscode.Disposable {
 		onDidChangeClientState: vscode.Event<RuntimeClientState>;
 		getClientState(): RuntimeClientState;
+		getClientId(): string;
+		getClientType(): RuntimeClientType;
 	}
 
 	/**
@@ -297,6 +299,9 @@ declare module 'positron' {
 		 * is not supported by this runtime.
 		 */
 		createClient(type: RuntimeClientType): RuntimeClientInstance | null;
+
+		/** Get a list of all known clients */
+		listClients(): Array<RuntimeClientInstance>;
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;

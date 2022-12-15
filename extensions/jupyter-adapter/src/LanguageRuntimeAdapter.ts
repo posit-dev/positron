@@ -198,15 +198,31 @@ export class LanguageRuntimeAdapter
 		this._kernel.shutdown(false);
 	}
 
+	/**
+	 * Creates a new client instance.
+	 *
+	 * @param type The type of client to create
+	 * @returns A new client instance, or null if the type is not supported
+	 */
 	public createClient(type: positron.RuntimeClientType): positron.RuntimeClientInstance | null {
 		if (type === positron.RuntimeClientType.Environment) {
 			this._channel.appendLine(`Creating ${type} client for ${this.metadata.language}`);
 			const adapter = new RuntimeClientAdapter(type, this._kernel);
 			this._comms.set(adapter.getId(), adapter);
+			return adapter;
 		} else {
 			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.language} (not supported)`);
 		}
 		return null;
+	}
+
+	/**
+	 * Gets a list of all client instances
+	 *
+	 * @returns All client instances
+	 */
+	public getClients(): positron.RuntimeClientInstance[] {
+		return Array.from(this._comms.values());
 	}
 
 	onMessage(msg: JupyterMessagePacket) {
