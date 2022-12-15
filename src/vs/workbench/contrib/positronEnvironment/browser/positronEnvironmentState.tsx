@@ -55,8 +55,16 @@ export const usePositronEnvironmentState = (services: PositronEnvironmentService
 
 			disposableStore.add(languageRuntime.onDidCompleteStartup(languageRuntimeInfo => {
 				console.log(`********************* onDidCompleteStartup ${languageRuntime.metadata.language}`);
-
 			}));
+
+			disposableStore.add(languageRuntime.onDidChangeRuntimeState(runtimeState => {
+				console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
+			}));
+
+			disposableStore.add(languageRuntime.onDidReceiveRuntimeMessage(languageRuntimeMessage => {
+				console.log(`********************* onDidChangeRuntimeState ${languageRuntimeMessage.id}`);
+			}));
+
 		}));
 
 		// Return the clean up for our event handlers.
