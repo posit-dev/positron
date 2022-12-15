@@ -22,7 +22,7 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
-import { ListGridActionBarMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/listGridActionBarMenuButton';
+// import { ListGridActionBarMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/listGridActionBarMenuButton';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -114,10 +114,14 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 								<ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} />
 								<ActionBarSeparator />
 								<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearObjects', "Clear workspace objects")} />
+								<ActionBarSeparator />
+								<ActionBarButton iconId='positron-test' tooltip={localize('positronTestMode', "Enter test mode")} />
 							</ActionBarRegion>
 							<ActionBarRegion align='right'>
+								{/*
 								<ListGridActionBarMenuButton />
 								<ActionBarSeparator />
+								*/}
 								<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} />
 							</ActionBarRegion>
 						</PositronActionBar>
