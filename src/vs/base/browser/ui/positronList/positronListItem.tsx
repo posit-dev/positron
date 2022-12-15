@@ -22,7 +22,7 @@ export interface PositronListItemProps {
 export const PositronListItem = (props: PropsWithChildren<PositronListItemProps>) => {
 	// Render.
 	return (
-		<div className='positron-list-item' style={{ left: 0, top: props.top, height: props.height, width: '100%' }}>
+		<div className='positron-list-item' style={{ left: 0, top: props.top, height: props.height }}>
 			{props.children}
 		</div>
 	);
