@@ -14,7 +14,7 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
  * ActionBarMenuButtonProps interface.
  */
 interface ActionBarMenuButtonProps {
-	iconId: string;
+	iconId?: string;
 	text?: string;
 	maxTextWidth?: number;
 	align?: 'left' | 'right';
