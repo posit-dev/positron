@@ -22,7 +22,7 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
-// import { ListGridActionBarMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/listGridActionBarMenuButton';
+import { LanguageRuntimeSelectorMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/languageRuntimeSelectorMenuButton';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -118,15 +118,12 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 								<ActionBarButton iconId='positron-test' tooltip={localize('positronTestMode', "Enter test mode")} />
 							</ActionBarRegion>
 							<ActionBarRegion align='right'>
-								{/*
-								<ListGridActionBarMenuButton />
-								<ActionBarSeparator />
-								*/}
 								<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} />
 							</ActionBarRegion>
 						</PositronActionBar>
 						<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 							<ActionBarRegion align='left'>
+								<LanguageRuntimeSelectorMenuButton />
 								<ActionBarButton ref={runtimeButtonRef} text='R' dropDown={true} tooltip={localize('positronRuntime', "Select runtime")} />
 								<ActionBarSeparator />
 								<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />

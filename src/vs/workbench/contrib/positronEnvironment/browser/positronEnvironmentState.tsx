@@ -32,12 +32,17 @@ export enum PositronEnvironmentViewMode {
  * The Positron environment state.
  */
 export interface PositronEnvironmentState extends PositronEnvironmentServices {
-	environmentViewMode: PositronEnvironmentViewMode;
+	readonly languageEnvironments: LanguageEnvironment[];
+	readonly currentLanguageEnvironment?: LanguageEnvironment;
+	setCurrentLanguageEnvironment: (languageEnvironment?: LanguageEnvironment) => void;
+	readonly environmentViewMode: PositronEnvironmentViewMode;
 	setEnvironmentViewMode: (environmentViewMode: PositronEnvironmentViewMode) => void;
 }
 
-class LanguageRuntimeDescriptor extends Disposable {
-
+/**
+ * LanguageEnvironment class.
+ */
+export class LanguageEnvironment extends Disposable {
 	/**
 	 * Constructor.
 	 * @param _languageRuntime The ILanguageRuntime.
@@ -46,21 +51,48 @@ class LanguageRuntimeDescriptor extends Disposable {
 		// Initialize Disposable base class.
 		super();
 
-		this._register(this._languageRuntime.onDidCompleteStartup(languageRuntimeInfo => {
-			console.log(`********************* onDidCompleteStartup ${this._languageRuntime.metadata.language}`);
-		}));
-
+		// Add the did change runtime state event handler.
 		this._register(this._languageRuntime.onDidChangeRuntimeState(runtimeState => {
 			console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
 		}));
 
+		// Add the did complete startup event handler.
+		this._register(this._languageRuntime.onDidCompleteStartup(languageRuntimeInfo => {
+			console.log(`********************* onDidCompleteStartup ${this._languageRuntime.metadata.language}`);
+		}));
+
+		// Add the did receive runtime message event handler.
 		this._register(this._languageRuntime.onDidReceiveRuntimeMessage(languageRuntimeMessage => {
 			console.log(`********************* onDidReceiveRuntimeMessage ${languageRuntimeMessage.id}`);
 		}));
 	}
 
+	/**
+	 * Dispose method.
+	 */
 	override dispose(): void {
+		// Call the base class's dispose method.
 		super.dispose();
+	}
+
+	/**
+	 * Gets the identifier.
+	 */
+	get identifier() {
+		// TODO@softwarenerd - For the moment, just reusing the ID from the metadata.
+		return this._languageRuntime.metadata.id;
+	}
+
+	/**
+	 * Gets the display name.
+	 */
+	get displayName() {
+		// TODO@softwarenerd - temporary code because R's metadata returns 'r' for the language and 'R: /Library/Frameworks/R.framework/Resources' for the name.
+		if (this._languageRuntime.metadata.name.startsWith('R')) {
+			return 'R';
+		} else {
+			return '???';
+		}
 	}
 }
 
@@ -71,7 +103,8 @@ class LanguageRuntimeDescriptor extends Disposable {
 export const usePositronEnvironmentState = (services: PositronEnvironmentServices): PositronEnvironmentState => {
 	// Hooks.
 	const [environmentViewMode, setEnvironmentViewMode] = useState(PositronEnvironmentViewMode.List);
-	const [languageRuntimeDescriptors, setLanguageRuntimeDescriptors] = useState<LanguageRuntimeDescriptor[]>([]);
+	const [languageEnvironments, setLanguageEnvironments] = useState<LanguageEnvironment[]>([]);
+	const [currentLanguageEnvironment, setCurrentLanguageEnvironment] = useState<LanguageEnvironment | undefined>(undefined);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -80,23 +113,34 @@ export const usePositronEnvironmentState = (services: PositronEnvironmentService
 
 		// Add the did start runtime event handler for the language runtime service.
 		disposableStore.add(services.languageRuntimeService.onDidStartRuntime(languageRuntime => {
-			const languageRuntimeDescriptor = new LanguageRuntimeDescriptor(languageRuntime);
-			disposableStore.add(languageRuntimeDescriptor);
-			setLanguageRuntimeDescriptors([...languageRuntimeDescriptors, languageRuntimeDescriptor]);
+			// Create and add the Positron language environment.
+			const languageEnvironment = new LanguageEnvironment(languageRuntime);
+			setLanguageEnvironments([...languageEnvironments, languageEnvironment]);
+			disposableStore.add(languageEnvironment);
 		}));
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
+	useEffect(() => {
+	}, [languageEnvironments]);
+
+	// Logging.
 	console.log('------------------------------------------------');
 	console.log('The current set of language runtime descriptors:');
-	console.log(languageRuntimeDescriptors);
+	for (let i = 0; i < languageEnvironments.length; i++) {
+		const languageEnvironment = languageEnvironments[i];
+		console.log(`Language ${languageEnvironment.identifier} ${languageEnvironment.displayName}`);
+	}
 	console.log('------------------------------------------------');
 
 	// Return the Positron environment state.
 	return {
 		...services,
+		languageEnvironments,
+		currentLanguageEnvironment,
+		setCurrentLanguageEnvironment,
 		environmentViewMode,
 		setEnvironmentViewMode
 	};
