@@ -89,6 +89,28 @@ export enum RuntimeClientType {
 }
 
 /**
+ * The possible states for a language runtime client instance. These
+ * represent the state of the communications channel between the client and
+ * the runtime.
+ */
+export enum RuntimeClientState {
+	/** The client has not yet been initialized */
+	Uninitialized = 'uninitialized',
+
+	/** The connection between the server and the client is being opened */
+	Opening = 'opening',
+
+	/** The connection between the server and the client has been established */
+	Connected = 'connected',
+
+	/** The connection between the server and the client is being closed */
+	Closing = 'closing',
+
+	/** The connection between the server and the client is closed */
+	Closed = 'closed',
+}
+
+/**
  * Possible code execution modes for a language runtime
  */
 export enum RuntimeCodeExecutionMode {
