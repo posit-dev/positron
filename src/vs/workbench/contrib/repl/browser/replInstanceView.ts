@@ -142,11 +142,9 @@ export class ReplInstanceView extends Disposable {
 						'info', `${data.message}`);
 					msg.render(this._cellContainer);
 				} else if (evt.name === LanguageRuntimeEventType.ShowHelpUrl) {
+					// TODO: This shouldn't be handled by the REPL
 					const data = evt.data as ShowHelpUrlEvent;
-					console.log(`Show Help URL: ${data.url}`);
 					this._positronHelpService.openHelpURL(data.url);
-				} else {
-					console.error(`Internal error: unhandled event '${JSON.stringify(evt)}'`);
 				}
 			} else if (msg.type === LanguageRuntimeMessageType.Prompt) {
 				this.showPrompt(msg as ILanguageRuntimePrompt);
