@@ -129,7 +129,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 							</ActionBarRegion>
 							<ActionBarRegion align='right'>
 								<ActionBarFilter
-									width={200}
+									width={150}
 									initialFilterText={filterText}
 									onFilterTextChanged={setFilterText} />
 							</ActionBarRegion>
