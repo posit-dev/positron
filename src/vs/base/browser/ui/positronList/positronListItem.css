@@ -3,5 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-list-container .positron-list-contents .positron-list-item {
+	width: 100%;
+	position: absolute;
 	background: transparent;
 }
