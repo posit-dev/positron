@@ -33,7 +33,7 @@ export const ListGridActionBarMenuButton = () => {
 		});
 		actions.push({
 			id: 'a16bb545-c775-4ff1-bb68-2e5b7ba67efd',
-			label: 'Grid',
+			label: 'Table',
 			tooltip: '',
 			class: undefined,
 			enabled: true,
@@ -48,7 +48,7 @@ export const ListGridActionBarMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId={positronEnvironmentContext.environmentViewMode === PositronEnvironmentViewMode.List ? 'positron-list' : 'positron-grid'}
-			text={positronEnvironmentContext.environmentViewMode === PositronEnvironmentViewMode.List ? localize('positronListViewMode', "List") : localize('positronGridViewMode', "Grid")}
+			text={positronEnvironmentContext.environmentViewMode === PositronEnvironmentViewMode.List ? localize('positronListViewMode', "List") : localize('positronTableViewMode', "Table")}
 			actions={actions}
 		/>
 	);
