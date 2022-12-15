@@ -18,10 +18,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	declare readonly _serviceBrand: undefined;
 
 	/** A map of languages to the runtimes that can service that language  */
-	private readonly _runtimes: Map<String, ILanguageRuntime> = new Map();
+	private readonly _runtimes: Map<string, ILanguageRuntime> = new Map();
 
 	/** A map of runtime IDs to the runtime's desired startup behavior */
-	private readonly _startupBehaviors: Map<String, LanguageRuntimeStartupBehavior> = new Map();
+	private readonly _startupBehaviors: Map<string, LanguageRuntimeStartupBehavior> = new Map();
 
 	/** A map of all currently active runtimes. */
 	private readonly _activeRuntimes: ILanguageRuntime[] = [];
