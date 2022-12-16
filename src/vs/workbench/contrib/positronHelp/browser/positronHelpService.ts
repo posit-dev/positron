@@ -11,6 +11,8 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
+import { ILanguageRuntimeEvent, ILanguageRuntimeService, LanguageRuntimeMessageType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LanguageRuntimeEventType, ShowHelpUrlEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 // The TrustedTypePolicy for rendering.
 const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -36,12 +38,28 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Constructor.
 	 * @param languageService The ILanguageService for the markdown renderer.
 	 * @param openerService The IOpenerService for the markdown renderer.
+	 * @param languageRuntimeService The ILanguageRuntimeService, whose Help events we listen to.
 	 */
 	constructor(
 		@ILanguageService languageService: ILanguageService,
-		@IOpenerService openerService: IOpenerService
+		@IOpenerService openerService: IOpenerService,
+		@ILanguageRuntimeService languageRuntimeService: ILanguageRuntimeService,
 	) {
 		super();
+
+		// Listen for language runtime Help events.
+		languageRuntimeService.onDidStartRuntime(runtime => {
+			runtime.onDidReceiveRuntimeMessage(message => {
+				if (message.type === LanguageRuntimeMessageType.Event) {
+					const event = message as ILanguageRuntimeEvent;
+					if (event.name === LanguageRuntimeEventType.ShowHelpUrl) {
+						const data = event.data as ShowHelpUrlEvent;
+						this.openHelpUrl(data.url);
+					}
+				}
+			});
+		});
+
 		this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
 		this._store.add(this._markdownRenderer);
 	}
@@ -70,8 +88,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Opens the specified help URL.
 	 * @param url The help URL.
 	 */
-	openHelpURL(url: string) {
-		console.log(`+++++++++++++++ PositronHelpService openHelpURL ${url}`);
+	openHelpUrl(url: string) {
+		console.log(`+++++++++++++++ PositronHelpService openHelpUrl ${url}`);
 	}
 
 	/**

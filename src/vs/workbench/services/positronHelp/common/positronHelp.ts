@@ -23,5 +23,5 @@ export interface IPositronHelpService {
 
 	openHelpMarkdown(markdown: MarkdownString): void;
 
-	openHelpURL(url: string): void;
+	openHelpUrl(url: string): void;
 }
