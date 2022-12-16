@@ -608,7 +608,7 @@
                     "type": "boolean"
                 },
                 "python.languageServer": {
-                    "default": "Default",
+                    "default": "Jedi",
                     "description": "%python.languageServer.description%",
                     "enum": [
                         "Default",
