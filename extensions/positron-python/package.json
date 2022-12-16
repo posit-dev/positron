@@ -2,7 +2,7 @@
     "name": "python",
     "displayName": "%displayName%",
     "description": "%description%",
-    "version": "2022.17.0-dev",
+    "version": "2023.99.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
     },
@@ -59,6 +59,7 @@
         "Notebooks"
     ],
     "activationEvents": [
+        "onStartupFinished",
         "onDebugInitialConfigurations",
         "onLanguage:python",
         "onDebugDynamicConfigurations:python",
@@ -475,6 +476,12 @@
         ],
         "configuration": {
             "properties": {
+                "positron.pythonPath": {
+                    "default": "",
+                    "description": "Path on disk to python installation with IPyKernel installed; use this to override the default selection mechanism.",
+                    "scope": "window",
+                    "type": "string"
+                },
                 "python.autoComplete.extraPaths": {
                     "default": [],
                     "description": "%python.autoComplete.extraPaths.description%",
@@ -2006,6 +2013,9 @@
         "webpack-require-from": "^1.8.6",
         "yargs": "^15.3.1"
     },
+    "extensionDependencies": [
+        "vscode.jupyter-adapter"
+    ],
     "__metadata": {
         "id": "f1f59ae4-9318-4f3c-a9b5-81b2eaa5f8a5",
         "publisherDisplayName": "Microsoft",
