@@ -12,7 +12,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
 import { ILanguageRuntimeEvent, ILanguageRuntimeService, LanguageRuntimeMessageType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { LanguageRuntimeEventType, ShowHelpUrlEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 // The TrustedTypePolicy for rendering.
 const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -52,9 +52,14 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			runtime.onDidReceiveRuntimeMessage(message => {
 				if (message.type === LanguageRuntimeMessageType.Event) {
 					const event = message as ILanguageRuntimeEvent;
-					if (event.name === LanguageRuntimeEventType.ShowHelpUrl) {
-						const data = event.data as ShowHelpUrlEvent;
-						this.openHelpUrl(data.url);
+					if (event.name === LanguageRuntimeEventType.ShowHelp) {
+						const data = event.data as ShowHelpEvent;
+						if (data.kind === 'markdown') {
+							const markdown = new MarkdownString(data.content, true);
+							this.openHelpMarkdown(markdown);
+						} else {
+							this.openHelpHtml(data.content);
+						}
 					}
 				}
 			});
@@ -84,13 +89,16 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		}
 	}
 
-	/**
-	 * Opens the specified help URL.
-	 * @param url The help URL.
-	 */
-	openHelpUrl(url: string) {
-		console.log(`+++++++++++++++ PositronHelpService openHelpUrl ${url}`);
+	openHelpHtml(html: string) {
+		// Ensure that we can create trusted HTML.
+		if (!ttPolicyPositronHelp) {
+			return;
+		}
+
+		const trustedHtml = ttPolicyPositronHelp.createHTML(html);
+		this._onRenderHelp.fire(trustedHtml);
 	}
+
 
 	/**
 	 * Renders the help document.

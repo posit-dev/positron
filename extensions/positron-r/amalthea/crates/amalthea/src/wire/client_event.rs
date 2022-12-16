@@ -33,9 +33,9 @@ impl<T> WireEvent for T where T: PositronEventType + Serialize {}
 impl From<PositronEvent> for ClientEvent {
     fn from(event: PositronEvent) -> Self {
         match event {
-            PositronEvent::Busy(busy) => Self::as_evt(busy),
-            PositronEvent::ShowMessage(message) => Self::as_evt(message),
-            PositronEvent::ShowHelpUrl(url) => Self::as_evt(url),
+            PositronEvent::Busy(data) => Self::as_evt(data),
+            PositronEvent::ShowMessage(data) => Self::as_evt(data),
+            PositronEvent::ShowHelp(data) => Self::as_evt(data),
         }
     }
 }
@@ -43,7 +43,7 @@ impl From<PositronEvent> for ClientEvent {
 
 impl ClientEvent {
 
-    pub fn as_evt<T: WireEvent>(event: T)  -> Self {
+    pub fn as_evt<T: WireEvent>(event: T) -> Self {
         Self {
             name: event.event_type(),
             data: serde_json::to_value(event).unwrap(),

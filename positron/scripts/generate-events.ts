@@ -87,12 +87,8 @@ function generateRustClientEventHelper() {
 
 	const dispatchLines = events.map((event) => {
 
-		const params = event.params.map((params) => {
-			return params.name;
-		}).join(', ');
-
 		const name = event.name.replace(/Event$/, '');
-		return `PositronEvent::${name}(${params}) => Self::as_evt(${params}),`;
+		return `PositronEvent::${name}(data) => Self::as_evt(data),`;
 
 	}).join('\n');
 
