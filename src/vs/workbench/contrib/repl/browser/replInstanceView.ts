@@ -13,7 +13,6 @@ import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILangua
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { LanguageRuntimeEventType, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
@@ -61,7 +60,6 @@ export class ReplInstanceView extends Disposable {
 
 	constructor(private readonly _instance: IReplInstance,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@ILogService private readonly _logService: ILogService,
 		@IDialogService private readonly _dialogService: IDialogService) {
 		super();
