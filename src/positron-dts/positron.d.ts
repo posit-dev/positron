@@ -217,6 +217,7 @@ declare module 'positron' {
 		// Future client types may include:
 		// - Data viewer window
 		// - Watch window/variable explorer
+		// - Code inspector
 		// - etc.
 	}
 
@@ -296,12 +297,16 @@ declare module 'positron' {
 
 		/**
 		 * Create a new instance of a client; return null if the client type
-		 * is not supported by this runtime.
+		 * is not supported by this runtime, or a string containing the ID of
+		 * the client if it is supported.
 		 */
-		createClient(type: RuntimeClientType): RuntimeClientInstance | null;
+		createClient(type: RuntimeClientType): string;
 
-		/** Get a list of all known clients */
-		listClients(): Array<RuntimeClientInstance>;
+		/** Remove an instance of a client (created with `createClient`) */
+		removeClient(id: string): void;
+
+		/** Send a message to the server end of a client instance */
+		sendClientMessage(id: string, message: any): void;
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;

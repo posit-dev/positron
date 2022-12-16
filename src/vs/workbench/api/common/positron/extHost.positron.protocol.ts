@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 // This is the interface that the main process exposes to the extension host
@@ -12,12 +12,17 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$unregisterLanguageRuntime(handle: number): void;
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
 	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void;
+	$emitRuntimeClientMessage(handle: number, id: string, message: ILanguageRuntimeMessage): void;
+	$emitRuntimeClientState(handle: number, id: string, state: RuntimeClientState): void;
 }
 
 // The interface to the main thread exposed by the extension host
 export interface ExtHostLanguageRuntimeShape {
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void;
+	$createClient(handle: number, type: RuntimeClientType): Promise<string>;
+	$removeClient(handle: number, id: string): void;
+	$sendClientMessage(handle: number, id: string, message: any): void;
 	$replyToPrompt(handle: number, id: string, response: string): void;
 	$interruptLanguageRuntime(handle: number): void;
 	$restartLanguageRuntime(handle: number): void;

@@ -9,8 +9,8 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeClientInstance, LanguageRuntimeStartupBehavior, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
@@ -21,6 +21,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private readonly _messageEmitter = new Emitter<ILanguageRuntimeMessage>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
+	private _clients: Map<string, ExtHostRuntimeClientInstance> = new Map<string, ExtHostRuntimeClientInstance>();
 
 	constructor(readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
@@ -37,11 +38,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		});
 	}
 
-	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
-
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
+
+	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
 
 	emitMessage(message: ILanguageRuntimeMessage): void {
 		this._messageEmitter.fire(message);
@@ -58,6 +59,24 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
 		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior);
+	}
+
+	/** Create a new client inside the runtime */
+	createClient(type: RuntimeClientType): Thenable<IRuntimeClientInstance> {
+		return new Promise((resolve, reject) => {
+			this._proxy.$createClient(this.handle, type).then((clientId) => {
+				const client = new ExtHostRuntimeClientInstance(clientId, type, this.handle, this._proxy);
+				this._clients.set(clientId, client);
+				resolve(client);
+			}).catch((err) => {
+				reject(err);
+			});
+		});
+	}
+
+	/** List active clients */
+	listClients(): Thenable<IRuntimeClientInstance[]> {
+		return Promise.resolve(Array.from(this._clients.values()));
 	}
 
 	replyToPrompt(id: string, value: string): void {
@@ -88,6 +107,45 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 }
 
+class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientInstance {
+
+	private readonly _stateEmitter = new Emitter<RuntimeClientState>();
+
+	constructor(
+		private readonly _id: string,
+		private readonly _type: RuntimeClientType,
+		private readonly _handle: number,
+		private readonly _proxy: ExtHostLanguageRuntimeShape) {
+		super();
+
+		this.onDidChangeClientState = this._stateEmitter.event;
+		this._register(this._stateEmitter);
+	}
+
+	sendMessage(message: any): void {
+		this._proxy.$sendClientMessage(this._handle, this._id, message);
+	}
+
+	onDidChangeClientState: Event<RuntimeClientState>;
+
+	getClientState(): RuntimeClientState {
+		throw new Error('Method not implemented.');
+	}
+
+	getClientId(): string {
+		return this._id;
+	}
+
+	getClientType(): RuntimeClientType {
+		return this._type;
+	}
+
+	public override dispose(): void {
+		super.dispose();
+		this._proxy.$removeClient(this._handle, this._id);
+	}
+}
+
 @extHostNamedCustomer(MainPositronContext.MainThreadLanguageRuntime)
 export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape {
 
@@ -102,6 +160,14 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
+	}
+
+	$emitRuntimeClientMessage(handle: number, id: string, message: ILanguageRuntimeMessage): void {
+		throw new Error('Method not implemented.');
+	}
+
+	$emitRuntimeClientState(handle: number, id: string, state: RuntimeClientState): void {
+		throw new Error('Method not implemented.');
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {

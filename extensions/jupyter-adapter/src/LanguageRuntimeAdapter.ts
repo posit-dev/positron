@@ -202,18 +202,26 @@ export class LanguageRuntimeAdapter
 	 * Creates a new client instance.
 	 *
 	 * @param type The type of client to create
-	 * @returns A new client instance, or null if the type is not supported
+	 * @returns A new client instance, or empty string if the type is not supported
 	 */
-	public createClient(type: positron.RuntimeClientType): positron.RuntimeClientInstance | null {
+	public createClient(type: positron.RuntimeClientType): string {
 		if (type === positron.RuntimeClientType.Environment) {
 			this._channel.appendLine(`Creating ${type} client for ${this.metadata.language}`);
 			const adapter = new RuntimeClientAdapter(type, this._kernel);
 			this._comms.set(adapter.getId(), adapter);
-			return adapter;
+			return adapter.getId();
 		} else {
 			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.language} (not supported)`);
 		}
-		return null;
+		return '';
+	}
+
+	removeClient(id: string): void {
+		this._kernel.closeComm(id);
+	}
+
+	sendClientMessage(id: string, message: any): void {
+		this._kernel.sendCommMessage(id, message);
 	}
 
 	/**
