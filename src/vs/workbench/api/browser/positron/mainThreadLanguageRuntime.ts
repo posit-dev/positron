@@ -110,6 +110,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientInstance {
 
 	private readonly _stateEmitter = new Emitter<RuntimeClientState>();
+	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
 
 	constructor(
 		private readonly _id: string,
@@ -120,6 +121,10 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 
 		this.onDidChangeClientState = this._stateEmitter.event;
 		this._register(this._stateEmitter);
+
+		this._stateEmitter.event((state) => {
+			this._state = state;
+		});
 	}
 
 	sendMessage(message: any): void {
@@ -129,7 +134,7 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 	onDidChangeClientState: Event<RuntimeClientState>;
 
 	getClientState(): RuntimeClientState {
-		throw new Error('Method not implemented.');
+		return this._state;
 	}
 
 	getClientId(): string {
@@ -143,6 +148,7 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 	public override dispose(): void {
 		super.dispose();
 		this._proxy.$removeClient(this._handle, this._id);
+		this._stateEmitter.fire(RuntimeClientState.Closed);
 	}
 }
 

@@ -9,7 +9,7 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { Codicon } from 'vs/base/common/codicons';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 
@@ -184,6 +184,67 @@ export function registerLanguageRuntimeActions() {
 			}
 
 			active[0].restart();
+		}
+	});
+
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LanguageRuntimeCommandId.OpenClient,
+				title: { value: nls.localize('workbench.action.language.runtime.openClient', "Create New Runtime Client Widget"), original: 'Create New Runtime Client Widget' },
+				f1: true,
+				category,
+				icon: Codicon.plus,
+				description: {
+					description: 'workbench.action.language.runtime.openClient',
+					args: [{
+						name: 'options',
+						schema: {
+							type: 'object'
+						}
+					}]
+				}
+			});
+		}
+
+		/**
+		 * Prompts the user to select a client to open
+		 *
+		 * @param accessor The service accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// Retrieve services
+			const languageService = accessor.get(ILanguageRuntimeService);
+			const pickService = accessor.get(IQuickInputService);
+
+			// Get the list of available runtimes
+			const runtimes = languageService.getActiveRuntimes();
+
+			// Ensure we got at least one
+			if (runtimes.length < 1) {
+				throw new Error('No language runtimes are currently active.');
+			}
+
+			// Select the first one
+			const runtime = runtimes[0];
+
+			// Map to quick-pick items for user selection
+			const selections = [<IQuickPickItem>{
+				id: RuntimeClientType.Environment,
+				label: 'Environment Pane'
+			}];
+
+			// Prompt the user to select a client
+			const selection = await pickService.pick(selections, {
+				canPickMany: false,
+				placeHolder: nls.localize('Client Selection Placeholder', 'Start Client for {0}', runtime.metadata.name)
+			});
+
+			// Find the kernel the user selected and register it
+			if (selection) {
+				runtime.createClient(selection.id as RuntimeClientType);
+			}
 		}
 	});
 }
