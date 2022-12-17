@@ -10,15 +10,6 @@ import * as positron from 'positron';
  * PositronZedLanguageRuntime.
  */
 export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
-	createClient(type: positron.RuntimeClientType): string {
-		throw new Error('Method not implemented.');
-	}
-	removeClient(id: string): void {
-		throw new Error('Method not implemented.');
-	}
-	sendClientMessage(id: string, message: any): void {
-		throw new Error('Method not implemented.');
-	}
 	/**
 	 * The onDidReceiveRuntimeMessage event emitter.
 	 */
@@ -89,7 +80,30 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		};
 		this._onDidReceiveRuntimeMessage.fire(idle);
 	}
-	/** Reply to a prompt issued by the runtime */
+
+	/**
+	 * Create a new instance of a client.
+	 * @param type The runtime client type.
+	 */
+	createClient(type: positron.RuntimeClientType): string {
+		throw new Error('Method not implemented.');
+	}
+
+	/**
+	 * Removes an instance of a client.
+	 */
+	removeClient(id: string): void {
+		throw new Error('Method not implemented.');
+	}
+
+	/**
+	 * Send a message to the client instance.
+	 * @param id The ID of the message.
+	 * @param message The message.
+	 */
+	sendClientMessage(id: string, message: any): void {
+		throw new Error('Method not implemented.');
+	}
 
 	/**
 	 * Replies to a prompt issued by the runtime.
