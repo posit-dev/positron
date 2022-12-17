@@ -49,6 +49,9 @@ export class RuntimeClientAdapter {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
 		this._kernel.openComm(this._type, this.id, null);
+
+		// Consider the client connected once we've opened the comm
+		this._state.fire(positron.RuntimeClientState.Connected);
 	}
 
 	/**
