@@ -10,6 +10,8 @@ export const enum LanguageRuntimeCommandId {
 	Select = 'workbench.action.languageRuntime.select',
 	Interrupt = 'workbench.action.languageRuntime.interrupt',
 	Restart = 'workbench.action.languageRuntime.restart',
+	OpenClient = 'workbench.action.languageRuntime.openClient',
+	CloseClient = 'workbench.action.languageRuntime.closeClient',
 }
 
 export interface INotebookBridgeService {

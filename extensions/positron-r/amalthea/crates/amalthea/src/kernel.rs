@@ -23,7 +23,7 @@ use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use log::warn;
+use log::{warn, info};
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
 /// execution and messaging threads.
@@ -39,6 +39,15 @@ pub struct Kernel {
 
     /// Receives message sent to the IOPub socket
     iopub_receiver: Option<Receiver<IOPubMessage>>,
+}
+
+/// Possible behaviors for the stream capture thread. When set to `Capture`,
+/// the stream capture thread will capture all output to stdout and stderr.
+/// When set to `None`, no stream output is captured.
+#[derive(PartialEq)]
+pub enum StreamBehavior {
+    Capture,
+    None,
 }
 
 impl Kernel {
@@ -61,7 +70,8 @@ impl Kernel {
         &mut self,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         control_handler: Arc<Mutex<dyn ControlHandler>>,
-        lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>
+        lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
+        stream_behavior: StreamBehavior,
     ) -> Result<(), Error> {
         let ctx = zmq::Context::new();
 
@@ -120,9 +130,11 @@ impl Kernel {
         let shell_clone = shell_handler.clone();
         thread::spawn(move || Self::stdin_thread(stdin_socket, shell_clone));
 
-        // Create the thread that handles stdout and stderr
-        let iopub_sender = self.create_iopub_sender();
-        thread::spawn(move || Self::output_capture_thread(iopub_sender));
+        // Create the thread that handles stdout and stderr, if requested
+        if stream_behavior == StreamBehavior::Capture {
+            let iopub_sender = self.create_iopub_sender();
+            thread::spawn(move || Self::output_capture_thread(iopub_sender));
+        }
 
         // Create the Control ROUTER/DEALER socket
         let control_socket = Socket::new(
@@ -147,6 +159,7 @@ impl Kernel {
         // TODO: thread/join thread? Exiting this thread will cause the whole
         // kernel to exit.
         Self::control_thread(control_socket, control_handler);
+        info!("Control thread exited, exiting kernel");
         Ok(())
     }
 

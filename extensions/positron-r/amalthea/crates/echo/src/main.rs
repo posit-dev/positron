@@ -11,7 +11,7 @@ mod shell;
 use crate::control::Control;
 use crate::shell::Shell;
 use amalthea::connection_file::ConnectionFile;
-use amalthea::kernel::Kernel;
+use amalthea::kernel::{Kernel, StreamBehavior};
 use amalthea::kernel_spec::KernelSpec;
 use log::{debug, error, info};
 use std::env;
@@ -31,7 +31,7 @@ fn start_kernel(connection_file: ConnectionFile) {
     let shell = Arc::new(Mutex::new(Shell::new(shell_sender)));
     let control = Arc::new(Mutex::new(Control {}));
 
-    match kernel.connect(shell, control, None) {
+    match kernel.connect(shell, control, None, StreamBehavior::None) {
         Ok(()) => {
             let mut s = String::new();
             println!("Kernel activated, press Ctrl+C to end ");
