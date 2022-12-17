@@ -4,7 +4,7 @@
 
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export class MockLanguageRuntime extends Disposable implements ILanguageRuntime {
 	// The runtime state.
@@ -31,6 +31,20 @@ export class MockLanguageRuntime extends Disposable implements ILanguageRuntime 
 
 		// Set the metadata.
 		this.metadata = _metadata;
+	}
+
+	/**
+	 * Create a new client widget instance (not supported by the mock runtime)
+	 */
+	createClient(type: RuntimeClientType): Thenable<IRuntimeClientInstance> {
+		throw new Error('Method not implemented.');
+	}
+
+	/**
+	 * Create a new client widget instance (not supported by the mock runtime)
+	 */
+	listClients(): Thenable<IRuntimeClientInstance[]> {
+		throw new Error('Method not implemented.');
 	}
 
 	/**
