@@ -14,7 +14,7 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
  * ActionBarMenuButtonProps interface.
  */
 interface ActionBarMenuButtonProps {
-	iconId: string;
+	iconId?: string;
 	text?: string;
 	maxTextWidth?: number;
 	align?: 'left' | 'right';
@@ -25,7 +25,7 @@ interface ActionBarMenuButtonProps {
 /**
  * ActionBarCommandButton component.
  * @param props An ActionBarMenuButtonProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Hooks.

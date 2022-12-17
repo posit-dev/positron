@@ -18,7 +18,7 @@ interface ActionBarRegionProps {
 /**
  * ActionBarRegionProps component.
  * @param props An ActionBarRegionProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarRegion = (props: PropsWithChildren<ActionBarRegionProps>) => {
 	// Render.

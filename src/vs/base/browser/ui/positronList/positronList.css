@@ -2,7 +2,12 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-environment-test-content {
-	margin: 10px 20px;
-	color: var(--vscode-modalDialog-foreground); /* Temporary */
+.positron-list-container {
+	position: relative;
+	will-change: transform;
+	overflow: auto;
+}
+
+.positron-list-container .list-contents {
+	background: transparent;
 }

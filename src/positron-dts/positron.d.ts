@@ -32,10 +32,13 @@ declare module 'positron' {
 		Event = 'event',
 	}
 
-	/** The set of possible language runtime events */
+	/** begin positron-language-runtime-event-type */
 	export enum LanguageRuntimeEventType {
-		ShowMessage = 'show_message'
+		Busy = 'busy',
+		ShowMessage = 'show_message',
+		ShowHelp = 'show_help',
 	}
+	/** end positron-language-runtime-event-type */
 
 	/**
 	 * The set of possible statuses for a language runtime while online

@@ -16,7 +16,7 @@ interface TopActionBarCommandCenterProps { }
 /**
  * TopActionBarCommandCenter component.
  * @param props A TopActionBarCommandCenterProps that contains the component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const TopActionBarCommandCenter = (props: TopActionBarCommandCenterProps) => {
 	// Hooks.

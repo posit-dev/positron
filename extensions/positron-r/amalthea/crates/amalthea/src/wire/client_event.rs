@@ -29,20 +29,21 @@ impl MessageType for ClientEvent {
 pub trait WireEvent: PositronEventType + Serialize {}
 impl<T> WireEvent for T where T: PositronEventType + Serialize {}
 
+/** begin rust-client-event */
 impl From<PositronEvent> for ClientEvent {
     fn from(event: PositronEvent) -> Self {
         match event {
-            PositronEvent::ShowMessage(message) => Self::as_evt(message),
-            PositronEvent::Busy(message) => Self::as_evt(message),
-            PositronEvent::ShowHelpUrl(url) => Self::as_evt(url),
-            // Future event types go here
+            PositronEvent::Busy(data) => Self::as_evt(data),
+            PositronEvent::ShowMessage(data) => Self::as_evt(data),
+            PositronEvent::ShowHelp(data) => Self::as_evt(data),
         }
     }
 }
+/** end rust-client-event */
 
 impl ClientEvent {
 
-    pub fn as_evt<T: WireEvent>(event: T)  -> Self {
+    pub fn as_evt<T: WireEvent>(event: T) -> Self {
         Self {
             name: event.event_type(),
             data: serde_json::to_value(event).unwrap(),

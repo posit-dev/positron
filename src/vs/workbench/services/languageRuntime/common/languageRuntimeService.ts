@@ -5,6 +5,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
+import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -142,11 +143,6 @@ export enum LanguageRuntimeMessageType {
 	Event = 'event',
 }
 
-/** The set of possible language runtime events */
-export enum LanguageRuntimeEventType {
-	ShowMessage = 'show_message'
-}
-
 export enum LanguageRuntimeStartupBehavior {
 	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
 	Implicit = 'implicit',
@@ -171,13 +167,6 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 	traceback: Array<string>;
 }
 
-export interface LanguageRuntimeEventData { }
-
-export interface ShowMessageEvent extends LanguageRuntimeEventData {
-	/** The message to show */
-	message: string;
-}
-
 export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
 	/** The event name */
 	name: LanguageRuntimeEventType;
@@ -191,16 +180,16 @@ export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
  */
 export interface ILanguageRuntimeMetadata {
 	/** A unique identifier for this runtime */
-	id: string;
+	readonly id: string;
 
 	/** The language identifier for this runtime. */
-	language: string;
+	readonly language: string;
 
 	/** The name of the runtime. */
-	name: string;
+	readonly name: string;
 
 	/** The version of the runtime. */
-	version: string;
+	readonly version: string;
 }
 
 /**
@@ -256,7 +245,7 @@ export interface IRuntimeClientInstance extends Disposable {
 
 export interface ILanguageRuntime {
 	/** The language runtime's static metadata */
-	metadata: ILanguageRuntimeMetadata;
+	readonly metadata: ILanguageRuntimeMetadata;
 
 	/** An object that emits language runtime events */
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
