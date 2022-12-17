@@ -10,6 +10,15 @@ import * as positron from 'positron';
  * PositronZedLanguageRuntime.
  */
 export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
+	createClient(type: positron.RuntimeClientType): string {
+		throw new Error('Method not implemented.');
+	}
+	removeClient(id: string): void {
+		throw new Error('Method not implemented.');
+	}
+	sendClientMessage(id: string, message: any): void {
+		throw new Error('Method not implemented.');
+	}
 	/**
 	 * The onDidReceiveRuntimeMessage event emitter.
 	 */
