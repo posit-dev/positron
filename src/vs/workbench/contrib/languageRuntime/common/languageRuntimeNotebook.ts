@@ -6,7 +6,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeOutput, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeOutput, ILanguageRuntimeState, IRuntimeClientInstance, LanguageRuntimeMessageType, RuntimeClientType, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -245,6 +245,19 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		this._executingCellId = id;
 		return new Promise((resolve, reject) => {
 			resolve(id);
+		});
+	}
+
+	createClient(type: RuntimeClientType): Thenable<IRuntimeClientInstance> {
+		// This notebook API doesn't support creating clients
+		throw new Error('Method not implemented.');
+	}
+
+	listClients(): Thenable<IRuntimeClientInstance[]> {
+		// It is not possible to create clients in this notebook API,
+		// so just return an empty list
+		return new Promise((resolve, _reject) => {
+			resolve([]);
 		});
 	}
 

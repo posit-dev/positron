@@ -17,6 +17,7 @@ import { JupyterErrorReply } from './JupyterErrorReply';
 import { JupyterStreamOutput } from './JupyterStreamOutput';
 import { PositronEvent } from './PositronEvent';
 import { JupyterInputRequest } from './JupyterInputRequest';
+import { RuntimeClientAdapter } from './RuntimeClientAdapter';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -30,6 +31,16 @@ export class LanguageRuntimeAdapter
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _lspPort: number | null = null;
 	readonly metadata: positron.LanguageRuntimeMetadata;
+
+	/**
+	 * Map of comm IDs to RuntimeClientAdapters, which wrap comm channels.
+	 *
+	 * Consider: This will need to be rethought if we want to support
+	 * reattaching to a running kernel. In that case, this map will need
+	 * to get populated by asking the kernel, after connecting, for the
+	 * list of comms that are currently open.
+	 */
+	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
 	constructor(private readonly _spec: JupyterKernelSpec,
 		version: string,
@@ -181,13 +192,81 @@ export class LanguageRuntimeAdapter
 		});
 	}
 
+	/**
+	 * Restarts the kernel.
+	 */
 	public restart(): void {
 		this._kernel.shutdown(true);
 		this._kernel.start(this._lspPort ?? 0);
 	}
 
+	/**
+	 * Shuts down the kernel permanently.
+	 */
 	public shutdown(): void {
 		this._kernel.shutdown(false);
+	}
+
+	/**
+	 * Creates a new client instance.
+	 *
+	 * @param type The type of client to create
+	 * @returns A new client instance, or empty string if the type is not supported
+	 */
+	public createClient(type: positron.RuntimeClientType): string {
+		if (type === positron.RuntimeClientType.Environment) {
+			// Currently the only supported client type
+			this._channel.appendLine(`Creating ${type} client for ${this.metadata.language}`);
+
+			// Create a new client adapter to wrap the comm channel
+			const adapter = new RuntimeClientAdapter(type, this._kernel);
+
+			// Ensure we clean up the client from our internal state when it disconnects
+			adapter.onDidChangeClientState((e) => {
+				if (e === positron.RuntimeClientState.Closed) {
+					if (!this._comms.delete(adapter.getId())) {
+						this._channel.appendLine(`Warn: Runtime client adapater ${adapter.getId()} (${adapter.getClientType()}) not found`);
+					}
+				}
+			});
+
+			// Add the client to the map
+			this._comms.set(adapter.getId(), adapter);
+
+			// Return the ID of the new client
+			return adapter.getId();
+		} else {
+			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.language} (not supported)`);
+		}
+		return '';
+	}
+
+	/**
+	 * Removes a client instance.
+	 *
+	 * @param id The ID of the client to remove
+	 */
+	removeClient(id: string): void {
+		const comm = this._comms.get(id);
+		if (comm) {
+			this._channel.appendLine(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.language}`);
+			comm.dispose();
+		} else {
+			this._channel.appendLine(`Error: can't remove client ${id} (not found)`);
+		}
+	}
+
+	sendClientMessage(id: string, message: any): void {
+		this._kernel.sendCommMessage(id, message);
+	}
+
+	/**
+	 * Gets a list of all client instances
+	 *
+	 * @returns All client instances
+	 */
+	public getClients(): positron.RuntimeClientInstance[] {
+		return Array.from(this._comms.values());
 	}
 
 	onMessage(msg: JupyterMessagePacket) {
@@ -374,7 +453,20 @@ export class LanguageRuntimeAdapter
 		this._state.fire(status);
 	}
 
+	/**
+	 * Dispose of the runtime.
+	 */
 	public dispose() {
+		// Turn off all listeners
+		this._kernel.removeListener('message', this.onMessage);
+		this._kernel.removeListener('status', this.onStatus);
+
+		// Tear down all open comms
+		for (const comm of this._comms.values()) {
+			comm.dispose();
+		}
+
+		// Tell the kernel to shut down
 		this.shutdown();
 	}
 }

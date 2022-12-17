@@ -43,6 +43,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		return <typeof positron>{
 			version: initData.positronVersion,
 			runtime,
+			RuntimeClientType: extHostTypes.RuntimeClientType,
+			RuntimeClientState: extHostTypes.RuntimeClientState,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			LanguageRuntimeEventType: extHostTypes.LanguageRuntimeEventType,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
