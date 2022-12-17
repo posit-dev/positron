@@ -12,6 +12,7 @@ import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/commo
 import { ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 
 export function registerLanguageRuntimeActions() {
 	const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -195,6 +196,7 @@ export function registerLanguageRuntimeActions() {
 				f1: true,
 				category,
 				icon: Codicon.plus,
+				precondition: IsDevelopmentContext,
 				description: {
 					description: 'workbench.action.language.runtime.openClient',
 					args: [{
@@ -254,7 +256,8 @@ export function registerLanguageRuntimeActions() {
 				title: { value: nls.localize('workbench.action.language.runtime.closeClient', "Close Runtime Client Widget"), original: 'Close Runtime Client Widget' },
 				f1: true,
 				category,
-				icon: Codicon.plus,
+				icon: Codicon.remove,
+				precondition: IsDevelopmentContext,
 				description: {
 					description: 'workbench.action.language.runtime.closeClient',
 					args: [{
