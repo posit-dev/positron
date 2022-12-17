@@ -50,7 +50,7 @@ function generateRustEvent(event: PositronEventDefinition) {
 	const comment = event.comment.trimEnd().replace(/(^|\n)/g, '$1/// ');
 	lines.push(comment);
 	lines.push(`#[positron::event("${camel(event.name)}")]`);
-	lines.push(`pub struct ${event.name} {`);
+	lines.push(`pub struct ${event.name}Event {`);
 	lines.push('');
 
 	for (const param of event.params) {
@@ -73,9 +73,7 @@ function generateRustPositronEventEnum() {
 	lines.push('#[derive(Debug, Clone)]');
 	lines.push('pub enum PositronEvent {');
 	for (const event of events) {
-		const fullName = event.name;
-		const shortName = fullName.replace(/Event$/, '');
-		lines.push(`    ${shortName}(${fullName}),`);
+		lines.push(`    ${event.name}(${event.name}Event),`);
 	}
 	lines.push('}');
 
@@ -86,14 +84,7 @@ function generateRustPositronEventEnum() {
 function generateRustClientEventHelper() {
 
 	const dispatchLines = events.map((event) => {
-
-		const params = event.params.map((params) => {
-			return params.name;
-		}).join(', ');
-
-		const name = event.name.replace(/Event$/, '');
-		return `PositronEvent::${name}(${params}) => Self::as_evt(${params}),`;
-
+		return `PositronEvent::${event.name}(data) => Self::as_evt(data),`;
 	}).join('\n');
 
 	return `impl From<PositronEvent> for ClientEvent {
@@ -165,7 +156,7 @@ function generateLanguageRuntimeEventTypeEnum() {
 	const lines: string[] = [];
 	lines.push('export enum LanguageRuntimeEventType {');
 	for (const event of events) {
-		const lhs = event.name.replace(/Event$/, '');
+		const lhs = event.name;
 		const rhs = camel(lhs);
 		lines.push(`\t${lhs} = '${rhs}',`);
 	}
@@ -208,7 +199,7 @@ function generateLanguageRuntimeEventDefinitions() {
 
 		const comment = event.comment.trimEnd().replace(/(^|\n)/g, '$1// ');
 		lines.push(comment);
-		lines.push(`export interface ${event.name} extends LanguageRuntimeEventData {`);
+		lines.push(`export interface ${event.name}Event extends LanguageRuntimeEventData {`);
 		lines.push('');
 		for (const param of event.params) {
 			lines.push(`\t/** ${param.comment} */`);

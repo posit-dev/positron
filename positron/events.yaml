@@ -1,5 +1,5 @@
 
-- name: BusyEvent
+- name: Busy
   comment: >
     Represents a change in the runtime's busy state.
 
@@ -13,7 +13,7 @@
     type: boolean
     comment: Whether the runtime is busy.
 
-- name: ShowMessageEvent
+- name: ShowMessage
   comment: >
     Use this event to show a message to the user.
   params:
@@ -21,10 +21,14 @@
     type: string
     comment: The message to show to the user.
 
-- name: ShowHelpUrlEvent
+- name: ShowHelp
   comment: >
-    Show a URL in the Help pane.
+    Show help content in the Help pane.
   params:
-  - name: url
+  - name: content
     type: string
-    comment: The URL to be shown in the Help pane.
+    comment: The help content to be shown.
+  - name: kind
+    type: string
+    comment: The content help type. Must be one of 'html' or 'markdown'.
+
