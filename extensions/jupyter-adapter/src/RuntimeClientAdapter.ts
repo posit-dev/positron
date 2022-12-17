@@ -14,7 +14,7 @@ import { JupyterCommClose } from './JupyterCommClose';
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
  */
-export class RuntimeClientAdapter implements positron.RuntimeClientInstance {
+export class RuntimeClientAdapter {
 	readonly id: string;
 
 	// Event emitter for state changes

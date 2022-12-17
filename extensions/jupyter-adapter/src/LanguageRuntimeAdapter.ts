@@ -30,8 +30,17 @@ export class LanguageRuntimeAdapter
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _lspPort: number | null = null;
-	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 	readonly metadata: positron.LanguageRuntimeMetadata;
+
+	/**
+	 * Map of comm IDs to RuntimeClientAdapters, which wrap comm channels.
+	 *
+	 * Consider: This will need to be rethought if we want to support
+	 * reattaching to a running kernel. In that case, this map will need
+	 * to get populated by asking the kernel, after connecting, for the
+	 * list of comms that are currently open.
+	 */
+	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
 	constructor(private readonly _spec: JupyterKernelSpec,
 		version: string,
@@ -206,9 +215,25 @@ export class LanguageRuntimeAdapter
 	 */
 	public createClient(type: positron.RuntimeClientType): string {
 		if (type === positron.RuntimeClientType.Environment) {
+			// Currently the only supported client type
 			this._channel.appendLine(`Creating ${type} client for ${this.metadata.language}`);
+
+			// Create a new client adapter to wrap the comm channel
 			const adapter = new RuntimeClientAdapter(type, this._kernel);
+
+			// Ensure we clean up the client from our internal state when it disconnects
+			adapter.onDidChangeClientState((e) => {
+				if (e === positron.RuntimeClientState.Closed) {
+					if (!this._comms.delete(adapter.getId())) {
+						this._channel.appendLine(`Warn: Runtime client adapater ${adapter.getId()} (${adapter.getClientType()}) not found`);
+					}
+				}
+			});
+
+			// Add the client to the map
 			this._comms.set(adapter.getId(), adapter);
+
+			// Return the ID of the new client
 			return adapter.getId();
 		} else {
 			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.language} (not supported)`);
@@ -216,8 +241,19 @@ export class LanguageRuntimeAdapter
 		return '';
 	}
 
+	/**
+	 * Removes a client instance.
+	 *
+	 * @param id The ID of the client to remove
+	 */
 	removeClient(id: string): void {
-		this._kernel.closeComm(id);
+		const comm = this._comms.get(id);
+		if (comm) {
+			this._channel.appendLine(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.language}`);
+			comm.dispose();
+		} else {
+			this._channel.appendLine(`Error: can't remove client ${id} (not found)`);
+		}
 	}
 
 	sendClientMessage(id: string, message: any): void {

@@ -107,9 +107,18 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 }
 
+/**
+ * Represents the front-end instance of a client widget inside a language runtime.
+ *
+ * Its lifetime is tied to the lifetime of the client widget and associated server
+ * component. It is presumed that the comm channel has already been established
+ * between the client and server; this class is responsible for managing the
+ * communication channel and closing it when the client is disposed.
+ */
 class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientInstance {
 
 	private readonly _stateEmitter = new Emitter<RuntimeClientState>();
+
 	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
 
 	constructor(
@@ -127,6 +136,11 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 		});
 	}
 
+	/**
+	 * Sends a message (of any type) to the server side of the comm.
+	 *
+	 * @param message Message to send to the server
+	 */
 	sendMessage(message: any): void {
 		this._proxy.$sendClientMessage(this._handle, this._id, message);
 	}
