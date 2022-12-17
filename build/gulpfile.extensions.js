@@ -33,6 +33,7 @@ const compilations = [
 	// --- Start Positron ---
 	'positron-r/tsconfig.json',
 	'positron-python/tsconfig.json',
+	'positron-zed/tsconfig.json',
 	// --- End Positron ---
 	'authentication-proxy/tsconfig.json',
 	'configuration-editing/build/tsconfig.json',
