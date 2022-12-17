@@ -15,14 +15,37 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
+    "languages": [
+      {
+        "id": "zed",
+        "extensions": [
+          ".zed"
+        ],
+        "aliases": [
+          "Zed"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bat",
+        "scopeName": "source.batchfile",
+        "path": "./syntaxes/batchfile.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "bat",
+        "path": "./snippets/batchfile.code-snippets"
+      }
+    ]
 	},
 	"scripts": {
 		"vscode:prepublish": "yarn run compile",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
-		"pretest": "yarn run compile && yarn run lint",
-		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js"
+		"lint": "eslint src --ext ts"
 	},
 	"devDependencies": {
 		"@types/glob": "^7.2.0",
