@@ -5,12 +5,10 @@
  *
  */
 
+use amalthea::comm::comm_channel::Comm;
+use amalthea::comm::comm_channel::CommChannel;
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
-use amalthea::wire::comm_info_reply::CommInfoReply;
-use amalthea::wire::comm_info_request::CommInfoRequest;
-use amalthea::wire::comm_msg::CommMsg;
-use amalthea::wire::comm_open::CommOpen;
 use amalthea::wire::complete_reply::CompleteReply;
 use amalthea::wire::complete_request::CompleteRequest;
 use amalthea::wire::exception::Exception;
@@ -41,6 +39,23 @@ pub struct Shell {
     iopub: SyncSender<IOPubMessage>,
     input_sender: Option<SyncSender<ShellInputRequest>>,
     execution_count: u32,
+}
+
+pub struct TestComm {
+}
+
+impl CommChannel for TestComm {
+    fn send_request(&self, _data: &serde_json::Value) {
+        // No-op for test comm
+    }
+
+    fn target_name(&self) -> String {
+        "test.comm".to_string()
+    }
+
+    fn close(&self) {
+        // No-op for test comm
+    }
 }
 
 /// Stub implementation of the shell handler for test harness
@@ -107,18 +122,6 @@ impl ShellHandler for Shell {
             cursor_start: 0,
             cursor_end: 0,
             metadata: json!({}),
-        })
-    }
-
-    /// Handle a request for open comms
-    async fn handle_comm_info_request(
-        &self,
-        _req: &CommInfoRequest,
-    ) -> Result<CommInfoReply, Exception> {
-        // No comms in this toy implementation.
-        Ok(CommInfoReply {
-            status: Status::Ok,
-            comms: serde_json::Value::Null,
         })
     }
 
@@ -240,20 +243,17 @@ impl ShellHandler for Shell {
         })
     }
 
-    async fn handle_comm_open(&self, _req: &CommOpen) -> Result<(), Exception> {
-        // NYI
-        Ok(())
-    }
-
-    async fn handle_comm_msg(&self, _req: &CommMsg) -> Result<(), Exception> {
-        // NYI
-        Ok(())
+    async fn handle_comm_open(&self, _req: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
+        // Open a test comm channel; this test comm channel is used for every
+        // comm open request (regardless of the target name)
+        Ok(Some(Box::new(TestComm{})))
     }
 
     async fn handle_input_reply(&self, _msg: &InputReply) -> Result<(), Exception> {
         // NYI
         Ok(())
     }
+
 
     fn establish_input_handler(&mut self, handler: SyncSender<ShellInputRequest>) {
         self.input_sender = Some(handler);

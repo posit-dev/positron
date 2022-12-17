@@ -38,6 +38,8 @@ pub enum Error {
     ZmqError(String, zmq::Error),
     CannotLockSocket(String, String),
     SysError(String, nix::Error),
+    UnknownCommName(String),
+    UnknownCommId(String),
 }
 
 impl fmt::Display for Error {
@@ -165,6 +167,12 @@ impl fmt::Display for Error {
             }
             Error::SysError(context, err) => {
                 write!(f, "{} failed: system/libc error '{}'", context, err)
+            }
+            Error::UnknownCommName(target) => {
+                write!(f, "The comm target name '{}' is not recognized or not supported.", target)
+            }
+            Error::UnknownCommId(id) => {
+                write!(f, "The comm id '{}' does not exist.", id)
             }
         }
     }

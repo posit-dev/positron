@@ -5,7 +5,10 @@
  *
  */
 
-use amalthea::kernel::Kernel;
+use amalthea::kernel::{Kernel, StreamBehavior};
+use amalthea::wire::comm_close::CommClose;
+use amalthea::wire::comm_info_request::CommInfoRequest;
+use amalthea::wire::comm_open::CommOpen;
 use amalthea::wire::execute_input::ExecuteInput;
 use amalthea::wire::execute_request::ExecuteRequest;
 use amalthea::wire::execute_result::ExecuteResult;
@@ -32,18 +35,28 @@ fn test_kernel() {
     let shell = Arc::new(Mutex::new(shell::Shell::new(shell_sender)));
     let control = Arc::new(Mutex::new(control::Control {}));
 
+    // Initialize logging
+    env_logger::init();
+    info!("Starting test kernel");
+
     // Create the thread that will run the Amalthea kernel
     thread::spawn(move || {
-        kernel.connect(shell,
-                control,
-                None)
-            .unwrap();
+        match kernel.connect(shell, control, None, StreamBehavior::None) {
+            Ok(_) => {
+                info!("Kernel connection initiated");
+            },
+            Err(e) => {
+                panic!("Error connecting kernel: {}", e);
+            }
+        }
     });
 
     // Give the kernel a little time to start up
+    info!("Waiting 500ms for kernel startup to complete");
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Complete client initialization
+    info!("Completing frontend initialization");
     frontend.complete_intialization();
 
     // Ask the kernel for the kernel info. This should return an object with the
@@ -252,6 +265,21 @@ fn test_kernel() {
         KernelStatus::message_type()
     );
 
+    // The kernel should send an execute reply message indicating that the execute
+    // of the 'prompt' command succeeded
+    info!("Waiting for execute reply");
+    let reply = frontend.receive_shell();
+    match reply {
+        Message::ExecuteReply(reply) => {
+            info!("Received execute reply: {:?}", reply);
+            assert_eq!(reply.content.status, Status::Ok);
+            assert_eq!(reply.content.execution_count, 2);
+        }
+        _ => {
+            panic!("Unexpected execute reply received: {:?}", reply);
+        }
+    }
+
     // Test the heartbeat
     info!("Sending heartbeat to the kernel");
     let msg = zmq::Message::from("Heartbeat");
@@ -260,4 +288,62 @@ fn test_kernel() {
     info!("Waiting for heartbeat reply");
     let reply = frontend.receive_heartbeat();
     assert_eq!(reply, zmq::Message::from("Heartbeat"));
+
+    // Test the comms
+    info!("Sending comm open request to the kernel");
+    let comm_id = "A3A6D0EA-1443-4F70-B059-F423E445B8D6";
+    frontend.send_shell(CommOpen {
+        comm_id: comm_id.to_string(),
+        target_name: "environment".to_string(),
+        data: serde_json::Value::Null,
+    });
+
+    info!("Requesting comm info from the kernel (to test opening)");
+    frontend.send_shell(CommInfoRequest {
+        target_name: "environment".to_string(),
+    });
+    let reply = frontend.receive_shell();
+    match reply {
+        Message::CommInfoReply(request) => {
+            info!("Got comm info: {:?}", request);
+            // Ensure the comm we just opened is in the list of comms
+            let comms = request.content.comms.as_object().unwrap();
+            assert!(comms.contains_key(comm_id));
+        }
+        _ => {
+            panic!(
+                "Unexpected message received (expected comm info): {:?}",
+                reply
+            );
+        }
+    }
+
+    // Test closing the comm we just opened
+    info!("Sending comm close request to the kernel");
+    frontend.send_shell(CommClose {
+        comm_id: comm_id.to_string(),
+    });
+
+    // Test to see if the comm is still in the list of comms after closing it
+    // (it should not be)
+    info!("Requesting comm info from the kernel (to test closing)");
+    frontend.send_shell(CommInfoRequest {
+        target_name: "environment".to_string(),
+    });
+    let reply = frontend.receive_shell();
+    match reply {
+        Message::CommInfoReply(request) => {
+            info!("Got comm info: {:?}", request);
+            // Ensure the comm we just closed not present in the list of comms
+            let comms = request.content.comms.as_object().unwrap();
+            assert!(!comms.contains_key(comm_id));
+        }
+        _ => {
+            panic!(
+                "Unexpected message received (expected comm info): {:?}",
+                reply
+            );
+        }
+    }
+
 }

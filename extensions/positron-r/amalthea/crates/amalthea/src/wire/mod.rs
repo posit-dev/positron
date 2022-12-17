@@ -5,6 +5,8 @@
  *
  */
 
+pub mod client_event;
+pub mod comm_close;
 pub mod comm_info_reply;
 pub mod comm_info_request;
 pub mod comm_msg;
@@ -39,4 +41,3 @@ pub mod shutdown_request;
 pub mod status;
 pub mod stream;
 pub mod wire_message;
-pub mod client_event;

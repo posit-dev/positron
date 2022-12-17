@@ -19,6 +19,7 @@ import { JupyterMessage } from './JupyterMessage';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommOpen } from './JupyterCommOpen';
+import { JupyterCommClose } from './JupyterCommClose';
 import { v4 as uuidv4 } from 'uuid';
 import { JupyterShutdownRequest } from './JupyterShutdownRequest';
 import { JupyterInterruptRequest } from './JupyterInterruptRequest';
@@ -30,6 +31,7 @@ import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { JupyterInputReply } from './JupyterInputReply';
 import { StringDecoder } from 'string_decoder';
 import { Tail } from 'tail';
+import { JupyterCommMsg } from './JupyterCommMsg';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -284,6 +286,52 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			}
 		};
 		this.send(uuidv4(), 'comm_open', this._shell!, msg);
+	}
+
+	/**
+	 * Opens a new communications channel (comm) with the kernel.
+	 *
+	 * @param targetName The name of the target comm to create.
+	 * @param id The ID of the comm to create.
+	 * @param data Data to send to the comm.
+	 */
+	public openComm(targetName: string, id: string, data: any) {
+		// Create the message to send to the kernel
+		const msg: JupyterCommOpen = {
+			target_name: targetName,  // eslint-disable-line
+			comm_id: id,  // eslint-disable-line
+			data: data
+		};
+
+		// Dispatch it
+		this.send(uuidv4(), 'comm_open', this._shell!, msg);
+	}
+
+	/**
+	 * Closes a communications channel (comm) with the kernel.
+	 */
+	public closeComm(id: string) {
+		// Create the message to send to the kernel
+		const msg: JupyterCommClose = {
+			comm_id: id  // eslint-disable-line
+		};
+
+		// Dispatch it
+		this.send(uuidv4(), 'comm_close', this._shell!, msg);
+	}
+
+	/**
+	 * Sends a message to a communications channel (comm) with the kernel.
+	 */
+	public sendCommMessage(id: string, data: any) {
+		// Create the message to send to the kernel
+		const msg: JupyterCommMsg = {
+			comm_id: id,  // eslint-disable-line
+			data: data
+		};
+
+		// Dispatch it
+		this.send(uuidv4(), 'comm_msg', this._shell!, msg);
 	}
 
 	/**

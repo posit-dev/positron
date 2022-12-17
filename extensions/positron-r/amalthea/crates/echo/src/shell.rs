@@ -5,12 +5,10 @@
  *
  */
 
+use amalthea::comm::comm_channel::Comm;
+use amalthea::comm::comm_channel::CommChannel;
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
-use amalthea::wire::comm_info_reply::CommInfoReply;
-use amalthea::wire::comm_info_request::CommInfoRequest;
-use amalthea::wire::comm_msg::CommMsg;
-use amalthea::wire::comm_open::CommOpen;
 use amalthea::wire::complete_reply::CompleteReply;
 use amalthea::wire::complete_request::CompleteRequest;
 use amalthea::wire::exception::Exception;
@@ -91,17 +89,6 @@ impl ShellHandler for Shell {
         })
     }
 
-    /// Handle a request for open comms
-    async fn handle_comm_info_request(
-        &self,
-        _req: &CommInfoRequest,
-    ) -> Result<CommInfoReply, Exception> {
-        // No comms in this toy implementation.
-        Ok(CommInfoReply {
-            status: Status::Ok,
-            comms: serde_json::Value::Null,
-        })
-    }
 
     /// Handle a request to test code for completion.
     async fn handle_is_complete_request(
@@ -212,14 +199,9 @@ impl ShellHandler for Shell {
         })
     }
 
-    async fn handle_comm_open(&self, _req: &CommOpen) -> Result<(), Exception> {
-        // NYI
-        Ok(())
-    }
-
-    async fn handle_comm_msg(&self, _req: &CommMsg) -> Result<(), Exception> {
-        // NYI
-        Ok(())
+    async fn handle_comm_open(&self, _comm: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
+        // No comms in this toy implementation.
+        Ok(None)
     }
 
     async fn handle_input_reply(&self, _msg: &InputReply) -> Result<(), Exception> {

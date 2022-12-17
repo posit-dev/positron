@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable } from 'vs/workbench/api/common/extHostTypes';
@@ -60,6 +60,27 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimes[handle].execute(code, id, mode, errorBehavior);
 	}
 
+	$createClient(handle: number, type: RuntimeClientType): Promise<string> {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot create '${type}' client: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		return Promise.resolve(this._runtimes[handle].createClient(type));
+	}
+
+	$removeClient(handle: number, id: string): void {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot remove client: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		this._runtimes[handle].removeClient(id);
+	}
+
+	$sendClientMessage(handle: number, id: string, message: any): void {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot send message to client: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		this._runtimes[handle].sendClientMessage(id, message);
+	}
+
 	$replyToPrompt(handle: number, id: string, response: string): void {
 		if (handle >= this._runtimes.length) {
 			throw new Error(`Cannot reply to prompt: language runtime handle '${handle}' not found or no longer valid.`);
@@ -88,3 +109,4 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 }
+

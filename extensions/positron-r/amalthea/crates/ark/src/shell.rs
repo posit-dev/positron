@@ -5,13 +5,10 @@
 //
 //
 
+use amalthea::comm::comm_channel::Comm;
+use amalthea::comm::comm_channel::CommChannel;
 use amalthea::language::shell_handler::ShellHandler;
-use amalthea::language::lsp_handler::LspHandler;
 use amalthea::socket::iopub::IOPubMessage;
-use amalthea::wire::comm_info_reply::CommInfoReply;
-use amalthea::wire::comm_info_request::CommInfoRequest;
-use amalthea::wire::comm_msg::CommMsg;
-use amalthea::wire::comm_open::CommOpen;
 use amalthea::wire::complete_reply::CompleteReply;
 use amalthea::wire::complete_request::CompleteRequest;
 use amalthea::wire::exception::Exception;
@@ -40,16 +37,14 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use crate::kernel::KernelInfo;
-use crate::lsp;
-use crate::lsp::handler::Lsp;
 use crate::request::Request;
+use crate::comm::environment::EnvironmentInstance;
 
 
 pub struct Shell {
     req_sender: SyncSender<Request>,
     init_receiver: Arc<Mutex<Receiver<KernelInfo>>>,
     kernel_info: Option<KernelInfo>,
-    lsp: Lsp
 }
 
 impl Shell {
@@ -65,8 +60,7 @@ impl Shell {
         Self {
             req_sender: req_sender.clone(),
             init_receiver: Arc::new(Mutex::new(init_receiver)),
-            kernel_info: None,
-            lsp: Lsp::new(req_sender)
+            kernel_info: None
         }
     }
 
@@ -84,11 +78,6 @@ impl Shell {
     /// shell handler
     pub fn request_sender(&self) -> SyncSender<Request> {
         self.req_sender.clone()
-    }
-
-    /// Starts the Language Server Protocol server thread
-    pub fn start_lsp(&self, client_address: String) {
-        self.lsp.start(client_address).unwrap();
     }
 }
 
@@ -145,20 +134,6 @@ impl ShellHandler for Shell {
             cursor_start: 0,
             cursor_end: 0,
             metadata: json!({}),
-        })
-    }
-
-    /// Handle a request for open comms
-    async fn handle_comm_info_request(
-        &self,
-        _req: &CommInfoRequest,
-    ) -> Result<CommInfoReply, Exception> {
-        let comms = json!({
-            lsp::comm::LSP_COMM_ID: "Language Server Protocol"
-        });
-        Ok(CommInfoReply {
-            status: Status::Ok,
-            comms: comms,
         })
     }
 
@@ -238,31 +213,15 @@ impl ShellHandler for Shell {
     }
 
     /// Handles a request to open a new comm channel
-    async fn handle_comm_open(&self, req: &CommOpen) -> Result<(), Exception> {
-        if req.comm_id.eq(lsp::comm::LSP_COMM_ID) {
-            // TODO: If LSP is already started, don't start another one
-            let data = serde_json::from_value::<lsp::comm::StartLsp>(req.data.clone());
-            match data {
-                Ok(msg) => {
-                    debug!(
-                        "Received request to start LSP and connect to client at {}",
-                        msg.client_address
-                    );
-                    self.start_lsp(msg.client_address);
-                }
-                Err(err) => {
-                    warn!("Unexpected data for LSP comm: {:?} ({})", req.data, err);
-                }
+    async fn handle_comm_open(&self, comm: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
+        match comm {
+            Comm::Environment => {
+                Ok(Some(Box::new(EnvironmentInstance{})))
             }
-        } else {
-            warn!("Request to open unknown comm: {:?}", req.data);
+            _ => {
+                Ok(None)
+            }
         }
-        Ok(())
-    }
-
-    async fn handle_comm_msg(&self, _req: &CommMsg) -> Result<(), Exception> {
-        // NYI
-        Ok(())
     }
 
     /// Handles a reply to an input_request; forwarded from the Stdin channel

@@ -24,12 +24,13 @@ mod lsp;
 mod request;
 mod shell;
 mod version;
+mod comm;
 
 use crate::control::Control;
 use crate::shell::Shell;
 use crate::version::detect_r;
 
-fn start_kernel(connection_file: ConnectionFile) {
+fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
 
     // Create a new kernel from the connection file
     let mut kernel = match Kernel::new(connection_file) {
@@ -54,9 +55,17 @@ fn start_kernel(connection_file: ConnectionFile) {
     // related requests
     let control = Arc::new(Mutex::new(Control::new(shell.request_sender())));
 
+    // Create the stream behavior; this determines whether the kernel should
+    // capture stdout/stderr and send them to the front end as IOPub messages
+    let stream_behavior = if capture_streams {
+        amalthea::kernel::StreamBehavior::Capture
+    } else {
+        amalthea::kernel::StreamBehavior::None
+    };
+
     // Create the kernel
     let shell = Arc::new(Mutex::new(shell));
-    match kernel.connect(shell, control, Some(lsp)) {
+    match kernel.connect(shell, control, Some(lsp), stream_behavior) {
         Ok(()) => {
             let mut s = String::new();
             println!("R Kernel exiting.");
@@ -116,7 +125,7 @@ fn install_kernel_spec() {
     );
 }
 
-fn parse_file(connection_file: &String) {
+fn parse_file(connection_file: &String, capture_streams: bool) {
     match ConnectionFile::from_file(connection_file) {
         Ok(connection) => {
             info!(
@@ -124,7 +133,7 @@ fn parse_file(connection_file: &String) {
                 connection_file
             );
             debug!("Connection data: {:?}", connection);
-            start_kernel(connection);
+            start_kernel(connection, capture_streams);
         }
         Err(error) => {
             error!(
@@ -144,6 +153,7 @@ Available options:
 
 --connection_file FILE   Start the kernel with the given JSON connection file
                          (see the Jupyter kernel documentation for details)
+--no-capture-streams     Do not capture stdout/stderr from R
 --version                Print the version of Ark
 --log FILE               Log to the given file (if not specified, stdout/stderr
                          will be used)
@@ -170,6 +180,7 @@ fn main() {
     let mut connection_file: Option<String> = None;
     let mut log_file: Option<String> = None;
     let mut has_action = false;
+    let mut capture_streams = true;
 
     // Process remaining arguments. TODO: Need an argument that can passthrough args to R
     while let Some(arg) = argv.next() {
@@ -195,6 +206,9 @@ fn main() {
                 print_usage();
                 has_action = true;
             }
+            "--no-capture-streams" => {
+                capture_streams = false
+            },
             "--log" => {
                 if let Some(file) = argv.next() {
                     log_file = Some(file);
@@ -225,6 +239,6 @@ fn main() {
 
     // Parse the connection file and start the kernel
     if let Some(connection) = connection_file {
-        parse_file(&connection);
+        parse_file(&connection, capture_streams);
     }
 }
