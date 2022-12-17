@@ -26,19 +26,6 @@
         ],
         "configuration": "./language-configuration.json"
       }
-    ],
-    "grammars": [
-      {
-        "language": "bat",
-        "scopeName": "source.batchfile",
-        "path": "./syntaxes/batchfile.tmLanguage.json"
-      }
-    ],
-    "snippets": [
-      {
-        "language": "bat",
-        "path": "./snippets/batchfile.code-snippets"
-      }
     ]
 	},
 	"scripts": {
