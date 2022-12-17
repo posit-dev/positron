@@ -11,6 +11,7 @@ exports.dirs = [
 	// --- Start Positron ---
 	'extensions/positron-r',
 	'extensions/positron-python',
+	'extensions/positron-zed',
 	// --- End Positron ---
 	'extensions/configuration-editing',
 	'extensions/css-language-features',
