@@ -9,13 +9,141 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { Codicon } from 'vs/base/common/codicons';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILogService } from 'vs/platform/log/common/log';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 
+/**
+ * Asks the user to select a language runtime.
+ * @param quickInputService The quick input service.
+ * @param languageRuntimes The language runtimes the user can select from.
+ * @returns The language runtime the user selected, or undefined, if they canceled the operation.
+ */
+const askUserToSelectLanguageRuntime = async (quickInputService: IQuickInputService, languageRuntimes: ILanguageRuntime[]): Promise<ILanguageRuntime | undefined> => {
+	// Build the quick pick items for available runtimes.
+	const languageRuntimeQuickPickItems = languageRuntimes.map<IQuickPickItem & { languageRuntime: ILanguageRuntime }>(languageRuntime => {
+		return {
+			id: languageRuntime.metadata.id,
+			label: languageRuntime.metadata.name,
+			description: languageRuntime.metadata.version,
+			languageRuntime
+		};
+	});
+
+	// Prompt the user to select a kernel/runtime
+	const languageRuntimeQuickPickItem = await quickInputService.pick(languageRuntimeQuickPickItems, {
+		canPickMany: false,
+		placeHolder: nls.localize('language runtime placeholder', 'Select Language Runtime')
+	});
+
+	// Done.
+	return languageRuntimeQuickPickItem?.languageRuntime;
+};
+
+/**
+ * Registers language runtime actions.
+ */
 export function registerLanguageRuntimeActions() {
+	// The category for language runtime actions.
 	const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
+
+	// Start Language Runtime.
+	registerAction2(class extends Action2 {
+		// Constructor.
+		constructor() {
+			super({
+				id: LanguageRuntimeCommandId.Select,
+				title: { value: nls.localize('workbench.action.language.runtime.start', "Start Language Runtime"), original: 'Start Language Runtime' },
+				f1: true,
+				category,
+				icon: Codicon.plus,
+				// TODO: Add 'keybinding' member with a default keybinding
+				description: {
+					description: 'workbench.action.language.runtime.start',
+					args: [{
+						name: 'options',
+						schema: {
+							type: 'object'
+						}
+					}]
+				}
+			});
+		}
+
+		/**
+		 * Runs the action.
+		 * @param accessor The service accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// Retrieve services
+			const extensionService = accessor.get(IExtensionService);
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const quickInputService = accessor.get(IQuickInputService);
+
+			// Ensure that the python extension is loaded.
+			await extensionService.activateByEvent('onLanguage:python');
+
+			// Get the available language runtimes.
+			const allLanguageRuntimes = languageRuntimeService.getAllRuntimes();
+			if (!allLanguageRuntimes.length) {
+				alert(nls.localize('positronNoInstalledRuntimes', "No language runtimes are currently installed."));
+				return;
+			}
+
+			// Have the user select the the language runtime to start. If they selected one, start it.
+			const languageRuntime = await askUserToSelectLanguageRuntime(quickInputService, allLanguageRuntimes);
+			if (languageRuntime) {
+				languageRuntimeService.startRuntime(languageRuntime.metadata.id);
+			}
+		}
+	});
+
+	// Shutdown Language Runtime.
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LanguageRuntimeCommandId.Select,
+				title: { value: nls.localize('workbench.action.language.runtime.shutdown', "Shutdown Language Runtime"), original: 'Shutdown Language Runtime' },
+				f1: true,
+				category,
+				icon: Codicon.stop,
+				// TODO: Add 'keybinding' member with a default keybinding
+				description: {
+					description: 'workbench.action.language.runtime.shutdown',
+					args: [{
+						name: 'options',
+						schema: {
+							type: 'object'
+						}
+					}]
+				}
+			});
+		}
+
+		/**
+		 * Prompts the user to select a language runtime
+		 *
+		 * @param accessor The service accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// Retrieve services
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const quickInputService = accessor.get(IQuickInputService);
+
+			// Get the available language runtimes.
+			const allLanguageRuntimes = languageRuntimeService.getActiveRuntimes();
+			if (!allLanguageRuntimes.length) {
+				alert(nls.localize('positronNoStartedRuntimes', "No language runtimes are currently started."));
+				return;
+			}
+
+			// Have the user select the the language runtime to shutdown. If they selected one, shut it down.
+			const languageRuntime = await askUserToSelectLanguageRuntime(quickInputService, allLanguageRuntimes);
+			if (languageRuntime) {
+				languageRuntime.shutdown();
+			}
+		}
+	});
 
 	registerAction2(class extends Action2 {
 		constructor() {
@@ -46,47 +174,23 @@ export function registerLanguageRuntimeActions() {
 		async run(accessor: ServicesAccessor) {
 			// Retrieve services
 			const extensionService = accessor.get(IExtensionService);
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const pickService = accessor.get(IQuickInputService);
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const quickInputService = accessor.get(IQuickInputService);
 
-			// ensure that the python extension is loaded
+			// Ensure that the python extension is loaded.
 			await extensionService.activateByEvent('onLanguage:python');
 
-			// Get the list of available runtimes
-			const allRuntimes = languageService.getAllRuntimes();
-
-			// Ensure we got at least one kernel to select from
-			if (allRuntimes.length < 1) {
-				throw new Error('No language runtimes are currently installed.');
+			// Get the available language runtimes.
+			const allLanguageRuntimes = languageRuntimeService.getAllRuntimes();
+			if (!allLanguageRuntimes.length) {
+				alert(nls.localize('positronNoInstalledRuntimes', "No language runtimes are currently installed."));
+				return;
 			}
 
-			// Map to quick-pick items for user selection
-			const selections = allRuntimes.map((k) => (<IQuickPickItem>{
-				id: k.metadata.id,
-				label: k.metadata.name,
-				description: k.metadata.version
-			}));
-
-			// Prompt the user to select a kernel/runtime
-			const selection = await pickService.pick(selections, {
-				canPickMany: false,
-				placeHolder: nls.localize('language runtime placeholder', 'Select Language Runtime')
-			});
-
-			// Find the kernel the user selected and register it
-			if (selection) {
-				for (let i = 0; i < allRuntimes.length; i++) {
-					const runtime = allRuntimes[i];
-					if (selection.id === runtime.metadata.id) {
-						// Start the runtime if there aren't any active
-						if (languageService.getActiveRuntimes().length < 1) {
-							languageService.startRuntime(runtime.metadata.id);
-						} else {
-							throw new Error('Only one language runtime can be active at a time.');
-						}
-						break;
-					}
-				}
+			// Have the user select the the language runtime to start. If they selected one, start it.
+			const languageRuntime = await askUserToSelectLanguageRuntime(quickInputService, allLanguageRuntimes);
+			if (languageRuntime) {
+				languageRuntimeService.startRuntime(languageRuntime.metadata.id);
 			}
 		}
 	});
@@ -119,30 +223,21 @@ export function registerLanguageRuntimeActions() {
 		 */
 		async run(accessor: ServicesAccessor) {
 			// Retrieve services
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const logService = accessor.get(ILogService);
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const quickInputService = accessor.get(IQuickInputService);
 
-			const active = languageService.getActiveRuntimes();
-			if (active.length < 1) {
-				// Tell the user there are no active runtimes
-				throw new Error('No language runtimes are active.');
+			// Get the active language runtimes.
+			const activeLanguageRuntimes = languageRuntimeService.getActiveRuntimes();
+			if (!activeLanguageRuntimes.length) {
+				alert(nls.localize('positronNoActiveRuntimes', "No language runtimes are currently active."));
+				return;
 			}
 
-			// Interrupt the active runtime
-			if (active.length > 1) {
-				// TODO: It will be possible in the future for multiple runtimes
-				// to be active at once. When this is true, we will need more
-				// sophisiticated logic here; for example:
-				//
-				// - which runtime is currently in the busy state?
-				// - which runtime is currently visible in on or more panes?
-				//
-				// For now, we'll just interrupt the first one.
-				logService.warn('More than one language runtime is active. Interrupting only the first.');
+			// Have the user select the the language runtime to interrupt. If they selected one, start it.
+			const languageRuntime = await askUserToSelectLanguageRuntime(quickInputService, activeLanguageRuntimes);
+			if (languageRuntime) {
+				languageRuntime.interrupt();
 			}
-
-			// Interrupt the runtime
-			active[0].interrupt();
 		}
 	});
 
@@ -173,18 +268,22 @@ export function registerLanguageRuntimeActions() {
 		 * @param accessor The service accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const logService = accessor.get(ILogService);
-			const active = languageService.getActiveRuntimes();
-			if (active.length < 1) {
-				throw new Error('Cannot restart; no language runtimes are active.');
+			// Retrieve services
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const quickInputService = accessor.get(IQuickInputService);
+
+			// Get the active language runtimes.
+			const activeLanguageRuntimes = languageRuntimeService.getActiveRuntimes();
+			if (!activeLanguageRuntimes.length) {
+				alert(nls.localize('positronNoActiveRuntimes', "No language runtimes are currently active."));
+				return;
 			}
 
-			if (active.length > 1) {
-				logService.warn('More than one language runtime is active. Restarting only the first.');
+			// Have the user select the the language runtime to interrupt. If they selected one, start it.
+			const languageRuntime = await askUserToSelectLanguageRuntime(quickInputService, activeLanguageRuntimes);
+			if (languageRuntime) {
+				languageRuntime.restart();
 			}
-
-			active[0].restart();
 		}
 	});
 
@@ -216,11 +315,11 @@ export function registerLanguageRuntimeActions() {
 		 */
 		async run(accessor: ServicesAccessor) {
 			// Retrieve services
-			const languageService = accessor.get(ILanguageRuntimeService);
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 			const pickService = accessor.get(IQuickInputService);
 
 			// Get the list of available runtimes
-			const runtimes = languageService.getActiveRuntimes();
+			const runtimes = languageRuntimeService.getActiveRuntimes();
 
 			// Ensure we got at least one
 			if (runtimes.length < 1) {
@@ -277,11 +376,11 @@ export function registerLanguageRuntimeActions() {
 		 */
 		async run(accessor: ServicesAccessor) {
 			// Retrieve services
-			const languageService = accessor.get(ILanguageRuntimeService);
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 			const pickService = accessor.get(IQuickInputService);
 
 			// Get the list of available runtimes
-			const runtimes = languageService.getActiveRuntimes();
+			const runtimes = languageRuntimeService.getActiveRuntimes();
 
 			// Ensure we got at least one
 			if (runtimes.length < 1) {
