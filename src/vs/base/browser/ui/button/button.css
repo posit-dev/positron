@@ -16,6 +16,8 @@
 	/* --- Start Positron --- */
 	border-radius: 5px;
 	/* --- End Positron --- */
+	border: 1px solid var(--vscode-button-border, transparent);
+	line-height: 18px;
 }
 
 .monaco-text-button:focus {
