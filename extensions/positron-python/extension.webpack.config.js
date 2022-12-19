@@ -20,6 +20,7 @@ module.exports = withDefaults({
     },
     externals: [
         'vscode',
+        'positron',
         'commonjs',
         'applicationinsights-native-metrics',
         '@opentelemetry/tracing',
