@@ -2,321 +2,229 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import * as nls from 'vs/nls';
-import { LanguageRuntimeCommandId, LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
+import { generateUuid } from 'vs/base/common/uuid';
 import { ILocalizedString } from 'vs/platform/action/common/action';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { Codicon } from 'vs/base/common/codicons';
-import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILogService } from 'vs/platform/log/common/log';
+import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
+import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
+import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
+import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
+// The category for language runtime actions.
+const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
+
+// Quick pick item interfaces.
+interface LanguageRuntimeQuickPickItem extends IQuickPickItem { languageRuntime: ILanguageRuntime }
+interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
+interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance }
+
+/**
+ * Helper function that asks the user to select a language runtime from an array of language runtimes.
+ * @param quickInputService The quick input service.
+ * @param languageRuntimes The language runtimes the user can select from.
+ * @param placeHolder The placeholder for the quick input.
+ * @returns The language runtime the user selected, or undefined, if the user canceled the operation.
+ */
+export const selectLanguageRuntime = async (
+	quickInputService: IQuickInputService,
+	languageRuntimes: ILanguageRuntime[],
+	placeHolder: string): Promise<ILanguageRuntime | undefined> => {
+
+	// Build the language runtime quick pick items.
+	const languageRuntimeQuickPickItems = languageRuntimes.map<LanguageRuntimeQuickPickItem>(languageRuntime => ({
+		id: languageRuntime.metadata.id,
+		label: languageRuntime.metadata.name,
+		description: languageRuntime.metadata.version,
+		languageRuntime
+	} satisfies LanguageRuntimeQuickPickItem));
+
+	// Prompt the user to select a language runtime.
+	const languageRuntimeQuickPickItem = await quickInputService.pick<LanguageRuntimeQuickPickItem>(languageRuntimeQuickPickItems, {
+		canPickMany: false,
+		placeHolder
+	});
+
+	// Done.
+	return languageRuntimeQuickPickItem?.languageRuntime;
+};
+
+/**
+ * Helper function that asks the user to select an active language runtime.
+ * @param languageRuntimeService The language runtime service.
+ * @param quickInputService The quick input service.
+ * @param placeHolder The placeholder for the quick input.
+ * @returns The language runtime the user selected, or undefined, if there are no active language runtimes or the user canceled the operation.
+ */
+const selectActiveLanguageRuntime = async (
+	languageRuntimeService: ILanguageRuntimeService,
+	quickInputService: IQuickInputService,
+	placeHolder: string): Promise<ILanguageRuntime | undefined> => {
+
+	// Get the active language runtimes.
+	const activeLanguageRuntimes = languageRuntimeService.getActiveRuntimes();
+	if (!activeLanguageRuntimes.length) {
+		alert('No language runtimes are currently started.');
+		return undefined;
+	}
+
+	// As the user to select the active language runtime.
+	return await selectLanguageRuntime(quickInputService, activeLanguageRuntimes, placeHolder);
+};
+
+/**
+ * Registers language runtime actions.
+ */
 export function registerLanguageRuntimeActions() {
-	const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
-
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				id: LanguageRuntimeCommandId.Select,
-				title: { value: nls.localize('workbench.action.language.runtime.select', "Select Active Language Runtime"), original: 'Select Active Language Runtime' },
-				f1: true,
-				category,
-				icon: Codicon.plus,
-				// TODO: Add 'keybinding' member with a default keybinding
-				description: {
-					description: 'workbench.action.language.runtime.select',
-					args: [{
-						name: 'options',
-						schema: {
-							type: 'object'
-						}
-					}]
-				}
-			});
-		}
-
-		/**
-		 * Prompts the user to select a language runtime
-		 *
-		 * @param accessor The service accessor.
-		 */
-		async run(accessor: ServicesAccessor) {
-			// Retrieve services
-			const extensionService = accessor.get(IExtensionService);
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const pickService = accessor.get(IQuickInputService);
-
-			// ensure that the python extension is loaded
-			await extensionService.activateByEvent('onLanguage:python');
-
-			// Get the list of available runtimes
-			const allRuntimes = languageService.getAllRuntimes();
-
-			// Ensure we got at least one kernel to select from
-			if (allRuntimes.length < 1) {
-				throw new Error('No language runtimes are currently installed.');
-			}
-
-			// Map to quick-pick items for user selection
-			const selections = allRuntimes.map((k) => (<IQuickPickItem>{
-				id: k.metadata.id,
-				label: k.metadata.name,
-				description: k.metadata.version
-			}));
-
-			// Prompt the user to select a kernel/runtime
-			const selection = await pickService.pick(selections, {
-				canPickMany: false,
-				placeHolder: nls.localize('language runtime placeholder', 'Select Language Runtime')
-			});
-
-			// Find the kernel the user selected and register it
-			if (selection) {
-				for (let i = 0; i < allRuntimes.length; i++) {
-					const runtime = allRuntimes[i];
-					if (selection.id === runtime.metadata.id) {
-						// Start the runtime if there aren't any active
-						if (languageService.getActiveRuntimes().length < 1) {
-							languageService.startRuntime(runtime.metadata.id);
-						} else {
-							throw new Error('Only one language runtime can be active at a time.');
-						}
-						break;
+	/**
+	 * Helper function to register a language runtime action.
+	 * @param id The ID of the language runtime action.
+	 * @param title The title of the language runtime action.
+	 * @param action The action function to run.
+	 */
+	const registerLanguageRuntimeAction = (id: string, title: string, action: (accessor: ServicesAccessor) => Promise<void>): void => {
+		registerAction2(class extends Action2 {
+			// Constructor.
+			constructor() {
+				super({
+					id,
+					title: { value: title, original: title },
+					f1: true,
+					category,
+					precondition: IsDevelopmentContext,
+					description: {
+						description: id,
+						args: [{
+							name: 'options',
+							schema: {
+								type: 'object'
+							}
+						}]
 					}
-				}
+				});
 			}
+
+			/**
+			 * Runs the action.
+			 * @param accessor The service accessor.
+			 */
+			async run(accessor: ServicesAccessor) {
+				await action(accessor);
+			}
+		});
+	};
+
+	// Registers the start language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.start', 'Start Language Runtime', async accessor => {
+		// Access services.
+		const extensionService = accessor.get(IExtensionService);
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+		const quickInputService = accessor.get(IQuickInputService);
+
+		// Ensure that the python extension is loaded.
+		await extensionService.activateByEvent('onLanguage:python');
+
+		// Get the available language runtimes.
+		const allLanguageRuntimes = languageRuntimeService.getAllRuntimes();
+		if (!allLanguageRuntimes.length) {
+			alert(nls.localize('positronNoInstalledRuntimes', "No language runtimes are currently installed."));
+			return;
+		}
+
+		// Ask the user to select the language runtime to start. If they selected one, start it.
+		const languageRuntime = await selectLanguageRuntime(quickInputService, allLanguageRuntimes, 'Select the language runtime to start');
+		if (languageRuntime) {
+			languageRuntimeService.startRuntime(languageRuntime.metadata.id);
 		}
 	});
 
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				id: LanguageRuntimeCommandId.Interrupt,
-				title: { value: nls.localize('workbench.action.language.runtime.interrupt', "Interrupt Active Language Runtime"), original: 'Interrupt Active Language Runtime' },
-				f1: true,
-				category,
-				icon: Codicon.stop,
-				// TODO: Add 'keybinding' member with a default keybinding
-				description: {
-					description: 'workbench.action.language.runtime.interrupt',
-					args: [{
-						name: 'options',
-						schema: {
-							type: 'object'
-						}
-					}]
-				}
-			});
+	// Registers the restart language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.restart', 'Restart Language Runtime', async accessor => {
+		(await selectActiveLanguageRuntime(
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IQuickInputService),
+			'Select the language runtime to restart'))?.restart();
+	});
+
+	// Registers the interrupt language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Language Runtime', async accessor => {
+		(await selectActiveLanguageRuntime(
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IQuickInputService),
+			'Select the language runtime to interrupt'))?.interrupt();
+	});
+
+	// Registers the shutdown language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.shutdown', 'Shutdown Language Runtime', async accessor => {
+		(await selectActiveLanguageRuntime(
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IQuickInputService),
+			'Select the language runtime to shutdown'))?.shutdown();
+	});
+
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create New Runtime Client Widget', async accessor => {
+		// Access services.
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+		const quickInputService = accessor.get(IQuickInputService);
+
+		// Ask the user to select an active language runtime.
+		const languageRuntime = await selectActiveLanguageRuntime(languageRuntimeService, quickInputService, 'Select the language runtime');
+		if (!languageRuntime) {
+			return;
 		}
 
-		/**
-		 * Interrupts the active language runtime
-		 *
-		 * @param accessor The service accessor.
-		 */
-		async run(accessor: ServicesAccessor) {
-			// Retrieve services
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const logService = accessor.get(ILogService);
+		// Prompt the user to select the runtime client type.
+		const selection = await quickInputService.pick<RuntimeClientTypeQuickPickItem>([{
+			id: generateUuid(),
+			label: 'Environment Pane',
+			runtimeClientType: RuntimeClientType.Environment,
+		}], {
+			canPickMany: false,
+			placeHolder: `Select runtime client for ${languageRuntime.metadata.name}`
+		});
 
-			const active = languageService.getActiveRuntimes();
-			if (active.length < 1) {
-				// Tell the user there are no active runtimes
-				throw new Error('No language runtimes are active.');
-			}
-
-			// Interrupt the active runtime
-			if (active.length > 1) {
-				// TODO: It will be possible in the future for multiple runtimes
-				// to be active at once. When this is true, we will need more
-				// sophisiticated logic here; for example:
-				//
-				// - which runtime is currently in the busy state?
-				// - which runtime is currently visible in on or more panes?
-				//
-				// For now, we'll just interrupt the first one.
-				logService.warn('More than one language runtime is active. Interrupting only the first.');
-			}
-
-			// Interrupt the runtime
-			active[0].interrupt();
+		// If the user selected a runtime client type, create the client for it.
+		if (selection) {
+			languageRuntime.createClient(selection.runtimeClientType);
 		}
 	});
 
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				id: LanguageRuntimeCommandId.Restart,
-				title: { value: nls.localize('workbench.action.language.runtime.restart', "Restart Active Language Runtime"), original: 'Restart Active Language Runtime' },
-				f1: true,
-				category,
-				icon: Codicon.refresh,
-				// TODO: Add 'keybinding' member with a default keybinding
-				description: {
-					description: 'workbench.action.language.runtime.restart',
-					args: [{
-						name: 'options',
-						schema: {
-							type: 'object'
-						}
-					}]
-				}
-			});
+	registerLanguageRuntimeAction('workbench.action.language.runtime.closeClient', 'Close Runtime Client Widget', async accessor => {
+		// Access services.
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+		const quickInputService = accessor.get(IQuickInputService);
+
+		// Ask the user to select an active language runtime.
+		const languageRuntime = await selectActiveLanguageRuntime(languageRuntimeService, quickInputService, 'Select the language runtime');
+		if (!languageRuntime) {
+			return;
 		}
 
-		/**
-		 * Restarts the active language runtime
-		 *
-		 * @param accessor The service accessor.
-		 */
-		async run(accessor: ServicesAccessor) {
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const logService = accessor.get(ILogService);
-			const active = languageService.getActiveRuntimes();
-			if (active.length < 1) {
-				throw new Error('Cannot restart; no language runtimes are active.');
-			}
-
-			if (active.length > 1) {
-				logService.warn('More than one language runtime is active. Restarting only the first.');
-			}
-
-			active[0].restart();
-		}
-	});
-
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				id: LanguageRuntimeCommandId.OpenClient,
-				title: { value: nls.localize('workbench.action.language.runtime.openClient', "Create New Runtime Client Widget"), original: 'Create New Runtime Client Widget' },
-				f1: true,
-				category,
-				icon: Codicon.plus,
-				precondition: IsDevelopmentContext,
-				description: {
-					description: 'workbench.action.language.runtime.openClient',
-					args: [{
-						name: 'options',
-						schema: {
-							type: 'object'
-						}
-					}]
-				}
-			});
+		// Get the runtime client instances for the language runtime.
+		const runtimeClientInstances = await languageRuntime.listClients();
+		if (!runtimeClientInstances.length) {
+			alert('No clients are currently started.');
+			return;
 		}
 
-		/**
-		 * Prompts the user to select a client to open
-		 *
-		 * @param accessor The service accessor.
-		 */
-		async run(accessor: ServicesAccessor) {
-			// Retrieve services
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const pickService = accessor.get(IQuickInputService);
+		// Create runtime client instance quick pick items.
+		const runtimeClientInstanceQuickPickItems = runtimeClientInstances.map<RuntimeClientInstanceQuickPickItem>(runtimeClientInstance => ({
+			id: generateUuid(),
+			label: runtimeClientInstance.getClientType(),
+			runtimeClientInstance,
+		} satisfies RuntimeClientInstanceQuickPickItem));
 
-			// Get the list of available runtimes
-			const runtimes = languageService.getActiveRuntimes();
+		// Prompt the user to select a runtime client instance.
+		const selection = await quickInputService.pick<RuntimeClientInstanceQuickPickItem>(runtimeClientInstanceQuickPickItems, {
+			canPickMany: false,
+			placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', languageRuntime.metadata.name)
+		});
 
-			// Ensure we got at least one
-			if (runtimes.length < 1) {
-				throw new Error('No language runtimes are currently active.');
-			}
-
-			// Select the first one
-			const runtime = runtimes[0];
-
-			// Map to quick-pick items for user selection
-			const selections = [<IQuickPickItem>{
-				id: RuntimeClientType.Environment,
-				label: 'Environment Pane'
-			}];
-
-			// Prompt the user to select a client
-			const selection = await pickService.pick(selections, {
-				canPickMany: false,
-				placeHolder: nls.localize('Client Open Selection Placeholder', 'Start Client for {0}', runtime.metadata.name)
-			});
-
-			// Find the kernel the user selected and register it
-			if (selection) {
-				runtime.createClient(selection.id as RuntimeClientType);
-			}
-		}
-	});
-
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				id: LanguageRuntimeCommandId.CloseClient,
-				title: { value: nls.localize('workbench.action.language.runtime.closeClient', "Close Runtime Client Widget"), original: 'Close Runtime Client Widget' },
-				f1: true,
-				category,
-				icon: Codicon.remove,
-				precondition: IsDevelopmentContext,
-				description: {
-					description: 'workbench.action.language.runtime.closeClient',
-					args: [{
-						name: 'options',
-						schema: {
-							type: 'object'
-						}
-					}]
-				}
-			});
-		}
-
-		/**
-		 * Prompts the user to select a client to close
-		 *
-		 * @param accessor The service accessor.
-		 */
-		async run(accessor: ServicesAccessor) {
-			// Retrieve services
-			const languageService = accessor.get(ILanguageRuntimeService);
-			const pickService = accessor.get(IQuickInputService);
-
-			// Get the list of available runtimes
-			const runtimes = languageService.getActiveRuntimes();
-
-			// Ensure we got at least one
-			if (runtimes.length < 1) {
-				throw new Error('No language runtimes are currently active.');
-			}
-
-			// Select the first one
-			const runtime = runtimes[0];
-
-			// Map to quick-pick items for user selection
-			const clients = await runtime.listClients();
-
-			if (clients.length < 1) {
-				throw new Error(`No clients are currently open for ${runtime.metadata.name}`);
-			}
-
-			const selections = clients.map((client) => (<IQuickPickItem>{
-				id: client.getClientId(),
-				label: client.getClientType()
-			}));
-
-			// Prompt the user to select a client
-			const selection = await pickService.pick(selections, {
-				canPickMany: false,
-				placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', runtime.metadata.name)
-			});
-
-			// Find the kernel the user selected and close it
-			if (selection) {
-				for (const client of clients) {
-					if (client.getClientId() === selection.id) {
-						client.dispose();
-					}
-				}
-			}
+		// If the user selected a runtime client instance, dispose it.
+		if (selection) {
+			selection.runtimeClientInstance.dispose();
 		}
 	});
 }

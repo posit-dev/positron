@@ -2,6 +2,14 @@
  *  Copyright (c) Posit, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+.repl-container {
+	height: 100%;
+}
+
+.repl-instance-view-container {
+	height: 100%;
+}
+
 .repl-root {
 	position: relative;
 	height: 100%;
