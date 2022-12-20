@@ -4,8 +4,9 @@
 
 import 'vs/css!./positronList';
 import * as React from 'react';
-import { PropsWithChildren, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PositronListItem } from 'vs/base/browser/ui/positronList/positronListItem';
+import { PositronScrollable } from 'vs/base/browser/ui/positronList/positronScrollable';
 import { PositronListItemContent } from 'vs/base/browser/ui/positronList/positronListItemContent';
 
 /**
@@ -29,51 +30,38 @@ export interface PositronListProps {
  * @returns The rendered component.
  */
 export const PositronList = (props: PropsWithChildren<PositronListProps>) => {
-	// Hooks.
-	const listContainerRef = useRef<HTMLDivElement>(undefined!);
-
-	// Add event handlers.
-	React.useEffect(() => {
-	}, []);
-
-	// Scroll handler.
-	const scrollHandler = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
-		console.log(e);
-		console.log(`scrollTop: ${listContainerRef.current.scrollTop}`);
-	};
-
 	/**
 	 * TestItems component.
 	 * @returns The rendered component.
 	 */
 	const TestItems = () => {
+		const items: JSX.Element[] = [];
+
+		for (let index = 0; index < 200; index++) {
+			items.push(
+				<PositronListItem top={index * 25} height={25}>
+					<PositronListItemContent>
+						List Item {index + 1}
+					</PositronListItemContent>
+				</PositronListItem>
+			);
+		}
+
 		return (
 			<>
-				<PositronListItem top={0} height={25}>
-					<PositronListItemContent>
-						List Item 1
-					</PositronListItemContent>
-				</PositronListItem>
-				<PositronListItem top={25} height={25}>
-					<PositronListItemContent>
-						List Item 2
-					</PositronListItemContent>
-				</PositronListItem>
-				<PositronListItem top={50} height={25}>
-					<PositronListItemContent>
-						List Item 3
-					</PositronListItemContent>
-				</PositronListItem>
+				{items}
 			</>
 		);
 	};
 
 	// Render.
 	return (
-		<div ref={listContainerRef} className='positron-list-container' style={{ height: props.height }} onScroll={scrollHandler}>
-			<div className='list-contents' style={{ height: 26000 }}>
-				<TestItems />
-			</div>
+		<div className='positron-list' style={{ height: props.height }}>
+			<PositronScrollable>
+				<div className='list-contents' style={{ height: 5000 }}>
+					<TestItems />
+				</div>
+			</PositronScrollable>
 		</div>
 	);
 };
