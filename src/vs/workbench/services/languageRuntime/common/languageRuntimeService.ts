@@ -175,6 +175,25 @@ export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
 	data: LanguageRuntimeEventData;
 }
 
+export interface ILanguageRuntimeGlobalEvent {
+	/** The ID of the runtime from which the event originated */
+	id: string;
+
+	/** The event itself */
+	event: ILanguageRuntimeEvent;
+}
+
+export interface ILanguageRuntimeStateEvent {
+	/** The ID of the runtime that changed states */
+	id: string;
+
+	/** The runtime's previous state */
+	old_state: RuntimeState;
+
+	/** The runtime's new state */
+	new_state: RuntimeState;
+}
+
 /* ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
@@ -296,6 +315,10 @@ export interface ILanguageRuntimeService {
 
 	readonly onDidStartRuntime: Event<ILanguageRuntime>;
 
+	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
+
+	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
+
 	/**
 	 * Register a new language runtime
 	 *
@@ -309,6 +332,13 @@ export interface ILanguageRuntimeService {
 	 * Returns the list of all registered runtimes
 	 */
 	getAllRuntimes(): Array<ILanguageRuntime>;
+
+	/**
+	 * Gets a runtime by ID; returns undefined if the runtime is not found
+	 *
+	 * @param id The ID of the runtime to retrieve
+	 */
+	getRuntime(id: string): ILanguageRuntime | undefined;
 
 	/**
 	 *
