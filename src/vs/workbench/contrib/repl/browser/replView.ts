@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./media/repl';
+import * as DOM from 'vs/base/browser/dom';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
@@ -18,15 +19,26 @@ import { IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/r
 import { editorErrorBackground, editorErrorForeground, textSeparatorForeground, iconForeground, descriptionForeground } from 'vs/platform/theme/common/colorRegistry';
 
 /**
+ * ReplInstanceEntry interface.
+ */
+interface ReplInstanceEntry {
+	readonly replInstanceViewContainer: HTMLElement;
+	readonly replInstanceView: ReplInstanceView;
+}
+
+/**
  * Holds the rendered REPL inside a ViewPane.
  */
 export class ReplViewPane extends ViewPane {
 
-	/** The containing HTML element that hosts the REPL view pane. */
-	private _container?: HTMLElement;
+	/** The repl container. The active repl instance is displayed in this container. */
+	private _replContainer: HTMLElement;
 
-	/** The REPL instance inside this view pane. Likely will be > 1 instance in the future. */
-	private _instanceView?: ReplInstanceView;
+	/** The repl instance entries. */
+	private replInstanceEntries: ReplInstanceEntry[] = [];
+
+	/** The active repl instance entry. */
+	private _activeReplInstanceEntry?: ReplInstanceEntry;
 
 	constructor(options: IViewPaneOptions,
 		@IKeybindingService keybindingService: IKeybindingService,
@@ -52,27 +64,13 @@ export class ReplViewPane extends ViewPane {
 			themeService,
 			telemetryService);
 
-		// If there is already a REPL instance running, load it into the view.
-		const instances = this._replService.instances;
-		if (instances.length > 0) {
-			this.createInstanceView(instances[0]);
-		}
-
-		// Listen for new REPL instances to start.
-		this._replService.onDidStartRepl((e: IReplInstance) => {
-			// We already have a REPL instance, and don't currently support more than one
-			if (this._instanceView) {
-				return;
-			}
-
-			// Create the instance!
-			this.createInstanceView(e);
-		});
+		// Create repl instance view container view.
+		this._replContainer = DOM.$('.repl-container');
 
 		// Listen for focus events from ViewPane
 		this.onDidFocus(() => {
-			if (this._instanceView) {
-				this._instanceView.takeFocus();
+			if (this._activeReplInstanceEntry) {
+				this._activeReplInstanceEntry.replInstanceView.takeFocus();
 			}
 		});
 	}
@@ -80,47 +78,58 @@ export class ReplViewPane extends ViewPane {
 	/**
 	 * Renders the body of the REPL view pane
 	 *
-	 * @param container The HTML element hosting the REPL pane
+	 * @param parent The HTML element hosting the REPL pane
 	 */
-	override renderBody(container: HTMLElement): void {
-		// Clear the DOM by removing all child elements. Note that we can't just
-		// set innerHTML to an empty string, because Electron requires the
-		// TrustedHTML claim to be set for innerHTML.
-		for (let i = container.children.length - 1; i >= 0; i--) {
-			container.removeChild(container.children[i]);
-		}
+	override renderBody(parent: HTMLElement): void {
+		// Call the base class's method.
+		super.renderBody(parent);
 
-		super.renderBody(container);
+		// Append repl container.
+		parent.appendChild(this._replContainer);
 
-		// Save container
-		this._container = container;
+		// If there are already repl instances in the repl service, create their repl instance entries
+		// and activate the last one.
+		this._replService.instances.forEach((replInstance, index, replInstances) => {
+			this.createReplInstanceEntry(replInstance, index === replInstances.length - 1);
+		});
 
-		// If we already have an instance, render it immediately
-		if (this._instanceView) {
-			this._instanceView.render(container);
-			return;
-		}
+		// Listen for new repl instances to start.
+		this._replService.onDidStartRepl(replInstance => {
+			this.createReplInstanceEntry(replInstance, true);
+		});
 	}
 
 	/**
-	 * Create a new REPL instance view, and renders it into the view pane if
-	 * the view pane is already rendered.
+	 * Create a new repl instance entry.
 	 *
-	 * @param instance The underlying REPL instance to show in the view
+	 * @param replInstance The underlying REPL instance to show in the view
 	 */
-	private createInstanceView(instance: IReplInstance) {
+	private createReplInstanceEntry(replInstance: IReplInstance, activate: boolean) {
+		// Create the repl instance view container.
+		const replInstanceViewContainer = DOM.$('.repl-instance-view-container');
 
-		// Create a new instance view
-		this._instanceView = this._instantiationService.createInstance(
+		// Create the repl instance view.
+		const replInstanceView = this._register(this._instantiationService.createInstance(
 			ReplInstanceView,
-			instance);
+			replInstance));
 
-		// Ensure the instance is disposed when the view is disposed
-		this._register(this._instanceView);
+		// Render the repl instance view into the repl instance view container.
+		replInstanceView.render(replInstanceViewContainer);
 
-		// Render the instance view if the view pane is already rendered
-		if (this._container) {
-			this._instanceView.render(this._container);
+		// Create the repl instance entry.
+		const replInstanceEntry: ReplInstanceEntry = {
+			replInstanceViewContainer,
+			replInstanceView
+		};
+
+		// Append the repl instance entry tp the repl instance entries.
+		this.replInstanceEntries.push(replInstanceEntry);
+
+		// Activate the repl instance entry, if asked to do so.
+		if (activate) {
+			this._activeReplInstanceEntry?.replInstanceViewContainer.remove();
+			this._replContainer.append(replInstanceViewContainer);
+			this._activeReplInstanceEntry = replInstanceEntry;
 		}
 	}
 }
