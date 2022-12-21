@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit, PBC.
+ *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 import { IReplCancelExecutionEvent, IReplInputSubmitEvent, ReplInput } from 'vs/workbench/contrib/repl/browser/replInput';

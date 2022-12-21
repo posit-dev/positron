@@ -1,7 +1,7 @@
 //
 // join.rs
 //
-// Copyright (C) 2022 by Posit, PBC
+// Copyright (C) 2022 by Posit Software, PBC
 //
 //
 

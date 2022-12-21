@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit, PBC.
+ *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 // This script displays the current version of Positron, as specified in the product.json file

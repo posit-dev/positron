@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit, PBC.
+ *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 import { registerLanguageRuntimeActions } from 'vs/workbench/contrib/languageRuntime/common/languageRuntimeActions';
