@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit, PBC.
+ *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
