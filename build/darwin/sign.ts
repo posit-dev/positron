@@ -14,19 +14,6 @@ async function main(): Promise<void> {
 	const tempDir = process.env['AGENT_TEMPDIRECTORY'];
 	const arch = process.env['VSCODE_ARCH'];
 
-	// --- Start Positron ---
-
-	// set up codesign identity
-	let identity = process.env['CODESIGN_IDENTITY'];
-	let identityValidation = true;
-	if (!identity) {
-		console.log('- $CODESIGN_IDENTITY is not set; using ad-hoc signature');
-		identity = '-';
-		identityValidation = false;
-	}
-
-	// --- End Positron ---
-
 	if (!buildDir) {
 		throw new Error('$AGENT_BUILDDIRECTORY not set');
 	}
@@ -55,10 +42,7 @@ async function main(): Promise<void> {
 		'pre-embed-provisioning-profile': false,
 		keychain: path.join(tempDir, 'buildagent.keychain'),
 		version: util.getElectronVersion(),
-		// --- Begin Positron ---
-		identity: identity,
-		'identity-validation': identityValidation,
-		// --- End Positron ---
+		identity: '99FM488X57',
 		'gatekeeper-assess': false
 	};
 
@@ -96,17 +80,6 @@ async function main(): Promise<void> {
 	// Only overwrite plist entries for x64 and arm64 builds,
 	// universal will get its copy from the x64 build.
 	if (arch !== 'universal') {
-
-		// --- Begin Positron ---
-
-		// primarily for interactive debugging; this lets us re-run the script
-		// on a build tree that might have failed signing before
-		await spawn('plutil', ['-remove', 'NSAppleEventsUsageDescription', `${infoPlistPath}`]);
-		await spawn('plutil', ['-remove', 'NSMicrophoneUsageDescription', `${infoPlistPath}`]);
-		await spawn('plutil', ['-remove', 'NSCameraUsageDescription', `${infoPlistPath}`]);
-
-		// --- End Positron ---
-
 		await spawn('plutil', [
 			'-insert',
 			'NSAppleEventsUsageDescription',
