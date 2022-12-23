@@ -98,6 +98,10 @@ export class LanguageRuntimeAdapter
 		this._kernel.execute(code, id, mode, errorBehavior);
 	}
 
+	public isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
+		this._kernel.testCodeFragment(code);
+	}
+
 	/**
 	 * Replies to an input prompt from the kernel.
 	 *

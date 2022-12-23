@@ -87,6 +87,23 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Results of analyzing code fragment for completeness
+	 */
+	export enum RuntimeCodeFragmentStatus {
+		/** The code fragment is complete: it is a valid, self-contained expression */
+		Complete = 'complete',
+
+		/** The code is incomplete: it is an expression that is missing elements or operands, such as "1 +" or "foo(" */
+		Incomplete = 'incomplete',
+
+		/** The code is invalid: an expression that cannot be parsed because of a syntax error */
+		Invalid = 'invalid',
+
+		/** It was not possible to ascertain the code fragment's status */
+		Unknown = 'unknown'
+	}
+
+	/**
 	 * Possible code execution modes for a language runtime
 	 */
 	export enum RuntimeCodeExecutionMode {
@@ -297,6 +314,9 @@ declare module 'positron' {
 			id: string,
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): void;
+
+		/** Test a code fragment for completeness */
+		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
 
 		/**
 		 * Create a new instance of a client; return null if the client type

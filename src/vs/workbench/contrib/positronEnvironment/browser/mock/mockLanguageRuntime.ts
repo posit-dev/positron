@@ -4,7 +4,7 @@
 
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, IRuntimeClientInstance, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export class MockLanguageRuntime extends Disposable implements ILanguageRuntime {
 	// The runtime state.
@@ -76,6 +76,10 @@ export class MockLanguageRuntime extends Disposable implements ILanguageRuntime 
 	 */
 	async execute(code: string, id: string): Promise<string> {
 		return 'Error. This is a mock language runtime, so it cannot execute code.';
+	}
+
+	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {
+		return Promise.resolve(RuntimeCodeFragmentStatus.Complete);
 	}
 
 	/**
