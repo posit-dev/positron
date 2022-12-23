@@ -71,6 +71,23 @@ export enum LanguageRuntimeMessageType {
 	Event = 'event',
 }
 
+/**
+ * Results of analyzing code fragment for completeness
+ */
+export enum RuntimeCodeFragmentStatus {
+	/** The code fragment is complete: it is a valid, self-contained expression */
+	Complete = 'complete',
+
+	/** The code is incomplete: it is an expression that is missing elements or operands, such as "1 +" or "foo(" */
+	Incomplete = 'incomplete',
+
+	/** The code is invalid: an expression that cannot be parsed because of a syntax error */
+	Invalid = 'invalid',
+
+	/** It was not possible to ascertain the code fragment's status */
+	Unknown = 'unknown'
+}
+
 /** begin positron-language-runtime-event-type */
 export enum LanguageRuntimeEventType {
 	Busy = 'busy',

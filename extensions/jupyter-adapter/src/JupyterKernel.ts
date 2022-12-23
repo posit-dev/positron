@@ -32,6 +32,7 @@ import { JupyterInputReply } from './JupyterInputReply';
 import { StringDecoder } from 'string_decoder';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
+import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -426,6 +427,25 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	public sendInfoRequest() {
 		const msg: JupyterKernelInfoRequest = {};
 		this.send(uuidv4(), 'kernel_info_request', this._shell!, msg);
+	}
+
+	/**
+	 * Tests a code fragment for completeness.
+	 *
+	 * @param code The code to check.
+	 */
+	public testCodeFragmentComplete(code: string): string {
+
+		// Create the message to send to the kernel
+		const id = uuidv4();
+		const msg: JupyterIsCompleteRequest = {
+			code: code
+		};
+
+		this.send(id, 'is_complete_request', this._shell!, msg);
+
+		// TODO: do we want to return an ID here or handle the promise internally?
+		return id;
 	}
 
 	/**
