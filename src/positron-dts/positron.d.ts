@@ -226,6 +226,17 @@ declare module 'positron' {
 
 		/** The version of the runtime. */
 		version: string;
+
+		/** Whether the runtime should start up automatically or wait until explicitly requested */
+		startupBehavior: LanguageRuntimeStartupBehavior;
+	}
+
+	export enum LanguageRuntimeStartupBehavior {
+		/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+		Implicit = 'implicit',
+
+		/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+		Explicit = 'explicit',
 	}
 
 	/**

@@ -6,7 +6,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeOutput, ILanguageRuntimeState, IRuntimeClientInstance, LanguageRuntimeMessageType, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeOutput, ILanguageRuntimeState, IRuntimeClientInstance, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -59,7 +59,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			version: '1.0',
 			id: _kernel.id,
 			language: _kernel.supportedLanguages[0],
-			name: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`
+			name: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`,
+			startupBehavior: LanguageRuntimeStartupBehavior.Implicit
 		};
 
 		this._messages = this._register(new Emitter<ILanguageRuntimeMessage>());
