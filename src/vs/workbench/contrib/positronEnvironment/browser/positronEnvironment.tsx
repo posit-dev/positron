@@ -4,15 +4,16 @@
 
 import 'vs/css!./positronEnvironment';
 import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useMemo, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
+import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { PositronList } from 'vs/base/browser/ui/positronList/positronList';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { ListItem, PositronList } from 'vs/base/browser/ui/positronList/positronList';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
@@ -23,12 +24,56 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { LanguageRuntimeSelectorMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/languageRuntimeSelectorMenuButton';
+import { TestComponent } from 'vs/workbench/contrib/positronEnvironment/browser/components/testComponent';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 14;
 const kPaddingRight = 8;
 const kFilterTimeout = 800;
+
+/**
+ * TestListItem class.
+ */
+class TestListItem implements ListItem {
+	//#region Private Properties
+
+	private readonly _id = generateUuid();
+	private readonly _height;
+
+	//#endregion Private Properties
+
+	//#region Public Properties
+
+	get id() {
+		return this._id;
+	}
+
+	get height() {
+		return this._height;
+	}
+
+	get element() {
+		return (
+			<TestComponent />
+		);
+	}
+
+	//#endregion Public Properties
+
+	//#region Constructor
+
+	/**
+	 * Constructor.
+	 * @param _entryNumber The entry number of the
+	 */
+	constructor(private readonly _entryNumber: number) {
+		// As a test of variable height entries, even entries are 50px in height and odd entries are 25px in height.
+		this._height = _entryNumber % 2 ? 50 : 25;
+	}
+
+	//#endregion Constructor
+}
 
 /**
  * PositronEnvironmentProps interface.
@@ -41,9 +86,6 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly reactComponentContainer: IReactComponentContainer;
-
-	// Properties.
-	readonly initialHeight: number;
 }
 
 /**
@@ -53,8 +95,21 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
  */
 export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentProps>) => {
 	// Hooks.
-	const [height, setHeight] = useState(props.initialHeight);
+	const [height, setHeight] = useState(props.reactComponentContainer.height);
 	const [filterText, setFilterText] = useState('');
+	const [listItems, setListItems] = useState<ListItem[]>([]);
+
+	// Memoize the list items.
+	useMemo(() => {
+		// Generate the test list items.
+		const testListItems: TestListItem[] = [];
+		for (let i = 0; i < 250_000; i++) {
+			testListItems.push(new TestListItem(i));
+		}
+
+		// Set the list items.
+		setListItems(testListItems);
+	}, []);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -68,6 +123,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 
 		// Add the onVisibilityChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visibility => {
+			// TODO@softwarenerd - For the moment, doing nothing.
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -135,9 +191,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 						</PositronActionBar>
 					</div>
 				</PositronActionBarContextProvider>
-				<PositronList height={height - 64}>
-
-				</PositronList>
+				<PositronList height={height - 64} listItems={listItems} />
 			</div>
 		</PositronEnvironmentContextProvider>
 	);

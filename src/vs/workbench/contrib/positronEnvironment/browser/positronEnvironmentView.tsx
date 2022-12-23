@@ -26,14 +26,13 @@ import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvir
  * PositronEnvironmentViewPane class.
  */
 export class PositronEnvironmentViewPane extends ViewPane implements IReactComponentContainer {
+	//#region Private Properties
 
 	// The onSizeChanged event.
 	private _onSizeChanged = this._register(new Emitter<ISize>());
-	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
 
 	// The onVisibilityChanged event.
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
 
 	// The last known height.
 	private _height = 0;
@@ -43,6 +42,31 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 
 	// The PositronReactRenderer for the PositronEnvironment component.
 	private _positronReactRenderer: PositronReactRenderer | undefined;
+
+	//#endregion Private Properties
+
+	//#region IReactComponentContainer
+
+	/**
+	 * Gets the height.
+	 */
+	get height() {
+		return this._height;
+	}
+
+	/**
+	 * The onSizeChanged event.
+	 */
+	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
+
+	/**
+	 * The onVisibilityChanged event.
+	 */
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+
+	//#endregion IReactComponentContainer
+
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -95,6 +119,10 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		super.dispose();
 	}
 
+	//#endregion Constructor & Dispose
+
+	//#region ViewPane Overrides
+
 	/**
 	 * focus override method.
 	 */
@@ -108,6 +136,8 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * @param container The container HTMLElement.
 	 */
 	protected override renderBody(container: HTMLElement): void {
+		console.log(`----------> renderBody called`);
+
 		// Call the base class's method.
 		super.renderBody(container);
 
@@ -126,7 +156,6 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this._languageRuntimeService}
 				reactComponentContainer={this}
-				initialHeight={this._height}
 			/>
 		);
 	}
@@ -137,6 +166,8 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * @param width The width of the body.
 	 */
 	override layoutBody(height: number, width: number): void {
+		console.log(`----------> layoutBody called with height ${height}`);
+
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
@@ -149,4 +180,6 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 			height
 		});
 	}
+
+	//#endregion ViewPane Overrides
 }

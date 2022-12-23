@@ -6,7 +6,7 @@
 	height: 100%;
 	overflow: auto;
 	position: relative;
-	will-change: scroll-position;
+	/* will-change: scroll-position; */
 	/* Makes some devices run their hardware acceleration. */
 	transform: translate3d(0px, 0px, 0px);
 }

@@ -50,8 +50,6 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 		return actions;
 	};
 
-	console.log('Rendering LanguageRuntimeSelectorMenuButton');
-
 	// Render.
 	return (
 		<ActionBarMenuButton

@@ -122,7 +122,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 		// Return the cleanup function that removes our event handlers.
 		return () => {
-			document.addEventListener(KEYDOWN, keydownHandler, false);
+			document.removeEventListener(KEYDOWN, keydownHandler, false);
 			window.removeEventListener(RESIZE, resizeHandler, false);
 		};
 	}, []);
