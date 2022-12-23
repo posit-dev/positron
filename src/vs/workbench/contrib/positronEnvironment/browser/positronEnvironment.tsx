@@ -67,9 +67,9 @@ class TestListItem implements ListItem {
 	 * Constructor.
 	 * @param _entryNumber The entry number of the
 	 */
-	constructor(private readonly _entryNumber: number) {
+	constructor(entryNumber: number) {
 		// As a test of variable height entries, even entries are 50px in height and odd entries are 25px in height.
-		this._height = _entryNumber % 2 ? 50 : 25;
+		this._height = entryNumber % 2 ? 50 : 25;
 	}
 
 	//#endregion Constructor
