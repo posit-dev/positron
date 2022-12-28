@@ -12,6 +12,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarFilter } from 'vs/platform/positronActionBar/browser/components/actionBarFilter';
@@ -19,6 +20,7 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
+import { showClearEnvironmentObjectsModalDialog } from 'vs/workbench/browser/positronModalDialogs/clearEnvironmentObjectsModalDialog';
 import { LanguageRuntimeSelectorMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/languageRuntimeSelectorMenuButton';
 
 // Constants.
@@ -37,6 +39,7 @@ export interface EnvironmentActionBarsProps extends PositronEnvironmentServices 
 	readonly contextKeyService: IContextKeyService;
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
+	readonly layoutService: IWorkbenchLayoutService;
 }
 
 /**
@@ -46,10 +49,8 @@ export interface EnvironmentActionBarsProps extends PositronEnvironmentServices 
  */
 export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentActionBarsProps>) => {
 	// Hooks.
+	const positronEnvironmentContext = usePositronEnvironmentContext();
 	const [filterText, setFilterText] = useState('');
-	const x = usePositronEnvironmentContext();
-
-	console.log(x);
 
 	// Find text change handler.
 	useEffect(() => {
@@ -76,6 +77,15 @@ export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentAction
 		console.log('loadWorkspaceHandler called');
 	};
 
+	// Clear all environment objects handler.
+	const clearAllEnvironmentObjectsHandler = async () => {
+		// Show the clear environment objects modal dialog. If the user confirmed the operation, do it.
+		const result = await showClearEnvironmentObjectsModalDialog(props.layoutService);
+		if (result) {
+			positronEnvironmentContext.currentLanguageEnvironment?.clearEnvironmentEntries(result.includeHiddenObjects);
+		}
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -87,7 +97,7 @@ export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentAction
 						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} />
 						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearObjects', "Clear workspace objects")} />
+						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-test' tooltip={localize('positronTestMode', "Enter test mode")} />
 					</ActionBarRegion>

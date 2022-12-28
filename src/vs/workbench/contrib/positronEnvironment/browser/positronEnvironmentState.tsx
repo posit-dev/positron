@@ -196,17 +196,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 */
 	onDidChangeListItems: Event<void> = this.onDidChangeListItemsEmitter.event;
 
-	get pages() {
-		return 1;
-	}
-
-	get currentPage() {
-		return 0;
-	}
-
-	set currentPage(currentPage: number) {
-	}
-
 	get listItems() {
 		return [...this.environmentEntries.values()];
 	}
@@ -271,7 +260,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	/**
 	 * Clears environment entries.
 	 */
-	clearEnvironmentEntries() {
+	clearEnvironmentEntries(includeHiddenObjects: boolean) {
 		this.environmentEntries.clear();
 		this.onDidChangeListItemsEmitter.fire();
 	}

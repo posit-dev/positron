@@ -36,7 +36,6 @@ export interface PositronListItemsProvider {
  */
 export interface PositronListProps {
 	height: number;
-
 	listItemsProvider: IListItemsProvider;
 }
 

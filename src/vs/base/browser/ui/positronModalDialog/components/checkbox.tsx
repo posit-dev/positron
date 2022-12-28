@@ -5,19 +5,20 @@
 import 'vs/css!./checkbox';
 import * as React from 'react';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { generateUuid } from 'vs/base/common/uuid';
 
 /**
  * CheckboxProps interface.
  */
 interface CheckboxProps {
-	id: string;
 	label: string;
 	onChanged: (checked: boolean) => void;
 }
 
 // Toggle component.
-export const Checkbox = ({ id, label, onChanged }: CheckboxProps) => {
+export const Checkbox = ({ label, onChanged }: CheckboxProps) => {
 	// Hooks.
+	const [id] = useState(generateUuid());
 	const [checked, setChecked] = useState(false);
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 

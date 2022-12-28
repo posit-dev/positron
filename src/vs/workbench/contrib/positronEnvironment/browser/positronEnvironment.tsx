@@ -12,6 +12,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { EnvironmentList } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentList';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { EnvironmentActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentActionBars';
@@ -27,6 +28,7 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
 	readonly contextKeyService: IContextKeyService;
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
+	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 

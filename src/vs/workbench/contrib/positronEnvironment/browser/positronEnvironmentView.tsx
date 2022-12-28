@@ -17,6 +17,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
@@ -85,18 +86,19 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@ICommandService private readonly _commandService: ICommandService,
+		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronEnvironmentService positronEnvironmentService: IPositronEnvironmentService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService
+		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
@@ -136,8 +138,6 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * @param container The container HTMLElement.
 	 */
 	protected override renderBody(container: HTMLElement): void {
-		console.log(`----------> renderBody called`);
-
 		// Call the base class's method.
 		super.renderBody(container);
 
@@ -149,12 +149,13 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronReactRenderer = new PositronReactRenderer(this._positronEnvironmentContainer);
 		this._positronReactRenderer.render(
 			<PositronEnvironment
-				commandService={this._commandService}
+				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
-				languageRuntimeService={this._languageRuntimeService}
+				languageRuntimeService={this.languageRuntimeService}
+				layoutService={this.layoutService}
 				reactComponentContainer={this}
 			/>
 		);
@@ -166,8 +167,6 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 * @param width The width of the body.
 	 */
 	override layoutBody(height: number, width: number): void {
-		console.log(`----------> layoutBody called with height ${height}`);
-
 		// Call the base class's method.
 		super.layoutBody(height, width);
 

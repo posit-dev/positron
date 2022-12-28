@@ -29,16 +29,6 @@ export interface IListItem {
  */
 export interface IListItemsProvider {
 	/**
-	 * Gets the number of pages.
-	 */
-	readonly pages: number;
-
-	/**
-	 * Gets or sets the current page.
-	 */
-	currentPage: number;
-
-	/**
 	 * Gets the items for the current page.
 	 */
 	readonly listItems: IListItem[];
