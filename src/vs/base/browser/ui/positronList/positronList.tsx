@@ -26,7 +26,7 @@ export interface PositronListItemsProvider {
 	currentPage: number;
 
 	/**
-	 * Gets the items for the current page.
+	 * Gets the items.
 	 */
 	readonly items: IListItem[];
 }

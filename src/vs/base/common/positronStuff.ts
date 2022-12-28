@@ -29,7 +29,7 @@ export interface IListItem {
  */
 export interface IListItemsProvider {
 	/**
-	 * Gets the items for the current page.
+	 * Gets the items.
 	 */
 	readonly listItems: IListItem[];
 

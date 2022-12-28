@@ -8,6 +8,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
+import { ValuesHeaderListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -114,45 +115,20 @@ export interface PositronEnvironmentServices {
 }
 
 /**
- * The Positron environment view mode.
- */
-export enum PositronEnvironmentViewMode {
-	/**
-	 * List environment view mode.
-	 */
-	List = 0,
-
-	/**
-	 * Grid environment view mode.
-	 */
-	Grid = 1
-}
-
-/**
- * The Positron environment view mode.
- */
-export enum Yack {
-	/**
-	 * List environment view mode.
-	 */
-	List = 0,
-
-	/**
-	 * Grid environment view mode.
-	 */
-	Grid = 1
-}
-
-/**
  * LanguageEnvironment class.
  */
 export class LanguageEnvironment extends Disposable implements IListItemsProvider {
 	//#region Private Properties
 
 	/**
-	 * The environment entries in the environment store.
+	 * The environment data entries in the environment store.
 	 */
-	private environmentEntries = new Map<string, EnvironmentEntry>();
+	// private environmentDataEntries = new Map<string, EnvironmentEntry>();
+
+	/**
+	 * The environment value entries in the environment store.
+	 */
+	private environmentValueEntries = new Map<string, EnvironmentEntry>();
 
 	/**
 	 * Emitter for the onDidChangeListItems event.
@@ -197,7 +173,12 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	onDidChangeListItems: Event<void> = this.onDidChangeListItemsEmitter.event;
 
 	get listItems() {
-		return [...this.environmentEntries.values()];
+		const items: IListItem[] = [];
+		if (this.environmentValueEntries.size) {
+			items.push(new ValuesHeaderListItem());
+			items.push(...this.environmentValueEntries.values());
+		}
+		return items;
 	}
 
 	//#region Constructor & Dispose
@@ -253,7 +234,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * @param name The name of the environment entry.
 	 */
 	deleteEnvironmentEntry(name: string) {
-		this.environmentEntries.delete(name);
+		this.environmentValueEntries.delete(name);
 		this.onDidChangeListItemsEmitter.fire();
 	}
 
@@ -261,7 +242,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * Clears environment entries.
 	 */
 	clearEnvironmentEntries(includeHiddenObjects: boolean) {
-		this.environmentEntries.clear();
+		this.environmentValueEntries.clear();
 		this.onDidChangeListItemsEmitter.fire();
 	}
 
@@ -274,7 +255,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * @param environmenentEntry
 	 */
 	private setEnvironmentEntry(environmenentEntry: EnvironmentEntry) {
-		this.environmentEntries.set(environmenentEntry.name, environmenentEntry);
+		this.environmentValueEntries.set(environmenentEntry.name, environmenentEntry);
 		this.onDidChangeListItemsEmitter.fire();
 	}
 
@@ -288,8 +269,6 @@ export interface PositronEnvironmentState extends PositronEnvironmentServices {
 	readonly languageEnvironments: LanguageEnvironment[];
 	readonly currentLanguageEnvironment?: LanguageEnvironment;
 	setCurrentLanguageEnvironment: (languageEnvironment?: LanguageEnvironment) => void;
-	readonly environmentViewMode: PositronEnvironmentViewMode;
-	setEnvironmentViewMode: (environmentViewMode: PositronEnvironmentViewMode) => void;
 }
 
 /**
@@ -298,7 +277,6 @@ export interface PositronEnvironmentState extends PositronEnvironmentServices {
  */
 export const usePositronEnvironmentState = (services: PositronEnvironmentServices): PositronEnvironmentState => {
 	// Hooks.
-	const [environmentViewMode, setEnvironmentViewMode] = useState(PositronEnvironmentViewMode.List);
 	const [languageEnvironments, setLanguageEnvironments] = useState<LanguageEnvironment[]>([]);
 	const [currentLanguageEnvironment, setCurrentLanguageEnvironment] = useState<LanguageEnvironment | undefined>(undefined);
 
@@ -340,8 +318,6 @@ export const usePositronEnvironmentState = (services: PositronEnvironmentService
 		...services,
 		languageEnvironments,
 		currentLanguageEnvironment,
-		setCurrentLanguageEnvironment,
-		environmentViewMode,
-		setEnvironmentViewMode
+		setCurrentLanguageEnvironment
 	};
 };
