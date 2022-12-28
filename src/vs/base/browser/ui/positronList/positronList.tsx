@@ -4,37 +4,40 @@
 
 import 'vs/css!./positronList';
 import * as React from 'react';
-import { PropsWithChildren, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PositronListItem } from 'vs/base/browser/ui/positronList/positronListItem';
 import { PositronScrollable } from 'vs/base/browser/ui/positronList/positronScrollable';
 import { PositronListItemContent } from 'vs/base/browser/ui/positronList/positronListItemContent';
+import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
- * ListItem interface.
+ * PositronListItemsProvider interface.
  */
-export interface ListItem {
+export interface PositronListItemsProvider {
 	/**
-	 * Gets the ID of the list item.
+	 * Gets the number of pages.
 	 */
-	readonly id: string;
+	readonly pages: number;
 
 	/**
-	 * Gets the height of the item.
+	 * Gets the current page.
 	 */
-	readonly height: number;
+	currentPage: number;
 
 	/**
-	 * Gets the item element.
+	 * Gets the items for the current page.
 	 */
-	readonly element: JSX.Element;
+	readonly items: IListItem[];
 }
 
 /**
- * PositronListProps interface.
+ * IPositronListProps interface.
  */
 export interface PositronListProps {
 	height: number;
-	listItems: ListItem[];
+
+	listItemsProvider: IListItemsProvider;
 }
 
 /**
@@ -42,13 +45,28 @@ export interface PositronListProps {
  * @param props A PositronListProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PositronList = ({ height, listItems }: PropsWithChildren<PositronListProps>) => {
+export const PositronList = ({ height, listItemsProvider }: PropsWithChildren<PositronListProps>) => {
 	// Hooks.
 	const [scrollTop, setScrollTop] = useState(0);
+	const [, setFoo] = useState(0);
+
+	useEffect(() => {
+		// Create a disposable store for the event handlers we'll add.
+		const disposableStore = new DisposableStore();
+
+		// Add the did start runtime event handler for the language runtime service.
+		disposableStore.add(listItemsProvider.onDidChangeListItems(() => {
+			console.log('---------------***** we should re-render');
+			setFoo(foo => foo + 1);
+		}));
+
+		// Return the clean up for our event handlers.
+		return () => disposableStore.dispose();
+	}, []);
 
 	// Scroll handler.
 	const scrollHandler = (scrollTop: number) => {
-		console.log(`scrollTop ${scrollTop}`);
+		// console.log(`scrollTop ${scrollTop}`);
 		setScrollTop(scrollTop);
 	};
 
@@ -61,7 +79,7 @@ export const PositronList = ({ height, listItems }: PropsWithChildren<PositronLi
 	// Build the items to render.
 	let itemsHeight = 0;
 	const items: JSX.Element[] = [];
-	listItems.forEach((item, index) => {
+	listItemsProvider.listItems.forEach((item, index) => {
 		// Add the item to the items to be rendered, if it should be visible.
 		if (itemsHeight + item.height >= scrollTop && itemsHeight < scrollTop + height) {
 			items.push(
@@ -78,13 +96,13 @@ export const PositronList = ({ height, listItems }: PropsWithChildren<PositronLi
 	});
 
 	// Logging.
-	console.log(`${new Date().getTime()} Rendered ${items.length} of ${listItems.length} items height ${height} total height ${itemsHeight}`);
+	// console.log(`${new Date().getTime()} Rendered ${items.length} of ${listItems.length} items height ${height} total height ${itemsHeight}`);
 
 	// Render.
 	return (
 		<div className='positron-list' style={{ height }}>
 			<PositronScrollable onScroll={scrollHandler}>
-				<div style={{ height: itemsHeight }}>
+				<div style={{ height: itemsHeight, transform: 'translate3d(0px, 0px, 0px)', contain: 'strict' }}>
 					{items}
 				</div>
 			</PositronScrollable>
