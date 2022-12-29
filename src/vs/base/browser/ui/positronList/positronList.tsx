@@ -5,31 +5,11 @@
 import 'vs/css!./positronList';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IListItemsProvider } from 'vs/base/common/positronStuff';
 import { PositronListItem } from 'vs/base/browser/ui/positronList/positronListItem';
 import { PositronScrollable } from 'vs/base/browser/ui/positronList/positronScrollable';
 import { PositronListItemContent } from 'vs/base/browser/ui/positronList/positronListItemContent';
-import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-
-/**
- * PositronListItemsProvider interface.
- */
-export interface PositronListItemsProvider {
-	/**
-	 * Gets the number of pages.
-	 */
-	readonly pages: number;
-
-	/**
-	 * Gets the current page.
-	 */
-	currentPage: number;
-
-	/**
-	 * Gets the items.
-	 */
-	readonly items: IListItem[];
-}
 
 /**
  * IPositronListProps interface.

@@ -78,10 +78,19 @@ export class EnvironmentEntry implements IListItem {
 
 	//#region IListItem
 
-	readonly id = generateUuid();
+	/**
+	 * Gets the ID of the list item.
+	 */
+	readonly id: string;
 
+	/**
+	 * Gets the height of the list item.
+	 */
 	readonly height = 24;
 
+	/**
+	 * Gets the list item element.
+	 */
 	get element() {
 		return (
 			<div className='test-item'>
@@ -100,6 +109,7 @@ export class EnvironmentEntry implements IListItem {
 	 * @param value The value of the environment entry.
 	 */
 	constructor(name: string, value: EnvironmentValue) {
+		this.id = generateUuid();
 		this.name = name;
 		this.value = value;
 	}

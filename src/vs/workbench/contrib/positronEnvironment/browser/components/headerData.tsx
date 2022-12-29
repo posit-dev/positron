@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./valuesHeader';
+import 'vs/css!./headerData';
 import * as React from 'react';
 
 /**
