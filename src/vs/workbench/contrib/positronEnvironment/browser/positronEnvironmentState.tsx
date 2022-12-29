@@ -49,13 +49,6 @@ export const usePositronEnvironmentState = (services: PositronEnvironmentService
 		return () => disposableStore.dispose();
 	}, []);
 
-	useEffect(() => {
-	}, [languageEnvironments]);
-
-	useEffect(() => {
-		console.log('The current language environmenent changed');
-	}, [currentLanguageEnvironment]);
-
 	// Logging.
 	console.log('------------------------------------------------');
 	console.log('The current set of language runtime descriptors:');
