@@ -82,7 +82,7 @@ export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentAction
 		// Show the clear environment objects modal dialog. If the user confirmed the operation, do it.
 		const result = await showClearEnvironmentObjectsModalDialog(props.layoutService);
 		if (result) {
-			positronEnvironmentContext.currentLanguageEnvironment?.clearEnvironmentEntries(result.includeHiddenObjects);
+			positronEnvironmentContext.currentLanguageEnvironment?.clearEnvironment(result.includeHiddenObjects);
 		}
 	};
 

@@ -7,9 +7,9 @@ import { IListItem } from 'vs/base/common/positronStuff';
 import { HeaderValues } from 'vs/workbench/contrib/positronEnvironment/browser/components/headerValues';
 
 /**
- * ValuesHeaderListItem class.
+ * HeaderValuesListItem class.
  */
-export class ValuesHeaderListItem implements IListItem {
+export class HeaderValuesListItem implements IListItem {
 	/**
 	 * Gets the ID.
 	 */

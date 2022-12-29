@@ -8,7 +8,8 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ValuesHeaderListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
+import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
+import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 
 /**
  * EnvironmentValue interface.
@@ -125,7 +126,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	/**
 	 * The environment data entries in the environment store.
 	 */
-	// private environmentDataEntries = new Map<string, EnvironmentEntry>();
+	private environmentDataEntries = new Map<string, EnvironmentEntry>();
 
 	/**
 	 * The environment value entries in the environment store.
@@ -176,10 +177,17 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 
 	get listItems() {
 		const items: IListItem[] = [];
+
+		if (this.environmentDataEntries.size) {
+			items.push(new HeaderDataListItem());
+			items.push(...this.environmentDataEntries.values());
+		}
+
 		if (this.environmentValueEntries.size) {
-			items.push(new ValuesHeaderListItem());
+			items.push(new HeaderValuesListItem());
 			items.push(...this.environmentValueEntries.values());
 		}
+
 		return items;
 	}
 
@@ -212,7 +220,8 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			console.log(`testInterval fired. ${new Date().getTime()}`);
 			const date = new Date();
 			const name = `variable${date.getTime()}`;
-			this.setEnvironmentEntry(new EnvironmentEntry(name, new StringEnvironmentValue(date.toTimeString())));
+			this.setEnvironmentDataEntry(new EnvironmentEntry(name, new StringEnvironmentValue(date.toTimeString())));
+			this.setEnvironmentValueEntry(new EnvironmentEntry(name, new StringEnvironmentValue(date.toTimeString())));
 		}, 1000);
 	}
 
@@ -241,9 +250,10 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	}
 
 	/**
-	 * Clears environment entries.
+	 * Clears the environment.
 	 */
-	clearEnvironmentEntries(includeHiddenObjects: boolean) {
+	clearEnvironment(includeHiddenObjects: boolean) {
+		this.environmentDataEntries.clear();
 		this.environmentValueEntries.clear();
 		this.onDidChangeListItemsEmitter.fire();
 	}
@@ -253,10 +263,19 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	//#region Private Methods
 
 	/**
-	 * Sets an environment entry.
+	 * Sets an environment data entry.
 	 * @param environmenentEntry
 	 */
-	private setEnvironmentEntry(environmenentEntry: EnvironmentEntry) {
+	private setEnvironmentDataEntry(environmenentEntry: EnvironmentEntry) {
+		this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
+		this.onDidChangeListItemsEmitter.fire();
+	}
+
+	/**
+	 * Sets an environment value entry.
+	 * @param environmenentEntry
+	 */
+	private setEnvironmentValueEntry(environmenentEntry: EnvironmentEntry) {
 		this.environmentValueEntries.set(environmenentEntry.name, environmenentEntry);
 		this.onDidChangeListItemsEmitter.fire();
 	}

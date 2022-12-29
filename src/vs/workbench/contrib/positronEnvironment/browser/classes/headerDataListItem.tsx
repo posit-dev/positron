@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { IListItem } from 'vs/base/common/positronStuff';
-import { HeaderValues } from 'vs/workbench/contrib/positronEnvironment/browser/components/headerValues';
+import { HeaderData } from 'vs/workbench/contrib/positronEnvironment/browser/components/headerData';
 
 /**
  * HeaderDataListItem class.
@@ -23,5 +23,5 @@ export class HeaderDataListItem implements IListItem {
 	/**
 	 * Gets the element.
 	 */
-	readonly element = <HeaderValues />;
+	readonly element = <HeaderData />;
 }

@@ -13,7 +13,7 @@ export const HeaderData = () => {
 	// Render.
 	return (
 		<div className='header-data'>
-			Values
+			Data
 		</div>
 	);
 };
