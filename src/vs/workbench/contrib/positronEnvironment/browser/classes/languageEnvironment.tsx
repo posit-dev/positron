@@ -8,8 +8,8 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
+import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
 
 /**
  * EnvironmentValue interface.
@@ -59,9 +59,9 @@ export class StringEnvironmentValue implements EnvironmentValue {
 }
 
 /**
- * EnvironmentEntry class.
+ * EnvironmentValueEntry class.
  */
-export class EnvironmentEntry implements IListItem {
+export class EnvironmentValueEntry implements IListItem {
 	//#region Public Properties
 
 	/**
@@ -126,12 +126,12 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	/**
 	 * The environment data entries in the environment store.
 	 */
-	private environmentDataEntries = new Map<string, EnvironmentEntry>();
+	private environmentDataEntries = new Map<string, EnvironmentValueEntry>();
 
 	/**
 	 * The environment value entries in the environment store.
 	 */
-	private environmentValueEntries = new Map<string, EnvironmentEntry>();
+	private environmentValueEntries = new Map<string, EnvironmentValueEntry>();
 
 	/**
 	 * Emitter for the onDidChangeListItems event.
@@ -220,8 +220,8 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			console.log(`testInterval fired. ${new Date().getTime()}`);
 			const date = new Date();
 			const name = `variable${date.getTime()}`;
-			this.setEnvironmentDataEntry(new EnvironmentEntry(name, new StringEnvironmentValue(date.toTimeString())));
-			this.setEnvironmentValueEntry(new EnvironmentEntry(name, new StringEnvironmentValue(date.toTimeString())));
+			this.setEnvironmentDataEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
+			this.setEnvironmentValueEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
 		}, 1000);
 	}
 
@@ -266,7 +266,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * Sets an environment data entry.
 	 * @param environmenentEntry
 	 */
-	private setEnvironmentDataEntry(environmenentEntry: EnvironmentEntry) {
+	private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
 		this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
 		this.onDidChangeListItemsEmitter.fire();
 	}
@@ -275,7 +275,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * Sets an environment value entry.
 	 * @param environmenentEntry
 	 */
-	private setEnvironmentValueEntry(environmenentEntry: EnvironmentEntry) {
+	private setEnvironmentValueEntry(environmenentEntry: EnvironmentValueEntry) {
 		this.environmentValueEntries.set(environmenentEntry.name, environmenentEntry);
 		this.onDidChangeListItemsEmitter.fire();
 	}
