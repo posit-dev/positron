@@ -78,6 +78,9 @@ function fromLocal(extensionPath, forWeb) {
     return input;
 }
 function fromLocalWebpack(extensionPath, webpackConfigFileName) {
+    const vsce = require('@vscode/vsce');
+    const webpack = require('webpack');
+    const webpackGulp = require('webpack-stream');
     const result = es.through();
     const packagedDependencies = [];
     const packageJsonConfig = require(path.join(extensionPath, 'package.json'));
@@ -89,9 +92,6 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName) {
             }
         }
     }
-    const vsce = require('vsce');
-    const webpack = require('webpack');
-    const webpackGulp = require('webpack-stream');
     vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn, packagedDependencies }).then(fileNames => {
         const files = fileNames
             .map(fileName => path.join(extensionPath, fileName))
@@ -158,8 +158,8 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName) {
     return result.pipe((0, stats_1.createStatsStream)(path.basename(extensionPath)));
 }
 function fromLocalNormal(extensionPath) {
+    const vsce = require('@vscode/vsce');
     const result = es.through();
-    const vsce = require('vsce');
     vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn })
         .then(fileNames => {
         const files = fileNames
@@ -560,7 +560,7 @@ async function copyExtensionBinaries(outputRoot) {
         // destination.
         ...binaryMetadata.map((bin) => {
             return gulp.src(path.join('extensions', bin.base, bin.from)).pipe(gulp.dest(path.join(outputRoot, bin.base, bin.to)));
-        }), 
+        }),
         // Restore the executable bit on the binaries that had it.
         util2.setExecutableBit(binaryMetadata
             .filter((bin) => bin.exe)
