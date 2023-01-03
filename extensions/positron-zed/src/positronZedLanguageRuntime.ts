@@ -10,6 +10,7 @@ import * as positron from 'positron';
  * PositronZedLanguageRuntime.
  */
 export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
+
 	/**
 	 * The onDidReceiveRuntimeMessage event emitter.
 	 */
@@ -126,6 +127,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			implementation_version: '1.0.0',
 			language_version: '1.0.0'
 		} as positron.LanguageRuntimeInfo);
+	}
+
+	/**
+	 * Tests a code fragment to see if it's complete.
+	 * @param code The code to test for completeness.
+	 * @returns A Thenable that resolves with the status of the code fragment.
+	 */
+	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
+		// All Zed code fragments are complete. There is no incomplete code in
+		// Zed. ALL IS COMPLETE IN ZED
+		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
 	/**

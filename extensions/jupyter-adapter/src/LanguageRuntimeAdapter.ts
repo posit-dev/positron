@@ -18,6 +18,7 @@ import { JupyterStreamOutput } from './JupyterStreamOutput';
 import { PositronEvent } from './PositronEvent';
 import { JupyterInputRequest } from './JupyterInputRequest';
 import { RuntimeClientAdapter } from './RuntimeClientAdapter';
+import { JupyterIsCompleteReply } from './JupyterIsCompleteReply';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -31,6 +32,9 @@ export class LanguageRuntimeAdapter
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _lspPort: number | null = null;
 	readonly metadata: positron.LanguageRuntimeMetadata;
+
+	/** A map of message IDs that are awaiting responses to handlers to invoke when a response is received */
+	private readonly _awaiting: Map<string, (msg: JupyterMessagePacket) => void> = new Map();
 
 	/**
 	 * Map of comm IDs to RuntimeClientAdapters, which wrap comm channels.
@@ -99,7 +103,24 @@ export class LanguageRuntimeAdapter
 	}
 
 	public isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		this._kernel.testCodeFragment(code);
+		// Submit the code fragment to the kernel for completion testing
+		// and save the request ID
+		const id = this._kernel.testCodeFragmentComplete(code);
+
+		// Wait for the response from the kernel
+		return new Promise<positron.RuntimeCodeFragmentStatus>((resolve, reject) => {
+			this._awaiting.set(id, (msg: JupyterMessagePacket) => {
+				if (msg.msgType !== 'is_complete_reply') {
+					const err = `Unexpected message type ${msg.msgType} in response to is_complete_request`;
+					console.warn(err);
+					reject(err);
+				}
+
+				// Cast the message to a JupyterKernelInfoReply and resolve
+				const message = msg.message as JupyterIsCompleteReply;
+				resolve(message.status as positron.RuntimeCodeFragmentStatus);
+			});
+		});
 	}
 
 	/**
@@ -179,19 +200,28 @@ export class LanguageRuntimeAdapter
 	private getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
 		// Send a kernel_info_request to get the kernel info
 		this._channel.appendLine(`Sending info request to ${this.metadata.language}`);
-		this._kernel.sendInfoRequest();
+		const id = this._kernel.sendInfoRequest();
 
-		return new Promise<positron.LanguageRuntimeInfo>((resolve, _reject) => {
-			// Wait for the kernel_info_reply to come back
-			this._kernel.on('message', (msg: JupyterMessagePacket) => {
-				if (msg.msgType === 'kernel_info_reply') {
-					const message = msg.message as JupyterKernelInfoReply;
-					resolve({
-						banner: message.banner,
-						implementation_version: message.implementation_version,
-						language_version: message.language_info.version,
-					} as positron.LanguageRuntimeInfo);
+		// Wait for the response to come back
+		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
+			this._awaiting.set(id, (msg: JupyterMessagePacket) => {
+				// Ensure the message is a kernel_info_reply, as this is the
+				// only message that should be sent in response to a
+				// kernel_info_request. If it isn't, we can't continue since it's
+				// not safe to cast the message to a JupyterKernelInfoReply.
+				if (msg.msgType !== 'kernel_info_reply') {
+					const err = `Unexpected message type ${msg.msgType} in response to kernel_info_request`;
+					console.warn(err);
+					reject(err);
 				}
+
+				// Cast the message to a JupyterKernelInfoReply and resolve
+				const message = msg.message as JupyterKernelInfoReply;
+				resolve({
+					banner: message.banner,
+					implementation_version: message.implementation_version,
+					language_version: message.language_info.version,
+				} as positron.LanguageRuntimeInfo);
 			});
 		});
 	}
@@ -284,6 +314,16 @@ export class LanguageRuntimeAdapter
 		if (message.status && message.status === 'error') {
 			this.onErrorResult(msg, message as JupyterErrorReply);
 			return;
+		}
+
+		// Is the message's parent ID in the set of messages we're waiting for?
+		// If so, we'll call the callback for that message.
+		const callback = this._awaiting.get(msg.originId);
+		if (callback) {
+			// Clear the callback before invoking it, in case the callback
+			// throws an exception.
+			this._awaiting.delete(msg.originId);
+			callback(msg);
 		}
 
 		switch (msg.msgType) {
