@@ -11,9 +11,13 @@
 	color: var(--positronActionBar-foreground);
 }
 
+.action-bar-button:focus {
+	outline: none !important;
+}
+
 .action-bar-button:focus-visible {
 	border-radius: 6px;
-	outline: 1px solid var(--vscode-focusBorder);
+	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
 .action-bar-button-face {
