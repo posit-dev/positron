@@ -374,14 +374,6 @@ export function acquireWebNodePaths() {
 		// Only cases where the browser is a string are handled
 		let entryPoint: string = typeof packageData.browser === 'string' ? packageData.browser : packageData.main;
 
-		// --- Start Positron ---
-		// react and react-dom UMD loading.
-		if (key === 'react' || key === 'react-dom') {
-			entryPoint = `umd/${key}.production.min.js`;
-			console.warn(`${key} entry point is ${entryPoint}`);
-		}
-		// --- End Positron ---
-
 		// On rare cases a package doesn't have an entrypoint so we assume it has a dist folder with a min.js
 		if (!entryPoint) {
 			// TODO @lramos15 remove this when jschardet adds an entrypoint so we can warn on all packages w/out entrypoint
@@ -418,6 +410,16 @@ export function acquireWebNodePaths() {
 	nodePaths['@microsoft/dynamicproto-js'] = 'lib/dist/umd/dynamicproto-js.min.js';
 	nodePaths['@microsoft/applicationinsights-shims'] = 'dist/umd/applicationinsights-shims.min.js';
 	nodePaths['@microsoft/applicationinsights-core-js'] = 'browser/applicationinsights-core-js.min.js';
+	// --- Start Positron ---
+	// Load the custom entry points from the /remote/web/package.json file. These are specified in
+	// cases where the package.json file of a dependency does not specify a browser field that can
+	// be used to load the dependency. For example, neither react or react-dom specify a browser
+	// field.
+	const customEntryPoints = JSON.parse(fs.readFileSync(webPackageJSON, 'utf8')).customEntryPoints;
+	for (const key of Object.keys(customEntryPoints)) {
+		nodePaths[key] = customEntryPoints[key];
+	}
+	// --- End Positron ---
 	return nodePaths;
 }
 
