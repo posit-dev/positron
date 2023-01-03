@@ -423,16 +423,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/**
 	 * Sends a kernel information request to the kernel.
+	 *
+	 * @returns The unique ID of the request.
 	 */
-	public sendInfoRequest() {
+	public sendInfoRequest(): string {
+		// Create a unique ID for this request and send it
+		const id = uuidv4();
 		const msg: JupyterKernelInfoRequest = {};
-		this.send(uuidv4(), 'kernel_info_request', this._shell!, msg);
+		this.send(id, 'kernel_info_request', this._shell!, msg);
+
+		// Return the ID so the caller can track the response
+		return id;
 	}
 
 	/**
 	 * Tests a code fragment for completeness.
 	 *
 	 * @param code The code to check.
+	 * @returns The unique ID of the request.
 	 */
 	public testCodeFragmentComplete(code: string): string {
 
@@ -444,7 +452,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		this.send(id, 'is_complete_request', this._shell!, msg);
 
-		// TODO: do we want to return an ID here or handle the promise internally?
+		// Return the ID so the caller can track the response
 		return id;
 	}
 
