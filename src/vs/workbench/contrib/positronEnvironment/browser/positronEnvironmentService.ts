@@ -9,7 +9,6 @@ import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvir
  * PositronEnvironmentService class.
  */
 export class PositronEnvironmentService extends Disposable implements IPositronEnvironmentService {
-
+	/** Needed for service branding in dependency injector. */
 	declare readonly _serviceBrand: undefined;
-
 }

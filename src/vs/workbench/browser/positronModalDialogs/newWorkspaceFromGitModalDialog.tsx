@@ -22,15 +22,15 @@ import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronMod
  * NewWorkspaceFromGitResult interface.
  */
 export interface NewWorkspaceFromGitResult {
-	repo: string;
-	parentDirectory: string;
-	newWindow: boolean;
+	readonly repo: string;
+	readonly parentDirectory: string;
+	readonly newWindow: boolean;
 }
 
 /**
- * Shows the NewWorkspaceFromGitModalDialog..
+ * Shows the NewWorkspaceFromGitModalDialog.
  * @param accessor The services accessor.
- * @returns The component.
+ * @returns A promise that resolves when the dialog is dismissed.
  */
 export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAccessor): Promise<NewWorkspaceFromGitResult | undefined> => {
 	// Get the services we need for the dialog.
@@ -48,7 +48,7 @@ export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAcces
 		// The new workspace from git modal dialog component.
 		const NewWorkspaceFromGitModalDialog = () => {
 			// Hooks.
-			const [newWorkspaceResult, setNewWorkspaceResult] = useState<NewWorkspaceFromGitResult>({
+			const [newWorkspaceFromGitResult, setNewWorkspaceFromGitResult] = useState<NewWorkspaceFromGitResult>({
 				repo: '',
 				parentDirectory,
 				newWindow: false
@@ -58,7 +58,7 @@ export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAcces
 			// The accept handler.
 			const acceptHandler = () => {
 				positronModalDialogReactRenderer.destroy();
-				resolve(newWorkspaceResult);
+				resolve(newWorkspaceFromGitResult);
 			};
 
 			// The cancel handler.
@@ -71,38 +71,38 @@ export const showNewWorkspaceFromGitModalDialog = async (accessor: ServicesAcces
 			const browseHandler = async () => {
 				// Show the open dialog.
 				const uri = await fileDialogs.showOpenDialog({
-					defaultUri: newWorkspaceResult.parentDirectory ? URI.file(newWorkspaceResult.parentDirectory) : undefined,
+					defaultUri: newWorkspaceFromGitResult.parentDirectory ? URI.file(newWorkspaceFromGitResult.parentDirectory) : undefined,
 					canSelectFiles: false,
 					canSelectFolders: true
 				});
 
 				// If the user made a selection, set the parent directory.
 				if (uri?.length) {
-					setNewWorkspaceResult({ ...newWorkspaceResult, parentDirectory: uri[0].fsPath });
+					setNewWorkspaceFromGitResult({ ...newWorkspaceFromGitResult, parentDirectory: uri[0].fsPath });
 					directoryNameRef.current.focus();
 				}
 			};
 
 			// Render.
 			return (
-				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceDialogTitle', "New Workspace from Git")} accept={acceptHandler} cancel={cancelHandler}>
+				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceFromGitModalDialogTitle', "New Workspace from Git")} accept={acceptHandler} cancel={cancelHandler}>
 					<VerticalStack>
 						<LabeledTextInput
 							ref={directoryNameRef}
-							value={newWorkspaceResult.repo}
+							value={newWorkspaceFromGitResult.repo}
 							label='Repository URL'
 							autoFocus
-							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, repo: e.target.value })}
+							onChange={e => setNewWorkspaceFromGitResult({ ...newWorkspaceFromGitResult, repo: e.target.value })}
 						/>
 						<DirectoryInput
 							label='Create workspace as subdirectory of'
-							value={newWorkspaceResult.parentDirectory}
+							value={newWorkspaceFromGitResult.parentDirectory}
 							onBrowse={browseHandler}
-							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, parentDirectory: e.target.value })}
+							onChange={e => setNewWorkspaceFromGitResult({ ...newWorkspaceFromGitResult, parentDirectory: e.target.value })}
 						/>
 					</VerticalStack>
 					<VerticalSpacer>
-						<Checkbox id='open-in-new-window' label='Open in a new window' onChanged={checked => setNewWorkspaceResult({ ...newWorkspaceResult, newWindow: checked })} />
+						<Checkbox label='Open in a new window' onChanged={checked => setNewWorkspaceFromGitResult({ ...newWorkspaceFromGitResult, newWindow: checked })} />
 					</VerticalSpacer>
 				</OKCancelModalDialog>
 			);

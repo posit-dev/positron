@@ -374,6 +374,14 @@ export function acquireWebNodePaths() {
 		// Only cases where the browser is a string are handled
 		let entryPoint: string = typeof packageData.browser === 'string' ? packageData.browser : packageData.main;
 
+		// --- Start Positron ---
+		// react and react-dom UMD loading.
+		if (key === 'react' || key === 'react-dom') {
+			entryPoint = `umd/${key}.production.min.js`;
+			console.warn(`${key} entry point is ${entryPoint}`);
+		}
+		// --- End Positron ---
+
 		// On rare cases a package doesn't have an entrypoint so we assume it has a dist folder with a min.js
 		if (!entryPoint) {
 			// TODO @lramos15 remove this when jschardet adds an entrypoint so we can warn on all packages w/out entrypoint

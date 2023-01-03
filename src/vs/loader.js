@@ -1653,6 +1653,12 @@ var AMDLoader;
             this._knownModules2[moduleId] = true;
             var strModuleId = this._moduleIdProvider.getStrModuleId(moduleId);
             var paths = this._config.moduleIdToPaths(strModuleId);
+            // --- Start Positron ---
+            const reactDomClient = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+            if (paths[0].endsWith(reactDomClient)) {
+                paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}out/react-dom/client.js`;
+            }
+            // --- End Positron ---
             var scopedPackageRegex = /^@[^\/]+\/[^\/]+$/; // matches @scope/package-name
             if (this._env.isNode && (strModuleId.indexOf('/') === -1 || scopedPackageRegex.test(strModuleId))) {
                 paths.push('node|' + strModuleId);
