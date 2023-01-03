@@ -17,7 +17,19 @@ export interface ISize {
  * IReactComponentContainer interface.
  */
 export interface IReactComponentContainer {
+	/**
+	 * Gets the height.
+	 */
+	readonly height: number;
+
+	/**
+	 * onSizeChanged event.
+	 */
 	readonly onSizeChanged: Event<ISize>;
+
+	/**
+	 * onVisibilityChanged event.
+	 */
 	readonly onVisibilityChanged: Event<boolean>;
 }
 

@@ -54,13 +54,10 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 class PositronEnvironmentContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
-		@IPositronEnvironmentService private readonly positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronEnvironmentService positronEnvironmentService: IPositronEnvironmentService,
 	) {
 		super();
 		this.registerActions();
-
-		// Temp.
-		console.log(this.positronEnvironmentService);
 	}
 
 	private registerActions(): void {

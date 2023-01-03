@@ -3,9 +3,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-list {
-	overflow: hidden;
-}
-
-.positron-list-container .list-contents {
-	background: transparent;
+	background: transparent; /* Placeholder. */
 }

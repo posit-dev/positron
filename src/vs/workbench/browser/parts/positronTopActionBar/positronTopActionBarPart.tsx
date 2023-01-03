@@ -29,7 +29,6 @@ import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/co
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
-
 /**
  * PositronTopActionBarPart class.
  */
@@ -37,7 +36,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 
 	declare readonly _serviceBrand: undefined;
 
-	// #region IView
+	//#region IView
 
 	readonly height: number = 34;
 	readonly minimumWidth: number = 0;

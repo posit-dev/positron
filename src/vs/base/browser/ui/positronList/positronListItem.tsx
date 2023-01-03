@@ -19,11 +19,11 @@ export interface PositronListItemProps {
  * @param props A PositronListItemProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PositronListItem = (props: PropsWithChildren<PositronListItemProps>) => {
+export const PositronListItem = ({ top, height, children }: PropsWithChildren<PositronListItemProps>) => {
 	// Render.
 	return (
-		<div className='positron-list-item' style={{ left: 0, top: props.top, height: props.height }}>
-			{props.children}
+		<div className='positron-list-item' style={{ position: 'absolute', left: 0, top, right: 0, height, background: height === 25 ? '#ffffff' : '#f0f0f0' }}>
+			{children}
 		</div>
 	);
 };

@@ -36,14 +36,16 @@ interface PositronHelpCommand {
  * PositronHelpViewPane class.
  */
 export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
+	//#region Private Properties
 
 	// The onSizeChanged event.
 	private _onSizeChanged = this._register(new Emitter<ISize>());
-	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
 
 	// The onVisibilityChanged event.
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+
+	// The last known height.
+	private _height = 0;
 
 	// The Positron help container - contains the entire Positron help UI.
 	private _positronHelpContainer!: HTMLElement;
@@ -59,6 +61,31 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	// The last Positron help command that was sent to the help iframe.
 	private _lastPositronHelpCommand: PositronHelpCommand | undefined;
+
+	//#endregion Private Properties
+
+	//#region IReactComponentContainer
+
+	/**
+	 * Gets the height.
+	 */
+	get height() {
+		return this._height;
+	}
+
+	/**
+	 * The onSizeChanged event.
+	 */
+	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
+
+	/**
+	 * The onVisibilityChanged event.
+	 */
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+
+	//#endregion IReactComponentContainer
+
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -122,6 +149,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		// Call the base class's dispose method.
 		super.dispose();
 	}
+
+	//#endregion Constructor & Dispose
+
+	//#region ViewPane Overrides
 
 	/**
 	 * focus override method.
@@ -221,6 +252,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		});
 	}
 
+	//#endregion ViewPane Overrides
+
+	//#region Private Methods
+
 	/**
 	 * Posts a message to the help iframe.
 	 * @param positronHelpCommand The PositronHelpCommand to post.
@@ -237,4 +272,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			}
 		}
 	}
+
+	//#endregion Private Methods
 }

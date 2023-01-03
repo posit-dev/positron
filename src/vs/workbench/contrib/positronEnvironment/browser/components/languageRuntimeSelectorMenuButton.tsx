@@ -18,6 +18,7 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 
 	// Builds the actions.
 	const actions = () => {
+		// Build the actions for the available language environments.
 		const actions: IAction[] = [];
 		positronEnvironmentContext.languageEnvironments.map(languageEnvironment => {
 			actions.push({
@@ -32,10 +33,12 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 			});
 		});
 
+		// Add a separator.
 		if (actions.length) {
 			actions.push(new Separator());
 		}
 
+		// Add the None action.
 		actions.push({
 			id: '00000000-0000-0000-0000-000000000000',
 			label: 'None',
@@ -47,10 +50,9 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 			}
 		});
 
+		// Done. Return the actions.
 		return actions;
 	};
-
-	console.log('Rendering LanguageRuntimeSelectorMenuButton');
 
 	// Render.
 	return (
