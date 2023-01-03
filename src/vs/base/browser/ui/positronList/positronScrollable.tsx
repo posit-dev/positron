@@ -4,13 +4,14 @@
 
 import 'vs/css!./positronScrollable';
 import * as React from 'react';
-import { isWeb } from 'vs/base/common/platform';
 import { PropsWithChildren, useCallback, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { isWeb } from 'vs/base/common/platform';
 
 /**
  * PositronScrollable props.
  */
 export interface PositronScrollableProps {
+	onScroll: (scrollTop: number) => void;
 	// TODO@softwarenerd - For the moment, PositronScrollable only deals in vertical scrolling.
 	// When there is a solid scenaro for horizontal scrolling, PositronScrollableProps will be
 	// augmented with options to allow higher level components to control what can be scrolled.
@@ -34,7 +35,7 @@ export const PositronScrollable = (props: PropsWithChildren<PositronScrollablePr
 
 	// Add event handlers.
 	React.useEffect(() => {
-		// We only need to listen for the wheel event when isWeb is true.
+		// We only need to listen for the wheel event on the web.
 		if (!isWeb) {
 			return;
 		}
@@ -45,13 +46,13 @@ export const PositronScrollable = (props: PropsWithChildren<PositronScrollablePr
 
 		// Return the cleanup function that removes the wheel handler.
 		return () => {
-			ref.current.addEventListener(WHEEL, wheelHandler, false);
+			ref.current.removeEventListener(WHEEL, wheelHandler, false);
 		};
 	}, []);
 
 	// Render.
 	return (
-		<div ref={ref} className='positron-scrollable'>
+		<div ref={ref} className='positron-scrollable' onScroll={() => props.onScroll(ref.current.scrollTop)} >
 			{props.children}
 		</div>
 	);

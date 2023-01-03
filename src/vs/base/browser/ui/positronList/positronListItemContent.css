@@ -3,7 +3,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-list-item-content {
-	display: flex;
-	padding-left: 6px;
-	align-items: center;
+	height: 100%;
 }

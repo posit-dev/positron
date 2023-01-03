@@ -54,13 +54,10 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 class PositronOutlineContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
-		@IPositronOutlineService private readonly positronOutlineService: IPositronOutlineService,
+		@IPositronOutlineService positronOutlineService: IPositronOutlineService,
 	) {
 		super();
 		this.registerActions();
-
-		// Temp.
-		console.log(this.positronOutlineService);
 	}
 
 	private registerActions(): void {

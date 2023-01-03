@@ -153,7 +153,9 @@
 			'jschardet': `${baseNodeModulesPath}/jschardet/dist/jschardet.min.js`,
 			'@vscode/vscode-languagedetection': `${baseNodeModulesPath}/@vscode/vscode-languagedetection/dist/lib/index.js`,
 			'vscode-regexp-languagedetection': `${baseNodeModulesPath}/vscode-regexp-languagedetection/dist/index.js`,
-			'tas-client-umd': `${baseNodeModulesPath}/tas-client-umd/lib/tas-client-umd.js`
+			'tas-client-umd': `${baseNodeModulesPath}/tas-client-umd/lib/tas-client-umd.js`,
+			'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
+			'react-dom': `${baseNodeModulesPath}/react/umd/react-dom.production.min.js`
 		};
 
 		// Allow to load built-in and other node.js modules via AMD
