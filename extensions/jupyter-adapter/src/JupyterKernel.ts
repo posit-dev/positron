@@ -422,41 +422,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Sends a kernel information request to the kernel.
-	 *
-	 * @returns The unique ID of the request.
-	 */
-	public sendInfoRequest(): string {
-		// Create a unique ID for this request and send it
-		const id = uuidv4();
-		const msg: JupyterKernelInfoRequest = {};
-		this.send(id, 'kernel_info_request', this._shell!, msg);
-
-		// Return the ID so the caller can track the response
-		return id;
-	}
-
-	/**
-	 * Tests a code fragment for completeness.
-	 *
-	 * @param code The code to check.
-	 * @returns The unique ID of the request.
-	 */
-	public testCodeFragmentComplete(code: string): string {
-
-		// Create the message to send to the kernel
-		const id = uuidv4();
-		const msg: JupyterIsCompleteRequest = {
-			code: code
-		};
-
-		this.send(id, 'is_complete_request', this._shell!, msg);
-
-		// Return the ID so the caller can track the response
-		return id;
-	}
-
-	/**
 	 * Executes a fragment of code in the kernel.
 	 *
 	 * @param code The code to execute.
