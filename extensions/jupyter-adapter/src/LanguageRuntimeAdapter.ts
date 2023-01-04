@@ -19,6 +19,9 @@ import { PositronEvent } from './PositronEvent';
 import { JupyterInputRequest } from './JupyterInputRequest';
 import { RuntimeClientAdapter } from './RuntimeClientAdapter';
 import { JupyterIsCompleteReply } from './JupyterIsCompleteReply';
+import { JupyterRpc } from './JupyterRpc';
+import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
+import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -33,8 +36,8 @@ export class LanguageRuntimeAdapter
 	private _lspPort: number | null = null;
 	readonly metadata: positron.LanguageRuntimeMetadata;
 
-	/** A map of message IDs that are awaiting responses to handlers to invoke when a response is received */
-	private readonly _awaiting: Map<string, (msg: JupyterMessagePacket) => void> = new Map();
+	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
+	private readonly _pendingRpcs: Map<string, JupyterRpc<any, any>> = new Map();
 
 	/**
 	 * Map of comm IDs to RuntimeClientAdapters, which wrap comm channels.
@@ -102,24 +105,24 @@ export class LanguageRuntimeAdapter
 		this._kernel.execute(code, id, mode, errorBehavior);
 	}
 
+	/**
+	 * Tests whether a code fragment is complete.
+	 *
+	 * @param code The code fragment to check.
+	 * @returns A Thenable that resolves to the status of the code fragment.
+	 */
 	public isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		// Submit the code fragment to the kernel for completion testing
-		// and save the request ID
-		const id = this._kernel.testCodeFragmentComplete(code);
+		return new Promise<positron.RuntimeCodeFragmentStatus>((resolve, _reject) => {
+			// Create an RPC to send to the kernel
+			const rpc = new JupyterRpc<JupyterIsCompleteRequest, JupyterIsCompleteReply>(
+				'is_complete_request', { code: code },
+				'is_complete_reply', (response: JupyterIsCompleteReply) => {
+					resolve(response.status as positron.RuntimeCodeFragmentStatus);
+				});
 
-		// Wait for the response from the kernel
-		return new Promise<positron.RuntimeCodeFragmentStatus>((resolve, reject) => {
-			this._awaiting.set(id, (msg: JupyterMessagePacket) => {
-				if (msg.msgType !== 'is_complete_reply') {
-					const err = `Unexpected message type ${msg.msgType} in response to is_complete_request`;
-					console.warn(err);
-					reject(err);
-				}
-
-				// Cast the message to a JupyterKernelInfoReply and resolve
-				const message = msg.message as JupyterIsCompleteReply;
-				resolve(message.status as positron.RuntimeCodeFragmentStatus);
-			});
+			// Send the RPC to the kernel and wait for a response
+			this._pendingRpcs.set(rpc.id, rpc);
+			rpc.send(this._kernel);
 		});
 	}
 
@@ -197,32 +200,27 @@ export class LanguageRuntimeAdapter
 		return await this.getKernelInfo();
 	}
 
+	/**
+	 * Gets information about the kernel.
+	 *
+	 * @returns A promise with information about the kernel.
+	 */
 	private getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
-		// Send a kernel_info_request to get the kernel info
-		this._channel.appendLine(`Sending info request to ${this.metadata.language}`);
-		const id = this._kernel.sendInfoRequest();
+		return new Promise<positron.LanguageRuntimeInfo>((resolve, _reject) => {
+			// Create an RPC to send to the kernel requesting kernel info
+			const rpc = new JupyterRpc<JupyterKernelInfoRequest, JupyterKernelInfoReply>(
+				'kernel_info_request', {},
+				'kernel_info_reply', (message: JupyterKernelInfoReply) => {
+					resolve({
+						banner: message.banner,
+						implementation_version: message.implementation_version,
+						language_version: message.language_info.version,
+					} satisfies positron.LanguageRuntimeInfo);
+				});
 
-		// Wait for the response to come back
-		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
-			this._awaiting.set(id, (msg: JupyterMessagePacket) => {
-				// Ensure the message is a kernel_info_reply, as this is the
-				// only message that should be sent in response to a
-				// kernel_info_request. If it isn't, we can't continue since it's
-				// not safe to cast the message to a JupyterKernelInfoReply.
-				if (msg.msgType !== 'kernel_info_reply') {
-					const err = `Unexpected message type ${msg.msgType} in response to kernel_info_request`;
-					console.warn(err);
-					reject(err);
-				}
-
-				// Cast the message to a JupyterKernelInfoReply and resolve
-				const message = msg.message as JupyterKernelInfoReply;
-				resolve({
-					banner: message.banner,
-					implementation_version: message.implementation_version,
-					language_version: message.language_info.version,
-				} as positron.LanguageRuntimeInfo);
-			});
+			// Send the RPC to the kernel and wait for a response
+			this._pendingRpcs.set(rpc.id, rpc);
+			rpc.send(this._kernel);
 		});
 	}
 
@@ -316,14 +314,17 @@ export class LanguageRuntimeAdapter
 			return;
 		}
 
-		// Is the message's parent ID in the set of messages we're waiting for?
-		// If so, we'll call the callback for that message.
-		const callback = this._awaiting.get(msg.originId);
-		if (callback) {
+		// Is the message's parent ID in the set of pending RPCs and is the
+		// message the expected response type? (Note that a single Request type
+		// can generate multiple replies, only one of which is the Reply type)
+		//
+		// If so, we'll complete the RPC and remove the callback.
+		const rpc = this._pendingRpcs.get(msg.originId);
+		if (rpc && rpc.responseType === msg.msgType) {
 			// Clear the callback before invoking it, in case the callback
 			// throws an exception.
-			this._awaiting.delete(msg.originId);
-			callback(msg);
+			this._pendingRpcs.delete(msg.originId);
+			rpc.recv(msg.message);
 		}
 
 		switch (msg.msgType) {
