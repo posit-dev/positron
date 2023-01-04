@@ -81,7 +81,7 @@ export class ReplInstanceView extends Disposable {
 		this._cellContainer.classList.add('repl-cells');
 		this._cellContainer.addEventListener('click', (ev) => {
 			if (this._activeCell) {
-				this._activeCell.focus();
+				this._activeCell.focusInput();
 			}
 		});
 
@@ -312,8 +312,14 @@ export class ReplInstanceView extends Disposable {
 		// Push the submitted code into the history
 		this._instance.history.add(code);
 
-		// Ask the kernel to execute the code
+		// If the active cell has input focus, move focus to the output to
+		// signal that no more input can be accepted.
 		const cell = this._activeCell!;
+		if (cell.hasFocus()) {
+			cell.focusOutput();
+		}
+
+		// Ask the kernel to execute the code
 		this._executedCells.set(cell.getExecutionId(), cell);
 		this._kernel.execute(code,
 			cell.getExecutionId(),
@@ -354,7 +360,7 @@ export class ReplInstanceView extends Disposable {
 
 		this._activeCell = cell;
 		if (focus) {
-			cell.focus();
+			cell.focusInput();
 		}
 	}
 
@@ -363,7 +369,7 @@ export class ReplInstanceView extends Disposable {
 	 */
 	takeFocus() {
 		if (this._activeCell) {
-			this._activeCell.focus();
+			this._activeCell.focusInput();
 		}
 		this._scroller.scanDomNode();
 		this.scrollToBottom();
