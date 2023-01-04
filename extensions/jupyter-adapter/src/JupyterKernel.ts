@@ -27,12 +27,10 @@ import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
-import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { JupyterInputReply } from './JupyterInputReply';
 import { StringDecoder } from 'string_decoder';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
-import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
