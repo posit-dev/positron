@@ -22,8 +22,9 @@ export class Api implements vscode.Disposable {
 	 */
 	adaptKernel(kernel: JupyterKernelSpec,
 		version: string,
-		lsp: () => Promise<number> | null): positron.LanguageRuntime {
-		return new LanguageRuntimeAdapter(kernel, version, lsp, this._channel);
+		lsp: () => Promise<number> | null,
+		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit): positron.LanguageRuntime {
+		return new LanguageRuntimeAdapter(kernel, version, lsp, this._channel, startupBehavior);
 	}
 
 	dispose() {
