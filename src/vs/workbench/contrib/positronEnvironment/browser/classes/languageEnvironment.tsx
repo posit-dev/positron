@@ -148,11 +148,18 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	//#region Public Properties
 
 	/**
+	 * Gets the runtime.
+	 */
+	get runtime() {
+		return this._runtime;
+	}
+
+	/**
 	 * Gets the identifier.
 	 */
 	get identifier() {
 		// TODO@softwarenerd - For the moment, just reuse the language runtime ID.
-		return this._languageRuntime.metadata.id;
+		return this._runtime.metadata.id;
 	}
 
 	/**
@@ -161,10 +168,10 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	get displayName() {
 		// TODO@softwarenerd - Temporary code because R's metadata returns 'r' for the language and something like
 		// 'R: /Library/Frameworks/R.framework/Resources' for the name.
-		if (this._languageRuntime.metadata.name.startsWith('R')) {
+		if (this._runtime.metadata.name.startsWith('R')) {
 			return 'R';
 		} else {
-			return this._languageRuntime.metadata.name;
+			return this._runtime.metadata.name;
 		}
 	}
 
@@ -195,24 +202,24 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 
 	/**
 	 * Constructor.
-	 * @param _languageRuntime The ILanguageRuntime.
+	 * @param _runtime The ILanguageRuntime.
 	 */
-	constructor(private readonly _languageRuntime: ILanguageRuntime) {
+	constructor(private readonly _runtime: ILanguageRuntime) {
 		// Initialize Disposable base class.
 		super();
 
 		// Add the did change runtime state event handler.
-		this._register(this._languageRuntime.onDidChangeRuntimeState(runtimeState => {
+		this._register(this._runtime.onDidChangeRuntimeState(runtimeState => {
 			console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
 		}));
 
 		// Add the did complete startup event handler.
-		this._register(this._languageRuntime.onDidCompleteStartup(languageRuntimeInfo => {
-			console.log(`********************* onDidCompleteStartup ${this._languageRuntime.metadata.language}`);
+		this._register(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
+			console.log(`********************* onDidCompleteStartup ${this._runtime.metadata.language}`);
 		}));
 
 		// Add the did receive runtime message event handler.
-		this._register(this._languageRuntime.onDidReceiveRuntimeMessage(languageRuntimeMessage => {
+		this._register(this._runtime.onDidReceiveRuntimeMessage(languageRuntimeMessage => {
 			console.log(`********************* onDidReceiveRuntimeMessage ${languageRuntimeMessage.id}`);
 		}));
 

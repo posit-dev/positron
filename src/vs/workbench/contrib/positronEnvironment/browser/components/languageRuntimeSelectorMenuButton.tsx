@@ -28,6 +28,8 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 				class: undefined,
 				enabled: true,
 				run: () => {
+					// TODO@softwarenerd - For now, the environment is used to change the active runtime.
+					positronEnvironmentContext.languageRuntimeService.activeRuntime = languageEnvironment.runtime;
 					positronEnvironmentContext.setCurrentLanguageEnvironment(languageEnvironment);
 				}
 			});
@@ -46,6 +48,8 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 			class: undefined,
 			enabled: true,
 			run: () => {
+				// TODO@softwarenerd - For now, the environment is used to change the active runtime.
+				positronEnvironmentContext.languageRuntimeService.activeRuntime = undefined;
 				positronEnvironmentContext.setCurrentLanguageEnvironment(undefined);
 			}
 		});

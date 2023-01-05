@@ -64,7 +64,7 @@ const selectRunningLanguageRuntime = async (
 	placeHolder: string): Promise<ILanguageRuntime | undefined> => {
 
 	// Get the running language runtimes.
-	const runningLanguageRuntimes = languageRuntimeService.getRunningRuntimes();
+	const runningLanguageRuntimes = languageRuntimeService.runningRuntimes;
 	if (!runningLanguageRuntimes.length) {
 		alert('No language runtimes are currently running.');
 		return undefined;
@@ -126,15 +126,15 @@ export function registerLanguageRuntimeActions() {
 		// Ensure that the python extension is loaded.
 		await extensionService.activateByEvent('onLanguage:python');
 
-		// Get the available language runtimes.
-		const allLanguageRuntimes = languageRuntimeService.getAllRuntimes();
-		if (!allLanguageRuntimes.length) {
+		// Get the registered language runtimes.
+		const registeredRuntimes = languageRuntimeService.registeredRuntimes;
+		if (!registeredRuntimes.length) {
 			alert(nls.localize('positronNoInstalledRuntimes', "No language runtimes are currently installed."));
 			return;
 		}
 
 		// Ask the user to select the language runtime to start. If they selected one, start it.
-		const languageRuntime = await selectLanguageRuntime(quickInputService, allLanguageRuntimes, 'Select the language runtime to start');
+		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the language runtime to start');
 		if (languageRuntime) {
 			languageRuntimeService.startRuntime(languageRuntime.metadata.id);
 		}

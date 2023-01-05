@@ -80,9 +80,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 
-		const result = code === 'version' ?
-			`==Z ZED ${this.metadata.version} ${this.metadata.id} Z==` :
-			`++Z "${code}" Z++`;
+		// Process the "code".
+		let result;
+		switch (code.toLowerCase()) {
+			case 'version':
+				result = `Zed v${this.metadata.version} (${this.metadata.id})`;
+				break;
+			default:
+				result = `Error. '${code}' not recognized.`;
+				break;
+		}
+
+		// Create the output.
 		const output: positron.LanguageRuntimeOutput = {
 			id: randomUUID(),
 			parent_id: id,
