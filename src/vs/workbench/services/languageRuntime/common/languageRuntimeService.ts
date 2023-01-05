@@ -347,7 +347,22 @@ export interface ILanguageRuntimeService {
 	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
 
 	// An event that fires when a runtime starts.
-	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime>;
+	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
+
+	/**
+	 * Gets the registered language runtimes.
+	 */
+	readonly registeredRuntimes: ILanguageRuntime[];
+
+	/**
+	 * Gets the running language runtimes.
+	 */
+	readonly runningRuntimes: ILanguageRuntime[];
+
+	/**
+	 * Gets or sets the active language runtime.
+	 */
+	activeRuntime: ILanguageRuntime | undefined;
 
 	/**
 	 * Register a new language runtime
@@ -358,26 +373,11 @@ export interface ILanguageRuntimeService {
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
-	 * Returns the list of all registered runtimes
-	 */
-	getAllRuntimes(): Array<ILanguageRuntime>;
-
-	/**
 	 * Gets a runtime by ID; returns undefined if the runtime is not found
 	 *
 	 * @param id The ID of the runtime to retrieve
 	 */
 	getRuntime(id: string): ILanguageRuntime | undefined;
-
-	/**
-	 * Gets the active language runtime.
-	 */
-	getActiveRuntime(): ILanguageRuntime | undefined;
-
-	/**
-	 * Gets the running language runtimes.
-	 */
-	getRunningRuntimes(): Array<ILanguageRuntime>;
 
 	/**
 	 * Starts a language runtime
