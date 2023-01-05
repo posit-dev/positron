@@ -21,6 +21,10 @@ sudo apt --assume-yes install python3-pip
 echo "*** Installing key Python packages"
 pip3 install ipython ipykernel pandas numpy matplotlib
 
+# Install cmake which is used to build dependencies in our jupyter-adapter extension
+echo "*** Installing cmake"
+sudo apt --assume-yes install cmake
+
 # Install R base system
 echo "*** Installing R base system"
 sudo apt --assume-yes install r-base
