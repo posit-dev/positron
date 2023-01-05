@@ -334,17 +334,23 @@ export interface ILanguageRuntime {
 }
 
 export interface ILanguageRuntimeService {
+	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
+	// An event that fires when a runtime starts.
 	readonly onDidStartRuntime: Event<ILanguageRuntime>;
 
+	// An event that fires when a runtime changes state.
+	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
+
+	// An event that fires when a runtime receives a global event.
 	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
 
-	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
+	// An event that fires when a runtime starts.
+	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime>;
 
 	/**
 	 * Register a new language runtime
-	 *
 	 * @param runtime The LanguageRuntime to register
 	 * @param startupBehavior The desired startup behavior for the runtime
 	 * @returns A disposable that can be used to unregister the runtime
@@ -364,20 +370,17 @@ export interface ILanguageRuntimeService {
 	getRuntime(id: string): ILanguageRuntime | undefined;
 
 	/**
-	 *
-	 * @param language The specific language runtime to retrieve, or `null` to
-	 *   retrieve the default
+	 * Gets the active language runtime.
 	 */
-	getActiveRuntime(language: string | null): ILanguageRuntime | undefined;
+	getActiveRuntime(): ILanguageRuntime | undefined;
 
 	/**
-	 * Gets the set of active runtimes
+	 * Gets the running language runtimes.
 	 */
-	getActiveRuntimes(): Array<ILanguageRuntime>;
+	getRunningRuntimes(): Array<ILanguageRuntime>;
 
 	/**
 	 * Starts a language runtime
-	 *
 	 * @param id The id of the runtime to start
 	 */
 	startRuntime(id: string): void;

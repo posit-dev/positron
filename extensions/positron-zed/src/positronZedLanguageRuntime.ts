@@ -10,6 +10,7 @@ import * as positron from 'positron';
  * PositronZedLanguageRuntime.
  */
 export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
+	//#region Private Properties
 
 	/**
 	 * The onDidReceiveRuntimeMessage event emitter.
@@ -21,16 +22,33 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	private readonly _onDidChangeRuntimeState: vscode.EventEmitter<positron.RuntimeState> = new vscode.EventEmitter<positron.RuntimeState>();
 
+	//#endregion Private Properties
+
+	//#region Constructor
+
+	/**
+	 * Constructor.
+	 * @param id The language ID.
+	 * @param version The language version.
+	 */
+	constructor(id: string, version: string) {
+		this.metadata = {
+			id,
+			language: 'Zed',
+			name: 'Zed',
+			version,
+			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+		};
+	}
+
+	//#endregion Constructor
+
+	//#region LanguageRuntime Implementation
+
 	/**
 	 * Gets the metadata for the language runtime.
 	 */
-	readonly metadata: positron.LanguageRuntimeMetadata = {
-		id: '7282a3c7-c6b7-4652-b59d-a10506f2d21a',
-		language: 'Zed',
-		name: 'Zed',
-		version: '1.0.0',
-		startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
-	};
+	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	/**
 	 * An object that emits language runtime events.
@@ -42,6 +60,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
 
+	//#region  Public Properties
+
 	/**
 	 * Execute code in the runtime.
 	 * @param code The code to exeucte.
@@ -50,7 +70,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param errorBehavior The error behavior to conform to.
 	 */
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
-
 		const busy: positron.LanguageRuntimeState = {
 			id: randomUUID(),
 			parent_id: id,
@@ -61,12 +80,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 
+		const result = code === 'version' ?
+			`==Z ZED ${this.metadata.version} ${this.metadata.id} Z==` :
+			`++Z "${code}" Z++`;
 		const output: positron.LanguageRuntimeOutput = {
 			id: randomUUID(),
 			parent_id: id,
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: {
-				'text/plain': `++Z "${code}" Z++`
+				'text/plain': result
 			} as any,
 		};
 
@@ -81,6 +103,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			state: positron.RuntimeOnlineState.Idle
 		};
 		this._onDidReceiveRuntimeMessage.fire(idle);
+	}
+
+	/**
+	 * Tests a code fragment to see if it's complete.
+	 * @param code The code to test for completeness.
+	 * @returns A Thenable that resolves with the status of the code fragment.
+	 */
+	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
+		// All Zed code fragments are complete. There is no incomplete code in
+		// Zed. ALL IS COMPLETE IN ZED
+		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
 	/**
@@ -124,21 +157,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		return Promise.resolve({
-			banner: 'Zed',
+			banner: `Zed ${this.metadata.version}`,
 			implementation_version: '1.0.0',
-			language_version: '1.0.0'
+			language_version: this.metadata.version
 		} as positron.LanguageRuntimeInfo);
-	}
-
-	/**
-	 * Tests a code fragment to see if it's complete.
-	 * @param code The code to test for completeness.
-	 * @returns A Thenable that resolves with the status of the code fragment.
-	 */
-	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		// All Zed code fragments are complete. There is no incomplete code in
-		// Zed. ALL IS COMPLETE IN ZED
-		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
 	/**
@@ -161,4 +183,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	shutdown(): void {
 		throw new Error('Method not implemented.');
 	}
+
+	//#endregion LanguageRuntime Implementation
 }

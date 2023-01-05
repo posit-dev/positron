@@ -40,7 +40,7 @@ export class ReplService extends Disposable implements IReplService {
 	) {
 		super();
 
-		const runtime = this._languageRuntimeService.getActiveRuntime(null);
+		const runtime = this._languageRuntimeService.getActiveRuntime();
 		if (runtime) {
 			// There is already a language runtime active; start a REPL for it
 			this.startRepl(runtime);
@@ -67,8 +67,8 @@ export class ReplService extends Disposable implements IReplService {
 	 * @returns A promise that resolves to the newly created REPL instance.
 	 */
 	async createRepl(options?: ICreateReplOptions | undefined): Promise<IReplInstance> {
-		const kernel = this._languageRuntimeService.getActiveRuntime(null);
-		if (typeof kernel === 'undefined') {
+		const kernel = this._languageRuntimeService.getActiveRuntime();
+		if (!kernel) {
 			throw new Error('Cannot create REPL; no language runtime is active.');
 		}
 		return this.startRepl(kernel);
