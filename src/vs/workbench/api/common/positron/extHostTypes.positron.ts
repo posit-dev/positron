@@ -154,3 +154,11 @@ export enum RuntimeErrorBehavior {
 	/** The runtime should continue execution when an error is encountered */
 	Continue = 'continue',
 }
+
+export enum LanguageRuntimeStartupBehavior {
+	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+	Implicit = 'implicit',
+
+	/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+	Explicit = 'explicit',
+}

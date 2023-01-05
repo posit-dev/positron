@@ -28,7 +28,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		id: '7282a3c7-c6b7-4652-b59d-a10506f2d21a',
 		language: 'Zed',
 		name: 'Zed',
-		version: '1.0.0'
+		version: '1.0.0',
+		startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 	};
 
 	/**
