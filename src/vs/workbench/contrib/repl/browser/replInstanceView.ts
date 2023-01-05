@@ -293,7 +293,8 @@ export class ReplInstanceView extends Disposable {
 				// Code is complete; we can run it as is
 				this.executeCode(code);
 			} else if (result === RuntimeCodeFragmentStatus.Incomplete) {
-				// TODO (jmcphers): handle incomplete code fragments
+				// Don't do anything if the code is incomplete; the user will just see
+				// a new line in the input area
 			} else if (result === RuntimeCodeFragmentStatus.Invalid) {
 				// If the code is invalid (contains syntax errors), warn but
 				// execute it anyway (so the user can see a syntax error from
@@ -318,6 +319,10 @@ export class ReplInstanceView extends Disposable {
 		if (cell.hasFocus()) {
 			cell.focusOutput();
 		}
+		// Replace whatever's in the cell with the actual code we're about
+		// to execute, to avoid confusion if the user types something else
+		// while the cell is executing.
+		cell.setContent(code);
 
 		// Ask the kernel to execute the code
 		this._executedCells.set(cell.getExecutionId(), cell);

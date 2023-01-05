@@ -131,8 +131,6 @@ export class ReplInput extends Disposable {
 					code: this._editor.getValue(),
 					focus: this._editor.hasTextFocus()
 				});
-				e.preventDefault();
-				e.stopPropagation();
 			} else if (e.keyCode === KeyCode.UpArrow) {
 				if (this.historyNavigate(false)) {
 					e.preventDefault();
