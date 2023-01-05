@@ -226,6 +226,9 @@ export interface ILanguageRuntimeMetadata {
 
 	/** The version of the runtime. */
 	readonly version: string;
+
+	/** Whether the runtime should start up automatically or wait until explicitly requested */
+	startupBehavior: LanguageRuntimeStartupBehavior;
 }
 
 /**
