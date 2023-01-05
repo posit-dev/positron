@@ -52,26 +52,26 @@ export const selectLanguageRuntime = async (
 };
 
 /**
- * Helper function that asks the user to select an active language runtime.
+ * Helper function that asks the user to select a running language runtime.
  * @param languageRuntimeService The language runtime service.
  * @param quickInputService The quick input service.
  * @param placeHolder The placeholder for the quick input.
- * @returns The language runtime the user selected, or undefined, if there are no active language runtimes or the user canceled the operation.
+ * @returns The language runtime the user selected, or undefined, if there are no running language runtimes or the user canceled the operation.
  */
-const selectActiveLanguageRuntime = async (
+const selectRunningLanguageRuntime = async (
 	languageRuntimeService: ILanguageRuntimeService,
 	quickInputService: IQuickInputService,
 	placeHolder: string): Promise<ILanguageRuntime | undefined> => {
 
-	// Get the active language runtimes.
-	const activeLanguageRuntimes = languageRuntimeService.getActiveRuntimes();
-	if (!activeLanguageRuntimes.length) {
-		alert('No language runtimes are currently started.');
+	// Get the running language runtimes.
+	const runningLanguageRuntimes = languageRuntimeService.getRunningRuntimes();
+	if (!runningLanguageRuntimes.length) {
+		alert('No language runtimes are currently running.');
 		return undefined;
 	}
 
-	// As the user to select the active language runtime.
-	return await selectLanguageRuntime(quickInputService, activeLanguageRuntimes, placeHolder);
+	// As the user to select the running language runtime.
+	return await selectLanguageRuntime(quickInputService, runningLanguageRuntimes, placeHolder);
 };
 
 /**
@@ -142,7 +142,7 @@ export function registerLanguageRuntimeActions() {
 
 	// Registers the restart language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.restart', 'Restart Language Runtime', async accessor => {
-		(await selectActiveLanguageRuntime(
+		(await selectRunningLanguageRuntime(
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IQuickInputService),
 			'Select the language runtime to restart'))?.restart();
@@ -150,7 +150,7 @@ export function registerLanguageRuntimeActions() {
 
 	// Registers the interrupt language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Language Runtime', async accessor => {
-		(await selectActiveLanguageRuntime(
+		(await selectRunningLanguageRuntime(
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IQuickInputService),
 			'Select the language runtime to interrupt'))?.interrupt();
@@ -158,7 +158,7 @@ export function registerLanguageRuntimeActions() {
 
 	// Registers the shutdown language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.shutdown', 'Shutdown Language Runtime', async accessor => {
-		(await selectActiveLanguageRuntime(
+		(await selectRunningLanguageRuntime(
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IQuickInputService),
 			'Select the language runtime to shutdown'))?.shutdown();
@@ -169,8 +169,8 @@ export function registerLanguageRuntimeActions() {
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 		const quickInputService = accessor.get(IQuickInputService);
 
-		// Ask the user to select an active language runtime.
-		const languageRuntime = await selectActiveLanguageRuntime(languageRuntimeService, quickInputService, 'Select the language runtime');
+		// Ask the user to select a running language runtime.
+		const languageRuntime = await selectRunningLanguageRuntime(languageRuntimeService, quickInputService, 'Select the language runtime');
 		if (!languageRuntime) {
 			return;
 		}
@@ -196,8 +196,8 @@ export function registerLanguageRuntimeActions() {
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 		const quickInputService = accessor.get(IQuickInputService);
 
-		// Ask the user to select an active language runtime.
-		const languageRuntime = await selectActiveLanguageRuntime(languageRuntimeService, quickInputService, 'Select the language runtime');
+		// Ask the user to select a running language runtime.
+		const languageRuntime = await selectRunningLanguageRuntime(languageRuntimeService, quickInputService, 'Select the language runtime');
 		if (!languageRuntime) {
 			return;
 		}
