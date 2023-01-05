@@ -27,12 +27,10 @@ import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
-import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { JupyterInputReply } from './JupyterInputReply';
 import { StringDecoder } from 'string_decoder';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
-import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -419,41 +417,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 		this._channel.appendLine(`RECV ${msg.header.msg_type} from ${socket}: ${JSON.stringify(msg)}`);
 		this.emit('message', packet);
-	}
-
-	/**
-	 * Sends a kernel information request to the kernel.
-	 *
-	 * @returns The unique ID of the request.
-	 */
-	public sendInfoRequest(): string {
-		// Create a unique ID for this request and send it
-		const id = uuidv4();
-		const msg: JupyterKernelInfoRequest = {};
-		this.send(id, 'kernel_info_request', this._shell!, msg);
-
-		// Return the ID so the caller can track the response
-		return id;
-	}
-
-	/**
-	 * Tests a code fragment for completeness.
-	 *
-	 * @param code The code to check.
-	 * @returns The unique ID of the request.
-	 */
-	public testCodeFragmentComplete(code: string): string {
-
-		// Create the message to send to the kernel
-		const id = uuidv4();
-		const msg: JupyterIsCompleteRequest = {
-			code: code
-		};
-
-		this.send(id, 'is_complete_request', this._shell!, msg);
-
-		// Return the ID so the caller can track the response
-		return id;
 	}
 
 	/**

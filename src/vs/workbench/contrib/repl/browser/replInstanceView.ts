@@ -9,7 +9,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
@@ -81,7 +81,7 @@ export class ReplInstanceView extends Disposable {
 		this._cellContainer.classList.add('repl-cells');
 		this._cellContainer.addEventListener('click', (ev) => {
 			if (this._activeCell) {
-				this._activeCell.focus();
+				this._activeCell.focusInput();
 			}
 		});
 
@@ -282,16 +282,49 @@ export class ReplInstanceView extends Disposable {
 	}
 
 	/**
-	 * Submits code in the REPL
+	 * Submits code in the REPL after testing it for completeness
 	 *
 	 * @param code The code to submit
 	 */
 	submit(code: string) {
+		// Ask the kernel to determine whether the code fragment is a complete expression
+		this._kernel.isCodeFragmentComplete(code).then((result) => {
+			if (result === RuntimeCodeFragmentStatus.Complete) {
+				// Code is complete; we can run it as is
+				this.executeCode(code);
+			} else if (result === RuntimeCodeFragmentStatus.Incomplete) {
+				// Don't do anything if the code is incomplete; the user will just see
+				// a new line in the input area
+			} else if (result === RuntimeCodeFragmentStatus.Invalid) {
+				// If the code is invalid (contains syntax errors), warn but
+				// execute it anyway (so the user can see a syntax error from
+				// the interpreter)
+				this._logService.warn(`Execute invalid code fragment '${code}'`);
+				this.executeCode(code);
+			} else if (result === RuntimeCodeFragmentStatus.Unknown) {
+				// If we can't determine the status, warn but execute it anyway
+				this._logService.warn(`Could not determine fragment completion status for '${code}'`);
+				this.executeCode(code);
+			}
+		});
+	}
+
+	private executeCode(code: string) {
 		// Push the submitted code into the history
 		this._instance.history.add(code);
 
-		// Ask the kernel to execute the code
+		// If the active cell has input focus, move focus to the output to
+		// signal that no more input can be accepted.
 		const cell = this._activeCell!;
+		if (cell.hasFocus()) {
+			cell.focusOutput();
+		}
+		// Replace whatever's in the cell with the actual code we're about
+		// to execute, to avoid confusion if the user types something else
+		// while the cell is executing.
+		cell.setContent(code);
+
+		// Ask the kernel to execute the code
 		this._executedCells.set(cell.getExecutionId(), cell);
 		this._kernel.execute(code,
 			cell.getExecutionId(),
@@ -332,7 +365,7 @@ export class ReplInstanceView extends Disposable {
 
 		this._activeCell = cell;
 		if (focus) {
-			cell.focus();
+			cell.focusInput();
 		}
 	}
 
@@ -341,7 +374,7 @@ export class ReplInstanceView extends Disposable {
 	 */
 	takeFocus() {
 		if (this._activeCell) {
-			this._activeCell.focus();
+			this._activeCell.focusInput();
 		}
 		this._scroller.scanDomNode();
 		this.scrollToBottom();

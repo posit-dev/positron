@@ -135,16 +135,8 @@ export class ReplCell extends Disposable {
 			this._onDidCancelExecution.fire({});
 		});
 
-		// Copy the editor's font settings to the output area
-
 		// Event forwarding for input submission
 		this.onDidSubmitInput = this._input.onDidSubmitInput;
-		this._register(this.onDidSubmitInput((e) => {
-			// If the input had focus, drive it out
-			if (e.focus) {
-				this._output.getDomNode().focus();
-			}
-		}));
 
 		// Decorate with pending input state if cell is queued
 		if (this._state === ReplCellState.ReplCellPending) {
@@ -206,8 +198,15 @@ export class ReplCell extends Disposable {
 	/**
 	 * Forward focus the cell's input control
 	 */
-	focus() {
+	focusInput() {
 		this._input.focus();
+	}
+
+	/**
+	 * Forward focus the cell's output control
+	 */
+	focusOutput() {
+		this._output.getDomNode().focus();
 	}
 
 	/**
