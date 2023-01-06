@@ -2,9 +2,9 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { HistoryNavigator2 } from 'vs/base/common/history';
+import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Create the decorator for the REPL service (used in dependency injection)
@@ -21,14 +21,11 @@ export interface ICreateReplOptions {
  * An instance of a REPL bound to a language runtime.
  */
 export interface IReplInstance {
-	/** The REPL's instance identifier */
-	readonly instanceId: number;
-
 	/** The identifier of the language used by the REPL */
 	readonly languageId: string;
 
-	/** The language runtime kernel to which the instance is bound */
-	readonly kernel: ILanguageRuntime;
+	/** The language runtime to which the instance is bound */
+	readonly runtime: ILanguageRuntime;
 
 	/** Clear the REPL's contents */
 	clear(): void;
@@ -50,14 +47,20 @@ export interface IReplInstance {
  * A service that manages a set of REPL instances.
  */
 export interface IReplService {
-	/** Necessary to label as branded service for dependency injector */
+	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
-	/** An accessor returning the set of open REPLs */
+	// Gets the REPL instances.
 	readonly instances: readonly IReplInstance[];
 
-	/** Event fired when a REPL instance is created */
+	// Gets the active REPL instance.
+	readonly activeInstance: IReplInstance | undefined;
+
+	// An event that is fired a REPL instance is started.
 	readonly onDidStartRepl: Event<IReplInstance>;
+
+	// An event that is fired when the active REPL instance changes.
+	readonly onDidChangeActiveRepl: Event<IReplInstance | undefined>;
 
 	/**
 	 * Creates a new REPL instance and returns it.
