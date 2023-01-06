@@ -35,10 +35,10 @@ export class ReplViewPane extends ViewPane {
 	private _replContainer: HTMLElement;
 
 	/** The repl instance entries. */
-	private replInstanceEntries: ReplInstanceEntry[] = [];
+	private replInstanceEntries = new Map<IReplInstance, ReplInstanceEntry>();
 
 	/** The active repl instance entry. */
-	private _activeReplInstanceEntry?: ReplInstanceEntry;
+	private _activeReplInstanceEntry: ReplInstanceEntry | undefined;
 
 	constructor(options: IViewPaneOptions,
 		@IKeybindingService keybindingService: IKeybindingService,
@@ -90,21 +90,25 @@ export class ReplViewPane extends ViewPane {
 		// If there are already repl instances in the repl service, create their repl instance entries
 		// and activate the last one.
 		this._replService.instances.forEach((replInstance, index, replInstances) => {
-			this.createReplInstanceEntry(replInstance, index === replInstances.length - 1);
+			this.createReplInstanceEntry(replInstance);
 		});
 
-		// Listen for new repl instances to start.
-		this._replService.onDidStartRepl(replInstance => {
-			this.createReplInstanceEntry(replInstance, true);
+		// Add the onDidStartRepl event handler.
+		this._register(this._replService.onDidStartRepl(replInstance => {
+			this.createReplInstanceEntry(replInstance);
+		}));
+
+		// Add the onDidChangeActiveRepl event handler.
+		this._replService.onDidChangeActiveRepl(replInstance => {
+			this.activateReplInstance(replInstance);
 		});
 	}
 
 	/**
-	 * Create a new repl instance entry.
-	 *
-	 * @param replInstance The underlying REPL instance to show in the view
+	 * Creates a new repl instance entry.
+	 * @param replInstance The underlying REPL instance to show in the view.
 	 */
-	private createReplInstanceEntry(replInstance: IReplInstance, activate: boolean) {
+	private createReplInstanceEntry(replInstance: IReplInstance) {
 		// Create the repl instance view container.
 		const replInstanceViewContainer = DOM.$('.repl-instance-view-container');
 
@@ -122,14 +126,29 @@ export class ReplViewPane extends ViewPane {
 			replInstanceView
 		};
 
-		// Append the repl instance entry tp the repl instance entries.
-		this.replInstanceEntries.push(replInstanceEntry);
+		// Set the REPL instance entry tp the repl instance entries.
+		this.replInstanceEntries.set(replInstance, replInstanceEntry);
 
 		// Activate the repl instance entry, if asked to do so.
-		if (activate) {
-			this._activeReplInstanceEntry?.replInstanceViewContainer.remove();
-			this._replContainer.append(replInstanceViewContainer);
-			this._activeReplInstanceEntry = replInstanceEntry;
+		// if (activate) {
+		// 	this._activeReplInstanceEntry?.replInstanceViewContainer.remove();
+		// 	this._replContainer.append(replInstanceViewContainer);
+		// 	this._activeReplInstanceEntry = replInstanceEntry;
+		// }
+	}
+
+	/**
+	 * Activates a REPL instance.
+	 * @param replInstance The REPL instance to activate.
+	 */
+	private activateReplInstance(replInstance: IReplInstance | undefined) {
+		this._activeReplInstanceEntry?.replInstanceViewContainer.remove();
+		if (replInstance) {
+			const replInstanceEntry = this.replInstanceEntries.get(replInstance);
+			if (replInstanceEntry) {
+				this._replContainer.append(replInstanceEntry.replInstanceViewContainer);
+				this._activeReplInstanceEntry = replInstanceEntry;
+			}
 		}
 	}
 }

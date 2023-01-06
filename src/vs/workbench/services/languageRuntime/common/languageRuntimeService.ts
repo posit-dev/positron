@@ -10,6 +10,14 @@ import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
 /**
+ * Formats a language runtime for logging.
+ * @param languageRuntime The language runtime to format for logging.
+ * @returns A string suitable for logging the language runtime.
+ */
+export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) =>
+	`${languageRuntime.metadata.id} (language: ${languageRuntime.metadata.language} name: ${languageRuntime.metadata.name} version: ${languageRuntime.metadata.version})`;
+
+/**
  * LanguageRuntimeMessage is an interface that defines an event occurring in a
  * language runtime, such as outputting text or plots.
  */

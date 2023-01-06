@@ -5,157 +5,201 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
-import { ReplInstance } from 'vs/workbench/contrib/repl/browser/replInstance';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
-import * as nls from 'vs/nls';
-import Severity from 'vs/base/common/severity';
+import { ReplInstance } from 'vs/workbench/contrib/repl/browser/replInstance';
+import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The implementation of IReplService
  */
 export class ReplService extends Disposable implements IReplService {
-	declare readonly _serviceBrand: undefined;
+	//#region Private Properties
 
-	/** Event emitted when new REPL instances are started */
-	private readonly _onDidStartRepl = this._register(new Emitter<IReplInstance>);
-	readonly onDidStartRepl = this._onDidStartRepl.event;
+	// A map of the running REPL instances. This is keyed by the id (metadata.id) of the language runtime.
+	private readonly _runningInstancesById = new Map<string, IReplInstance>();
+
+	// A map of the running REPL instances. This is keyed by the language id of the language runtime.
+	private readonly _runningInstancesByLanguageId = new Map<string, IReplInstance>();
 
 	/** The set of active REPL instances */
-	private readonly _instances: Array<IReplInstance> = [];
+	private _activeInstance?: IReplInstance;
 
-	/** Counter for assigning unique IDs to REPL instances */
-	private _maxInstanceId: number = 1;
+	// The event emitter for the onDidStartRepl event.
+	private readonly _onDidStartRepl = this._register(new Emitter<IReplInstance>);
+
+	// The event emitter for the onDidChangeActiveRepl event.
+	private readonly _onDidChangeActiveRepl = this._register(new Emitter<IReplInstance | undefined>);
+
+	//#endregion Private Properties
+
+	//#region Constructor & Dispose
 
 	/**
 	 * Construct a new REPL service from injected services
 	 */
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
-		@ILogService private _logService: ILogService,
 		@ILanguageService private readonly _languageService: ILanguageService,
-		@IDialogService private readonly _dialogService: IDialogService
+		@ILogService private _logService: ILogService,
 	) {
+		// Call the disposable constrcutor.
 		super();
 
-		const runtime = this._languageRuntimeService.activeRuntime;
-		if (runtime) {
-			// There is already a language runtime active; start a REPL for it
+		// Start a REPL instance for each running language runtime.
+		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
 			this.startRepl(runtime);
-		} else {
-			// No language runtime active yet. When a language runtime starts,
-			// open a REPL for it.
-			this._languageRuntimeService.onDidStartRuntime((e) => {
-				this.startRepl(e);
-			});
+		});
+
+		// Get the active language runtime. If there is one, activate the REPL for it.
+		if (this._languageRuntimeService.activeRuntime) {
+			const instance = this._runningInstancesById.get(this._languageRuntimeService.activeRuntime.metadata.id);
+			if (instance) {
+				this.setActiveRepl(instance);
+			} else {
+				this._logService.error(`Language runtime ${formatLanguageRuntime(this._languageRuntimeService.activeRuntime)} is active, but a REPL instance for it was not started.`);
+			}
 		}
+
+		// Register the onDidStartRuntime event handler so we start a new REPL for each runtime that is started.
+		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
+			// Note that we do not autimatically activate the new REPL. Instead, we wait for onDidChangeActiveRuntime
+			// to be fired by the language runtime service.
+			this.startRepl(runtime);
+		}));
+
+		// Register the onDidChangeActiveRuntime event handler so we can activate the REPL for the active runtime.
+		this._register(this._languageRuntimeService.onDidChangeActiveRuntime(runtime => {
+			if (!runtime) {
+				this.setActiveRepl();
+			} else {
+				const instance = this._runningInstancesById.get(runtime.metadata.id);
+				if (instance) {
+					this.setActiveRepl(instance);
+				} else {
+					this._logService.error(`Language runtime ${formatLanguageRuntime(runtime)} became active, but a REPL instance for it is not running.`);
+				}
+			}
+		}));
 	}
 
-	/**
-	 * Return the current set of REPL instances
-	 */
+	//#endregion Constructor & Dispose
+
+	//#region IReplService Implementation
+
+	// Needed for service branding in dependency injector.
+	declare readonly _serviceBrand: undefined;
+
+	// An event that is fired when a REPL instance is started.
+	readonly onDidStartRepl = this._onDidStartRepl.event;
+
+	// An event that is fired when the active REPL instance changes.
+	readonly onDidChangeActiveRepl = this._onDidChangeActiveRepl.event;
+
+	// Gets the repl instances.
 	get instances(): IReplInstance[] {
-		return this._instances;
+		return Array.from(this._runningInstancesById.values());
+	}
+
+	// Gets the active REPL instance.
+	get activeInstance(): IReplInstance | undefined {
+		return this._activeInstance;
 	}
 
 	/**
 	 * Creates a new REPL instance and returns it.
-	 *
 	 * @param options The REPL's settings
 	 * @returns A promise that resolves to the newly created REPL instance.
 	 */
 	async createRepl(options?: ICreateReplOptions | undefined): Promise<IReplInstance> {
-		const kernel = this._languageRuntimeService.activeRuntime;
-		if (!kernel) {
+		// TODO@softwarenerd - This exists for ReplCommandId.New. It might / should go away.
+		const runtime = this._languageRuntimeService.activeRuntime;
+		if (!runtime) {
 			throw new Error('Cannot create REPL; no language runtime is active.');
 		}
-		return this.startRepl(kernel);
+		return this.startRepl(runtime);
 	}
 
 	/**
 	 * Clears the currently active REPL instance.
 	 */
 	clearActiveRepl(): void {
-		if (this._instances.length === 0) {
+		if (this._activeInstance) {
+			this._activeInstance.clear();
+		} else {
 			this._logService.warn('Clear REPL command issued when no REPL is active; ignoring.');
-			return;
 		}
-
-		// TODO: We don't currently support multiple REPLs, so just clear the first one for now.
-		this._instances[0].clear();
 	}
 
 	/**
-	 * Executes code in the REPL active for the language
-	 *
-	 * @param languageId The language of the code
-	 * @param code The code to execute
+	 * Executes code in the REPL active for the language.
+	 * @param languageId The language of the code.
+	 * @param code The code to execute.
 	 */
 	executeCode(languageId: string, code: string): void {
-
-		// Attempt to find a running REPL for the code
-		let hasRepl = false;
-		for (const instance of this._instances) {
-			if (instance.languageId === languageId) {
-				hasRepl = true;
-				instance.executeCode(code);
-				break;
-			}
-		}
-
-		if (!hasRepl) {
-			this._logService.warn(`Attempt to execute code fragment ${code} in language ${languageId}, but no REPL is active for that language.`);
+		const instance = this._runningInstancesByLanguageId.get(languageId);
+		if (!instance) {
+			this._logService.error(`Cannot execute code fragment '${code}' in language ${languageId} because no REPL is active for that language.`);
+		} else {
+			instance.executeCode(code);
 		}
 	}
 
+	//#endregion IReplService Implementation
+
+	//#region Private Methods
+
 	/**
-	 * Starts a new REPL.
-	 *
-	 * @param kernel The kernel to bind to the new REPL
-	 * @returns The new REPL instance
+	 * Starts a new REPL instance.
+	 * @param runtime The language runtime to bind to the new REPL instance.
+	 * @returns The new REPL instance.
 	 */
-	private startRepl(kernel: ILanguageRuntime): IReplInstance {
-		// Look up supported language ID for this kernel
-		const languageId = this._languageService.getLanguageIdByLanguageName(kernel.metadata.language);
+	private startRepl(runtime: ILanguageRuntime): IReplInstance {
+		// Look up supported language ID for this runtime.
+		const languageId = this._languageService.getLanguageIdByLanguageName(runtime.metadata.language);
 		if (!languageId) {
-			throw new Error(`Could not find ID for kernel language ${kernel.metadata.language}`);
+			throw new Error(`Language runtime ${formatLanguageRuntime(runtime)} was not found in the language service.`);
 		}
-		this._logService.trace(`Starting REPL for language ${languageId} (${kernel.metadata.name})`);
 
-		// Auto-generate an instance ID for this REPL
-		const id = this._maxInstanceId++;
+		// Log.
+		this._logService.trace(`Starting REPL for language runtime ${formatLanguageRuntime(runtime)}.`);
 
-		// Register new REPL instance
-		const instance = this._register(new ReplInstance(id, languageId, kernel));
+		// Create the new REPL instance.
+		const instance = new ReplInstance(languageId, runtime);
 
-		// Store the instance and fire event to listeners
-		this._instances.push(instance);
+		// Add the REPL instance to the running instances.
+		this._runningInstancesById.set(runtime.metadata.id, instance);
+		this._runningInstancesByLanguageId.set(languageId, instance);
+
+		// Fire the onDidStartRepl event.
 		this._onDidStartRepl.fire(instance);
 
-		// When the REPL exits, see if the user wants to restart it.
-		this._register(kernel.onDidChangeRuntimeState((state) => {
+		// When the runtime exits, see if the user wants to restart it.
+		this._register(runtime.onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
-				this.promptToRestartRuntime(kernel);
+				this._runningInstancesById.delete(runtime.metadata.id);
+				this._runningInstancesByLanguageId.delete(languageId);
 			}
 		}));
 
+		// Return the instance.
 		return instance;
 	}
 
-	private promptToRestartRuntime(runtime: ILanguageRuntime): void {
-		// Ask the dialog service to prompt the user for a restart
-		this._dialogService.show(Severity.Info,
-			nls.localize('restartRuntime', '{0} exited. Would you like to restart it?',
-				runtime.metadata.name),
-			[
-				nls.localize('restart', 'Restart'),
-				nls.localize('cancel', 'Cancel')
-			]).then(result => {
-				if (result.choice === 0) {
-					this._languageRuntimeService.startRuntime(runtime.metadata.id);
-				}
-			});
+	/**
+	 * Sets the
+	 * @param instance
+	 */
+	private setActiveRepl(instance?: IReplInstance) {
+		// Log.
+		if (instance) {
+			this._logService.trace(`Activating REPL for language runtime ${formatLanguageRuntime(instance.runtime)}.`);
+		}
+
+		// Set the active instance and fire the onDidChangeActiveRepl event.
+		this._activeInstance = instance;
+		this._onDidChangeActiveRepl.fire(instance);
 	}
+
+	//#endregion Private Methods
 }

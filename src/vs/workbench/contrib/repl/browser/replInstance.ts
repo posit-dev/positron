@@ -19,9 +19,8 @@ export class ReplInstance extends Disposable implements IReplInstance {
 	readonly history: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000);
 
 	constructor(
-		readonly instanceId: number,
 		readonly languageId: string,
-		readonly kernel: ILanguageRuntime) {
+		readonly runtime: ILanguageRuntime) {
 		super();
 	}
 

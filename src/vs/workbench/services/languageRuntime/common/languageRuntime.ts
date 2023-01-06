@@ -8,7 +8,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { ILanguageRuntime, ILanguageRuntimeEvent, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeEvent, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The language runtime info class.
@@ -24,14 +24,6 @@ class LanguageRuntimeInfo {
 		this.state = state;
 	}
 }
-
-/**
- * Formats a language runtime for logging.
- * @param languageRuntime The language runtime to format for logging.
- * @returns A string suitable for logging the language runtime.
- */
-const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) =>
-	`Language runtime (id: ${languageRuntime.metadata.id} language: ${languageRuntime.metadata.language} name: ${languageRuntime.metadata.name} version: ${languageRuntime.metadata.version})`;
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -52,7 +44,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _runningLanguageRuntimesMap = new Map<string, ILanguageRuntime>();
 
 	// The active runtime.
-	private _activeRuntime: ILanguageRuntime | undefined;
+	private _activeRuntime?: ILanguageRuntime;
 
 	// The event emitter for the onDidStartRuntime event.
 	private readonly _onDidStartRuntime = this._register(new Emitter<ILanguageRuntime>);
@@ -100,9 +92,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 
 			// Start the first language runtime that was found. This isn't random; the runtimes are sorted by priority when
-			// registered by the extension, so they will be in right order and the first one is the right one to start.
-			this._logService.trace(`${formatLanguageRuntime(languageRuntimeInfos[0].runtime)} automatically starting`);
-			this.safeStartLanguageRuntime(languageRuntimeInfos[0]);
+			// registered by the extension, so they will be in the right order so the first one is the right one to start.
+			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntimeInfos[0].runtime)} automatically starting`);
+			this.safeStartRuntime(languageRuntimeInfos[0].runtime);
 		}));
 	}
 
@@ -161,13 +153,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		} else {
 			// Sanity check that the language runtime that was specified is registered.
 			if (!this._registeredLanguageRuntimesMap.has(runtime.metadata.id)) {
-				throw new Error(`${formatLanguageRuntime(runtime)} cannot be started necause it is not registered.`);
+				this._logService.error(`Cannot activate language runtime ${formatLanguageRuntime(runtime)} because it is not registered.`);
+				return;
 			}
 
 			// Sanity check that the language runtime that was specified is running.
 			const runningRuntime = this._runningLanguageRuntimesMap.get(runtime.metadata.language);
 			if (!runningRuntime || runningRuntime.metadata.id !== runtime.metadata.id) {
-				throw new Error(`${formatLanguageRuntime(runtime)} cannot be started because it is not running.`);
+				this._logService.error(`Cannot activate language runtime ${formatLanguageRuntime(runtime)} because it is not running.`);
+				return;
 			}
 
 			// Set the active language runtime to the running language runtime.
@@ -187,7 +181,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable {
 		// If the language runtime has already been registered, throw an error.
 		if (this._registeredLanguageRuntimesMap.has(runtime.metadata.id)) {
-			throw new Error(`${formatLanguageRuntime(runtime)} has already been registered.`);
+			throw new Error(`Language runtime ${formatLanguageRuntime(runtime)} has already been registered.`);
 		}
 
 		// Add the language runtime to the registered language runtimes.
@@ -196,15 +190,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._registeredLanguageRuntimesMap.set(runtime.metadata.id, languageRuntimeInfo);
 
 		// Logging.
-		this._logService.trace(`${formatLanguageRuntime(runtime)} has been registered.`);
+		this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} successfully registered.`);
 
 		// If the language has already been encountered, and it isn't already running, and it allows
 		// for implicit startup, start it.
 		if (this._encounteredLanguages.has(runtime.metadata.language) &&
 			!this._runningLanguageRuntimesMap.has(runtime.metadata.language) &&
 			startupBehavior === LanguageRuntimeStartupBehavior.Implicit) {
-			this._logService.trace(`${formatLanguageRuntime(runtime)} automatically starting.`);
-			this.safeStartLanguageRuntime(languageRuntimeInfo);
+			this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} automatically starting.`);
+			this.safeStartRuntime(languageRuntimeInfo.runtime);
 		}
 
 		this._register(runtime.onDidChangeRuntimeState(state => {
@@ -216,7 +210,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Let listeners know that the runtime state has changed.
 			const languageRuntimeInfo = this._registeredLanguageRuntimesMap.get(runtime.metadata.id);
 			if (!languageRuntimeInfo) {
-				this._logService.error(`${formatLanguageRuntime(runtime)} is not registered.`);
+				this._logService.error(`Language runtime ${formatLanguageRuntime(runtime)} is not registered.`);
 			} else {
 				const oldState = languageRuntimeInfo.state;
 				languageRuntimeInfo.setState(state);
@@ -269,11 +263,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// If there is already a language runtime running for the language, throw an error.
 		const runningLanguageRuntime = this._runningLanguageRuntimesMap.get(languageRuntimeInfo.runtime.metadata.language);
 		if (runningLanguageRuntime) {
-			throw new Error(`${formatLanguageRuntime(languageRuntimeInfo.runtime)} cannot be started. ${formatLanguageRuntime(runningLanguageRuntime)} is already running for the language.`);
+			throw new Error(`Language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} cannot be started because language runtime ${formatLanguageRuntime(runningLanguageRuntime)} is already running for the language.`);
 		}
 
 		// Start the language runtime.
-		this.safeStartLanguageRuntime(languageRuntimeInfo);
+		this.safeStartRuntime(languageRuntimeInfo.runtime);
 	}
 
 	//#endregion ILanguageRuntimeService Implementation
@@ -282,19 +276,24 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	/**
 	 * Starts a language runtime.
-	 * @param languageRuntimeInfo The language runtime to start.
+	 * @param runtime The language runtime to start.
 	 */
-	private safeStartLanguageRuntime(languageRuntimeInfo: LanguageRuntimeInfo): void {
+	private safeStartRuntime(runtime: ILanguageRuntime): void {
 		// Start the lenguage runtime.
-		this._runningLanguageRuntimesMap.set(languageRuntimeInfo.runtime.metadata.language, languageRuntimeInfo.runtime);
-		languageRuntimeInfo.runtime.start().then(_ => {
+		this._runningLanguageRuntimesMap.set(runtime.metadata.language, runtime);
+		runtime.start().then(_ => {
+			// TODO@softwarenerd - I think this should be moved out of this layer.
 			// Execute the Focus into Console command using the command service
 			// to expose the REPL for the new runtime.
 			this._commandService.executeCommand('workbench.panel.console.focus');
 		});
 
 		// Fire the did start runtime event.
-		this._onDidStartRuntime.fire(languageRuntimeInfo.runtime);
+		this._onDidStartRuntime.fire(runtime);
+
+		// Change the active runtime.
+		this._activeRuntime = runtime;
+		this._onDidChangeActiveRuntime.fire(runtime);
 	}
 
 	//#region Private Methods
