@@ -49,8 +49,8 @@ export class ReplInstanceView extends Disposable {
 	/** A map of execution IDs to the cells containing the output from the execution */
 	private _executedCells: Map<string, ReplCell> = new Map();
 
-	/** The language runtime kernel to which the REPL is bound */
-	private _kernel: ILanguageRuntime;
+	/** The language runtime to which the REPL is bound */
+	private _runtime: ILanguageRuntime;
 
 	/** Whether we had focus when the last code execution occurred */
 	private _hadFocus: boolean = false;
@@ -63,9 +63,9 @@ export class ReplInstanceView extends Disposable {
 		@ILogService private readonly _logService: ILogService,
 		@IDialogService private readonly _dialogService: IDialogService) {
 		super();
-		this._kernel = this._instance.kernel;
+		this._runtime = this._instance.runtime;
 
-		this._language = this._kernel.metadata.language;
+		this._language = this._runtime.metadata.language;
 
 		this._root = document.createElement('div');
 		this._root.classList.add('repl-root');
@@ -90,7 +90,7 @@ export class ReplInstanceView extends Disposable {
 		this._bannerContainer.classList.add('repl-banner');
 
 		// Listen for execution state changes
-		this._kernel.onDidReceiveRuntimeMessage((msg) => {
+		this._runtime.onDidReceiveRuntimeMessage((msg) => {
 			if (msg.type === LanguageRuntimeMessageType.State) {
 				const stateMsg = msg as ILanguageRuntimeState;
 
@@ -148,12 +148,12 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		// Show startup banner when kernel finishes starting
-		this._kernel.onDidCompleteStartup(info => {
+		this._runtime.onDidCompleteStartup(info => {
 			this._bannerContainer.innerText = info.banner;
 			this._scroller.scanDomNode();
 		});
 
-		this._kernel.onDidChangeRuntimeState((state) => {
+		this._runtime.onDidChangeRuntimeState((state) => {
 			this.renderStateChange(state);
 		});
 
@@ -288,7 +288,7 @@ export class ReplInstanceView extends Disposable {
 	 */
 	submit(code: string) {
 		// Ask the kernel to determine whether the code fragment is a complete expression
-		this._kernel.isCodeFragmentComplete(code).then((result) => {
+		this._runtime.isCodeFragmentComplete(code).then((result) => {
 			if (result === RuntimeCodeFragmentStatus.Complete) {
 				// Code is complete; we can run it as is
 				this.executeCode(code);
@@ -326,7 +326,7 @@ export class ReplInstanceView extends Disposable {
 
 		// Ask the kernel to execute the code
 		this._executedCells.set(cell.getExecutionId(), cell);
-		this._kernel.execute(code,
+		this._runtime.execute(code,
 			cell.getExecutionId(),
 			RuntimeCodeExecutionMode.Interactive,
 			RuntimeErrorBehavior.Stop);
@@ -414,7 +414,7 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		cell.onDidCancelExecution(() => {
-			this._kernel.interrupt();
+			this._runtime.interrupt();
 		});
 	}
 
@@ -435,9 +435,9 @@ export class ReplInstanceView extends Disposable {
 				result.values &&
 				result.values.length > 0 &&
 				result.values[0]) {
-				this._kernel.replyToPrompt(prompt.id, result.values[0]);
+				this._runtime.replyToPrompt(prompt.id, result.values[0]);
 			} else {
-				this._kernel.replyToPrompt(prompt.id, '');
+				this._runtime.replyToPrompt(prompt.id, '');
 			}
 		});
 	}
@@ -471,7 +471,7 @@ export class ReplInstanceView extends Disposable {
 					this._activeCell = undefined;
 				}
 				const msg = new ReplStatusMessage(
-					'refresh', `${this._kernel.metadata.name} restarting`);
+					'refresh', `${this._runtime.metadata.name} restarting`);
 				msg.render(this._cellContainer);
 			}
 		}
@@ -486,7 +486,7 @@ export class ReplInstanceView extends Disposable {
 			// message and a new cell to accept the first input in the new
 			// session.
 			const msg = new ReplStatusMessage(
-				'check-all', `${this._kernel.metadata.name} started`);
+				'check-all', `${this._runtime.metadata.name} started`);
 			msg.render(this._cellContainer);
 
 			this.addCell(this._hadFocus);
@@ -504,13 +504,13 @@ export class ReplInstanceView extends Disposable {
 
 			if (state === RuntimeState.Exited) {
 				const msg = new ReplStatusMessage(
-					'info', `${this._kernel.metadata.name} exited`);
+					'info', `${this._runtime.metadata.name} exited`);
 				msg.render(this._cellContainer);
 			}
 
 			if (state === RuntimeState.Offline) {
 				const msg = new ReplStatusMessage(
-					'debug-disconnect', `${this._kernel.metadata.name} is offline`);
+					'debug-disconnect', `${this._runtime.metadata.name} is offline`);
 				msg.render(this._cellContainer);
 			}
 		}
