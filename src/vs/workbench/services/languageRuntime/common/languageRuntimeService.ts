@@ -168,6 +168,17 @@ export enum LanguageRuntimeMessageType {
 	Event = 'event',
 }
 
+/**
+ * The set of history types that can be requested from language runtime
+ */
+export enum LanguageRuntimeHistoryType {
+	/** Only inputs should be returned as history entries */
+	InputOnly = 'inputOnly',
+
+	/** Include both inputs and outputs in the history (outputs may be large) */
+	InputAndOutput = 'inputAndOutput',
+}
+
 export enum LanguageRuntimeStartupBehavior {
 	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
 	Implicit = 'implicit',
@@ -328,6 +339,14 @@ export interface ILanguageRuntime {
 	 * (via a LanguageRuntimePrompt message)
 	 */
 	replyToPrompt(id: string, value: string): void;
+
+	/**
+	 * Gets the history of code executed in the runtime.
+	 *
+	 * @param type The type of history to return (input only, input and output)
+	 * @param max The maximum number of recent entries to return.
+	 */
+	getExecutionHistory(type: LanguageRuntimeHistoryType, max: number): Thenable<Array<Array<string>>>;
 
 	start(): Thenable<ILanguageRuntimeInfo>;
 
