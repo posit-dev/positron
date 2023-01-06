@@ -9,7 +9,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeHistoryType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
@@ -151,6 +151,17 @@ export class ReplInstanceView extends Disposable {
 		this._runtime.onDidCompleteStartup(info => {
 			this._bannerContainer.innerText = info.banner;
 			this._scroller.scanDomNode();
+
+			// Request the history from the kernel so we can search/navigate
+			// previous inputs from the REPL that aren't known to this instance
+			this._runtime.getExecutionHistory(
+				LanguageRuntimeHistoryType.InputOnly, 1000).then((history) => {
+					// Add each entry to the local copy of the history. We'll
+					// maintain the history ourselves after this point.
+					for (const entry of history) {
+						this._instance.history.add(entry[0]);
+					}
+				});
 		});
 
 		this._runtime.onDidChangeRuntimeState((state) => {

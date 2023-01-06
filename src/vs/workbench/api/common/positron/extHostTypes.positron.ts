@@ -162,3 +162,14 @@ export enum LanguageRuntimeStartupBehavior {
 	/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
 	Explicit = 'explicit',
 }
+
+/**
+ * The set of history types that can be requested from a language runtime
+ */
+export enum LanguageRuntimeHistoryType {
+	/** Only inputs should be returned as history entries */
+	InputOnly = 'inputOnly',
+
+	/** Include both inputs and outputs in the history (outputs may be large) */
+	InputAndOutput = 'inputAndOutput',
+}

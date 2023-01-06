@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, LanguageRuntimeHistoryType, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable } from 'vs/workbench/api/common/extHostTypes';
@@ -61,6 +61,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot test code completeness: language runtime handle '${handle}' not found or no longer valid.`);
+		}
 		return Promise.resolve(this._runtimes[handle].isCodeFragmentComplete(code));
 	}
 
@@ -90,6 +93,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot reply to prompt: language runtime handle '${handle}' not found or no longer valid.`);
 		}
 		this._runtimes[handle].replyToPrompt(id, response);
+	}
+
+	$getExecutionHistory(handle: number, type: LanguageRuntimeHistoryType, max: number): Promise<string[][]> {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot retrieve execution history: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		return Promise.resolve(this._runtimes[handle].getExecutionHistory(type, max));
 	}
 
 	public registerLanguageRuntime(

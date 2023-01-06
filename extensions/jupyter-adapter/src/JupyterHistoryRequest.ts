@@ -20,20 +20,20 @@ export interface JupyterHistoryRequest extends JupyterMessageSpec {
 	hist_access_type: 'range' | 'tail' | 'search';  //eslint-disable-line
 
 	/** For range requests, the session to retrieve from */
-	session: number;
+	session?: number;
 
 	/** For range requests, the point in history to start from */
-	start: number;
+	start?: number;
 
 	/** For range requests, the point in history to end at */
-	end: number;
+	end?: number;
 
 	/** For tail and search requests, the number of history entries to retrieve */
 	n: number;
 
 	/** For search requests, the pattern to search for (? and * wildcards supported) */
-	pattern: string;
+	pattern?: string;
 
 	/** For search requests, whether to include only unique search results */
-	unique: boolean;
+	unique?: boolean;
 }

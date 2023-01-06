@@ -22,6 +22,8 @@ import { JupyterIsCompleteReply } from './JupyterIsCompleteReply';
 import { JupyterRpc } from './JupyterRpc';
 import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
+import { JupyterHistoryReply } from './JupyterHistoryReply';
+import { JupyterHistoryRequest } from './JupyterHistoryRequest';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -292,6 +294,34 @@ export class LanguageRuntimeAdapter
 
 	sendClientMessage(id: string, message: any): void {
 		this._kernel.sendCommMessage(id, message);
+	}
+
+	/**
+	 * Gets the execution history for the given type.
+	 *
+	 * @param type The type of history to get
+	 * @param max The maximum number of entries to return. If 0, returns all
+	 *  entries (not recommended; may be slow)
+	 */
+	getExecutionHistory(type: positron.LanguageRuntimeHistoryType, max: number): Thenable<string[][]> {
+		return new Promise<string[][]>((resolve, _reject) => {
+			// Create an RPC to send to the kernel requesting history
+			const rpc = new JupyterRpc<JupyterHistoryRequest, JupyterHistoryReply>(
+				'history_request',
+				{
+					output: type === positron.LanguageRuntimeHistoryType.InputAndOutput,
+					raw: true,
+					hist_access_type: 'tail',
+					n: max
+				},
+				'history_reply', (response: JupyterHistoryReply) => {
+					resolve(response.history);
+				});
+
+			// Send the RPC to the kernel and wait for a response
+			this._pendingRpcs.set(rpc.id, rpc);
+			rpc.send(this._kernel);
+		});
 	}
 
 	/**
