@@ -61,29 +61,29 @@ function createCompile(src: string, build: boolean, emitError: boolean, transpil
 	function pipeline(token?: util.ICancellationToken) {
 		const bom = require('gulp-bom') as typeof import('gulp-bom');
 
-		const utf8Filter = util.filter(data => /(\/|\\)test(\/|\\).*utf8/.test(data.path));
 		// --- Start Positron ---
 		// Added x? to regexes so that .tsx files are compiled and updated in the same way as .ts files.
 		const tsFilter = util.filter(data => /\.tsx?$/.test(data.path));
+		const isUtf8Test = (f: File) => /(\/|\\)test(\/|\\).*utf8/.test(f.path);
+		const isRuntimeJs = (f: File) => f.path.endsWith('.js') && !f.path.includes('fixtures');
 		const noDeclarationsFilter = util.filter(data => !(/\.d\.tsx?$/.test(data.path)));
 		// --- End Positron ---
 
 		const input = es.through();
 		const output = input
-			.pipe(utf8Filter)
-			.pipe(bom()) // this is required to preserve BOM in test files that loose it otherwise
-			.pipe(utf8Filter.restore)
+			.pipe(util.$if(isUtf8Test, bom())) // this is required to preserve BOM in test files that loose it otherwise
+			.pipe(util.$if(!build && isRuntimeJs, util.appendOwnPathSourceURL()))
 			.pipe(tsFilter)
 			.pipe(util.loadSourcemaps())
 			.pipe(compilation(token))
 			.pipe(noDeclarationsFilter)
-			.pipe(build ? nls.nls() : es.through())
+			.pipe(util.$if(build, nls.nls()))
 			.pipe(noDeclarationsFilter.restore)
-			.pipe(transpileOnly ? es.through() : sourcemaps.write('.', {
+			.pipe(util.$if(!transpileOnly, sourcemaps.write('.', {
 				addComment: false,
 				includeContent: !!build,
 				sourceRoot: overrideOptions.sourceRoot
-			}))
+			})))
 			.pipe(tsFilter.restore)
 			.pipe(reporter.end(!!emitError));
 
