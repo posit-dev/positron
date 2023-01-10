@@ -63,7 +63,7 @@ export class ReplService extends Disposable implements IReplService {
 
 		// Register the onDidStartRuntime event handler so we start a new REPL for each runtime that is started.
 		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
-			// Note that we do not autimatically activate the new REPL. Instead, we wait for onDidChangeActiveRuntime
+			// Note that we do not automatically activate the new REPL. Instead, we wait for onDidChangeActiveRuntime
 			// to be fired by the language runtime service.
 			this.startRepl(runtime);
 		}));

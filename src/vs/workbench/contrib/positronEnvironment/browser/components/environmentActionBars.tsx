@@ -86,6 +86,12 @@ export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentAction
 		}
 	};
 
+	// If there are no language environment, return null.
+	// TODO@softwarenerd - Render something specific for this case. TBD.
+	if (positronEnvironmentContext.languageEnvironments.length === 0) {
+		return null;
+	}
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
