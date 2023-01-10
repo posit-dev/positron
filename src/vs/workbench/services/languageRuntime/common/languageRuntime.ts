@@ -207,6 +207,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				this._runningLanguageRuntimesMap.delete(runtime.metadata.language);
 			}
 
+
 			// Let listeners know that the runtime state has changed.
 			const languageRuntimeInfo = this._registeredLanguageRuntimesMap.get(runtime.metadata.id);
 			if (!languageRuntimeInfo) {
@@ -279,21 +280,21 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param runtime The language runtime to start.
 	 */
 	private safeStartRuntime(runtime: ILanguageRuntime): void {
-		// Start the lenguage runtime.
+		// Start the language runtime.
 		this._runningLanguageRuntimesMap.set(runtime.metadata.language, runtime);
-		runtime.start().then(_ => {
+		runtime.start().then(languageRuntimeInfo => {
 			// TODO@softwarenerd - I think this should be moved out of this layer.
 			// Execute the Focus into Console command using the command service
 			// to expose the REPL for the new runtime.
 			this._commandService.executeCommand('workbench.panel.console.focus');
+
+			// Change the active runtime.
+			this._activeRuntime = runtime;
+			this._onDidChangeActiveRuntime.fire(runtime);
 		});
 
 		// Fire the did start runtime event.
 		this._onDidStartRuntime.fire(runtime);
-
-		// Change the active runtime.
-		this._activeRuntime = runtime;
-		this._onDidChangeActiveRuntime.fire(runtime);
 	}
 
 	//#region Private Methods
