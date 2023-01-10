@@ -140,6 +140,23 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
+	// Registers the set active  language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.setActive', 'Set Active Language Runtime', async accessor => {
+		// Get the language runtime service.
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+		// Have the user select the language runtime they wish to set as the active language runtime.
+		const runtime = await selectRunningLanguageRuntime(
+			languageRuntimeService,
+			accessor.get(IQuickInputService),
+			'Set the active language runtime');
+
+		// If the user selected a language runtime, set it as the active language runtime.
+		if (runtime) {
+			languageRuntimeService.activeRuntime = runtime;
+		}
+	});
+
 	// Registers the restart language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.restart', 'Restart Language Runtime', async accessor => {
 		(await selectRunningLanguageRuntime(
