@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, LanguageRuntimeHistoryType, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, LanguageRuntimeHistoryType, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { Disposable } from 'vs/workbench/api/common/extHostTypes';
+import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
@@ -111,8 +111,38 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Wire event handlers for state changes and messages
 		runtime.onDidChangeRuntimeState(state =>
 			this._proxy.$emitLanguageRuntimeState(handle, state));
-		runtime.onDidReceiveRuntimeMessage(message =>
-			this._proxy.$emitLanguageRuntimeMessage(handle, message));
+
+		// TODO@softwarenerd - This should broker the runtime message.
+		runtime.onDidReceiveRuntimeMessage(message => {
+			this._proxy.$emitLanguageRuntimeMessage(handle, message);
+
+			// Broker the message type to one of the discrete message events.
+			switch (message.type) {
+				case LanguageRuntimeMessageType.Output:
+					this._proxy.$emitLanguageRuntimeMessageOutput(handle, message as ILanguageRuntimeMessageOutput);
+					break;
+
+				case LanguageRuntimeMessageType.Input:
+					this._proxy.$emitLanguageRuntimeMessageInput(handle); // TODO@softwarenerd - Add ILanguageRuntimeMessageInput.
+					break;
+
+				case LanguageRuntimeMessageType.Error:
+					this._proxy.$emitLanguageRuntimeMessageError(handle, message as ILanguageRuntimeMessageError);
+					break;
+
+				case LanguageRuntimeMessageType.Prompt:
+					this._proxy.$emitLanguageRuntimeMessagePrompt(handle, message as ILanguageRuntimeMessagePrompt);
+					break;
+
+				case LanguageRuntimeMessageType.State:
+					this._proxy.$emitLanguageRuntimeMessageState(handle, message as ILanguageRuntimeMessageState);
+					break;
+
+				case LanguageRuntimeMessageType.Event:
+					this._proxy.$emitLanguageRuntimeMessageEvent(handle, message as ILanguageRuntimeMessageEvent);
+					break;
+			}
+		});
 
 		// Register the runtime
 		this._runtimes.push(runtime);
