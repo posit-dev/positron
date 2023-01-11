@@ -8,6 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 
 /**
  * Represents a history of executions for a single language runtime. One instance of this class
@@ -165,7 +166,7 @@ export class RuntimeExecutionHistory extends Disposable {
 
 		// Serialize the entries to JSON
 		const storageState = JSON.stringify(this._entries);
-		this._logService.trace(`Saving execution history in key ${this._storageKey} (${storageState.length} bytes)`)
+		this._logService.trace(`Saving execution history in key ${this._storageKey} (${storageState.length} bytes)`);
 
 		this._storageService.store(this._storageKey,
 			storageState,
@@ -231,3 +232,5 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		}
 	}
 }
+
+registerSingleton(IExecutionHistoryService, ExecutionHistoryService, InstantiationType.Delayed);
