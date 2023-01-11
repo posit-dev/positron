@@ -128,13 +128,6 @@ export class ReplViewPane extends ViewPane {
 
 		// Set the REPL instance entry tp the repl instance entries.
 		this.replInstanceEntries.set(replInstance, replInstanceEntry);
-
-		// Activate the repl instance entry, if asked to do so.
-		// if (activate) {
-		// 	this._activeReplInstanceEntry?.replInstanceViewContainer.remove();
-		// 	this._replContainer.append(replInstanceViewContainer);
-		// 	this._activeReplInstanceEntry = replInstanceEntry;
-		// }
 	}
 
 	/**
