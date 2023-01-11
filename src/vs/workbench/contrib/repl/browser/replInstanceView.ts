@@ -178,6 +178,8 @@ export class ReplInstanceView extends Disposable {
 		// Clear REPL when event signals the user has requested it
 		this._instance.onDidClearRepl(() => {
 			this.clear();
+			// Clear the stored execution history so it doesn't get replayed
+			this._executionHistoryService.clearEntries(this._instance.runtime.metadata.id);
 		});
 
 		// Execute code when the user requests it
