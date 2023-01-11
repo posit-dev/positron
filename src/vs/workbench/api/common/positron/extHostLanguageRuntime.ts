@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, LanguageRuntimeHistoryType, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, LanguageRuntimeHistoryType, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
@@ -123,7 +123,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					break;
 
 				case LanguageRuntimeMessageType.Input:
-					this._proxy.$emitLanguageRuntimeMessageInput(handle); // TODO@softwarenerd - Add ILanguageRuntimeMessageInput.
+					this._proxy.$emitLanguageRuntimeMessageInput(handle, message as ILanguageRuntimeMessageInput);
 					break;
 
 				case LanguageRuntimeMessageType.Error:

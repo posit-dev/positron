@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeClientInstance, LanguageRuntimeHistoryType, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeClientInstance, LanguageRuntimeHistoryType, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 
@@ -22,7 +22,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
 
 	private readonly _onDidReceiveRuntimeMessageOutputEmitter = new Emitter<ILanguageRuntimeMessageOutput>();
-	private readonly _onDidReceiveRuntimeMessageInputEmitter = new Emitter<void>(); // TODO@softwarenerd - Add ILanguageRuntimeMessageInput.
+	private readonly _onDidReceiveRuntimeMessageInputEmitter = new Emitter<ILanguageRuntimeMessageInput>();
 	private readonly _onDidReceiveRuntimeMessageErrorEmitter = new Emitter<ILanguageRuntimeMessageError>();
 	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
@@ -67,9 +67,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._onDidReceiveRuntimeMessageOutputEmitter.fire(languageRuntimeMessageOutput);
 	}
 
-	// TODO@softwarenerd - Add ILanguageRuntimeMessageInput.
-	emitDidReceiveRuntimeMessageInput() {
-		this._onDidReceiveRuntimeMessageInputEmitter.fire();
+	emitDidReceiveRuntimeMessageInput(languageRuntimeMessageInput: ILanguageRuntimeMessageInput) {
+		this._onDidReceiveRuntimeMessageInputEmitter.fire(languageRuntimeMessageInput);
 	}
 
 	emitDidReceiveRuntimeMessageError(languageRuntimeMessageError: ILanguageRuntimeMessageError) {
@@ -246,9 +245,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this.findRuntime(handle).emitDidReceiveRuntimeMessageOutput(message);
 	}
 
-	// TODO@softwarenerd - Add ILanguageRuntimeMessageInput.
-	$emitLanguageRuntimeMessageInput(handle: number): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessageInput();
+	$emitLanguageRuntimeMessageInput(handle: number, message: ILanguageRuntimeMessageInput): void {
+		this.findRuntime(handle).emitDidReceiveRuntimeMessageInput(message);
 	}
 
 	$emitLanguageRuntimeMessageError(handle: number, message: ILanguageRuntimeMessageError): void {
