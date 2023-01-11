@@ -6,7 +6,8 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 export const IExecutionHistoryService = createDecorator<IExecutionHistoryService>('executionHistoryService');
 
 /**
- * Represents the execution of a single code fragment in a language runtime.
+ * Represents the execution (input and output) of a single code fragment in a
+ * language runtime.
  */
 export interface IExecutionHistoryEntry {
 	/** ID of the entry */
@@ -29,6 +30,17 @@ export interface IExecutionHistoryEntry {
 }
 
 /**
+ * Represents an input code fragment sent to a language runtime.
+ */
+export interface IInputHistoryEntry {
+	/** Time that the input was submitted, in milliseconds since the Epoch */
+	when: number;
+
+	/** The code that was submitted, as a multi-line string */
+	input: string;
+}
+
+/**
  * Service that provides access to the execution history for a given language
  * runtime. This service is independent from the language runtime itself; it
  * listens to execution inputs and outputs, and stores them in a durable history
@@ -39,12 +51,22 @@ export interface IExecutionHistoryService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Gets the execution history for a given language runtime.
+	 * Gets the input history for a given language. This is a long, searchable
+	 * history of all the commands the user has executed in that language.
+	 *
+	 * @param languageId The ID of the language to get input history for
+	 */
+	getInputEntries(languageId: string): IInputHistoryEntry[];
+
+	/**
+	 * Gets the execution history for a given language runtime. This is
+	 * effectively the execution history for a specific console tab, so it is
+	 * both workspace and machine scoped.
 	 *
 	 * @param runtimeId The ID of the language runtime for which to retrieve
 	 *   execution history
 	 */
-	getEntries(runtimeId: string): IExecutionHistoryEntry[];
+	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry[];
 
 	/**
 	 * Removes (clears) all the the history entries for a given language
@@ -53,5 +75,5 @@ export interface IExecutionHistoryService {
 	 * @param runtimeId The ID of the language runtime for which to clear
 	 *   history.
 	 */
-	clearEntries(runtimeId: string): void;
+	clearExecutionEntries(runtimeId: string): void;
 }

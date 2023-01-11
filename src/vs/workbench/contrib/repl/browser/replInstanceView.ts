@@ -179,7 +179,7 @@ export class ReplInstanceView extends Disposable {
 		this._instance.onDidClearRepl(() => {
 			this.clear();
 			// Clear the stored execution history so it doesn't get replayed
-			this._executionHistoryService.clearEntries(this._instance.runtime.metadata.id);
+			this._executionHistoryService.clearExecutionEntries(this._instance.runtime.metadata.id);
 		});
 
 		// Execute code when the user requests it
@@ -188,7 +188,7 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		// Populate with execution history
-		this._executionHistoryService.getEntries(this._instance.runtime.metadata.id);
+		this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.id);
 	}
 
 	/**
