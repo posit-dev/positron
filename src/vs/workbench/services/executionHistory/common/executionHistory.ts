@@ -12,6 +12,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 export class RuntimeExecutionHistory extends Disposable {
 	private readonly _entries: IExecutionHistoryEntry[] = [];
 	private readonly _storageKey: string;
+	private readonly _pendingExecutions: Map<string, IExecutionHistoryEntry> = new Map();
 	private _timerId?: NodeJS.Timeout;
 
 	constructor(
@@ -34,14 +35,70 @@ export class RuntimeExecutionHistory extends Disposable {
 			this._logService.warn(`Couldn't load history for ${this._runtime.metadata.name} ${this._runtime.metadata.id}: ${err}}`)
 		}
 
-		// Listen for execution events
-		this._register(this._runtime.onDidReceiveRuntimeMessage(message => {
-			// TODO: This is where we create history entries
-			this.delayedSave();
+		this._register(this._runtime.onDidReceiveRuntimeMessageInput(message => {
+			// It's possible for messages to be received out of order, so it's
+			// possible -- if the code was executed very quickly -- that the
+			// input will be received after we already know the output. In that
+			// case, we'll just update the existing entry.
+			if (this._pendingExecutions.has(message.id)) {
+				// We should only get input for a message one time, but if for
+				// some reason we get a second input, just warn and overwrite.
+				const pending = this._pendingExecutions.get(message.id)!;
+				if (pending.input) {
+					this._logService.warn(`Received duplicate input for execution ${message.id}; replacing previous input ('${pending.input}' => '${message.code}')`);
+				}
+				this._pendingExecutions.get(message.id)!.input = message.code;
+			} else {
+				// Create a new entry
+				const entry: IExecutionHistoryEntry = {
+					id: message.id,
+					when: Date.now(),
+					input: message.code,
+					outputType: '',
+					output: undefined,
+					durationMs: 0
+				};
+
+				// Add the entry to the pending executions map
+				this._pendingExecutions.set(message.id, entry);
+			}
+		}));
+
+		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(message => {
+			// Currently, only plain text data is stored in the command history
+			if (!Object.keys(message.data).includes('text/plain')) {
+				return;
+			}
+			const outputText = (message.data as any)['text/plain'];
+
+			if (this._pendingExecutions.has(message.id)) {
+				const pending = this._pendingExecutions.get(message.id)!;
+				if (pending) {
+					// It's normal to receive several output events; if we do,
+					// just concatenate the output.
+					const output = pending.output || '';
+					pending.output = output + outputText;
+				} else {
+					// No output has been recorded yet.
+					const entry: IExecutionHistoryEntry = {
+						id: message.id,
+						when: Date.now(),
+						input: '',
+						outputType: '',
+						output: outputText,
+						durationMs: 0
+					};
+
+					// Add the entry to the pending executions map
+					this._pendingExecutions.set(message.id, entry);
+				}
+			}
 		}));
 
 		// Ensure we persist the history on e.g. shutdown
 		this._register(this._storageService.onWillSaveState(() => {
+			// TODO: flush pending executions to storage, even if we haven't
+			// received word they are done yet.
 			this.save();
 		}));
 	}
