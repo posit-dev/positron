@@ -32,10 +32,20 @@ export interface ILanguageRuntimeMessage {
 	type: LanguageRuntimeMessageType;
 }
 
+
 /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 	/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 	data: Map<string, string>;
+}
+
+/** ILanguageRuntimeInput is a ILanguageRuntimeMessage representing echoed user input */
+export interface ILanguageRuntimeMessageInput extends ILanguageRuntimeMessage {
+	/** The code that was input */
+	code: string;
+
+	/** The execution count */
+	execution_count: number;
 }
 
 /** LanguageRuntimePrompt is a LanguageRuntimeMessage representing a prompt for input */
@@ -315,7 +325,7 @@ export interface ILanguageRuntime {
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
 
 	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
-	onDidReceiveRuntimeMessageInput: Event<void>;
+	onDidReceiveRuntimeMessageInput: Event<ILanguageRuntimeMessageInput>;
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
