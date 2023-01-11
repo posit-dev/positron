@@ -213,22 +213,26 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
 		}));
 
+		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
+		}));
+
+		// Add the did receive runtime message event handler.
+		this._register(this._runtime.onDidReceiveRuntimeMessage(languageRuntimeMessage => {
+			console.log(`********************* onDidReceiveRuntimeMessage ${languageRuntimeMessage.id} ${languageRuntimeMessage.type}`);
+			console.log(languageRuntimeMessage);
+		}));
+
 		// Add the did complete startup event handler.
 		this._register(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			console.log(`********************* onDidCompleteStartup ${this._runtime.metadata.language}`);
 		}));
 
-		// Add the did receive runtime message event handler.
-		this._register(this._runtime.onDidReceiveRuntimeMessage(languageRuntimeMessage => {
-			console.log(`********************* onDidReceiveRuntimeMessage ${languageRuntimeMessage.id}`);
-		}));
-
 		this.testInterval = setInterval(() => {
-			console.log(`testInterval fired. ${new Date().getTime()}`);
-			const date = new Date();
-			const name = `variable${date.getTime()}`;
-			this.setEnvironmentDataEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
-			this.setEnvironmentValueEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
+			// console.log(`testInterval fired. ${new Date().getTime()}`);
+			// const date = new Date();
+			// const name = `variable${date.getTime()}`;
+			// this.setEnvironmentDataEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
+			// this.setEnvironmentValueEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
 		}, 1000);
 	}
 
@@ -269,23 +273,23 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 
 	//#region Private Methods
 
-	/**
-	 * Sets an environment data entry.
-	 * @param environmenentEntry
-	 */
-	private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
-		this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
-		this.onDidChangeListItemsEmitter.fire();
-	}
+	// /**
+	//  * Sets an environment data entry.
+	//  * @param environmenentEntry
+	//  */
+	// private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
+	// 	this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
+	// 	this.onDidChangeListItemsEmitter.fire();
+	// }
 
-	/**
-	 * Sets an environment value entry.
-	 * @param environmenentEntry
-	 */
-	private setEnvironmentValueEntry(environmenentEntry: EnvironmentValueEntry) {
-		this.environmentValueEntries.set(environmenentEntry.name, environmenentEntry);
-		this.onDidChangeListItemsEmitter.fire();
-	}
+	// /**
+	//  * Sets an environment value entry.
+	//  * @param environmenentEntry
+	//  */
+	// private setEnvironmentValueEntry(environmenentEntry: EnvironmentValueEntry) {
+	// 	this.environmentValueEntries.set(environmenentEntry.name, environmenentEntry);
+	// 	this.onDidChangeListItemsEmitter.fire();
+	// }
 
 	//#endregion Private Methods
 }
