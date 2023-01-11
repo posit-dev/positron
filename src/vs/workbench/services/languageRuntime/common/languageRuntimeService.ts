@@ -27,9 +27,6 @@ export interface ILanguageRuntimeMessage {
 
 	/** The ID of this event's parent (the event that caused it), if applicable */
 	parent_id: string;
-
-	/** The type of event */
-	type: LanguageRuntimeMessageType;
 }
 
 
@@ -315,9 +312,6 @@ export interface ILanguageRuntime {
 	/** The language runtime's static metadata */
 	readonly metadata: ILanguageRuntimeMetadata;
 
-	/** An object that emits language runtime events */
-	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
-
 	/** An object that emits events when the runtime state changes */
 	onDidChangeRuntimeState: Event<RuntimeState>;
 
@@ -329,7 +323,7 @@ export interface ILanguageRuntime {
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
-	onDidReceiveRuntimeMessagesEvent: Event<ILanguageRuntimeMessageEvent>;
+	onDidReceiveRuntimeMessageEvent: Event<ILanguageRuntimeMessageEvent>;
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
