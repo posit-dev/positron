@@ -9,7 +9,7 @@ export interface IExecutionHistoryEntry {
 	/** ID of the entry */
 	id: string;
 
-	/** Time that the execution occurred, in seconds since the Epoch */
+	/** Time that the execution occurred, in milliseconds since the Epoch */
 	when: number;
 
 	/** The code that was executed, as a multi-line string */

@@ -5,7 +5,7 @@
 import { IExecutionHistoryEntry, IExecutionHistoryService } from 'vs/workbench/services/executionHistory/common/executionHistoryService';
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
 
@@ -32,7 +32,7 @@ export class RuntimeExecutionHistory extends Disposable {
 				this._entries.push(entry);
 			});
 		} catch (err) {
-			this._logService.warn(`Couldn't load history for ${this._runtime.metadata.name} ${this._runtime.metadata.id}: ${err}}`)
+			this._logService.warn(`Couldn't load history for ${this._runtime.metadata.name} ${this._runtime.metadata.id}: ${err}}`);
 		}
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageInput(message => {
@@ -51,7 +51,7 @@ export class RuntimeExecutionHistory extends Disposable {
 			} else {
 				// Create a new entry
 				const entry: IExecutionHistoryEntry = {
-					id: message.id,
+					id: message.parent_id,
 					when: Date.now(),
 					input: message.code,
 					outputType: '',
@@ -60,7 +60,7 @@ export class RuntimeExecutionHistory extends Disposable {
 				};
 
 				// Add the entry to the pending executions map
-				this._pendingExecutions.set(message.id, entry);
+				this._pendingExecutions.set(message.parent_id, entry);
 			}
 		}));
 
@@ -79,18 +79,38 @@ export class RuntimeExecutionHistory extends Disposable {
 					const output = pending.output || '';
 					pending.output = output + outputText;
 				} else {
-					// No output has been recorded yet.
+					// This is the first time we've seen this execution; create
+					// a new entry.
 					const entry: IExecutionHistoryEntry = {
-						id: message.id,
+						id: message.parent_id,
 						when: Date.now(),
 						input: '',
-						outputType: '',
+						outputType: 'text',
 						output: outputText,
 						durationMs: 0
 					};
 
 					// Add the entry to the pending executions map
-					this._pendingExecutions.set(message.id, entry);
+					this._pendingExecutions.set(message.parent_id, entry);
+				}
+			}
+		}));
+
+		// When we receive a message indicating that an execution has completed,
+		// we'll move it from the pending executions map to the history entries.
+		this._register(this._runtime.onDidReceiveRuntimeMessageState(message => {
+			if (message.state === RuntimeOnlineState.Idle) {
+				if (this._pendingExecutions.has(message.parent_id)) {
+					// Update the entry with the duration
+					const entry = this._pendingExecutions.get(message.parent_id)!;
+					entry.durationMs = Date.now() - entry.when;
+
+					// Remove from set of pending executions
+					this._pendingExecutions.delete(message.parent_id);
+
+					// Save the history after a delay
+					this._entries.push(entry);
+					this.delayedSave();
 				}
 			}
 		}));
