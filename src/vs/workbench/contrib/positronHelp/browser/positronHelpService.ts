@@ -11,7 +11,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
-import { ILanguageRuntimeMessageEvent, ILanguageRuntimeService, LanguageRuntimeMessageType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 // The TrustedTypePolicy for rendering.
@@ -49,19 +49,18 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 		// Listen for language runtime Help events.
 		languageRuntimeService.onDidStartRuntime(runtime => {
-			runtime.onDidReceiveRuntimeMessage(message => {
-				if (message.type === LanguageRuntimeMessageType.Event) {
-					const event = message as ILanguageRuntimeMessageEvent;
-					if (event.name === LanguageRuntimeEventType.ShowHelp) {
-						const data = event.data as ShowHelpEvent;
-						if (data.kind === 'markdown') {
-							const markdown = new MarkdownString(data.content, true);
-							this.openHelpMarkdown(markdown);
-						} else {
-							this.openHelpHtml(data.content);
-						}
+
+			runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+				if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowHelp) {
+					const data = languageRuntimeMessageEvent.data as ShowHelpEvent;
+					if (data.kind === 'markdown') {
+						const markdown = new MarkdownString(data.content, true);
+						this.openHelpMarkdown(markdown);
+					} else {
+						this.openHelpHtml(data.content);
 					}
 				}
+
 			});
 		});
 
