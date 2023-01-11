@@ -33,13 +33,13 @@ export interface ILanguageRuntimeMessage {
 }
 
 /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
-export interface ILanguageRuntimeOutput extends ILanguageRuntimeMessage {
+export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 	/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 	data: Map<string, string>;
 }
 
 /** LanguageRuntimePrompt is a LanguageRuntimeMessage representing a prompt for input */
-export interface ILanguageRuntimePrompt extends ILanguageRuntimeMessage {
+export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 	/** The prompt text */
 	prompt: string;
 
@@ -187,12 +187,12 @@ export enum LanguageRuntimeStartupBehavior {
 	Explicit = 'explicit',
 }
 
-export interface ILanguageRuntimeState extends ILanguageRuntimeMessage {
+export interface ILanguageRuntimeMessageState extends ILanguageRuntimeMessage {
 	/** The new state */
 	state: RuntimeOnlineState;
 }
 
-export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
+export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 	/** The error name */
 	name: string;
 
@@ -203,7 +203,7 @@ export interface ILanguageRuntimeError extends ILanguageRuntimeMessage {
 	traceback: Array<string>;
 }
 
-export interface ILanguageRuntimeEvent extends ILanguageRuntimeMessage {
+export interface ILanguageRuntimeMessageEvent extends ILanguageRuntimeMessage {
 	/** The event name */
 	name: LanguageRuntimeEventType;
 
@@ -216,7 +216,7 @@ export interface ILanguageRuntimeGlobalEvent {
 	id: string;
 
 	/** The event itself */
-	event: ILanguageRuntimeEvent;
+	event: ILanguageRuntimeMessageEvent;
 }
 
 export interface ILanguageRuntimeStateEvent {
@@ -313,6 +313,13 @@ export interface ILanguageRuntime {
 
 	/** An object that emits an event when the runtime completes startup */
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
+
+	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
+	onDidReceiveRuntimeMessageInput: Event<void>;
+	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
+	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
+	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
+	onDidReceiveRuntimeMessagesEvent: Event<ILanguageRuntimeMessageEvent>;
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;

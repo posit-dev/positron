@@ -6,7 +6,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeOutput, ILanguageRuntimeState, IRuntimeClientInstance, LanguageRuntimeHistoryType, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, IRuntimeClientInstance, LanguageRuntimeHistoryType, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -41,6 +41,13 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 	/** Emitter for runtime startup event */
 	private readonly _startup: Emitter<ILanguageRuntimeInfo>;
+
+	private readonly _onDidReceiveRuntimeMessageOutputEmitter = new Emitter<ILanguageRuntimeMessageOutput>();
+	private readonly _onDidReceiveRuntimeMessageInputEmitter = new Emitter<void>();
+	private readonly _onDidReceiveRuntimeMessageErrorEmitter = new Emitter<ILanguageRuntimeMessageError>();
+	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
+	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
+	private readonly _onDidReceiveRuntimeMessageEventEmitter = new Emitter<ILanguageRuntimeMessageEvent>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 
@@ -140,12 +147,20 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			if (typeof e.changed === 'undefined') {
 				this._state.fire(RuntimeState.Idle);
 				this._logService.trace(`Cell execution of ${e.cellHandle} (${this._executingCellId}) complete`);
+
 				this._messages.fire({
 					type: LanguageRuntimeMessageType.State,
 					id: 'status-' + NotebookLanguageRuntime._msgCounter++,
 					parent_id: this._executingCellId,
 					state: RuntimeOnlineState.Idle,
-				} as ILanguageRuntimeState);
+				} as ILanguageRuntimeMessageState);
+
+				this._onDidReceiveRuntimeMessageStateEmitter.fire({
+					type: LanguageRuntimeMessageType.State,
+					id: 'status-' + NotebookLanguageRuntime._msgCounter++,
+					parent_id: this._executingCellId,
+					state: RuntimeOnlineState.Idle,
+				});
 
 				// Clear the cell execution state
 				this._executingCellId = '';
@@ -173,6 +188,13 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
+
+	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutputEmitter.event;
+	onDidReceiveRuntimeMessageInput = this._onDidReceiveRuntimeMessageInputEmitter.event;
+	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageErrorEmitter.event;
+	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
+	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
+	onDidReceiveRuntimeMessagesEvent = this._onDidReceiveRuntimeMessageEventEmitter.event;
 
 	metadata: ILanguageRuntimeMetadata;
 
@@ -240,11 +262,18 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 			// Emit a message describing the outputs
 			this._messages.fire({
-				type: 'output',
+				type: LanguageRuntimeMessageType.Output,
 				id: 'output-' + NotebookLanguageRuntime._msgCounter++,
 				parent_id: id,
 				data: data
-			} as ILanguageRuntimeOutput);
+			} as ILanguageRuntimeMessageOutput);
+
+			this._onDidReceiveRuntimeMessageOutputEmitter.fire({
+				type: LanguageRuntimeMessageType.Output,
+				id: 'output-' + NotebookLanguageRuntime._msgCounter++,
+				parent_id: id,
+				data: data as any
+			});
 		});
 
 		// Create a cell execution to track the execution of this code fragment

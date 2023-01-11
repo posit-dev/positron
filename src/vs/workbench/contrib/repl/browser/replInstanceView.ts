@@ -9,7 +9,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeError, ILanguageRuntimeEvent, ILanguageRuntimeOutput, ILanguageRuntimePrompt, ILanguageRuntimeState, LanguageRuntimeHistoryType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, LanguageRuntimeHistoryType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
@@ -92,7 +92,7 @@ export class ReplInstanceView extends Disposable {
 		// Listen for execution state changes
 		this._runtime.onDidReceiveRuntimeMessage((msg) => {
 			if (msg.type === LanguageRuntimeMessageType.State) {
-				const stateMsg = msg as ILanguageRuntimeState;
+				const stateMsg = msg as ILanguageRuntimeMessageState;
 
 				// If the kernel is entering a busy state, ignore for now
 				if (stateMsg.state === RuntimeOnlineState.Busy) {
@@ -113,7 +113,7 @@ export class ReplInstanceView extends Disposable {
 					this.addCell(this._hadFocus);
 				}
 			} else if (msg.type === LanguageRuntimeMessageType.Output) {
-				const outputMsg = msg as ILanguageRuntimeOutput;
+				const outputMsg = msg as ILanguageRuntimeMessageOutput;
 
 				// Look up the cell with which this output is associated
 				const cell = this._executedCells.get(outputMsg.parent_id);
@@ -123,7 +123,7 @@ export class ReplInstanceView extends Disposable {
 					this._logService.warn(`Received output ${JSON.stringify(outputMsg)} for unknown code execution ${outputMsg.parent_id}`);
 				}
 			} else if (msg.type === LanguageRuntimeMessageType.Error) {
-				const errMsg = msg as ILanguageRuntimeError;
+				const errMsg = msg as ILanguageRuntimeMessageError;
 
 				// Look up the cell with which this error is associated
 				const cell = this._executedCells.get(errMsg.parent_id);
@@ -133,7 +133,7 @@ export class ReplInstanceView extends Disposable {
 					this._logService.warn(`Received error ${JSON.stringify(errMsg)} for unknown code execution ${errMsg.parent_id}`);
 				}
 			} else if (msg.type === LanguageRuntimeMessageType.Event) {
-				const evt = msg as ILanguageRuntimeEvent;
+				const evt = msg as ILanguageRuntimeMessageEvent;
 				if (evt.name === LanguageRuntimeEventType.ShowMessage) {
 					const data = evt.data as ShowMessageEvent;
 					const msg = new ReplStatusMessage(
@@ -141,7 +141,7 @@ export class ReplInstanceView extends Disposable {
 					msg.render(this._cellContainer);
 				}
 			} else if (msg.type === LanguageRuntimeMessageType.Prompt) {
-				this.showPrompt(msg as ILanguageRuntimePrompt);
+				this.showPrompt(msg as ILanguageRuntimeMessagePrompt);
 			}
 
 			this.scrollToBottom();
@@ -433,7 +433,7 @@ export class ReplInstanceView extends Disposable {
 	 *
 	 * @param prompt The prompt to display
 	 */
-	private showPrompt(prompt: ILanguageRuntimePrompt) {
+	private showPrompt(prompt: ILanguageRuntimeMessagePrompt) {
 		this._dialogService.input(
 			Severity.Info,
 			prompt.prompt,

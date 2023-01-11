@@ -8,7 +8,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeEvent, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessageEvent, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The language runtime info class.
@@ -226,7 +226,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._register(runtime.onDidReceiveRuntimeMessage((message) => {
 			// Rebroadcast runtime events globally
 			if (message.type === LanguageRuntimeMessageType.Event) {
-				const event = message as ILanguageRuntimeEvent;
+				const event = message as ILanguageRuntimeMessageEvent;
 				this._onDidReceiveRuntimeEvent.fire({
 					id: runtime.metadata.id,
 					event
