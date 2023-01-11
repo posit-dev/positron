@@ -10,7 +10,6 @@ import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/exten
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
 	$unregisterLanguageRuntime(handle: number): void;
-	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
 	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void;
 	$emitRuntimeClientMessage(handle: number, id: string, message: ILanguageRuntimeMessage): void;
 	$emitRuntimeClientState(handle: number, id: string, state: RuntimeClientState): void;

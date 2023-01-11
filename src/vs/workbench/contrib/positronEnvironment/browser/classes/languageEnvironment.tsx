@@ -214,12 +214,32 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
+			console.log('********************* onDidReceiveRuntimeMessageOutput');
+			console.log(languageRuntimeMessageOutput);
 		}));
 
-		// Add the did receive runtime message event handler.
-		this._register(this._runtime.onDidReceiveRuntimeMessage(languageRuntimeMessage => {
-			console.log(`********************* onDidReceiveRuntimeMessage ${languageRuntimeMessage.id} ${languageRuntimeMessage.type}`);
-			console.log(languageRuntimeMessage);
+		this._register(this._runtime.onDidReceiveRuntimeMessageInput(() => {
+			console.log('********************* onDidReceiveRuntimeMessageInput');
+		}));
+
+		this._register(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
+			console.log('********************* languageRuntimeMessageError');
+			console.log(languageRuntimeMessageError);
+		}));
+
+		this._register(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+			console.log('********************* onDidReceiveRuntimeMessagePrompt');
+			console.log(languageRuntimeMessagePrompt);
+		}));
+
+		this._register(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+			console.log('********************* onDidReceiveRuntimeMessageState');
+			console.log(languageRuntimeMessageState);
+		}));
+
+		this._register(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+			console.log('********************* onDidReceiveRuntimeMessageEvent');
+			console.log(languageRuntimeMessageEvent);
 		}));
 
 		// Add the did complete startup event handler.
