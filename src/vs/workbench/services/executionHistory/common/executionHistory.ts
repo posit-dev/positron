@@ -16,9 +16,16 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
  * execution history.
  */
 export class RuntimeExecutionHistory extends Disposable {
+	/** An in-memory representation of all known entries. */
 	private readonly _entries: IExecutionHistoryEntry[] = [];
+
+	/** The unique key under which the entries are stored (by the storage service) */
 	private readonly _storageKey: string;
+
+	/** A map of execution IDs to history entries for executions that have started but not completed. */
 	private readonly _pendingExecutions: Map<string, IExecutionHistoryEntry> = new Map();
+
+	/** A timer used to debounce history writes. */
 	private _timerId?: NodeJS.Timeout;
 
 	constructor(
@@ -129,6 +136,15 @@ export class RuntimeExecutionHistory extends Disposable {
 		}));
 	}
 
+	public override dispose() {
+		// If we are currently waiting for a debounced save to complete, make
+		// sure we do it right away since we're about to be destroyed.
+		if (this._timerId) {
+			this.save();
+		}
+		super.dispose();
+	}
+
 	get entries(): IExecutionHistoryEntry[] {
 		return this._entries;
 	}
@@ -168,6 +184,8 @@ export class RuntimeExecutionHistory extends Disposable {
 		const storageState = JSON.stringify(this._entries);
 		this._logService.trace(`Saving execution history in key ${this._storageKey} (${storageState.length} bytes)`);
 
+		// Write to machine/workspace specific storage so we can restore the
+		// history in this "session"
 		this._storageService.store(this._storageKey,
 			storageState,
 			StorageScope.WORKSPACE,
@@ -175,6 +193,9 @@ export class RuntimeExecutionHistory extends Disposable {
 	}
 }
 
+/**
+ * Service that manages execution histories for all runtimes.
+ */
 export class ExecutionHistoryService extends Disposable implements IExecutionHistoryService {
 	// Required for service branding in dependency injector.
 	_serviceBrand: undefined;
