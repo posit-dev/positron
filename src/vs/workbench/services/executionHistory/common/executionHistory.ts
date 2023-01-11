@@ -9,6 +9,11 @@ import { ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState } from 'v
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
 
+/**
+ * Represents a history of executions for a single language runtime. One instance of this class
+ * is created for each running language runtime, so that each runtime has its own
+ * execution history.
+ */
 export class RuntimeExecutionHistory extends Disposable {
 	private readonly _entries: IExecutionHistoryEntry[] = [];
 	private readonly _storageKey: string;
@@ -22,7 +27,7 @@ export class RuntimeExecutionHistory extends Disposable {
 	) {
 		super();
 
-		// Create storage key
+		// Create storage key for this runtime based on its ID
 		this._storageKey = `positron.executionHistory.${_runtime.metadata.id}`;
 
 		// Load existing history entries
@@ -127,6 +132,12 @@ export class RuntimeExecutionHistory extends Disposable {
 		return this._entries;
 	}
 
+	clear(): void {
+		// Delete all entries and save the new state
+		this._entries.splice(0, this._entries.length);
+		this.save();
+	}
+
 	/**
 	 * Save the history entries to storage after a delay. The history can become
 	 * somewhat large, so we don't want to save it synchronously during every
@@ -152,8 +163,12 @@ export class RuntimeExecutionHistory extends Disposable {
 			this._timerId = undefined;
 		}
 
+		// Serialize the entries to JSON
+		const storageState = JSON.stringify(this._entries);
+		this._logService.trace(`Saving execution history in key ${this._storageKey} (${storageState.length} bytes)`)
+
 		this._storageService.store(this._storageKey,
-			JSON.stringify(this._entries),
+			storageState,
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE);
 	}
@@ -173,27 +188,46 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	) {
 		super();
 
-		// Listen for runtimes to start; when they do, begin recording executions
-		this._languageRuntimeService.onDidStartRuntime(runtime => {
-			// Ensure we don't already have a history for this runtime
-			if (this._histories.has(runtime.metadata.id)) {
-				// Already have a history for this runtime
-				return;
-			}
+		// Start recording history for all currently active runtimes
+		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
+			this.beginRecordingHistory(runtime);
+		});
 
-			// Create a new history for the runtime
-			const history = new RuntimeExecutionHistory(runtime, this._storageService, this._logService);
-			this._histories.set(runtime.metadata.id, history);
-			this._register(history);
+		// Listen for runtimes to start; when they do, begin recording
+		// executions
+		this._languageRuntimeService.onDidStartRuntime(runtime => {
+			this.beginRecordingHistory(runtime);
 		});
 	}
 
-	getEntries(runtimeId: string): Promise<IExecutionHistoryEntry[]> {
+	private beginRecordingHistory(runtime: ILanguageRuntime): void {
+		// Ensure we don't already have a history for this runtime
+		if (this._histories.has(runtime.metadata.id)) {
+			// Already have a history for this runtime
+			return;
+		}
+
+		// Create a new history for the runtime
+		const history = new RuntimeExecutionHistory(runtime, this._storageService, this._logService);
+		this._histories.set(runtime.metadata.id, history);
+		this._register(history);
+	}
+
+	getEntries(runtimeId: string): IExecutionHistoryEntry[] {
 		// Return the history entries for the given runtime, if known.
 		if (this._histories.has(runtimeId)) {
-			return Promise.resolve(this._histories.get(runtimeId)?.entries!);
+			return this._histories.get(runtimeId)?.entries!;
 		} else {
-			return Promise.reject(`Unknown runtime ID: ${runtimeId}`);
+			throw new Error(`Can't get entries; unknown runtime ID: ${runtimeId}`);
+		}
+	}
+
+	clearEntries(runtimeId: string): void {
+		// Return the history entries for the given runtime, if known.
+		if (this._histories.has(runtimeId)) {
+			this._histories.get(runtimeId)?.clear();
+		} else {
+			throw new Error(`Can't get entries; unknown runtime ID: ${runtimeId}`);
 		}
 	}
 }

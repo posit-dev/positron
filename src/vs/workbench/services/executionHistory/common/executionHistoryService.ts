@@ -29,5 +29,5 @@ export interface IExecutionHistoryService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
-	getEntries(runtimeId: string): Promise<IExecutionHistoryEntry[]>;
+	getEntries(runtimeId: string): IExecutionHistoryEntry[];
 }
