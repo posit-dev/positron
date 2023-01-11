@@ -380,5 +380,6 @@ import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contributio
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
+import 'vs/workbench/services/executionHistory/common/executionHistory';
 
 // --- End Positron ---
