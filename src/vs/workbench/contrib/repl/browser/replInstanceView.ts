@@ -9,7 +9,7 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, LanguageRuntimeHistoryType, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessagePrompt, LanguageRuntimeHistoryType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
@@ -89,59 +89,64 @@ export class ReplInstanceView extends Disposable {
 		this._bannerContainer = document.createElement('div');
 		this._bannerContainer.classList.add('repl-banner');
 
-		// Listen for execution state changes
-		this._runtime.onDidReceiveRuntimeMessage((msg) => {
-			if (msg.type === LanguageRuntimeMessageType.State) {
-				const stateMsg = msg as ILanguageRuntimeMessageState;
+		this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
+			// Look up the cell with which this output is associated
+			const cell = this._executedCells.get(languageRuntimeMessageOutput.parent_id);
+			if (cell) {
+				cell.emitMimeOutput(languageRuntimeMessageOutput.data);
+			} else {
+				this._logService.warn(`Received output ${JSON.stringify(languageRuntimeMessageOutput)} for unknown code execution ${languageRuntimeMessageOutput.parent_id}`);
+			}
 
-				// If the kernel is entering a busy state, ignore for now
-				if (stateMsg.state === RuntimeOnlineState.Busy) {
-					return;
-				}
+			this.scrollToBottom();
+		});
 
-				// Mark the current cell execution as complete, if it is currently executing.
-				if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
-					this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
-				}
+		this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
+			// Look up the cell with which this error is associated
+			const cell = this._executedCells.get(languageRuntimeMessageError.parent_id);
+			if (cell) {
+				cell.emitError(languageRuntimeMessageError.name, languageRuntimeMessageError.message, languageRuntimeMessageError.traceback);
+			} else {
+				this._logService.warn(`Received error ${JSON.stringify(languageRuntimeMessageError)} for unknown code execution ${languageRuntimeMessageError.parent_id}`);
+			}
 
-				// Now that the cell execution is complete, try to process any
-				// pending input; if there is none, add a new cell if there aren't
-				// any cells or if the last cell is complete.
-				if (!this.processQueue() && (
-					!this._activeCell ||
-					this._activeCell.getState() !== ReplCellState.ReplCellInput)) {
-					this.addCell(this._hadFocus);
-				}
-			} else if (msg.type === LanguageRuntimeMessageType.Output) {
-				const outputMsg = msg as ILanguageRuntimeMessageOutput;
+			this.scrollToBottom();
+		});
 
-				// Look up the cell with which this output is associated
-				const cell = this._executedCells.get(outputMsg.parent_id);
-				if (cell) {
-					cell.emitMimeOutput(outputMsg.data);
-				} else {
-					this._logService.warn(`Received output ${JSON.stringify(outputMsg)} for unknown code execution ${outputMsg.parent_id}`);
-				}
-			} else if (msg.type === LanguageRuntimeMessageType.Error) {
-				const errMsg = msg as ILanguageRuntimeMessageError;
+		this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+			this.showPrompt(languageRuntimeMessagePrompt);
+			this.scrollToBottom();
+		});
 
-				// Look up the cell with which this error is associated
-				const cell = this._executedCells.get(errMsg.parent_id);
-				if (cell) {
-					cell.emitError(errMsg.name, errMsg.message, errMsg.traceback);
-				} else {
-					this._logService.warn(`Received error ${JSON.stringify(errMsg)} for unknown code execution ${errMsg.parent_id}`);
-				}
-			} else if (msg.type === LanguageRuntimeMessageType.Event) {
-				const evt = msg as ILanguageRuntimeMessageEvent;
-				if (evt.name === LanguageRuntimeEventType.ShowMessage) {
-					const data = evt.data as ShowMessageEvent;
-					const msg = new ReplStatusMessage(
-						'info', `${data.message}`);
-					msg.render(this._cellContainer);
-				}
-			} else if (msg.type === LanguageRuntimeMessageType.Prompt) {
-				this.showPrompt(msg as ILanguageRuntimeMessagePrompt);
+		this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+			// If the kernel is entering a busy state, ignore for now
+			if (languageRuntimeMessageState.state === RuntimeOnlineState.Busy) {
+				return;
+			}
+
+			// Mark the current cell execution as complete, if it is currently executing.
+			if (this._activeCell?.getState() === ReplCellState.ReplCellExecuting) {
+				this._activeCell.setState(ReplCellState.ReplCellCompletedOk);
+			}
+
+			// Now that the cell execution is complete, try to process any
+			// pending input; if there is none, add a new cell if there aren't
+			// any cells or if the last cell is complete.
+			if (!this.processQueue() && (
+				!this._activeCell ||
+				this._activeCell.getState() !== ReplCellState.ReplCellInput)) {
+				this.addCell(this._hadFocus);
+			}
+
+			this.scrollToBottom();
+		});
+
+		this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+			if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowMessage) {
+				const data = languageRuntimeMessageEvent.data as ShowMessageEvent;
+				const msg = new ReplStatusMessage(
+					'info', `${data.message}`);
+				msg.render(this._cellContainer);
 			}
 
 			this.scrollToBottom();
