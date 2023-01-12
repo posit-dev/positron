@@ -63,7 +63,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			history?.attachToRuntime(runtime);
 		} else {
 			// Don't have an input history yet; create one and attach the runtime
-			const history = new LanguageInputHistory(runtime.metadata.language, this._storageService);
+			const history = new LanguageInputHistory(runtime.metadata.language, this._storageService, this._logService);
 			history.attachToRuntime(runtime);
 			this._inputHistories.set(runtime.metadata.language, history);
 			this._register(history);
