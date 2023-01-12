@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder } from 'vs/platform/theme/common/colorRegistry';
+import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, buttonForeground, buttonSecondaryForeground, buttonBackground, buttonSecondaryBackground, secondaryBackground } from 'vs/platform/theme/common/colorRegistry';
 import { IColorTheme } from 'vs/platform/theme/common/themeService';
 import { Color } from 'vs/base/common/color';
 import { ColorScheme } from 'vs/platform/theme/common/theme';
@@ -43,8 +43,12 @@ export const TAB_UNFOCUSED_ACTIVE_BACKGROUND = registerColor('tab.unfocusedActiv
 }, localize('tabUnfocusedActiveBackground', "Active tab background color in an unfocused group. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
 
 export const TAB_INACTIVE_BACKGROUND = registerColor('tab.inactiveBackground', {
-	dark: '#2D2D2D',
-	light: '#ECECEC',
+	// --- Start Positron ---
+	dark: '#252527',
+	light: '#f1f3f5',
+	// dark: '#2D2D2D',
+	// light: '#ECECEC',
+	// --- End Positron ---
 	hcDark: null,
 	hcLight: null,
 }, localize('tabInactiveBackground', "Inactive tab background color in an active group. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
@@ -125,8 +129,12 @@ export const TAB_UNFOCUSED_HOVER_FOREGROUND = registerColor('tab.unfocusedHoverF
 //#region Tab Borders
 
 export const TAB_BORDER = registerColor('tab.border', {
-	dark: '#252526',
-	light: '#F3F3F3',
+	// --- Start Positron ---
+	dark: '#000000',
+	light: '#bbc5cd',
+	// dark: '#252526',
+	// light: '#F3F3F3',
+	// --- End Positron ---
 	hcDark: contrastBorder,
 	hcLight: contrastBorder,
 }, localize('tabBorder', "Border to separate tabs from each other. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
@@ -238,8 +246,12 @@ export const EDITOR_GROUP_FOCUSED_EMPTY_BORDER = registerColor('editorGroup.focu
 }, localize('editorGroupFocusedEmptyBorder', "Border color of an empty editor group that is focused. Editor groups are the containers of editors."));
 
 export const EDITOR_GROUP_HEADER_TABS_BACKGROUND = registerColor('editorGroupHeader.tabsBackground', {
-	dark: '#252526',
-	light: '#F3F3F3',
+	// --- End Positron ---
+	dark: '#252527',
+	light: '#f1f3f5',
+	// dark: '#252526',
+	// light: '#F3F3F3',
+	// --- End Positron ---
 	hcDark: null,
 	hcLight: null
 }, localize('tabsContainerBackground', "Background color of the editor group title header when tabs are enabled. Editor groups are the containers of editors."));
@@ -331,8 +343,12 @@ export const PANEL_BORDER = registerColor('panel.border', {
 }, localize('panelBorder', "Panel border color to separate the panel from the editor. Panels are shown below the editor area and contain views like output and integrated terminal."));
 
 export const PANEL_ACTIVE_TITLE_FOREGROUND = registerColor('panelTitle.activeForeground', {
-	dark: '#E7E7E7',
-	light: '#424242',
+	// --- Start Positron ---
+	dark: '#556677',
+	light: '#556677',
+	// dark: '#E7E7E7',
+	// light: '#424242',
+	// --- End Positron ---
 	hcDark: Color.white,
 	hcLight: editorForeground
 }, localize('panelActiveTitleForeground', "Title color for the active panel. Panels are shown below the editor area and contain views like output and integrated terminal."));
@@ -345,8 +361,12 @@ export const PANEL_INACTIVE_TITLE_FOREGROUND = registerColor('panelTitle.inactiv
 }, localize('panelInactiveTitleForeground', "Title color for the inactive panel. Panels are shown below the editor area and contain views like output and integrated terminal."));
 
 export const PANEL_ACTIVE_TITLE_BORDER = registerColor('panelTitle.activeBorder', {
-	dark: PANEL_ACTIVE_TITLE_FOREGROUND,
-	light: PANEL_ACTIVE_TITLE_FOREGROUND,
+	// --- Start Positron ---
+	dark: '#3a78b1',
+	light: '#3a78b1',
+	// dark: PANEL_ACTIVE_TITLE_FOREGROUND,
+	// light: PANEL_ACTIVE_TITLE_FOREGROUND,
+	// --- End Positron ---
 	hcDark: contrastBorder,
 	hcLight: '#B5200D'
 }, localize('panelActiveTitleBorder', "Border color for the active panel title. Panels are shown below the editor area and contain views like output and integrated terminal."));
@@ -427,8 +447,12 @@ export const BANNER_ICON_FOREGROUND = registerColor('banner.iconForeground', {
 // < --- Status --- >
 
 export const STATUS_BAR_FOREGROUND = registerColor('statusBar.foreground', {
-	dark: '#FFFFFF',
-	light: '#FFFFFF',
+	// --- Start Positron ---
+	dark: '#acbece',
+	light: '#75828d',
+	// dark: '#FFFFFF',
+	// light: '#FFFFFF',
+	// --- End Positron ---
 	hcDark: '#FFFFFF',
 	hcLight: editorForeground
 }, localize('statusBarForeground', "Status bar foreground color when a workspace or folder is opened. The status bar is shown in the bottom of the window."));
@@ -441,8 +465,12 @@ export const STATUS_BAR_NO_FOLDER_FOREGROUND = registerColor('statusBar.noFolder
 }, localize('statusBarNoFolderForeground', "Status bar foreground color when no folder is opened. The status bar is shown in the bottom of the window."));
 
 export const STATUS_BAR_BACKGROUND = registerColor('statusBar.background', {
-	dark: '#007ACC',
-	light: '#007ACC',
+	// --- Start Positron ---
+	dark: '#3b4245',
+	light: '#f1f3f5',
+	// dark: '#007ACC',
+	// light: '#007ACC',
+	// --- Start Positron ---
 	hcDark: null,
 	hcLight: null,
 }, localize('statusBarBackground', "Status bar background color when a workspace or folder is opened. The status bar is shown in the bottom of the window."));
@@ -557,18 +585,22 @@ export const STATUS_BAR_WARNING_ITEM_FOREGROUND = registerColor('statusBarItem.w
 
 export const ACTIVITY_BAR_BACKGROUND = registerColor('activityBar.background', {
 	// --- Start Positron ---
-	// dark: '#32485b',
-	// light: '#3a78b1',
-	dark: '#333333',
-	light: '#2C2C2C',
+	dark: '#32485b',
+	light: '#3a78b1',
+	// dark: '#333333',
+	// light: '#2C2C2C',
 	// --- End Positron ---
 	hcDark: '#000000',
 	hcLight: '#FFFFFF'
 }, localize('activityBarBackground', "Activity bar background color. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
 
 export const ACTIVITY_BAR_FOREGROUND = registerColor('activityBar.foreground', {
-	dark: Color.white,
-	light: Color.white,
+	// --- Start Positron ---
+	dark: '#acbece',
+	light: '#ffffff',
+	// dark: Color.white,
+	// light: Color.white,
+	// --- End Positron ---
 	hcDark: Color.white,
 	hcLight: editorForeground
 }, localize('activityBarForeground', "Activity bar item foreground color when it is active. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
@@ -602,8 +634,12 @@ export const ACTIVITY_BAR_ACTIVE_FOCUS_BORDER = registerColor('activityBar.activ
 }, localize('activityBarActiveFocusBorder', "Activity bar focus border color for the active item. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
 
 export const ACTIVITY_BAR_ACTIVE_BACKGROUND = registerColor('activityBar.activeBackground', {
-	dark: null,
-	light: null,
+	// --- Start Positron ---
+	dark: '#22282b',
+	light: '#114889',
+	// dark: null,
+	// light: null,
+	// --- End Positron ---
 	hcDark: null,
 	hcLight: null
 }, localize('activityBarActiveBackground', "Activity bar background color for the active item. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
@@ -616,8 +652,12 @@ export const ACTIVITY_BAR_DRAG_AND_DROP_BORDER = registerColor('activityBar.drop
 }, localize('activityBarDragAndDropBorder', "Drag and drop feedback color for the activity bar items. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
 
 export const ACTIVITY_BAR_BADGE_BACKGROUND = registerColor('activityBarBadge.background', {
-	dark: '#007ACC',
-	light: '#007ACC',
+	// --- Start Positron ---
+	dark: '#ce0101',
+	light: '#ce0101',
+	// dark: '#007ACC',
+	// light: '#007ACC',
+	// --- End Positron ---
 	hcDark: '#000000',
 	hcLight: '#0F4A85'
 }, localize('activityBarBadgeBackground', "Activity notification badge background color. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
@@ -684,22 +724,34 @@ export const EXTENSION_BADGE_REMOTE_FOREGROUND = registerColor('extensionBadge.r
 // < --- Side Bar --- >
 
 export const SIDE_BAR_BACKGROUND = registerColor('sideBar.background', {
-	dark: '#252526',
-	light: '#F3F3F3',
+	// --- Start Positron ---
+	dark: '#000000',
+	light: '#ffffff',
+	// dark: '#252526',
+	// light: '#F3F3F3',
+	// --- Start Positron ---
 	hcDark: '#000000',
 	hcLight: '#FFFFFF'
 }, localize('sideBarBackground', "Side bar background color. The side bar is the container for views like explorer and search."));
 
 export const SIDE_BAR_FOREGROUND = registerColor('sideBar.foreground', {
-	dark: null,
+	// --- Start Positron ---
+	dark: '#acbece',
 	light: null,
+	// dark: null,
+	// light: null,
+	// --- End Positron ---
 	hcDark: null,
 	hcLight: null
 }, localize('sideBarForeground', "Side bar foreground color. The side bar is the container for views like explorer and search."));
 
 export const SIDE_BAR_BORDER = registerColor('sideBar.border', {
-	dark: null,
-	light: null,
+	// --- Start Positron ---
+	dark: '#252527',
+	light: '#bbc5cd',
+	// dark: null,
+	// light: null,
+	// --- End Positron ---
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('sideBarBorder', "Side bar border color on the side separating to the editor. The side bar is the container for views like explorer and search."));
@@ -743,8 +795,12 @@ export const SIDE_BAR_SECTION_HEADER_BORDER = registerColor('sideBarSectionHeade
 // < --- Title Bar --- >
 
 export const TITLE_BAR_ACTIVE_FOREGROUND = registerColor('titleBar.activeForeground', {
-	dark: '#CCCCCC',
-	light: '#333333',
+	// --- Start Positron ---
+	dark: '#acbece',
+	light: '#75828d',
+	// dark: '#CCCCCC',
+	// light: '#333333',
+	// --- End Positron ---
 	hcDark: '#FFFFFF',
 	hcLight: '#292929'
 }, localize('titleBarActiveForeground', "Title bar foreground when the window is active."));
@@ -757,8 +813,12 @@ export const TITLE_BAR_INACTIVE_FOREGROUND = registerColor('titleBar.inactiveFor
 }, localize('titleBarInactiveForeground', "Title bar foreground when the window is inactive."));
 
 export const TITLE_BAR_ACTIVE_BACKGROUND = registerColor('titleBar.activeBackground', {
-	dark: '#3C3C3C',
-	light: '#DDDDDD',
+	// --- Start Positron ---
+	dark: '#3b4245',
+	light: '#f1f3f5',
+	// dark: '#3C3C3C',
+	// light: '#DDDDDD',
+	// --- End Positron ---
 	hcDark: '#000000',
 	hcLight: '#FFFFFF'
 }, localize('titleBarActiveBackground', "Title bar background when the window is active."));
@@ -771,8 +831,12 @@ export const TITLE_BAR_INACTIVE_BACKGROUND = registerColor('titleBar.inactiveBac
 }, localize('titleBarInactiveBackground', "Title bar background when the window is inactive."));
 
 export const TITLE_BAR_BORDER = registerColor('titleBar.border', {
-	dark: null,
-	light: null,
+	// --- Start Positron ---
+	dark: '#252527',
+	light: '#cbd0d5',
+	// dark: null,
+	// light: null,
+	// --- End Positron ---
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('titleBarBorder', "Title bar border color."));
@@ -917,15 +981,15 @@ export const POSITRON_TOOL_TIP_BORDER = registerColor('positronToolTip.border', 
 
 // The Positron top action bar border color.
 export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBar.border', {
-	dark: '#000000',
-	light: '#d9dee2',
+	dark: '#252527',
+	light: '#cbd0d5',
 	hcDark: '#000000',
 	hcLight: '#d9dee2'
 }, localize('positronTopActionBar.border', "Positron top action bar border color."));
 
 // The Positron top action bar background color.
 export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActionBar.background', {
-	dark: '#3b4144',
+	dark: '#3b4245',
 	light: '#f1f3f5',
 	hcDark: '#3b4144',
 	hcLight: '#f1f3f5'
@@ -941,7 +1005,7 @@ export const POSITRON_TOP_ACTION_BAR_FOREGROUND = registerColor('positronTopActi
 
 // The Positron top action bar disabled foreground color.
 export const POSITRON_TOP_ACTION_BAR_DISABLED_FOREGROUND = registerColor('positronTopActionBar.disabledForeground', {
-	dark: '#5f6b74',
+	dark: '#b9c0c6',
 	light: '#b9c0c6',
 	hcDark: '#6e7c88',
 	hcLight: '#b9c0c6'
@@ -949,7 +1013,7 @@ export const POSITRON_TOP_ACTION_BAR_DISABLED_FOREGROUND = registerColor('positr
 
 // The Positron top action bar separator color.
 export const POSITRON_TOP_ACTION_BAR_SEPARATOR = registerColor('positronTopActionBar.separator', {
-	dark: '#2f3436',
+	dark: '#434b4f',
 	light: '#dfe3e6',
 	hcDark: '#2f3436',
 	hcLight: '#dfe3e6'
@@ -957,7 +1021,7 @@ export const POSITRON_TOP_ACTION_BAR_SEPARATOR = registerColor('positronTopActio
 
 // The Positron top action bar select box border color.
 export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BORDER = registerColor('positronTopActionBar.selectBoxBorder', {
-	dark: '#17191a',
+	dark: '#000000',
 	light: '#cad0d6',
 	hcDark: '#17191a',
 	hcLight: '#cad0d6'
@@ -973,7 +1037,7 @@ export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BACKGROUND = registerColor('posi
 
 // The Positron top action bar hover background color.
 export const POSITRON_TOP_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronTopActionBar.hoverBackground', {
-	dark: '#292f32',
+	dark: '#dae1ea',
 	light: '#dae1ea',
 	hcDark: '#292f32',
 	hcLight: '#dae1ea'
@@ -1015,7 +1079,7 @@ export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = registerC
 
 // The Positron side action bar border color.
 export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideActionBar.border', {
-	dark: '#000000',
+	dark: '#434b4f',
 	light: '#d9dee2',
 	hcDark: '#000000',
 	hcLight: '#d9dee2'
@@ -1023,8 +1087,8 @@ export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideAction
 
 // The Positron side action bar background color.
 export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideActionBar.background', {
-	dark: '#252526',
-	light: '#f3f3f3',
+	dark: '#000000',
+	light: '#ffffff',
 	hcDark: '#252526',
 	hcLight: '#f3f3f3'
 }, localize('positronSideActionBar.background', "Positron side action bar background color."));
@@ -1047,7 +1111,7 @@ export const POSITRON_SIDE_ACTION_BAR_DISABLED_FOREGROUND = registerColor('posit
 
 // The Positron side action bar separator color.
 export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideActionBar.separator', {
-	dark: '#2f3436',
+	dark: '#434b4f',
 	light: '#dfe3e6',
 	hcDark: '#2f3436',
 	hcLight: '#dfe3e6'
@@ -1063,7 +1127,7 @@ export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positron
 
 // The Positron side action bar text input background color.
 export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('positronSideActionBar.textInputBackground', {
-	dark: '#3a3d41',
+	dark: '#000000',
 	light: '#ffffff',
 	hcDark: '#3a3d41',
 	hcLight: '#ffffff'
@@ -1071,8 +1135,8 @@ export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('pos
 
 // The Positron side action bar text input border color.
 export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BORDER = registerColor('positronSideActionBar.textInputBorder', {
-	dark: '#252526',
-	light: '#5f6a79',
+	dark: '#434b4f',
+	light: '#cbd0d5',
 	hcDark: '#252526',
 	hcLight: '#5f6a79'
 }, localize('positronSideActionBar.textInputBorder', "Positron side action bar text input border."));
@@ -1097,7 +1161,7 @@ export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = register
 
 // Modal dialog background color.
 export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
-	dark: '#252526',
+	dark: '#3b4245',
 	light: '#f1f3f5',
 	hcDark: '#252526',
 	hcLight: '#f1f3f5'
@@ -1105,7 +1169,7 @@ export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
 
 // Modal dialog foreground color.
 export const MODAL_DIALOG_FOREGROUND = registerColor('modalDialog.foreground', {
-	dark: '#cccccc',
+	dark: '#acbece',
 	light: '#000000',
 	hcDark: '#cccccc',
 	hcLight: '#000000'
@@ -1131,15 +1195,15 @@ export const MODAL_DIALOG_SEPARATOR = registerColor('modalDialog.separator', {
 
 // Modal dialog title bar background color.
 export const MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor('modalDialog.titleBarBackground', {
-	dark: '#3a3d41',
-	light: lighten(MODAL_DIALOG_BACKGROUND, 0.1),
-	hcDark: '#3a3d41',
-	hcLight: lighten(MODAL_DIALOG_BACKGROUND, 0.1)
+	dark: secondaryBackground,
+	light: secondaryBackground,
+	hcDark: secondaryBackground,
+	hcLight: secondaryBackground
 }, localize('modalDialog.titleBarBackground', "Modal dialog title bar background color."));
 
 // Modal dialog title bar foreground color.
 export const MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('modalDialog.titleBarForeground', {
-	dark: '#cfd0d0',
+	dark: '#acbece',
 	light: '#000000',
 	hcDark: '#cfd0d0',
 	hcLight: '#000000'
@@ -1149,10 +1213,10 @@ export const MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('modalDialog.titl
 
 // Modal dialog button background color.
 export const MODAL_DIALOG_BUTTON_BACKGROUND = registerColor('modalDialog.buttonBackground', {
-	dark: '#3a3d41',
-	light: '#5f6a79',
-	hcDark: '#3a3d41',
-	hcLight: '#5f6a79'
+	dark: buttonSecondaryBackground,
+	light: buttonSecondaryBackground,
+	hcDark: buttonSecondaryBackground,
+	hcLight: buttonSecondaryBackground
 }, localize('modalDialog.buttonBackground', "Modal dialog button background color."));
 
 // Modal dialog button hover background color.
@@ -1165,11 +1229,13 @@ export const MODAL_DIALOG_BUTTON_HOVER_BACKGROUND = registerColor('modalDialog.b
 
 // Modal dialog button background color.
 export const MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND = registerColor('modalDialog.defaultButtonBackground', {
-	dark: '#0e639c',
-	light: '#007acc',
-	hcDark: '#0e639c',
-	hcLight: '#007acc'
+	dark: buttonBackground,
+	light: buttonBackground,
+	hcDark: buttonBackground,
+	hcLight: buttonBackground
 }, localize('modalDialog.defaultButtonBackground', "Modal dialog default button background color."));
+
+
 
 // Modal dialog button hover background color.
 export const MODAL_DIALOG_DEFAULT_BUTTON_HOVER_BACKGROUND = registerColor('modalDialog.defaultButtonHoverBackground', {
@@ -1189,17 +1255,25 @@ export const MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor('modalDialog.
 
 // Modal dialog button foreground color.
 export const MODAL_DIALOG_BUTTON_FOREGROUND = registerColor('modalDialog.buttonForeground', {
-	dark: '#cfd0d0',
-	light: '#ffffff',
-	hcDark: '#cfd0d0',
-	hcLight: '#ffffff'
+	dark: buttonSecondaryForeground,
+	light: buttonSecondaryForeground,
+	hcDark: buttonSecondaryForeground,
+	hcLight: buttonSecondaryForeground
 }, localize('modalDialog.buttonForeground', "Modal dialog button foreground color."));
+
+// Modal dialog button foreground color.
+export const MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('modalDialog.defaultButtonForeground', {
+	dark: buttonForeground,
+	light: buttonForeground,
+	hcDark: buttonForeground,
+	hcLight: buttonForeground
+}, localize('modalDialog.defaultButtonForeground', "Modal dialog default button foreground color."));
 
 // < --- Modal Dialog Text Input --- >
 
 // Modal dialog text input background color.
 export const MODAL_DIALOG_TEXT_INPUT_BACKGROUND = registerColor('modalDialog.textInputBackground', {
-	dark: '#3a3d41',
+	dark: '#292f32',
 	light: '#ffffff',
 	hcDark: '#3a3d41',
 	hcLight: '#ffffff'
@@ -1207,8 +1281,8 @@ export const MODAL_DIALOG_TEXT_INPUT_BACKGROUND = registerColor('modalDialog.tex
 
 // Modal dialog text input border color.
 export const MODAL_DIALOG_TEXT_INPUT_BORDER = registerColor('modalDialog.textInputBorder', {
-	dark: '#3a3d41',
-	light: '#5f6a79',
+	dark: '#292f32',
+	light: '#a6a6a6',
 	hcDark: '#3a3d41',
 	hcLight: '#5f6a79'
 }, localize('modalDialog.textInputBorder', "Modal dialog text input border."));
@@ -1233,7 +1307,7 @@ export const MODAL_DIALOG_TEXT_INPUT_SELECTION_BACKGROUND = registerColor('modal
 
 // Modal dialog checkbox background color.
 export const MODAL_DIALOG_CHECKBOX_BACKGROUND = registerColor('modalDialog.checkboxBackground', {
-	dark: '#3a3d41',
+	dark: '#292f32',
 	light: '#ffffff',
 	hcDark: '#3a3d41',
 	hcLight: '#ffffff'
@@ -1241,7 +1315,7 @@ export const MODAL_DIALOG_CHECKBOX_BACKGROUND = registerColor('modalDialog.check
 
 // Modal dialog checkbox foreground color.
 export const MODAL_DIALOG_CHECKBOX_FOREGROUND = registerColor('modalDialog.checkboxForeground', {
-	dark: '#cccccc',
+	dark: '#acbece',
 	light: '#000000',
 	hcDark: '#cccccc',
 	hcLight: '#000000'
@@ -1249,8 +1323,8 @@ export const MODAL_DIALOG_CHECKBOX_FOREGROUND = registerColor('modalDialog.check
 
 // Modal dialog checkbox border color.
 export const MODAL_DIALOG_CHECKBOX_BORDER = registerColor('modalDialog.checkboxBorder', {
-	dark: '#3a3d41',
-	light: '#5f6a79',
+	dark: '#292f32',
+	light: '#a6a6a6',
 	hcDark: '#3a3d41',
 	hcLight: '#5f6a79'
 }, localize('modalDialog.checkboxBorder', "Modal dialog checkbox border."));
