@@ -13,6 +13,7 @@ pub mod definitions;
 pub mod documents;
 pub mod handler;
 pub mod help;
+pub mod help_proxy;
 pub mod hover;
 pub mod indexer;
 pub mod markdown;

@@ -12,7 +12,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
 import { ILanguageRuntimeMessageEvent, ILanguageRuntimeService, LanguageRuntimeMessageType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { LanguageRuntimeEventType, ShowHelpEvent, ShowHelpUrlEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 // The TrustedTypePolicy for rendering.
 const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -30,7 +30,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	// The markdown renderer.
 	private _markdownRenderer: MarkdownRenderer;
 
-	// The onSizeChanged event.
+	// The RenderHelp event.
 	private _onRenderHelp = this._register(new Emitter<TrustedHTML | undefined>());
 	readonly onRenderHelp: Event<TrustedHTML | undefined> = this._onRenderHelp.event;
 
@@ -60,6 +60,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 						} else {
 							this.openHelpHtml(data.content);
 						}
+					} else if (event.name === LanguageRuntimeEventType.ShowHelpUrl) {
+						const data = event.data as ShowHelpUrlEvent;
+						this.openHelpUrl(data.url);
 					}
 				}
 			});
@@ -99,6 +102,24 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this._onRenderHelp.fire(trustedHtml);
 	}
 
+	openHelpUrl(url: string) {
+
+		// Ensure that we can create trusted HTML.
+		if (!ttPolicyPositronHelp) {
+			return;
+		}
+
+		window.fetch(url).then(async (response) => {
+			let html = await response.text();
+			// TODO: hacky placeholder so background is white
+			html = html.replace('</head>', '<style>body { background-color: white !important; }</style></head>');
+			console.log(html);
+			const trustedHtml = ttPolicyPositronHelp.createHTML(html);
+			this._onRenderHelp.fire(trustedHtml);
+		}).catch((error) => {
+			console.log(error);
+		});
+	}
 
 	/**
 	 * Renders the help document.

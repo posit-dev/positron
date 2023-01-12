@@ -32,3 +32,11 @@
     type: string
     comment: The content help type. Must be one of 'html' or 'markdown'.
 
+- name: ShowHelpUrl
+  comment: >
+    Show help content from an external URL in the Help pane.
+  params:
+  - name: url
+    type: string
+    comment: The URL to be shown in the Help pane.
+
