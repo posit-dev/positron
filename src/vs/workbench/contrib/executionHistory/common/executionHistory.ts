@@ -81,7 +81,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		}
 	}
 
-	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry[] {
+	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[] {
 		// Return the history entries for the given runtime, if known.
 		if (this._executionHistories.has(runtimeId)) {
 			return this._executionHistories.get(runtimeId)?.entries!;

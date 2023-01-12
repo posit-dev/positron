@@ -15,13 +15,13 @@ import { ILanguageRuntime, RuntimeOnlineState } from 'vs/workbench/services/lang
  */
 export class RuntimeExecutionHistory extends Disposable {
 	/** An in-memory representation of all known entries. */
-	private readonly _entries: IExecutionHistoryEntry[] = [];
+	private readonly _entries: IExecutionHistoryEntry<any>[] = [];
 
 	/** The unique key under which the entries are stored (by the storage service) */
 	private readonly _storageKey: string;
 
 	/** A map of execution IDs to history entries for executions that have started but not completed. */
-	private readonly _pendingExecutions: Map<string, IExecutionHistoryEntry> = new Map();
+	private readonly _pendingExecutions: Map<string, IExecutionHistoryEntry<any>> = new Map();
 
 	/** A timer used to debounce history writes. */
 	private _timerId?: NodeJS.Timeout;
@@ -42,7 +42,7 @@ export class RuntimeExecutionHistory extends Disposable {
 		// Load existing history entries
 		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
 		try {
-			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry) => {
+			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry<any>) => {
 				this._entries.push(entry);
 			});
 		} catch (err) {
@@ -64,12 +64,12 @@ export class RuntimeExecutionHistory extends Disposable {
 				this._pendingExecutions.get(message.id)!.input = message.code;
 			} else {
 				// Create a new entry
-				const entry: IExecutionHistoryEntry = {
+				const entry: IExecutionHistoryEntry<string> = {
 					id: message.parent_id,
 					when: Date.now(),
 					input: message.code,
 					outputType: '',
-					output: undefined,
+					output: '',
 					durationMs: 0
 				};
 
@@ -95,7 +95,7 @@ export class RuntimeExecutionHistory extends Disposable {
 				} else {
 					// This is the first time we've seen this execution; create
 					// a new entry.
-					const entry: IExecutionHistoryEntry = {
+					const entry: IExecutionHistoryEntry<string> = {
 						id: message.parent_id,
 						when: Date.now(),
 						input: '',
@@ -145,7 +145,7 @@ export class RuntimeExecutionHistory extends Disposable {
 		super.dispose();
 	}
 
-	get entries(): IExecutionHistoryEntry[] {
+	get entries(): IExecutionHistoryEntry<any>[] {
 		return this._entries;
 	}
 

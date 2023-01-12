@@ -13,7 +13,7 @@ export const IExecutionHistoryService = createDecorator<IExecutionHistoryService
  * Represents the execution (input and output) of a single code fragment in a
  * language runtime.
  */
-export interface IExecutionHistoryEntry {
+export interface IExecutionHistoryEntry<T> {
 	/** ID of the entry */
 	id: string;
 
@@ -27,7 +27,7 @@ export interface IExecutionHistoryEntry {
 	outputType: string;
 
 	/** The output itself */
-	output: any;
+	output: T;
 
 	/** The total user time expended during the execution, in milliseconds */
 	durationMs: number;
@@ -70,7 +70,7 @@ export interface IExecutionHistoryService {
 	 * @param runtimeId The ID of the language runtime for which to retrieve
 	 *   execution history
 	 */
-	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry[];
+	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[];
 
 	/**
 	 * Removes (clears) all the the history entries for a given language
