@@ -31,8 +31,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	private _markdownRenderer: MarkdownRenderer;
 
 	// The RenderHelp event.
-	private _onRenderHelp = this._register(new Emitter<TrustedHTML | undefined>());
-	readonly onRenderHelp: Event<TrustedHTML | undefined> = this._onRenderHelp.event;
+	private _onRenderHelp = this._register(new Emitter<string>());
+	readonly onRenderHelp: Event<string> = this._onRenderHelp.event;
 
 	/**
 	 * Constructor.
@@ -85,8 +85,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		const markdownRenderResult = this._markdownRenderer.render(markdown);
 		try {
 			const someOtherString = this.renderHelpDocument(markdownRenderResult.element.innerHTML);
-			const sdf = ttPolicyPositronHelp.createHTML(someOtherString);
-			this._onRenderHelp.fire(sdf);
+			this._onRenderHelp.fire(someOtherString);
 		} finally {
 			markdownRenderResult.dispose();
 		}
@@ -98,28 +97,72 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			return;
 		}
 
-		const trustedHtml = ttPolicyPositronHelp.createHTML(html);
-		this._onRenderHelp.fire(trustedHtml);
+		this._onRenderHelp.fire(html);
 	}
 
 	openHelpUrl(url: string) {
+		const html = this.renderEmbeddedHelpDocument(url);
+		this._onRenderHelp.fire(html);
+	}
 
-		// Ensure that we can create trusted HTML.
-		if (!ttPolicyPositronHelp) {
-			return;
-		}
+	renderEmbeddedHelpDocument(url: string): string {
 
-		window.fetch(url).then(async (response) => {
-			let html = await response.text();
-			// TODO: hacky placeholder so background is white
-			// TODO: Can we use the URL directly in an iframe if we set the appropriate headers?
-			html = html.replace('</head>', '<style>body { background-color: white !important; }</style></head>');
-			console.log(html);
-			const trustedHtml = ttPolicyPositronHelp.createHTML(html);
-			this._onRenderHelp.fire(trustedHtml);
-		}).catch((error) => {
-			console.log(error);
-		});
+		const nonce = generateUuid();
+
+		// Render the help document.
+		return `
+		<!DOCTYPE html>
+		<html>
+			<head>
+
+				<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+				<meta http-equiv="Content-Security-Policy" content="
+					default-src 'none';
+					media-src https:;
+					script-src 'self' 'nonce-${nonce}';
+					style-src 'nonce-${nonce}';
+					frame-src *;
+				">
+
+				<style nonce="${nonce}">
+					body {
+						font-family: sans-serif;
+						font-size: 13px;
+						display: flex;
+						flex-direction: column;
+						padding: 0;
+						width: 100%;
+						height: 100%;
+					}
+				</style>
+
+			</head>
+			<body>
+				<iframe id="help-iframe"></iframe>
+				<script nonce="${nonce}">
+				(function() {
+
+					// Load help tools
+					var script = document.createElement("script");
+					script.src = "${FileAccess.asBrowserUri('positron-help.js')}";
+					script.nonce = "${nonce}";
+					document.body.appendChild(script);
+
+					// Set up iframe
+					var frame = document.getElementById("help-iframe");
+					frame.style.width = "100%";
+					frame.style.height = "100%";
+					frame.style.border = "none";
+					frame.src = "${url}";
+
+					// TODO: Not clear why this is necessary
+					document.documentElement.style.width = "100%";
+					document.documentElement.style.height = "100%";
+
+				})();
+				</script>
+			</body>
+		</html>`;
 	}
 
 	/**
