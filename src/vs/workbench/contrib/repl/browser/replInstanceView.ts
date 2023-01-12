@@ -158,17 +158,6 @@ export class ReplInstanceView extends Disposable {
 		this._register(this._runtime.onDidCompleteStartup(info => {
 			this._bannerContainer.innerText = info.banner;
 			this._scroller.scanDomNode();
-
-			// Request the history from the kernel so we can search/navigate
-			// previous inputs from the REPL that aren't known to this instance
-			this._runtime.getExecutionHistory(
-				LanguageRuntimeHistoryType.InputOnly, 1000).then((history) => {
-					// Add each entry to the local copy of the history. We'll
-					// maintain the history ourselves after this point.
-					for (const entry of history) {
-						this._instance.history.add(entry[0]);
-					}
-				});
 		}));
 
 		this._runtime.onDidChangeRuntimeState((state) => {
@@ -189,6 +178,12 @@ export class ReplInstanceView extends Disposable {
 
 		// Populate with execution history
 		this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.id);
+
+		// Populate with input history
+		const inputHistory = this._executionHistoryService.getInputEntries(this._instance.runtime.metadata.language);
+		for (const entry of inputHistory) {
+			this._instance.history.add(entry.input);
+		}
 	}
 
 	/**
