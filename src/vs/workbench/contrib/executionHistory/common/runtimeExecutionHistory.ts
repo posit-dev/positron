@@ -26,6 +26,9 @@ export class RuntimeExecutionHistory extends Disposable {
 	/** A timer used to debounce history writes. */
 	private _timerId?: NodeJS.Timeout;
 
+	/** A flag indicating whether there are entries that need to be flushed to storage */
+	private _dirty: boolean = false;
+
 	constructor(
 		private readonly _runtime: ILanguageRuntime,
 		private readonly _storageService: IStorageService,
@@ -121,6 +124,7 @@ export class RuntimeExecutionHistory extends Disposable {
 
 					// Save the history after a delay
 					this._entries.push(entry);
+					this._dirty = true;
 					this.delayedSave();
 				}
 			}
@@ -128,8 +132,6 @@ export class RuntimeExecutionHistory extends Disposable {
 
 		// Ensure we persist the history on e.g. shutdown
 		this._register(this._storageService.onWillSaveState(() => {
-			// TODO: flush pending executions to storage, even if we haven't
-			// received word they are done yet.
 			this.save();
 		}));
 	}
@@ -178,6 +180,11 @@ export class RuntimeExecutionHistory extends Disposable {
 			this._timerId = undefined;
 		}
 
+		// No need to save if we're not dirty
+		if (!this._dirty) {
+			return;
+		}
+
 		// Serialize the entries to JSON
 		const storageState = JSON.stringify(this._entries);
 		this._logService.trace(`Saving execution history in key ${this._storageKey} (${storageState.length} bytes)`);
@@ -188,5 +195,8 @@ export class RuntimeExecutionHistory extends Disposable {
 			storageState,
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE);
+
+		// Successfully saved; state is no longer dirty
+		this._dirty = false;
 	}
 }
