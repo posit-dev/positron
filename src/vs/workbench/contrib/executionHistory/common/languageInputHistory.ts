@@ -3,9 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
+import { IInputHistoryEntry, inputHistorySizeSettingId } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -32,7 +33,8 @@ export class LanguageInputHistory extends Disposable {
 	constructor(
 		private readonly _languageId: string,
 		private readonly _storageService: IStorageService,
-		private readonly _logService: ILogService) {
+		private readonly _logService: ILogService,
+		private readonly _configurationService: IConfigurationService) {
 		super();
 
 		// The storage key is unique to the language ID.
@@ -144,9 +146,20 @@ export class LanguageInputHistory extends Disposable {
 			this._logService.warn(`LanguageInputHistory (${this._languageId}: Clearing to recover from error.`);
 		}
 
+		// Append the pending entries to the parsed entries.
+		parsedEntries = parsedEntries.concat(this._pendingEntries);
+
+		// Discard old entries from the front of the history if we've reached
+		// the configured maximum.
+		const max = this._configurationService.getValue<number>(inputHistorySizeSettingId);
+		const overflow = parsedEntries.length - max;
+		if (overflow > 0) {
+			parsedEntries = parsedEntries.splice(overflow);
+		}
+
 		// Serialize the entries to JSON and write them to storage.
-		const storageState = JSON.stringify(parsedEntries.concat(this._pendingEntries));
-		this._logService.trace(`Saving input history in key ${this._storageKey} (${storageState.length} bytes)`);
+		const storageState = JSON.stringify(parsedEntries);
+		this._logService.trace(`Saving input history in key ${this._storageKey} (${parsedEntries.length} items, ${storageState.length} bytes)`);
 
 		// Write to machine/workspace specific storage so we can restore the
 		// history in this "session"

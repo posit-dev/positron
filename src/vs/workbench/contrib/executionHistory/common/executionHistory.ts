@@ -11,6 +11,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeExecutionHistory } from 'vs/workbench/contrib/executionHistory/common/runtimeExecutionHistory';
 import { LanguageInputHistory } from 'vs/workbench/contrib/executionHistory/common/languageInputHistory';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * Service that manages execution histories for all runtimes.
@@ -28,7 +29,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	constructor(
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@ILogService private readonly _logService: ILogService
+		@ILogService private readonly _logService: ILogService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		super();
 
@@ -51,7 +53,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		} else {
 			// No live input history recorder; try to load from storage (and
 			// cache the input history recorder for later use)
-			const history = new LanguageInputHistory(languageId, this._storageService, this._logService);
+			const history = new LanguageInputHistory(languageId, this._storageService, this._logService, this._configurationService);
 			this._inputHistories.set(languageId, history);
 			return history.getInputHistory();
 		}
@@ -72,7 +74,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			history?.attachToRuntime(runtime);
 		} else {
 			// Don't have an input history yet; create one and attach the runtime
-			const history = new LanguageInputHistory(runtime.metadata.language, this._storageService, this._logService);
+			const history = new LanguageInputHistory(runtime.metadata.language, this._storageService, this._logService, this._configurationService);
 			history.attachToRuntime(runtime);
 			this._inputHistories.set(runtime.metadata.language, history);
 			this._register(history);
