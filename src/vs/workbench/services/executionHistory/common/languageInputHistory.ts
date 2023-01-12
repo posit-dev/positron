@@ -48,14 +48,14 @@ export class LanguageInputHistory extends Disposable {
 	public attachToRuntime(runtime: ILanguageRuntime): void {
 		// Don't attach to the same runtime twice.
 		if (this._attachedRuntimes.has(runtime.metadata.id)) {
-			this._logService.debug(`LanguageInputHistory: Already attached to runtime ${runtime.metadata.id}`);
+			this._logService.debug(`LanguageInputHistory (${this._languageId}): Already attached to runtime ${runtime.metadata.id}`);
 			return;
 		}
 
 		// Safety check: ensure that this runtime is associated with the
 		// language for this history recorder.
 		if (runtime.metadata.language !== this._languageId) {
-			this._logService.warn(`LanguageInputHistory: Language mismatch (expected ${this._languageId}, got ${runtime.metadata.language}))`);
+			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch (expected ${this._languageId}, got ${runtime.metadata.language}))`);
 			return;
 		}
 
@@ -88,11 +88,36 @@ export class LanguageInputHistory extends Disposable {
 		}, 10000);
 	}
 
+	/**
+	 * Gets the input history entries for this language.
+	 *
+	 * @returns The input history entries for this language.
+	 */
+	public getInputHistory(): IInputHistoryEntry[] {
+		// Read the existing entries from storage.
+		const entries = this._storageService.get(this._storageKey, StorageScope.PROFILE, '[]');
+		let parsedEntries: IInputHistoryEntry[] = [];
+		try {
+			parsedEntries = JSON.parse(entries);
+		} catch (err) {
+			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
+		}
+
+		// Return the parsed entries, plus any pending entries that have not yet
+		// been saved.
+		return parsedEntries.concat(this._pendingEntries);
+	}
+
 	private save(forShutdown: boolean): void {
 		// Reset the timer if it's still running
 		if (this._timerId) {
 			clearTimeout(this._timerId);
 			this._timerId = undefined;
+		}
+
+		if (this._pendingEntries.length === 0) {
+			// Nothing to save
+			return;
 		}
 
 		// Read the existing entries. We do this every time we save because

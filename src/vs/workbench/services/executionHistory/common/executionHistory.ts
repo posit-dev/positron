@@ -45,7 +45,16 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	}
 
 	getInputEntries(languageId: string): IInputHistoryEntry[] {
-		throw new Error('Method not implemented.');
+		if (this._inputHistories.has(languageId)) {
+			// We have a live input history recorder for this language; ask it for entries
+			return this._inputHistories.get(languageId)?.getInputHistory() || [];
+		} else {
+			// No live input history recorder; try to load from storage (and
+			// cache the input history recorder for later use)
+			const history = new LanguageInputHistory(languageId, this._storageService, this._logService);
+			this._inputHistories.set(languageId, history);
+			return history.getInputHistory();
+		}
 	}
 
 	private beginRecordingHistory(runtime: ILanguageRuntime): void {
