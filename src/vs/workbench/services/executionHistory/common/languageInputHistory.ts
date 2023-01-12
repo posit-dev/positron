@@ -37,6 +37,12 @@ export class LanguageInputHistory extends Disposable {
 
 		// The storage key is unique to the language ID.
 		this._storageKey = `positron.languageInputHistory.${this._languageId}`;
+
+		// Ensure that any pending entries are flushed to storage during
+		// shutdown.
+		this._register(this._storageService.onWillSaveState(() => {
+			this.save(true);
+		}));
 	}
 
 	public attachToRuntime(runtime: ILanguageRuntime): void {
@@ -60,11 +66,29 @@ export class LanguageInputHistory extends Disposable {
 				input: message.code
 			};
 			this._pendingEntries.push(entry);
-			this.save();
+			this.delayedSave();
 		}));
 	}
 
-	private save(): void {
+	/**
+	 * Save the input history entries to storage after a delay. The history can
+	 * become somewhat large, so we don't want to save it synchronously during
+	 * every execution.
+	 */
+	private delayedSave(): void {
+		// Reset any existing timer
+		if (this._timerId) {
+			clearTimeout(this._timerId);
+			this._timerId = undefined;
+		}
+
+		// Set a new 10 second timer
+		this._timerId = setTimeout(() => {
+			this.save(false);
+		}, 10000);
+	}
+
+	private save(forShutdown: boolean): void {
 		// Reset the timer if it's still running
 		if (this._timerId) {
 			clearTimeout(this._timerId);
@@ -79,9 +103,20 @@ export class LanguageInputHistory extends Disposable {
 			parsedEntries = JSON.parse(entries);
 		} catch (err) {
 			// If we can't parse the JSON, the storage is corrupt, so we can't
-			// meaningfully do anything with it. We'll start over with a fresh
+			// meaningfully do anything with it.
+			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
+
+			if (forShutdown) {
+				// If we're shutting down, we can't do anything else, so just
+				// return. No need to try to reset the whole storage state on
+				// our way down.
+				return;
+			}
+
+			// If we're not shutting down, we will recover (so we can store the
+			// new state) by clearing the state and starting over with a fresh
 			// input history.
-			this._logService.error(`LanguageInputHistory: Failed to parse JSON from storage: ${err}. Resetting input history.`);
+			this._logService.warn(`LanguageInputHistory (${this._languageId}: Clearing to recover from error.`);
 		}
 
 		// Serialize the entries to JSON and write them to storage.
@@ -94,5 +129,17 @@ export class LanguageInputHistory extends Disposable {
 			storageState,
 			StorageScope.PROFILE,
 			StorageTarget.USER);
+
+		// Clear the pending entries now that they've been flushed to storage.
+		this._pendingEntries.splice(0, this._pendingEntries.length);
+	}
+
+	public override dispose() {
+		// If we are currently waiting for a debounced save to complete, make
+		// sure we do it right away since we're about to be destroyed.
+		if (this._timerId) {
+			this.save(true);
+		}
+		super.dispose();
 	}
 }
