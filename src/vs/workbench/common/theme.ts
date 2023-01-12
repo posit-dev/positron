@@ -635,8 +635,8 @@ export const ACTIVITY_BAR_ACTIVE_FOCUS_BORDER = registerColor('activityBar.activ
 
 export const ACTIVITY_BAR_ACTIVE_BACKGROUND = registerColor('activityBar.activeBackground', {
 	// --- Start Positron ---
-	dark: '#22282b',
-	light: '#114889',
+	dark: darken(ACTIVITY_BAR_BACKGROUND, 0.35),
+	light: darken(ACTIVITY_BAR_BACKGROUND, 0.35),
 	// dark: null,
 	// light: null,
 	// --- End Positron ---
