@@ -215,11 +215,7 @@ export function getColorRegistry(): IColorRegistry {
 
 // --- Start Positron Colors ---
 
-
-
 // base colors
-
-export const positronGrayLight = '#dee1e5';
 
 export const foreground = registerColor('foreground', { dark: '#acbece', light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
 export const iconForeground = registerColor('icon.foreground', { dark: '#acbece', light: '#75828d', hcDark: '#FFFFFF', hcLight: '#292929' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
