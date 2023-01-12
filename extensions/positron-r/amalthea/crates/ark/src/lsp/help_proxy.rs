@@ -11,7 +11,6 @@ use std::net::SocketAddr;
 use http::*;
 use http::header::ACCESS_CONTROL_ALLOW_ORIGIN;
 use hyper::Body;
-use hyper::body::to_bytes;
 use hyper::client::conn::handshake;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;

@@ -112,6 +112,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		window.fetch(url).then(async (response) => {
 			let html = await response.text();
 			// TODO: hacky placeholder so background is white
+			// TODO: Can we use the URL directly in an iframe if we set the appropriate headers?
 			html = html.replace('</head>', '<style>body { background-color: white !important; }</style></head>');
 			console.log(html);
 			const trustedHtml = ttPolicyPositronHelp.createHTML(html);

@@ -37,7 +37,6 @@ tree-sitter = "0.20.6"
 tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "next" }
 walkdir = "2"
 yaml-rust = "0.4.5"
-warp = "0.3.3"
 
 [profile.dev]
 rpath = true
