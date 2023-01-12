@@ -14,7 +14,7 @@ import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusM
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
 import { LanguageRuntimeEventType, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
-import { IExecutionHistoryService } from 'vs/workbench/services/executionHistory/common/executionHistoryService';
+import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 

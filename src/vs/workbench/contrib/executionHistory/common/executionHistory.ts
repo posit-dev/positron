@@ -2,15 +2,15 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/services/executionHistory/common/executionHistoryService';
+import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { RuntimeExecutionHistory } from 'vs/workbench/services/executionHistory/common/runtimeExecutionHistory';
-import { LanguageInputHistory } from 'vs/workbench/services/executionHistory/common/languageInputHistory';
+import { RuntimeExecutionHistory } from 'vs/workbench/contrib/executionHistory/common/runtimeExecutionHistory';
+import { LanguageInputHistory } from 'vs/workbench/contrib/executionHistory/common/languageInputHistory';
 
 /**
  * Service that manages execution histories for all runtimes.

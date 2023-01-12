@@ -175,6 +175,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/executionHistory",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/quickaccess",
 			"project": "vscode-workbench"
 		},
@@ -472,10 +476,6 @@
 		},
 		{
 			"name": "vs/workbench/services/editSessions",
-			"project": "vscode-workbench"
-		},
-		{
-			"name": "vs/workbench/services/executionHistory",
 			"project": "vscode-workbench"
 		},
 		{

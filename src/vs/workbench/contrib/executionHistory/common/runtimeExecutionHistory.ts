@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { IExecutionHistoryEntry } from 'vs/workbench/services/executionHistory/common/executionHistoryService';
+import { IExecutionHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { ILanguageRuntime, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**

@@ -377,9 +377,9 @@ import 'vs/workbench/contrib/bracketPairColorizer2Telemetry/browser/bracketPairC
 import 'vs/workbench/contrib/repl/browser/repl.contribution';
 import 'vs/workbench/contrib/repl/browser/replView';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
+import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
-import 'vs/workbench/services/executionHistory/common/executionHistory';
 
 // --- End Positron ---
