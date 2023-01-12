@@ -53,16 +53,19 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _positronHelpContainer: HTMLElement;
 
 	// The help action bars container - contains the PositronHelpActionBars component.
-	private _helpActionBarsContainer!: HTMLElement;
+	private _helpActionBarsContainer: HTMLElement;
 
 	// The PositronReactRenderer for the PositronHelpActionBars component.
 	private _positronReactRendererHelpActionBars: PositronReactRenderer | undefined;
+
+	// The host for the Help webview.
+	private _helpViewContainer: HTMLElement;
 
 	// The help iframe.
 	private _helpView: IWebviewElement;
 
 	// The last Positron help command that was sent to the help iframe.
-	// private _lastPositronHelpCommand: PositronHelpCommand | undefined;
+	private _lastPositronHelpCommand: PositronHelpCommand | undefined;
 
 	//#endregion Private Properties
 
@@ -122,6 +125,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 
+		// Create containers.
+		this._positronHelpContainer = DOM.$('.positron-help-container');
+		this._helpActionBarsContainer = DOM.$('.help-action-bars-container');
+		this._helpViewContainer = DOM.$('.positron-help-view-container');
+		this._helpViewContainer.style.width = '100%';
+		this._helpViewContainer.style.height = '100%';
+
 		// Create the help view.
 		this._helpView = webviewService.createWebviewElement({
 			extension: {
@@ -134,10 +144,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			},
 		});
 
-		// Mount this to the container.
-		// TODO: Should be a sub-container?
-		this._positronHelpContainer = DOM.$('.positron-help-container');
-		this._helpView.mountTo(this._positronHelpContainer);
+		// Arrange our elements.
+		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
+		this._positronHelpContainer.appendChild(this._helpViewContainer);
+		this._helpView.mountTo(this._helpViewContainer);
 
 		// Register event handlers.
 		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChanged.fire(this.isBodyVisible())));
@@ -179,16 +189,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	protected override renderBody(container: HTMLElement): void {
 
 		// Call the base class's method.
-		container.style.width = '100%';
-		container.style.height = '100%';
 		super.renderBody(container);
 
 		// Append the Positron help container.
 		container.appendChild(this._positronHelpContainer);
-
-		// Append the help action bars container.
-		this._helpActionBarsContainer = DOM.$('.help-action-bars-container');
-		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
 
 		// Home handler.
 		const homeHandler = () => {
@@ -206,7 +210,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		// Find handler.
 		const checkFindResultsHandler = () => {
 
-			// TODO
+			if (this._lastPositronHelpCommand) {
+				console.log('TODO');
+			}
 			// if (this._helpView?.contentWindow && this._lastPositronHelpCommand) {
 			// 	const result = this._helpView.contentWindow.sessionStorage.getItem(this._lastPositronHelpCommand.identifier);
 			// 	if (result) {
@@ -276,17 +282,16 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 */
 	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
 
-		// Make sure there is a help iframe.
-		// TODO
-		// if (this._helpView?.contentWindow) {
-		// 	// Post the message to the help iframe.
-		// 	this._helpView.contentWindow.postMessage(positronHelpCommand);
-		// 	if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
-		// 		this._lastPositronHelpCommand = positronHelpCommand;
-		// 	} else {
-		// 		this._lastPositronHelpCommand = undefined;
-		// 	}
-		// }
+		// Post the message to the help iframe.
+		this._helpView.postMessage(positronHelpCommand);
+
+		// Save the command?
+		if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
+			this._lastPositronHelpCommand = positronHelpCommand;
+		} else {
+			this._lastPositronHelpCommand = undefined;
+		}
+
 	}
 
 	//#endregion Private Methods

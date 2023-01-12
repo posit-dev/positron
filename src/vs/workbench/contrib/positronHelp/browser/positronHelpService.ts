@@ -138,7 +138,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 			</head>
 			<body>
+
 				<iframe id="help-iframe"></iframe>
+
 				<script nonce="${nonce}">
 				(function() {
 
