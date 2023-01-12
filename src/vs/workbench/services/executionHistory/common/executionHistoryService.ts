@@ -2,7 +2,12 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from 'vs/nls';
+import * as nls from 'vs/nls';
+import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from 'vs/platform/configuration/common/configurationRegistry';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { Registry } from 'vs/platform/registry/common/platform';
+
 export const IExecutionHistoryService = createDecorator<IExecutionHistoryService>('executionHistoryService');
 
 /**
@@ -77,3 +82,29 @@ export interface IExecutionHistoryService {
 	 */
 	clearExecutionEntries(runtimeId: string): void;
 }
+
+export const replConfigurationBaseNode = Object.freeze<IConfigurationNode>({
+	id: 'repl',
+	order: 100,
+	type: 'object',
+	title: nls.localize('replConfigurationTitle', "Console"),
+	scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
+});
+
+export const inputHistorySizeSettingId = 'console.inputHistorySize';
+
+const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+
+const inputHistoryConfigurationNode: IConfigurationNode = {
+	...replConfigurationBaseNode,
+	properties: {
+		'console.inputHistorySize': {
+			type: 'number',
+			markdownDescription: localize('console.inputHistorySize', "The number of recent commands to store for each language. Set to 0 to disable history storage."),
+			'default': 1000,
+			'minimum': 0
+		}
+	}
+};
+
+configurationRegistry.registerConfiguration(inputHistoryConfigurationNode);
