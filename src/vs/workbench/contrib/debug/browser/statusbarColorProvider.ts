@@ -16,8 +16,12 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 // colors for theming
 
 export const STATUS_BAR_DEBUGGING_BACKGROUND = registerColor('statusBar.debuggingBackground', {
-	dark: '#CC6633',
-	light: '#CC6633',
+	// --- Start Positron ---
+	dark: '#3b4245',
+	light: '#f1f3f5',
+	// dark: '#CC6633',
+	// light: '#CC6633',
+	// --- End Positron ---
 	hcDark: '#BA592C',
 	hcLight: '#B5200D'
 }, localize('statusBarDebuggingBackground', "Status bar background color when a program is being debugged. The status bar is shown in the bottom of the window"));
