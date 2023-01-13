@@ -151,6 +151,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronHistory",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronOutline",
 			"project": "vscode-workbench"
 		},
