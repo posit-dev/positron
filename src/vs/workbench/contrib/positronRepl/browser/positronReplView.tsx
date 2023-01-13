@@ -14,12 +14,12 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { TestContent } from 'vs/workbench/contrib/positronPreview/browser/components/testContent';
+import { TestContent } from 'vs/workbench/contrib/positronRepl/browser/components/testContent';
 
 /**
- * PositronPreviewViewPane class.
+ * PositronReplViewPane class.
  */
-export class PositronPreviewViewPane extends ViewPane {
+export class PositronReplViewPane extends ViewPane {
 	//#region Private Properties
 
 	// The PositronReactRenderer.
@@ -29,6 +29,19 @@ export class PositronPreviewViewPane extends ViewPane {
 
 	//#region Constructor & Dispose
 
+	/**
+	 * Constructor.
+	 * @param options View pane options.
+	 * @param configurationService The configuration service.
+	 * @param contextKeyService The context key service.
+	 * @param contextMenuService The context menu service.
+	 * @param instantiationService The instantiation service.
+	 * @param keybindingService The keybinding service.
+	 * @param openerService The opener service.
+	 * @param telemetryService The telemetry service.
+	 * @param themeService The theme service.
+	 * @param viewDescriptorService The view descriptor service.
+	 */
 	constructor(
 		options: IViewPaneOptions,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -45,6 +58,9 @@ export class PositronPreviewViewPane extends ViewPane {
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 	}
 
+	/**
+	 * Dispose.
+	 */
 	public override dispose(): void {
 		if (this.positronReactRenderer) {
 			this.positronReactRenderer.destroy();
@@ -62,10 +78,10 @@ export class PositronPreviewViewPane extends ViewPane {
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Render the component.
+		// Render the Positron top action bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<TestContent message='Preview React' />
+			<TestContent message='Console Preview' />
 		);
 	}
 

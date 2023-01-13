@@ -26,7 +26,7 @@ registerSingleton(IPositronPreviewService, PositronPreviewService, Instantiation
 const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codicon.positronPreviewView, nls.localize('positronPreviewViewIcon', 'View icon of the Positron preview view.'));
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PREVIEW_VIEW_ID,
-	title: nls.localize('preview', "Preview"),
+	title: nls.localize('positron.preview', "Preview"),
 	icon: positronPreviewViewIcon,
 	order: 2,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_PREVIEW_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
@@ -36,7 +36,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_PREVIEW_VIEW_ID,
-	name: nls.localize('preview', "Preview"),
+	name: nls.localize('positron.preview', "Preview"),
 	containerIcon: positronPreviewViewIcon,
 	canMoveView: true,
 	canToggleVisibility: false,

@@ -26,7 +26,7 @@ registerSingleton(IPositronOutlineService, PositronOutlineService, Instantiation
 const positronOutlineViewIcon = registerIcon('positron-outline-view-icon', Codicon.positronOutlineView, nls.localize('positronOutlineViewIcon', 'View icon of the Positron outline view.'));
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_OUTLINE_VIEW_ID,
-	title: nls.localize('outline', "Outline"),
+	title: nls.localize('positron.outline', "Outline"),
 	icon: positronOutlineViewIcon,
 	order: 3,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_OUTLINE_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
@@ -36,7 +36,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_OUTLINE_VIEW_ID,
-	name: nls.localize('outline', "Outline"),
+	name: nls.localize('positron.outline', "Outline"),
 	containerIcon: positronOutlineViewIcon,
 	canMoveView: true,
 	canToggleVisibility: false,
