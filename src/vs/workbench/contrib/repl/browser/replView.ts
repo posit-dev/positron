@@ -87,8 +87,7 @@ export class ReplViewPane extends ViewPane {
 		// Append repl container.
 		parent.appendChild(this._replContainer);
 
-		// If there are already repl instances in the repl service, create their repl instance entries
-		// and activate the last one.
+		// If there are already repl instances in the repl service, create their repl instance entries.
 		this._replService.instances.forEach((replInstance, index, replInstances) => {
 			this.createReplInstanceEntry(replInstance);
 		});
