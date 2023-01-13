@@ -167,7 +167,7 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/positronRepl",
+			"name": "vs/workbench/contrib/positronConsole",
 			"project": "vscode-workbench"
 		},
 		{

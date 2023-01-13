@@ -591,6 +591,7 @@ export class Codicon implements CSSIcon {
 	public static readonly positronList = new Codicon('positron-list', { fontCharacter: '\\f24b' });
 	public static readonly positronTable = new Codicon('positron-table', { fontCharacter: '\\f24c' });
 	public static readonly positronTest = new Codicon('positron-test', { fontCharacter: '\\f24d' });
+	public static readonly positronConsoleView = new Codicon('positron-repl-view', { fontCharacter: '\\f24e' });
 
 	// --- End Positron ---
 
