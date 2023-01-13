@@ -60,7 +60,7 @@
 	border-radius: 5px;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid transparent;
+	border: 1px solid var(--vscode-modalDialog-buttonBorder);
 	color: var(--vscode-modalDialog-buttonForeground);
 	background: var(--vscode-modalDialog-buttonBackground);
 }
@@ -71,6 +71,7 @@
 
 
 .positron-modal-dialog-box .button.default {
+	color: var(--vscode-modalDialog-defaultButtonForeground);
 	background: var(--vscode-modalDialog-defaultButtonBackground);
 }
 
