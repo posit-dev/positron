@@ -1,0 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit Software, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-history-test-content {
+	margin: 10px 20px;
+	color: var(--vscode-modalDialog-foreground); /* Temporary */
+}
