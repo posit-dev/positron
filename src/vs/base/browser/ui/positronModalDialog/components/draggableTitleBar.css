@@ -11,6 +11,7 @@
 	display: flex;
 	padding: 0 16px;
 	align-items: center;
+	border-bottom: 1px solid var(--vscode-modalDialog-titleBarBorderBottom);
 	color: var(--vscode-modalDialog-foreground);
 	background: var(--vscode-modalDialog-titleBarBackground);
 }

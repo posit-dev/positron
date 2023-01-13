@@ -218,8 +218,10 @@ export function getColorRegistry(): IColorRegistry {
 // base colors
 
 export const foreground = registerColor('foreground', { dark: '#acbece', light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
-export const iconForeground = registerColor('icon.foreground', { dark: '#acbece', light: '#75828d', hcDark: '#FFFFFF', hcLight: '#292929' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
-export const secondaryBackground = registerColor('secondaryBackground', { dark: '#292f32', light: '#dee1e5', hcDark: '#000000', hcLight: '#ffffff' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
+export const iconForeground = registerColor('icon.foreground', { dark: '#acbece', light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
+export const secondaryBackground = registerColor('secondaryBackground', { dark: '#292f32', light: '#dee1e5', hcDark: '#dee1e5', hcLight: '#dee1e5' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
+
+export const contrastBorder = registerColor('contrastBorder', { light: null, dark: null, hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('contrastBorder', "An extra border around elements to separate them from others for greater contrast."));
 
 // widget: Editor
 export const editorForeground = registerColor('editor.foreground', { light: '#333333', dark: '#d4d4d4', hcDark: '#ffffff', hcLight: foreground }, nls.localize('editorForeground', "Editor default foreground color."));
@@ -232,7 +234,7 @@ export const buttonSecondaryBackground = registerColor('button.secondaryBackgrou
 export const buttonSecondaryForeground = registerColor('button.secondaryForeground', { dark: '#acbece', light: '#000000', hcDark: '#000000', hcLight: '#000000' }, nls.localize('buttonSecondaryForeground', "Secondary button foreground color."));
 
 // widget: Checkbox
-export const checkboxBorder = registerColor('checkbox.border', { dark: '#3c3c3c', light: '#cbd0d5', hcDark: '#6fc3df', hcLight: '#0f4a85' }, nls.localize('checkbox.border', "Border color of checkbox widget."));
+export const checkboxBorder = registerColor('checkbox.border', { dark: '#3c3c3c', light: '#cbd0d5', hcDark: contrastBorder, hcLight: contrastBorder }, nls.localize('checkbox.border', "Border color of checkbox widget."));
 
 // widget: List
 export const listActiveSelectionBackground = registerColor('list.activeSelectionBackground', { dark: buttonBackground, light: buttonBackground, hcDark: null, hcLight: Color.fromHex('#0F4A85').transparent(0.1) }, nls.localize('listActiveSelectionBackground', "List/Tree background color for the selected item when the list/tree is active. An active list/tree has keyboard focus, an inactive does not."));
@@ -251,7 +253,7 @@ export const descriptionForeground = registerColor('descriptionForeground', { li
 
 export const focusBorder = registerColor('focusBorder', { dark: '#007FD4', light: '#0090F1', hcDark: '#F38518', hcLight: '#006BBD' }, nls.localize('focusBorder', "Overall border color for focused elements. This color is only used if not overridden by a component."));
 
-export const contrastBorder = registerColor('contrastBorder', { light: null, dark: null, hcDark: '#6FC3DF', hcLight: '#0F4A85' }, nls.localize('contrastBorder', "An extra border around elements to separate them from others for greater contrast."));
+//export const contrastBorder = registerColor('contrastBorder', { light: null, dark: null, hcDark: '#6FC3DF', hcLight: '#0F4A85' }, nls.localize('contrastBorder', "An extra border around elements to separate them from others for greater contrast."));
 export const activeContrastBorder = registerColor('contrastActiveBorder', { light: null, dark: null, hcDark: focusBorder, hcLight: focusBorder }, nls.localize('activeContrastBorder', "An extra border around active elements to separate them from others for greater contrast."));
 
 export const selectionBackground = registerColor('selection.background', { light: null, dark: null, hcDark: null, hcLight: null }, nls.localize('selectionBackground', "The background color of text selections in the workbench (e.g. for input fields or text areas). Note that this does not apply to selections within the editor."));
