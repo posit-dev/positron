@@ -14,12 +14,12 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { TestContent } from 'vs/workbench/contrib/positronRepl/browser/components/testContent';
+import { TestContent } from 'vs/workbench/contrib/positronConsole/browser/components/testContent';
 
 /**
- * PositronReplViewPane class.
+ * PositronConsoleViewPane class.
  */
-export class PositronReplViewPane extends ViewPane {
+export class PositronConsoleViewPane extends ViewPane {
 	//#region Private Properties
 
 	// The PositronReactRenderer.
@@ -78,7 +78,7 @@ export class PositronReplViewPane extends ViewPane {
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Render the Positron top action bar component.
+		// Render the Positron console.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
 			<TestContent message='Console Preview' />

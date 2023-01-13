@@ -22,8 +22,10 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 // Register the Positron preview service.
 registerSingleton(IPositronPreviewService, PositronPreviewService, InstantiationType.Delayed);
 
-// Register the Positron preview container.
+// The Positron preview view icon.
 const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codicon.positronPreviewView, nls.localize('positronPreviewViewIcon', 'View icon of the Positron preview view.'));
+
+// Register the Positron preview container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PREVIEW_VIEW_ID,
 	title: nls.localize('positron.preview', "Preview"),

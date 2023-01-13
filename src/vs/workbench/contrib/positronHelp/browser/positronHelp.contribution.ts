@@ -22,8 +22,10 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 // Register the Positron help service.
 registerSingleton(IPositronHelpService, PositronHelpService, InstantiationType.Delayed);
 
-// Register the Positron help container.
+// The Positron help view icon.
 const positronHelpViewIcon = registerIcon('positron-help-view-icon', Codicon.positronHelpView, nls.localize('positronHelpViewIcon', 'View icon of the Positron help view.'));
+
+// Register the Positron help container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_HELP_VIEW_ID,
 	title: nls.localize('positron.help', "Help"),
