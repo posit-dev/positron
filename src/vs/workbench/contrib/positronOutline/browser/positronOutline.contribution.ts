@@ -30,7 +30,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 	id: POSITRON_OUTLINE_VIEW_ID,
 	title: nls.localize('positron.outline', "Outline"),
 	icon: positronOutlineViewIcon,
-	order: 3,
+	order: 4,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_OUTLINE_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: POSITRON_OUTLINE_VIEW_ID,
 	hideIfEmpty: true,
@@ -49,7 +49,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 		keybindings: {
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
 		},
-		order: 3,
+		order: 4,
 	}
 }], VIEW_CONTAINER);
 

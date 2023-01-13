@@ -30,7 +30,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 	id: POSITRON_PREVIEW_VIEW_ID,
 	title: nls.localize('positron.preview', "Preview"),
 	icon: positronPreviewViewIcon,
-	order: 2,
+	order: 3,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_PREVIEW_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: POSITRON_PREVIEW_VIEW_ID,
 	hideIfEmpty: true,
@@ -49,7 +49,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 		keybindings: {
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
 		},
-		order: 2,
+		order: 3
 	}
 }], VIEW_CONTAINER);
 
