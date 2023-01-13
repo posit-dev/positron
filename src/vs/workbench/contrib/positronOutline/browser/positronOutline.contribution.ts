@@ -22,8 +22,10 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 // Register the Positron outline service.
 registerSingleton(IPositronOutlineService, PositronOutlineService, InstantiationType.Delayed);
 
-// Register the Positron outline container.
+// The Positron outline view icon.
 const positronOutlineViewIcon = registerIcon('positron-outline-view-icon', Codicon.positronOutlineView, nls.localize('positronOutlineViewIcon', 'View icon of the Positron outline view.'));
+
+// Register the Positron outline container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_OUTLINE_VIEW_ID,
 	title: nls.localize('positron.outline', "Outline"),
