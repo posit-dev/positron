@@ -42,6 +42,8 @@ async fn handle_request(request: Request<Body>, port: i32) -> anyhow::Result<Res
 #[tokio::main]
 async fn task(port: i32) -> anyhow::Result<()> {
 
+    // TODO: Don't hard-code the port; use a port of 0 to ask for a random port
+    // and then communicate that port back to Positron
     let addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 54321);
     let listener = TcpListener::bind(addr).await?;
 
