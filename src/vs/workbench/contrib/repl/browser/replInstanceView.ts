@@ -14,6 +14,7 @@ import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusM
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
 import { LanguageRuntimeEventType, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { IExecutionHistoryService } from 'vs/workbench/services/executionHistory/common/executionHistoryService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -61,7 +62,8 @@ export class ReplInstanceView extends Disposable {
 	constructor(private readonly _instance: IReplInstance,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
-		@IDialogService private readonly _dialogService: IDialogService) {
+		@IDialogService private readonly _dialogService: IDialogService,
+		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService) {
 		super();
 		this._runtime = this._instance.runtime;
 
@@ -89,7 +91,7 @@ export class ReplInstanceView extends Disposable {
 		this._bannerContainer = document.createElement('div');
 		this._bannerContainer.classList.add('repl-banner');
 
-		this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
+		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
 			// Look up the cell with which this output is associated
 			const cell = this._executedCells.get(languageRuntimeMessageOutput.parent_id);
 			if (cell) {
@@ -99,9 +101,9 @@ export class ReplInstanceView extends Disposable {
 			}
 
 			this.scrollToBottom();
-		});
+		}));
 
-		this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
+		this._register(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
 			// Look up the cell with which this error is associated
 			const cell = this._executedCells.get(languageRuntimeMessageError.parent_id);
 			if (cell) {
@@ -111,14 +113,14 @@ export class ReplInstanceView extends Disposable {
 			}
 
 			this.scrollToBottom();
-		});
+		}));
 
-		this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+		this._register(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
 			this.showPrompt(languageRuntimeMessagePrompt);
 			this.scrollToBottom();
-		});
+		}));
 
-		this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+		this._register(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
 			// If the kernel is entering a busy state, ignore for now
 			if (languageRuntimeMessageState.state === RuntimeOnlineState.Busy) {
 				return;
@@ -139,9 +141,9 @@ export class ReplInstanceView extends Disposable {
 			}
 
 			this.scrollToBottom();
-		});
+		}));
 
-		this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+		this._register(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
 			if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowMessage) {
 				const data = languageRuntimeMessageEvent.data as ShowMessageEvent;
 				const msg = new ReplStatusMessage(
@@ -150,10 +152,10 @@ export class ReplInstanceView extends Disposable {
 			}
 
 			this.scrollToBottom();
-		});
+		}));
 
 		// Show startup banner when kernel finishes starting
-		this._runtime.onDidCompleteStartup(info => {
+		this._register(this._runtime.onDidCompleteStartup(info => {
 			this._bannerContainer.innerText = info.banner;
 			this._scroller.scanDomNode();
 
@@ -167,7 +169,7 @@ export class ReplInstanceView extends Disposable {
 						this._instance.history.add(entry[0]);
 					}
 				});
-		});
+		}));
 
 		this._runtime.onDidChangeRuntimeState((state) => {
 			this.renderStateChange(state);
@@ -176,12 +178,17 @@ export class ReplInstanceView extends Disposable {
 		// Clear REPL when event signals the user has requested it
 		this._instance.onDidClearRepl(() => {
 			this.clear();
+			// Clear the stored execution history so it doesn't get replayed
+			this._executionHistoryService.clearEntries(this._instance.runtime.metadata.id);
 		});
 
 		// Execute code when the user requests it
 		this._instance.onDidExecuteCode((code: string) => {
 			this.execute(code);
 		});
+
+		// Populate with execution history
+		this._executionHistoryService.getEntries(this._instance.runtime.metadata.id);
 	}
 
 	/**
