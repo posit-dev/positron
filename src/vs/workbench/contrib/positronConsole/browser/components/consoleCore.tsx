@@ -2,8 +2,9 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./console';
+import 'vs/css!./consoleCore';
 import * as React from 'react';
+import { ConsoleRepl } from 'vs/workbench/contrib/positronConsole/browser/components/consoleRepl';
 import { PositronConsoleProps } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
 import { ConsoleActionBar } from 'vs/workbench/contrib/positronConsole/browser/components/actionBar';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
@@ -28,8 +29,9 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// Render.
 	return (
-		<div className='positron-console'>
+		<div className='console-core'>
 			<ConsoleActionBar {...props} />
+			{positronConsoleContext.currentConsoleReplInstance && <ConsoleRepl consoleReplInstance={positronConsoleContext.currentConsoleReplInstance} />}
 		</div>
 	);
 };

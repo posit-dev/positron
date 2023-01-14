@@ -62,7 +62,9 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 	// Render.
 	return (
 		<PositronConsoleContextProvider {...props}>
-			<ConsoleCore {...props} />
+			<div className='positron-console'>
+				<ConsoleCore {...props} />
+			</div>
 		</PositronConsoleContextProvider>
 	);
 };
