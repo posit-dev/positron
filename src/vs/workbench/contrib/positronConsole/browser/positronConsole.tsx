@@ -13,8 +13,8 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { ConsoleCore } from 'vs/workbench/contrib/positronConsole/browser/components/consoleCore';
 import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
-import { ConsoleActionBar } from 'vs/workbench/contrib/positronConsole/browser/components/actionBar';
 import { PositronConsoleContextProvider } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 /**
@@ -62,9 +62,7 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 	// Render.
 	return (
 		<PositronConsoleContextProvider {...props}>
-			<div className='positron-console'>
-				<ConsoleActionBar {...props} />
-			</div>
+			<ConsoleCore {...props} />
 		</PositronConsoleContextProvider>
 	);
 };
