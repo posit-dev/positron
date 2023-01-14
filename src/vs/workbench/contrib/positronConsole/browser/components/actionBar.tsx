@@ -18,7 +18,7 @@ import { ActionBarButton } from 'vs/platform/positronActionBar/browser/component
 import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ConsoleSelectorMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleSelectorMenuButton';
+import { ConsoleReplMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplMenuButton';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -51,7 +51,8 @@ export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>
 	};
 
 	// If there are no console instances, render nothing.
-	if (positronConsoleContext.consoleInstances.length === 0) {
+	// TODO@softwarenerd - Render something specific for this case. TBD.
+	if (positronConsoleContext.consoleReplInstances.length === 0) {
 		return null;
 	}
 
@@ -61,7 +62,7 @@ export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>
 			<div className='action-bar'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<ConsoleSelectorMenuButton />
+						<ConsoleReplMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarButton iconId='positron-clean' align='right' tooltip={localize('positronClearConsole', "Clear console")} onClick={clearConsoleHandler} />
