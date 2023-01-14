@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./environmentActionBars';
+import 'vs/css!./actionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -30,9 +30,9 @@ const kPaddingRight = 8;
 const kFilterTimeout = 800;
 
 /**
- * EnvironmentActionBarsProps interface.
+ * ActionBarsProps interface.
  */
-export interface EnvironmentActionBarsProps extends PositronEnvironmentServices {
+export interface ActionBarsProps extends PositronEnvironmentServices {
 	// Services.
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
@@ -43,11 +43,11 @@ export interface EnvironmentActionBarsProps extends PositronEnvironmentServices 
 }
 
 /**
- * EnvironmentActionBars component.
- * @param props A EnvironmentActionBarsProps that contains the component properties.
+ * ActionBars component.
+ * @param props An ActionBarsProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentActionBarsProps>) => {
+export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 	const [filterText, setFilterText] = useState('');
@@ -95,7 +95,7 @@ export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentAction
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
-			<div className='positron-environment-action-bars'>
+			<div className='action-bars'>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
 						<ActionBarButton iconId='positron-open' tooltip={localize('positronLoadWorkspace', "Load workspace")} onClick={() => loadWorkspaceHandler()} />
