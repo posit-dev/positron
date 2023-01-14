@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicat
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IReplService } from 'vs/workbench/contrib/repl/browser/repl';
-import { ConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleInstance';
+import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -21,9 +21,9 @@ export interface PositronConsoleServices {
  * The Positron console state.
  */
 export interface PositronConsoleState extends PositronConsoleServices {
-	readonly consoleInstances: ConsoleInstance[];
-	readonly currentConsoleInstance?: ConsoleInstance;
-	setCurrentConsoleInstance: (consoleInstance?: ConsoleInstance) => void;
+	readonly consoleReplInstances: ConsoleReplInstance[];
+	readonly currentConsoleReplInstance?: ConsoleReplInstance;
+	setCurrentConsoleReplInstance: (consoleInstance?: ConsoleReplInstance) => void;
 }
 
 /**
@@ -32,8 +32,8 @@ export interface PositronConsoleState extends PositronConsoleServices {
  */
 export const usePositronConsoleState = (services: PositronConsoleServices): PositronConsoleState => {
 	// Hooks.
-	const [consoleInstances, setConsoleInstances, refConsoleInstances] = useStateRef<ConsoleInstance[]>([]);
-	const [currentConsoleInstance, setCurrentConsoleInstance] = useState<ConsoleInstance | undefined>(undefined);
+	const [consoleReplInstances, setConsoleReplInstances, refConsoleReplInstances] = useStateRef<ConsoleReplInstance[]>([]);
+	const [currentConsoleReplInstance, setCurrentConsoleReplInstance] = useState<ConsoleReplInstance | undefined>(undefined);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -47,16 +47,16 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 		// Add the onDidStartRepl event handler.
 		disposableStore.add(services.replService.onDidStartRepl(replInstance => {
 			// Create and add the Positron language environment.
-			const consoleInstance = new ConsoleInstance(replInstance);
-			setConsoleInstances(consoleInstances => [...consoleInstances, consoleInstance]);
+			const consoleInstance = new ConsoleReplInstance(replInstance);
+			setConsoleReplInstances(consoleInstances => [...consoleInstances, consoleInstance]);
 		}));
 
 		// Add the onDidChangeActiveRepl event handler.
 		disposableStore.add(services.replService.onDidChangeActiveRepl(replInstance => {
 			if (!replInstance) {
-				setCurrentConsoleInstance(undefined);
+				setCurrentConsoleReplInstance(undefined);
 			} else {
-				setCurrentConsoleInstance(refConsoleInstances.current.find(x => x.replInstance.languageId === replInstance.languageId));
+				setCurrentConsoleReplInstance(refConsoleReplInstances.current.find(x => x.replInstance.languageId === replInstance.languageId));
 			}
 		}));
 
@@ -67,8 +67,8 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 	// Return the Positron console state.
 	return {
 		...services,
-		consoleInstances,
-		currentConsoleInstance,
-		setCurrentConsoleInstance
+		consoleReplInstances,
+		currentConsoleReplInstance,
+		setCurrentConsoleReplInstance
 	};
 };

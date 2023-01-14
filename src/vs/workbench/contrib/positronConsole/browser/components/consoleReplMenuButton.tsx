@@ -9,27 +9,27 @@ import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/compo
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 /**
- * ConsoleSelectorMenuButton component.
+ * ConsoleReplMenuButton component.
  * @returns The rendered component.
  */
-export const ConsoleSelectorMenuButton = () => {
+export const ConsoleReplMenuButton = () => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Builds the actions.
 	const actions = () => {
-		// Build the actions for the available language environments.
+		// Build the actions for the available console repl instances.
 		const actions: IAction[] = [];
-		positronConsoleContext.consoleInstances.map(consoleInstance => {
+		positronConsoleContext.consoleReplInstances.map(consoleReplInstance => {
 			actions.push({
-				id: consoleInstance.replInstance.runtime.metadata.id,
-				label: consoleInstance.displayName,
+				id: consoleReplInstance.replInstance.runtime.metadata.id,
+				label: consoleReplInstance.displayName,
 				tooltip: '',
 				class: undefined,
 				enabled: true,
 				run: () => {
 					//positronConsoleContext.languageRuntimeService.activeRuntime = languageEnvironment.runtime;
-					positronConsoleContext.setCurrentConsoleInstance(consoleInstance);
+					positronConsoleContext.setCurrentConsoleReplInstance(consoleReplInstance);
 				}
 			});
 		});
@@ -41,7 +41,7 @@ export const ConsoleSelectorMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			text={positronConsoleContext.currentConsoleInstance?.displayName ?? 'None'}
+			text={positronConsoleContext.currentConsoleReplInstance?.displayName ?? 'None'}
 			actions={actions}
 		/>
 	);

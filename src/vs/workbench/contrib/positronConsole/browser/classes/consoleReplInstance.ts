@@ -5,9 +5,9 @@
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
 
 /**
- * ConsoleInstance class.
+ * ConsoleReplInstance class.
  */
-export class ConsoleInstance {
+export class ConsoleReplInstance {
 	/**
 	 * Constructor.
 	 * @param replInstance
