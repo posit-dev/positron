@@ -42,7 +42,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	private _positronEnvironmentContainer!: HTMLElement;
 
 	// The PositronReactRenderer for the PositronEnvironment component.
-	private _positronReactRenderer: PositronReactRenderer | undefined;
+	private _positronReactRenderer?: PositronReactRenderer;
 
 	//#endregion Private Properties
 

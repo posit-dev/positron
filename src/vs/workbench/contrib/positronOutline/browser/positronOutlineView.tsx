@@ -19,7 +19,7 @@ import { TestContent } from 'vs/workbench/contrib/positronOutline/browser/compon
 export class PositronOutlineViewPane extends ViewPane {
 
 	// The PositronReactRenderer.
-	positronReactRenderer: PositronReactRenderer | undefined;
+	positronReactRenderer?: PositronReactRenderer;
 
 	constructor(
 		options: IViewPaneOptions,

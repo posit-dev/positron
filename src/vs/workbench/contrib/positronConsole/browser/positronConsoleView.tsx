@@ -2,30 +2,69 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./positronConsoleView';
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
+import { Event, Emitter } from 'vs/base/common/event';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { TestContent } from 'vs/workbench/contrib/positronConsole/browser/components/testContent';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 
 /**
  * PositronConsoleViewPane class.
  */
-export class PositronConsoleViewPane extends ViewPane {
+export class PositronConsoleViewPane extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
-	// The PositronReactRenderer.
-	private positronReactRenderer: PositronReactRenderer | undefined;
+	// The onSizeChanged event.
+	private _onSizeChanged = this._register(new Emitter<ISize>());
+
+	// The onVisibilityChanged event.
+	private _onVisibilityChanged = this._register(new Emitter<boolean>());
+
+	// The last known height.
+	private _height = 0;
+
+	// The Positron console container - contains the entire Positron console UI.
+	private _positronConsoleContainer!: HTMLElement;
+
+	// The PositronReactRenderer for the PositronConsole component.
+	private _positronReactRenderer: PositronReactRenderer | undefined;
 
 	//#endregion Private Properties
+
+	//#region IReactComponentContainer
+
+	/**
+	 * Gets the height.
+	 */
+	get height() {
+		return this._height;
+	}
+
+	/**
+	 * The onSizeChanged event.
+	 */
+	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
+
+	/**
+	 * The onVisibilityChanged event.
+	 */
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+
+	//#endregion IReactComponentContainer
 
 	//#region Constructor & Dispose
 
@@ -44,15 +83,18 @@ export class PositronConsoleViewPane extends ViewPane {
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@IOpenerService openerService: IOpenerService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
@@ -62,9 +104,9 @@ export class PositronConsoleViewPane extends ViewPane {
 	 * Dispose.
 	 */
 	public override dispose(): void {
-		if (this.positronReactRenderer) {
-			this.positronReactRenderer.destroy();
-			this.positronReactRenderer = undefined;
+		if (this._positronReactRenderer) {
+			this._positronReactRenderer.destroy();
+			this._positronReactRenderer = undefined;
 		}
 
 		super.dispose();
@@ -78,10 +120,23 @@ export class PositronConsoleViewPane extends ViewPane {
 		// Call the base class's method.
 		super.renderBody(container);
 
+		// Append the Positron console container.
+		this._positronConsoleContainer = DOM.$('.positron-console-container');
+		container.appendChild(this._positronConsoleContainer);
+
 		// Render the Positron console.
-		this.positronReactRenderer = new PositronReactRenderer(this.element);
-		this.positronReactRenderer.render(
-			<TestContent message='Console Preview' />
+		this._positronReactRenderer = new PositronReactRenderer(this._positronConsoleContainer);
+		this._positronReactRenderer.render(
+			<PositronConsole
+				commandService={this.commandService}
+				configurationService={this.configurationService}
+				contextKeyService={this.contextKeyService}
+				contextMenuService={this.contextMenuService}
+				keybindingService={this.keybindingService}
+				languageRuntimeService={this.languageRuntimeService}
+				layoutService={this.layoutService}
+				reactComponentContainer={this}
+			/>
 		);
 	}
 
