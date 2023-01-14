@@ -4,10 +4,13 @@
 
 import 'vs/css!./consoleRepl';
 import * as React from 'react';
+import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
 //import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // ConsoleReplProps interface.
-interface ConsoleReplProps { }
+interface ConsoleReplProps {
+	consoleReplInstance: ConsoleReplInstance;
+}
 
 /**
  * ConsoleRepl component.
@@ -17,9 +20,9 @@ interface ConsoleReplProps { }
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Render.
 	return (
-		<div className='console' >
+		<div className='console-repl' >
 			<div>
-				Console
+				Console for {props.consoleReplInstance.displayName}
 			</div>
 		</div>
 	);
