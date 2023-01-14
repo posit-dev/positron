@@ -1,0 +1,17 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit Software, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-console-container {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+.positron-console-container .console-action-bar-container {
+	height: min-content;
+}
+
+.positron-console-container .console-data-container {
+	flex-grow: 1;
+}

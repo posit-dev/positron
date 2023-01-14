@@ -54,13 +54,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _helpActionBarsContainer!: HTMLElement;
 
 	// The PositronReactRenderer for the PositronHelpActionBars component.
-	private _positronReactRendererHelpActionBars: PositronReactRenderer | undefined;
+	private _positronReactRendererHelpActionBars?: PositronReactRenderer;
 
 	// The help iframe.
 	private _helpIFrame?: HTMLIFrameElement;
 
 	// The last Positron help command that was sent to the help iframe.
-	private _lastPositronHelpCommand: PositronHelpCommand | undefined;
+	private _lastPositronHelpCommand?: PositronHelpCommand;
 
 	//#endregion Private Properties
 

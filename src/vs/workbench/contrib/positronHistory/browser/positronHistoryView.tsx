@@ -23,7 +23,7 @@ export class PositronHistoryViewPane extends ViewPane {
 	//#region Private Properties
 
 	// The PositronReactRenderer.
-	private positronReactRenderer: PositronReactRenderer | undefined;
+	private positronReactRenderer?: PositronReactRenderer;
 
 	//#endregion Private Properties
 

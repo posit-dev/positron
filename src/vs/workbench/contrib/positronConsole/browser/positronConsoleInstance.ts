@@ -6,7 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
 
 export class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
 

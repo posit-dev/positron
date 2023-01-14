@@ -2,8 +2,9 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
 import * as nls from 'vs/nls';
+
+export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
 
 export const enum PositronConsoleCommandId {
 	New = 'workbench.action.positronConsole.new',
