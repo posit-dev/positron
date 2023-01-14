@@ -74,7 +74,7 @@ export const EnvironmentActionBars = (props: PropsWithChildren<EnvironmentAction
 
 	// Save workspace handler.
 	const saveWorkspaceHandler = () => {
-		console.log('loadWorkspaceHandler called');
+		console.log('saveWorkspaceHandler called');
 	};
 
 	// Clear all environment objects handler.

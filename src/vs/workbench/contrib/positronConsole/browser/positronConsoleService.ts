@@ -7,8 +7,8 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance, IPositronConsoleOptions, IPositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
 import { PositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleInstance';
+import { IPositronConsoleInstance, IPositronConsoleOptions, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 
 /**
  * PositronConsoleService class.
