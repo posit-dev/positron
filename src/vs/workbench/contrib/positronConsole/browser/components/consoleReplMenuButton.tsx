@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./languageRuntimeSelectorMenuButton';
+import 'vs/css!./consoleReplMenuButton';
 import * as React from 'react';
 import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';

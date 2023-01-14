@@ -48,13 +48,8 @@ export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
+		positronConsoleContext.currentConsoleReplInstance?.replInstance.clear();
 	};
-
-	// If there are no console instances, render nothing.
-	// TODO@softwarenerd - Render something specific for this case. TBD.
-	if (positronConsoleContext.consoleReplInstances.length === 0) {
-		return null;
-	}
 
 	// Render.
 	return (
