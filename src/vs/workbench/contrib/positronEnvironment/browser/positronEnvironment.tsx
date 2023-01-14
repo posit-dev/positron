@@ -15,7 +15,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { EnvironmentList } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentList';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
-import { EnvironmentActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentActionBars';
+import { ActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/actionBars';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
@@ -64,7 +64,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 	return (
 		<PositronEnvironmentContextProvider {...props}>
 			<div className='positron-environment'>
-				<EnvironmentActionBars {...props} />
+				<ActionBars {...props} />
 				<EnvironmentList height={height - 64} />
 			</div>
 		</PositronEnvironmentContextProvider>

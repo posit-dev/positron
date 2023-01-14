@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronHelpActionBars';
+import 'vs/css!./actionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -27,9 +27,9 @@ const kFindTimeout = 800;
 const kPollTimeout = 200;
 
 /**
- * PositronHelpActionBarsProps interface.
+ * ActionBarsProps interface.
  */
-export interface PositronHelpActionBarsProps {
+export interface ActionBarsProps {
 	// Services.
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
@@ -50,11 +50,11 @@ export interface PositronHelpActionBarsProps {
 }
 
 /**
- * PositronHelpActionBars component.
- * @param props A PositronHelpActionBarsProps that contains the component properties.
+ * ActionBars component.
+ * @param props A ActionBarsProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActionBarsProps>) => {
+export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
@@ -127,7 +127,7 @@ export const PositronHelpActionBars = (props: PropsWithChildren<PositronHelpActi
 
 	// Render.
 	return (
-		<div className='positron-help-action-bars'>
+		<div className='action-bars'>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={() => props.onPreviousTopic()} />

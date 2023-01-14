@@ -21,6 +21,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { IReplService } from 'vs/workbench/contrib/repl/browser/repl';
 
 /**
  * PositronConsoleViewPane class.
@@ -91,6 +92,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@IOpenerService openerService: IOpenerService,
+		@IReplService private readonly _replService: IReplService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
@@ -136,6 +138,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				languageRuntimeService={this.languageRuntimeService}
 				layoutService={this.layoutService}
 				reactComponentContainer={this}
+				replService={this._replService}
 			/>
 		);
 	}
