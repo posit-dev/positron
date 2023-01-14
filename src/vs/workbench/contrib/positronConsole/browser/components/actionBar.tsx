@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleActionBar';
+import 'vs/css!./actionBar';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -16,8 +16,9 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
-// import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ConsoleSelectorMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleSelectorMenuButton';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -43,18 +44,24 @@ export interface ConsoleActionBarProps extends PositronConsoleServices {
  */
 export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>) => {
 	// Hooks.
-	// const positronConsoleContext = usePositronConsoleContext();
+	const positronConsoleContext = usePositronConsoleContext();
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
 	};
 
+	// If there are no console instances, render nothing.
+	if (positronConsoleContext.consoleInstances.length === 0) {
+		return null;
+	}
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
-			<div className='positron-console-action-bar'>
+			<div className='action-bar'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
+						<ConsoleSelectorMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarButton iconId='positron-clean' align='right' tooltip={localize('positronClearConsole', "Clear console")} onClick={clearConsoleHandler} />

@@ -16,11 +16,11 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
-import { PositronHelpActionBars } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActionBars';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 
 /**
@@ -50,11 +50,11 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The Positron help container - contains the entire Positron help UI.
 	private _positronHelpContainer!: HTMLElement;
 
-	// The help action bars container - contains the PositronHelpActionBars component.
-	private _helpActionBarsContainer!: HTMLElement;
+	// The action bars container - contains the ActionBars component.
+	private _actionBarsContainer!: HTMLElement;
 
-	// The PositronReactRenderer for the PositronHelpActionBars component.
-	private _positronReactRendererHelpActionBars?: PositronReactRenderer;
+	// The PositronReactRenderer for the ActionBars component.
+	private _positronReactRendererActionBars?: PositronReactRenderer;
 
 	// The help iframe.
 	private _helpIFrame?: HTMLIFrameElement;
@@ -140,10 +140,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Destroy the PositronReactRenderer for the PositronHelpActionBars component.
-		if (this._positronReactRendererHelpActionBars) {
-			this._positronReactRendererHelpActionBars.destroy();
-			this._positronReactRendererHelpActionBars = undefined;
+		// Destroy the PositronReactRenderer for the ActionBars component.
+		if (this._positronReactRendererActionBars) {
+			this._positronReactRendererActionBars.destroy();
+			this._positronReactRendererActionBars = undefined;
 		}
 
 		// Call the base class's dispose method.
@@ -175,8 +175,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		container.appendChild(this._positronHelpContainer);
 
 		// Append the help action bars container.
-		this._helpActionBarsContainer = DOM.$('.help-action-bars-container');
-		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
+		this._actionBarsContainer = DOM.$('.action-bars-container');
+		this._positronHelpContainer.appendChild(this._actionBarsContainer);
 
 		// Home handler.
 		const homeHandler = () => {
@@ -214,10 +214,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find-next' });
 		};
 
-		// Render the PositronHelpActionBars component.
-		this._positronReactRendererHelpActionBars = new PositronReactRenderer(this._helpActionBarsContainer);
-		this._positronReactRendererHelpActionBars.render(
-			<PositronHelpActionBars
+		// Render the ActionBars component.
+		this._positronReactRendererActionBars = new PositronReactRenderer(this._actionBarsContainer);
+		this._positronReactRendererActionBars.render(
+			<ActionBars
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
