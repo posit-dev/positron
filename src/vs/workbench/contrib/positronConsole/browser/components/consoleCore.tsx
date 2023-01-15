@@ -29,13 +29,11 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		return null;
 	}
 
-	console.log(`Renderingf core with height of ${props.height}`);
-
 	// Render.
 	return (
 		<div className='console-core'>
 			<ConsoleActionBar {...props} />
-			<div className='xxx' style={{ height: props.height - 32 }}>
+			<div className='console-repls-container' style={{ height: props.height - 32 }}>
 				{positronConsoleContext.consoleReplInstances.map(consoleReplInstance =>
 					<ConsoleRepl
 						key={consoleReplInstance.replInstance.runtime.metadata.id}
