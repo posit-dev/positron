@@ -38,7 +38,7 @@ export interface PositronConsoleProps extends PositronConsoleServices {
  */
 export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) => {
 	// Hooks.
-	const [_height, setHeight] = useState(props.reactComponentContainer.height);
+	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -59,11 +59,13 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 		return () => disposableStore.dispose();
 	}, []);
 
+	console.log(`Rendering positron console with height of ${height}`);
+
 	// Render.
 	return (
 		<PositronConsoleContextProvider {...props}>
 			<div className='positron-console'>
-				<ConsoleCore {...props} />
+				<ConsoleCore height={height} {...props} />
 			</div>
 		</PositronConsoleContextProvider>
 	);
