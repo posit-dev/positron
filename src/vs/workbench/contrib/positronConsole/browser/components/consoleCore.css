@@ -7,6 +7,6 @@
 	background: transparent; /* placeholder */
 }
 
-.xxx {
-	overflow-y: scroll;
+.positron-console .console-core .console-repls-container {
+	overflow: scroll;
 }
