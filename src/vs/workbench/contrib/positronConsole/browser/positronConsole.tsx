@@ -59,8 +59,6 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 		return () => disposableStore.dispose();
 	}, []);
 
-	console.log(`Rendering positron console with height of ${height}`);
-
 	// Render.
 	return (
 		<PositronConsoleContextProvider {...props}>
