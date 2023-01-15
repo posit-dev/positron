@@ -3,5 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .console-core {
+	position: relative;
 	background: transparent; /* placeholder */
+}
+
+.xxx {
+	overflow-y: scroll;
 }

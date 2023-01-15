@@ -10,7 +10,9 @@ import { ConsoleActionBar } from 'vs/workbench/contrib/positronConsole/browser/c
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 // ConsoleCoreProps interface.
-interface ConsoleCoreProps extends PositronConsoleProps { }
+interface ConsoleCoreProps extends PositronConsoleProps {
+	height: number;
+}
 
 /**
  * ConsoleCore component.
@@ -27,11 +29,20 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		return null;
 	}
 
+	console.log(`Renderingf core with height of ${props.height}`);
+
 	// Render.
 	return (
 		<div className='console-core'>
 			<ConsoleActionBar {...props} />
-			{positronConsoleContext.currentConsoleReplInstance && <ConsoleRepl consoleReplInstance={positronConsoleContext.currentConsoleReplInstance} />}
+			<div className='xxx' style={{ height: props.height - 32 }}>
+				{positronConsoleContext.consoleReplInstances.map(consoleReplInstance =>
+					<ConsoleRepl
+						key={consoleReplInstance.replInstance.runtime.metadata.id}
+						hidden={consoleReplInstance !== positronConsoleContext.currentConsoleReplInstance}
+						consoleReplInstance={consoleReplInstance} />
+				)}
+			</div>
 		</div>
 	);
 };

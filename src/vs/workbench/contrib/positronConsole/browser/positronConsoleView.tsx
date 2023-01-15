@@ -147,13 +147,31 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 	//#region Public Overrides
 
+	/**
+	 * focus override method.
+	 */
 	override focus(): void {
 		// Call the base class's method.
 		super.focus();
 	}
 
+	/**
+	 * layoutBody override method.
+	 * @param height The height of the body.
+	 * @param width The width of the body.
+	 */
 	override layoutBody(height: number, width: number): void {
+		// Call the base class's method.
 		super.layoutBody(height, width);
+
+		// Set the last known height.
+		this._height = height;
+
+		// Raise the onSizeChanged event.
+		this._onSizeChanged.fire({
+			width,
+			height
+		});
 	}
 
 	//#endregion Public Overrides
