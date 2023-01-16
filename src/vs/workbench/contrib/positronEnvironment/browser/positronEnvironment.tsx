@@ -13,9 +13,9 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { ActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/actionBars';
 import { EnvironmentList } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentList';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
-import { ActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/actionBars';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**

@@ -10,7 +10,7 @@ import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
 export class ConsoleReplInstance {
 	/**
 	 * Constructor.
-	 * @param replInstance
+	 * @param replInstance The IReplInstance for the console REPL instance.
 	 */
 	constructor(readonly replInstance: IReplInstance) {
 	}

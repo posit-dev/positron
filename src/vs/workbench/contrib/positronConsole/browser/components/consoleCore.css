@@ -10,3 +10,7 @@
 .positron-console .console-core .console-repls-container {
 	overflow: scroll;
 }
+
+.positron-console .console-core .console-repls-container:focus {
+	outline: none !important;
+}
