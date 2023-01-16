@@ -2,6 +2,12 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.test-item {
-	background: transparent; /* Placeholder. */
+.console-repl-output {
+	padding: 8px;
+	border-bottom: 1px solid #cccccc;
+}
+
+.console-repl-output .timestamp {
+	font-size: 9px;
+	text-transform: uppercase;
 }

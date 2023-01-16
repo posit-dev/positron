@@ -190,7 +190,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		return Promise.resolve({
 			banner: `Zed ${this.metadata.version}`,
-			implementation_version: '1.0.0',
+			implementation_version: this.metadata.version,
 			language_version: this.metadata.version
 		} as positron.LanguageRuntimeInfo);
 	}

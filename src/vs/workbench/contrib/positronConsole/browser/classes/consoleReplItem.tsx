@@ -2,10 +2,12 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-list {
-	background: transparent; /* Placeholder. */
-	-webkit-user-select: text;  /* Chrome 49+ */
-	-moz-user-select: text;     /* Firefox 43+ */
-	-ms-user-select: text;      /* No support yet */
-	user-select: text;
+/**
+ * ConsoleReplItem class.
+ */
+export interface ConsoleReplItem {
+	/**
+	 * Gets the element for the console REPL item.
+	 */
+	readonly element: JSX.Element;
 }
