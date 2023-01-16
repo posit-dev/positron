@@ -93,7 +93,7 @@ export class EnvironmentValueEntry implements IListItem {
 	 */
 	get element() {
 		return (
-			<div className='test-item'>
+			<div className='test-item' style={{ marginLeft: 6 }}>
 				{`${this.name} - ${this.value.displayValue}`}
 			</div>
 		);
@@ -137,11 +137,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * Emitter for the onDidChangeListItems event.
 	 */
 	private readonly onDidChangeListItemsEmitter = new Emitter<void>();
-
-	/**
-	 * Test interval.
-	 */
-	private testInterval: NodeJS.Timer;
 
 	//#endregion Private Properties
 
@@ -210,59 +205,52 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 
 		// Add the did change runtime state event handler.
 		this._register(this._runtime.onDidChangeRuntimeState(runtimeState => {
-			console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
+			// console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-			console.log('********************* onDidReceiveRuntimeMessageOutput');
-			console.log(languageRuntimeMessageOutput);
+			// console.log('********************* onDidReceiveRuntimeMessageOutput');
+			// console.log(languageRuntimeMessageOutput);
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageInput(() => {
-			console.log('********************* onDidReceiveRuntimeMessageInput');
+			// console.log('********************* onDidReceiveRuntimeMessageInput');
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-			console.log('********************* languageRuntimeMessageError');
-			console.log(languageRuntimeMessageError);
+			// console.log('********************* languageRuntimeMessageError');
+			// console.log(languageRuntimeMessageError);
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
-			console.log('********************* onDidReceiveRuntimeMessagePrompt');
-			console.log(languageRuntimeMessagePrompt);
+			// console.log('********************* onDidReceiveRuntimeMessagePrompt');
+			// console.log(languageRuntimeMessagePrompt);
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
-			console.log('********************* onDidReceiveRuntimeMessageState');
-			console.log(languageRuntimeMessageState);
+			// console.log('********************* onDidReceiveRuntimeMessageState');
+			// console.log(languageRuntimeMessageState);
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-			console.log('********************* onDidReceiveRuntimeMessageEvent');
-			console.log(languageRuntimeMessageEvent);
+			// console.log('********************* onDidReceiveRuntimeMessageEvent');
+			// console.log(languageRuntimeMessageEvent);
 		}));
 
 		// Add the did complete startup event handler.
 		this._register(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
-			console.log(`********************* onDidCompleteStartup ${this._runtime.metadata.language}`);
+			// console.log(`********************* onDidCompleteStartup ${this._runtime.metadata.language}`);
 		}));
 
-		this.testInterval = setInterval(() => {
-			// console.log(`testInterval fired. ${new Date().getTime()}`);
-			// const date = new Date();
-			// const name = `variable${date.getTime()}`;
-			// this.setEnvironmentDataEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
-			// this.setEnvironmentValueEntry(new EnvironmentValueEntry(name, new StringEnvironmentValue(date.toTimeString())));
-		}, 1000);
+		for (let i = 0; i < 5000; i++) {
+			this.setEnvironmentDataEntry(new EnvironmentValueEntry(`var${i}`, new StringEnvironmentValue(`value ${i}`)));
+		}
 	}
 
 	/**
 	 * Dispose method.
 	 */
 	override dispose(): void {
-		// Clear the test interval.
-		clearInterval(this.testInterval);
-
 		// Call the base class's dispose method.
 		super.dispose();
 	}
@@ -293,14 +281,14 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 
 	//#region Private Methods
 
-	// /**
-	//  * Sets an environment data entry.
-	//  * @param environmenentEntry
-	//  */
-	// private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
-	// 	this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
-	// 	this.onDidChangeListItemsEmitter.fire();
-	// }
+	/**
+	 * Sets an environment data entry.
+	 * @param environmenentEntry
+	 */
+	private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
+		this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
+		this.onDidChangeListItemsEmitter.fire();
+	}
 
 	// /**
 	//  * Sets an environment value entry.

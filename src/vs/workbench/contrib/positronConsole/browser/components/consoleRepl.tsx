@@ -4,18 +4,19 @@
 
 import 'vs/css!./consoleRepl';
 import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
 import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
+import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
+import { generateUuid } from 'vs/base/common/uuid';
+import { ConsoleReplItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemOutput';
 
 // ConsoleReplProps interface.
 interface ConsoleReplProps {
 	hidden: boolean;
 	consoleReplInstance: ConsoleReplInstance;
-}
-
-interface Item {
-	key: number;
-	value: string;
 }
 
 /**
@@ -25,30 +26,60 @@ interface Item {
  */
 export const ConsoleRepl = ({ hidden, consoleReplInstance }: ConsoleReplProps) => {
 	// Hooks.
-	const [items, setItems] = useState<Item[]>([]);
+	const [consoleReplItems, setConsoleReplItems, _refConsoleReplItems] = useStateRef<ConsoleReplItem[]>([]);
 
 	// useEffect for appending items.
 	useEffect(() => {
-		// Start the interval.
-		const interval = setInterval(() => {
-			const now = new Date();
-			setItems(items => [...items, { key: now.getTime(), value: `${consoleReplInstance.displayName} item at ${now.toLocaleTimeString()}` }]);
-		}, 1000);
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
 
-		// Return the cleanup function.
-		return () => clearInterval(interval);
+		// Add the onDidChangeRuntimeState event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidChangeRuntimeState(runtimeState => {
+			console.log(`ConsoleRepl onDidChangeRuntimeState ${runtimeState}`);
+		}));
+
+		// Add the onDidCompleteStartup event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidCompleteStartup(languageRuntimeInfo => {
+			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemStartupBanner({ key: generateUuid(), timestamp: new Date(), languageRuntimeInfo })]);
+		}));
+
+		// Add the onDidReceiveRuntimeMessageOutput event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
+			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemOutput({ key: languageRuntimeMessageOutput.id, timestamp: new Date(), languageRuntimeMessageOutput })]);
+		}));
+
+		// Add the onDidReceiveRuntimeMessageInput event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+			console.log('+++++++++++++++++++++++ onDidReceiveRuntimeMessageInput');
+			console.log(languageRuntimeMessageInput);
+		}));
+
+		// Add the onDidReceiveRuntimeMessageError event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
+		}));
+
+		// Add the onDidReceiveRuntimeMessagePrompt event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+		}));
+
+		// Add the onDidReceiveRuntimeMessageState event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+		}));
+
+		// Add the onDidReceiveRuntimeMessageEvent event handler.
+		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
 	}, []);
 
 	// Render.
 	return (
 		<div className='console-repl' hidden={hidden}>
-			<div>
-				Console for {consoleReplInstance.displayName}
-			</div>
-			{items.map(item =>
-				<div key={item.key}>
-					{item.value}
-				</div>)}
+			{consoleReplItems.map(consoleReplItem =>
+				consoleReplItem.element
+			)}
 		</div>
 	);
 };

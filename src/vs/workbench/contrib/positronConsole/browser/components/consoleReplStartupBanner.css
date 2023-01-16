@@ -1,0 +1,17 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit Software, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.console-repl-startup-banner {
+	padding: 8px;
+	border-bottom: 1px solid #cccccc;
+}
+
+.console-repl-startup-banner .timestamp {
+	font-size: 9px;
+	text-transform: uppercase;
+}
+
+.console-repl-startup-banner .banner-line {
+	font-family: monospace;
+}

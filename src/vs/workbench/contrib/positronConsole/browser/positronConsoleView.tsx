@@ -124,6 +124,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 		// Append the Positron console container.
 		this._positronConsoleContainer = DOM.$('.positron-console-container');
+		this._positronConsoleContainer.setAttribute('user-select', 'all');
 		container.appendChild(this._positronConsoleContainer);
 
 		// Render the Positron console.
