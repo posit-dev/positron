@@ -3,6 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-repl-line {
-	font-family: monospace;
 	white-space: pre;
+	font-family: monospace;
 }

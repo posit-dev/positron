@@ -10,4 +10,9 @@
 .console-repl-output .timestamp {
 	font-size: 9px;
 	text-transform: uppercase;
+
+	user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	-webkit-user-select: none;
 }
