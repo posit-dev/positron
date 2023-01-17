@@ -3,9 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-core .console-repl {
-	-webkit-user-select: text;  /* Chrome 49+ */
-	-moz-user-select: text;     /* Firefox 43+ */
-	-ms-user-select: text;      /* No support yet */
+	-webkit-user-select: text;
+	-moz-user-select: text;
+	-ms-user-select: text;
 	user-select: text;
 }
 

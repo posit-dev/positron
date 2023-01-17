@@ -24,7 +24,7 @@ export function registerPositronConsoleActions() {
 		constructor() {
 			super({
 				id: PositronConsoleCommandId.New,
-				title: { value: localize(PositronConsoleCommandId.New, "Create New Console"), original: 'Create New Console' },
+				title: { value: localize('workbench.action.positronConsole.new', "Create New Console"), original: 'Create New Console' },
 				f1: true,
 				category,
 				// TODO: Do we need to add the 'precondition' key here? Is there any context
@@ -32,7 +32,7 @@ export function registerPositronConsoleActions() {
 				icon: Codicon.plus,
 				// TODO: Add 'keybinding' member with a default keybinding
 				description: {
-					description: PositronConsoleCommandId.New,
+					description: 'workbench.action.positronConsole.new',
 					args: [{
 						name: 'options',
 						schema: {
@@ -59,12 +59,12 @@ export function registerPositronConsoleActions() {
 		constructor() {
 			super({
 				id: PositronConsoleCommandId.Clear,
-				title: { value: localize(PositronConsoleCommandId.Clear, "Clear Active Console"), original: 'Clear Active Console' },
+				title: { value: localize('workbench.action.positronConsole.clear', "Clear Active Console"), original: 'Clear Active Console' },
 				f1: true,
 				category,
 				icon: Codicon.plus,
 				description: {
-					description: PositronConsoleCommandId.Clear,
+					description: 'workbench.action.positronConsole.clear',
 					args: []
 				}
 			});
@@ -85,12 +85,12 @@ export function registerPositronConsoleActions() {
 		constructor() {
 			super({
 				id: PositronConsoleCommandId.Send,
-				title: { value: localize(PositronConsoleCommandId.Send, "Send to Active Console"), original: 'Send to Active Console' },
+				title: { value: localize('workbench.action.positronConsole.send', "Send to Active Console"), original: 'Send to Active Console' },
 				f1: true,
 				category,
 				icon: Codicon.plus,
 				description: {
-					description: PositronConsoleCommandId.Send,
+					description: 'workbench.action.positronConsole.send',
 					args: []
 				}
 			});
