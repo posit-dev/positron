@@ -33,6 +33,10 @@ static PRECIOUS_LIST_ONCE: Once = Once::new();
 static mut PRECIOUS_LIST : Option<SEXP> = None;
 
 unsafe fn protect(object: SEXP) -> SEXP {
+    // Nothing to do
+    if object == R_NilValue {
+        return R_NilValue;
+    }
 
     // Protect the incoming object, just in case.
     Rf_protect(object);
@@ -45,10 +49,6 @@ unsafe fn protect(object: SEXP) -> SEXP {
         Rf_unprotect(2);
         PRECIOUS_LIST = Some(precious_list);
     });
-
-    if object == R_NilValue {
-        return R_NilValue;
-    }
 
     let precious_list = PRECIOUS_LIST.unwrap_unchecked();
 
