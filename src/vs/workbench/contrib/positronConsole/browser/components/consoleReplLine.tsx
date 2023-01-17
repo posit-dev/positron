@@ -19,7 +19,7 @@ export const ConsoleReplLine = ({ text }: ConsoleReplLineProps) => {
 	// Render.
 	return (
 		<div className='console-repl-line'>
-			{!text.length ? <br /> : <div>{text.replace(/ /g, '\u00a0')}</div>}
+			{!text.length ? <br /> : <div>{text}</div>}
 		</div>
 	);
 };
