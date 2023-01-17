@@ -5,9 +5,9 @@
 import 'vs/css!./consoleReplOutput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
+import { ConsoleReplLine } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplLine';
 import { lineSplitter } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplStartupBanner';
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ConsoleReplLine } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplLine';
 
 // ConsoleReplOutputProps interface.
 export interface ConsoleReplOutputProps {
