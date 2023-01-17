@@ -208,3 +208,19 @@ jobs:
           asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
           asset_content_type: application/zip
 
+  status:
+    if: ${{ failure() }}
+    steps:
+      - name: Notify slack if build fails
+        uses: slackapi/slack-github-action@v1.23.0
+        id: slack-failure
+        needs: macos-universal
+        with:
+          payload: |
+            {
+              "message": "Positron build ${{ needs.version_string.outputs.build_number }} failed",
+              "status": "Failure",
+              "run_url": "https://github.com/rstudio/positron/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
