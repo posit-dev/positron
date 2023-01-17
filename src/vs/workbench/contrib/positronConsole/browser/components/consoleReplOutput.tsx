@@ -23,7 +23,7 @@ export interface ConsoleReplOutputProps {
 export const ConsoleReplOutput = ({ timestamp, languageRuntimeMessageOutput }: ConsoleReplOutputProps) => {
 	const bannerLines = useMemo(() => {
 
-		const keys = Object.keys(languageRuntimeMessageOutput.data);
+		//const keys = Object.keys(languageRuntimeMessageOutput.data);
 		const values = Object.values(languageRuntimeMessageOutput.data);
 
 		return lineSplitter(values[0]);
