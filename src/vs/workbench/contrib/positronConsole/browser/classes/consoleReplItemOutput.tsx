@@ -7,21 +7,21 @@ import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/cl
 import { ConsoleReplOutput, ConsoleReplOutputProps } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplOutput';
 
 /**
- * ConsoleReplItemStartupBannerProps interface.
+ * ConsoleReplItemOutputProps interface.
  */
 export interface ConsoleReplItemOutputProps extends ConsoleReplOutputProps {
 	key: string;
 }
 
 /**
- * ConsoleReplItem class.
+ * ConsoleReplItemOutput class.
  */
 export class ConsoleReplItemOutput implements ConsoleReplItem {
 	//#region Constructor
 
 	/**
 	 * Constructor.
-	 * @param props A ConsoleReplOutputProps the contains the console REPL item props.
+	 * @param props A ConsoleReplItemOutputProps the contains the console REPL item props.
 	 */
 	constructor(private readonly _props: ConsoleReplItemOutputProps) {
 	}
