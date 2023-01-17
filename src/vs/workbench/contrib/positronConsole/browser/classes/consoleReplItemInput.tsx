@@ -4,26 +4,26 @@
 
 import * as React from 'react';
 import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
-import { ConsoleReplOutput, ConsoleReplOutputProps } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplOutput';
+import { ConsoleReplInput, ConsoleReplInputProps } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplInput';
 
 /**
- * ConsoleReplItemOutputProps interface.
+ * ConsoleReplItemInputProps interface.
  */
-export interface ConsoleReplItemOutputProps extends ConsoleReplOutputProps {
+export interface ConsoleReplItemInputProps extends ConsoleReplInputProps {
 	key: string;
 }
 
 /**
- * ConsoleReplItemOutput class.
+ * ConsoleReplItemInput class.
  */
-export class ConsoleReplItemOutput implements ConsoleReplItem {
+export class ConsoleReplItemInput implements ConsoleReplItem {
 	//#region Constructor
 
 	/**
 	 * Constructor.
-	 * @param props A ConsoleReplItemOutputProps the contains the console REPL item props.
+	 * @param props A ConsoleReplItemInputProps the contains the console REPL item props.
 	 */
-	constructor(private readonly _props: ConsoleReplItemOutputProps) {
+	constructor(private readonly _props: ConsoleReplItemInputProps) {
 	}
 
 	//#endregion Constructor
@@ -31,7 +31,7 @@ export class ConsoleReplItemOutput implements ConsoleReplItem {
 	//#region ConsoleReplItem Overrides
 
 	get element(): JSX.Element {
-		return <ConsoleReplOutput {...this._props} />;
+		return <ConsoleReplInput {...this._props} />;
 	}
 
 	//#endregion ConsoleReplItem Overrides
