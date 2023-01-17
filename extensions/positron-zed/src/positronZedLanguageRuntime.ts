@@ -131,25 +131,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
-	 * Gets the history of code executed in the runtime.
-	 * @param type The type of history to return
-	 * @param max The maximum number of entries to return.
-	 */
-	getExecutionHistory(type: positron.LanguageRuntimeHistoryType, max: number): Thenable<string[][]> {
-		// Number of items to return: the lesser of the max and the number of items in the history
-		const n = Math.min(max, this._history.length);
-		const history = this._history.slice(n * -1);
-
-		if (type === positron.LanguageRuntimeHistoryType.InputAndOutput) {
-			// If the type is input and output, return the entire history
-			return Promise.resolve(history);
-		} else {
-			// If the type is input only, return only the input
-			return Promise.resolve(history.map(h => [h[0]]));
-		}
-	}
-
-	/**
 	 * Create a new instance of a client.
 	 * @param type The runtime client type.
 	 */

@@ -9,12 +9,12 @@ import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableEle
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
 import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
-import { ILanguageRuntime, ILanguageRuntimeMessagePrompt, LanguageRuntimeHistoryType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessagePrompt, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
 import { LanguageRuntimeEventType, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
-import { IExecutionHistoryService } from 'vs/workbench/services/executionHistory/common/executionHistoryService';
+import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 
 export const REPL_NOTEBOOK_SCHEME = 'repl';
 
@@ -158,17 +158,6 @@ export class ReplInstanceView extends Disposable {
 		this._register(this._runtime.onDidCompleteStartup(info => {
 			this._bannerContainer.innerText = info.banner;
 			this._scroller.scanDomNode();
-
-			// Request the history from the kernel so we can search/navigate
-			// previous inputs from the REPL that aren't known to this instance
-			this._runtime.getExecutionHistory(
-				LanguageRuntimeHistoryType.InputOnly, 1000).then((history) => {
-					// Add each entry to the local copy of the history. We'll
-					// maintain the history ourselves after this point.
-					for (const entry of history) {
-						this._instance.history.add(entry[0]);
-					}
-				});
 		}));
 
 		this._runtime.onDidChangeRuntimeState((state) => {
@@ -179,7 +168,7 @@ export class ReplInstanceView extends Disposable {
 		this._instance.onDidClearRepl(() => {
 			this.clear();
 			// Clear the stored execution history so it doesn't get replayed
-			this._executionHistoryService.clearEntries(this._instance.runtime.metadata.id);
+			this._executionHistoryService.clearExecutionEntries(this._instance.runtime.metadata.id);
 		});
 
 		// Execute code when the user requests it
@@ -188,7 +177,14 @@ export class ReplInstanceView extends Disposable {
 		});
 
 		// Populate with execution history
-		this._executionHistoryService.getEntries(this._instance.runtime.metadata.id);
+		// (TODO: these entries, after being fetched here, should be appended to the UI)
+		this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.id);
+
+		// Populate with input history
+		const inputHistory = this._executionHistoryService.getInputEntries(this._instance.runtime.metadata.language);
+		for (const entry of inputHistory) {
+			this._instance.history.add(entry.input);
+		}
 	}
 
 	/**

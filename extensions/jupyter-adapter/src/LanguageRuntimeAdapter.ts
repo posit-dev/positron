@@ -297,19 +297,23 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
-	 * Gets the execution history for the given type.
+	 * Gets the history of inputs to (and, optionally, outputs from) the kernel.
 	 *
-	 * @param type The type of history to get
+	 * Note that this is not currently used by Positron, which keeps its own
+	 * execution records in order to free individual language runtimes from the
+	 * burden of doing so.
+	 *
+	 * @param includeOutput Whether to include output in the history
 	 * @param max The maximum number of entries to return. If 0, returns all
 	 *  entries (not recommended; may be slow)
 	 */
-	getExecutionHistory(type: positron.LanguageRuntimeHistoryType, max: number): Thenable<string[][]> {
+	getExecutionHistory(includeOutput: boolean, max: number): Thenable<string[][]> {
 		return new Promise<string[][]>((resolve, _reject) => {
 			// Create an RPC to send to the kernel requesting history
 			const rpc = new JupyterRpc<JupyterHistoryRequest, JupyterHistoryReply>(
 				'history_request',
 				{
-					output: type === positron.LanguageRuntimeHistoryType.InputAndOutput,
+					output: includeOutput,
 					raw: true,
 					hist_access_type: 'tail',
 					n: max

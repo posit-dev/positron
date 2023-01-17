@@ -380,9 +380,9 @@ import 'vs/workbench/contrib/repl/browser/replView';
 import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contribution';
 import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
+import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
-import 'vs/workbench/services/executionHistory/common/executionHistory';
 
 // --- End Positron ---
