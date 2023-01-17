@@ -32,6 +32,7 @@
 		"./typings",
 		"./vs/**/*.ts",
 		// --- Start Positron ---
+		"./vs/**/*.tsx",
 		"positron-dts/positron.d.ts",
 		// --- End Positron ---
 		"vscode-dts/vscode.proposed.*.d.ts",
