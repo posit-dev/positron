@@ -21,16 +21,13 @@ use crate::vector::CharacterVector;
 use crate::vector::Vector;
 
 pub unsafe fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
-
     let actual = TYPEOF(object) as u32;
-    for candidate in expected.iter() {
-        if actual == *candidate {
-            return Ok(actual)
-        }
+
+    if !expected.contains(&actual) {
+        return Err(Error::UnexpectedType(actual, expected.to_vec()));
     }
 
-    Err(Error::UnexpectedType(actual, expected.to_vec()))
-
+    Ok(actual)
 }
 
 pub unsafe fn r_assert_capacity(object: SEXP, required: u32) -> Result<u32> {
