@@ -17,10 +17,10 @@ interface ReplLine {
  * @param text The text string to split.
  * @returns An array of the split lines.
  */
-export const replLineSplitter = (text: string): ReplLine[] => {
+export const replLineSplitter = (text: string, prompt?: string): ReplLine[] => {
 	const replLines = new Array<ReplLine>();
-	text.split('\n').forEach(text => {
-		replLines.push({ key: generateUuid(), text });
+	text.split('\n').forEach((text, index) => {
+		replLines.push({ key: generateUuid(), text: (prompt && !index) ? `${prompt} ${text}` : text });
 	});
 	return replLines;
 };

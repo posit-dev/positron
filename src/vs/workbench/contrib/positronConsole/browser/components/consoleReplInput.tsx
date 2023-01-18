@@ -22,7 +22,7 @@ export interface ConsoleReplInputProps {
  */
 export const ConsoleReplInput = ({ timestamp, languageRuntimeMessageInput }: ConsoleReplInputProps) => {
 	const replLines = useMemo(() => {
-		return replLineSplitter(languageRuntimeMessageInput.code);
+		return replLineSplitter(languageRuntimeMessageInput.code, '>');
 	}, [languageRuntimeMessageInput]);
 
 
