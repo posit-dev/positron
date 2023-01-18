@@ -23,15 +23,19 @@ export interface ConsoleReplOutputProps {
 export const ConsoleReplOutput = ({ timestamp, languageRuntimeMessageOutput }: ConsoleReplOutputProps) => {
 	// Hooks.
 	const replLines = useMemo(() => {
-		//const keys = Object.keys(languageRuntimeMessageOutput.data);
+		const keys = Object.keys(languageRuntimeMessageOutput.data);
 		const values = Object.values(languageRuntimeMessageOutput.data);
-		return replLineSplitter(values[0]);
+
+		const d = keys.find(x => x === 'text/plain');
+		const x = values.indexOf(d);
+
+		return replLineSplitter(values[x]);
 	}, [languageRuntimeMessageOutput]);
 
 	// Render.
 	return (
 		<div className='console-repl-output'>
-			<div className='timestamp'>{timestamp.toLocaleTimeString()}</div>
+			<div className='timestamp'>{timestamp.toLocaleTimeString()} ID: {languageRuntimeMessageOutput.id} PARENT-ID: {languageRuntimeMessageOutput.parent_id}</div>
 			{replLines.map(replLine =>
 				<ConsoleReplLine key={replLine.key} text={replLine.text} />
 			)}

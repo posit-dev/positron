@@ -29,7 +29,7 @@ export const ConsoleReplInput = ({ timestamp, languageRuntimeMessageInput }: Con
 	// Render.
 	return (
 		<div className='console-repl-input'>
-			<div className='timestamp'>{timestamp.toLocaleTimeString()}</div>
+			<div className='timestamp'>{timestamp.toLocaleTimeString()} ID: {languageRuntimeMessageInput.id} PARENT-ID: {languageRuntimeMessageInput.parent_id}</div>
 			{replLines.map(replLine =>
 				<ConsoleReplLine key={replLine.key} text={replLine.text} />
 			)}
