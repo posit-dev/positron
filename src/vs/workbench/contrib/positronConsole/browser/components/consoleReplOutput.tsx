@@ -21,12 +21,12 @@ export interface ConsoleReplOutputProps {
  * @returns The rendered component.
  */
 export const ConsoleReplOutput = ({ timestamp, languageRuntimeMessageOutput }: ConsoleReplOutputProps) => {
+	// Hooks.
 	const replLines = useMemo(() => {
 		//const keys = Object.keys(languageRuntimeMessageOutput.data);
 		const values = Object.values(languageRuntimeMessageOutput.data);
 		return replLineSplitter(values[0]);
 	}, [languageRuntimeMessageOutput]);
-
 
 	// Render.
 	return (
