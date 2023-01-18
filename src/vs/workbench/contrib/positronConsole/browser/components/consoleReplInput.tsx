@@ -2,35 +2,33 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleReplOutput';
+import 'vs/css!./consoleReplInput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
 import { replLineSplitter } from 'vs/workbench/contrib/positronConsole/browser/classes/utils';
 import { ConsoleReplLine } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplLine';
-import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageInput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
-// ConsoleReplOutputProps interface.
-export interface ConsoleReplOutputProps {
+// ConsoleReplInputProps interface.
+export interface ConsoleReplInputProps {
 	timestamp: Date;
-	languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput;
+	languageRuntimeMessageInput: ILanguageRuntimeMessageInput;
 }
 
 /**
- * ConsoleReplOutput component.
- * @param props A ConsoleReplOutputProps that contains the component properties.
+ * ConsoleReplInput component.
+ * @param props A ConsoleReplInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplOutput = ({ timestamp, languageRuntimeMessageOutput }: ConsoleReplOutputProps) => {
+export const ConsoleReplInput = ({ timestamp, languageRuntimeMessageInput }: ConsoleReplInputProps) => {
 	const replLines = useMemo(() => {
-		//const keys = Object.keys(languageRuntimeMessageOutput.data);
-		const values = Object.values(languageRuntimeMessageOutput.data);
-		return replLineSplitter(values[0]);
-	}, [languageRuntimeMessageOutput]);
+		return replLineSplitter(languageRuntimeMessageInput.code);
+	}, [languageRuntimeMessageInput]);
 
 
 	// Render.
 	return (
-		<div className='console-repl-output'>
+		<div className='console-repl-input'>
 			<div className='timestamp'>{timestamp.toLocaleTimeString()}</div>
 			{replLines.map(replLine =>
 				<ConsoleReplLine key={replLine.key} text={replLine.text} />
