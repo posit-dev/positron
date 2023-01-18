@@ -198,4 +198,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	//#endregion LanguageRuntime Implementation
+
+	//#region Private Methods
+
+
+	//#endregion Private Methods
 }
