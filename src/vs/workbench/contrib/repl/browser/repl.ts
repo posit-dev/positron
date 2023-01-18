@@ -28,7 +28,10 @@ export interface IReplInstance {
 	readonly runtime: ILanguageRuntime;
 
 	/** Clear the REPL's contents */
-	clear(): void;
+	clearRepl(): void;
+
+	/** Clear the REPL's history buffer/navigator */
+	clearHistory(): void;
 
 	/** Execute code in the REPL */
 	executeCode(code: string): void;
@@ -73,6 +76,13 @@ export interface IReplService {
 	 * Clears the currently active REPL instance.
 	 */
 	clearActiveRepl(): void;
+
+	/**
+	 * Clears the REPL input history for the given language.
+	 *
+	 * @param language The language of the REPL to clear.
+	 */
+	clearInputHistory(language: string): void;
 
 	/**
 	 * Sends a code line or fragment to the REPL from the currently open editor.

@@ -125,10 +125,27 @@ export class ReplService extends Disposable implements IReplService {
 	 */
 	clearActiveRepl(): void {
 		if (this._activeInstance) {
-			this._activeInstance.clear();
+			this._activeInstance.clearRepl();
 		} else {
 			this._logService.warn('Clear REPL command issued when no REPL is active; ignoring.');
 		}
+	}
+
+	/**
+	 * Clears the REPL input history for the given language. Typically invoked
+	 * to clear cached history when the user has cleared the persisted history.
+	 *
+	 * @param language The language of the REPL to clear.
+	 */
+	clearInputHistory(language: string): void {
+		const instance = this._runningInstancesByLanguageId.get(language);
+		if (instance) {
+			instance.clearHistory();
+		}
+
+		// It's okay if there's no REPL instance for the given language, since
+		// this method is used only to clear any cached history, and if we don't
+		// have a REPL instance, there's no cached history to clear.
 	}
 
 	/**
