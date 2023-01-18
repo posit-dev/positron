@@ -210,11 +210,12 @@ jobs:
 
   status:
     if: ${{ failure() }}
+    runs-on: self-hosted
+    needs: macos-universal
     steps:
       - name: Notify slack if build fails
         uses: slackapi/slack-github-action@v1.23.0
         id: slack-failure
-        needs: macos-universal
         with:
           payload: |
             {

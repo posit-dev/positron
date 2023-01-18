@@ -13,6 +13,10 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 import { ILogService } from 'vs/platform/log/common/log';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ITextModel } from 'vs/editor/common/model';
+import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 
 export function registerReplActions() {
 	const category: ILocalizedString = { value: REPL_ACTION_CATEGORY, original: 'REPL' };
@@ -60,6 +64,11 @@ export function registerReplActions() {
 				f1: true,
 				category,
 				icon: Codicon.plus,
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.WinCtrl | KeyCode.KeyL,
+					when: ContextKeyExpr.not('notebookEditorFocused')
+				},
 				description: {
 					description: 'workbench.action.repl.clear',
 					args: []
@@ -86,6 +95,12 @@ export function registerReplActions() {
 				f1: true,
 				category,
 				icon: Codicon.plus,
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.CtrlCmd | KeyCode.Enter,
+					win: { primary: KeyMod.WinCtrl | KeyCode.Enter },
+					when: EditorContextKeys.editorTextFocus
+				},
 				description: {
 					description: 'workbench.action.repl.send',
 					args: []
