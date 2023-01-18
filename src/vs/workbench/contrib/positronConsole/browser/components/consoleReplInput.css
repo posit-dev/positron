@@ -2,12 +2,12 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-output {
+.console-repl-input {
 	padding: 8px;
 	border-bottom: 1px solid #cccccc;
 }
 
-.console-repl-output .timestamp {
+.console-repl-input .timestamp {
 	font-size: 9px;
 	text-transform: uppercase;
 
