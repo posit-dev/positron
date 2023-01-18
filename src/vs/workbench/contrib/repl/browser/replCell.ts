@@ -150,10 +150,10 @@ export class ReplCell extends Disposable {
 	/**
 	 * Emits output in the cell
 	 *
-	 * @param data A map containing the output data to emit; keys are output
+	 * @param data A record containing the output data to emit; keys are output
 	 *   mime types and values are the output data for that type
 	 */
-	emitMimeOutput(data: Map<string, string>) {
+	emitMimeOutput(data: Record<string, string>) {
 		for (const [mime, val] of Object.entries(data)) {
 			let output = '';
 			let error = false;
