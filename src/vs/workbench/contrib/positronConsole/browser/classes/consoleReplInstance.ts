@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
+import { IReplInstance } from 'vs/workbench/contrib/repl/common/repl';
 
 /**
  * ConsoleReplInstance class.

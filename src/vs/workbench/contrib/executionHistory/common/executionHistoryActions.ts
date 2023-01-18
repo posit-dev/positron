@@ -10,8 +10,8 @@ import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IReplService } from 'vs/workbench/contrib/repl/browser/repl';
-import { REPL_ACTION_CATEGORY } from 'vs/workbench/contrib/repl/common/repl';
+import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
+import { REPL_ACTION_CATEGORY } from 'vs/workbench/contrib/repl/common/replCommands';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export function registerHistoryActions() {

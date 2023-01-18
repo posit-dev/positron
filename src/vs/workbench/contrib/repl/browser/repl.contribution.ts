@@ -4,14 +4,14 @@
 
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { ReplCommandId, REPL_VIEW_ID } from 'vs/workbench/contrib/repl/common/repl';
-import { IReplService } from 'vs/workbench/contrib/repl/browser/repl';
+import { ReplCommandId, REPL_VIEW_ID } from 'vs/workbench/contrib/repl/common/replCommands';
+import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { Extensions as ViewContainerExtensions, IViewContainersRegistry, ViewContainerLocation, IViewsRegistry } from 'vs/workbench/common/views';
 import * as nls from 'vs/nls';
 import { registerReplActions } from 'vs/workbench/contrib/repl/browser/replActions';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { ReplService } from 'vs/workbench/contrib/repl/browser/replService';
+import { ReplService } from 'vs/workbench/contrib/repl/common/replService';
 import { ReplViewPane } from 'vs/workbench/contrib/repl/browser/replView';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { Codicon } from 'vs/base/common/codicons';

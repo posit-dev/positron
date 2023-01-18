@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
+import { IReplInstance } from 'vs/workbench/contrib/repl/common/repl';
 import { Emitter, Event } from 'vs/base/common/event';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
