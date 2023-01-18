@@ -16,6 +16,7 @@ import { ITextModel } from 'vs/editor/common/model';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 
 export function registerReplActions() {
 	const category: ILocalizedString = { value: REPL_ACTION_CATEGORY, original: 'REPL' };
@@ -65,7 +66,8 @@ export function registerReplActions() {
 				icon: Codicon.plus,
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyMod.WinCtrl | KeyCode.KeyL
+					primary: KeyMod.WinCtrl | KeyCode.KeyL,
+					when: ContextKeyExpr.not('notebookEditorFocused')
 				},
 				description: {
 					description: 'workbench.action.repl.clear',
