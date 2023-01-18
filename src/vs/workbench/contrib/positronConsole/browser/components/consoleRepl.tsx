@@ -5,13 +5,14 @@
 import 'vs/css!./consoleRepl';
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
 import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
-import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
-import { generateUuid } from 'vs/base/common/uuid';
+import { ConsoleReplItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemInput';
 import { ConsoleReplItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemOutput';
+import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
 
 // ConsoleReplProps interface.
 interface ConsoleReplProps {
@@ -50,8 +51,7 @@ export const ConsoleRepl = ({ hidden, consoleReplInstance }: ConsoleReplProps) =
 
 		// Add the onDidReceiveRuntimeMessageInput event handler.
 		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-			console.log('+++++++++++++++++++++++ onDidReceiveRuntimeMessageInput');
-			console.log(languageRuntimeMessageInput);
+			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemInput({ key: languageRuntimeMessageInput.id, timestamp: new Date(), languageRuntimeMessageInput })]);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageError event handler.

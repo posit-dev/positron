@@ -7,6 +7,7 @@ import * as React from 'react';
 
 // ConsoleReplLineProps interface.
 export interface ConsoleReplLineProps {
+	key: string;
 	text: string;
 }
 
@@ -15,10 +16,10 @@ export interface ConsoleReplLineProps {
  * @param props A ConsoleReplLineProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplLine = ({ text }: ConsoleReplLineProps) => {
+export const ConsoleReplLine = ({ key, text }: ConsoleReplLineProps) => {
 	// Render.
 	return (
-		<div className='console-repl-line'>
+		<div key={key} className='console-repl-line'>
 			{!text.length ? <br /> : <div>{text}</div>}
 		</div>
 	);
