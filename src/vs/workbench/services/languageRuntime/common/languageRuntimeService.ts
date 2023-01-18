@@ -32,8 +32,8 @@ export interface ILanguageRuntimeMessage {
 
 /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
-	/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
-	data: Map<string, string>;
+	/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
+	readonly data: Record<string, string>;
 }
 
 /** ILanguageRuntimeInput is a ILanguageRuntimeMessage representing echoed user input */
