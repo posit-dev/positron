@@ -217,9 +217,10 @@ export function getColorRegistry(): IColorRegistry {
 //export const foreground = registerColor('foreground', { dark: '#CCCCCC', light: '#616161', hcDark: '#FFFFFF', hcLight: '#292929' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
 export const foreground = registerColor('foreground', { dark: '#acbece', light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
 export const secondaryBackground = registerColor('secondaryBackground', { dark: '#292f32', light: '#dee1e5', hcDark: '#dee1e5', hcLight: '#dee1e5' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
-// --- End Positron ---
 
-export const disabledForeground = registerColor('disabledForeground', { dark: '#CCCCCC80', light: '#61616180', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
+//export const disabledForeground = registerColor('disabledForeground', { dark: '#CCCCCC80', light: '#61616180', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
+export const disabledForeground = registerColor('disabledForeground', { dark: '#acbece80', light: '#75828d80', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
+// --- End Positron ---
 export const errorForeground = registerColor('errorForeground', { dark: '#F48771', light: '#A1260D', hcDark: '#F48771', hcLight: '#B5200D' }, nls.localize('errorForeground', "Overall foreground color for error messages. This color is only used if not overridden by a component."));
 export const descriptionForeground = registerColor('descriptionForeground', { light: '#717171', dark: transparent(foreground, 0.7), hcDark: transparent(foreground, 0.7), hcLight: transparent(foreground, 0.7) }, nls.localize('descriptionForeground', "Foreground color for description text providing additional information, for example for a label."));
 // --- Start Positron ---

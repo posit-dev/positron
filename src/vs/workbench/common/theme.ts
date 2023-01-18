@@ -5,7 +5,7 @@
 
 import { localize } from 'vs/nls';
 // --- Start Positron ---
-import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, buttonForeground, buttonSecondaryForeground, buttonBackground, buttonSecondaryBackground, secondaryBackground, checkboxBorder, checkboxBackground, checkboxForeground, inputBackground, foreground } from 'vs/platform/theme/common/colorRegistry';
+import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, buttonForeground, buttonSecondaryForeground, buttonBackground, buttonSecondaryBackground, secondaryBackground, checkboxBorder, checkboxBackground, checkboxForeground, inputBackground, foreground, disabledForeground } from 'vs/platform/theme/common/colorRegistry';
 // --- End Positron ---
 import { IColorTheme } from 'vs/platform/theme/common/themeService';
 import { Color } from 'vs/base/common/color';
@@ -992,18 +992,18 @@ export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActi
 
 // The Positron top action bar foreground color.
 export const POSITRON_TOP_ACTION_BAR_FOREGROUND = registerColor('positronTopActionBar.foreground', {
-	dark: '#acbece',
-	light: '#75828D',
-	hcDark: '#ffffff',
-	hcLight: '#000000'
+	dark: foreground,
+	light: foreground,
+	hcDark: foreground,
+	hcLight: foreground
 }, localize('positronTopActionBar.foreground', "Positron top action bar foreground color."));
 
 // The Positron top action bar disabled foreground color.
 export const POSITRON_TOP_ACTION_BAR_DISABLED_FOREGROUND = registerColor('positronTopActionBar.disabledForeground', {
-	dark: '#b9c0c6',
-	light: '#b9c0c6',
-	hcDark: '#00000088',
-	hcLight: '#00000088'
+	dark: disabledForeground,
+	light: disabledForeground,
+	hcDark: disabledForeground,
+	hcLight: disabledForeground
 }, localize('positronTopActionBar.disabledForeground', "Positron top action bar disabled foreground color."));
 
 // The Positron top action bar separator color.
@@ -1032,10 +1032,10 @@ export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BACKGROUND = registerColor('posi
 
 // The Positron top action bar hover background color.
 export const POSITRON_TOP_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronTopActionBar.hoverBackground', {
-	dark: '#dae1ea',
+	dark: '#000000',
 	light: '#dae1ea',
-	hcDark: '#dae1ea',
-	hcLight: '#dae1ea'
+	hcDark: null,
+	hcLight: null
 }, localize('positronTopActionBar.hoverBackground', "Positron top action bar hover background color."));
 
 // The Positron top action bar text input background color.
@@ -1114,10 +1114,10 @@ export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideAct
 
 // The Positron side action bar hover background color.
 export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
-	dark: '#0c0c0d',
+	dark: '#3b4245',
 	light: '#dae1ea',
-	hcDark: '#0c0c0d',
-	hcLight: '#dae1ea'
+	hcDark: null,
+	hcLight: null
 }, localize('positronSideActionBar.hoverBackground', "Positron side action bar hover background color."));
 
 // The Positron side action bar text input background color.
