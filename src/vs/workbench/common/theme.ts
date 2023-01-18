@@ -1032,10 +1032,10 @@ export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BACKGROUND = registerColor('posi
 
 // The Positron top action bar hover background color.
 export const POSITRON_TOP_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronTopActionBar.hoverBackground', {
-	dark: '#dae1ea',
+	dark: '#000000',
 	light: '#dae1ea',
-	hcDark: '#dae1ea',
-	hcLight: '#dae1ea'
+	hcDark: null,
+	hcLight: null
 }, localize('positronTopActionBar.hoverBackground', "Positron top action bar hover background color."));
 
 // The Positron top action bar text input background color.
@@ -1114,10 +1114,10 @@ export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideAct
 
 // The Positron side action bar hover background color.
 export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
-	dark: '#0c0c0d',
+	dark: '#3b4245',
 	light: '#dae1ea',
-	hcDark: '#0c0c0d',
-	hcLight: '#dae1ea'
+	hcDark: null,
+	hcLight: null
 }, localize('positronSideActionBar.hoverBackground', "Positron side action bar hover background color."));
 
 // The Positron side action bar text input background color.
