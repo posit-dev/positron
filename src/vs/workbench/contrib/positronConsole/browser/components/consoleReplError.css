@@ -2,12 +2,12 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-input {
+.console-repl-error {
 	padding: 8px;
 	border-bottom: 1px solid #cccccc;
 }
 
-.console-repl-input .timestamp {
+.console-repl-error .timestamp {
 	font-size: 9px;
 
 	user-select: none;

@@ -11,6 +11,7 @@ import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
 import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
 import { ConsoleReplItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemInput';
+import { ConsoleReplItemError } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemError';
 import { ConsoleReplItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemOutput';
 import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
 
@@ -39,6 +40,9 @@ export const ConsoleRepl = ({ hidden, consoleReplInstance }: ConsoleReplProps) =
 			console.log(`ConsoleRepl onDidChangeRuntimeState ${runtimeState}`);
 		}));
 
+		// Get history.
+		// Replay history as ConsoleReplItems.
+
 		// Add the onDidCompleteStartup event handler.
 		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemStartupBanner({ key: generateUuid(), timestamp: new Date(), languageRuntimeInfo })]);
@@ -56,18 +60,25 @@ export const ConsoleRepl = ({ hidden, consoleReplInstance }: ConsoleReplProps) =
 
 		// Add the onDidReceiveRuntimeMessageError event handler.
 		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
+			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemError({ key: languageRuntimeMessageError.id, timestamp: new Date(), languageRuntimeMessageError })]);
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePrompt event handler.
 		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+			console.log('onDidReceiveRuntimeMessagePrompt');
+			console.log(languageRuntimeMessagePrompt);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageState event handler.
 		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+			console.log('onDidReceiveRuntimeMessageState');
+			console.log(languageRuntimeMessageState);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageEvent event handler.
 		disposableStore.add(consoleReplInstance.replInstance.runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+			console.log('onDidReceiveRuntimeMessageEvent');
+			console.log(languageRuntimeMessageEvent);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
