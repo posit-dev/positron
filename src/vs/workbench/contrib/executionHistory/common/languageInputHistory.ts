@@ -78,11 +78,7 @@ export class LanguageInputHistory extends Disposable {
 	 * every execution.
 	 */
 	private delayedSave(): void {
-		// Reset any existing timer
-		if (this._timerId) {
-			clearTimeout(this._timerId);
-			this._timerId = undefined;
-		}
+		this.clearSaveTimer();
 
 		// Set a new 10 second timer
 		this._timerId = setTimeout(() => {
@@ -110,12 +106,23 @@ export class LanguageInputHistory extends Disposable {
 		return parsedEntries.concat(this._pendingEntries);
 	}
 
+	/**
+	 * Clears the input history for this language.
+	 */
+	public clear() {
+		// Clear any running save timer
+		this.clearSaveTimer();
+
+		// Clear any pending entries to ensure they never get flushed to storage
+		this._pendingEntries.splice(0, this._pendingEntries.length);
+
+		// Clear the underlying storage
+		this._storageService.remove(this._storageKey, StorageScope.PROFILE);
+	}
+
 	private save(forShutdown: boolean): void {
-		// Reset the timer if it's still running
-		if (this._timerId) {
-			clearTimeout(this._timerId);
-			this._timerId = undefined;
-		}
+		// Clear any running save timer
+		this.clearSaveTimer();
 
 		if (this._pendingEntries.length === 0) {
 			// Nothing to save
@@ -170,6 +177,16 @@ export class LanguageInputHistory extends Disposable {
 
 		// Clear the pending entries now that they've been flushed to storage.
 		this._pendingEntries.splice(0, this._pendingEntries.length);
+	}
+
+	/**
+	 * Clears the save timer if it's running.
+	 */
+	private clearSaveTimer(): void {
+		if (this._timerId) {
+			clearTimeout(this._timerId);
+			this._timerId = undefined;
+		}
 	}
 
 	public override dispose() {
