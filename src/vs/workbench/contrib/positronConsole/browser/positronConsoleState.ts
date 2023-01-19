@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { IReplService } from 'vs/workbench/contrib/repl/browser/repl';
+import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
 import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 

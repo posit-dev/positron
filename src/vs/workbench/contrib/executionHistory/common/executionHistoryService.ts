@@ -63,6 +63,13 @@ export interface IExecutionHistoryService {
 	getInputEntries(languageId: string): IInputHistoryEntry[];
 
 	/**
+	 * Removes (clears) all the the input history entries for a given language.
+	 *
+	 * @param languageId The ID of the language to clear input history for
+	 */
+	clearInputEntries(languageId: string): void;
+
+	/**
 	 * Gets the execution history for a given language runtime. This is
 	 * effectively the execution history for a specific console tab, so it is
 	 * both workspace and machine scoped.

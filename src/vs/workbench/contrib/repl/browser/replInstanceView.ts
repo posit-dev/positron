@@ -8,7 +8,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
 import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ReplCell, ReplCellState } from 'vs/workbench/contrib/repl/browser/replCell';
-import { IReplInstance } from 'vs/workbench/contrib/repl/browser/repl';
+import { IReplInstance } from 'vs/workbench/contrib/repl/common/repl';
 import { ILanguageRuntime, ILanguageRuntimeMessagePrompt, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ReplStatusMessage } from 'vs/workbench/contrib/repl/browser/replStatusMessage';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
