@@ -12,6 +12,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { RuntimeExecutionHistory } from 'vs/workbench/contrib/executionHistory/common/runtimeExecutionHistory';
 import { LanguageInputHistory } from 'vs/workbench/contrib/executionHistory/common/languageInputHistory';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { registerHistoryActions } from 'vs/workbench/contrib/executionHistory/common/executionHistoryActions';
 
 /**
  * Service that manages execution histories for all runtimes.
@@ -46,17 +47,23 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		});
 	}
 
+	/**
+	 * Clear the input history for the given language (remove all entries)
+	 *
+	 * @param languageId Language ID to clear input history for
+	 */
+	clearInputEntries(languageId: string): void {
+		this.getInputHistory(languageId).clear();
+	}
+
+	/**
+	 * Get the input history for the given language.
+	 *
+	 * @param languageId Language ID to get input history for
+	 * @returns Input history for the given language, as an array of input history entries.
+	 */
 	getInputEntries(languageId: string): IInputHistoryEntry[] {
-		if (this._inputHistories.has(languageId)) {
-			// We have a live input history recorder for this language; ask it for entries
-			return this._inputHistories.get(languageId)?.getInputHistory() || [];
-		} else {
-			// No live input history recorder; try to load from storage (and
-			// cache the input history recorder for later use)
-			const history = new LanguageInputHistory(languageId, this._storageService, this._logService, this._configurationService);
-			this._inputHistories.set(languageId, history);
-			return history.getInputHistory();
-		}
+		return this.getInputHistory(languageId).getInputHistory();
 	}
 
 	private beginRecordingHistory(runtime: ILanguageRuntime): void {
@@ -67,18 +74,9 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			this._register(history);
 		}
 
-		// Same for the input history of the associated language
-		if (this._inputHistories.has(runtime.metadata.language)) {
-			// If we already have an input history, attach the runtime to it
-			const history = this._inputHistories.get(runtime.metadata.language);
-			history?.attachToRuntime(runtime);
-		} else {
-			// Don't have an input history yet; create one and attach the runtime
-			const history = new LanguageInputHistory(runtime.metadata.language, this._storageService, this._logService, this._configurationService);
-			history.attachToRuntime(runtime);
-			this._inputHistories.set(runtime.metadata.language, history);
-			this._register(history);
-		}
+		// Attach the runtime to an input history recorder for the language,
+		// creating one if necessary
+		this.getInputHistory(runtime.metadata.language).attachToRuntime(runtime);
 	}
 
 	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[] {
@@ -98,6 +96,24 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			throw new Error(`Can't get entries; unknown runtime ID: ${runtimeId}`);
 		}
 	}
+
+	/**
+	 * Gets the input history for the given language ID, creating it if necessary.
+	 *
+	 * @param languageId The language ID for which to get the input history
+	 * @param callback The callback to execute with the input history
+	 */
+	private getInputHistory(languageId: string): LanguageInputHistory {
+		if (this._inputHistories.has(languageId)) {
+			return this._inputHistories.get(languageId)!;
+		}
+		const history = new LanguageInputHistory(languageId, this._storageService, this._logService, this._configurationService);
+		this._inputHistories.set(languageId, history);
+		this._register(history);
+		return history;
+	}
 }
 
 registerSingleton(IExecutionHistoryService, ExecutionHistoryService, InstantiationType.Delayed);
+
+registerHistoryActions();
