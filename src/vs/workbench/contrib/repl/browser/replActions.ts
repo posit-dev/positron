@@ -4,11 +4,11 @@
 
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { localize } from 'vs/nls';
-import { ReplCommandId, REPL_ACTION_CATEGORY } from 'vs/workbench/contrib/repl/common/repl';
+import { ReplCommandId, REPL_ACTION_CATEGORY } from 'vs/workbench/contrib/repl/common/replCommands';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { Codicon } from 'vs/base/common/codicons';
-import { ICreateReplOptions, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
+import { ICreateReplOptions, IReplService } from 'vs/workbench/contrib/repl/common/repl';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IEditor } from 'vs/editor/common/editorCommon';

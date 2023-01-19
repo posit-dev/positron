@@ -15,7 +15,7 @@ import { IThemeService, registerThemingParticipant } from 'vs/platform/theme/com
 import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { ReplInstanceView } from 'vs/workbench/contrib/repl/browser/replInstanceView';
-import { IReplInstance, IReplService } from 'vs/workbench/contrib/repl/browser/repl';
+import { IReplInstance, IReplService } from 'vs/workbench/contrib/repl/common/repl';
 import { editorErrorBackground, editorErrorForeground, textSeparatorForeground, iconForeground, descriptionForeground } from 'vs/platform/theme/common/colorRegistry';
 
 /**
