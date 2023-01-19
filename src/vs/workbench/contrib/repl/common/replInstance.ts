@@ -16,7 +16,7 @@ export class ReplInstance extends Disposable implements IReplInstance {
 	private readonly _onDidExecuteCode = this._register(new Emitter<string>);
 	readonly onDidExecuteCode: Event<string> = this._onDidExecuteCode.event;
 
-	history: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000);
+	readonly history: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000);
 
 	constructor(
 		readonly languageId: string,
@@ -29,7 +29,7 @@ export class ReplInstance extends Disposable implements IReplInstance {
 	}
 
 	clearHistory(): void {
-		this.history = new HistoryNavigator2([''], 1000);
+		this.history.clear();
 	}
 
 	executeCode(code: string): void {
