@@ -69,9 +69,9 @@ export class ReplViewPane extends ViewPane {
 
 		// Listen for focus events from ViewPane
 		this.onDidFocus(() => {
-			if (this._activeReplInstanceEntry) {
-				this._activeReplInstanceEntry.replInstanceView.takeFocus();
-			}
+			// if (this._activeReplInstanceEntry) {
+			// 	this._activeReplInstanceEntry.replInstanceView.takeFocus();
+			// }
 		});
 	}
 
