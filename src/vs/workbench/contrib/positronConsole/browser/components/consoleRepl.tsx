@@ -14,6 +14,7 @@ import { ConsoleReplItemInput } from 'vs/workbench/contrib/positronConsole/brows
 import { ConsoleReplItemError } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemError';
 import { ConsoleReplItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemOutput';
 import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
+import { ConsoleReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplLiveInput';
 
 // ConsoleReplProps interface.
 interface ConsoleReplProps {
@@ -91,6 +92,7 @@ export const ConsoleRepl = ({ hidden, consoleReplInstance }: ConsoleReplProps) =
 			{consoleReplItems.map(consoleReplItem =>
 				consoleReplItem.element
 			)}
+			<ConsoleReplLiveInput />
 		</div>
 	);
 };

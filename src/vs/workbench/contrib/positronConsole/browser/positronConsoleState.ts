@@ -4,16 +4,22 @@
 
 import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IModelService } from 'vs/editor/common/services/model';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
-import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
+import { ILanguageService } from 'vs/editor/common/languages/language';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.
  */
 export interface PositronConsoleServices {
+	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly languageService: ILanguageService;
+	readonly modelService: IModelService;
 	readonly replService: IReplService;
 }
 

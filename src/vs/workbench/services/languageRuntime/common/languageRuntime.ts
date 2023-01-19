@@ -283,7 +283,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// TODO@softwarenerd - I think this should be moved out of this layer.
 			// Execute the Focus into Console command using the command service
 			// to expose the REPL for the new runtime.
-			this._commandService.executeCommand('workbench.panel.console.focus');
+			this._commandService.executeCommand('workbench.panel.positronConsole.focus');
 
 			// Change the active runtime.
 			this._activeRuntime = runtime;
