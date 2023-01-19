@@ -206,7 +206,7 @@ export class ReplInput extends Disposable {
 	 * Drive focus to the text editor
 	 */
 	focus() {
-		this._editor.focus();
+		//this._editor.focus();
 	}
 
 	/**
@@ -256,7 +256,7 @@ export class ReplInput extends Disposable {
 	 * @returns The focus state of the editor.
 	 */
 	hasFocus(): boolean {
-		return this._editor.hasTextFocus();
+		return false;//return this._editor.hasTextFocus();
 	}
 
 	/**

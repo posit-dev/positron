@@ -73,13 +73,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param errorBehavior The error behavior to conform to.
 	 */
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
-		const busy: positron.LanguageRuntimeState = {
+
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Busy
-		};
-		this._onDidReceiveRuntimeMessage.fire(busy);
+		} as positron.LanguageRuntimeState);
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 
@@ -97,26 +97,23 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Add the command to the history
 		this._history.push([code, result]);
 
-		const output: positron.LanguageRuntimeOutput = {
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: {
 				'text/plain': result
 			} as any,
-		};
-
-		this._onDidReceiveRuntimeMessage.fire(output);
+		} as positron.LanguageRuntimeOutput);
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
 
-		const idle: positron.LanguageRuntimeState = {
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Idle
-		};
-		this._onDidReceiveRuntimeMessage.fire(idle);
+		} as positron.LanguageRuntimeState);
 	}
 
 	/**
@@ -200,7 +197,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#endregion LanguageRuntime Implementation
 
 	//#region Private Methods
-
 
 	//#endregion Private Methods
 }
