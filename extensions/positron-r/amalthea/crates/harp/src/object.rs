@@ -43,10 +43,8 @@ unsafe fn protect(object: SEXP) -> SEXP {
 
     // Initialize the precious list.
     PRECIOUS_LIST_ONCE.call_once(|| {
-        let tail = Rf_protect(Rf_cons(R_NilValue, R_NilValue));
-        let precious_list = Rf_protect(Rf_cons(R_NilValue, tail));
+        let precious_list = Rf_cons(R_NilValue, Rf_cons(R_NilValue, R_NilValue));
         R_PreserveObject(precious_list);
-        Rf_unprotect(2);
         PRECIOUS_LIST = Some(precious_list);
     });
 
