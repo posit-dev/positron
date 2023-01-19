@@ -67,3 +67,74 @@ macro_rules! r_lock {
     }}
 
 }
+
+#[macro_export]
+macro_rules! r_pairlist_one {
+
+    ($x:expr, $tail:expr) => {{
+
+        enum MaybeNamed {
+            UnNamed(SEXP),
+            Named((&'static str, SEXP))
+        }
+
+        impl From<SEXP> for MaybeNamed {
+            fn from(x: SEXP) -> Self {
+                MaybeNamed::UnNamed(x)
+            }
+        }
+
+        impl From<(&'static str, SEXP)> for MaybeNamed {
+        fn from(x: (&'static str, SEXP)) -> Self {
+                MaybeNamed::Named(x)
+            }
+        }
+
+        let maybe_named : MaybeNamed = $x.into();
+
+        let value: SEXP ;
+        let mut tag: &str = "";
+
+        match maybe_named {
+            MaybeNamed::UnNamed(x) => {
+                value = x;
+            }
+
+            MaybeNamed::Named(tuple) => {
+                tag = tuple.0;
+                value = tuple.1;
+            }
+        }
+
+        let mut head = Rf_protect(value);
+        head = Rf_cons(head, $tail);
+        if !tag.is_empty() {
+            SET_TAG(head, r_symbol!(tag))
+        }
+        Rf_unprotect(1);
+
+        head
+
+    }};
+}
+
+#[macro_export]
+macro_rules! r_pairlist {
+    ($head:expr) => {{
+        crate::r_pairlist_one!($head, R_NilValue)
+    }};
+
+    ($head:expr, $($dots:expr),+) => {{
+        crate::r_pairlist_one!($head, r_pairlist!($($dots),+))
+    }};
+
+}
+
+#[macro_export]
+macro_rules! r_lang {
+    ($($dots:expr),+) => {{
+        let call = r_pairlist!($($dots),+);
+        SET_TYPEOF(call, LANGSXP as i32);
+        call
+    }};
+}

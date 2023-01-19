@@ -275,5 +275,94 @@ mod tests {
 
     }}
 
+    #[test]
+    fn test_listlang_macros() { r_test! {
+        // use crate::r_lang;
+        use crate::r_pairlist;
+
+        let mut protect = RProtect::new();
+        let a = protect.add(r_symbol!("aaa"));
+        let b = protect.add(Rf_ScalarInteger(1));
+        let c = protect.add(Rf_ScalarInteger(2));
+
+        // not named
+        let list_not_named_1 = protect.add(r_pairlist!(a));
+        assert_eq!(Rf_length(list_not_named_1), 1);
+        assert_eq!(CAR(list_not_named_1), a);
+        assert_eq!(TAG(list_not_named_1), R_NilValue);
+
+        let list_not_named_2 = protect.add(r_pairlist!(a, b));
+        assert_eq!(Rf_length(list_not_named_2), 2);
+        assert_eq!(CAR(list_not_named_2), a);
+        assert_eq!(CADR(list_not_named_2), b);
+        assert_eq!(TAG(list_not_named_2), R_NilValue);
+        assert_eq!(TAG(CDR(list_not_named_2)), R_NilValue);
+
+        let list_not_named_3 = protect.add(r_pairlist!(a, b, c));
+        assert_eq!(Rf_length(list_not_named_3), 3);
+        assert_eq!(CAR(list_not_named_3), a);
+        assert_eq!(CADR(list_not_named_3), b);
+        assert_eq!(CADDR(list_not_named_3), c);
+        assert_eq!(TAG(list_not_named_3), R_NilValue);
+        assert_eq!(TAG(CDR(list_not_named_3)), R_NilValue);
+        assert_eq!(TAG(CDDR(list_not_named_3)), R_NilValue);
+
+        // named
+        let named_list_1 = protect.add(r_pairlist!(
+            ("aa", a)
+        ));
+        assert_eq!(Rf_length(named_list_1), 1);
+        assert_eq!(CAR(named_list_1), a);
+        assert_eq!(TAG(named_list_1), r_symbol!("aa"));
+
+        let named_list_2 = protect.add(r_pairlist!(
+            ("aa", a),
+            ("bb", b)
+        ));
+        assert_eq!(Rf_length(named_list_2), 2);
+        assert_eq!(CAR(named_list_2), a);
+        assert_eq!(CADR(named_list_2), b);
+        assert_eq!(TAG(named_list_2), r_symbol!("aa"));
+        assert_eq!(TAG(CDR(named_list_2)), r_symbol!("bb"));
+
+        let named_list_3 = protect.add(r_pairlist!(
+            ("aa", a),
+            ("bb", b),
+            ("cc", c)
+        ));
+        assert_eq!(Rf_length(named_list_3), 3);
+        assert_eq!(CAR(named_list_3), a);
+        assert_eq!(CADR(named_list_3), b);
+        assert_eq!(CADDR(named_list_3), c);
+        assert_eq!(TAG(named_list_3), r_symbol!("aa"));
+        assert_eq!(TAG(CDR(named_list_3)), r_symbol!("bb"));
+        assert_eq!(TAG(CDDR(named_list_3)), r_symbol!("cc"));
+
+        // mixed named and unnamed
+        let mixed_2 = protect.add(r_pairlist!(
+            a,
+            ("bb", b)
+        ));
+        assert_eq!(Rf_length(mixed_2), 2);
+        assert_eq!(CAR(mixed_2), a);
+        assert_eq!(CADR(mixed_2), b);
+        assert_eq!(TAG(mixed_2), R_NilValue);
+        assert_eq!(TAG(CDR(mixed_2)), r_symbol!("bb"));
+
+        let mixed_3 = protect.add(r_pairlist!(
+            ("aa", a),
+            b,
+            ("cc", c)
+        ));
+        assert_eq!(Rf_length(mixed_3), 3);
+        assert_eq!(CAR(mixed_3), a);
+        assert_eq!(CADR(mixed_3), b);
+        assert_eq!(CADDR(mixed_3), c);
+        assert_eq!(TAG(mixed_3), r_symbol!("aa"));
+        assert_eq!(TAG(CDR(mixed_3)), R_NilValue);
+        assert_eq!(TAG(CDDR(mixed_3)), r_symbol!("cc"));
+
+    }}
+
 }
 
