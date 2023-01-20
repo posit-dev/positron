@@ -24,6 +24,9 @@ export interface JupyterMessagePacket {
 	/** The ID of the message that triggered this one */
 	originId: string;
 
+	/** The date and time the message was emitted, in ISO 8061 format */
+	when: string;
+
 	/** The message itself */
 	message: JupyterMessageSpec;
 

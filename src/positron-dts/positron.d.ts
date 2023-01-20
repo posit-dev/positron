@@ -139,6 +139,9 @@ declare module 'positron' {
 		/** The ID of this event's parent (the event that caused it), if applicable */
 		parent_id: string;
 
+		/** The message's date and time, in ISO 8601 format */
+		when: string;
+
 		/** The type of event */
 		type: LanguageRuntimeMessageType;
 	}
