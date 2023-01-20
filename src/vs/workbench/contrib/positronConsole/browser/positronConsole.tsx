@@ -27,8 +27,8 @@ export interface PositronConsoleProps extends PositronConsoleServices {
 	readonly contextKeyService: IContextKeyService;
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
-	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: IReactComponentContainer;
+	readonly workbenchLayoutService: IWorkbenchLayoutService;
 }
 
 /**

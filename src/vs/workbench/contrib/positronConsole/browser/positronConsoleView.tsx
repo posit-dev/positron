@@ -24,6 +24,7 @@ import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/po
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 
 /**
  * PositronConsoleViewPane class.
@@ -74,33 +75,40 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	/**
 	 * Constructor.
 	 * @param options View pane options.
+	 * @param commandService The command service.
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
+	 * @param executionHistoryService The execution history service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
+	 * @param languageRuntimeService The language runtime service.
+	 * @param modelService The model service.
 	 * @param openerService The opener service.
+	 * @param positronConsoleService The Positron console service.
 	 * @param telemetryService The telemetry service.
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
+	 * @param workbenchLayoutService The workbench layout service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@ICommandService private readonly _commandService: ICommandService,
+		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@ILanguageService private readonly _languageService: ILanguageService,
-		@IModelService private readonly _modelService: IModelService,
+		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
+		@ILanguageService private readonly languageService: ILanguageService,
+		@IModelService private readonly modelService: IModelService,
 		@IOpenerService openerService: IOpenerService,
-		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
+		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService
+		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
@@ -112,7 +120,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			// 	this._activeReplInstanceEntry.replInstanceView.takeFocus();
 			// }
 		});
-
 	}
 
 	/**
@@ -144,18 +151,19 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		this._positronReactRenderer = new PositronReactRenderer(this._positronConsoleContainer);
 		this._positronReactRenderer.render(
 			<PositronConsole
-				instantiationService={this.instantiationService}
-				commandService={this._commandService}
+				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				executionHistoryService={this.executionHistoryService}
+				instantiationService={this.instantiationService}
 				keybindingService={this.keybindingService}
-				languageRuntimeService={this._languageRuntimeService}
-				languageService={this._languageService}
-				layoutService={this._layoutService}
-				modelService={this._modelService}
+				languageRuntimeService={this.languageRuntimeService}
+				languageService={this.languageService}
+				modelService={this.modelService}
+				positronConsoleService={this.positronConsoleService}
+				workbenchLayoutService={this.workbenchLayoutService}
 				reactComponentContainer={this}
-				positronConsoleService={this._positronConsoleService}
 			/>
 		);
 	}
