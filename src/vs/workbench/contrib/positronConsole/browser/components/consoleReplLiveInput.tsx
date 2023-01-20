@@ -4,10 +4,11 @@
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
+import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
@@ -22,10 +23,13 @@ import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/con
 import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
 import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditorWidget';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
+import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
+	consoleReplInstance: ConsoleReplInstance;
 }
 
 /**
@@ -37,15 +41,9 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const ref = useRef<HTMLDivElement>(undefined!);
-	const [editor, setEditor] = useState<CodeEditorWidget>(undefined!);
 
+	// Main useEffect.
 	useEffect(() => {
-		console.log('*****************************************************************');
-		console.log('*****************************************************************');
-		console.log('*****************************************************************');
-		console.log('*****************************************************************');
-		console.log('*****************************************************************');
-
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
@@ -74,13 +72,15 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 		disposableStore.add(editor);
 
 		// Form URI for input control
+		const foo = generateUuid();
 		const uri = URI.from({
 			scheme: Schemas.inMemory,
-			path: `/repl-r-1` // ${this._language}-${this._handle}
+			path: `/repl-${props.consoleReplInstance.positronConsoleInstance.runtime.metadata.language}-${foo}`
 		});
 
-		// Create language selector
-		const languageId = positronConsoleContext.languageService.getLanguageIdByLanguageName('r');
+
+		// Create language selection.
+		const languageId = positronConsoleContext.languageService.getLanguageIdByLanguageName(props.consoleReplInstance.positronConsoleInstance.runtime.metadata.language);
 		const languageSelection = positronConsoleContext.languageService.createById(languageId);
 
 		// Create text model; this is the backing store for the Monaco editor that receives
@@ -91,10 +91,32 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 			false               // this widget is not simple
 		);
 
+		// // Ask the kernel to determine whether the code fragment is a complete expression
+		// this._runtime.isCodeFragmentComplete(code).then((result) => {
+		// 	if (result === RuntimeCodeFragmentStatus.Complete) {
+		// 		// Code is complete; we can run it as is
+		// 		this.executeCode(code);
+		// 	} else if (result === RuntimeCodeFragmentStatus.Incomplete) {
+		// 		// Don't do anything if the code is incomplete; the user will just see
+		// 		// a new line in the input area
+		// 	} else if (result === RuntimeCodeFragmentStatus.Invalid) {
+		// 		// If the code is invalid (contains syntax errors), warn but
+		// 		// execute it anyway (so the user can see a syntax error from
+		// 		// the interpreter)
+		// 		this._logService.warn(`Execute invalid code fragment '${code}'`);
+		// 		this.executeCode(code);
+		// 	} else if (result === RuntimeCodeFragmentStatus.Unknown) {
+		// 		// If we can't determine the status, warn but execute it anyway
+		// 		this._logService.warn(`Could not determine fragment completion status for '${code}'`);
+		// 		this.executeCode(code);
+		// 	}
+		// });
+
 		editor.setModel(textModel);
 		editor.onKeyDown((e: IKeyboardEvent) => {
-			console.log(`onKeyDown: hasTextFocus ${editor.hasTextFocus()} code: ${editor.getValue()}`);
 			if (e.keyCode === KeyCode.Enter) {
+				const id = generateUuid();
+				props.consoleReplInstance.positronConsoleInstance.runtime.execute(editor.getValue(), id, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Continue);
 				// // If the user was holding down Shift, don't submit
 				// if (e.shiftKey) {
 				// 	return;
@@ -124,7 +146,7 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 				if (n < 2) {
 					return '>';
 				}
-				return '';
+				return '>>';
 			},
 			minimap: {
 				enabled: false
@@ -174,19 +196,23 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 		// scrollable region (consisting of all REPL cells)
 		// this.onMouseWheel = this._editor.onMouseWheel;
 
-		setInterval(() => {
+		// For now, the best want to get the editor going is this timeout.
+		const startupTimeout = setTimeout(() => {
 			editor.layout();
 			editor.render(true);
 			editor.focus();
-		}, 100);
+		}, 500);
 
 		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
+		return () => {
+			clearTimeout(startupTimeout);
+			disposableStore.dispose();
+		};
 	}, []);
 
 	// Render.
 	return (
-		<div className='console-repl-live-input' onClick={() => ref.current.focus()}>
+		<div className='console-repl-live-input'>
 			<div ref={ref} className='container'></div>
 		</div>
 	);

@@ -22,7 +22,7 @@ export const ConsoleReplMenuButton = () => {
 		const actions: IAction[] = [];
 		positronConsoleContext.consoleReplInstances.map(consoleReplInstance => {
 			actions.push({
-				id: consoleReplInstance.replInstance.runtime.metadata.id,
+				id: consoleReplInstance.positronConsoleInstance.runtime.metadata.id,
 				label: consoleReplInstance.displayName,
 				tooltip: '',
 				class: undefined,

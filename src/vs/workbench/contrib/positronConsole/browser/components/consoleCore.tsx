@@ -36,7 +36,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 			<div className='console-repls-container' style={{ height: props.height - 32 }}>
 				{positronConsoleContext.consoleReplInstances.map(consoleReplInstance =>
 					<ConsoleRepl
-						key={consoleReplInstance.replInstance.runtime.metadata.id}
+						key={consoleReplInstance.positronConsoleInstance.runtime.metadata.id}
 						hidden={consoleReplInstance !== positronConsoleContext.currentConsoleReplInstance}
 						consoleReplInstance={consoleReplInstance} />
 				)}
