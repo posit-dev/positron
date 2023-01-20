@@ -15,7 +15,6 @@ import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
-// import { MenuPreventer } from 'vs/workbench/contrib/codeEditor/browser/menuPreventer';
 import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
 import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
@@ -51,7 +50,6 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 		const codeEditorWidgetOptions: ICodeEditorWidgetOptions = {
 			isSimpleWidget: false,
 			contributions: EditorExtensionsRegistry.getSomeEditorContributions([
-				// MenuPreventer.ID,
 				SelectionClipboardContributionID,
 				ContextMenuController.ID,
 				SuggestController.ID,
@@ -61,8 +59,6 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 				MarkerController.ID,
 			])
 		};
-
-		console.log(`We are here and ref is ${ref.current}`);
 
 		const editor = positronConsoleContext.instantiationService.createInstance(
 			CodeEditorWidget,
@@ -78,7 +74,6 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 			path: `/repl-${props.consoleReplInstance.positronConsoleInstance.runtime.metadata.language}-${foo}`
 		});
 
-
 		// Create language selection.
 		const languageId = positronConsoleContext.languageService.getLanguageIdByLanguageName(props.consoleReplInstance.positronConsoleInstance.runtime.metadata.language);
 		const languageSelection = positronConsoleContext.languageService.createById(languageId);
@@ -90,6 +85,8 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 			uri,          		// resource URI
 			false               // this widget is not simple
 		);
+
+		textModel.setValue('');
 
 		// // Ask the kernel to determine whether the code fragment is a complete expression
 		// this._runtime.isCodeFragmentComplete(code).then((result) => {
@@ -173,8 +170,6 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 		// Auto-grow the editor as the internal content size changes (i.e. make
 		// it grow vertically as the user enters additional lines of input)
 		editor.onDidContentSizeChange((e) => {
-			console.log(`++++++++++++++++++++ onDidContentSizeChange was called ${e.contentWidth}x${e.contentHeight}`);
-
 			// Don't attempt to measure while input area is hidden
 			if (ref.current.classList.contains('repl-editor-hidden')) {
 				return;

@@ -86,13 +86,15 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
+	const keyFoo = generateUuid();
+
 	// Render.
 	return (
 		<div className='console-repl' hidden={props.hidden}>
 			{consoleReplItems.map(consoleReplItem =>
 				consoleReplItem.element
 			)}
-			<ConsoleReplLiveInput {...props} />
+			<ConsoleReplLiveInput key={keyFoo} {...props} />
 		</div>
 	);
 };
