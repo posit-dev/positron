@@ -48,7 +48,7 @@ export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
-		positronConsoleContext.currentConsoleReplInstance?.replInstance.clearRepl();
+		positronConsoleContext.currentConsoleReplInstance?.positronConsoleInstance.clear();
 	};
 
 	// Render.
