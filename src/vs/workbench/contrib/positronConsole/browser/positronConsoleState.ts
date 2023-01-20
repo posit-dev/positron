@@ -11,11 +11,13 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
+import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.
  */
 export interface PositronConsoleServices {
+	readonly executionHistoryService: IExecutionHistoryService;
 	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly languageService: ILanguageService;
