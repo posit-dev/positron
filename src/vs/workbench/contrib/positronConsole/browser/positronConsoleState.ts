@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicat
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IModelService } from 'vs/editor/common/services/model';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ConsoleReplInstance } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplInstance';
 
@@ -20,7 +20,7 @@ export interface PositronConsoleServices {
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly languageService: ILanguageService;
 	readonly modelService: IModelService;
-	readonly replService: IReplService;
+	readonly positronConsoleService: IPositronConsoleService;
 }
 
 /**
@@ -47,22 +47,22 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 		const disposableStore = new DisposableStore();
 
 		// If there are already repl instances in the repl service, create their repl instance entries.
-		services.replService.instances.forEach((replInstance, index, replInstances) => {
+		services.positronConsoleService.instances.forEach((replInstance, index, replInstances) => {
 		});
 
 		// Add the onDidStartRepl event handler.
-		disposableStore.add(services.replService.onDidStartRepl(replInstance => {
+		disposableStore.add(services.positronConsoleService.onDidStartConsole(positronConsoleInstance => {
 			// Create and add the Positron language environment.
-			const consoleInstance = new ConsoleReplInstance(replInstance);
+			const consoleInstance = new ConsoleReplInstance(positronConsoleInstance);
 			setConsoleReplInstances(consoleInstances => [...consoleInstances, consoleInstance]);
 		}));
 
 		// Add the onDidChangeActiveRepl event handler.
-		disposableStore.add(services.replService.onDidChangeActiveRepl(replInstance => {
-			if (!replInstance) {
+		disposableStore.add(services.positronConsoleService.onDidChangeActiveConsole(positronConsoleInstance => {
+			if (!positronConsoleInstance) {
 				setCurrentConsoleReplInstance(undefined);
 			} else {
-				setCurrentConsoleReplInstance(refConsoleReplInstances.current.find(x => x.replInstance.languageId === replInstance.languageId));
+				setCurrentConsoleReplInstance(refConsoleReplInstances.current.find(x => x.positronConsoleInstance.languageId === positronConsoleInstance.languageId));
 			}
 		}));
 

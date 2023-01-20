@@ -6,9 +6,9 @@ import 'vs/css!./positronConsoleView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
+import { IModelService } from 'vs/editor/common/services/model';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
-import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -21,9 +21,9 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IModelService } from 'vs/editor/common/services/model';
 
 /**
  * PositronConsoleViewPane class.
@@ -96,7 +96,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@IModelService private readonly _modelService: IModelService,
 		@IOpenerService openerService: IOpenerService,
-		@IReplService private readonly _replService: IReplService,
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
@@ -155,7 +155,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				layoutService={this._layoutService}
 				modelService={this._modelService}
 				reactComponentContainer={this}
-				replService={this._replService}
+				positronConsoleService={this._positronConsoleService}
 			/>
 		);
 	}
