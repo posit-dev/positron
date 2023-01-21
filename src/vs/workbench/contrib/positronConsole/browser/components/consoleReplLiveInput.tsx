@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
@@ -36,7 +36,8 @@ export interface ConsoleReplLiveInputProps {
  * @param props A ConsoleReplLiveInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
+//export const ActionBarButton = forwardRef<HTMLButtonElement, ActionBarButtonProps>((props: ActionBarButtonProps, ref) => {
+export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveInputProps>((props: ConsoleReplLiveInputProps, ref) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const [ID] = useState(++id);
@@ -196,19 +197,19 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 			},
 			glyphMargin: false,
 			lineDecorationsWidth: 0,
-			// overviewRuleBorder: false,	// Not part of IEditorOptions. Don't know what to do.
-			// enableDropIntoEditor: false,	// Not part of IEditorOptions. Don't know what to do.
+			// overviewRuleBorder: false,		// Not part of IEditorOptions. Don't know what to do.
+			// enableDropIntoEditor: false,		// Not part of IEditorOptions. Don't know what to do.
 			renderLineHighlight: 'none',
 			wordWrap: 'bounded',
-			// renderOverviewRuler: false,	// Not part of IEditorOptions. Don't know what to do.
+			// renderOverviewRuler: false,		// Not part of IEditorOptions. Don't know what to do.
 			scrollbar: {
 				vertical: 'hidden',
 				useShadows: false
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			// handleMouseWheel: false,		// Not part of IEditorOptions. Don't know what to do.
-			// alwaysConsumeMouseWheel: false, // Note: Not currently respected in updateOptions
+			// handleMouseWheel: false,			// Not part of IEditorOptions. Don't know what to do.
+			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions. Don't know what to do.
 			lineNumbersMinChars: 3,
 		};
 		codeEditorWidget.updateOptions(editorOptions);
@@ -223,7 +224,7 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 
 			// Measure the size of the content and host and size the editor to fit them
 			const contentWidth = refContainer.current.offsetWidth;
-			const contentHeight = Math.min(500, codeEditorWidget.getContentHeight());
+			const contentHeight = Math.min(2000000, codeEditorWidget.getContentHeight());
 			refContainer.current.style.width = `${contentWidth}px`;
 			refContainer.current.style.width = `100%`;
 			refContainer.current.style.height = `${contentHeight}px`;
@@ -255,8 +256,8 @@ export const ConsoleReplLiveInput = (props: ConsoleReplLiveInputProps) => {
 
 	// Render.
 	return (
-		<div className='console-repl-live-input'>
+		<div ref={ref} className='console-repl-live-input'>
 			<div ref={refContainer} className='container'></div>
 		</div>
 	);
-};
+});
