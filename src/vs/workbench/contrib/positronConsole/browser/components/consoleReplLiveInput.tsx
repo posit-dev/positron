@@ -34,7 +34,6 @@ export interface ConsoleReplLiveInputProps {
  * @param props A ConsoleReplLiveInputProps that contains the component properties.
  * @returns The rendered component.
  */
-//export const ActionBarButton = forwardRef<HTMLButtonElement, ActionBarButtonProps>((props: ActionBarButtonProps, ref) => {
 export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveInputProps>((props: ConsoleReplLiveInputProps, ref) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
