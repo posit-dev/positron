@@ -8,24 +8,20 @@ import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
 
-
-// 	readonly languageId: string;
-// 	readonly runtime: ILanguageRuntime;
-// 	readonly displayName: string;
-// 	readonly history: HistoryNavigator2<string>;
-// 	readonly onDidClearConsole: Event<void>;
-// 	readonly onDidExecuteCode: Event<string>;
-// clear(): void;
-// executeCode(code: string): void;
-
 /**
  * PositronConsoleInstance class.
  */
 export class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
 	//#region Private Properties
 
+	/**
+	 * The onDidClearConsole event emitter.
+	 */
 	private readonly _onDidClearConsoleEmitter = this._register(new Emitter<void>);
 
+	/**
+	 * The onDidExecuteCode event emitter.
+	 */
 	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<string>);
 
 	//#endregion Private Properties
@@ -54,6 +50,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		}
 	}
 
+	/**
+	 * Gets the history navigator.
+	 */
 	readonly history: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000); // TODO@softwarenerd - 1000 should come from settings.
 
 	/**
@@ -66,10 +65,17 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	readonly onDidExecuteCode: Event<string> = this._onDidExecuteCodeEmitter.event;
 
+	/**
+	 * Clears the console.
+	 */
 	clear(): void {
 		this._onDidClearConsoleEmitter.fire();
 	}
 
+	/**
+	 * Executes code.
+	 * @param code The code to execute.
+	 */
 	executeCode(code: string): void {
 		this._onDidExecuteCodeEmitter.fire(code);
 	}

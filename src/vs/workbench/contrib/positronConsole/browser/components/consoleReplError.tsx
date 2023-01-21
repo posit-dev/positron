@@ -11,7 +11,6 @@ import { ILanguageRuntimeMessageError } from 'vs/workbench/services/languageRunt
 
 // ConsoleReplErrorProps interface.
 export interface ConsoleReplErrorProps {
-	timestamp: Date;
 	languageRuntimeMessageError: ILanguageRuntimeMessageError;
 }
 
@@ -20,7 +19,7 @@ export interface ConsoleReplErrorProps {
  * @param props A ConsoleReplErrorProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplError = ({ timestamp, languageRuntimeMessageError }: ConsoleReplErrorProps) => {
+export const ConsoleReplError = ({ languageRuntimeMessageError }: ConsoleReplErrorProps) => {
 	// Hooks.
 	const replLines = useMemo(() => {
 		return replLineSplitter(languageRuntimeMessageError.message);
@@ -29,7 +28,7 @@ export const ConsoleReplError = ({ timestamp, languageRuntimeMessageError }: Con
 	// Render.
 	return (
 		<div className='console-repl-error'>
-			<div className='timestamp'>{timestamp.toLocaleTimeString()} ID: {languageRuntimeMessageError.id} PARENT-ID: {languageRuntimeMessageError.parent_id} {languageRuntimeMessageError.name}</div>
+			<div className='timestamp'>{new Date(languageRuntimeMessageError.when).toLocaleTimeString()}</div>
 			{/* <div>Traceback: {languageRuntimeMessageError.traceback}</div> */}
 			<div style={{ color: 'red' }}>
 				{replLines.map(replLine =>

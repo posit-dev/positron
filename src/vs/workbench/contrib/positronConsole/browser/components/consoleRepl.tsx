@@ -50,17 +50,17 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
 		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemOutput({ key: languageRuntimeMessageOutput.id, timestamp: new Date(), languageRuntimeMessageOutput })]);
+			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemOutput({ key: languageRuntimeMessageOutput.id, languageRuntimeMessageOutput })]);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageInput event handler.
 		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemInput({ key: languageRuntimeMessageInput.id, timestamp: new Date(), languageRuntimeMessageInput })]);
+			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemInput({ key: languageRuntimeMessageInput.id, languageRuntimeMessageInput })]);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageError event handler.
 		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemError({ key: languageRuntimeMessageError.id, timestamp: new Date(), languageRuntimeMessageError })]);
+			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemError({ key: languageRuntimeMessageError.id, languageRuntimeMessageError })]);
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePrompt event handler.
