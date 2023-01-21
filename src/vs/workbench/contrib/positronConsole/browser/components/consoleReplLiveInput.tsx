@@ -83,6 +83,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 			false               // this widget is not simple
 		);
 
+		// Attach the text model.
 		codeEditorWidget.setModel(textModel);
 
 		// // Ask the kernel to determine whether the code fragment is a complete expression
