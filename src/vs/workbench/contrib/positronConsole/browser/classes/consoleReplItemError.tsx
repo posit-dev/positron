@@ -28,11 +28,11 @@ export class ConsoleReplItemError implements ConsoleReplItem {
 
 	//#endregion Constructor
 
-	//#region ConsoleReplItem Overrides
+	//#region ConsoleReplItem Implementation
 
 	get element(): JSX.Element {
 		return <ConsoleReplError {...this._props} />;
 	}
 
-	//#endregion ConsoleReplItem Overrides
+	//#endregion ConsoleReplItem Implementation
 }
