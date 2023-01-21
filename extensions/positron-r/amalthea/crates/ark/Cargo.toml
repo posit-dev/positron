@@ -29,7 +29,7 @@ scraper = "0.13.0"
 serde = { version = "1.0.133", features = ["derive"] }
 serde_json = "1.0.59"
 stdext = { path = "../stdext" }
-tokio = { version = "1.17.0", features = ["full"] }
+tokio = { version = "1.23.1", features = ["full"] }
 tower-lsp = "0.17.0"
 tree-sitter = "0.20.6"
 tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "next" }

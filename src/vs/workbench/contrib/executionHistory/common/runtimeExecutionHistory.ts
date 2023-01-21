@@ -66,7 +66,7 @@ export class RuntimeExecutionHistory extends Disposable {
 				// Create a new entry
 				const entry: IExecutionHistoryEntry<string> = {
 					id: message.parent_id,
-					when: Date.now(),
+					when: Date.parse(message.when),
 					input: message.code,
 					outputType: '',
 					output: '',
@@ -97,7 +97,7 @@ export class RuntimeExecutionHistory extends Disposable {
 					// a new entry.
 					const entry: IExecutionHistoryEntry<string> = {
 						id: message.parent_id,
-						when: Date.now(),
+						when: Date.parse(message.when),
 						input: '',
 						outputType: 'text',
 						output: outputText,
