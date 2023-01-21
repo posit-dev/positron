@@ -6,6 +6,7 @@ import 'vs/css!./positronConsoleView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
+import { ILogService } from 'vs/platform/log/common/log';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
@@ -83,6 +84,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param languageRuntimeService The language runtime service.
+	 * @param languageService The language service.
+	 * @param logService The log service.
 	 * @param modelService The model service.
 	 * @param openerService The opener service.
 	 * @param positronConsoleService The Positron console service.
@@ -102,6 +105,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService private readonly languageService: ILanguageService,
+		@ILogService private readonly logService: ILogService,
 		@IModelService private readonly modelService: IModelService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
@@ -160,6 +164,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
 				languageService={this.languageService}
+				logService={this.logService}
 				modelService={this.modelService}
 				positronConsoleService={this.positronConsoleService}
 				workbenchLayoutService={this.workbenchLayoutService}

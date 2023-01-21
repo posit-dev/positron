@@ -25,7 +25,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// If there are no console instances, render nothing.
 	// TODO@softwarenerd - Render something specific for this case. TBD.
-	if (!positronConsoleContext.consoleReplInstances.length) {
+	if (!positronConsoleContext.positronConsoleInstances.length) {
 		return null;
 	}
 
@@ -34,11 +34,11 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		<div className='console-core'>
 			<ConsoleActionBar {...props} />
 			<div className='console-repls-container' style={{ height: props.height - 32 }}>
-				{positronConsoleContext.consoleReplInstances.map(consoleReplInstance =>
+				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 					<ConsoleRepl
-						key={consoleReplInstance.positronConsoleInstance.runtime.metadata.id}
-						hidden={consoleReplInstance !== positronConsoleContext.currentConsoleReplInstance}
-						consoleReplInstance={consoleReplInstance} />
+						key={positronConsoleInstance.runtime.metadata.id}
+						hidden={positronConsoleInstance !== positronConsoleContext.currentPositronConsoleInstance}
+						positronConsoleInstance={positronConsoleInstance} />
 				)}
 			</div>
 		</div>
