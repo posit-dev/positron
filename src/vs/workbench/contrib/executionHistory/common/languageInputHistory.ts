@@ -64,7 +64,7 @@ export class LanguageInputHistory extends Disposable {
 		// When a runtime records an input, emit it to the history.
 		this._register(runtime.onDidReceiveRuntimeMessageInput(message => {
 			const entry: IInputHistoryEntry = {
-				when: Date.now(),
+				when: Date.parse(message.when),
 				input: message.code
 			};
 			this._pendingEntries.push(entry);

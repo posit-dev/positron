@@ -146,6 +146,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 					id: 'status-' + NotebookLanguageRuntime._msgCounter++,
 					parent_id: this._executingCellId,
 					state: RuntimeOnlineState.Idle,
+					when: new Date().toISOString()
 				});
 
 				// Clear the cell execution state
@@ -242,7 +243,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			this._onDidReceiveRuntimeMessageOutputEmitter.fire({
 				id: 'output-' + NotebookLanguageRuntime._msgCounter++,
 				parent_id: id,
-				data
+				data,
+				when: new Date().toISOString()
 			});
 		});
 

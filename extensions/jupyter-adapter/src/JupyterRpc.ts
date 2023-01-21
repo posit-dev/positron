@@ -36,6 +36,7 @@ export class JupyterRpc<T extends JupyterMessageSpec, U extends JupyterMessageSp
 			msgType: this.requestType,
 			originId: '',
 			message: this.request,
+			when: new Date().toISOString(),
 			socket: JupyterSockets.shell
 		};
 		k.sendMessage(packet);

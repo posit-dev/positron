@@ -77,6 +77,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
+			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Busy
 		} as positron.LanguageRuntimeState);
@@ -100,6 +101,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
+			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: {
 				'text/plain': result
@@ -111,6 +113,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
+			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Idle
 		} as positron.LanguageRuntimeState);
