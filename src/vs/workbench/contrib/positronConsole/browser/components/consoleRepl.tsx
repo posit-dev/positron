@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleRepl';
 import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
@@ -29,6 +29,7 @@ interface ConsoleReplProps {
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
 	const [consoleReplItems, setConsoleReplItems] = useState<ConsoleReplItem[]>([]);
+	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
 
 	// useEffect for appending items.
 	useEffect(() => {
@@ -85,13 +86,18 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
+	// Scroll the live input into view when the items change.
+	useEffect(() => {
+		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
+	}, [consoleReplItems]);
+
 	// Render.
 	return (
 		<div className='console-repl' hidden={props.hidden}>
 			{consoleReplItems.map(consoleReplItem =>
 				consoleReplItem.element
 			)}
-			<ConsoleReplLiveInput {...props} />
+			<ConsoleReplLiveInput ref={consoleReplLiveInputRef} {...props} />
 		</div>
 	);
 };
