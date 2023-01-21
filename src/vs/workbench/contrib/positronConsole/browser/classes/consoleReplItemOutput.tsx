@@ -28,11 +28,11 @@ export class ConsoleReplItemOutput implements ConsoleReplItem {
 
 	//#endregion Constructor
 
-	//#region ConsoleReplItem Overrides
+	//#region ConsoleReplItem Implementation
 
 	get element(): JSX.Element {
 		return <ConsoleReplOutput {...this._props} />;
 	}
 
-	//#endregion ConsoleReplItem Overrides
+	//#endregion ConsoleReplItem Implementation
 }
