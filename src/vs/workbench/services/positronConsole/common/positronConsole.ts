@@ -22,15 +22,17 @@ export interface IPositronConsoleInstance {
 
 	readonly runtime: ILanguageRuntime;
 
-	clear(): void;
+	readonly displayName: string;
 
-	executeCode(code: string): void;
+	readonly history: HistoryNavigator2<string>;
 
 	readonly onDidClearConsole: Event<void>;
 
 	readonly onDidExecuteCode: Event<string>;
 
-	readonly history: HistoryNavigator2<string>;
+	clear(): void;
+
+	executeCode(code: string): void;
 }
 
 /**
