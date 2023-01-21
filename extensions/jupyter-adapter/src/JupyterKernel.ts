@@ -412,6 +412,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			message: msg.content,
 			msgId: msg.header.msg_id,
 			msgType: msg.header.msg_type,
+			when: msg.header.date,
 			originId: msg.parent_header ? msg.parent_header.msg_id : '',
 			socket: socket
 		};
