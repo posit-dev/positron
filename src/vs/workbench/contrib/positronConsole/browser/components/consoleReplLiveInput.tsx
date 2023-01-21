@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { forwardRef, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
@@ -24,8 +24,6 @@ import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEdito
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
-let id = 0;
-
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
 	positronConsoleInstance: IPositronConsoleInstance;
@@ -40,9 +38,7 @@ export interface ConsoleReplLiveInputProps {
 export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveInputProps>((props: ConsoleReplLiveInputProps, ref) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
-	const [ID] = useState(++id);
 	const refContainer = useRef<HTMLDivElement>(undefined!);
-	const [codeEditorWidget, setCodeEditorWidget] = useState<CodeEditorWidget>(undefined!);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -68,8 +64,6 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 		// Add the code editor widget to the disposables store.
 		disposableStore.add(codeEditorWidget);
-
-		setCodeEditorWidget(codeEditorWidget);
 
 		// Create the resource URI.
 		const uri = URI.from({
@@ -251,8 +245,6 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 			disposableStore.dispose();
 		};
 	}, []);
-
-	console.log(`Rendering ConsoleReplLiveInput with ID ${ID} ${codeEditorWidget?.getId()}`);
 
 	// Render.
 	return (
