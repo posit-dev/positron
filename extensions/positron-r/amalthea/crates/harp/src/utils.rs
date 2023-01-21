@@ -21,38 +21,31 @@ use crate::vector::CharacterVector;
 use crate::vector::Vector;
 
 pub unsafe fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
+    let actual = r_typeof(object);
 
-    let actual = TYPEOF(object) as u32;
-    for candidate in expected.iter() {
-        if actual == *candidate {
-            return Ok(actual)
-        }
+    if !expected.contains(&actual) {
+        return Err(Error::UnexpectedType(actual, expected.to_vec()));
     }
 
-    Err(Error::UnexpectedType(actual, expected.to_vec()))
-
+    Ok(actual)
 }
 
 pub unsafe fn r_assert_capacity(object: SEXP, required: u32) -> Result<u32> {
-
     let actual = Rf_length(object) as u32;
     if actual < required {
         return Err(Error::UnexpectedLength(actual, required));
     }
 
     Ok(actual)
-
 }
 
 pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
-
     let actual = Rf_length(object) as u32;
     if actual != expected {
         return Err(Error::UnexpectedLength(actual, expected));
     }
 
     Ok(actual)
-
 }
 
 pub unsafe fn r_typeof(object: SEXP) -> u32 {
@@ -73,7 +66,6 @@ pub unsafe fn r_get_option<T: TryFrom<RObject, Error = Error>>(name: &str) -> Re
 pub unsafe fn r_inherits(object: SEXP, class: &str) -> bool {
     let class = CString::new(class).unwrap();
     return Rf_inherits(object, class.as_ptr()) != 0;
-
 }
 
 pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {

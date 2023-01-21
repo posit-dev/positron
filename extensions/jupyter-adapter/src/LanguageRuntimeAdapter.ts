@@ -399,6 +399,7 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Prompt,
 			prompt: req.prompt,
 			password: req.password,
@@ -415,6 +416,7 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Event,
 			name: event.name,
 			data: event.data
@@ -432,8 +434,9 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Output,
-			data: data.data as any
+			data: data.data as any,
 		} as positron.LanguageRuntimeOutput);
 	}
 
@@ -448,6 +451,7 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Error,
 			name: data.ename,
 			message: data.evalue,
@@ -466,6 +470,7 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any
 		} as positron.LanguageRuntimeOutput);
@@ -482,6 +487,7 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: data.name === 'stderr' ?
 				positron.LanguageRuntimeMessageType.Error :
 				positron.LanguageRuntimeMessageType.Output,
@@ -502,6 +508,7 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Input,
 			code: data.code
 		} as positron.LanguageRuntimeInput);
@@ -518,6 +525,7 @@ export class LanguageRuntimeAdapter
 		this._messages.fire({
 			id: message.msgId,
 			parent_id: message.originId,
+			when: message.when,
 			type: positron.LanguageRuntimeMessageType.State,
 			state: data.execution_state
 		} as positron.LanguageRuntimeState);
