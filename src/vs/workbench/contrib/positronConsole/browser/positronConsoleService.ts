@@ -6,8 +6,8 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { PositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleInstance';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, IPositronConsoleOptions, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 
 /**
@@ -22,9 +22,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 	private _activeInstance?: IPositronConsoleInstance;
 
-	private readonly _onDidStartConsole = this._register(new Emitter<IPositronConsoleInstance>);
+	private readonly _onDidStartConsoleEmitter = this._register(new Emitter<IPositronConsoleInstance>);
 
-	private readonly _onDidChangeActiveConsole = this._register(new Emitter<IPositronConsoleInstance | undefined>);
+	private readonly _onDidChangeActiveConsoleEmitter = this._register(new Emitter<IPositronConsoleInstance | undefined>);
 
 	//#endregion Private Properties
 
@@ -34,9 +34,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Constructor.
 	 */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService private readonly _languageService: ILanguageService,
-		@ILogService private _logService: ILogService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -86,10 +86,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	declare readonly _serviceBrand: undefined;
 
 	// An event that is fired when a REPL instance is started.
-	readonly onDidStartConsole = this._onDidStartConsole.event;
+	readonly onDidStartConsole = this._onDidStartConsoleEmitter.event;
 
 	// An event that is fired when the active REPL instance changes.
-	readonly onDidChangeActiveConsole = this._onDidChangeActiveConsole.event;
+	readonly onDidChangeActiveConsole = this._onDidChangeActiveConsoleEmitter.event;
 
 	// Gets the repl instances.
 	get instances(): IPositronConsoleInstance[] {
@@ -145,9 +145,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	//#region Private Methods
 
 	/**
-	 * Starts a new REPL instance.
-	 * @param runtime The language runtime to bind to the new REPL instance.
-	 * @returns The new REPL instance.
+	 * Starts a new Positron console instance.
+	 * @param runtime The language runtime to bind to the new Positron console instance.
+	 * @returns The new Positron console instance.
 	 */
 	private startConsole(runtime: ILanguageRuntime): IPositronConsoleInstance {
 		// Look up supported language ID for this runtime.
@@ -159,7 +159,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Log.
 		this._logService.trace(`Starting REPL for language runtime ${formatLanguageRuntime(runtime)}.`);
 
-		// Create the new REPL instance.
+		// Create the new Positron console instance.
 		const instance = new PositronConsoleInstance(languageId, runtime);
 
 		// Add the REPL instance to the running instances.
@@ -167,7 +167,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		this._runningInstancesByLanguageId.set(languageId, instance);
 
 		// Fire the onDidStartRepl event.
-		this._onDidStartConsole.fire(instance);
+		this._onDidStartConsoleEmitter.fire(instance);
 
 		// When the runtime exits, see if the user wants to restart it.
 		this._register(runtime.onDidChangeRuntimeState(state => {
@@ -193,7 +193,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Set the active instance and fire the onDidChangeActiveRepl event.
 		this._activeInstance = instance;
-		this._onDidChangeActiveConsole.fire(instance);
+		this._onDidChangeActiveConsoleEmitter.fire(instance);
 	}
 
 	//#endregion Private Methods

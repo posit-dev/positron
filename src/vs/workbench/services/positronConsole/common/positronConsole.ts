@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { HistoryNavigator2 } from 'vs/base/common/history';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -24,7 +23,7 @@ export interface IPositronConsoleInstance {
 
 	readonly displayName: string;
 
-	readonly history: HistoryNavigator2<string>;
+	// readonly historyNavigator: HistoryNavigator2<string>;
 
 	readonly onDidClearConsole: Event<void>;
 
