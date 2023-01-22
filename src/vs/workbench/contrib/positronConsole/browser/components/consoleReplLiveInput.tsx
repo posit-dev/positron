@@ -4,13 +4,14 @@
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { forwardRef, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
@@ -25,7 +26,6 @@ import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
@@ -50,9 +50,6 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.language);
 		if (inputHistoryEntries.length) {
-			for (const inputHistoryEntry of inputHistoryEntries) {
-				console.log(`---------------> ${inputHistoryEntry.when} ${inputHistoryEntry.input}`);
-			}
 			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries, 1000));
 		}
 
@@ -98,27 +95,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Attach the text model.
 		codeEditorWidget.setModel(textModel);
 
-		// // Ask the kernel to determine whether the code fragment is a complete expression
-		// this._runtime.isCodeFragmentComplete(code).then((result) => {
-		// 	if (result === RuntimeCodeFragmentStatus.Complete) {
-		// 		// Code is complete; we can run it as is
-		// 		this.executeCode(code);
-		// 	} else if (result === RuntimeCodeFragmentStatus.Incomplete) {
-		// 		// Don't do anything if the code is incomplete; the user will just see
-		// 		// a new line in the input area
-		// 	} else if (result === RuntimeCodeFragmentStatus.Invalid) {
-		// 		// If the code is invalid (contains syntax errors), warn but
-		// 		// execute it anyway (so the user can see a syntax error from
-		// 		// the interpreter)
-		// 		this._logService.warn(`Execute invalid code fragment '${code}'`);
-		// 		this.executeCode(code);
-		// 	} else if (result === RuntimeCodeFragmentStatus.Unknown) {
-		// 		// If we can't determine the status, warn but execute it anyway
-		// 		this._logService.warn(`Could not determine fragment completion status for '${code}'`);
-		// 		this.executeCode(code);
-		// 	}
-		// });
-
+		// Add key down handler.
 		codeEditorWidget.onKeyDown(async e => {
 			if (e.keyCode === KeyCode.UpArrow) {
 				if (refHistoryNavigator.current) {
