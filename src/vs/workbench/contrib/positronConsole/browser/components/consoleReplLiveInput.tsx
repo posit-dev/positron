@@ -4,12 +4,13 @@
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
@@ -20,9 +21,11 @@ import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetCon
 import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
 import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
@@ -38,10 +41,20 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const refContainer = useRef<HTMLDivElement>(undefined!);
+	const [_, setHistoryNavigator, refHistoryNavigator] = useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Build the history entries, if there is input history.
+		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.language);
+		if (inputHistoryEntries.length) {
+			for (const inputHistoryEntry of inputHistoryEntries) {
+				console.log(`---------------> ${inputHistoryEntry.when} ${inputHistoryEntry.input}`);
+			}
+			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries, 1000));
+		}
 
 		// Create the code editor widget.
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
@@ -107,7 +120,34 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// });
 
 		codeEditorWidget.onKeyDown(async e => {
-			if (e.keyCode === KeyCode.Enter) {
+			if (e.keyCode === KeyCode.UpArrow) {
+				if (refHistoryNavigator.current) {
+					// Get the current history entry.
+					const inputHistoryEntry = refHistoryNavigator.current.current();
+					codeEditorWidget.setValue(inputHistoryEntry.input);
+					codeEditorWidget.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
+					refHistoryNavigator.current.previous();
+				}
+
+				// Eat the event.
+				e.preventDefault();
+				e.stopPropagation();
+			} else if (e.keyCode === KeyCode.DownArrow) {
+				if (refHistoryNavigator.current) {
+					if (refHistoryNavigator.current.isAtEnd()) {
+						codeEditorWidget.setValue('');
+						codeEditorWidget.setPosition({ lineNumber: 1, column: 1 });
+					} else {
+						const inputHistoryEntry = refHistoryNavigator.current.next();
+						codeEditorWidget.setValue(inputHistoryEntry.input);
+						codeEditorWidget.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
+					}
+				}
+
+				// Eat the event.
+				e.preventDefault();
+				e.stopPropagation();
+			} else if (e.keyCode === KeyCode.Enter) {
 				// If the shift key is pressed, do not attempt to execute the code fragment.
 				if (e.shiftKey) {
 					return;
@@ -147,6 +187,20 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 				// If we're supposed to execute the code fragment, do it.
 				if (executeCode) {
+					// Create the input history entry.
+					const inputHistoryEntry = {
+						when: new Date().getTime(),
+						input: codeFragment,
+					} satisfies IInputHistoryEntry;
+
+					// Add the input history entry.
+					if (refHistoryNavigator.current) {
+						refHistoryNavigator.current.add(inputHistoryEntry);
+					} else {
+						setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>([inputHistoryEntry], 1000));
+					}
+
+					// Execute the code.
 					const id = generateUuid();
 					props.positronConsoleInstance.runtime.execute(
 						codeFragment,
@@ -162,17 +216,6 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 				// 	code: this._editor.getValue(),
 				// 	focus: this._editor.hasTextFocus()
 				// });
-			} else if (e.keyCode === KeyCode.UpArrow) {
-				//props.consoleReplInstance.positronConsoleInstance.history.
-				// if (this.historyNavigate(false)) {
-				// 		e.preventDefault();
-				// 	e.stopPropagation();
-				// }
-			} else if (e.keyCode === KeyCode.DownArrow) {
-				// if (this.historyNavigate(true)) {
-				// 		e.preventDefault();
-				// 	e.stopPropagation();
-				// }
 			}
 		});
 

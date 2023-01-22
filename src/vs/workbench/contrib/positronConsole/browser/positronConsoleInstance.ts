@@ -4,7 +4,6 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
 
@@ -35,6 +34,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		readonly languageId: string,
 		readonly runtime: ILanguageRuntime) {
 		super();
+
+		// Populate with execution history
+		// (TODO: these entries, after being fetched here, should be appended to the UI)
+		// this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.id);
 	}
 
 	/**
@@ -50,10 +53,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		}
 	}
 
-	/**
-	 * Gets the history navigator.
-	 */
-	readonly history: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000); // TODO@softwarenerd - 1000 should come from settings.
+	// /**
+	//  * Gets the history navigator.
+	//  */
+	// readonly historyNavigator: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000); // TODO@softwarenerd - 1000 should come from settings.
 
 	/**
 	 * onDidClearConsole event.
