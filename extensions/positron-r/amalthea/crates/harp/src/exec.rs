@@ -6,6 +6,10 @@
 //
 
 use std::ffi::CStr;
+use std::mem;
+use std::os::raw::c_int;
+use std::os::raw::c_void;
+use std::os::raw::c_char;
 
 use libR_sys::*;
 
@@ -17,6 +21,18 @@ use crate::r_symbol;
 use crate::utils::r_inherits;
 use crate::utils::r_stringify;
 use crate::utils::r_typeof;
+
+extern "C" {
+    pub static R_ParseError: c_int;
+}
+
+extern "C" {
+    pub static R_ParseErrorMsg: [c_char; 256usize];
+}
+
+extern "C" {
+    pub static R_ParseContext: [c_char; 256usize];
+}
 
 pub struct RArgument {
     pub name: String,
@@ -178,6 +194,67 @@ pub unsafe fn geterrmessage() -> String {
 
 }
 
+pub unsafe fn r_top_level_exec<F>(mut f: F) -> bool where F: FnMut() {
+    let mut cb: &mut dyn FnMut() = &mut f;
+    let cb = &mut cb;
+
+    extern fn top_level_exec_fn(arg: *mut c_void) {
+        let closure: &mut &mut dyn FnMut() = unsafe { mem::transmute(arg) };
+        closure()
+    }
+
+    let success = R_ToplevelExec(
+        Some(top_level_exec_fn),
+        cb as *mut _ as *mut c_void
+    );
+
+    success == Rboolean_TRUE
+}
+
+pub enum ParseResult {
+    Ok(SEXP),
+    Incomplete(),
+    Error {
+        message: String
+    },
+    SyntaxError {
+        message: String,
+        line: i32
+    }
+}
+
+#[allow(non_upper_case_globals)]
+pub unsafe fn r_parse_vector(code: String) -> ParseResult {
+
+    let mut ps : ParseStatus = 0;
+    let mut protect = RProtect::new();
+    let r_code = protect.add(crate::r_string!(code));
+
+    let mut out: SEXP = R_NilValue;
+
+    let success = r_top_level_exec(|| {
+        out = R_ParseVector(r_code, -1, &mut ps, R_NilValue);
+    });
+
+    match success {
+        false => ParseResult::Error{
+            message: geterrmessage()
+        },
+        true => {
+            match ps {
+                ParseStatus_PARSE_OK => ParseResult::Ok(out),
+                ParseStatus_PARSE_INCOMPLETE => ParseResult::Incomplete(),
+                _ => {
+                    ParseResult::SyntaxError{
+                        message: CStr::from_ptr(R_ParseErrorMsg.as_ptr()).to_string_lossy().to_string(),
+                        line: R_ParseError as i32
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -274,6 +351,92 @@ mod tests {
         }
 
     }}
+
+    #[test]
+    fn test_top_level_exec() { r_test! {
+        let mut ps : ParseStatus = 0;
+        let mut protect = RProtect::new();
+        let code = protect.add(crate::r_string!("force(42)"));
+
+        let mut out: SEXP = R_NilValue;
+
+        // successfull
+        let success = r_top_level_exec(|| {
+            out = R_ParseVector(code, -1, &mut ps, R_NilValue);
+        });
+        assert_eq!(success, true);
+        assert_eq!(r_typeof(out), EXPRSXP as u32);
+
+        let call = VECTOR_ELT(out, 0);
+        assert_eq!(r_typeof(call), LANGSXP as u32);
+        assert_eq!(Rf_length(call), 2);
+        assert_eq!(CAR(call), r_symbol!("force"));
+
+        let arg = CADR(call);
+        assert_eq!(r_typeof(arg), REALSXP as u32);
+        assert_eq!(*REAL(arg), 42.0);
+
+        // failed
+        let code = protect.add(crate::r_string!("42 + _"));
+        let success = r_top_level_exec(|| {
+            out = R_ParseVector(code, -1, &mut ps, R_NilValue);
+        });
+        assert_eq!(success, false);
+    }}
+
+    #[test]
+    fn test_parse_vector() { r_test! {
+        // complete
+        assert!(
+            match r_parse_vector(String::from("force(42)")) {
+                ParseResult::Ok(out) => {
+                    assert_eq!(r_typeof(out), EXPRSXP as u32);
+
+                    let call = VECTOR_ELT(out, 0);
+                    assert_eq!(r_typeof(call), LANGSXP as u32);
+                    assert_eq!(Rf_length(call), 2);
+                    assert_eq!(CAR(call), r_symbol!("force"));
+
+                    let arg = CADR(call);
+                    assert_eq!(r_typeof(arg), REALSXP as u32);
+                    assert_eq!(*REAL(arg), 42.0);
+
+                    true
+                },
+                _ => false
+            }
+        );
+
+        // incomplete
+        assert!(match r_parse_vector(String::from("force(42")) {
+            ParseResult::Incomplete() => true,
+            _ => false
+        });
+
+        // error
+        assert!(match r_parse_vector(String::from("42 + _")) {
+            ParseResult::Error {message} => {
+                assert!(message.contains("invalid use of pipe placeholder"));
+
+                true
+            },
+            _ => false
+        });
+
+        // "normal" syntax error
+        assert!(match r_parse_vector(String::from("1+1\n*42")) {
+            ParseResult::SyntaxError {message, line} => {
+                assert!(message.contains("unexpected"));
+                assert_eq!(line, 2);
+
+                true
+            },
+            _ => false
+        });
+
+    }}
+
+
 
 }
 
