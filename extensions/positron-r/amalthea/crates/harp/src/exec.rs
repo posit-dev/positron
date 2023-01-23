@@ -10,6 +10,7 @@ use std::mem;
 use std::os::raw::c_int;
 use std::os::raw::c_void;
 use std::os::raw::c_char;
+use std::mem::MaybeUninit;
 
 use libR_sys::*;
 
@@ -194,13 +195,18 @@ pub unsafe fn geterrmessage() -> String {
 
 }
 
-pub unsafe fn r_top_level_exec<F>(mut f: F) -> bool where F: FnMut() {
-    let mut cb: &mut dyn FnMut() = &mut f;
+pub unsafe fn r_top_level_exec<F, R>(mut f: F) -> Result<R> where F: FnMut() -> R {
+    let mut result: MaybeUninit<R> = MaybeUninit::uninit();
+
+    let mut enclos = || {
+        result.write(f());
+    };
+    let mut cb: &mut dyn FnMut() = &mut enclos;
     let cb = &mut cb;
 
     extern fn top_level_exec_fn(arg: *mut c_void) {
         let closure: &mut &mut dyn FnMut() = unsafe { mem::transmute(arg) };
-        closure()
+        closure();
     }
 
     let success = R_ToplevelExec(
@@ -208,7 +214,13 @@ pub unsafe fn r_top_level_exec<F>(mut f: F) -> bool where F: FnMut() {
         cb as *mut _ as *mut c_void
     );
 
-    success == Rboolean_TRUE
+    match success != 0 {
+        false => Err(Error::EvaluationError { code: String::from(""), message: String::from("") }),
+        true => {
+            Ok(result.assume_init())
+        }
+    }
+
 }
 
 pub enum ParseResult {
@@ -230,17 +242,15 @@ pub unsafe fn r_parse_vector(code: String) -> ParseResult {
     let mut protect = RProtect::new();
     let r_code = protect.add(crate::r_string!(code));
 
-    let mut out: SEXP = R_NilValue;
+    let lambda = || {
+        R_ParseVector(r_code, -1, &mut ps, R_NilValue)
+    };
 
-    let success = r_top_level_exec(|| {
-        out = R_ParseVector(r_code, -1, &mut ps, R_NilValue);
-    });
-
-    match success {
-        false => ParseResult::Error{
+    match r_top_level_exec(lambda) {
+        Err(_) => ParseResult::Error{
             message: geterrmessage()
         },
-        true => {
+        Ok(out) => {
             match ps {
                 ParseStatus_PARSE_OK => ParseResult::Ok(out),
                 ParseStatus_PARSE_INCOMPLETE => ParseResult::Incomplete(),
@@ -358,13 +368,10 @@ mod tests {
         let mut protect = RProtect::new();
         let code = protect.add(crate::r_string!("force(42)"));
 
-        let mut out: SEXP = R_NilValue;
-
         // successfull
-        let success = r_top_level_exec(|| {
-            out = R_ParseVector(code, -1, &mut ps, R_NilValue);
-        });
-        assert_eq!(success, true);
+        let out = r_top_level_exec(|| {
+            R_ParseVector(code, -1, &mut ps, R_NilValue)
+        }).unwrap();
         assert_eq!(r_typeof(out), EXPRSXP as u32);
 
         let call = VECTOR_ELT(out, 0);
@@ -378,10 +385,11 @@ mod tests {
 
         // failed
         let code = protect.add(crate::r_string!("42 + _"));
-        let success = r_top_level_exec(|| {
-            out = R_ParseVector(code, -1, &mut ps, R_NilValue);
+        let failed = r_top_level_exec(|| {
+            R_ParseVector(code, -1, &mut ps, R_NilValue)
         });
-        assert_eq!(success, false);
+        assert!(failed.is_err());
+
     }}
 
     #[test]
