@@ -33,8 +33,10 @@
 		}
 	},
 
+	// --- Start Positron ---
 	// Optionally loads a cached yarn install for the repo
-	"postCreateCommand": ".devcontainer/prebuilt/cache/restore-diff.sh",
+	"postCreateCommand": ".devcontainer/prebuilt/cache/post-create.sh",
+	// --- End Positron ---
 
 	"remoteUser": "node",
 
