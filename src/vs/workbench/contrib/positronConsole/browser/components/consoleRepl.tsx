@@ -14,6 +14,7 @@ import { ConsoleReplItemError } from 'vs/workbench/contrib/positronConsole/brows
 import { ConsoleReplItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemOutput';
 import { ConsoleReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplLiveInput';
 import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
+import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 // ConsoleReplProps interface.
 interface ConsoleReplProps {
@@ -28,6 +29,7 @@ interface ConsoleReplProps {
  */
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
+	const positronConsoleContext = usePositronConsoleContext();
 	const [consoleReplItems, setConsoleReplItems] = useState<ConsoleReplItem[]>([]);
 	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
 
@@ -41,8 +43,15 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			console.log(`ConsoleRepl onDidChangeRuntimeState ${runtimeState}`);
 		}));
 
-		// Get history.
 		// Replay history as ConsoleReplItems.
+		const executionEntries = positronConsoleContext.executionHistoryService.getExecutionEntries(props.positronConsoleInstance.runtime.metadata.id);
+		console.log(`Execution entries for ${props.positronConsoleInstance.runtime.metadata.id} ${props.positronConsoleInstance.runtime.metadata.language}`);
+		console.log(executionEntries);
+		for (const executionEntry of executionEntries) {
+			console.log('---');
+			console.log(`input ${executionEntry.input}`);
+			console.log(`output ${executionEntry.output}`);
+		}
 
 		// Add the onDidCompleteStartup event handler.
 		disposableStore.add(props.positronConsoleInstance.runtime.onDidCompleteStartup(languageRuntimeInfo => {
