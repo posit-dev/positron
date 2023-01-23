@@ -223,13 +223,13 @@ export const foreground = registerColor('foreground', { dark: '#acbece', light: 
 export const secondaryBackground = registerColor('secondaryBackground', { dark: '#292f32', light: '#dee1e5', hcDark: '#dee1e5', hcLight: '#dee1e5' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
 
 //export const disabledForeground = registerColor('disabledForeground', { dark: '#CCCCCC80', light: '#61616180', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
-export const disabledForeground = registerColor('disabledForeground', { dark: '#acbece80', light: '#75828d80', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
+export const disabledForeground = registerColor('disabledForeground', { dark: transparent(foreground, 0.8), light: '#75828d80', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
 // --- End Positron ---
 export const errorForeground = registerColor('errorForeground', { dark: '#F48771', light: '#A1260D', hcDark: '#F48771', hcLight: '#B5200D' }, nls.localize('errorForeground', "Overall foreground color for error messages. This color is only used if not overridden by a component."));
 export const descriptionForeground = registerColor('descriptionForeground', { light: '#717171', dark: transparent(foreground, 0.7), hcDark: transparent(foreground, 0.7), hcLight: transparent(foreground, 0.7) }, nls.localize('descriptionForeground', "Foreground color for description text providing additional information, for example for a label."));
 // --- Start Positron ---
 //export const iconForeground = registerColor('icon.foreground', { dark: '#C5C5C5', light: '#424242', hcDark: '#FFFFFF', hcLight: '#292929' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
-export const iconForeground = registerColor('icon.foreground', { dark: '#acbece', light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
+export const iconForeground = registerColor('icon.foreground', { dark: foreground, light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
 // --- End Positron ---
 
 export const focusBorder = registerColor('focusBorder', { dark: '#007FD4', light: '#0090F1', hcDark: '#F38518', hcLight: '#006BBD' }, nls.localize('focusBorder', "Overall border color for focused elements. This color is only used if not overridden by a component."));
@@ -295,7 +295,7 @@ export const buttonBorder = registerColor('button.border', { dark: contrastBorde
 
 // --- Start Positron ---
 //export const buttonSecondaryForeground = registerColor('button.secondaryForeground', { dark: Color.white, light: Color.white, hcDark: Color.white, hcLight: foreground }, nls.localize('buttonSecondaryForeground', "Secondary button foreground color."));
-export const buttonSecondaryForeground = registerColor('button.secondaryForeground', { dark: '#acbece', light: '#000000', hcDark: '#000000', hcLight: '#000000' }, nls.localize('buttonSecondaryForeground', "Secondary button foreground color."));
+export const buttonSecondaryForeground = registerColor('button.secondaryForeground', { dark: foreground, light: '#000000', hcDark: '#000000', hcLight: '#000000' }, nls.localize('buttonSecondaryForeground', "Secondary button foreground color."));
 //export const buttonSecondaryBackground = registerColor('button.secondaryBackground', { dark: '#3A3D41', light: '#5F6A79', hcDark: null, hcLight: Color.white }, nls.localize('buttonSecondaryBackground', "Secondary button background color."));
 export const buttonSecondaryBackground = registerColor('button.secondaryBackground', { dark: secondaryBackground, light: secondaryBackground, hcDark: secondaryBackground, hcLight: secondaryBackground }, nls.localize('buttonSecondaryBackground', "Secondary button background color."));
 // --- End Positron ---
