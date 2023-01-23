@@ -195,14 +195,15 @@ pub unsafe fn geterrmessage() -> String {
 
 }
 
-pub unsafe fn r_top_level_exec<F, R>(mut f: F) -> Result<R> where F: FnMut() -> R {
+pub unsafe fn r_top_level_exec<F, R>(mut fun: F) -> Result<R> where F: FnMut() -> R {
+    // this will hold the result of calling fun() on success
     let mut result: MaybeUninit<R> = MaybeUninit::uninit();
 
-    let mut enclos = || {
-        result.write(f());
+    // wrap fun into a void closure
+    let mut void_closure: &mut dyn FnMut() = &mut || {
+        result.write(fun());
     };
-    let mut cb: &mut dyn FnMut() = &mut enclos;
-    let cb = &mut cb;
+    let void_closure = &mut void_closure;
 
     extern fn top_level_exec_fn(arg: *mut c_void) {
         let closure: &mut &mut dyn FnMut() = unsafe { mem::transmute(arg) };
@@ -211,14 +212,15 @@ pub unsafe fn r_top_level_exec<F, R>(mut f: F) -> Result<R> where F: FnMut() -> 
 
     let success = R_ToplevelExec(
         Some(top_level_exec_fn),
-        cb as *mut _ as *mut c_void
+        void_closure as *mut _ as *mut c_void
     );
 
     match success != 0 {
-        false => Err(Error::EvaluationError { code: String::from(""), message: String::from("") }),
-        true => {
-            Ok(result.assume_init())
-        }
+        false => Err(Error::TopLevelExecError()),
+
+        // there was no jump, so we can assume
+        // result has been initialized
+        true => Ok(result.assume_init())
     }
 
 }

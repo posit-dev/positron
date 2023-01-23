@@ -20,7 +20,8 @@ pub enum Error {
     UnsafeEvaluationError(String),
     UnexpectedLength(u32, u32),
     UnexpectedType(u32, Vec<u32>),
-    InvalidUtf8(Utf8Error)
+    InvalidUtf8(Utf8Error),
+    TopLevelExecError()
 }
 
 // empty implementation required for 'anyhow'
@@ -72,6 +73,10 @@ impl fmt::Display for Error {
 
             Error::InvalidUtf8(error) => {
                 write!(f, "Invalid UTF-8 in string: {}", error)
+            }
+
+            Error::TopLevelExecError() => {
+                write!(f, "Top Level exec error")
             }
 
         }
