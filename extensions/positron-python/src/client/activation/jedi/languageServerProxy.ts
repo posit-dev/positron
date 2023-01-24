@@ -117,6 +117,7 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
 
         return port;
     }
+    // --- End Positron ---
 
     @traceDecoratorVerbose('Stopping language server')
     public async stop(): Promise<void> {
