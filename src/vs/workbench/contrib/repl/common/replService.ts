@@ -5,7 +5,6 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ReplInstance } from 'vs/workbench/contrib/repl/common/replInstance';
 import { ICreateReplOptions, IReplInstance, IReplService } from 'vs/workbench/contrib/repl/common/repl';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -40,7 +39,6 @@ export class ReplService extends Disposable implements IReplService {
 	 */
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
-		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private _logService: ILogService,
 	) {
 		// Call the disposable constrcutor.
@@ -53,7 +51,7 @@ export class ReplService extends Disposable implements IReplService {
 
 		// Get the active language runtime. If there is one, activate the REPL for it.
 		if (this._languageRuntimeService.activeRuntime) {
-			const instance = this._runningInstancesById.get(this._languageRuntimeService.activeRuntime.metadata.id);
+			const instance = this._runningInstancesById.get(this._languageRuntimeService.activeRuntime.metadata.runtimeId);
 			if (instance) {
 				this.setActiveRepl(instance);
 			} else {
@@ -73,7 +71,7 @@ export class ReplService extends Disposable implements IReplService {
 			if (!runtime) {
 				this.setActiveRepl();
 			} else {
-				const instance = this._runningInstancesById.get(runtime.metadata.id);
+				const instance = this._runningInstancesById.get(runtime.metadata.runtimeId);
 				if (instance) {
 					this.setActiveRepl(instance);
 				} else {
@@ -172,21 +170,15 @@ export class ReplService extends Disposable implements IReplService {
 	 * @returns The new REPL instance.
 	 */
 	private startRepl(runtime: ILanguageRuntime): IReplInstance {
-		// Look up supported language ID for this runtime.
-		const languageId = this._languageService.getLanguageIdByLanguageName(runtime.metadata.language);
-		if (!languageId) {
-			throw new Error(`Language runtime ${formatLanguageRuntime(runtime)} was not found in the language service.`);
-		}
-
 		// Log.
 		this._logService.trace(`Starting REPL for language runtime ${formatLanguageRuntime(runtime)}.`);
 
 		// Create the new REPL instance.
-		const instance = new ReplInstance(languageId, runtime);
+		const instance = new ReplInstance(runtime.metadata.languageId, runtime);
 
 		// Add the REPL instance to the running instances.
-		this._runningInstancesById.set(runtime.metadata.id, instance);
-		this._runningInstancesByLanguageId.set(languageId, instance);
+		this._runningInstancesById.set(runtime.metadata.runtimeId, instance);
+		this._runningInstancesByLanguageId.set(runtime.metadata.languageId, instance);
 
 		// Fire the onDidStartRepl event.
 		this._onDidStartRepl.fire(instance);
@@ -194,8 +186,8 @@ export class ReplService extends Disposable implements IReplService {
 		// When the runtime exits, see if the user wants to restart it.
 		this._register(runtime.onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
-				this._runningInstancesById.delete(runtime.metadata.id);
-				this._runningInstancesByLanguageId.delete(languageId);
+				this._runningInstancesById.delete(runtime.metadata.runtimeId);
+				this._runningInstancesByLanguageId.delete(runtime.metadata.languageId);
 			}
 		}));
 

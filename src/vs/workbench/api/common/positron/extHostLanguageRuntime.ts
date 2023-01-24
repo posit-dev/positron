@@ -15,7 +15,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
 	constructor(
-		mainContext: extHostProtocol.IMainPositronContext,
+		mainContext: extHostProtocol.IMainPositronContext
 	) {
 		// Trigger creation of the proxy
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
@@ -137,6 +137,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Register the runtime
 		this._runtimes.push(runtime);
 
+		// Register the runtime with the main thread
 		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);

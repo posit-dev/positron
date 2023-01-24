@@ -354,7 +354,7 @@ export const PANEL_BORDER = registerColor('panel.border', {
 
 export const PANEL_ACTIVE_TITLE_FOREGROUND = registerColor('panelTitle.activeForeground', {
 	// --- Start Positron ---
-	dark: '#556677',
+	dark: foreground,
 	light: '#556677',
 	// dark: '#E7E7E7',
 	// light: '#424242',
@@ -364,7 +364,9 @@ export const PANEL_ACTIVE_TITLE_FOREGROUND = registerColor('panelTitle.activeFor
 }, localize('panelActiveTitleForeground', "Title color for the active panel. Panels are shown below the editor area and contain views like output and integrated terminal."));
 
 export const PANEL_INACTIVE_TITLE_FOREGROUND = registerColor('panelTitle.inactiveForeground', {
-	dark: transparent(PANEL_ACTIVE_TITLE_FOREGROUND, 0.6),
+	// --- Start Positron ---
+	dark: transparent(PANEL_ACTIVE_TITLE_FOREGROUND, 0.7),
+	// --- End Positron ---
 	light: transparent(PANEL_ACTIVE_TITLE_FOREGROUND, 0.75),
 	hcDark: Color.white,
 	hcLight: editorForeground
@@ -460,7 +462,7 @@ export const BANNER_ICON_FOREGROUND = registerColor('banner.iconForeground', {
 
 export const STATUS_BAR_FOREGROUND = registerColor('statusBar.foreground', {
 	// --- Start Positron ---
-	dark: '#acbece',
+	dark: foreground,
 	light: '#75828d',
 	// dark: '#FFFFFF',
 	// light: '#FFFFFF',
@@ -478,10 +480,10 @@ export const STATUS_BAR_NO_FOLDER_FOREGROUND = registerColor('statusBar.noFolder
 
 export const STATUS_BAR_BACKGROUND = registerColor('statusBar.background', {
 	// --- Start Positron ---
-	dark: '#3b4245',
-	light: '#f1f3f5',
-	hcDark: '#000000',
-	hcLight: '#ffffff',
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground,
 	// dark: '#007ACC',
 	// light: '#007ACC',
 	// hcDark: null,
@@ -610,7 +612,7 @@ export const ACTIVITY_BAR_BACKGROUND = registerColor('activityBar.background', {
 
 export const ACTIVITY_BAR_FOREGROUND = registerColor('activityBar.foreground', {
 	// --- Start Positron ---
-	dark: '#acbece',
+	dark: foreground,
 	light: '#ffffff',
 	// dark: Color.white,
 	// light: Color.white,
@@ -729,7 +731,7 @@ export const SIDE_BAR_BACKGROUND = registerColor('sideBar.background', {
 
 export const SIDE_BAR_FOREGROUND = registerColor('sideBar.foreground', {
 	// --- Start Positron ---
-	dark: '#acbece',
+	dark: foreground,
 	light: null,
 	// dark: null,
 	// light: null,
@@ -789,7 +791,7 @@ export const SIDE_BAR_SECTION_HEADER_BORDER = registerColor('sideBarSectionHeade
 
 export const TITLE_BAR_ACTIVE_FOREGROUND = registerColor('titleBar.activeForeground', {
 	// --- Start Positron ---
-	dark: '#acbece',
+	dark: foreground,
 	light: '#75828d',
 	hcDark: '#ffffff',
 	hcLight: '#000000'
@@ -809,8 +811,8 @@ export const TITLE_BAR_INACTIVE_FOREGROUND = registerColor('titleBar.inactiveFor
 
 export const TITLE_BAR_ACTIVE_BACKGROUND = registerColor('titleBar.activeBackground', {
 	// --- Start Positron ---
-	dark: '#3b4245',
-	light: '#f1f3f5',
+	dark: inputBackground,
+	light: inputBackground,
 	// dark: '#3C3C3C',
 	// light: '#DDDDDD',
 	// --- End Positron ---
@@ -984,10 +986,10 @@ export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBa
 
 // The Positron top action bar background color.
 export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActionBar.background', {
-	dark: '#3b4245',
-	light: '#f1f3f5',
-	hcDark: '#000000',
-	hcLight: '#ffffff'
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground
 }, localize('positronTopActionBar.background', "Positron top action bar background color."));
 
 // The Positron top action bar foreground color.
@@ -1090,7 +1092,7 @@ export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideAc
 
 // The Positron side action bar foreground color.
 export const POSITRON_SIDE_ACTION_BAR_FOREGROUND = registerColor('positronSideActionBar.foreground', {
-	dark: '#acbece',
+	dark: foreground,
 	light: '#75828D',
 	hcDark: '#ffffff',
 	hcLight: editorForeground
@@ -1114,7 +1116,7 @@ export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideAct
 
 // The Positron side action bar hover background color.
 export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
-	dark: '#3b4245',
+	dark: inputBackground,
 	light: '#dae1ea',
 	hcDark: null,
 	hcLight: null
@@ -1156,15 +1158,15 @@ export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = register
 
 // Modal dialog background color.
 export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
-	dark: '#3b4245',
-	light: '#f1f3f5',
-	hcDark: '#000000',
-	hcLight: '#ffffff'
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground
 }, localize('modalDialog.background', "Modal dialog background color."));
 
 // Modal dialog foreground color.
 export const MODAL_DIALOG_FOREGROUND = registerColor('modalDialog.foreground', {
-	dark: '#acbece',
+	dark: foreground,
 	light: '#000000',
 	hcDark: foreground,
 	hcLight: foreground
@@ -1198,7 +1200,7 @@ export const MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor('modalDialog.titl
 
 // Modal dialog title bar foreground color.
 export const MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('modalDialog.titleBarForeground', {
-	dark: '#acbece',
+	dark: foreground,
 	light: '#000000',
 	hcDark: foreground,
 	hcLight: foreground
@@ -1324,7 +1326,7 @@ export const MODAL_DIALOG_CHECKBOX_BACKGROUND = registerColor('modalDialog.check
 
 // Modal dialog checkbox foreground color.
 export const MODAL_DIALOG_CHECKBOX_FOREGROUND = registerColor('modalDialog.checkboxForeground', {
-	dark: '#acbece',
+	dark: foreground,
 	light: '#000000',
 	hcDark: checkboxForeground,
 	hcLight: checkboxForeground

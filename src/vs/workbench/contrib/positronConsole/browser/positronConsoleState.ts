@@ -63,7 +63,7 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 			if (!positronConsoleInstance) {
 				setCurrentPositronConsoleInstance(undefined);
 			} else {
-				setCurrentPositronConsoleInstance(refPositronConsoleInstances.current.find(x => x.languageId === positronConsoleInstance.languageId));
+				setCurrentPositronConsoleInstance(refPositronConsoleInstances.current.find(x => x.runtime.metadata.languageId === positronConsoleInstance.runtime.metadata.languageId));
 			}
 		}));
 

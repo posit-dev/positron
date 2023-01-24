@@ -22,8 +22,8 @@ export const ConsoleReplMenuButton = () => {
 		const actions: IAction[] = [];
 		positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance => {
 			actions.push({
-				id: positronConsoleInstance.runtime.metadata.id,
-				label: positronConsoleInstance.displayName,
+				id: positronConsoleInstance.runtime.metadata.runtimeId,
+				label: positronConsoleInstance.runtime.metadata.languageName,
 				tooltip: '',
 				class: undefined,
 				enabled: true,
@@ -41,7 +41,7 @@ export const ConsoleReplMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			text={positronConsoleContext.currentPositronConsoleInstance?.displayName ?? 'None'}
+			text={positronConsoleContext.currentPositronConsoleInstance?.runtime.metadata.languageName ?? 'None'}
 			actions={actions}
 		/>
 	);

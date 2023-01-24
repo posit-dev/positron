@@ -154,20 +154,14 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 */
 	get identifier() {
 		// TODO@softwarenerd - For the moment, just reuse the language runtime ID.
-		return this._runtime.metadata.id;
+		return this._runtime.metadata.runtimeId;
 	}
 
 	/**
 	 * Gets the display name.
 	 */
 	get displayName() {
-		// TODO@softwarenerd - Temporary code because R's metadata returns 'r' for the language and something like
-		// 'R: /Library/Frameworks/R.framework/Resources' for the name.
-		if (this._runtime.metadata.name.startsWith('R')) {
-			return 'R';
-		} else {
-			return this._runtime.metadata.name;
-		}
+		return this._runtime.metadata.languageName;
 	}
 
 	//#endregion Public Properties

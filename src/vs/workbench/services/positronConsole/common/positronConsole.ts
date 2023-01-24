@@ -17,11 +17,7 @@ export interface IPositronConsoleOptions {
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
-	readonly languageId: string;
-
 	readonly runtime: ILanguageRuntime;
-
-	readonly displayName: string;
 
 	// readonly historyNavigator: HistoryNavigator2<string>;
 

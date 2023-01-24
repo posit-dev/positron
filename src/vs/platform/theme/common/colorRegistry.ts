@@ -35,8 +35,12 @@ export function asCssVariableName(colorIdent: ColorIdentifier): string {
 	return `--vscode-${colorIdent.replace(/\./g, '-')}`;
 }
 
-export function asCssValue(color: ColorIdentifier): string {
+export function asCssVariable(color: ColorIdentifier): string {
 	return `var(${asCssVariableName(color)})`;
+}
+
+export function asCssVariableWithDefault(color: ColorIdentifier, defaultCssValue: string): string {
+	return `var(${asCssVariableName(color)}, ${defaultCssValue})`;
 }
 
 export const enum ColorTransformType {
@@ -219,13 +223,13 @@ export const foreground = registerColor('foreground', { dark: '#acbece', light: 
 export const secondaryBackground = registerColor('secondaryBackground', { dark: '#292f32', light: '#dee1e5', hcDark: '#dee1e5', hcLight: '#dee1e5' }, nls.localize('foreground', "Overall foreground color. This color is only used if not overridden by a component."));
 
 //export const disabledForeground = registerColor('disabledForeground', { dark: '#CCCCCC80', light: '#61616180', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
-export const disabledForeground = registerColor('disabledForeground', { dark: '#acbece80', light: '#75828d80', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
+export const disabledForeground = registerColor('disabledForeground', { dark: transparent(foreground, 0.8), light: '#75828d80', hcDark: '#A5A5A5', hcLight: '#7F7F7F' }, nls.localize('disabledForeground', "Overall foreground for disabled elements. This color is only used if not overridden by a component."));
 // --- End Positron ---
 export const errorForeground = registerColor('errorForeground', { dark: '#F48771', light: '#A1260D', hcDark: '#F48771', hcLight: '#B5200D' }, nls.localize('errorForeground', "Overall foreground color for error messages. This color is only used if not overridden by a component."));
 export const descriptionForeground = registerColor('descriptionForeground', { light: '#717171', dark: transparent(foreground, 0.7), hcDark: transparent(foreground, 0.7), hcLight: transparent(foreground, 0.7) }, nls.localize('descriptionForeground', "Foreground color for description text providing additional information, for example for a label."));
 // --- Start Positron ---
 //export const iconForeground = registerColor('icon.foreground', { dark: '#C5C5C5', light: '#424242', hcDark: '#FFFFFF', hcLight: '#292929' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
-export const iconForeground = registerColor('icon.foreground', { dark: '#acbece', light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
+export const iconForeground = registerColor('icon.foreground', { dark: foreground, light: '#75828d', hcDark: '#ffffff', hcLight: '#000000' }, nls.localize('iconForeground', "The default color for icons in the workbench."));
 // --- End Positron ---
 
 export const focusBorder = registerColor('focusBorder', { dark: '#007FD4', light: '#0090F1', hcDark: '#F38518', hcLight: '#006BBD' }, nls.localize('focusBorder', "Overall border color for focused elements. This color is only used if not overridden by a component."));
@@ -252,7 +256,10 @@ export const textCodeBlockBackground = registerColor('textCodeBlock.background',
 export const widgetShadow = registerColor('widget.shadow', { dark: transparent(Color.black, .36), light: transparent(Color.black, .16), hcDark: null, hcLight: null }, nls.localize('widgetShadow', 'Shadow color of widgets such as find/replace inside the editor.'));
 export const widgetBorder = registerColor('widget.border', { dark: null, light: null, hcDark: contrastBorder, hcLight: contrastBorder }, nls.localize('widgetBorder', 'Border color of widgets such as find/replace inside the editor.'));
 
-export const inputBackground = registerColor('input.background', { dark: '#3C3C3C', light: Color.white, hcDark: Color.black, hcLight: Color.white }, nls.localize('inputBoxBackground', "Input box background."));
+// --- Start Positron ---
+//export const inputBackground = registerColor('input.background', { dark: '#3C3C3C', light: Color.white, hcDark: Color.black, hcLight: Color.white }, nls.localize('inputBoxBackground', "Input box background."));
+export const inputBackground = registerColor('input.background', { dark: '#3b4245', light: '#f1f3f5', hcDark: '#000000', hcLight: '#ffffff' }, nls.localize('inputBoxBackground', "Input box background."));
+// --- End Positron ---
 export const inputForeground = registerColor('input.foreground', { dark: foreground, light: foreground, hcDark: foreground, hcLight: foreground }, nls.localize('inputBoxForeground', "Input box foreground."));
 export const inputBorder = registerColor('input.border', { dark: null, light: null, hcDark: contrastBorder, hcLight: contrastBorder }, nls.localize('inputBoxBorder', "Input box border."));
 export const inputActiveOptionBorder = registerColor('inputOption.activeBorder', { dark: '#007ACC', light: '#007ACC', hcDark: contrastBorder, hcLight: contrastBorder }, nls.localize('inputBoxActiveOptionBorder', "Border color of activated options in input fields."));
@@ -291,7 +298,7 @@ export const buttonBorder = registerColor('button.border', { dark: contrastBorde
 
 // --- Start Positron ---
 //export const buttonSecondaryForeground = registerColor('button.secondaryForeground', { dark: Color.white, light: Color.white, hcDark: Color.white, hcLight: foreground }, nls.localize('buttonSecondaryForeground', "Secondary button foreground color."));
-export const buttonSecondaryForeground = registerColor('button.secondaryForeground', { dark: '#acbece', light: '#000000', hcDark: '#000000', hcLight: '#000000' }, nls.localize('buttonSecondaryForeground', "Secondary button foreground color."));
+export const buttonSecondaryForeground = registerColor('button.secondaryForeground', { dark: foreground, light: '#000000', hcDark: '#000000', hcLight: '#000000' }, nls.localize('buttonSecondaryForeground', "Secondary button foreground color."));
 //export const buttonSecondaryBackground = registerColor('button.secondaryBackground', { dark: '#3A3D41', light: '#5F6A79', hcDark: null, hcLight: Color.white }, nls.localize('buttonSecondaryBackground', "Secondary button background color."));
 export const buttonSecondaryBackground = registerColor('button.secondaryBackground', { dark: secondaryBackground, light: secondaryBackground, hcDark: secondaryBackground, hcLight: secondaryBackground }, nls.localize('buttonSecondaryBackground', "Secondary button background color."));
 // --- End Positron ---
@@ -488,6 +495,7 @@ export const listFilterWidgetShadow = registerColor('listFilterWidget.shadow', {
 export const listFilterMatchHighlight = registerColor('list.filterMatchBackground', { dark: editorFindMatchHighlight, light: editorFindMatchHighlight, hcDark: null, hcLight: null }, nls.localize('listFilterMatchHighlight', 'Background color of the filtered match.'));
 export const listFilterMatchHighlightBorder = registerColor('list.filterMatchBorder', { dark: editorFindMatchHighlightBorder, light: editorFindMatchHighlightBorder, hcDark: contrastBorder, hcLight: activeContrastBorder }, nls.localize('listFilterMatchHighlightBorder', 'Border color of the filtered match.'));
 export const treeIndentGuidesStroke = registerColor('tree.indentGuidesStroke', { dark: '#585858', light: '#a9a9a9', hcDark: '#a9a9a9', hcLight: '#a5a5a5' }, nls.localize('treeIndentGuidesStroke', "Tree stroke color for the indentation guides."));
+export const treeInactiveIndentGuidesStroke = registerColor('tree.inactiveIndentGuidesStroke', { dark: transparent(treeIndentGuidesStroke, 0.4), light: transparent(treeIndentGuidesStroke, 0.4), hcDark: transparent(treeIndentGuidesStroke, 0.4), hcLight: transparent(treeIndentGuidesStroke, 0.4) }, nls.localize('treeInactiveIndentGuidesStroke', "Tree stroke color for the indentation guides that are not active."));
 export const tableColumnsBorder = registerColor('tree.tableColumnsBorder', { dark: '#CCCCCC20', light: '#61616120', hcDark: null, hcLight: null }, nls.localize('tableColumnsBorder', "Table border color between columns."));
 export const tableOddRowsBackgroundColor = registerColor('tree.tableOddRowsBackground', { dark: transparent(foreground, 0.04), light: transparent(foreground, 0.04), hcDark: null, hcLight: null }, nls.localize('tableOddRowsBackgroundColor', "Background color for odd table rows."));
 export const listDeemphasizedForeground = registerColor('list.deemphasizedForeground', { dark: '#8C8C8C', light: '#8E8E90', hcDark: '#A7A8A9', hcLight: '#666666' }, nls.localize('listDeemphasizedForeground', "List/Tree foreground color for items that are deemphasized. "));

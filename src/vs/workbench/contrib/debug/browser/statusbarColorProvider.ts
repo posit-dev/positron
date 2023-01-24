@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { registerColor } from 'vs/platform/theme/common/colorRegistry';
+import { inputBackground, registerColor } from 'vs/platform/theme/common/colorRegistry';
 import { IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { IDebugService, State, IDebugSession, IDebugConfiguration } from 'vs/workbench/contrib/debug/common/debug';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
@@ -17,8 +17,8 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 
 export const STATUS_BAR_DEBUGGING_BACKGROUND = registerColor('statusBar.debuggingBackground', {
 	// --- Start Positron ---
-	dark: '#3b4245',
-	light: '#f1f3f5',
+	dark: inputBackground,
+	light: inputBackground,
 	// dark: '#CC6633',
 	// light: '#CC6633',
 	// --- End Positron ---
