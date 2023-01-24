@@ -28,7 +28,7 @@ export const ConsoleReplError = ({ languageRuntimeMessageError }: ConsoleReplErr
 	// Render.
 	return (
 		<div className='console-repl-error'>
-			<div className='timestamp'>{new Date(languageRuntimeMessageError.when).toLocaleTimeString()}</div>
+			{/* <div className='timestamp'>{new Date(languageRuntimeMessageError.when).toLocaleTimeString()}</div> */}
 			{/* <div>Traceback: {languageRuntimeMessageError.traceback}</div> */}
 			<div style={{ color: 'red' }}>
 				{replLines.map(replLine =>

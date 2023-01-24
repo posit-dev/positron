@@ -49,15 +49,15 @@ export class LanguageInputHistory extends Disposable {
 
 	public attachToRuntime(runtime: ILanguageRuntime): void {
 		// Don't attach to the same runtime twice.
-		if (this._attachedRuntimes.has(runtime.metadata.id)) {
-			this._logService.debug(`LanguageInputHistory (${this._languageId}): Already attached to runtime ${runtime.metadata.id}`);
+		if (this._attachedRuntimes.has(runtime.metadata.runtimeId)) {
+			this._logService.debug(`LanguageInputHistory (${this._languageId}): Already attached to runtime ${runtime.metadata.runtimeId}`);
 			return;
 		}
 
 		// Safety check: ensure that this runtime is associated with the
 		// language for this history recorder.
-		if (runtime.metadata.language !== this._languageId) {
-			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch (expected ${this._languageId}, got ${runtime.metadata.language}))`);
+		if (runtime.metadata.languageId !== this._languageId) {
+			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch (expected ${this._languageId}, got ${runtime.metadata.languageId}))`);
 			return;
 		}
 

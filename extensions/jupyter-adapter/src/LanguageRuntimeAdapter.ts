@@ -41,6 +41,12 @@ export class LanguageRuntimeAdapter
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
 	private readonly _pendingRpcs: Map<string, JupyterRpc<any, any>> = new Map();
 
+	/** A set of message IDs that represent busy messages for which no corresponding idle message has yet been received */
+	private readonly _busyMessageIds: Set<string> = new Set();
+
+	/** A set of message IDs that represent idle messages for which no corresponding busy message has yet been received */
+	private readonly _idleMessageIds: Set<string> = new Set();
+
 	/**
 	 * Map of comm IDs to RuntimeClientAdapters, which wrap comm channels.
 	 *
@@ -52,7 +58,9 @@ export class LanguageRuntimeAdapter
 	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
 	constructor(private readonly _spec: JupyterKernelSpec,
-		version: string,
+		languageId: string,
+		languageVersion: string,
+		runtimeVersion: string,
 		private readonly _lsp: () => Promise<number> | null,
 		private readonly _channel: vscode.OutputChannel,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit) {
@@ -60,10 +68,12 @@ export class LanguageRuntimeAdapter
 
 		// Generate kernel metadata and ID
 		this.metadata = {
-			language: this._spec.language,
-			name: this._spec.display_name,
-			version: version,
-			id: uuidv4(),
+			runtimeId: uuidv4(),
+			runtimeName: this._spec.display_name,
+			runtimeVersion,
+			languageId,
+			languageName: this._spec.language,
+			languageVersion,
 			startupBehavior: startupBehavior
 		};
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
@@ -103,7 +113,7 @@ export class LanguageRuntimeAdapter
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior): void {
 
-		this._channel.appendLine(`Sending code to ${this.metadata.language}: ${code}`);
+		this._channel.appendLine(`Sending code to ${this.metadata.languageName}: ${code}`);
 
 		// Forward execution request to the kernel
 		this._kernel.execute(code, id, mode, errorBehavior);
@@ -156,7 +166,14 @@ export class LanguageRuntimeAdapter
 			throw new Error('Cannot interrupt kernel; it has already exited.');
 		}
 
-		this._channel.appendLine(`Interrupting ${this.metadata.language}`);
+		this._channel.appendLine(`Interrupting ${this.metadata.languageName}`);
+
+		// We are interrupting the kernel, so it's possible that message IDs
+		// that are currently being processed will never be completed. Clear the
+		// queue.
+		this._busyMessageIds.clear();
+		this._idleMessageIds.clear();
+
 		return this._kernel.interrupt();
 	}
 
@@ -166,7 +183,7 @@ export class LanguageRuntimeAdapter
 	 * @returns A promise with information about the newly started runtime.
 	 */
 	public start(): Thenable<positron.LanguageRuntimeInfo> {
-		this._channel.appendLine(`Starting ${this.metadata.language}...`);
+		this._channel.appendLine(`Starting ${this.metadata.languageName}...`);
 
 		// Reject if the kernel is already running; only in the Unintialized state
 		// can we start the kernel
@@ -252,7 +269,7 @@ export class LanguageRuntimeAdapter
 	public createClient(type: positron.RuntimeClientType): string {
 		if (type === positron.RuntimeClientType.Environment) {
 			// Currently the only supported client type
-			this._channel.appendLine(`Creating ${type} client for ${this.metadata.language}`);
+			this._channel.appendLine(`Creating ${type} client for ${this.metadata.languageName}`);
 
 			// Create a new client adapter to wrap the comm channel
 			const adapter = new RuntimeClientAdapter(type, this._kernel);
@@ -272,7 +289,7 @@ export class LanguageRuntimeAdapter
 			// Return the ID of the new client
 			return adapter.getId();
 		} else {
-			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.language} (not supported)`);
+			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.languageName} (not supported)`);
 		}
 		return '';
 	}
@@ -285,7 +302,7 @@ export class LanguageRuntimeAdapter
 	removeClient(id: string): void {
 		const comm = this._comms.get(id);
 		if (comm) {
-			this._channel.appendLine(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.language}`);
+			this._channel.appendLine(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.languageName}`);
 			comm.dispose();
 		} else {
 			this._channel.appendLine(`Error: can't remove client ${id} (not found)`);
@@ -529,6 +546,48 @@ export class LanguageRuntimeAdapter
 			type: positron.LanguageRuntimeMessageType.State,
 			state: data.execution_state
 		} as positron.LanguageRuntimeState);
+
+		// Map the kernel status to a runtime status by summarizing the
+		// busy/idle messages into a global busy/idle state.
+		switch (data.execution_state) {
+			case 'idle':
+				// Busy/idle messages come in pairs with matching origin IDs. If
+				// we get an idle message, remove it from the stack of busy
+				// messages by matching it with its origin ID. If the stack is
+				// empty, emit an idle event.
+				//
+				// In most cases, the stack will only have one item; we keep
+				// track of the stack to defend against out-of-order messages.
+				if (this._busyMessageIds.has(message.originId)) {
+					this._busyMessageIds.delete(message.originId);
+					if (this._busyMessageIds.size === 0) {
+						this.onStatus(positron.RuntimeState.Idle);
+					}
+				} else {
+					// We got an idle message without a matching busy message.
+					// This indicates an ordering problem, but we can recover by
+					// adding it to the stack of idle messages.
+					this._idleMessageIds.add(message.originId);
+				}
+				break;
+			case 'busy':
+				// First, check to see if this is the other half of an
+				// out-of-order message pair. If we already got the idle side of
+				// this message, we can discard it.
+				if (this._idleMessageIds.has(message.originId)) {
+					this._idleMessageIds.delete(message.originId);
+					break;
+				}
+
+				// Add this to the stack of busy messages
+				this._busyMessageIds.add(message.originId);
+
+				// If it's the first busy message, emit a busy event
+				if (this._busyMessageIds.size === 1) {
+					this.onStatus(positron.RuntimeState.Busy);
+				}
+				break;
+		}
 	}
 
 	/**

@@ -4,7 +4,7 @@
 
 .console-repl-error {
 	padding: 8px;
-	border-bottom: 1px solid #cccccc;
+	/* border-bottom: 1px solid #cccccc; */
 }
 
 .console-repl-error .timestamp {

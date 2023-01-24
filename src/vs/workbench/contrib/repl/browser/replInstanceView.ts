@@ -23,8 +23,8 @@ export const REPL_NOTEBOOK_SCHEME = 'repl';
  */
 export class ReplInstanceView extends Disposable {
 
-	/** The language executed by this REPL */
-	private readonly _language: string;
+	/** The ID of the language executed by this REPL */
+	private readonly _languageId: string;
 
 	/** The scrolling element that hosts content */
 	private _scroller: DomScrollableElement;
@@ -67,7 +67,7 @@ export class ReplInstanceView extends Disposable {
 		super();
 		this._runtime = this._instance.runtime;
 
-		this._language = this._runtime.metadata.language;
+		this._languageId = this._runtime.metadata.languageId;
 
 		this._root = document.createElement('div');
 		this._root.classList.add('repl-root');
@@ -168,7 +168,7 @@ export class ReplInstanceView extends Disposable {
 		this._instance.onDidClearRepl(() => {
 			this.clear();
 			// Clear the stored execution history so it doesn't get replayed
-			this._executionHistoryService.clearExecutionEntries(this._instance.runtime.metadata.id);
+			this._executionHistoryService.clearExecutionEntries(this._instance.runtime.metadata.runtimeId);
 		});
 
 		// Execute code when the user requests it
@@ -178,10 +178,10 @@ export class ReplInstanceView extends Disposable {
 
 		// Populate with execution history
 		// (TODO: these entries, after being fetched here, should be appended to the UI)
-		this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.id);
+		this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.runtimeId);
 
 		// Populate with input history
-		const inputHistory = this._executionHistoryService.getInputEntries(this._instance.runtime.metadata.language);
+		const inputHistory = this._executionHistoryService.getInputEntries(this._instance.runtime.metadata.languageId);
 		for (const entry of inputHistory) {
 			this._instance.history.add(entry.input);
 		}
@@ -371,7 +371,7 @@ export class ReplInstanceView extends Disposable {
 	addCell(focus: boolean) {
 		// Create the new cell
 		const cell = this._instantiationService.createInstance(ReplCell,
-			this._language,
+			this._languageId,
 			ReplCellState.ReplCellInput,
 			this._instance.history,
 			this._cellContainer);
@@ -402,7 +402,7 @@ export class ReplInstanceView extends Disposable {
 	private addPendingCell(contents: string) {
 		// Create the new cell
 		const cell = this._instantiationService.createInstance(ReplCell,
-			this._language,
+			this._languageId,
 			ReplCellState.ReplCellPending,
 			this._instance.history,
 			this._cellContainer);
@@ -490,7 +490,7 @@ export class ReplInstanceView extends Disposable {
 					this._activeCell = undefined;
 				}
 				const msg = new ReplStatusMessage(
-					'refresh', `${this._runtime.metadata.name} restarting`);
+					'refresh', `${this._runtime.metadata.runtimeName} restarting`);
 				msg.render(this._cellContainer);
 			}
 		}
@@ -505,7 +505,7 @@ export class ReplInstanceView extends Disposable {
 			// message and a new cell to accept the first input in the new
 			// session.
 			const msg = new ReplStatusMessage(
-				'check-all', `${this._runtime.metadata.name} started`);
+				'check-all', `${this._runtime.metadata.runtimeName} started`);
 			msg.render(this._cellContainer);
 
 			this.addCell(this._hadFocus);
@@ -523,13 +523,13 @@ export class ReplInstanceView extends Disposable {
 
 			if (state === RuntimeState.Exited) {
 				const msg = new ReplStatusMessage(
-					'info', `${this._runtime.metadata.name} exited`);
+					'info', `${this._runtime.metadata.runtimeName} exited`);
 				msg.render(this._cellContainer);
 			}
 
 			if (state === RuntimeState.Offline) {
 				const msg = new ReplStatusMessage(
-					'debug-disconnect', `${this._runtime.metadata.name} is offline`);
+					'debug-disconnect', `${this._runtime.metadata.runtimeName} is offline`);
 				msg.render(this._cellContainer);
 			}
 		}

@@ -59,7 +59,7 @@ export class ReplInput extends Disposable {
 
 	constructor(
 		private readonly _handle: number,
-		private readonly _language: string,
+		private readonly _languageId: string,
 		private readonly _history: HistoryNavigator2<string>,
 		private readonly _parentElement: HTMLElement,
 		@IModelService private readonly _modelService: IModelService,
@@ -105,12 +105,11 @@ export class ReplInput extends Disposable {
 		// Form URI for input control
 		this._uri = URI.from({
 			scheme: Schemas.inMemory,
-			path: `/repl-${this._language}-${this._handle}`
+			path: `/repl-${this._languageId}-${this._handle}`
 		});
 
 		// Create language selector
-		const languageId = this._languageService.getLanguageIdByLanguageName(this._language);
-		const languageSelection = this._languageService.createById(languageId);
+		const languageSelection = this._languageService.createById(this._languageId);
 
 		// Create text model; this is the backing store for the Monaco editor that receives
 		// the user's input

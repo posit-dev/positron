@@ -39,7 +39,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 					<ConsoleRepl
 						width={props.width}
 						height={props.height - 32}
-						key={positronConsoleInstance.runtime.metadata.id}
+						key={positronConsoleInstance.runtime.metadata.languageId}
 						hidden={positronConsoleInstance !== positronConsoleContext.currentPositronConsoleInstance}
 						positronConsoleInstance={positronConsoleInstance} />
 				)}
