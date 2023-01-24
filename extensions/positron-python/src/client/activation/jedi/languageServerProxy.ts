@@ -4,7 +4,11 @@
 import '../../common/extensions';
 import { Disposable, LanguageClient, LanguageClientOptions } from 'vscode-languageclient/node';
 
-import { ChildProcess } from 'child_process';
+// --- Start Positron ---
+import * as path from 'path';
+import { EXTENSION_ROOT_DIR } from '../../common/constants';
+import { ChildProcess, spawn, SpawnOptions } from 'child_process';
+// --- End Positron ---
 import { Resource } from '../../common/types';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
 import { captureTelemetry } from '../../telemetry';
@@ -13,10 +17,11 @@ import { JediLanguageClientMiddleware } from './languageClientMiddleware';
 import { ProgressReporting } from '../progress';
 // --- Start Positron ---
 import { ILanguageServerProxy } from '../types';
-import { JediLanguageClientFactory } from './languageClientFactory';
-// --- End Positron ---
 import { killPid } from '../../common/process/rawProcessApis';
-import { traceDecoratorError, traceDecoratorVerbose, traceError } from '../../logging';
+import { JediLanguageClientFactory } from './languageClientFactory';
+import { IInterpreterService } from '../../interpreter/contracts';
+import { traceDecoratorError, traceDecoratorVerbose, traceError, traceInfo, traceVerbose } from '../../logging';
+// --- End Positron ---
 
 export class JediLanguageServerProxy implements ILanguageServerProxy {
     private languageClient: LanguageClient | undefined;
@@ -28,7 +33,10 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
     private lsVersion: string | undefined;
 
     // --- Start Positron ---
-    constructor(private readonly factory: JediLanguageClientFactory) { }
+    constructor(
+        private readonly interpreterService: IInterpreterService,
+        private readonly factory: JediLanguageClientFactory
+    ) { }
     // --- End Positron ---
 
     private static versionTelemetryProps(instance: JediLanguageServerProxy) {
@@ -61,9 +69,8 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
 
         try {
             // --- Start Positron ---
-            const context = await this.factory.createLanguageClientAndTCPServer(resource, interpreter, options);
-            const client = context.languageClient;
-            this.serverProcess = context.serverProcess;
+            const port = await this.startLSPAndKernel(resource, interpreter);
+            const client = await this.factory.createLanguageClientTCP(port, options);
             // TODO: Ask Jupyter Adapter to attach to our kernel
             // --- End Positron ---
             this.registerHandlers(client);
@@ -73,6 +80,42 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
             traceError('Failed to start language server:', ex);
             throw new Error('Launching Jedi language server using python failed, see output.');
         }
+    }
+
+    // --- Start Positron ---
+    /**
+     * Finds an available port and starts a Jedi LSP as a TCP server, including an IPyKernel.
+     */
+    private async startLSPAndKernel(resource: Resource, _interpreter: PythonEnvironment | undefined): Promise<number> {
+
+        // Find an available port for our TCP server
+        const portfinder = require('portfinder');
+        const port = await portfinder.getPortPromise();
+
+        // For now, match vscode behavior and always look up the active interpreter each time
+        const interpreter = await this.interpreterService.getActiveInterpreter(resource);
+        const command = interpreter ? interpreter.path : 'python';
+
+        // Customize Jedi entrypoint with an additional resident IPyKernel
+        const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'ipykernel_jedi.py');
+        const args = [lsScriptPath, `--port=${port}`] // '-f', '{ connection_file }']
+        traceVerbose(`Configuring Jedi LSP server with args '${args}'`);
+
+        // Spawn Jedi LSP in TCP mode
+        const options: SpawnOptions = { env: {} };
+        const process: ChildProcess = spawn(command, args, options);
+        if (!process || !process.pid) {
+            return Promise.reject(`Failed to spawn Jedi LSP server using command '${command}' with args '${args}'.`);
+        }
+
+        // Wait for spawn to complete
+        await new Promise((resolve) => {
+            process.once('spawn', () => { resolve(true); });
+        });
+        traceInfo(`Spawned Jedi LSP on port '${port}' with pid '${process.pid}'`);
+        this.serverProcess = process;
+
+        return port;
     }
 
     @traceDecoratorVerbose('Stopping language server')
