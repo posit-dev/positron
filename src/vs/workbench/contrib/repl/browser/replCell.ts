@@ -70,7 +70,7 @@ export class ReplCell extends Disposable {
 	private static _counter: number = 0;
 
 	constructor(
-		private readonly _language: string,
+		private readonly _languageId: string,
 		private _state: ReplCellState,
 		private readonly _history: HistoryNavigator2<string>,
 		private readonly _parentElement: HTMLElement,
@@ -99,7 +99,7 @@ export class ReplCell extends Disposable {
 		this._input = this._instantiationService.createInstance(
 			ReplInput,
 			this._handle,
-			this._language,
+			this._languageId,
 			this._history,
 			this._container);
 		this._register(this._input);

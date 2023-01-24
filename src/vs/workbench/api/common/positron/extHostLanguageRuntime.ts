@@ -7,6 +7,8 @@ import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageE
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
+import { ILanguageService } from 'vs/editor/common/languages/language';
+import { ILogService } from 'vs/platform/log/common/log';
 
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
@@ -16,6 +18,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
+		@ILanguageService private _languageService: ILanguageService,
+		@ILogService private _logService: ILogService
 	) {
 		// Trigger creation of the proxy
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
@@ -137,7 +141,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Register the runtime
 		this._runtimes.push(runtime);
 
-		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
+		// Look up the langauge ID from the language name using the language service
+		let languageId = this._languageService.getLanguageIdByLanguageName(runtime.metadata.languageName);
+		if (!languageId) {
+			// Didn't get a language ID, so use the language name as the ID.
+			// This could cause downstream trouble if it's meant for a language
+			// the editor speaks, but more than likely it's a custom language
+			// that the editor doesn't know about, in which case this is the
+			// best we can do.
+			this._logService.warn(`Language runtime '${runtime.metadata.runtimeName}' registered for unknown language '${runtime.metadata.languageName}'`);
+			languageId = runtime.metadata.languageName;
+		}
+
+		// Register the runtime with the main thread
+		this._proxy.$registerLanguageRuntime(handle, {
+			...runtime.metadata,
+			languageId
+		});
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
 		});

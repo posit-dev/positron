@@ -218,17 +218,20 @@ declare module 'positron' {
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
-		/** A unique identifier for this runtime */
-		id: string;
+		/** A unique identifier for this runtime; takes the form of a GUID */
+		runtimeId: string;
 
-		/** The language identifier for this runtime. */
-		language: string;
+		/** The name of the language this runtime can execute */
+		languageName: string;
+
+		/** The version of the language. */
+		languageVersion: string;
 
 		/** The name of the runtime. */
-		name: string;
+		runtimeName: string;
 
 		/** The version of the runtime. */
-		version: string;
+		runtimeVersion: string;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;

@@ -4,7 +4,6 @@
 
 import { Codicon } from 'vs/base/common/codicons';
 import Severity from 'vs/base/common/severity';
-import { ILanguageService } from 'vs/editor/common/languages/language';
 import { localize } from 'vs/nls';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
@@ -41,7 +40,6 @@ export function registerHistoryActions() {
 			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 			const dialogService = accessor.get(IDialogService);
 			const replService = accessor.get(IReplService);
-			const languageService = accessor.get(ILanguageService);
 
 			// If there's no active language runtime, then we can't clear the
 			// history, since we don't know which language to clear history for.
@@ -53,8 +51,7 @@ export function registerHistoryActions() {
 				return;
 			}
 
-			// Look up the user-friendly name for the language.
-			const languageName = languageService.getLanguageName(languageRuntime.metadata.language);
+			const languageName = languageRuntime.metadata.languageName;
 
 			// Ask the user if they want to clear the history; this is a
 			// destructive action and it can't be undone.
@@ -67,10 +64,10 @@ export function registerHistoryActions() {
 			}
 
 			// Clear the stored history from the history service.
-			historyService.clearInputEntries(languageRuntime.metadata.language);
+			historyService.clearInputEntries(languageRuntime.metadata.languageId);
 
 			// Clear the history from the REPL service.
-			replService.clearInputHistory(languageRuntime.metadata.language);
+			replService.clearInputHistory(languageRuntime.metadata.languageId);
 
 			// Let the user know that the history was cleared.
 			dialogService.show(Severity.Info, localize('clearedInputHistory', "The {0} input history has been cleared.", languageName));
