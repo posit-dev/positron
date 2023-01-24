@@ -39,6 +39,7 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
  */
 export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentProps>) => {
 	// Hooks.
+	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
 	// Add IReactComponentContainer event handlers.
@@ -48,6 +49,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
+			setWidth(size.width);
 			setHeight(size.height);
 		}));
 
@@ -65,7 +67,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 		<PositronEnvironmentContextProvider {...props}>
 			<div className='positron-environment'>
 				<ActionBars {...props} />
-				<EnvironmentList height={height - 64} />
+				<EnvironmentList width={width} height={height - 64} />
 			</div>
 		</PositronEnvironmentContextProvider>
 	);

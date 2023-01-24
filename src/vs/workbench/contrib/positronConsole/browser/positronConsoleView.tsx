@@ -39,7 +39,10 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	// The onVisibilityChanged event.
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 
-	// The last known height.
+	// The width.
+	private _width = 0;
+
+	// The height.
 	private _height = 0;
 
 	// The Positron console container - contains the entire Positron console UI.
@@ -51,6 +54,13 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	//#endregion Private Properties
 
 	//#region IReactComponentContainer
+
+	/**
+	 * Gets the width.
+	 */
+	get width() {
+		return this._width;
+	}
 
 	/**
 	 * Gets the height.
@@ -194,7 +204,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
-		// Set the last known height.
+		// Set the width and height.
+		this._width = width;
 		this._height = height;
 
 		// Raise the onSizeChanged event.

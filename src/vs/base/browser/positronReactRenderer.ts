@@ -18,6 +18,11 @@ export interface ISize {
  */
 export interface IReactComponentContainer {
 	/**
+	 * Gets the width.
+	 */
+	readonly width: number;
+
+	/**
 	 * Gets the height.
 	 */
 	readonly height: number;

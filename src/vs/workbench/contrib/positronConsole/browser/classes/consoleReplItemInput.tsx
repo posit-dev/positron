@@ -21,7 +21,7 @@ export class ConsoleReplItemInput implements ConsoleReplItem {
 
 	/**
 	 * Constructor.
-	 * @param props A ConsoleReplItemInputProps the contains the console REPL item props.
+	 * @param _props A ConsoleReplItemInputProps the contains the console REPL item props.
 	 */
 	constructor(private readonly _props: ConsoleReplItemInputProps) {
 	}

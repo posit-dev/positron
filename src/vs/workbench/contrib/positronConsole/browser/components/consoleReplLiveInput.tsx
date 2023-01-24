@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
@@ -25,10 +25,13 @@ import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/
 import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
+	width: number;
+	executingCode: boolean;
+	executeCode: (codeFragment: string) => void;
 	positronConsoleInstance: IPositronConsoleInstance;
 }
 
@@ -41,16 +44,22 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const refContainer = useRef<HTMLDivElement>(undefined!);
-	const [_, setHistoryNavigator, refHistoryNavigator] = useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
+	const [, setHistoryNavigator, refHistoryNavigator] = useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
+	const [codeEditorWidget, setCodeEditorWidget] = useState<CodeEditorWidget>(undefined!);
+	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
 
+	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Debug code.
+		positronConsoleContext.executionHistoryService.clearInputEntries(props.positronConsoleInstance.runtime.metadata.language);
+
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.language);
 		if (inputHistoryEntries.length) {
-			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries, 1000));
+			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000)); // TODO@softwarenerd - get 1000 from settings.
 		}
 
 		// Create the code editor widget.
@@ -73,6 +82,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 		// Add the code editor widget to the disposables store.
 		disposableStore.add(codeEditorWidget);
+		setCodeEditorWidget(codeEditorWidget);
 
 		// Create the resource URI.
 		const uri = URI.from({
@@ -86,7 +96,8 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 		// Create text model; this is the backing store for the Monaco editor that receives
 		// the user's input.
-		const textModel = positronConsoleContext.modelService.createModel('', // initial value
+		const textModel = positronConsoleContext.modelService.createModel(
+			'',					// initial value
 			languageSelection,  // language selection
 			uri,          		// resource URI
 			false               // this widget is not simple
@@ -164,26 +175,31 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 				// If we're supposed to execute the code fragment, do it.
 				if (executeCode) {
-					// Create the input history entry.
-					const inputHistoryEntry = {
-						when: new Date().getTime(),
-						input: codeFragment,
-					} satisfies IInputHistoryEntry;
+					// // Execute the code.
+					// const id = `fragment-${generateUuid()}`;
+					// props.positronConsoleInstance.runtime.execute(
+					// 	codeFragment,
+					// 	id,
+					// 	RuntimeCodeExecutionMode.Interactive,
+					// 	RuntimeErrorBehavior.Continue);
 
-					// Add the input history entry.
-					if (refHistoryNavigator.current) {
-						refHistoryNavigator.current.add(inputHistoryEntry);
-					} else {
-						setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>([inputHistoryEntry], 1000));
+					// If the code fragment contains more than whitespace characters, add it to the history navigator.
+					if (codeFragment.trim().length) {
+						// Create the input history entry.
+						const inputHistoryEntry = {
+							when: new Date().getTime(),
+							input: codeFragment,
+						} satisfies IInputHistoryEntry;
+
+						// Add the input history entry.
+						if (refHistoryNavigator.current) {
+							refHistoryNavigator.current.add(inputHistoryEntry);
+						} else {
+							setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>([inputHistoryEntry], 1000)); // TODO@softwarenerd - get 1000 from settings.
+						}
 					}
 
-					// Execute the code.
-					const id = generateUuid();
-					props.positronConsoleInstance.runtime.execute(
-						codeFragment,
-						id,
-						RuntimeCodeExecutionMode.Interactive,
-						RuntimeErrorBehavior.Continue);
+					props.executeCode(codeFragment);
 
 					// Reset the model for the next input.
 					textModel.setValue('');
@@ -230,20 +246,9 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 		// Auto-grow the editor as the internal content size changes (i.e. make
 		// it grow vertically as the user enters additional lines of input)
-		codeEditorWidget.onDidContentSizeChange((e) => {
-			// Don't attempt to measure while input area is hidden
-			if (refContainer.current.classList.contains('repl-editor-hidden')) {
-				return;
-			}
-
-			// Measure the size of the content and host and size the editor to fit them
-			const contentWidth = refContainer.current.offsetWidth;
-			const contentHeight = Math.min(2000000, codeEditorWidget.getContentHeight());
-			refContainer.current.style.width = `${contentWidth}px`;
-			refContainer.current.style.width = `100%`;
-			refContainer.current.style.height = `${contentHeight}px`;
-
-			codeEditorWidget.layout({ width: contentWidth, height: contentHeight });
+		codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
+			console.log(`codeEditorWidget.onDidContentSizeChange with content width of ${codeEditorWidget.getContentWidth()}`);
+			codeEditorWidget.layout({ width: refCodeEditorWidth.current, height: codeEditorWidget.getContentHeight() });
 		});
 
 		// Forward mouse wheel events. We do this because it is not currently
@@ -252,19 +257,19 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// scrollable region (consisting of all REPL cells)
 		// this.onMouseWheel = this._editor.onMouseWheel;
 
-		// For now, the best want to get the editor going is this timeout.
-		const startupTimeout = setTimeout(() => {
-			codeEditorWidget.layout();
-			codeEditorWidget.render(true);
-			codeEditorWidget.focus();
-		}, 500);
+		// Perform the initial layout.
+		codeEditorWidget.layout();
 
 		// Return the cleanup function that will dispose of the disposables.
-		return () => {
-			clearTimeout(startupTimeout);
-			disposableStore.dispose();
-		};
+		return () => disposableStore.dispose();
 	}, []);
+
+	useEffect(() => {
+		setCodeEditorWidth(props.width);
+		if (codeEditorWidget) {
+			codeEditorWidget.layout({ width: props.width, height: codeEditorWidget.getContentHeight() });
+		}
+	}, [props.width]);
 
 	// Render.
 	return (
