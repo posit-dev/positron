@@ -11,6 +11,7 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps extends PositronConsoleProps {
+	width: number;
 	height: number;
 }
 
@@ -36,6 +37,8 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 			<div className='console-repls-container' style={{ height: props.height - 32 }}>
 				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 					<ConsoleRepl
+						width={props.width}
+						height={props.height - 32}
 						key={positronConsoleInstance.runtime.metadata.id}
 						hidden={positronConsoleInstance !== positronConsoleContext.currentPositronConsoleInstance}
 						positronConsoleInstance={positronConsoleInstance} />

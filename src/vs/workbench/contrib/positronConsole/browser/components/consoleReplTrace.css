@@ -2,12 +2,11 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-live-input {
-	margin-top: 10px;
-	margin-bottom: 10px;
-}
-
-.console-repl-live-input .container {
-	background: purple;
-	cursor: text;
+.console-repl-trace {
+	color: #fff;
+	font-size: 10px;
+	padding-left: 8px;
+	padding-right: 8px;
+	margin-bottom: 1px;
+	background: #828282;
 }

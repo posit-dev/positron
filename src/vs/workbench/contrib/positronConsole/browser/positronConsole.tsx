@@ -38,6 +38,7 @@ export interface PositronConsoleProps extends PositronConsoleServices {
  */
 export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) => {
 	// Hooks.
+	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
 	// Add IReactComponentContainer event handlers.
@@ -47,6 +48,7 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
+			setWidth(size.width);
 			setHeight(size.height);
 		}));
 
@@ -63,7 +65,7 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 	return (
 		<PositronConsoleContextProvider {...props}>
 			<div className='positron-console'>
-				<ConsoleCore height={height} {...props} />
+				<ConsoleCore width={width} height={height} {...props} />
 			</div>
 		</PositronConsoleContextProvider>
 	);
