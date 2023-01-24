@@ -1908,6 +1908,7 @@
         "minimatch": "^5.0.1",
         "named-js-regexp": "^1.3.3",
         "node-stream-zip": "^1.6.0",
+        "portfinder": "^1.0.28",
         "reflect-metadata": "^0.1.12",
         "request": "^2.87.0",
         "request-progress": "^3.0.0",

@@ -11,18 +11,25 @@ import { captureTelemetry } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { JediLanguageClientMiddleware } from './languageClientMiddleware';
 import { ProgressReporting } from '../progress';
-import { ILanguageClientFactory, ILanguageServerProxy } from '../types';
+// --- Start Positron ---
+import { ILanguageServerProxy } from '../types';
+import { JediLanguageClientFactory } from './languageClientFactory';
+// --- End Positron ---
 import { killPid } from '../../common/process/rawProcessApis';
 import { traceDecoratorError, traceDecoratorVerbose, traceError } from '../../logging';
 
 export class JediLanguageServerProxy implements ILanguageServerProxy {
     private languageClient: LanguageClient | undefined;
-
+    // --- Start Positron ---
+    private serverProcess: ChildProcess | undefined;
+    // --- End Positron ---
     private readonly disposables: Disposable[] = [];
 
     private lsVersion: string | undefined;
 
-    constructor(private readonly factory: ILanguageClientFactory) {}
+    // --- Start Positron ---
+    constructor(private readonly factory: JediLanguageClientFactory) { }
+    // --- End Positron ---
 
     private static versionTelemetryProps(instance: JediLanguageServerProxy) {
         return {
@@ -53,7 +60,12 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
             '0.19.3';
 
         try {
-            const client = await this.factory.createLanguageClient(resource, interpreter, options);
+            // --- Start Positron ---
+            const context = await this.factory.createLanguageClientAndTCPServer(resource, interpreter, options);
+            const client = context.languageClient;
+            this.serverProcess = context.serverProcess;
+            // TODO: Ask Jupyter Adapter to attach to our kernel
+            // --- End Positron ---
             this.registerHandlers(client);
             await client.start();
             this.languageClient = client;
@@ -69,6 +81,17 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
             const d = this.disposables.shift()!;
             d.dispose();
         }
+
+        // --- Start Positron ---
+        // If we spawned our own process, stop it
+        if (this.serverProcess?.pid) {
+            try {
+                killPid(this.serverProcess.pid);
+            } catch (ex) {
+                traceError('Stopping Jedi language server failed', ex);
+            }
+        }
+        // --- End Positron ---
 
         if (this.languageClient) {
             const client = this.languageClient;
