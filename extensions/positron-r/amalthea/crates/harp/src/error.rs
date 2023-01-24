@@ -8,7 +8,7 @@
 use std::fmt;
 use std::str::Utf8Error;
 
-use libR_sys::{Rf_getAttrib, R_ClassSymbol, SEXP, Rf_lang2, Rf_eval, R_GlobalEnv};
+use libR_sys::{Rf_getAttrib, R_ClassSymbol, SEXP, Rf_lang2, Rf_eval, R_BaseEnv};
 
 use crate::object::RObject;
 use crate::protect::RProtect;
@@ -51,7 +51,7 @@ impl TryCatchError {
             let mut protect = RProtect::new();
             let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.condition));
 
-            RObject::from(Rf_eval(call, R_GlobalEnv)).try_into().unwrap()
+            RObject::from(Rf_eval(call, R_BaseEnv)).try_into().unwrap()
         }
     }
 }
