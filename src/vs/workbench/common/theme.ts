@@ -480,10 +480,10 @@ export const STATUS_BAR_NO_FOLDER_FOREGROUND = registerColor('statusBar.noFolder
 
 export const STATUS_BAR_BACKGROUND = registerColor('statusBar.background', {
 	// --- Start Positron ---
-	dark: '#3b4245',
-	light: '#f1f3f5',
-	hcDark: '#000000',
-	hcLight: '#ffffff',
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground,
 	// dark: '#007ACC',
 	// light: '#007ACC',
 	// hcDark: null,
@@ -811,8 +811,8 @@ export const TITLE_BAR_INACTIVE_FOREGROUND = registerColor('titleBar.inactiveFor
 
 export const TITLE_BAR_ACTIVE_BACKGROUND = registerColor('titleBar.activeBackground', {
 	// --- Start Positron ---
-	dark: '#3b4245',
-	light: '#f1f3f5',
+	dark: inputBackground,
+	light: inputBackground,
 	// dark: '#3C3C3C',
 	// light: '#DDDDDD',
 	// --- End Positron ---
@@ -986,10 +986,10 @@ export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBa
 
 // The Positron top action bar background color.
 export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActionBar.background', {
-	dark: '#3b4245',
-	light: '#f1f3f5',
-	hcDark: '#000000',
-	hcLight: '#ffffff'
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground
 }, localize('positronTopActionBar.background', "Positron top action bar background color."));
 
 // The Positron top action bar foreground color.
@@ -1116,7 +1116,7 @@ export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideAct
 
 // The Positron side action bar hover background color.
 export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
-	dark: '#3b4245',
+	dark: inputBackground,
 	light: '#dae1ea',
 	hcDark: null,
 	hcLight: null
@@ -1158,10 +1158,10 @@ export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = register
 
 // Modal dialog background color.
 export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
-	dark: '#3b4245',
-	light: '#f1f3f5',
-	hcDark: '#000000',
-	hcLight: '#ffffff'
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground
 }, localize('modalDialog.background', "Modal dialog background color."));
 
 // Modal dialog foreground color.
