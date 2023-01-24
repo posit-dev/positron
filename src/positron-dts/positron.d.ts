@@ -221,17 +221,25 @@ declare module 'positron' {
 		/** A unique identifier for this runtime; takes the form of a GUID */
 		runtimeId: string;
 
-		/** The name of the language this runtime can execute */
+		/** The name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)" */
+		runtimeName: string;
+
+		/** The version of the runtime as a string; e.g. "4.2" */
+		runtimeVersion: string;
+
+		/** The free-form, user-friendly name of the language this runtime can execute; e.g. "R" */
 		languageName: string;
+
+		/**
+		 * The Visual Studio Code Language ID of the language this runtime can execute; e.g. "r"
+		 *
+		 * See here for a list of known language IDs:
+		 * https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers
+		 */
+		languageId: string;
 
 		/** The version of the language. */
 		languageVersion: string;
-
-		/** The name of the runtime. */
-		runtimeName: string;
-
-		/** The version of the runtime. */
-		runtimeVersion: string;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;

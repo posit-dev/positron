@@ -39,6 +39,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	constructor(runtimeId: string, version: string) {
 		this.metadata = {
 			runtimeId,
+			languageId: 'zed',
 			languageName: 'Zed',
 			runtimeName: 'Zed',
 			languageVersion: version,

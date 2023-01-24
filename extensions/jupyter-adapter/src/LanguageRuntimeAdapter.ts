@@ -52,6 +52,7 @@ export class LanguageRuntimeAdapter
 	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
 	constructor(private readonly _spec: JupyterKernelSpec,
+		languageId: string,
 		languageVersion: string,
 		runtimeVersion: string,
 		private readonly _lsp: () => Promise<number> | null,
@@ -64,6 +65,7 @@ export class LanguageRuntimeAdapter
 			runtimeId: uuidv4(),
 			runtimeName: this._spec.display_name,
 			runtimeVersion,
+			languageId,
 			languageName: this._spec.language,
 			languageVersion,
 			startupBehavior: startupBehavior
