@@ -54,10 +54,10 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		const disposableStore = new DisposableStore();
 
 		// Debug code.
-		positronConsoleContext.executionHistoryService.clearInputEntries(props.positronConsoleInstance.runtime.metadata.language);
+		positronConsoleContext.executionHistoryService.clearInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 
 		// Build the history entries, if there is input history.
-		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.language);
+		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 		if (inputHistoryEntries.length) {
 			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000)); // TODO@softwarenerd - get 1000 from settings.
 		}
@@ -87,12 +87,12 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Create the resource URI.
 		const uri = URI.from({
 			scheme: Schemas.inMemory,
-			path: `/repl-${props.positronConsoleInstance.runtime.metadata.language}-${generateUuid()}`
+			path: `/repl-${props.positronConsoleInstance.runtime.metadata.languageId}-${generateUuid()}`
 		});
 
 		// Create language selection.
-		const languageId = positronConsoleContext.languageService.getLanguageIdByLanguageName(props.positronConsoleInstance.runtime.metadata.language);
-		const languageSelection = positronConsoleContext.languageService.createById(languageId);
+		// const languageId = positronConsoleContext.languageService.getLanguageIdByLanguageName(props.positronConsoleInstance.runtime.metadata.language);
+		const languageSelection = positronConsoleContext.languageService.createById(props.positronConsoleInstance.runtime.metadata.languageId);
 
 		// Create text model; this is the backing store for the Monaco editor that receives
 		// the user's input.

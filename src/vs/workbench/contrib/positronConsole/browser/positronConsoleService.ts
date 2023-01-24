@@ -6,9 +6,9 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-import { PositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleInstance';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, IPositronConsoleOptions, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { PositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleInstance';
 
 /**
  * PositronConsoleService class.
@@ -34,9 +34,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Constructor.
 	 */
 	constructor(
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@ILanguageService private readonly _languageService: ILanguageService,
-		@ILogService private readonly _logService: ILogService,
+		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@ILanguageService _languageService: ILanguageService,
+		@ILogService private _logService: ILogService,
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -48,7 +48,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Get the active language runtime. If there is one, activate the REPL for it.
 		if (this._languageRuntimeService.activeRuntime) {
-			const instance = this._runningInstancesById.get(this._languageRuntimeService.activeRuntime.metadata.id);
+			const instance = this._runningInstancesById.get(this._languageRuntimeService.activeRuntime.metadata.runtimeId);
 			if (instance) {
 				this.setActiveRepl(instance);
 			} else {
@@ -68,7 +68,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			if (!runtime) {
 				this.setActiveRepl();
 			} else {
-				const instance = this._runningInstancesById.get(runtime.metadata.id);
+				const instance = this._runningInstancesById.get(runtime.metadata.runtimeId);
 				if (instance) {
 					this.setActiveRepl(instance);
 				} else {
@@ -150,21 +150,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @returns The new Positron console instance.
 	 */
 	private startConsole(runtime: ILanguageRuntime): IPositronConsoleInstance {
-		// Look up supported language ID for this runtime.
-		const languageId = this._languageService.getLanguageIdByLanguageName(runtime.metadata.language);
-		if (!languageId) {
-			throw new Error(`Language runtime ${formatLanguageRuntime(runtime)} was not found in the language service.`);
-		}
-
 		// Log.
 		this._logService.trace(`Starting REPL for language runtime ${formatLanguageRuntime(runtime)}.`);
 
-		// Create the new Positron console instance.
-		const instance = new PositronConsoleInstance(languageId, runtime);
+		// Create the new REPL instance.
+		const instance = new PositronConsoleInstance(runtime.metadata.languageId, runtime);
 
 		// Add the REPL instance to the running instances.
-		this._runningInstancesById.set(runtime.metadata.id, instance);
-		this._runningInstancesByLanguageId.set(languageId, instance);
+		this._runningInstancesById.set(runtime.metadata.runtimeId, instance);
+		this._runningInstancesByLanguageId.set(runtime.metadata.languageId, instance);
 
 		// Fire the onDidStartRepl event.
 		this._onDidStartConsoleEmitter.fire(instance);
@@ -172,8 +166,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// When the runtime exits, see if the user wants to restart it.
 		this._register(runtime.onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
-				this._runningInstancesById.delete(runtime.metadata.id);
-				this._runningInstancesByLanguageId.delete(languageId);
+				this._runningInstancesById.delete(runtime.metadata.runtimeId);
+				this._runningInstancesByLanguageId.delete(runtime.metadata.languageId);
 			}
 		}));
 

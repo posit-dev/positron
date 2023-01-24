@@ -1,20 +1,20 @@
 {
 	"name": "Positron",
-
-	// Image contents: https://github.com/microsoft/vscode-dev-containers/blob/master/repository-containers/images/github.com/microsoft/vscode/.devcontainer/base.Dockerfile
-	"image": "mcr.microsoft.com/vscode/devcontainers/repos/microsoft/vscode:branch-main",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
 	"overrideCommand": false,
-	"runArgs": [ "--init", "--security-opt", "seccomp=unconfined", "--shm-size=1g"],
-
-	// VS Code extensions and settings
+	"privileged": true,
+	"mounts": [
+		{
+			"source": "vscode-dev",
+			"target": "/vscode-dev",
+			"type": "volume"
+		}
+	],
 	"customizations": {
 		"vscode": {
-			"settings": {
-				"resmon.show.battery": false,
-				"resmon.show.cpufreq": false
-			},
 			"extensions": [
-				"dbaeumer.vscode-eslint",
 				"mutantdino.resourcemonitor",
 				"ms-toolsai.jupyter",
 				"ms-toolsai.jupyter-renderers",
@@ -22,29 +22,5 @@
 				"ms-python.python"
 			]
 		}
-	},
-
-	// noVNC, VNC
-	"forwardPorts": [6080, 5901],
-	"portsAttributes": {
-		"6080": {
-			"label": "VNC web client (noVNC)",
-			"onAutoForward": "silent"
-		},
-		"5901": {
-			"label": "VNC TCP port",
-			"onAutoForward": "silent"
-		}
-	},
-
-	// Optionally loads a cached yarn install for the repo
-    // --- Start Positron ---
-	"postCreateCommand": ".devcontainer/cache/post-create.sh",
-    // --- End Positron ---
-
-	"remoteUser": "node",
-
-	"hostRequirements": {
-		"memory": "9gb"
 	}
 }

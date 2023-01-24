@@ -15,7 +15,7 @@ export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>(
  * @returns A string suitable for logging the language runtime.
  */
 export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) =>
-	`${languageRuntime.metadata.id} (language: ${languageRuntime.metadata.language} name: ${languageRuntime.metadata.name} version: ${languageRuntime.metadata.version})`;
+	`${languageRuntime.metadata.runtimeId} (language: ${languageRuntime.metadata.languageName} name: ${languageRuntime.metadata.runtimeName} version: ${languageRuntime.metadata.languageVersion})`;
 
 /**
  * LanguageRuntimeMessage is an interface that defines an event occurring in a
@@ -212,7 +212,7 @@ export interface ILanguageRuntimeMessageEvent extends ILanguageRuntimeMessage {
 
 export interface ILanguageRuntimeGlobalEvent {
 	/** The ID of the runtime from which the event originated */
-	id: string;
+	runtime_id: string;
 
 	/** The event itself */
 	event: ILanguageRuntimeMessageEvent;
@@ -220,7 +220,7 @@ export interface ILanguageRuntimeGlobalEvent {
 
 export interface ILanguageRuntimeStateEvent {
 	/** The ID of the runtime that changed states */
-	id: string;
+	runtime_id: string;
 
 	/** The runtime's previous state */
 	old_state: RuntimeState;
@@ -233,17 +233,23 @@ export interface ILanguageRuntimeStateEvent {
  * before the runtime is started.
  */
 export interface ILanguageRuntimeMetadata {
-	/** A unique identifier for this runtime */
-	readonly id: string;
+	/** A unique identifier for this runtime; usually a GUID */
+	readonly runtimeId: string;
 
-	/** The language identifier for this runtime. */
-	readonly language: string;
+	/** The name of the language that this runtime can execute; e.g. "R" */
+	readonly languageName: string;
 
-	/** The name of the runtime. */
-	readonly name: string;
+	/** The internal ID of the language that this runtime can execute; e.g. "r" */
+	readonly languageId: string;
 
-	/** The version of the runtime. */
-	readonly version: string;
+	/** The version of the language in question; e.g. "4.3.3" */
+	readonly languageVersion: string;
+
+	/** The user-facing descriptive name of the runtime; e.g. "R 4.3.3" */
+	readonly runtimeName: string;
+
+	/** The internal version of the runtime that wraps the language; e.g. "1.0.3" */
+	readonly runtimeVersion: string;
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	startupBehavior: LanguageRuntimeStartupBehavior;

@@ -10,10 +10,9 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { ConsoleReplItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemInput';
 import { ConsoleReplItemError } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemError';
-import { ConsoleReplItemTrace } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemTrace';
+// import { ConsoleReplItemTrace } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemTrace';
 import { ConsoleReplItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemOutput';
 import { ConsoleReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplLiveInput';
 import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
@@ -40,14 +39,14 @@ interface ExecutingCodeDescriptor {
  */
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
-	const positronConsoleContext = usePositronConsoleContext();
+	//const positronConsoleContext = usePositronConsoleContext();
 	const [consoleReplItems, setConsoleReplItems] = useState<ConsoleReplItem[]>([]);
 	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
 	const [executingCodeDescriptor, setExecutingCodeDescriptor, refExecutingCodeDescriptor] = useStateRef<ExecutingCodeDescriptor | undefined>(undefined);
 
 	// Adds a ConsoleReplItemTrace to the console.
 	const trace = (message: string) => {
-		setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemTrace({ key: generateUuid(), timestamp: new Date(), message })]);
+		//setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemTrace({ key: generateUuid(), timestamp: new Date(), message })]);
 	};
 
 	// Executes code.
@@ -75,7 +74,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		const disposableStore = new DisposableStore();
 
 		// // Replay history as ConsoleReplItems.
-		positronConsoleContext.executionHistoryService.getExecutionEntries(props.positronConsoleInstance.runtime.metadata.id);
+		//positronConsoleContext.executionHistoryService.getExecutionEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 		// console.log(`Execution entries for ${props.positronConsoleInstance.runtime.metadata.id} ${props.positronConsoleInstance.runtime.metadata.language}`);
 		// console.log(executionEntries);
 		// for (const executionEntry of executionEntries) {
@@ -152,7 +151,12 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			{consoleReplItems.map(consoleReplItem =>
 				consoleReplItem.element
 			)}
-			<ConsoleReplLiveInput ref={consoleReplLiveInputRef} width={props.width} executingCode={!!executingCodeDescriptor} executeCode={executeCode} positronConsoleInstance={props.positronConsoleInstance} />
+			<ConsoleReplLiveInput
+				ref={consoleReplLiveInputRef}
+				width={props.width}
+				executingCode={!!executingCodeDescriptor}
+				executeCode={executeCode}
+				positronConsoleInstance={props.positronConsoleInstance} />
 		</div>
 	);
 };

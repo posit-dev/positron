@@ -28,7 +28,7 @@ export const ConsoleReplInput = ({ languageRuntimeMessageInput }: ConsoleReplInp
 	// Render.
 	return (
 		<div className='console-repl-input'>
-			<div className='timestamp'>{new Date(languageRuntimeMessageInput.when).toLocaleTimeString()}</div>
+			{/* <div className='timestamp'>{new Date(languageRuntimeMessageInput.when).toLocaleTimeString()}</div> */}
 			{replLines.map(replLine =>
 				<ConsoleReplLine key={replLine.key} text={replLine.text} />
 			)}
