@@ -44,7 +44,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The onVisibilityChanged event.
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 
-	// The last known height.
+	// The width.
+	private _width = 0;
+
+	// The height.
 	private _height = 0;
 
 	// The Positron help container - contains the entire Positron help UI.
@@ -65,6 +68,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	//#endregion Private Properties
 
 	//#region IReactComponentContainer
+
+	/**
+	 * Gets the width.
+	 */
+	get width() {
+		return this._width;
+	}
 
 	/**
 	 * Gets the height.

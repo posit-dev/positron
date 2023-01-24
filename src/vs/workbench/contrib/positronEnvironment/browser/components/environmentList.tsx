@@ -12,6 +12,7 @@ import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvi
  * EnvironmentListProps interface.
  */
 export interface EnvironmentListProps {
+	width: number;
 	height: number;
 }
 
