@@ -94,16 +94,21 @@ function registerKernelRuntime(ext: vscode.Extension<any>, _context: vscode.Exte
     const kernelSpec = {
         argv: [pythonInfo.env.executable.filename, '-m', 'ipykernel_launcher', '-f', '{connection_file}'],
         display_name: `${pythonInfo.env.display} (ipykernel)`,
-        language: 'python',
+        language: 'Python',
         metadata: {
             debugger: false
         }
     };
-    const version = getVersionString(pythonInfo.env.version);
+    const pythonVersion = getVersionString(pythonInfo.env.version);
+
+    // Get the version of this extension from package.json so we can pass it
+    // to the adapter as the implementation version.
+    const packageJson = require('../../package.json');
+    const extensionVersion = packageJson.version;
 
     // Create an adapter for the kernel to fulfill the LanguageRuntime interface
     const startupBehavior = pythonInfo.hasKernel ? positron.LanguageRuntimeStartupBehavior.Implicit : positron.LanguageRuntimeStartupBehavior.Explicit;
-    runtime = ext.exports.adaptKernel(kernelSpec, version, null, startupBehavior); // TODO: Activate LSP
+    runtime = ext.exports.adaptKernel(kernelSpec, 'python', pythonVersion, extensionVersion, null, startupBehavior); // TODO: Activate LSP
 
     // Register a language runtime provider for this kernel
     const disposable: vscode.Disposable = positron.runtime.registerLanguageRuntime(runtime);
