@@ -1,12 +1,3 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
-
-.console-repl-live-input {
-	/* margin-top: 10px; */
-	/* margin-bottom: 10px; */
-}
-
-.console-repl-live-input .container {
-	cursor: text;
-}
