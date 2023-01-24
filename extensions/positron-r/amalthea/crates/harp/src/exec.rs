@@ -16,6 +16,7 @@ use libR_sys::*;
 
 use crate::error::Error;
 use crate::error::Result;
+use crate::error::TryCatchError;
 use crate::object::RObject;
 use crate::protect::RProtect;
 use crate::r_symbol;
@@ -225,6 +226,41 @@ pub unsafe fn r_top_level_exec<F, R>(mut fun: F) -> Result<R> where F: FnMut() -
 
 }
 
+pub unsafe fn r_try_catch_error<F>(mut fun: F) -> std::result::Result<RObject, TryCatchError> where F: FnMut() -> SEXP {
+    extern fn body_fn(arg: *mut c_void) -> SEXP {
+        let closure: &mut &mut dyn FnMut() -> SEXP = unsafe { mem::transmute(arg) };
+        closure()
+    }
+
+    // handler just returns the condition and sets success to false
+    let mut success: bool = true;
+    extern fn handler_fn(condition: SEXP, arg: *mut c_void) -> SEXP {
+        let success_ptr = arg as *mut bool;
+        unsafe {
+            *success_ptr = false;
+        }
+
+        condition
+    }
+
+    let mut body_data: &mut dyn FnMut() -> SEXP = &mut fun;
+    let body_data = &mut body_data;
+
+    let success_ptr: *mut bool = &mut success;
+
+    let result = R_tryCatchError(
+        Some(body_fn),
+        body_data as *mut _ as *mut c_void,
+        Some(handler_fn),
+        success_ptr as *mut c_void
+    );
+    match success {
+        true => Ok(RObject::from(result)),
+        false => Err(TryCatchError::new(result))
+    }
+
+}
+
 pub enum ParseResult {
     Ok(SEXP),
     Incomplete(),
@@ -248,13 +284,14 @@ pub unsafe fn r_parse_vector(code: String) -> ParseResult {
         R_ParseVector(r_code, -1, &mut ps, R_NilValue)
     };
 
-    match r_top_level_exec(lambda) {
+    match r_try_catch_error(lambda) {
         Err(_) => ParseResult::Error{
             message: geterrmessage()
         },
+
         Ok(out) => {
             match ps {
-                ParseStatus_PARSE_OK => ParseResult::Ok(out),
+                ParseStatus_PARSE_OK => ParseResult::Ok(*out),
                 ParseStatus_PARSE_INCOMPLETE => ParseResult::Incomplete(),
                 _ => {
                     ParseResult::SyntaxError{
@@ -270,6 +307,7 @@ pub unsafe fn r_parse_vector(code: String) -> ParseResult {
 #[cfg(test)]
 mod tests {
 
+    use std::ffi::CString;
     use std::io::Write;
 
     use crate::r_lock;
@@ -391,6 +429,41 @@ mod tests {
             R_ParseVector(code, -1, &mut ps, R_NilValue)
         });
         assert!(failed.is_err());
+
+    }}
+
+    #[test]
+    fn test_try_catch_error(){ r_test! {
+
+        let ok = r_try_catch_error(|| {
+            Rf_ScalarInteger(42)
+        });
+        assert!(match ok {
+            Ok(value) => {
+                assert_eq!(INTEGER_ELT(*value, 0), 42);
+
+                true
+            },
+
+            Err(_) => false
+        });
+
+
+        let out = r_try_catch_error(|| {
+            let msg = CString::new("ouch").unwrap();
+            Rf_error(unsafe {msg.as_ptr()});
+
+            R_NilValue
+        });
+
+        assert!(match out {
+            Err(err) => {
+                assert_eq!(err.message(), ["ouch"]);
+                assert_eq!(err.classes(), ["simpleError", "error", "condition"]);
+                true
+            },
+            _ => false
+        });
 
     }}
 

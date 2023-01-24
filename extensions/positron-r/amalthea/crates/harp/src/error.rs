@@ -8,6 +8,11 @@
 use std::fmt;
 use std::str::Utf8Error;
 
+use libR_sys::{Rf_getAttrib, R_ClassSymbol, SEXP, Rf_lang2, Rf_eval, R_GlobalEnv};
+
+use crate::object::RObject;
+use crate::protect::RProtect;
+use crate::r_symbol;
 use crate::utils::r_type2char;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -22,6 +27,33 @@ pub enum Error {
     UnexpectedType(u32, Vec<u32>),
     InvalidUtf8(Utf8Error),
     TopLevelExecError()
+}
+
+pub struct TryCatchError {
+    condition: RObject
+}
+
+impl TryCatchError {
+    pub fn new(condition: SEXP) -> TryCatchError {
+        TryCatchError {
+            condition: RObject::from(condition)
+        }
+    }
+
+    pub fn classes(&self) -> Vec<String>  {
+        unsafe {
+            RObject::from(Rf_getAttrib(*self.condition, R_ClassSymbol)).try_into().unwrap()
+        }
+    }
+
+    pub fn message(&self) -> Vec<String> {
+        unsafe {
+            let mut protect = RProtect::new();
+            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.condition));
+
+            RObject::from(Rf_eval(call, R_GlobalEnv)).try_into().unwrap()
+        }
+    }
 }
 
 // empty implementation required for 'anyhow'
@@ -78,6 +110,7 @@ impl fmt::Display for Error {
             Error::TopLevelExecError() => {
                 write!(f, "Top Level exec error")
             }
+
 
         }
     }

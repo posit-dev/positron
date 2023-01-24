@@ -28,13 +28,13 @@ macro_rules! r_symbol {
     ($id:literal) => {{
         use std::os::raw::c_char;
         let value = concat!($id, "\0");
-        Rf_install(value.as_ptr() as *const c_char)
+        libR_sys::Rf_install(value.as_ptr() as *const c_char)
     }};
 
     ($id:expr) => {{
         use std::os::raw::c_char;
         let cstr = [&*$id, "\0"].concat();
-        Rf_install(cstr.as_ptr() as *const c_char)
+        libR_sys::Rf_install(cstr.as_ptr() as *const c_char)
     }};
 
 }
