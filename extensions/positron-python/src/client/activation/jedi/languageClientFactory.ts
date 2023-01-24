@@ -5,22 +5,14 @@ import * as path from 'path';
 // --- Start Positron ---
 import { Socket } from 'net';
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
-// --- End Positron ---
-
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
+// --- End Positron ---
 import { Resource } from '../../common/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
 import { ILanguageClientFactory } from '../types';
 // --- Start Positron ---
-import { ChildProcess, SpawnOptions, spawn } from 'child_process';
-import { traceInfo, traceVerbose } from '../../logging';
-
-// Context to provide access to the spawned server process
-export interface LanguageClientContext {
-    languageClient: LanguageClient;
-    serverProcess: ChildProcess;
-}
+import { traceVerbose } from '../../logging';
 
 const languageClientName = 'Positron Python Jedi';
 // --- End Positron ---
@@ -49,42 +41,14 @@ export class JediLanguageClientFactory implements ILanguageClientFactory {
      * Finds an available port to spawn a new Jedi LSP in TCP mode and returns a LanguageClient
      * configured to connect to this server.
      */
-    public async createLanguageClientAndTCPServer(
-        resource: Resource,
-        _interpreter: PythonEnvironment | undefined,
+    public async createLanguageClientTCP(
+        port: number,
         clientOptions: LanguageClientOptions,
-    ): Promise<LanguageClientContext> {
-
-        // Find an available port for our TCP server
-        const portfinder = require('portfinder');
-        const port = await portfinder.getPortPromise();
-
-        // Customize Jedi entrypoint with an additional resident IPyKernel
-        const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'ipykernel_jedi.py');
-        const interpreter = await this.interpreterService.getActiveInterpreter(resource);
-        const command = interpreter ? interpreter.path : 'python';
-        const args = [lsScriptPath, `--port=${port}`] // '-f', '{ connection_file }']
-        traceVerbose(`Configuring Jedi LSP server with args '${args}'`);
-
-        // Spawn Jedi LSP in TCP mode
-        const options: SpawnOptions = { env: {} };
-        const serverProcess: ChildProcess = spawn(command, args, options);
-        if (!serverProcess || !serverProcess.pid) {
-            return Promise.reject(`Launching Jedi LSP server using command '${command}' failed.`);
-        }
-        // Wait for spawn to complete
-        await new Promise((resolve) => {
-            serverProcess.once('spawn', () => { resolve(true); });
-        });
-        traceInfo(`Spawned Jedi LSP on port '${port}' with pid '${serverProcess.pid}'`);
+    ): Promise<LanguageClient> {
 
         // Configure language client to connect to LSP via TCP on start
         const serverOptions = async () => { return this.getServerOptions(port); };
-        const languageClient = new LanguageClient(PYTHON_LANGUAGE, 'Positron Python Jedi', serverOptions, clientOptions);
-        return {
-            languageClient: languageClient,
-            serverProcess: serverProcess
-        }
+        return new LanguageClient(PYTHON_LANGUAGE, 'Positron Python Jedi', serverOptions, clientOptions);
     }
 
     /**
