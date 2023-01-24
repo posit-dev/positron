@@ -16,7 +16,3 @@
 	-moz-user-select: none;
 	-webkit-user-select: none;
 }
-
-.console-repl-startup-banner .banner-line {
-	font-family: monospace;
-}
