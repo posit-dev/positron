@@ -22,8 +22,13 @@ export interface ConsoleReplOutputProps {
 export const ConsoleReplOutput = ({ languageRuntimeMessageOutput }: ConsoleReplOutputProps) => {
 	// Hooks.
 	const replLines = useMemo(() => {
-		return replLineSplitter(languageRuntimeMessageOutput.data['text/plain']);
+		if (languageRuntimeMessageOutput.data['text/plain'].length === 0) {
+			return [];
+		} else {
+			return replLineSplitter(languageRuntimeMessageOutput.data['text/plain']);
+		}
 	}, [languageRuntimeMessageOutput]);
+
 
 	// Render.
 	return (

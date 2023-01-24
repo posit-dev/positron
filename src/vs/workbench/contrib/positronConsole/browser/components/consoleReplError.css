@@ -1,17 +1,3 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
-
-.console-repl-error {
-	padding: 8px;
-	/* border-bottom: 1px solid #cccccc; */
-}
-
-.console-repl-error .timestamp {
-	font-size: 9px;
-
-	user-select: none;
-	-ms-user-select: none;
-	-moz-user-select: none;
-	-webkit-user-select: none;
-}

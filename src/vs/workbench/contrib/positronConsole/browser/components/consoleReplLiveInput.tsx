@@ -220,7 +220,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 				if (n < 2) {
 					return '>';
 				}
-				return '>>';
+				return '';
 			},
 			minimap: {
 				enabled: false

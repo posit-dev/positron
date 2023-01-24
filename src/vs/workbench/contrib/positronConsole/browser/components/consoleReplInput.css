@@ -3,15 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-repl-input {
-	padding-left: 8px;
-	/* border-bottom: 1px solid #cccccc; */
+	display: flex;
 }
 
-.console-repl-input .timestamp {
-	font-size: 9px;
-
-	user-select: none;
-	-ms-user-select: none;
-	-moz-user-select: none;
-	-webkit-user-select: none;
+.console-repl-input .prompt {
+	display: flex;
+	width: 22px;
+	justify-content: right;
+	margin-right: 16px;
 }

@@ -22,16 +22,18 @@ export interface ConsoleReplInputProps {
 export const ConsoleReplInput = ({ languageRuntimeMessageInput }: ConsoleReplInputProps) => {
 	// Hooks.
 	const replLines = useMemo(() => {
-		return replLineSplitter(languageRuntimeMessageInput.code, '>');
+		return replLineSplitter(languageRuntimeMessageInput.code);
 	}, [languageRuntimeMessageInput]);
 
 	// Render.
 	return (
 		<div className='console-repl-input'>
-			{/* <div className='timestamp'>{new Date(languageRuntimeMessageInput.when).toLocaleTimeString()}</div> */}
-			{replLines.map(replLine =>
-				<ConsoleReplLine key={replLine.key} text={replLine.text} />
-			)}
+			<div className='prompt'>&gt;</div>
+			<div className='lines'>
+				{replLines.map(replLine =>
+					<ConsoleReplLine key={replLine.key} text={replLine.text} />
+				)}
+			</div>
 		</div>
 	);
 };
