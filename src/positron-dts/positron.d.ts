@@ -224,7 +224,7 @@ declare module 'positron' {
 		/** The name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)" */
 		runtimeName: string;
 
-		/** The version of the runtime as a string; e.g. "4.2" */
+		/** The version of the runtime itself (e.g. kernel or extension version) as a string; e.g. "0.1" */
 		runtimeVersion: string;
 
 		/** The free-form, user-friendly name of the language this runtime can execute; e.g. "R" */
@@ -238,7 +238,7 @@ declare module 'positron' {
 		 */
 		languageId: string;
 
-		/** The version of the language. */
+		/** The version of the language; e.g. "4.2" */
 		languageVersion: string;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
