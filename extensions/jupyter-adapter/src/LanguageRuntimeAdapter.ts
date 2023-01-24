@@ -41,6 +41,12 @@ export class LanguageRuntimeAdapter
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
 	private readonly _pendingRpcs: Map<string, JupyterRpc<any, any>> = new Map();
 
+	/** A set of message IDs that represent busy messages for which no corresponding idle message has yet been received */
+	private readonly _busyMessageIds: Set<string> = new Set();
+
+	/** A set of message IDs that represent idle messages for which no corresponding busy message has yet been received */
+	private readonly _idleMessageIds: Set<string> = new Set();
+
 	/**
 	 * Map of comm IDs to RuntimeClientAdapters, which wrap comm channels.
 	 *
@@ -157,6 +163,13 @@ export class LanguageRuntimeAdapter
 		}
 
 		this._channel.appendLine(`Interrupting ${this.metadata.language}`);
+
+		// We are interrupting the kernel, so it's possible that message IDs
+		// that are currently being processed will never be completed. Clear the
+		// queue.
+		this._busyMessageIds.clear();
+		this._idleMessageIds.clear();
+
 		return this._kernel.interrupt();
 	}
 
@@ -529,6 +542,48 @@ export class LanguageRuntimeAdapter
 			type: positron.LanguageRuntimeMessageType.State,
 			state: data.execution_state
 		} as positron.LanguageRuntimeState);
+
+		// Map the kernel status to a runtime status by summarizing the
+		// busy/idle messages into a global busy/idle state.
+		switch (data.execution_state) {
+			case 'idle':
+				// Busy/idle messages come in pairs with matching origin IDs. If
+				// we get an idle message, remove it from the stack of busy
+				// messages by matching it with its origin ID. If the stack is
+				// empty, emit an idle event.
+				//
+				// In most cases, the stack will only have one item; we keep
+				// track of the stack to defend against out-of-order messages.
+				if (this._busyMessageIds.has(message.originId)) {
+					this._busyMessageIds.delete(message.originId);
+					if (this._busyMessageIds.size === 0) {
+						this.onStatus(positron.RuntimeState.Idle);
+					}
+				} else {
+					// We got an idle message without a matching busy message.
+					// This indicates an ordering problem, but we can recover by
+					// adding it to the stack of idle messages.
+					this._idleMessageIds.add(message.originId);
+				}
+				break;
+			case 'busy':
+				// First, check to see if this is the other half of an
+				// out-of-order message pair. If we already got the idle side of
+				// this message, we can discard it.
+				if (this._idleMessageIds.has(message.originId)) {
+					this._idleMessageIds.delete(message.originId);
+					break;
+				}
+
+				// Add this to the stack of busy messages
+				this._busyMessageIds.add(message.originId);
+
+				// If it's the first busy message, emit a busy event
+				if (this._busyMessageIds.size === 1) {
+					this.onStatus(positron.RuntimeState.Busy);
+				}
+				break;
+		}
 	}
 
 	/**
