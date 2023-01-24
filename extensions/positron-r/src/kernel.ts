@@ -123,8 +123,13 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			}
 		};
 
+		// Get the version of this extension from package.json so we can pass it
+		// to the adapter as the implementation version.
+		const packageJson = require('../package.json');
+		const version = packageJson.version;
+
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(kernelSpec, rHome.rVersion ?? '0.0.1', () => {
+		runtime = ext.exports.adaptKernel(kernelSpec, rHome.rVersion ?? '0.0.1', version, () => {
 			return activateLsp(context);
 		});
 
