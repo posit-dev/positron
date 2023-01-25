@@ -3,12 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .console-core {
-	position: relative;
+	/* position: relative; */
 	background: transparent; /* placeholder */
 }
 
 .positron-console .console-core .console-repls-container {
-	overflow: scroll;
+	overflow-y: scroll;
 }
 
 .positron-console .console-core .console-repls-container:focus {

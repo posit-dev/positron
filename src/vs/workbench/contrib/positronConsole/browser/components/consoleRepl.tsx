@@ -10,6 +10,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
+import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { ConsoleReplItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemInput';
 import { ConsoleReplItemError } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemError';
 // import { ConsoleReplItemTrace } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemTrace';
@@ -39,7 +40,7 @@ interface ExecutingCodeDescriptor {
  */
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
-	//const positronConsoleContext = usePositronConsoleContext();
+	const positronConsoleContext = usePositronConsoleContext();
 	const [consoleReplItems, setConsoleReplItems] = useState<ConsoleReplItem[]>([]);
 	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
 	const [executingCodeDescriptor, setExecutingCodeDescriptor, refExecutingCodeDescriptor] = useStateRef<ExecutingCodeDescriptor | undefined>(undefined);
@@ -145,6 +146,11 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [consoleReplItems]);
 
+	// Experimental.
+	useEffect(() => {
+		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
+	}, [positronConsoleContext]);
+
 	// Render.
 	return (
 		<div className='console-repl' hidden={props.hidden}>
@@ -153,6 +159,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			)}
 			<ConsoleReplLiveInput
 				ref={consoleReplLiveInputRef}
+				hidden={props.hidden}
 				width={props.width}
 				executingCode={!!executingCodeDescriptor}
 				executeCode={executeCode}

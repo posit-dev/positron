@@ -38,16 +38,19 @@ interface PositronHelpCommand {
 export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
-	// The onSizeChanged event.
-	private _onSizeChanged = this._register(new Emitter<ISize>());
+	// The onSizeChanged emitter.
+	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onVisibilityChanged event.
-	private _onVisibilityChanged = this._register(new Emitter<boolean>());
+	// The onVisibilityChanged emitter.
+	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
 
-	// The width.
+	// The onFocused emitter.
+	private _onFocusedEmitter = this._register(new Emitter<void>());
+
+	// The width. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
 	private _width = 0;
 
-	// The height.
+	// The height. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
 	private _height = 0;
 
 	// The Positron help container - contains the entire Positron help UI.
@@ -86,12 +89,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	/**
 	 * The onSizeChanged event.
 	 */
-	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
+	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
 	/**
 	 * The onVisibilityChanged event.
 	 */
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
+
+	/**
+	 * The onFocused event.
+	 */
+	readonly onFocused: Event<void> = this._onFocusedEmitter.event;
 
 	//#endregion IReactComponentContainer
 
@@ -130,7 +138,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 
 		// Register event handlers.
-		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChanged.fire(this.isBodyVisible())));
+		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChangedEmitter.fire(this.isBodyVisible())));
 		this._register(this.positronHelpService.onRenderHelp(helpResult => {
 			// Remove the previous help iframe.
 			if (this._helpIFrame) {
@@ -163,14 +171,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	//#endregion Constructor & Dispose
 
 	//#region ViewPane Overrides
-
-	/**
-	 * focus override method.
-	 */
-	override focus(): void {
-		// Call the base class's method.
-		super.focus();
-	}
 
 	/**
 	 * renderBody override method.
@@ -247,6 +247,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	}
 
 	/**
+	 * focus override method.
+	 */
+	override focus(): void {
+		// Call the base class's method.
+		super.focus();
+
+		// Fire the onFocused event.
+		this._onFocusedEmitter.fire();
+	}
+
+	/**
 	 * layoutBody override method.
 	 * @param height The height of the body.
 	 * @param width The width of the body.
@@ -256,7 +267,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super.layoutBody(height, width);
 
 		// Raise the onSizeChanged event.
-		this._onSizeChanged.fire({
+		this._onSizeChangedEmitter.fire({
 			width,
 			height
 		});

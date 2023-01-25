@@ -36,6 +36,11 @@ export interface IReactComponentContainer {
 	 * onVisibilityChanged event.
 	 */
 	readonly onVisibilityChanged: Event<boolean>;
+
+	/**
+	 * onFocused event.
+	 */
+	readonly onFocused: Event<void>;
 }
 
 /**

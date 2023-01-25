@@ -33,7 +33,6 @@ export const ConsoleReplOutput = ({ languageRuntimeMessageOutput }: ConsoleReplO
 	// Render.
 	return (
 		<div className='console-repl-output'>
-			{/* <div className='timestamp'>{new Date(languageRuntimeMessageOutput.when).toLocaleTimeString()}</div> */}
 			{replLines.map(replLine =>
 				<ConsoleReplLine key={replLine.key} text={replLine.text} />
 			)}
