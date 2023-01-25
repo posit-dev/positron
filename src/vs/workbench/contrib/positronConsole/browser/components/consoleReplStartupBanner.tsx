@@ -29,7 +29,6 @@ export const ConsoleReplStartupBanner = ({ timestamp, languageRuntimeInfo }: Con
 	// Render.
 	return (
 		<div className='console-repl-startup-banner'>
-			{/* <div className='timestamp'>{timestamp.toLocaleTimeString()}</div> */}
 			{replLines.map(replLine =>
 				<ConsoleReplLine key={replLine.key} text={replLine.text} />
 			)}

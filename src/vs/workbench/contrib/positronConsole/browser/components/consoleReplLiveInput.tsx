@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { forwardRef, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
@@ -29,6 +29,7 @@ import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime
 
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
+	hidden: boolean;
 	width: number;
 	executingCode: boolean;
 	executeCode: (codeFragment: string) => void;
@@ -45,7 +46,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 	const positronConsoleContext = usePositronConsoleContext();
 	const refContainer = useRef<HTMLDivElement>(undefined!);
 	const [, setHistoryNavigator, refHistoryNavigator] = useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
-	const [codeEditorWidget, setCodeEditorWidget] = useState<CodeEditorWidget>(undefined!);
+	const [codeEditorWidget, setCodeEditorWidget, _refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
 
 	// Main useEffect.
@@ -53,8 +54,12 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+
+		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
+			setHistoryNavigator(undefined);
+		}));
+
 		// Debug code.
-		//positronConsoleContext.executionHistoryService.clearInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
@@ -66,7 +71,10 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
 			CodeEditorWidget,
 			refContainer.current,
-			{},
+			{
+				wordWrap: 'on',
+				wordWrapColumn: 2048
+			},
 			{
 				isSimpleWidget: false,
 				contributions: EditorExtensionsRegistry.getSomeEditorContributions([
@@ -264,12 +272,20 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		return () => disposableStore.dispose();
 	}, []);
 
+	// Experimental.
 	useEffect(() => {
-		setCodeEditorWidth(props.width);
 		if (codeEditorWidget) {
+			setCodeEditorWidth(props.width);
 			codeEditorWidget.layout({ width: props.width, height: codeEditorWidget.getContentHeight() });
 		}
 	}, [props.width]);
+
+	// Experimental.
+	useEffect(() => {
+		if (!props.hidden && codeEditorWidget && !codeEditorWidget.hasTextFocus()) {
+			codeEditorWidget.focus();
+		}
+	}, [props.hidden]);
 
 	// Render.
 	return (

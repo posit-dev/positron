@@ -34,7 +34,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	return (
 		<div className='console-core'>
 			<ConsoleActionBar {...props} />
-			<div className='console-repls-container' style={{ height: props.height - 32 }}>
+			<div className='console-repls-container' style={{ width: props.width, height: props.height - 32 }}>
 				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 					<ConsoleRepl
 						width={props.width}
