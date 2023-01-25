@@ -54,7 +54,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		const disposableStore = new DisposableStore();
 
 		// Debug code.
-		positronConsoleContext.executionHistoryService.clearInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
+		//positronConsoleContext.executionHistoryService.clearInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
