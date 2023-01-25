@@ -13,7 +13,7 @@ use libR_sys::{Rf_getAttrib, R_ClassSymbol, SEXP, Rf_lang2, Rf_eval, R_BaseEnv};
 use crate::object::RObject;
 use crate::protect::RProtect;
 use crate::r_symbol;
-use crate::utils::r_type2char;
+use crate::utils::{r_type2char, r_inherits};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -29,31 +29,38 @@ pub enum Error {
     TopLevelExecError()
 }
 
-pub struct TryCatchError {
-    condition: RObject
-}
+pub struct RError(pub RObject);
 
-impl TryCatchError {
-    pub fn new(condition: SEXP) -> TryCatchError {
-        TryCatchError {
-            condition: RObject::from(condition)
-        }
+impl RError {
+    pub fn new(condition: SEXP) -> Self {
+        RError(RObject::from(condition))
+    }
+
+    pub fn condition(&self) -> SEXP {
+        *self.0
     }
 
     pub fn classes(&self) -> Vec<String>  {
         unsafe {
-            RObject::from(Rf_getAttrib(*self.condition, R_ClassSymbol)).try_into().unwrap()
+            RObject::from(Rf_getAttrib(*self.0, R_ClassSymbol)).try_into().unwrap()
         }
     }
 
     pub fn message(&self) -> Vec<String> {
         unsafe {
             let mut protect = RProtect::new();
-            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.condition));
+            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.0));
 
             RObject::from(Rf_eval(call, R_BaseEnv)).try_into().unwrap()
         }
     }
+
+    pub fn inherits(&self, class: &str) -> bool {
+        unsafe {
+            r_inherits(*self.0, &class)
+        }
+    }
+
 }
 
 // empty implementation required for 'anyhow'

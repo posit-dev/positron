@@ -15,8 +15,8 @@ use std::mem::MaybeUninit;
 use libR_sys::*;
 
 use crate::error::Error;
+use crate::error::RError;
 use crate::error::Result;
-use crate::error::TryCatchError;
 use crate::object::RObject;
 use crate::protect::RProtect;
 use crate::r_symbol;
@@ -30,10 +30,6 @@ extern "C" {
 
 extern "C" {
     pub static R_ParseErrorMsg: [c_char; 256usize];
-}
-
-extern "C" {
-    pub static R_ParseContext: [c_char; 256usize];
 }
 
 pub struct RArgument {
@@ -226,7 +222,7 @@ pub unsafe fn r_top_level_exec<F, R>(mut fun: F) -> Result<R> where F: FnMut() -
 
 }
 
-pub unsafe fn r_try_catch_error<F>(mut fun: F) -> std::result::Result<RObject, TryCatchError> where F: FnMut() -> SEXP {
+pub unsafe fn r_try_catch_error<F>(mut fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> SEXP {
     extern fn body_fn(arg: *mut c_void) -> SEXP {
         let closure: &mut &mut dyn FnMut() -> SEXP = unsafe { mem::transmute(arg) };
         closure()
@@ -256,21 +252,20 @@ pub unsafe fn r_try_catch_error<F>(mut fun: F) -> std::result::Result<RObject, T
     );
     match success {
         true => Ok(RObject::from(result)),
-        false => Err(TryCatchError::new(result))
+        false => Err(RError::new(result))
     }
 
 }
 
+
 pub enum ParseResult {
     Ok(SEXP),
     Incomplete(),
-    Error {
-        message: String
-    },
     SyntaxError {
         message: String,
         line: i32
-    }
+    },
+    ParseError(RError)
 }
 
 #[allow(non_upper_case_globals)]
@@ -285,9 +280,7 @@ pub unsafe fn r_parse_vector(code: String) -> ParseResult {
     };
 
     match r_try_catch_error(lambda) {
-        Err(_) => ParseResult::Error{
-            message: geterrmessage()
-        },
+        Err(error) => ParseResult::ParseError(RError::new(*error.0)),
 
         Ok(out) => {
             match ps {
@@ -424,9 +417,10 @@ mod tests {
         assert_eq!(*REAL(arg), 42.0);
 
         // failed
-        let code = protect.add(crate::r_string!("42 + _"));
+        let msg = CString::new("ouch").unwrap();
+        let err_msg = unsafe {msg.as_ptr()};
         let failed = r_top_level_exec(|| {
-            R_ParseVector(code, -1, &mut ps, R_NilValue)
+            Rf_error(err_msg);
         });
         assert!(failed.is_err());
 
@@ -491,20 +485,16 @@ mod tests {
         );
 
         // incomplete
-        assert!(match r_parse_vector(String::from("force(42")) {
-            ParseResult::Incomplete() => true,
-            _ => false
-        });
+        assert!(matches!(
+            r_parse_vector(String::from("force(42")),
+            ParseResult::Incomplete()
+        ));
 
         // error
-        assert!(match r_parse_vector(String::from("42 + _")) {
-            ParseResult::Error {message} => {
-                assert!(message.contains("invalid use of pipe placeholder"));
-
-                true
-            },
-            _ => false
-        });
+        assert!(matches!(
+            r_parse_vector(String::from("42 + _")),
+            ParseResult::ParseError(_)
+        ));
 
         // "normal" syntax error
         assert!(match r_parse_vector(String::from("1+1\n*42")) {
