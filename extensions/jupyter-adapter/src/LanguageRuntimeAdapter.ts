@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 import { JupyterKernel } from './JupyterKernel';
 import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
@@ -66,9 +66,19 @@ export class LanguageRuntimeAdapter
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit) {
 		this._kernel = new JupyterKernel(this._spec, this._channel);
 
+		// Hash all the metadata together
+		const digest = crypto.createHash('sha256');
+		digest.update(JSON.stringify(this._spec));
+		digest.update(languageId);
+		digest.update(runtimeVersion);
+		digest.update(languageVersion);
+
+		// Extract the first 32 characters of the hash as the runtime ID
+		const runtimeId = digest.digest('hex').substring(0, 32);
+
 		// Generate kernel metadata and ID
 		this.metadata = {
-			runtimeId: uuidv4(),
+			runtimeId,
 			runtimeName: this._spec.display_name,
 			runtimeVersion,
 			languageId,
