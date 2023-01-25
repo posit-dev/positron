@@ -25,7 +25,7 @@ const positronConsoleViewIcon = registerIcon('positron-console-view-icon', Codic
 // Register the Positron console view container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_CONSOLE_VIEW_ID,
-	title: nls.localize('positron.console', "New Console"),
+	title: nls.localize('positron.console', "Console"),
 	icon: positronConsoleViewIcon,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_CONSOLE_VIEW_ID, {
 		mergeViewWithContainerWhenSingleView: true
@@ -40,7 +40,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_CONSOLE_VIEW_ID,
-	name: nls.localize('positron.console', "New Console"),
+	name: nls.localize('positron.console', "Console"),
 	containerIcon: positronConsoleViewIcon,
 	canMoveView: true,
 	canToggleVisibility: false,

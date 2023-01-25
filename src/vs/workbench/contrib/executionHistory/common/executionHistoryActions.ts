@@ -10,7 +10,7 @@ import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { REPL_ACTION_CATEGORY } from 'vs/workbench/contrib/repl/common/replCommands';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -39,7 +39,7 @@ export function registerHistoryActions() {
 			const historyService = accessor.get(IExecutionHistoryService);
 			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 			const dialogService = accessor.get(IDialogService);
-			const replService = accessor.get(IReplService);
+			const positronConsoleService = accessor.get(IPositronConsoleService);
 
 			// If there's no active language runtime, then we can't clear the
 			// history, since we don't know which language to clear history for.
@@ -66,8 +66,8 @@ export function registerHistoryActions() {
 			// Clear the stored history from the history service.
 			historyService.clearInputEntries(languageRuntime.metadata.languageId);
 
-			// Clear the history from the REPL service.
-			replService.clearInputHistory(languageRuntime.metadata.languageId);
+			// Clear the active console.
+			positronConsoleService.clearActiveConsole();
 
 			// Let the user know that the history was cleared.
 			dialogService.show(Severity.Info, localize('clearedInputHistory', "The {0} input history has been cleared.", languageName));

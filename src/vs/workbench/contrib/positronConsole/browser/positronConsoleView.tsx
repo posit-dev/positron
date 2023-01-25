@@ -33,16 +33,19 @@ import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/
 export class PositronConsoleViewPane extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
-	// The onSizeChanged event.
-	private _onSizeChanged = this._register(new Emitter<ISize>());
+	// The onSizeChanged emitter.
+	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onVisibilityChanged event.
+	// The onVisibilityChanged emitter.
 	private _onVisibilityChanged = this._register(new Emitter<boolean>());
 
-	// The width.
+	// The onFocused emitter.
+	private _onFocusedEmitter = this._register(new Emitter<void>());
+
+	// The width. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
 	private _width = 0;
 
-	// The height.
+	// The height. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
 	private _height = 0;
 
 	// The Positron console container - contains the entire Positron console UI.
@@ -72,12 +75,17 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	/**
 	 * The onSizeChanged event.
 	 */
-	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
+	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
 	/**
 	 * The onVisibilityChanged event.
 	 */
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+
+	/**
+	 * The onFocused event.
+	 */
+	readonly onFocused: Event<void> = this._onFocusedEmitter.event;
 
 	//#endregion IReactComponentContainer
 
@@ -140,17 +148,19 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * Dispose.
 	 */
 	public override dispose(): void {
+		// Destroy the PositronReactRenderer for the PositronConsole component.
 		if (this._positronReactRenderer) {
 			this._positronReactRenderer.destroy();
 			this._positronReactRenderer = undefined;
 		}
 
+		// Call the base class's method.
 		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
 
-	//#region Protected Overrides
+	//#region Overrides
 
 	protected override renderBody(container: HTMLElement): void {
 		// Call the base class's method.
@@ -183,16 +193,15 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		);
 	}
 
-	//#endregion Protected Overrides
-
-	//#region Public Overrides
-
 	/**
 	 * focus override method.
 	 */
 	override focus(): void {
 		// Call the base class's method.
 		super.focus();
+
+		// Fire the onFocused event.
+		this._onFocusedEmitter.fire();
 	}
 
 	/**
@@ -204,12 +213,15 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
+		this._positronConsoleContainer.style.width = `${width}px`;
+		this._positronConsoleContainer.style.height = `${height}px`;
+
 		// Set the width and height.
 		this._width = width;
 		this._height = height;
 
 		// Raise the onSizeChanged event.
-		this._onSizeChanged.fire({
+		this._onSizeChangedEmitter.fire({
 			width,
 			height
 		});
@@ -219,9 +231,10 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 	//#region Private Methods
 
+	// TODO@softwarenerd - Figure out what, if anything, to do here.
 	private onDidChangeVisibility(visible: boolean): void {
 	}
 
-	//#endregion Private Methods
+	//#endregion Overrides
 }
 
