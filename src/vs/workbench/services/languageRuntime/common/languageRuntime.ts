@@ -279,6 +279,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private safeStartRuntime(runtime: ILanguageRuntime): void {
 		// Start the language runtime.
 		this._runningLanguageRuntimesMap.set(runtime.metadata.languageId, runtime);
+
+		// TODO@softwarenerd - OK, there was a race condition here. In the old code, we were firing this event
+		// _after_ asynchronously starting the language runtime. Sometimes things would happen in the right
+		// order and the console would be there when the runtime started and became active, and sometimes the
+		// runtime would start too fast and the console would not be available when it became the active runtime.
+		// Moving this here is a hack that seems to work and at least improve thigns. Redo this.
+		this._onDidStartRuntime.fire(runtime);
+
+		// Start the runtime.
 		runtime.start().then(languageRuntimeInfo => {
 			// TODO@softwarenerd - I think this should be moved out of this layer.
 			// Execute the Focus into Console command using the command service
@@ -288,10 +297,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Change the active runtime.
 			this._activeRuntime = runtime;
 			this._onDidChangeActiveRuntime.fire(runtime);
+		}, (reason) => {
+			// TODO@softwarenerd - No code was here. We need code here.
+			console.log('Starting language runtime failed. Reason:');
+			console.log(reason);
 		});
-
-		// Fire the did start runtime event.
-		this._onDidStartRuntime.fire(runtime);
 	}
 
 	//#region Private Methods
