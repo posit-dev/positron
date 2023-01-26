@@ -625,6 +625,6 @@ export class LanguageRuntimeAdapter
 		}
 
 		// Tell the kernel to shut down
-		this.shutdown();
+		this._kernel.dispose();
 	}
 }
