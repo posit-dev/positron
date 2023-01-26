@@ -11,11 +11,10 @@ import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
-import { REPL_ACTION_CATEGORY } from 'vs/workbench/contrib/repl/common/replCommands';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export function registerHistoryActions() {
-	const category: ILocalizedString = { value: REPL_ACTION_CATEGORY, original: 'REPL' };
+	const category: ILocalizedString = { value: 'repl', original: 'REPL' };
 
 	registerAction2(class extends Action2 {
 		constructor() {
