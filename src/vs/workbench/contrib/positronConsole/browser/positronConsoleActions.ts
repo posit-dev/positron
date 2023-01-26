@@ -12,7 +12,7 @@ import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { PositronConsoleCommandId, POSITRON_CONSOLE_ACTION_CATEGORY } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
-import { IPositronConsoleOptions, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import Severity from 'vs/base/common/severity';
 
@@ -22,41 +22,10 @@ import Severity from 'vs/base/common/severity';
 export function registerPositronConsoleActions() {
 	const category: ILocalizedString = { value: POSITRON_CONSOLE_ACTION_CATEGORY, original: 'CONSOLE' };
 
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				id: PositronConsoleCommandId.New,
-				title: { value: localize('workbench.action.positronConsole.new', "Create New Console"), original: 'Create New Console' },
-				f1: true,
-				category,
-				// TODO: Do we need to add the 'precondition' key here? Is there any context
-				// in which the REPL would be unsupported?
-				icon: Codicon.plus,
-				// TODO: Add 'keybinding' member with a default keybinding
-				description: {
-					description: 'workbench.action.positronConsole.new',
-					args: [{
-						name: 'options',
-						schema: {
-							type: 'object'
-						}
-					}]
-				}
-			});
-		}
-
-		/**
-		 * Runs the repl.new command to create a new REPL instance.
-		 *
-		 * @param accessor The service accessor.
-		 * @param options The options for the new REPL instance.
-		 */
-		async run(accessor: ServicesAccessor, options?: IPositronConsoleOptions | undefined) {
-			const positronConsoleService = accessor.get(IPositronConsoleService);
-			await positronConsoleService.createConsole(options);
-		}
-	});
-
+	/**
+	 * Register the clear console action. This action removes everything from the active console, just like
+	 * running the clear command in a shell.
+	 */
 	registerAction2(class extends Action2 {
 		constructor() {
 			super({
@@ -73,19 +42,20 @@ export function registerPositronConsoleActions() {
 		}
 
 		/**
-		 * Runs the repl.clear command to clear the REPL instance.
-		 *
-		 * @param accessor The service accessor.
+		 * Runs action.
+		 * @param accessor The services accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
 			// Access services.
-			const dialogService = accessor.get(IDialogService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 
-			// Attempt to clear the console.
+			// Clear the console.
 			if (positronConsoleService.activeInstance) {
 				positronConsoleService.activeInstance.clear();
 			} else {
+				// Warn the user.
+				// TODO@softwarenerd - Use a React dialog for this.
+				const dialogService = accessor.get(IDialogService);
 				await dialogService.show(
 					Severity.Info,
 					localize('noLanguageRuntime', "Cannot clear console because no interpreter is currently active."));
