@@ -368,7 +368,7 @@ impl TryFrom<RObject> for HashMap<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{r_test, utils::{r_strings_eq}};
+    use crate::{r_test, utils::r_strings_eq};
 
     use super::RObject;
 
