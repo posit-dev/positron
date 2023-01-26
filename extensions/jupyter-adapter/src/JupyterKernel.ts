@@ -183,6 +183,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Create spawn options.
 		const options = <SpawnOptions>{
 			env: env,
+			detached: false,
+			shell: true
 		};
 
 		this.setStatus(positron.RuntimeState.Starting);
@@ -527,6 +529,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	public dispose() {
+		// If kernel isn't already shut down (or shutting down), shut it down. Note that
+		// this must be done before disposing of the sockets, as we need them to send
+		// the shutdown request.
+		if (this.status() !== positron.RuntimeState.Exiting &&
+			this.status() !== positron.RuntimeState.Exited) {
+			this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
+			this.shutdown(false);
+		}
+
 		// Clean up file watcher for log file
 		if (this._logTail) {
 			this._logTail.close();
@@ -542,13 +553,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Close sockets
 		this.disposeAllSockets();
-
-		// If kernel isn't already shut down (or shutting down), shut it down
-		if (this.status() !== positron.RuntimeState.Exiting &&
-			this.status() !== positron.RuntimeState.Exited) {
-			this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
-			this.shutdown(false);
-		}
 	}
 
 	/**
