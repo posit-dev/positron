@@ -48,7 +48,7 @@ pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
     Ok(actual)
 }
 
-pub unsafe fn r_strings_eq(object: SEXP, expected: Vec<&str>) -> bool {
+pub unsafe fn r_strings_eq(object: SEXP, expected: &Vec<&str>) -> bool {
     let r_type = r_typeof(object);
     match r_type {
         STRSXP => {

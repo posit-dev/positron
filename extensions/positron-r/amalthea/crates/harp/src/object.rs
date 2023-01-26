@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::os::raw::c_char;
@@ -214,14 +215,15 @@ impl From<String> for RObject {
     }
 }
 
-impl From<Vec<String>> for RObject {
-    fn from(value: Vec<String>) -> Self {
+impl From<&Vec<&str>> for RObject {
+    fn from(value: &Vec<&str>) -> Self {
         unsafe {
             let n = value.len() as isize;
             let vector = Rf_protect(Rf_allocVector(STRSXP, n));
             for i in 0..n {
-                let string = value.get_unchecked(i as usize);
-                let element = Rf_mkCharLenCE(string.as_ptr() as *mut c_char, string.bytes().len() as i32, cetype_t_CE_UTF8);
+                let string = value[i as usize];
+                let c_string = CString::new(string).unwrap();
+                let element = Rf_mkCharLenCE(c_string.as_ptr(), string.len() as i32, cetype_t_CE_UTF8);
                 SET_STRING_ELT(vector, i as R_xlen_t, element);
             }
             Rf_unprotect(1);
@@ -229,6 +231,23 @@ impl From<Vec<String>> for RObject {
         }
     }
 }
+
+impl From<&Vec<String>> for RObject {
+    fn from(value: &Vec<String>) -> Self {
+        unsafe {
+            let n = value.len() as isize;
+            let vector = Rf_protect(Rf_allocVector(STRSXP, n));
+            for i in 0..n {
+                let string = value.get_unchecked(i as usize);
+                let element = Rf_mkCharLenCE(string.as_ptr() as *mut c_char, string.len() as i32, cetype_t_CE_UTF8);
+                SET_STRING_ELT(vector, i as R_xlen_t, element);
+            }
+            Rf_unprotect(1);
+            return RObject::new(vector);
+        }
+    }
+}
+
 
 /// Convert RObject into other types.
 
@@ -354,12 +373,21 @@ mod tests {
     use super::RObject;
 
     #[test]
-    fn test_robject_from() { r_test! {
+    #[allow(non_snake_case)]
+    fn test_RObject_from_ref_Vec_str() { r_test! {
+        let strings = vec!["Apple", "Orange", "한"];
+        let strings2 : Vec<String> = strings.iter().map(|&s| { String::from(s)}).collect();
+        assert_eq!(strings, strings2);
 
-        let strings = vec![String::from("Apple"), String::from("Orange"), String::from("한")];
-        let r_object : RObject = strings.into();
+        let r_strings = RObject::from(&strings);
+        let r_strings2 = RObject::from(&strings2);
 
-        assert!(r_strings_eq(*r_object, vec!["Apple", "Orange", "한"]));
+        // just checking they were just borrowed
+        assert_eq!(strings.len(), 3);
+        assert_eq!(strings2.len(), 3);
 
+        // check the contents
+        assert!(r_strings_eq(*r_strings, &strings));
+        assert!(r_strings_eq(*r_strings2, &strings));
     }}
 }
