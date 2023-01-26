@@ -48,6 +48,25 @@ pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
     Ok(actual)
 }
 
+pub unsafe fn r_strings_eq(object: SEXP, expected: Vec<&str>) -> bool {
+    let r_type = r_typeof(object);
+    match r_type {
+        STRSXP => {
+            let n = Rf_xlength(object) as isize;
+            if n != expected.len() as isize {
+                return false;
+            }
+            for i in 0..n {
+                if !expected[i as usize].eq(CStr::from_ptr(R_CHAR(STRING_ELT(object, i))).to_str().unwrap()) {
+                    return false;
+                }
+            }
+            true
+        },
+        _ => false
+    }
+}
+
 pub unsafe fn r_typeof(object: SEXP) -> u32 {
     TYPEOF(object) as u32
 }

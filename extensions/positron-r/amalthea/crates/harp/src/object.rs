@@ -221,7 +221,7 @@ impl From<Vec<String>> for RObject {
             let vector = Rf_protect(Rf_allocVector(STRSXP, n));
             for i in 0..n {
                 let string = value.get_unchecked(i as usize);
-                let element = Rf_mkCharLenCE(string.as_ptr() as *mut c_char, n as i32, cetype_t_CE_UTF8);
+                let element = Rf_mkCharLenCE(string.as_ptr() as *mut c_char, string.bytes().len() as i32, cetype_t_CE_UTF8);
                 SET_STRING_ELT(vector, i as R_xlen_t, element);
             }
             Rf_unprotect(1);
@@ -229,7 +229,6 @@ impl From<Vec<String>> for RObject {
         }
     }
 }
-
 
 /// Convert RObject into other types.
 
@@ -346,4 +345,21 @@ impl TryFrom<RObject> for HashMap<String, String> {
             Ok(map)
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{r_test, utils::{r_strings_eq}};
+
+    use super::RObject;
+
+    #[test]
+    fn test_robject_from() { r_test! {
+
+        let strings = vec![String::from("Apple"), String::from("Orange"), String::from("한")];
+        let r_object : RObject = strings.into();
+
+        assert!(r_strings_eq(*r_object, vec!["Apple", "Orange", "한"]));
+
+    }}
 }
