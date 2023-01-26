@@ -303,6 +303,7 @@ mod tests {
     use std::ffi::CString;
     use std::io::Write;
 
+    use crate::assert_match;
     use crate::r_lock;
     use crate::r_test;
     use crate::r_test_unlocked;
@@ -432,14 +433,9 @@ mod tests {
         let ok = r_try_catch_error(|| {
             Rf_ScalarInteger(42)
         });
-        assert!(match ok {
-            Ok(value) => {
-                assert_eq!(INTEGER_ELT(*value, 0), 42);
-
-                true
-            },
-
-            Err(_) => false
+        assert_match!(ok, Ok(value) => {
+            assert_eq!(r_typeof(*value), INTSXP as u32);
+            assert_eq!(INTEGER_ELT(*value, 0), 42);
         });
 
 
@@ -450,13 +446,9 @@ mod tests {
             R_NilValue
         });
 
-        assert!(match out {
-            Err(err) => {
-                assert_eq!(err.message(), ["ouch"]);
-                assert_eq!(err.classes(), ["simpleError", "error", "condition"]);
-                true
-            },
-            _ => false
+        assert_match!(out, Err(err) => {
+            assert_eq!(err.message(), ["ouch"]);
+            assert_eq!(err.classes(), ["simpleError", "error", "condition"]);
         });
 
     }}
@@ -464,52 +456,44 @@ mod tests {
     #[test]
     fn test_parse_vector() { r_test! {
         // complete
-        assert!(
-            match r_parse_vector(String::from("force(42)")) {
-                ParseResult::Ok(out) => {
-                    assert_eq!(r_typeof(out), EXPRSXP as u32);
+        assert_match!(
+            r_parse_vector(String::from("force(42)")),
+            ParseResult::Ok(out) => {
+                assert_eq!(r_typeof(out), EXPRSXP as u32);
 
-                    let call = VECTOR_ELT(out, 0);
-                    assert_eq!(r_typeof(call), LANGSXP as u32);
-                    assert_eq!(Rf_length(call), 2);
-                    assert_eq!(CAR(call), r_symbol!("force"));
+                let call = VECTOR_ELT(out, 0);
+                assert_eq!(r_typeof(call), LANGSXP as u32);
+                assert_eq!(Rf_length(call), 2);
+                assert_eq!(CAR(call), r_symbol!("force"));
 
-                    let arg = CADR(call);
-                    assert_eq!(r_typeof(arg), REALSXP as u32);
-                    assert_eq!(*REAL(arg), 42.0);
-
-                    true
-                },
-                _ => false
+                let arg = CADR(call);
+                assert_eq!(r_typeof(arg), REALSXP as u32);
+                assert_eq!(*REAL(arg), 42.0);
             }
         );
 
         // incomplete
-        assert!(matches!(
+        assert_match!(
             r_parse_vector(String::from("force(42")),
             ParseResult::Incomplete()
-        ));
+        );
 
         // error
-        assert!(matches!(
+        assert_match!(
             r_parse_vector(String::from("42 + _")),
             ParseResult::ParseError(_)
-        ));
+        );
 
         // "normal" syntax error
-        assert!(match r_parse_vector(String::from("1+1\n*42")) {
+        assert_match!(
+            r_parse_vector(String::from("1+1\n*42")),
             ParseResult::SyntaxError {message, line} => {
                 assert!(message.contains("unexpected"));
                 assert_eq!(line, 2);
-
-                true
-            },
-            _ => false
-        });
+            }
+        );
 
     }}
-
-
 
 }
 
