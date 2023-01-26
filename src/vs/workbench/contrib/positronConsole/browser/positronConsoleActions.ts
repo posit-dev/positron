@@ -13,6 +13,8 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { PositronConsoleCommandId, POSITRON_CONSOLE_ACTION_CATEGORY } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
 import { IPositronConsoleOptions, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
+import Severity from 'vs/base/common/severity';
 
 /**
  * Registers Positron console actions.
@@ -59,7 +61,7 @@ export function registerPositronConsoleActions() {
 		constructor() {
 			super({
 				id: PositronConsoleCommandId.Clear,
-				title: { value: localize('workbench.action.positronConsole.clear', "Clear Active Console"), original: 'Clear Active Console' },
+				title: { value: localize('workbench.action.positronConsole.clear', "Clear Console"), original: 'Clear Console' },
 				f1: true,
 				category,
 				icon: Codicon.plus,
@@ -76,8 +78,19 @@ export function registerPositronConsoleActions() {
 		 * @param accessor The service accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
+			// Access services.
+			const dialogService = accessor.get(IDialogService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
-			await positronConsoleService.clearActiveConsole();
+
+			// Attempt to clear the console.
+			if (positronConsoleService.activeInstance) {
+				positronConsoleService.activeInstance.clear();
+			} else {
+				await dialogService.show(
+					Severity.Info,
+					localize('noLanguageRuntime', "Cannot clear console because no interpreter is currently active."));
+				return;
+			}
 		}
 	});
 

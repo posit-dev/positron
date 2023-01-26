@@ -74,6 +74,12 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Add the onDidClearConsole event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
+			// Clear the console.
+			setConsoleReplItems([]);
+		}));
+
 		// // Replay history as ConsoleReplItems.
 		//positronConsoleContext.executionHistoryService.getExecutionEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 		// console.log(`Execution entries for ${props.positronConsoleInstance.runtime.metadata.id} ${props.positronConsoleInstance.runtime.metadata.language}`);

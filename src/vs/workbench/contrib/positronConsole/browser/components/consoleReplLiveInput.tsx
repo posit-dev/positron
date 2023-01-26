@@ -54,13 +54,6 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-
-		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-			setHistoryNavigator(undefined);
-		}));
-
-		// Debug code.
-
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 		if (inputHistoryEntries.length) {
@@ -267,6 +260,12 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 		// Perform the initial layout.
 		codeEditorWidget.layout();
+
+		// Add the onDidClearConsole event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
+			// When the console is cleared, erase anything that was partially entered.
+			textModel.setValue('');
+		}));
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
