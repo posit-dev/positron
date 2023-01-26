@@ -222,10 +222,37 @@ pub unsafe fn r_top_level_exec<F, R>(mut fun: F) -> Result<R> where F: FnMut() -
 
 }
 
-pub unsafe fn r_try_catch_error<F>(mut fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> SEXP {
+enum MaybeSEXP {
+    Yes(SEXP),
+    No
+}
+
+impl From<SEXP> for MaybeSEXP {
+    fn from(x: SEXP) -> Self {
+        MaybeSEXP::Yes(x)
+    }
+}
+
+impl From<()> for MaybeSEXP {
+    fn from(_x: ()) -> Self {
+        MaybeSEXP::No
+    }
+}
+
+impl MaybeSEXP {
+    fn get(&self) -> SEXP {
+        match self {
+            MaybeSEXP::Yes(x) => *x,
+            MaybeSEXP::No => unsafe {R_NilValue}
+        }
+    }
+}
+
+pub unsafe fn r_try_catch_error<F, R>(mut fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> R {
     extern fn body_fn(arg: *mut c_void) -> SEXP {
         let closure: &mut &mut dyn FnMut() -> SEXP = unsafe { mem::transmute(arg) };
-        closure()
+        let out : MaybeSEXP = closure().into();
+        out.get()
     }
 
     // handler just returns the condition and sets success to false
@@ -239,7 +266,7 @@ pub unsafe fn r_try_catch_error<F>(mut fun: F) -> std::result::Result<RObject, R
         condition
     }
 
-    let mut body_data: &mut dyn FnMut() -> SEXP = &mut fun;
+    let mut body_data: &mut dyn FnMut() -> R = &mut fun;
     let body_data = &mut body_data;
 
     let success_ptr: *mut bool = &mut success;
@@ -307,6 +334,7 @@ mod tests {
     use crate::r_lock;
     use crate::r_test;
     use crate::r_test_unlocked;
+    use crate::utils::r_is_null;
 
     use super::*;
 
@@ -430,6 +458,7 @@ mod tests {
     #[test]
     fn test_try_catch_error(){ r_test! {
 
+        // ok SEXP
         let ok = r_try_catch_error(|| {
             Rf_ScalarInteger(42)
         });
@@ -438,12 +467,16 @@ mod tests {
             assert_eq!(INTEGER_ELT(*value, 0), 42);
         });
 
+        // ok void
+        let void_ok = r_try_catch_error(|| {});
+        assert_match!(void_ok, Ok(value) => {
+            assert!(r_is_null(*value));
+        });
 
+        // error
         let out = r_try_catch_error(|| {
             let msg = CString::new("ouch").unwrap();
             Rf_error(unsafe {msg.as_ptr()});
-
-            R_NilValue
         });
 
         assert_match!(out, Err(err) => {

@@ -48,6 +48,12 @@ pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
     Ok(actual)
 }
 
+pub fn r_is_null(object: SEXP) -> bool {
+    unsafe {
+        Rf_isNull(object) == 1
+    }
+}
+
 pub unsafe fn r_typeof(object: SEXP) -> u32 {
     TYPEOF(object) as u32
 }
