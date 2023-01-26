@@ -248,6 +248,24 @@ impl MaybeSEXP {
     }
 }
 
+/// Wrapper around R_tryCatchError
+///
+/// Takes a single closure that returns either a SEXP or `()`. If an R error is
+/// thrown this returns a an RError in the Err variant, otherwise it returns the
+/// result of the closure wrapped in an RObject.
+///
+/// Safety: the body of the closure should be as simple as possible because in the event
+///         of an R error, R will jump and there is no rust unwinding, i.e. rust values
+///         are not dropped. A good rule of thumb is to consider the body of the closure
+///         as C code.
+///
+/// ```ignore
+/// SEXP R_tryCatchError(
+///     SEXP (*body)(void *), void *bdata,
+///     SEXP (*handler)(SEXP, void *), void *hdata)
+/// ```
+///
+///
 pub unsafe fn r_try_catch_error<F, R>(mut fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> R {
     extern fn body_fn(arg: *mut c_void) -> SEXP {
         let closure: &mut &mut dyn FnMut() -> SEXP = unsafe { mem::transmute(arg) };
