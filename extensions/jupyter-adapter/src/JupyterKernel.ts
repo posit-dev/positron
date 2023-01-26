@@ -183,8 +183,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Create spawn options.
 		const options = <SpawnOptions>{
 			env: env,
-			detached: false,
-			shell: true
+			detached: false
+			// TODO@softwarenerd - This doesn't work.
+			//shell: true
 		};
 
 		this.setStatus(positron.RuntimeState.Starting);
