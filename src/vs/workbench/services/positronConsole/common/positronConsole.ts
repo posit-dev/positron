@@ -9,6 +9,9 @@ import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/l
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
 
+/**
+ * IPositronConsoleOptions interface.
+ */
 export interface IPositronConsoleOptions {
 	language?: string;
 }
@@ -17,16 +20,30 @@ export interface IPositronConsoleOptions {
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
+	/**
+	 * Gets the runtime for the Positron console instance.
+	 */
 	readonly runtime: ILanguageRuntime;
 
-	// readonly historyNavigator: HistoryNavigator2<string>;
-
+	/**
+	 * The onDidClearConsole event.
+	 */
 	readonly onDidClearConsole: Event<void>;
 
+	/**
+	 * The onDidExecuteCode event.
+	 */
 	readonly onDidExecuteCode: Event<string>;
 
+	/**
+	 * Clears the Positron console instance.
+	 */
 	clear(): void;
 
+	/**
+	 * Executes code in the Positron console instance.
+	 * @param code The code to execute.
+	 */
 	executeCode(code: string): void;
 }
 
@@ -39,15 +56,13 @@ export interface IPositronConsoleService {
 
 	readonly instances: readonly IPositronConsoleInstance[];
 
-	readonly activeInstance: IPositronConsoleInstance | undefined;
+	readonly activeInstance?: IPositronConsoleInstance;
 
 	readonly onDidStartConsole: Event<IPositronConsoleInstance>;
 
 	readonly onDidChangeActiveConsole: Event<IPositronConsoleInstance | undefined>;
 
 	createConsole(options?: IPositronConsoleOptions): Promise<IPositronConsoleInstance>;
-
-	clearActiveConsole(): void;
 
 	executeCode(languageId: string, code: string): void;
 }
