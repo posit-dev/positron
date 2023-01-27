@@ -31,7 +31,7 @@ class LanguageRuntimeInfo {
 export class LanguageRuntimeService extends Disposable implements ILanguageRuntimeService {
 	//#region Private Properties
 
-	// The set of encountered languages. This is keyed by language ID and is used to orchestrate implicit runtime startup.
+	// The set of encountered languages. This is keyed by the languageId and is used to orchestrate implicit runtime startup.
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
 
 	// The array of registered language runtimes.
