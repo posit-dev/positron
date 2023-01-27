@@ -47,9 +47,6 @@ import { buildProposedApi } from './proposedApi';
 import { WorkspaceService } from './common/application/workspace';
 import { disposeAll } from './common/utils/resourceLifecycle';
 import { ProposedExtensionAPI } from './proposedApiTypes';
-// --- Start Positron ---
-import { registerRuntimes } from './jupyter';
-// --- End Positron ---
 
 durations.codeLoadingTime = stopWatch.elapsedTime;
 
@@ -138,10 +135,6 @@ async function activateUnsafe(
     const activationPromise = (async () => {
         await Promise.all(nonBlocking);
     })();
-
-    // --- Start Positron ---
-    await registerRuntimes(context, activatedServiceContainer, components.pythonEnvs);
-    // --- End Positron ---
 
     //===============================================
     // activation ends here

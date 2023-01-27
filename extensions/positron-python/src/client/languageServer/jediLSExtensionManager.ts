@@ -49,7 +49,7 @@ export class JediLSExtensionManager implements IDisposable, ILanguageServerExten
         );
         this.clientFactory = new JediLanguageClientFactory(interpreterService);
         // --- Start Positron ---
-        this.serverProxy = new JediLanguageServerProxy(interpreterService, this.clientFactory);
+        this.serverProxy = new JediLanguageServerProxy(serviceContainer, interpreterService, this.clientFactory);
         // --- End Positron ---
         this.serverManager = new JediLanguageServerManager(
             serviceContainer,
