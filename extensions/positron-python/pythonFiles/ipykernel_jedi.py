@@ -39,8 +39,13 @@ def start_jedi():
         default=2087,
     )
     parser.add_argument(
-        "--log-file",
+        "--logfile",
         help="redirect logs to file specified",
+        type=str,
+    )
+    parser.add_argument(
+        "-f",
+        help="location of the IPyKernel configuration file",
         type=str,
     )
     parser.add_argument(
@@ -57,9 +62,9 @@ def start_jedi():
         logging.DEBUG,
     )
 
-    if args.log_file:
+    if args.logfile:
         logging.basicConfig(
-            filename=args.log_file,
+            filename=args.logfile,
             filemode="w",
             level=log_level,
         )

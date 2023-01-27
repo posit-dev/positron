@@ -5,9 +5,11 @@ import '../../common/extensions';
 import { Disposable, LanguageClient, LanguageClientOptions } from 'vscode-languageclient/node';
 
 // --- Start Positron ---
+import * as positron from 'positron';
+import * as vscode from 'vscode';
 import * as path from 'path';
 import { EXTENSION_ROOT_DIR } from '../../common/constants';
-import { ChildProcess, spawn, SpawnOptions } from 'child_process';
+import { ChildProcess } from 'child_process';
 // --- End Positron ---
 import { Resource } from '../../common/types';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
@@ -20,13 +22,15 @@ import { ILanguageServerProxy } from '../types';
 import { killPid } from '../../common/process/rawProcessApis';
 import { JediLanguageClientFactory } from './languageClientFactory';
 import { IInterpreterService } from '../../interpreter/contracts';
-import { traceDecoratorError, traceDecoratorVerbose, traceError, traceInfo, traceVerbose } from '../../logging';
+import { traceDecoratorError, traceDecoratorVerbose, traceError, traceVerbose, traceWarn } from '../../logging';
+import { IServiceContainer } from '../../ioc/types';
+import { IPythonExecutionFactory } from '../../common/process/types';
 // --- End Positron ---
 
 export class JediLanguageServerProxy implements ILanguageServerProxy {
     private languageClient: LanguageClient | undefined;
     // --- Start Positron ---
-    private serverProcess: ChildProcess | undefined;
+    private extensionVersion: string | undefined;
     // --- End Positron ---
     private readonly disposables: Disposable[] = [];
 
@@ -34,9 +38,19 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
 
     // --- Start Positron ---
     constructor(
+        private readonly serviceContainer: IServiceContainer,
         private readonly interpreterService: IInterpreterService,
         private readonly factory: JediLanguageClientFactory
-    ) { }
+    ) {
+        // Get the version of this extension from package.json so that we can
+        // describe the implementation version to the kernel adapter
+        try {
+            const packageJson = require('../../../../package.json');
+            this.extensionVersion = packageJson.version;
+        } catch (e) {
+            traceVerbose("Unable to read package.json to determine our extension version", e);
+        }
+    }
     // --- End Positron ---
 
     private static versionTelemetryProps(instance: JediLanguageServerProxy) {
@@ -69,13 +83,33 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
 
         try {
             // --- Start Positron ---
-            const port = await this.startLSPAndKernel(resource, interpreter);
-            const client = await this.factory.createLanguageClientTCP(port, options);
-            // TODO: Ask Jupyter Adapter to attach to our kernel
+
+            // Favor the active interpreter, if one is available
+            const activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
+            const targetInterpreter = activeInterpreter ? activeInterpreter : interpreter;
+
+            // Determine if our Jupyter Adapter extension is installed
+            const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+            const hasKernel = await this.hasIpyKernelModule(targetInterpreter, this.serviceContainer);
+            if (ext && hasKernel) {
+
+                // If our adapter is installed, and if the active Python interpreter has the IPyKernel module
+                // installed, we'll use it to manage our language runtime. It will start a combined LSP and
+                // IPyKernel server, providing enhanced code insights to the Editor and supports our
+                // Python REPL console. The language client will connect to the server via TCP.
+                this.withActiveExtention(ext, async () => {
+                    const disposable: vscode.Disposable = await this.registerLanguageRuntime(ext, targetInterpreter, options, hasKernel);
+                    this.disposables.push(disposable);
+                });
+
+            } else {
+
+                // Otherwise, use the default Jedi LSP for the Editor
+                traceWarn('Could not find Jupyter Adapter extension to register an enhanced Python runtime. Creating an LSP only.');
+                const client = await this.factory.createLanguageClient(resource, targetInterpreter, options);
+                this.startClient(client);
+            }
             // --- End Positron ---
-            this.registerHandlers(client);
-            await client.start();
-            this.languageClient = client;
         } catch (ex) {
             traceError('Failed to start language server:', ex);
             throw new Error('Launching Jedi language server using python failed, see output.');
@@ -83,39 +117,78 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
     }
 
     // --- Start Positron ---
+
     /**
-     * Finds an available port and starts a Jedi LSP as a TCP server, including an IPyKernel.
+     * Checks if a given python environment has the ipykernel module installed.
      */
-    private async startLSPAndKernel(resource: Resource, _interpreter: PythonEnvironment | undefined): Promise<number> {
+    private async hasIpyKernelModule(interpreter: PythonEnvironment | undefined, serviceContainer: IServiceContainer): Promise<boolean> {
+        if (!interpreter) { return false; }
+        const pythonFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
+        let pythonService = await pythonFactory.create({ pythonPath: interpreter.path });
+        return pythonService.isModuleInstalled('ipykernel');
+    }
+
+    /**
+     * Register our Jedi LSP as a language runtime with our Jupyter Adapter extension.
+     * The LSP will find an available port to start via TCP, and the Jupyter Adapter will configure
+     * IPyKernel with a connection file.
+     */
+    private async registerLanguageRuntime(ext: vscode.Extension<any>, interpreter: PythonEnvironment | undefined, options: LanguageClientOptions, hasKernel: boolean): Promise<Disposable> {
 
         // Find an available port for our TCP server
         const portfinder = require('portfinder');
         const port = await portfinder.getPortPromise();
 
-        // For now, match vscode behavior and always look up the active interpreter each time
-        const interpreter = await this.interpreterService.getActiveInterpreter(resource);
+        // Customize Jedi LSP entrypoint that adds a resident IPyKernel
         const command = interpreter ? interpreter.path : 'python';
-
-        // Customize Jedi entrypoint with an additional resident IPyKernel
+        const pythonVersion = interpreter?.version?.raw;
         const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'ipykernel_jedi.py');
-        const args = [lsScriptPath, `--port=${port}`] // '-f', '{ connection_file }']
-        traceVerbose(`Configuring Jedi LSP server with args '${args}'`);
+        const args = [command, lsScriptPath, `--port=${port}`, '-f', '{connection_file}', '--logfile', '{log_file}']
+        const kernelSpec = {
+            argv: args,
+            display_name: `${interpreter?.displayName} (ipykernel)`,
+            language: 'Python',
+            metadata: { debugger: false }
+        };
+        traceVerbose(`Configuring Jedi LSP with IPyKernel using args '${args}'`);
 
-        // Spawn Jedi LSP in TCP mode
-        const options: SpawnOptions = { env: {} };
-        const process: ChildProcess = spawn(command, args, options);
-        if (!process || !process.pid) {
-            return Promise.reject(`Failed to spawn Jedi LSP server using command '${command}' with args '${args}'.`);
+        // Create an adapter for the kernel as our language runtime
+        const startupBehavior = hasKernel ? positron.LanguageRuntimeStartupBehavior.Implicit : positron.LanguageRuntimeStartupBehavior.Explicit;
+        const runtime = ext.exports.adaptKernel(kernelSpec, 'Python', pythonVersion, this.extensionVersion, () => {
+            // The adapter will create a language client to connect to the LSP via TCP
+            return this.activateClientTCP(port, options);
+        }, startupBehavior);
+
+        // Register our language runtime provider
+        return positron.runtime.registerLanguageRuntime(runtime);
+    }
+
+    /**
+     * Creates and starts a language client to connect to our LSP via TCP
+     */
+    private async activateClientTCP(port: number, options: LanguageClientOptions): Promise<void> {
+        const client = await this.factory.createLanguageClientTCP(port, options);
+        this.startClient(client);
+    }
+
+    /**
+     * Starts the language client and registers it for disposal
+     */
+    private async startClient(client: LanguageClient): Promise<void> {
+        this.registerHandlers(client);
+        await client.start();
+        this.languageClient = client;
+    }
+
+    /**
+     * Utility to ensure an extension is active before an action is performed
+     */
+    private withActiveExtention(ext: vscode.Extension<any>, callback: () => void) {
+        if (ext.isActive) {
+            callback();
+        } else {
+            ext.activate().then(callback);
         }
-
-        // Wait for spawn to complete
-        await new Promise((resolve) => {
-            process.once('spawn', () => { resolve(true); });
-        });
-        traceInfo(`Spawned Jedi LSP on port '${port}' with pid '${process.pid}'`);
-        this.serverProcess = process;
-
-        return port;
     }
     // --- End Positron ---
 
@@ -125,17 +198,6 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
             const d = this.disposables.shift()!;
             d.dispose();
         }
-
-        // --- Start Positron ---
-        // If we spawned our own process, stop it
-        if (this.serverProcess?.pid) {
-            try {
-                killPid(this.serverProcess.pid);
-            } catch (ex) {
-                traceError('Stopping Jedi language server failed', ex);
-            }
-        }
-        // --- End Positron ---
 
         if (this.languageClient) {
             const client = this.languageClient;
