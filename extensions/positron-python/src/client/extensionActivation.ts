@@ -26,6 +26,7 @@ import {
     IExtensions,
     IInterpreterPathService,
     IOutputChannel,
+    IPathUtils,
 } from './common/types';
 import { noop } from './common/utils/misc';
 import { DebuggerTypeName } from './debugger/constants';
@@ -46,7 +47,6 @@ import { registerTypes as tensorBoardRegisterTypes } from './tensorBoard/service
 import { registerTypes as commonRegisterTerminalTypes } from './terminals/serviceRegistry';
 import { ICodeExecutionManager, ITerminalAutoActivation } from './terminals/types';
 import { registerTypes as unitTestsRegisterTypes } from './testing/serviceRegistry';
-import { registerTypes as interpretersRegisterTypes } from './interpreter/serviceRegistry';
 
 // components
 import * as pythonEnvironments from './pythonEnvironments';
@@ -103,7 +103,8 @@ export function activateFeatures(ext: ExtensionState, _components: Components): 
     const interpreterPathService: IInterpreterPathService = ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(
         IInterpreterPathService,
     );
-    registerCreateEnvironmentFeatures(ext.disposables, interpreterQuickPick, interpreterPathService);
+    const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
+    registerCreateEnvironmentFeatures(ext.disposables, interpreterQuickPick, interpreterPathService, pathUtils);
 }
 
 /// //////////////////////////
@@ -131,7 +132,6 @@ async function activateLegacy(ext: ExtensionState): Promise<ActivationResult> {
     // Feature specific registrations.
     unitTestsRegisterTypes(serviceManager);
     lintersRegisterTypes(serviceManager);
-    interpretersRegisterTypes(serviceManager);
     formattersRegisterTypes(serviceManager);
     installerRegisterTypes(serviceManager);
     commonRegisterTerminalTypes(serviceManager);
