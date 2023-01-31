@@ -58,20 +58,3 @@ function getListOfExistingModulesInOutDir() {
     return files.map((filePath) => `./${filePath.slice(0, -3)}`);
 }
 exports.getListOfExistingModulesInOutDir = getListOfExistingModulesInOutDir;
-function getTranlationsLoader() {
-    const loaders = [];
-    if (process.env.DISABLE_TRANSLATIONS !== 'true') {
-        loaders.push({
-            loader: 'vscode-nls-dev/lib/webpack-loader',
-            options: {
-                base: constants.ExtensionRootDir,
-            },
-        });
-    }
-    // --- Start Positron ---
-    // Do not use the vscode-nls-dev loader for Positron; it is incompatible with
-    // the way localization works in built-in extensions.
-    return [];
-    // --- End Positron ---
-}
-exports.getTranlationsLoader = getTranlationsLoader;
