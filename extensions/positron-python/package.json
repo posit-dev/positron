@@ -40,7 +40,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.68.0"
+        "vscode": "^1.75.0-20230123"
     },
     "keywords": [
         "python",
@@ -64,30 +64,7 @@
         "onLanguage:python",
         "onDebugDynamicConfigurations:python",
         "onDebugResolve:python",
-        "onCommand:python.execInTerminal",
-        "onCommand:python.debugInTerminal",
-        "onCommand:python.sortImports",
-        "onCommand:python.setInterpreter",
-        "onCommand:python.setShebangInterpreter",
-        "onCommand:python.viewLanguageServerOutput",
-        "onCommand:python.viewOutput",
-        "onCommand:python.execSelectionInTerminal",
-        "onCommand:python.execSelectionInDjangoShell",
-        "onCommand:python.startREPL",
-        "onCommand:python.goToPythonObject",
-        "onCommand:python.reportIssue",
-        "onCommand:python.setLinter",
-        "onCommand:python.enableLinting",
-        "onCommand:python.createTerminal",
-        "onCommand:python.configureTests",
-        "onCommand:python.clearWorkspaceInterpreter",
-        "onCommand:python.enableSourceMapSupport",
-        "onCommand:python.launchTensorBoard",
-        "onCommand:python.clearCacheAndReload",
-        "onCommand:python.createEnvironment",
-        "onCommand:python.createNewFile",
         "onWalkthrough:pythonWelcome",
-        "onWalkthrough:pythonWelcomeWithEnv",
         "onWalkthrough:pythonWelcomeWithDS",
         "onWalkthrough:pythonDataScienceWelcome",
         "workspaceContains:mspythonconfig.json",
@@ -100,6 +77,7 @@
     ],
     "main": "./out/client/extension",
     "browser": "./dist/extension.browser.js",
+    "l10n": "./l10n",
     "contributes": {
         "walkthroughs": [
             {
@@ -155,7 +133,17 @@
                             "svg": "resources/walkthrough/python-interpreter.svg",
                             "altText": "Selecting a python interpreter from the status bar"
                         },
-                        "when": ""
+                        "when": "workspaceFolderCount == 0"
+                    },
+                    {
+                        "id": "python.createEnvironment",
+                        "title": "Create a Python Environment ",
+                        "description": "Create an environment for your Python project.\n[Create Environment](command:python.createEnvironment)\n**Tip**: Run the ``Python: Create Environment`` command in the [Command Palette](command:workbench.action.showCommands).\n 🔍 Check out our [docs](https://aka.ms/pythonenvs) to learn more.",
+                        "media": {
+                            "svg": "resources/walkthrough/create-environment.svg",
+                            "altText": "Creating a Python environment from the Command Palette"
+                        },
+                        "when": "workspaceFolderCount > 0"
                     },
                     {
                         "id": "python.runAndDebug",
@@ -169,93 +157,6 @@
                     },
                     {
                         "id": "python.learnMoreWithDS",
-                        "title": "Explore more resources",
-                        "description": "🎨 Explore all the features the Python extension has to offer by looking for \"Python\" in the [Command Palette](command:workbench.action.showCommands). \n 📈 Learn more about getting started with [data science](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D) in Python. \n ✨ Take a look at our [Release Notes](https://aka.ms/AA8dxtb) to learn more about the latest features. \n \n[Learn More](https://aka.ms/AA8dqti)",
-                        "media": {
-                            "altText": "Image representing our documentation page and mailing list resources.",
-                            "svg": "resources/walkthrough/learnmore.svg"
-                        },
-                        "when": ""
-                    }
-                ]
-            },
-            {
-                "id": "pythonWelcomeWithEnv",
-                "title": "Get started with Python development",
-                "description": "Your first steps to set up a Python project with all the powerful tools and features that the Python extension has to offer!",
-                "when": "false",
-                "steps": [
-                    {
-                        "id": "python.createPythonFile2",
-                        "title": "Create a Python file",
-                        "description": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D) a Python file - make sure to save it as \".py\".\n[Create Python File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D)",
-                        "media": {
-                            "svg": "resources/walkthrough/open-folder.svg",
-                            "altText": "Open a Python file or a folder with a Python project."
-                        },
-                        "when": ""
-                    },
-                    {
-                        "id": "python.installPythonWin82",
-                        "title": "Install Python",
-                        "description": "The Python Extension requires Python to be installed. Install Python [from python.org](https://www.python.org/downloads).\n\n[Install Python](https://www.python.org/downloads)\n",
-                        "media": {
-                            "markdown": "resources/walkthrough/install-python-windows-8.md"
-                        },
-                        "when": "workspacePlatform == windows && showInstallPythonTile"
-                    },
-                    {
-                        "id": "python.installPythonMac2",
-                        "title": "Install Python",
-                        "description": "The Python Extension requires Python to be installed. Install Python 3 through the terminal.\n[Install Python via Brew](command:python.installPythonOnMac)\n",
-                        "media": {
-                            "markdown": "resources/walkthrough/install-python-macos.md"
-                        },
-                        "when": "workspacePlatform == mac && showInstallPythonTile",
-                        "command": "workbench.action.terminal.new"
-                    },
-                    {
-                        "id": "python.installPythonLinux2",
-                        "title": "Install Python",
-                        "description": "The Python Extension requires Python to be installed. Install Python 3 through the terminal.\n[Install Python via terminal](command:python.installPythonOnLinux)\n",
-                        "media": {
-                            "markdown": "resources/walkthrough/install-python-linux.md"
-                        },
-                        "when": "workspacePlatform == linux && showInstallPythonTile",
-                        "command": "workbench.action.terminal.new"
-                    },
-                    {
-                        "id": "python.createEnvironment",
-                        "title": "Create a Python Environment ",
-                        "description": "Create an environment for your Python project.\n[Create Environment](command:python.createEnvironment)\n**Tip**: Run the ``Python: Create Environment`` command in the [Command Palette](command:workbench.action.showCommands).\n 🔍 Check out our [docs](https://aka.ms/pythonenvs) to learn more.",
-                        "media": {
-                            "svg": "resources/walkthrough/create-environment.svg",
-                            "altText": "Creating a Python environment from the Command Palette"
-                        },
-                        "when": "workspaceFolderCount > 0"
-                    },
-                    {
-                        "id": "python.selectInterpreter2",
-                        "title": "Select a Python Interpreter",
-                        "description": "Choose which Python interpreter/environment you want to use for your Python project.\n[Select Python Interpreter](command:python.setInterpreter)\n**Tip**: Run the ``Python: Select Interpreter`` command in the [Command Palette](command:workbench.action.showCommands).",
-                        "media": {
-                            "svg": "resources/walkthrough/python-interpreter.svg",
-                            "altText": "Selecting a python interpreter from the status bar"
-                        },
-                        "when": "workspaceFolderCount == 0"
-                    },
-                    {
-                        "id": "python.runAndDebug2",
-                        "title": "Run and debug your Python file",
-                        "description": "Open your Python file  and click on the play button on the top right of the editor, or press F5 when on the file and select \"Python File\" to run with the debugger. \n  \n[Learn more](https://code.visualstudio.com/docs/python/python-tutorial#_run-hello-world)",
-                        "media": {
-                            "svg": "resources/walkthrough/rundebug2.svg",
-                            "altText": "How to run and debug in VS Code with F5 or the play button on the top right."
-                        },
-                        "when": ""
-                    },
-                    {
-                        "id": "python.learnMoreWithDS2",
                         "title": "Explore more resources",
                         "description": "🎨 Explore all the features the Python extension has to offer by looking for \"Python\" in the [Command Palette](command:workbench.action.showCommands). \n 📈 Learn more about getting started with [data science](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D) in Python. \n ✨ Take a look at our [Release Notes](https://aka.ms/AA8dxtb) to learn more about the latest features. \n \n[Learn More](https://aka.ms/AA8dqti)",
                         "media": {
@@ -486,7 +387,8 @@
                     "default": [],
                     "description": "%python.autoComplete.extraPaths.description%",
                     "scope": "resource",
-                    "type": "array"
+                    "type": "array",
+                    "uniqueItems": true
                 },
                 "python.condaPath": {
                     "default": "",
@@ -529,7 +431,8 @@
                         ]
                     },
                     "scope": "machine",
-                    "type": "array"
+                    "type": "array",
+                    "uniqueItems": true
                 },
                 "python.experiments.optOutFrom": {
                     "default": [],
@@ -542,7 +445,8 @@
                         ]
                     },
                     "scope": "machine",
-                    "type": "array"
+                    "type": "array",
+                    "uniqueItems": true
                 },
                 "python.formatting.autopep8Args": {
                     "default": [],
@@ -741,7 +645,8 @@
                         "type": "string"
                     },
                     "scope": "resource",
-                    "type": "array"
+                    "type": "array",
+                    "uniqueItems": true
                 },
                 "python.linting.lintOnSave": {
                     "default": true,
@@ -1039,7 +944,7 @@
                 "python.tensorBoard.logDirectory": {
                     "default": "",
                     "description": "%python.tensorBoard.logDirectory.description%",
-                    "scope": "application",
+                    "scope": "resource",
                     "type": "string"
                 },
                 "python.terminal.activateEnvInCurrentTerminal": {
@@ -1145,7 +1050,8 @@
                         "type": "string"
                     },
                     "scope": "machine",
-                    "type": "array"
+                    "type": "array",
+                    "uniqueItems": true
                 },
                 "python.venvPath": {
                     "default": "",
@@ -1621,7 +1527,7 @@
                     "category": "Python",
                     "command": "python.analysis.restartLanguageServer",
                     "title": "%python.command.python.analysis.restartLanguageServer.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
@@ -1633,7 +1539,7 @@
                     "category": "Python",
                     "command": "python.clearWorkspaceInterpreter",
                     "title": "%python.command.python.clearWorkspaceInterpreter.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
@@ -1657,7 +1563,7 @@
                     "category": "Python",
                     "command": "python.enableLinting",
                     "title": "%python.command.python.enableLinting.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
@@ -1669,33 +1575,33 @@
                     "category": "Python",
                     "command": "python.execInTerminal",
                     "title": "%python.command.python.execInTerminal.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
                     "command": "python.execInTerminal-icon",
                     "icon": "$(play)",
                     "title": "%python.command.python.execInTerminalIcon.title%",
-                    "when": "false"
+                    "when": "false && editorLangId == python"
                 },
                 {
                     "category": "Python",
                     "command": "python.debugInTerminal",
                     "icon": "$(debug-alt)",
                     "title": "%python.command.python.debugInTerminal.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
                     "command": "python.execSelectionInDjangoShell",
                     "title": "%python.command.python.execSelectionInDjangoShell.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
                     "command": "python.execSelectionInTerminal",
                     "title": "%python.command.python.execSelectionInTerminal.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
@@ -1715,7 +1621,7 @@
                     "category": "Python",
                     "command": "python.reportIssue",
                     "title": "%python.command.python.reportIssue.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Test",
@@ -1728,7 +1634,7 @@
                     "category": "Python",
                     "command": "python.runLinting",
                     "title": "%python.command.python.runLinting.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
@@ -1740,13 +1646,13 @@
                     "category": "Python",
                     "command": "python.setLinter",
                     "title": "%python.command.python.setLinter.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python Refactor",
                     "command": "python.sortImports",
                     "title": "%python.command.python.sortImports.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
                 {
                     "category": "Python",
@@ -1893,8 +1799,9 @@
         "webpack": "webpack"
     },
     "dependencies": {
+        "@iarna/toml": "^2.2.5",
+        "@vscode/extension-telemetry": "^0.7.4-preview",
         "@vscode/jupyter-lsp-middleware": "^0.2.50",
-        "@vscode/extension-telemetry": "^0.6.2",
         "arch": "^2.1.0",
         "diff-match-patch": "^1.0.0",
         "fs-extra": "^10.0.1",
@@ -1914,8 +1821,8 @@
         "request-progress": "^3.0.0",
         "rxjs": "^6.5.4",
         "rxjs-compat": "^6.5.4",
-        "stack-trace": "0.0.10",
         "semver": "^5.5.0",
+        "stack-trace": "0.0.10",
         "sudo-prompt": "^9.2.1",
         "tmp": "^0.0.33",
         "uint64be": "^3.0.0",
@@ -1927,11 +1834,10 @@
         "vscode-languageclient": "8.0.2-next.5",
         "vscode-languageserver": "8.0.2-next.5",
         "vscode-languageserver-protocol": "3.17.2-next.6",
-        "vscode-nls": "^5.0.1",
         "vscode-tas-client": "^0.1.63",
+        "which": "^2.0.2",
         "winreg": "^1.2.4",
-        "xml2js": "^0.4.19",
-        "which": "^2.0.2"
+        "xml2js": "^0.4.19"
     },
     "devDependencies": {
         "@istanbuljs/nyc-config-typescript": "^1.0.2",
@@ -1959,7 +1865,6 @@
         "@types/xml2js": "^0.4.2",
         "@typescript-eslint/eslint-plugin": "^3.7.0",
         "@typescript-eslint/parser": "^3.7.0",
-        "@vscode/telemetry-extractor": ">=1.9.8",
         "@vscode/test-electron": "^2.1.3",
         "chai": "^4.1.2",
         "chai-arrays": "^2.0.0",
@@ -1972,7 +1877,7 @@
         "eslint": "^7.2.0",
         "eslint-config-airbnb": "^18.2.0",
         "eslint-config-prettier": "^8.3.0",
-        "eslint-plugin-import": "^2.22.0",
+        "eslint-plugin-import": "^2.25.4",
         "eslint-plugin-jsx-a11y": "^6.3.1",
         "eslint-plugin-react": "^7.20.3",
         "eslint-plugin-react-hooks": "^4.0.0",
@@ -2004,7 +1909,6 @@
         "uuid": "^8.3.2",
         "vsce": "^2.6.6",
         "vscode-debugadapter-testsupport": "^1.27.0",
-        "vscode-nls-dev": "^4.0.0",
         "webpack": "^5.70.0",
         "webpack-bundle-analyzer": "^4.5.0",
         "webpack-cli": "^4.9.2",

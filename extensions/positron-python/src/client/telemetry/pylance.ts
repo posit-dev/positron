@@ -64,7 +64,6 @@
       "autoimport" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "dictionarykey" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "memberaccess" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-
       "keyword" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
    }
 */
@@ -205,7 +204,7 @@
 */
 /* __GDPR__
    "language_server/installed_packages" : {
-      "packages" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+      "packagesbitarray" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "packageslowercase" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "resolverid" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
    }
