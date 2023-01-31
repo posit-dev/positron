@@ -3,7 +3,7 @@
 
 import { Event } from 'vscode';
 import { isTestExecution } from '../../../../common/constants';
-import { traceInfo } from '../../../../logging';
+import { traceInfo, traceVerbose } from '../../../../logging';
 import { arePathsSame, getFileInfo, pathExists } from '../../../common/externalDependencies';
 import { PythonEnvInfo } from '../../info';
 import { areEnvsDeepEqual, areSameEnv, getEnvPath } from '../../info/env';
@@ -99,13 +99,18 @@ export class PythonEnvInfoCache extends PythonEnvsWatcher<PythonEnvCollectionCha
                     if (envs && isCompleteList) {
                         /**
                          * Only consider a cached env to be valid if it's relevant. That means:
-                         * * It is either reported in the latest complete refresh for this session.
-                         * * Or it is relevant for some other workspace folder which is not opened currently.
+                         * * It is relevant for some other workspace folder which is not opened currently.
+                         * * It is either reported in the latest complete discovery for this session.
+                         * * It is provided by the consumer themselves.
                          */
                         if (cachedEnv.searchLocation) {
                             return true;
                         }
                         if (envs.some((env) => cachedEnv.id === env.id)) {
+                            return true;
+                        }
+                        if (Array.from(this.validatedEnvs.keys()).some((envId) => cachedEnv.id === envId)) {
+                            // These envs are provided by the consumer themselves, consider them valid.
                             return true;
                         }
                     } else {
@@ -141,6 +146,7 @@ export class PythonEnvInfoCache extends PythonEnvsWatcher<PythonEnvCollectionCha
     public addEnv(env: PythonEnvInfo, hasLatestInfo?: boolean): void {
         const found = this.envs.find((e) => areSameEnv(e, env));
         if (hasLatestInfo) {
+            traceVerbose(`Flushing env to cache ${env.id}`);
             this.validatedEnvs.add(env.id!);
             this.flush(env).ignoreErrors(); // If we have latest info, flush it so it can be saved.
         }
@@ -172,13 +178,16 @@ export class PythonEnvInfoCache extends PythonEnvsWatcher<PythonEnvCollectionCha
         const env = this.envs.find((e) => arePathsSame(e.location, path)) ?? this.envs.find((e) => areSameEnv(e, path));
         if (env) {
             if (this.validatedEnvs.has(env.id!)) {
+                traceVerbose(`Found cached env for ${path}`);
                 return env;
             }
-            if (await validateInfo(env)) {
+            if (await this.validateInfo(env)) {
+                traceVerbose(`Needed to validate ${path} with latest info`);
                 this.validatedEnvs.add(env.id!);
                 return env;
             }
         }
+        traceVerbose(`No cached env found for ${path}`);
         return undefined;
     }
 
@@ -207,16 +216,24 @@ export class PythonEnvInfoCache extends PythonEnvsWatcher<PythonEnvCollectionCha
             this.flushedEnvs.add(e.id!);
         });
     }
-}
 
-async function validateInfo(env: PythonEnvInfo) {
-    const { ctime, mtime } = await getFileInfo(env.executable.filename);
-    if (ctime === env.executable.ctime && mtime === env.executable.mtime) {
-        return true;
+    /**
+     * Ensure environment has complete and latest information.
+     */
+    private async validateInfo(env: PythonEnvInfo) {
+        // Make sure any previously flushed information is upto date by ensuring environment did not change.
+        if (!this.flushedEnvs.has(env.id!)) {
+            // Any environment with complete information is flushed, so this env does not contain complete info.
+            return false;
+        }
+        const { ctime, mtime } = await getFileInfo(env.executable.filename);
+        if (ctime !== -1 && mtime !== -1 && ctime === env.executable.ctime && mtime === env.executable.mtime) {
+            return true;
+        }
+        env.executable.ctime = ctime;
+        env.executable.mtime = mtime;
+        return false;
     }
-    env.executable.ctime = ctime;
-    env.executable.mtime = mtime;
-    return false;
 }
 
 /**

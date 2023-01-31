@@ -9,6 +9,7 @@ import {
     env,
     Event,
     EventEmitter,
+    l10n,
     Position,
     Progress,
     ProgressLocation,
@@ -23,7 +24,6 @@ import {
     window,
     workspace,
 } from 'vscode';
-import * as nls from 'vscode-nls';
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../common/application/types';
 import { createPromiseFromCancellation } from '../common/cancellation';
 import { tensorboardLauncher } from '../common/process/internal/scripts';
@@ -35,6 +35,7 @@ import {
     ProductInstallStatus,
     Product,
     IPersistentState,
+    IConfigurationService,
 } from '../common/types';
 import { createDeferred, sleep } from '../common/utils/async';
 import { Common, TensorBoard } from '../common/utils/localize';
@@ -47,8 +48,6 @@ import { TensorBoardPromptSelection, TensorBoardSessionStartResult } from './con
 import { IMultiStepInputFactory } from '../common/utils/multiStepInput';
 import { ModuleInstallFlags } from '../common/installer/types';
 import { traceError, traceInfo } from '../logging';
-
-const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 enum Messages {
     JumpToSource = 'jump_to_source',
@@ -100,6 +99,7 @@ export class TensorBoardSession {
         private readonly applicationShell: IApplicationShell,
         private readonly globalMemento: IPersistentState<ViewColumn>,
         private readonly multiStepFactory: IMultiStepInputFactory,
+        private readonly configurationService: IConfigurationService,
     ) {}
 
     public get onDidDispose(): Event<TensorBoardSession> {
@@ -341,10 +341,10 @@ export class TensorBoardSession {
     // the editor, if any, then the directory that the active text editor is in, if any.
     private async getLogDirectory(): Promise<string | undefined> {
         // See if the user told us to always use a specific log directory
-        const setting = this.workspaceService.getConfiguration('python.tensorBoard');
-        const settingValue = setting.get<string>('logDirectory');
+        const settings = this.configurationService.getSettings();
+        const settingValue = settings.tensorBoard?.logDirectory;
         if (settingValue) {
-            traceInfo(`Using log directory specified by python.tensorBoard.logDirectory setting: ${settingValue}`);
+            traceInfo(`Using log directory resolved by python.tensorBoard.logDirectory setting: ${settingValue}`);
             return settingValue;
         }
         // No log directory in settings. Ask the user which directory to use
@@ -357,7 +357,7 @@ export class TensorBoardSession {
         const item = await this.applicationShell.showQuickPick(items, {
             canPickMany: false,
             ignoreFocusOut: false,
-            placeHolder: logDir ? localize('TensorBoard.currentDirectory', 'Current: {0}', logDir) : undefined,
+            placeHolder: logDir ? l10n.t('Current: {0}', logDir) : undefined,
         });
         switch (item?.label) {
             case useCurrentWorkingDirectory:

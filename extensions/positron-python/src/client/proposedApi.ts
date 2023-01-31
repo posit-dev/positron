@@ -2,7 +2,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { ConfigurationTarget, EventEmitter, Uri, WorkspaceFolder } from 'vscode';
+import { ConfigurationTarget, EventEmitter, Uri, workspace, WorkspaceFolder } from 'vscode';
 import * as pathUtils from 'path';
 import { IConfigurationService, IDisposableRegistry, IExtensions, IInterpreterPathService } from './common/types';
 import { Architecture } from './common/utils/platform';
@@ -124,17 +124,21 @@ export function buildProposedApi(
     const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
     const extensions = serviceContainer.get<IExtensions>(IExtensions);
     const envVarsProvider = serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
-    function sendApiTelemetry(apiName: string) {
-        extensions
-            .determineExtensionFromCallStack()
-            .then((info) => {
-                sendTelemetryEvent(EventName.PYTHON_ENVIRONMENTS_API, undefined, {
-                    apiName,
-                    extensionId: info.extensionId,
-                });
-                traceVerbose(`Extension ${info.extensionId} accessed ${apiName}`);
-            })
-            .ignoreErrors();
+    function sendApiTelemetry(apiName: string, args?: unknown) {
+        setTimeout(() =>
+            extensions
+                .determineExtensionFromCallStack()
+                .then((info) => {
+                    sendTelemetryEvent(EventName.PYTHON_ENVIRONMENTS_API, undefined, {
+                        apiName,
+                        extensionId: info.extensionId,
+                    });
+                    traceVerbose(
+                        `Extension ${info.extensionId} accessed ${apiName} with args: ${JSON.stringify(args)}`,
+                    );
+                })
+                .ignoreErrors(),
+        );
     }
     disposables.push(
         discoveryApi.onChanged((e) => {
@@ -229,6 +233,9 @@ export function buildProposedApi(
                 return onDidActiveInterpreterChangedEvent.event;
             },
             resolveEnvironment: async (env: Environment | EnvironmentPath | string) => {
+                if (!workspace.isTrusted) {
+                    throw new Error('Not allowed to resolve environment in an untrusted workspace');
+                }
                 let path = typeof env !== 'string' ? env.path : env;
                 if (pathUtils.basename(path) === path) {
                     // Value can be `python`, `python3`, `python3.9` etc.
@@ -247,7 +254,7 @@ export function buildProposedApi(
                     }
                     path = fullyQualifiedPath;
                 }
-                sendApiTelemetry('resolveEnvironment');
+                sendApiTelemetry('resolveEnvironment', env);
                 return resolveEnvironment(path, discoveryApi);
             },
             get known(): Environment[] {
@@ -258,6 +265,10 @@ export function buildProposedApi(
                     .map((e) => convertEnvInfoAndGetReference(e));
             },
             async refreshEnvironments(options?: RefreshOptions) {
+                if (!workspace.isTrusted) {
+                    traceError('Not allowed to refresh environments in an untrusted workspace');
+                    return;
+                }
                 await discoveryApi.triggerRefresh(undefined, {
                     ifNotTriggerredAlready: !options?.forceRefresh,
                 });
@@ -277,7 +288,11 @@ async function resolveEnvironment(path: string, discoveryApi: IDiscoveryAPI): Pr
     if (!env) {
         return undefined;
     }
-    return getEnvReference(convertCompleteEnvInfo(env)) as ResolvedEnvironment;
+    const resolvedEnv = getEnvReference(convertCompleteEnvInfo(env)) as ResolvedEnvironment;
+    if (resolvedEnv.version?.major === -1 || resolvedEnv.version?.minor === -1 || resolvedEnv.version?.micro === -1) {
+        traceError(`Invalid version for ${path}: ${JSON.stringify(env)}`);
+    }
+    return resolvedEnv;
 }
 
 export function convertCompleteEnvInfo(env: PythonEnvInfo): ResolvedEnvironment {

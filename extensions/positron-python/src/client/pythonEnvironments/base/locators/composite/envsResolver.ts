@@ -52,6 +52,9 @@ export class PythonEnvsResolver implements IResolvingLocator {
         const kind = await identifyEnvironment(path);
         const environment = await resolveBasicEnv({ kind, executablePath, envPath });
         const info = await this.environmentInfoService.getEnvironmentInfo(environment);
+        traceVerbose(
+            `Environment resolver resolved ${path} for ${JSON.stringify(environment)} to ${JSON.stringify(info)}`,
+        );
         if (!info) {
             return undefined;
         }
@@ -177,7 +180,6 @@ function checkIfFinishedAndNotify(
 function getResolvedEnv(interpreterInfo: InterpreterInformation, environment: PythonEnvInfo) {
     // Deep copy into a new object
     const resolvedEnv = cloneDeep(environment);
-    resolvedEnv.executable.filename = interpreterInfo.executable.filename;
     resolvedEnv.executable.sysPrefix = interpreterInfo.executable.sysPrefix;
     const isEnvLackingPython =
         getEnvPath(resolvedEnv.executable.filename, resolvedEnv.location).pathType === 'envFolderPath';

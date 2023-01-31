@@ -46,4 +46,5 @@ dist/**
 *.xlf
 *.nls.*.json
 *.i18n.json
+l10n/
 tags

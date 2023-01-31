@@ -2,14 +2,19 @@
 // Licensed under the MIT License.
 
 import { inject, injectable } from 'inversify';
-import { ViewColumn } from 'vscode';
-import * as nls from 'vscode-nls';
+import { l10n, ViewColumn } from 'vscode';
 import { IExtensionSingleActivationService } from '../activation/types';
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../common/application/types';
 import { Commands } from '../common/constants';
 import { ContextKey } from '../common/contextKey';
 import { IPythonExecutionFactory } from '../common/process/types';
-import { IDisposableRegistry, IInstaller, IPersistentState, IPersistentStateFactory } from '../common/types';
+import {
+    IDisposableRegistry,
+    IInstaller,
+    IPersistentState,
+    IPersistentStateFactory,
+    IConfigurationService,
+} from '../common/types';
 import { IMultiStepInputFactory } from '../common/utils/multiStepInput';
 import { IInterpreterService } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
@@ -17,8 +22,6 @@ import { sendTelemetryEvent } from '../telemetry';
 import { EventName } from '../telemetry/constants';
 import { TensorBoardEntrypoint, TensorBoardEntrypointTrigger } from './constants';
 import { TensorBoardSession } from './tensorBoardSession';
-
-const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 const PREFERRED_VIEWGROUP = 'PythonTensorBoardWebviewPreferredViewGroup';
 
@@ -42,6 +45,7 @@ export class TensorBoardSessionProvider implements IExtensionSingleActivationSer
         @inject(IPythonExecutionFactory) private readonly pythonExecFactory: IPythonExecutionFactory,
         @inject(IPersistentStateFactory) private stateFactory: IPersistentStateFactory,
         @inject(IMultiStepInputFactory) private readonly multiStepFactory: IMultiStepInputFactory,
+        @inject(IConfigurationService) private readonly configurationService: IConfigurationService,
     ) {
         this.preferredViewGroupMemento = this.stateFactory.createGlobalPersistentState<ViewColumn>(
             PREFERRED_VIEWGROUP,
@@ -102,6 +106,7 @@ export class TensorBoardSessionProvider implements IExtensionSingleActivationSer
                 this.applicationShell,
                 this.preferredViewGroupMemento,
                 this.multiStepFactory,
+                this.configurationService,
             );
             newSession.onDidChangeViewState(() => this.updateTensorBoardSessionContext(), this, this.disposables);
             newSession.onDidDispose((e) => this.didDisposeSession(e), this, this.disposables);
@@ -111,8 +116,7 @@ export class TensorBoardSessionProvider implements IExtensionSingleActivationSer
         } catch (e) {
             traceError(`Encountered error while starting new TensorBoard session: ${e}`);
             await this.applicationShell.showErrorMessage(
-                localize(
-                    'TensorBoard.failedToStartSessionError',
+                l10n.t(
                     'We failed to start a TensorBoard session due to the following error: {0}',
                     (e as Error).message,
                 ),

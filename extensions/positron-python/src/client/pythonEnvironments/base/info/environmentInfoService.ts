@@ -3,7 +3,7 @@
 
 import { Uri } from 'vscode';
 import { IDisposableRegistry } from '../../../common/types';
-import { createDeferred, Deferred } from '../../../common/utils/async';
+import { createDeferred, Deferred, sleep } from '../../../common/utils/async';
 import { createRunningWorkerPool, IWorkerPool, QueuePosition } from '../../../common/utils/workerPool';
 import { getInterpreterInfo, InterpreterInformation } from './interpreter';
 import { buildPythonExecInfo } from '../../exec';
@@ -38,7 +38,7 @@ export interface IEnvironmentInfoService {
 }
 
 async function buildEnvironmentInfo(env: PythonEnvInfo): Promise<InterpreterInformation | undefined> {
-    const python = [env.executable.filename, OUTPUT_MARKER_SCRIPT];
+    const python = [env.executable.filename, '-I', OUTPUT_MARKER_SCRIPT];
     const interpreterInfo = await getInterpreterInfo(buildPythonExecInfo(python, undefined, env.executable.filename));
     return interpreterInfo;
 }
@@ -50,7 +50,7 @@ async function buildEnvironmentInfoUsingCondaRun(env: PythonEnvInfo): Promise<In
     if (!condaEnv) {
         return undefined;
     }
-    const python = await conda?.getRunPythonArgs(condaEnv, true);
+    const python = await conda?.getRunPythonArgs(condaEnv, true, true);
     if (!python) {
         return undefined;
     }
@@ -112,6 +112,7 @@ class EnvironmentInfoService implements IEnvironmentInfoService {
     public async _getEnvironmentInfo(
         env: PythonEnvInfo,
         priority?: EnvironmentInfoServiceQueuePriority,
+        retryOnce = true,
     ): Promise<InterpreterInformation | undefined> {
         if (env.kind === PythonEnvKind.Conda && env.executable.filename === 'python') {
             const emptyInterpreterInfo: InterpreterInformation = {
@@ -162,6 +163,12 @@ class EnvironmentInfoService implements IEnvironmentInfoService {
             } else if (reason) {
                 traceError(reason);
             }
+        }
+        if (r === undefined && retryOnce) {
+            // Retry once, in case the environment was not fully populated. Also observed in CI:
+            // https://github.com/microsoft/vscode-python/issues/20147 where running environment the first time
+            // failed due to unknown reasons.
+            return sleep(2000).then(() => this._getEnvironmentInfo(env, priority, false));
         }
         return r;
     }

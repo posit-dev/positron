@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs-extra';
-import { WorkspaceFolder } from 'vscode';
+import { l10n, WorkspaceFolder } from 'vscode';
 import { DebugConfigStrings } from '../../../../common/utils/localize';
 import { MultiStepInput } from '../../../../common/utils/multiStepInput';
 import { sendTelemetryEvent } from '../../../../telemetry';
@@ -13,17 +13,14 @@ import { EventName } from '../../../../telemetry/constants';
 import { DebuggerTypeName } from '../../../constants';
 import { LaunchRequestArguments } from '../../../types';
 import { DebugConfigurationState, DebugConfigurationType } from '../../types';
-import * as nls from 'vscode-nls';
 import { resolveVariables } from '../utils/common';
-
-const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 const workspaceFolderToken = '${workspaceFolder}';
 
 export async function buildPyramidLaunchConfiguration(
     input: MultiStepInput<DebugConfigurationState>,
     state: DebugConfigurationState,
-) {
+): Promise<void> {
     const iniPath = await getDevelopmentIniPath(state.folder);
     const defaultIni = `${workspaceFolderToken}${path.sep}development.ini`;
     let manuallyEnteredAValue: boolean | undefined;
@@ -43,8 +40,7 @@ export async function buildPyramidLaunchConfiguration(
         const selectedIniPath = await input.showInputBox({
             title: DebugConfigStrings.pyramid.enterDevelopmentIniPath.title,
             value: defaultIni,
-            prompt: localize(
-                'debug.pyramidEnterDevelopmentIniPathPrompt',
+            prompt: l10n.t(
                 'Enter the path to development.ini ({0} points to the root of the current workspace folder)',
                 workspaceFolderToken,
             ),
@@ -70,7 +66,7 @@ export async function validateIniPath(
     selected?: string,
 ): Promise<string | undefined> {
     if (!folder) {
-        return;
+        return undefined;
     }
     const error = DebugConfigStrings.pyramid.enterDevelopmentIniPath.invalid;
     if (!selected || selected.trim().length === 0) {
@@ -85,14 +81,16 @@ export async function validateIniPath(
             return error;
         }
     }
+    return undefined;
 }
 
 export async function getDevelopmentIniPath(folder: WorkspaceFolder | undefined): Promise<string | undefined> {
     if (!folder) {
-        return;
+        return undefined;
     }
     const defaultLocationOfManagePy = path.join(folder.uri.fsPath, 'development.ini');
     if (await fs.pathExists(defaultLocationOfManagePy)) {
         return `${workspaceFolderToken}${path.sep}development.ini`;
     }
+    return undefined;
 }
