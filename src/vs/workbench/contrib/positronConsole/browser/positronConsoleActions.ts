@@ -4,12 +4,15 @@
 
 import { localize } from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
+import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
+import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { PositronConsoleCommandId, POSITRON_CONSOLE_ACTION_CATEGORY } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
@@ -34,6 +37,10 @@ export function registerPositronConsoleActions() {
 				f1: true,
 				category,
 				icon: Codicon.plus,
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.WinCtrl | KeyCode.KeyL
+				},
 				description: {
 					description: 'workbench.action.positronConsole.clear',
 					args: []
@@ -72,6 +79,12 @@ export function registerPositronConsoleActions() {
 				f1: true,
 				category,
 				icon: Codicon.plus,
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.CtrlCmd | KeyCode.Enter,
+					win: { primary: KeyMod.WinCtrl | KeyCode.Enter },
+					when: EditorContextKeys.editorTextFocus
+				},
 				description: {
 					description: 'workbench.action.positronConsole.send',
 					args: []
