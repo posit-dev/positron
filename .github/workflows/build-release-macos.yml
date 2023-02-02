@@ -38,8 +38,13 @@ jobs:
       # Call again to get just the build number. Example: 123
       - name: Determine Version (Build Number)
         id: build_number
-        run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
-
+        run: |
+          result=`./versions/show-version.js --build`
+          echo "result=$result" >> $GITHUB_OUTPUT
+          # Stop if release tag already exists
+          git fetch --tags
+          tag_exists=`git tag -l ${result}`
+          if [ -n tag_exists ]; then exit 78; fi
 
   macos-arm64:
     name: Build macOS client (arm64)
