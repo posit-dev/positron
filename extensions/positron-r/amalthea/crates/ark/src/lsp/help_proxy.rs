@@ -9,13 +9,14 @@ use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 
 use http::*;
-use http::header::ACCESS_CONTROL_ALLOW_ORIGIN;
 use hyper::Body;
 use hyper::client::conn::handshake;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
+
+use crate::lsp::browser;
 
 async fn handle_request(request: Request<Body>, port: i32) -> anyhow::Result<Response<Body>> {
 
@@ -44,20 +45,25 @@ async fn task(port: i32) -> anyhow::Result<()> {
 
     // TODO: Don't hard-code the port; use a port of 0 to ask for a random port
     // and then communicate that port back to Positron
-    let addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 54321);
+    let addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     let listener = TcpListener::bind(addr).await?;
+
+    if let Ok(addr) = listener.local_addr() {
+        let port = addr.port();
+        log::info!("Help proxy listening on port {}", port);
+        unsafe { browser::PORT = port };
+    }
 
     loop {
         let (stream, _) = listener.accept().await?;
         tokio::spawn(async move {
 
-            let status = Http::new()
-                .serve_connection(stream, service_fn(|request| async move {
-                    handle_request(request, port).await
-                }))
-                .await;
+            let http = Http::new();
+            let status = http.serve_connection(stream, service_fn(|request| async move {
+                handle_request(request, port).await
+            }));
 
-            if let Err(error) = status {
+            if let Err(error) = status.await {
                 log::error!("HELP PROXY ERROR: {}", error);
             }
 

@@ -14,6 +14,8 @@ use log::info;
 
 use crate::interface::KERNEL;
 
+pub static mut PORT: u16 = 0;
+
 #[harp::register]
 pub unsafe extern "C" fn ps_browse_url(url: SEXP) -> SEXP {
 
@@ -40,7 +42,8 @@ unsafe fn ps_browse_url_impl(url: SEXP) -> anyhow::Result<()> {
     let prefix = format!("http://127.0.0.1:{}/", port);
     if url.starts_with(&prefix) {
 
-        let url = url.replace(prefix.as_str(), "http://127.0.0.1:54321/");
+        let replacement = format!("http://127.0.0.1:{}/", PORT);
+        let url = url.replace(prefix.as_str(), replacement.as_str());
         let event = PositronEvent::ShowHelpUrl(ShowHelpUrlEvent {
             url: url,
         });
