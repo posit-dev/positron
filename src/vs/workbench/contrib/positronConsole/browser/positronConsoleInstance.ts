@@ -27,12 +27,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 	/**
 	 * Constructor.
-	 * @param languageId The language ID.
 	 * @param runtime The language runtime.
 	 */
-	constructor(
-		readonly languageId: string,
-		readonly runtime: ILanguageRuntime) {
+	constructor(readonly runtime: ILanguageRuntime) {
+		// Call the base class's constructor.
 		super();
 
 		// Populate with execution history

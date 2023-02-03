@@ -47,6 +47,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 	// Adds a ConsoleReplItemTrace to the console.
 	const trace = (message: string) => {
+		console.log(`${props.positronConsoleInstance.runtime.metadata.languageName} - ${message}`);
 		//setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemTrace({ key: generateUuid(), timestamp: new Date(), message })]);
 	};
 
