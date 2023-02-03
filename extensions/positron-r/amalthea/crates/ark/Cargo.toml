@@ -16,6 +16,8 @@ dashmap = "5.3.3"
 ego-tree = "0.6.2"
 harp = { path = "../harp" }
 html5ever = "0.26.0"
+http = "0.2.8"
+hyper = { version = "0.14.23", features = ["full"] }
 lazy_static = "1.4.0"
 libR-sys = "0.3.0"
 libc = "0.2"

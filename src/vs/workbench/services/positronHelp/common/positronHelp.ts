@@ -19,7 +19,7 @@ export interface IPositronHelpService {
 
 	readonly _serviceBrand: undefined;
 
-	readonly onRenderHelp: Event<TrustedHTML | undefined>;
+	readonly onRenderHelp: Event<string>;
 
 	openHelpHtml(html: string): void;
 	openHelpMarkdown(markdown: MarkdownString): void;

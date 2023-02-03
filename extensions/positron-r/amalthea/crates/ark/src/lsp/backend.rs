@@ -39,6 +39,7 @@ use crate::lsp::documents::Document;
 use crate::lsp::global::ClientInstance;
 use crate::lsp::global::INSTANCE;
 use crate::lsp::global::get_instance;
+use crate::lsp::help_proxy;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
 use crate::lsp::modules;
@@ -113,7 +114,9 @@ impl LanguageServer for Backend {
         backend_trace!(self, "initialize({:#?})", params);
 
         // initialize our support functions
-        r_lock! { modules::initialize() };
+        let r_module_info = r_lock! {
+            modules::initialize().unwrap()
+        };
 
         // initialize the set of known workspaces
         let mut workspace = self.workspace.lock();
@@ -133,6 +136,9 @@ impl LanguageServer for Backend {
 
         // start indexing
         indexer::start(folders);
+
+        // start R help server proxy
+        help_proxy::start(r_module_info.help_server_port);
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {

@@ -6,11 +6,9 @@
 //
 
 use amalthea::events::PositronEvent;
-use amalthea::events::ShowHelpEvent;
+use amalthea::events::ShowHelpUrlEvent;
 use harp::exec::RFunction;
-use harp::exec::RFunctionExt;
 use harp::object::RObject;
-use harp::object::RObjectExt;
 use libR_sys::*;
 use log::info;
 
@@ -31,6 +29,7 @@ pub unsafe extern "C" fn ps_browse_url(url: SEXP) -> SEXP {
 
 unsafe fn ps_browse_url_impl(url: SEXP) -> anyhow::Result<()> {
 
+    // Extract URL
     let url = RObject::view(url).to::<String>()?;
 
     // Check for help requests
@@ -41,22 +40,12 @@ unsafe fn ps_browse_url_impl(url: SEXP) -> anyhow::Result<()> {
     let prefix = format!("http://127.0.0.1:{}/", port);
     if url.starts_with(&prefix) {
 
-        let endpoint = &url[prefix.len() - 1..];
-        Rf_PrintValue(*RObject::from(endpoint));
-        let response = RFunction::new("tools", "httpd")
-            .add(endpoint)
-            .call()?;
-
-        let payload = response.elt("payload")?;
-        let html = payload.to::<String>()?;
-
-        // TODO (kevin): This is mostly just a placeholder.
-        let event = PositronEvent::ShowHelp(ShowHelpEvent {
-            content: html,
-            kind: "html".to_string(),
+        let url = url.replace(prefix.as_str(), "http://127.0.0.1:54321/");
+        let event = PositronEvent::ShowHelpUrl(ShowHelpUrlEvent {
+            url: url,
         });
 
-        info!("Sending ShowHelp event: {:#?}", event);
+        info!("Sending ShowHelpUrl event: {:#?}", event);
         let kernel = KERNEL.as_ref().unwrap().lock().unwrap();
         kernel.send_event(event);
 
