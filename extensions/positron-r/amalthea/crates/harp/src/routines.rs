@@ -7,7 +7,6 @@
 
 use libR_sys::*;
 use log::error;
-use log::info;
 
 static mut R_ROUTINES : Vec<R_CallMethodDef> = vec![];
 
@@ -34,7 +33,6 @@ pub unsafe fn r_register_routines() {
         numArgs: 0
     });
 
-    info!("Registering embedded routines: {:#?}", routines);
     R_registerRoutines(info, std::ptr::null(), routines.as_ptr(), std::ptr::null(), std::ptr::null());
 
 }

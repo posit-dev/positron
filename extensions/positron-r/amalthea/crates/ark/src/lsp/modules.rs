@@ -13,21 +13,25 @@ use std::env;
 use std::path::Path;
 use walkdir::WalkDir;
 
-pub unsafe fn initialize() {
+pub struct RModuleInfo {
+    pub help_server_port: i32,
+}
+
+pub unsafe fn initialize() -> anyhow::Result<RModuleInfo> {
+
     // Ensure the 'tools:rstudio' environment has been initialized.
     let envir = RFunction::new("base", "attach")
         .param("what", R_NilValue)
         .param("name", "tools:rstudio")
-        .call()
-        .unwrap();
+        .call()?;
 
     // Get the path to the 'modules' directory, adjacent to the executable file.
     // This is where we place the R source files in packaged releases.
     let mut root = match env::current_exe() {
         Ok(exe_path) => exe_path.parent().unwrap().join("modules"),
-        Err(e) => {
-            warn!("Failed to get current exe path: {e}; can't find R modules");
-            return;
+        Err(error) => {
+            warn!("Failed to get current exe path; can't find R modules");
+            return Err(error.into());
         }
     };
 
@@ -36,7 +40,6 @@ pub unsafe fn initialize() {
     // variable).
     if !root.exists() {
         let source = format!("{}/src/lsp/modules", env!("CARGO_MANIFEST_DIR"));
-        // Convert to a path.
         root = Path::new(&source).to_path_buf();
     }
 
@@ -52,6 +55,15 @@ pub unsafe fn initialize() {
             }
         }
     }
+
+    // Get the help server port.
+    let help_server_port = RFunction::new("tools", "httpdPort")
+        .call()?
+        .to::<i32>()?;
+
+    return Ok(RModuleInfo {
+        help_server_port: help_server_port,
+    });
 }
 
 pub unsafe fn import(file: &str, envir: SEXP) {
