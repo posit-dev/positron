@@ -11,7 +11,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
-import { ILanguageRuntimeMessageEvent, ILanguageRuntimeService, LanguageRuntimeMessageType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { LanguageRuntimeEventType, ShowHelpEvent, ShowHelpUrlEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 // The TrustedTypePolicy for rendering.
