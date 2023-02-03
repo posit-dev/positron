@@ -16,22 +16,30 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { TestContent } from 'vs/workbench/contrib/positronPreview/browser/components/testContent';
 
+/**
+ * PositronPreviewViewPane class.
+ */
 export class PositronPreviewViewPane extends ViewPane {
+	//#region Private Properties
 
 	// The PositronReactRenderer.
-	positronReactRenderer: PositronReactRenderer | undefined;
+	private positronReactRenderer?: PositronReactRenderer;
+
+	//#endregion Private Properties
+
+	//#region Constructor & Dispose
 
 	constructor(
 		options: IViewPaneOptions,
-		@IKeybindingService keybindingService: IKeybindingService,
-		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
-		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
+		@IKeybindingService keybindingService: IKeybindingService,
 		@IOpenerService openerService: IOpenerService,
-		@IThemeService themeService: IThemeService,
 		@ITelemetryService telemetryService: ITelemetryService,
+		@IThemeService themeService: IThemeService,
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
@@ -46,27 +54,41 @@ export class PositronPreviewViewPane extends ViewPane {
 		super.dispose();
 	}
 
-	override focus(): void {
-		// Call the base class's method.
-		super.focus();
-	}
+	//#endregion Constructor & Dispose
+
+	//#region Protected Overrides
 
 	protected override renderBody(container: HTMLElement): void {
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Render the Positron top action bar component.
+		// Render the component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
 			<TestContent message='Preview React' />
 		);
 	}
 
+	//#endregion Protected Overrides
+
+	//#region Public Overrides
+
+	override focus(): void {
+		// Call the base class's method.
+		super.focus();
+	}
+
 	override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
 	}
 
+	//#endregion Public Overrides
+
+	//#region Private Methods
+
 	private onDidChangeVisibility(visible: boolean): void {
 	}
+
+	//#endregion Private Methods
 }
 

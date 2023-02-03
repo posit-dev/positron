@@ -22,11 +22,13 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 // Register the Positron environment service.
 registerSingleton(IPositronEnvironmentService, PositronEnvironmentService, InstantiationType.Delayed);
 
-// Register the Positron environment container.
+// The Positron environment view icon.
 const positronEnvironmentViewIcon = registerIcon('positron-environment-view-icon', Codicon.positronEnvironmentView, nls.localize('positronEnvironmentViewIcon', 'View icon of the Positron environment view.'));
+
+// Register the Positron environment container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_ENVIRONMENT_VIEW_ID,
-	title: nls.localize('environment', "Environment"),
+	title: nls.localize('positron.environment', "Environment"),
 	icon: positronEnvironmentViewIcon,
 	order: 1,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_ENVIRONMENT_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
@@ -36,7 +38,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_ENVIRONMENT_VIEW_ID,
-	name: nls.localize('environment', "Environment"),
+	name: nls.localize('positron.environment', "Environment"),
 	containerIcon: positronEnvironmentViewIcon,
 	canMoveView: true,
 	canToggleVisibility: false,

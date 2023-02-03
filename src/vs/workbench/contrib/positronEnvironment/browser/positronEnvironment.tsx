@@ -13,9 +13,9 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { ActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/actionBars';
 import { EnvironmentList } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentList';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
-import { EnvironmentActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentActionBars';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
@@ -39,6 +39,7 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
  */
 export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentProps>) => {
 	// Hooks.
+	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
 	// Add IReactComponentContainer event handlers.
@@ -48,6 +49,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
+			setWidth(size.width);
 			setHeight(size.height);
 		}));
 
@@ -64,8 +66,8 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 	return (
 		<PositronEnvironmentContextProvider {...props}>
 			<div className='positron-environment'>
-				<EnvironmentActionBars {...props} />
-				<EnvironmentList height={height - 64} />
+				<ActionBars {...props} />
+				<EnvironmentList width={width} height={height - 64} />
 			</div>
 		</PositronEnvironmentContextProvider>
 	);

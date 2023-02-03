@@ -140,6 +140,9 @@ declare module 'positron' {
 		/** The ID of this event's parent (the event that caused it), if applicable */
 		parent_id: string;
 
+		/** The message's date and time, in ISO 8601 format */
+		when: string;
+
 		/** The type of event */
 		type: LanguageRuntimeMessageType;
 	}
@@ -216,17 +219,28 @@ declare module 'positron' {
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
-		/** A unique identifier for this runtime */
-		id: string;
+		/** A unique identifier for this runtime; takes the form of a GUID */
+		runtimeId: string;
 
-		/** The language identifier for this runtime. */
-		language: string;
+		/** The name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)" */
+		runtimeName: string;
 
-		/** The name of the runtime. */
-		name: string;
+		/** The version of the runtime itself (e.g. kernel or extension version) as a string; e.g. "0.1" */
+		runtimeVersion: string;
 
-		/** The version of the runtime. */
-		version: string;
+		/** The free-form, user-friendly name of the language this runtime can execute; e.g. "R" */
+		languageName: string;
+
+		/**
+		 * The Visual Studio Code Language ID of the language this runtime can execute; e.g. "r"
+		 *
+		 * See here for a list of known language IDs:
+		 * https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers
+		 */
+		languageId: string;
+
+		/** The version of the language; e.g. "4.2" */
+		languageVersion: string;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
@@ -238,17 +252,6 @@ declare module 'positron' {
 
 		/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
 		Explicit = 'explicit',
-	}
-
-	/**
-	 * The set of history types that can be requested from language runtime
-	 */
-	export enum LanguageRuntimeHistoryType {
-		/** Only inputs should be returned as history entries */
-		InputOnly = 'inputOnly',
-
-		/** Include both inputs and outputs in the history (outputs may be large) */
-		InputAndOutput = 'inputAndOutput',
 	}
 
 	/**
@@ -340,21 +343,6 @@ declare module 'positron' {
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
-
-		/**
-		 * Gets the history of code executed in the runtime. The history is
-		 * returned as an array of arrays of strings, where each inner array
-		 * represents a single execution as an [input] if requesting
-		 * `inputOnly`, or [input, output] pair if requesting `inputAndOutput`.
-		 * In the latter case, if the output is not available, the output will
-		 * be null)
-		 *
-		 * @param type The type of history to return
-		 * @param max The maximum number of entries to return. This behaves like
-		 *  `tail`; returns the last `max` entries, not the first. If `max` is
-		 *   0 or negative, all entries are returned.
-		 */
-		getExecutionHistory(type: LanguageRuntimeHistoryType, max: number): Thenable<Array<Array<string>>>;
 
 		/**
 		 * Create a new instance of a client; return null if the client type

@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, LanguageRuntimeHistoryType, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
@@ -15,7 +15,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
 	constructor(
-		mainContext: extHostProtocol.IMainPositronContext,
+		mainContext: extHostProtocol.IMainPositronContext
 	) {
 		// Trigger creation of the proxy
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
@@ -95,13 +95,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimes[handle].replyToPrompt(id, response);
 	}
 
-	$getExecutionHistory(handle: number, type: LanguageRuntimeHistoryType, max: number): Promise<string[][]> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot retrieve execution history: language runtime handle '${handle}' not found or no longer valid.`);
-		}
-		return Promise.resolve(this._runtimes[handle].getExecutionHistory(type, max));
-	}
-
 	public registerLanguageRuntime(
 		runtime: positron.LanguageRuntime): IDisposable {
 
@@ -112,34 +105,31 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		runtime.onDidChangeRuntimeState(state =>
 			this._proxy.$emitLanguageRuntimeState(handle, state));
 
-		// TODO@softwarenerd - This should broker the runtime message.
 		runtime.onDidReceiveRuntimeMessage(message => {
-			this._proxy.$emitLanguageRuntimeMessage(handle, message);
-
 			// Broker the message type to one of the discrete message events.
 			switch (message.type) {
 				case LanguageRuntimeMessageType.Output:
-					this._proxy.$emitLanguageRuntimeMessageOutput(handle, message as ILanguageRuntimeMessageOutput);
+					this._proxy.$emitLanguageRuntimeMessageOutput(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageOutput);
 					break;
 
 				case LanguageRuntimeMessageType.Input:
-					this._proxy.$emitLanguageRuntimeMessageInput(handle, message as ILanguageRuntimeMessageInput);
+					this._proxy.$emitLanguageRuntimeMessageInput(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageInput);
 					break;
 
 				case LanguageRuntimeMessageType.Error:
-					this._proxy.$emitLanguageRuntimeMessageError(handle, message as ILanguageRuntimeMessageError);
+					this._proxy.$emitLanguageRuntimeMessageError(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageError);
 					break;
 
 				case LanguageRuntimeMessageType.Prompt:
-					this._proxy.$emitLanguageRuntimeMessagePrompt(handle, message as ILanguageRuntimeMessagePrompt);
+					this._proxy.$emitLanguageRuntimeMessagePrompt(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessagePrompt);
 					break;
 
 				case LanguageRuntimeMessageType.State:
-					this._proxy.$emitLanguageRuntimeMessageState(handle, message as ILanguageRuntimeMessageState);
+					this._proxy.$emitLanguageRuntimeMessageState(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageState);
 					break;
 
 				case LanguageRuntimeMessageType.Event:
-					this._proxy.$emitLanguageRuntimeMessageEvent(handle, message as ILanguageRuntimeMessageEvent);
+					this._proxy.$emitLanguageRuntimeMessageEvent(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageEvent);
 					break;
 			}
 		});
@@ -147,6 +137,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Register the runtime
 		this._runtimes.push(runtime);
 
+		// Register the runtime with the main thread
 		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);

@@ -5,8 +5,8 @@
 import { URI } from 'vs/base/common/uri';
 import { MarkdownString } from 'vs/base/common/htmlContent';
 import { ILinkDescriptor } from 'vs/platform/opener/browser/link';
-import { ThemeIcon } from 'vs/platform/theme/common/themeService';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { ThemeIcon } from 'vs/base/common/themables';
 
 /**
  * IPositronTopActionBarItem interface.

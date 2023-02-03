@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { registerColor } from 'vs/platform/theme/common/colorRegistry';
+import { inputBackground, registerColor } from 'vs/platform/theme/common/colorRegistry';
 import { IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { IDebugService, State, IDebugSession, IDebugConfiguration } from 'vs/workbench/contrib/debug/common/debug';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
@@ -16,8 +16,12 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 // colors for theming
 
 export const STATUS_BAR_DEBUGGING_BACKGROUND = registerColor('statusBar.debuggingBackground', {
-	dark: '#CC6633',
-	light: '#CC6633',
+	// --- Start Positron ---
+	dark: inputBackground,
+	light: inputBackground,
+	// dark: '#CC6633',
+	// light: '#CC6633',
+	// --- End Positron ---
 	hcDark: '#BA592C',
 	hcLight: '#B5200D'
 }, localize('statusBarDebuggingBackground', "Status bar background color when a program is being debugged. The status bar is shown in the bottom of the window"));

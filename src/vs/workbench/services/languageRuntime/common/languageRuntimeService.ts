@@ -15,7 +15,7 @@ export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>(
  * @returns A string suitable for logging the language runtime.
  */
 export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) =>
-	`${languageRuntime.metadata.id} (language: ${languageRuntime.metadata.language} name: ${languageRuntime.metadata.name} version: ${languageRuntime.metadata.version})`;
+	`${languageRuntime.metadata.runtimeId} (language: ${languageRuntime.metadata.languageName} name: ${languageRuntime.metadata.runtimeName} version: ${languageRuntime.metadata.languageVersion})`;
 
 /**
  * LanguageRuntimeMessage is an interface that defines an event occurring in a
@@ -28,15 +28,15 @@ export interface ILanguageRuntimeMessage {
 	/** The ID of this event's parent (the event that caused it), if applicable */
 	parent_id: string;
 
-	/** The type of event */
-	type: LanguageRuntimeMessageType;
+	/** The message's date and time, in ISO 8601 format */
+	when: string;
 }
 
 
 /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
-	/** A map of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
-	data: Map<string, string>;
+	/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
+	readonly data: Record<string, string>;
 }
 
 /** ILanguageRuntimeInput is a ILanguageRuntimeMessage representing echoed user input */
@@ -178,17 +178,6 @@ export enum LanguageRuntimeMessageType {
 	Event = 'event',
 }
 
-/**
- * The set of history types that can be requested from language runtime
- */
-export enum LanguageRuntimeHistoryType {
-	/** Only inputs should be returned as history entries */
-	InputOnly = 'inputOnly',
-
-	/** Include both inputs and outputs in the history (outputs may be large) */
-	InputAndOutput = 'inputAndOutput',
-}
-
 export enum LanguageRuntimeStartupBehavior {
 	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
 	Implicit = 'implicit',
@@ -223,7 +212,7 @@ export interface ILanguageRuntimeMessageEvent extends ILanguageRuntimeMessage {
 
 export interface ILanguageRuntimeGlobalEvent {
 	/** The ID of the runtime from which the event originated */
-	id: string;
+	runtime_id: string;
 
 	/** The event itself */
 	event: ILanguageRuntimeMessageEvent;
@@ -231,7 +220,7 @@ export interface ILanguageRuntimeGlobalEvent {
 
 export interface ILanguageRuntimeStateEvent {
 	/** The ID of the runtime that changed states */
-	id: string;
+	runtime_id: string;
 
 	/** The runtime's previous state */
 	old_state: RuntimeState;
@@ -244,17 +233,23 @@ export interface ILanguageRuntimeStateEvent {
  * before the runtime is started.
  */
 export interface ILanguageRuntimeMetadata {
-	/** A unique identifier for this runtime */
-	readonly id: string;
+	/** A unique identifier for this runtime; usually a GUID */
+	readonly runtimeId: string;
 
-	/** The language identifier for this runtime. */
-	readonly language: string;
+	/** The name of the language that this runtime can execute; e.g. "R" */
+	readonly languageName: string;
 
-	/** The name of the runtime. */
-	readonly name: string;
+	/** The internal ID of the language that this runtime can execute; e.g. "r" */
+	readonly languageId: string;
 
-	/** The version of the runtime. */
-	readonly version: string;
+	/** The version of the language in question; e.g. "4.3.3" */
+	readonly languageVersion: string;
+
+	/** The user-facing descriptive name of the runtime; e.g. "R 4.3.3" */
+	readonly runtimeName: string;
+
+	/** The internal version of the runtime that wraps the language; e.g. "1.0.3" */
+	readonly runtimeVersion: string;
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	startupBehavior: LanguageRuntimeStartupBehavior;
@@ -315,9 +310,6 @@ export interface ILanguageRuntime {
 	/** The language runtime's static metadata */
 	readonly metadata: ILanguageRuntimeMetadata;
 
-	/** An object that emits language runtime events */
-	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
-
 	/** An object that emits events when the runtime state changes */
 	onDidChangeRuntimeState: Event<RuntimeState>;
 
@@ -329,7 +321,7 @@ export interface ILanguageRuntime {
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
-	onDidReceiveRuntimeMessagesEvent: Event<ILanguageRuntimeMessageEvent>;
+	onDidReceiveRuntimeMessageEvent: Event<ILanguageRuntimeMessageEvent>;
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
@@ -356,14 +348,6 @@ export interface ILanguageRuntime {
 	 * (via a LanguageRuntimePrompt message)
 	 */
 	replyToPrompt(id: string, value: string): void;
-
-	/**
-	 * Gets the history of code executed in the runtime.
-	 *
-	 * @param type The type of history to return (input only, input and output)
-	 * @param max The maximum number of recent entries to return.
-	 */
-	getExecutionHistory(type: LanguageRuntimeHistoryType, max: number): Thenable<Array<Array<string>>>;
 
 	start(): Thenable<ILanguageRuntimeInfo>;
 

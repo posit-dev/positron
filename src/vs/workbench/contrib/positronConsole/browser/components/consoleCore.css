@@ -1,0 +1,16 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit Software, PBC.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-console .console-core {
+	/* position: relative; */
+	background: transparent; /* placeholder */
+}
+
+.positron-console .console-core .console-repls-container {
+	overflow-y: scroll;
+}
+
+.positron-console .console-core .console-repls-container:focus {
+	outline: none !important;
+}

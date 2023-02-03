@@ -151,6 +151,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronHistory",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronOutline",
 			"project": "vscode-workbench"
 		},
@@ -167,11 +171,19 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronConsole",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/repl",
 			"project": "vscode-workbench"
 		},
 		{
 			"name": "vs/workbench/contrib/languageRuntime",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/executionHistory",
 			"project": "vscode-workbench"
 		},
 		{
@@ -424,6 +436,10 @@
 		},
 		{
 			"name": "vs/workbench/services/search",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/services/suggest",
 			"project": "vscode-workbench"
 		},
 		{

@@ -49,21 +49,18 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 		// Listen for language runtime Help events.
 		languageRuntimeService.onDidStartRuntime(runtime => {
-			runtime.onDidReceiveRuntimeMessage(message => {
-				if (message.type === LanguageRuntimeMessageType.Event) {
-					const event = message as ILanguageRuntimeMessageEvent;
-					if (event.name === LanguageRuntimeEventType.ShowHelp) {
-						const data = event.data as ShowHelpEvent;
-						if (data.kind === 'markdown') {
-							const markdown = new MarkdownString(data.content, true);
-							this.openHelpMarkdown(markdown);
-						} else {
-							this.openHelpHtml(data.content);
-						}
-					} else if (event.name === LanguageRuntimeEventType.ShowHelpUrl) {
-						const data = event.data as ShowHelpUrlEvent;
-						this.openHelpUrl(data.url);
+			runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+				if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowHelp) {
+					const data = languageRuntimeMessageEvent.data as ShowHelpEvent;
+					if (data.kind === 'markdown') {
+						const markdown = new MarkdownString(data.content, true);
+						this.openHelpMarkdown(markdown);
+					} else {
+						this.openHelpHtml(data.content);
 					}
+				} else if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowHelpUrl) {
+					const data = languageRuntimeMessageEvent.data as ShowHelpUrlEvent;
+					this.openHelpUrl(data.url);
 				}
 			});
 		});

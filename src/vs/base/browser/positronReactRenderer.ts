@@ -18,6 +18,11 @@ export interface ISize {
  */
 export interface IReactComponentContainer {
 	/**
+	 * Gets the width.
+	 */
+	readonly width: number;
+
+	/**
 	 * Gets the height.
 	 */
 	readonly height: number;
@@ -31,6 +36,11 @@ export interface IReactComponentContainer {
 	 * onVisibilityChanged event.
 	 */
 	readonly onVisibilityChanged: Event<boolean>;
+
+	/**
+	 * onFocused event.
+	 */
+	readonly onFocused: Event<void>;
 }
 
 /**

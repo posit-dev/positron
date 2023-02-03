@@ -251,6 +251,7 @@ import 'vs/workbench/contrib/output/browser/outputView';
 // --- Start Positron ---
 import 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment.contribution';
 import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
+import 'vs/workbench/contrib/positronHistory/browser/positronHistory.contribution';
 import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';
 import 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 // --- End Positron ---
@@ -374,9 +375,10 @@ import 'vs/workbench/contrib/bracketPairColorizer2Telemetry/browser/bracketPairC
 // --- Start Positron ---
 
 // Contributions
-import 'vs/workbench/contrib/repl/browser/repl.contribution';
-import 'vs/workbench/contrib/repl/browser/replView';
+import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contribution';
+import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
+import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';

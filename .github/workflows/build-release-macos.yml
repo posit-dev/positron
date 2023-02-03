@@ -1,9 +1,9 @@
 name: "Positron: Build macOS Release"
 
-# run builds daily at 2am UTC (10p EST) for now, or manually
+# run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
   schedule:
-  - cron: "0 2 * * *"
+  - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:
@@ -208,3 +208,20 @@ jobs:
           asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
           asset_content_type: application/zip
 
+  status:
+    if: ${{ failure() }}
+    runs-on: self-hosted
+    needs: macos-universal
+    steps:
+      - name: Notify slack if build fails
+        uses: slackapi/slack-github-action@v1.23.0
+        id: slack-failure
+        with:
+          payload: |
+            {
+              "message": "Positron build ${{ needs.version_string.outputs.build_number }} failed",
+              "status": "Failure",
+              "run_url": "https://github.com/rstudio/positron/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

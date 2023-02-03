@@ -6,12 +6,13 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, IRuntimeClientInstance, LanguageRuntimeHistoryType, LanguageRuntimeMessageType, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState, ILanguageRuntimeMessageInput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, IRuntimeClientInstance, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState, ILanguageRuntimeMessageInput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 
 /**
  * Class that implements the ILanguageRuntime interface by wrapping INotebookKernel
@@ -33,9 +34,6 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	/** Counter for messages; used to generate unique message IDs */
 	private static _msgCounter = 0;
 
-	/** Emitter for runtime messages */
-	private readonly _messages: Emitter<ILanguageRuntimeMessage>;
-
 	/** Emitter for runtime state changes */
 	private readonly _state: Emitter<RuntimeState>;
 
@@ -55,23 +53,31 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
-		@ILogService private readonly _logService: ILogService) {
+		@ILogService private readonly _logService: ILogService,
+		@ILanguageService private readonly _languageService: ILanguageService) {
 
 		// Initialize base disposable functionality
 		super();
 
+		// Look up the language name for the kernel
+		const languageId = _kernel.supportedLanguages[0];
+		let languageName = this._languageService.getLanguageName(languageId);
+		if (!languageName) {
+			this._logService.warn(`No language name found for language ID '${languageId}'`);
+			languageName = languageId;
+		}
+
 		// The NotebookKernel interface doesen't have any notion of the language
 		// version, so use 1.0 as the default.
 		this.metadata = {
-			version: '1.0',
-			id: _kernel.id,
-			language: _kernel.supportedLanguages[0],
-			name: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`,
+			runtimeId: _kernel.id,
+			languageId: _kernel.supportedLanguages[0],
+			languageName: languageName,
+			languageVersion: '1.0',
+			runtimeName: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`,
+			runtimeVersion: '0.0.1',
 			startupBehavior: LanguageRuntimeStartupBehavior.Implicit
 		};
-
-		this._messages = this._register(new Emitter<ILanguageRuntimeMessage>());
-		this.onDidReceiveRuntimeMessage = this._messages.event;
 
 		this._state = this._register(new Emitter<RuntimeState>());
 		this.onDidChangeRuntimeState = this._state.event;
@@ -88,7 +94,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 				this._startup.fire({
 					banner: `${this._kernel.label} [Notebook Kernel]`,
 					implementation_version: '0.1.0',
-					language_version: this.metadata.version
+					language_version: this.metadata.languageVersion
 				});
 			}
 		});
@@ -99,7 +105,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		//  repl://python-1,
 		//  repl://python-2, etc.
 		this._uri = URI.parse('repl:///' +
-			this.metadata.language +
+			this.metadata.languageId +
 			'-' +
 			NotebookLanguageRuntime._replCounter++);
 
@@ -110,8 +116,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			{
 				cells: [{
 					source: '',
-					language: this.metadata.language,
-					mime: `application/${this.metadata.language}`,
+					language: this.metadata.languageId,
+					mime: `application/${this.metadata.languageId}`,
 					cellKind: CellKind.Code,
 					outputs: [],
 					metadata: {}
@@ -148,18 +154,11 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 				this._state.fire(RuntimeState.Idle);
 				this._logService.trace(`Cell execution of ${e.cellHandle} (${this._executingCellId}) complete`);
 
-				this._messages.fire({
-					type: LanguageRuntimeMessageType.State,
-					id: 'status-' + NotebookLanguageRuntime._msgCounter++,
-					parent_id: this._executingCellId,
-					state: RuntimeOnlineState.Idle,
-				} as ILanguageRuntimeMessageState);
-
 				this._onDidReceiveRuntimeMessageStateEmitter.fire({
-					type: LanguageRuntimeMessageType.State,
 					id: 'status-' + NotebookLanguageRuntime._msgCounter++,
 					parent_id: this._executingCellId,
 					state: RuntimeOnlineState.Idle,
+					when: new Date().toISOString()
 				});
 
 				// Clear the cell execution state
@@ -168,12 +167,6 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 				this._state.fire(RuntimeState.Busy);
 			}
 		});
-	}
-
-	getExecutionHistory(type: LanguageRuntimeHistoryType, max: number): Thenable<string[][]> {
-		// Notebook kernels don't expose this functionality, so return an empty
-		// array
-		return Promise.resolve([]);
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {
@@ -185,8 +178,6 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
 
-	onDidReceiveRuntimeMessage: Event<ILanguageRuntimeMessage>;
-
 	onDidChangeRuntimeState: Event<RuntimeState>;
 
 	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutputEmitter.event;
@@ -194,7 +185,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageErrorEmitter.event;
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
-	onDidReceiveRuntimeMessagesEvent = this._onDidReceiveRuntimeMessageEventEmitter.event;
+	onDidReceiveRuntimeMessageEvent = this._onDidReceiveRuntimeMessageEventEmitter.event;
 
 	metadata: ILanguageRuntimeMetadata;
 
@@ -209,8 +200,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		// asked to execute code.
 		return Promise.resolve({
 			banner: '',
-			language_version: this.metadata.version,
-			implementation_version: '1.0',
+			language_version: this.metadata.languageVersion,
+			implementation_version: this.metadata.runtimeVersion,
 		} as ILanguageRuntimeInfo);
 	}
 
@@ -232,8 +223,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			editType: CellEditType.Replace,
 			cells: [{
 				source: code,
-				language: this.metadata.language,
-				mime: `text/${this.metadata.language}`,
+				language: this.metadata.languageId,
+				mime: `text/${this.metadata.languageId}`,
 				cellKind: CellKind.Code,
 				outputs: [],
 				metadata: {}
@@ -249,7 +240,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 		const cell = this._nbTextModel?.cells[0]!;
 		cell.onDidChangeOutputs((e) => {
-			const data: { [k: string]: any } = {};
+			const data: Record<string, string> = {};
 
 			// Build map of all outputs
 			for (const output of e.newOutputs) {
@@ -261,18 +252,11 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			}
 
 			// Emit a message describing the outputs
-			this._messages.fire({
-				type: LanguageRuntimeMessageType.Output,
-				id: 'output-' + NotebookLanguageRuntime._msgCounter++,
-				parent_id: id,
-				data: data
-			} as ILanguageRuntimeMessageOutput);
-
 			this._onDidReceiveRuntimeMessageOutputEmitter.fire({
-				type: LanguageRuntimeMessageType.Output,
 				id: 'output-' + NotebookLanguageRuntime._msgCounter++,
 				parent_id: id,
-				data: data as any
+				data,
+				when: new Date().toISOString()
 			});
 		});
 

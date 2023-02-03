@@ -37,10 +37,12 @@
 .action-bar-button-face:hover {
 	border-radius: 6px;
 	background: var(--positronActionBar-hoverBackground);
+	outline: 1px dashed var(--vscode-toolbar-hoverOutline);
 }
 
 .disabled .action-bar-button-face:hover {
 	background: transparent;
+	outline: none;
 }
 
 .action-bar-button-icon {

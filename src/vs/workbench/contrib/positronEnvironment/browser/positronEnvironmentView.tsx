@@ -29,24 +29,37 @@ import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvir
 export class PositronEnvironmentViewPane extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
-	// The onSizeChanged event.
-	private _onSizeChanged = this._register(new Emitter<ISize>());
+	// The onSizeChanged emitter.
+	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onVisibilityChanged event.
-	private _onVisibilityChanged = this._register(new Emitter<boolean>());
+	// The onVisibilityChanged emitter.
+	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
 
-	// The last known height.
+	// The onFocused emitter.
+	private _onFocusedEmitter = this._register(new Emitter<void>());
+
+	// The width. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
+	private _width = 0;
+
+	// The height. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
 	private _height = 0;
 
 	// The Positron environment container - contains the entire Positron environment UI.
 	private _positronEnvironmentContainer!: HTMLElement;
 
 	// The PositronReactRenderer for the PositronEnvironment component.
-	private _positronReactRenderer: PositronReactRenderer | undefined;
+	private _positronReactRenderer?: PositronReactRenderer;
 
 	//#endregion Private Properties
 
 	//#region IReactComponentContainer
+
+	/**
+	 * Gets the width.
+	 */
+	get width() {
+		return this._width;
+	}
 
 	/**
 	 * Gets the height.
@@ -58,12 +71,17 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	/**
 	 * The onSizeChanged event.
 	 */
-	readonly onSizeChanged: Event<ISize> = this._onSizeChanged.event;
+	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
 	/**
 	 * The onVisibilityChanged event.
 	 */
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChanged.event;
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
+
+	/**
+	 * The onFocused event.
+	 */
+	readonly onFocused: Event<void> = this._onFocusedEmitter.event;
 
 	//#endregion IReactComponentContainer
 
@@ -104,7 +122,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 
 		// Register event handlers.
-		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChanged.fire(this.isBodyVisible())));
+		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChangedEmitter.fire(this.isBodyVisible())));
 	}
 
 	/**
@@ -123,15 +141,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 
 	//#endregion Constructor & Dispose
 
-	//#region ViewPane Overrides
-
-	/**
-	 * focus override method.
-	 */
-	override focus(): void {
-		// Call the base class's method.
-		super.focus();
-	}
+	//#region Overrides
 
 	/**
 	 * renderBody override method.
@@ -162,6 +172,17 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	}
 
 	/**
+	 * focus override method.
+	 */
+	override focus(): void {
+		// Call the base class's method.
+		super.focus();
+
+		// Fire the onFocused event.
+		this._onFocusedEmitter.fire();
+	}
+
+	/**
 	 * layoutBody override method.
 	 * @param height The height of the body.
 	 * @param width The width of the body.
@@ -170,15 +191,16 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
-		// Set the last known height.
+		// Set the width and height.
+		this._width = width;
 		this._height = height;
 
 		// Raise the onSizeChanged event.
-		this._onSizeChanged.fire({
+		this._onSizeChangedEmitter.fire({
 			width,
 			height
 		});
 	}
 
-	//#endregion ViewPane Overrides
+	//#endregion Overrides
 }

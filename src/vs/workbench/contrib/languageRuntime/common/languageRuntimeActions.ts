@@ -35,9 +35,9 @@ export const selectLanguageRuntime = async (
 
 	// Build the language runtime quick pick items.
 	const languageRuntimeQuickPickItems = languageRuntimes.map<LanguageRuntimeQuickPickItem>(languageRuntime => ({
-		id: languageRuntime.metadata.id,
-		label: languageRuntime.metadata.name,
-		description: languageRuntime.metadata.version,
+		id: languageRuntime.metadata.runtimeId,
+		label: languageRuntime.metadata.runtimeName,
+		description: languageRuntime.metadata.languageVersion,
 		languageRuntime
 	} satisfies LanguageRuntimeQuickPickItem));
 
@@ -136,7 +136,7 @@ export function registerLanguageRuntimeActions() {
 		// Ask the user to select the language runtime to start. If they selected one, start it.
 		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the language runtime to start');
 		if (languageRuntime) {
-			languageRuntimeService.startRuntime(languageRuntime.metadata.id);
+			languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId);
 		}
 	});
 
@@ -199,7 +199,7 @@ export function registerLanguageRuntimeActions() {
 			runtimeClientType: RuntimeClientType.Environment,
 		}], {
 			canPickMany: false,
-			placeHolder: `Select runtime client for ${languageRuntime.metadata.name}`
+			placeHolder: `Select runtime client for ${languageRuntime.metadata.runtimeName}`
 		});
 
 		// If the user selected a runtime client type, create the client for it.
@@ -236,7 +236,7 @@ export function registerLanguageRuntimeActions() {
 		// Prompt the user to select a runtime client instance.
 		const selection = await quickInputService.pick<RuntimeClientInstanceQuickPickItem>(runtimeClientInstanceQuickPickItems, {
 			canPickMany: false,
-			placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', languageRuntime.metadata.name)
+			placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', languageRuntime.metadata.runtimeName)
 		});
 
 		// If the user selected a runtime client instance, dispose it.

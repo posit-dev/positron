@@ -33,15 +33,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Constructor.
-	 * @param id The language ID.
+	 * @param runtimeId The ID for the new runtime
 	 * @param version The language version.
 	 */
-	constructor(id: string, version: string) {
+	constructor(runtimeId: string, version: string) {
 		this.metadata = {
-			id,
-			language: 'Zed',
-			name: 'Zed',
-			version,
+			runtimeId,
+			languageId: 'zed',
+			languageName: 'Zed',
+			runtimeName: 'Zed',
+			languageVersion: version,
+			runtimeVersion: '0.0.1',
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
 	}
@@ -73,13 +75,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param errorBehavior The error behavior to conform to.
 	 */
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
-		const busy: positron.LanguageRuntimeState = {
+
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
+			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Busy
-		};
-		this._onDidReceiveRuntimeMessage.fire(busy);
+		} as positron.LanguageRuntimeState);
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 
@@ -87,7 +90,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		let result;
 		switch (code.toLowerCase()) {
 			case 'version':
-				result = `Zed v${this.metadata.version} (${this.metadata.id})`;
+				result = `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`;
 				break;
 			default:
 				result = `Error. '${code}' not recognized.`;
@@ -97,26 +100,25 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Add the command to the history
 		this._history.push([code, result]);
 
-		const output: positron.LanguageRuntimeOutput = {
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
+			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: {
 				'text/plain': result
 			} as any,
-		};
-
-		this._onDidReceiveRuntimeMessage.fire(output);
+		} as positron.LanguageRuntimeOutput);
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
 
-		const idle: positron.LanguageRuntimeState = {
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
+			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Idle
-		};
-		this._onDidReceiveRuntimeMessage.fire(idle);
+		} as positron.LanguageRuntimeState);
 	}
 
 	/**
@@ -128,25 +130,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// All Zed code fragments are complete. There is no incomplete code in
 		// Zed. ALL IS COMPLETE IN ZED
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
-	}
-
-	/**
-	 * Gets the history of code executed in the runtime.
-	 * @param type The type of history to return
-	 * @param max The maximum number of entries to return.
-	 */
-	getExecutionHistory(type: positron.LanguageRuntimeHistoryType, max: number): Thenable<string[][]> {
-		// Number of items to return: the lesser of the max and the number of items in the history
-		const n = Math.min(max, this._history.length);
-		const history = this._history.slice(n * -1);
-
-		if (type === positron.LanguageRuntimeHistoryType.InputAndOutput) {
-			// If the type is input and output, return the entire history
-			return Promise.resolve(history);
-		} else {
-			// If the type is input only, return only the input
-			return Promise.resolve(history.map(h => [h[0]]));
-		}
 	}
 
 	/**
@@ -189,9 +172,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	start(): Thenable<positron.LanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		return Promise.resolve({
-			banner: `Zed ${this.metadata.version}`,
-			implementation_version: '1.0.0',
-			language_version: this.metadata.version
+			banner: `Zed ${this.metadata.languageVersion} `,
+			implementation_version: this.metadata.runtimeVersion,
+			language_version: this.metadata.languageVersion,
 		} as positron.LanguageRuntimeInfo);
 	}
 
@@ -217,4 +200,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	//#endregion LanguageRuntime Implementation
+
+	//#region Private Methods
+
+	//#endregion Private Methods
 }

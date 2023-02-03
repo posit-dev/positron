@@ -16,11 +16,11 @@ const PositronEnvironmentContext = createContext<PositronEnvironmentState>(undef
  */
 export const PositronEnvironmentContextProvider = (props: PropsWithChildren<PositronEnvironmentServices>) => {
 	// Hooks.
-	const positronEnvironmentBarState = usePositronEnvironmentState(props);
+	const positronEnvironmentState = usePositronEnvironmentState(props);
 
 	// Render.
 	return (
-		<PositronEnvironmentContext.Provider value={positronEnvironmentBarState}>
+		<PositronEnvironmentContext.Provider value={positronEnvironmentState}>
 			{props.children}
 		</PositronEnvironmentContext.Provider>
 	);
