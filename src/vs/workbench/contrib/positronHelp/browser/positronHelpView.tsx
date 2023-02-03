@@ -61,9 +61,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The help action bars container - contains the PositronHelpActionBars component.
 	private _helpActionBarsContainer: HTMLElement;
 
-	// The action bars container - contains the ActionBars component.
-	private _actionBarsContainer!: HTMLElement;
-
 	// The PositronReactRenderer for the ActionBars component.
 	private _positronReactRendererActionBars?: PositronReactRenderer;
 
@@ -252,7 +249,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		};
 
 		// Render the ActionBars component.
-		this._positronReactRendererActionBars = new PositronReactRenderer(this._actionBarsContainer);
+		this._positronReactRendererActionBars = new PositronReactRenderer(this._helpActionBarsContainer);
 		this._positronReactRendererActionBars.render(
 			<ActionBars
 				commandService={this.commandService}
