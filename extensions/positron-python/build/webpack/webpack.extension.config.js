@@ -61,6 +61,9 @@ const config = {
         // See: https://github.com/microsoft/vscode-extension-telemetry/issues/41#issuecomment-598852991
         'applicationinsights-native-metrics',
         '@opentelemetry/tracing',
+        // --- Start Positron ---
+        '@opentelemetry/instrumentation'
+        // --- End Positron ---
     ],
     plugins: [...common.getDefaultPlugins('extension')],
     resolve: {
