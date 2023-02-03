@@ -10,13 +10,6 @@ import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/l
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
 
 /**
- * IPositronConsoleOptions interface.
- */
-export interface IPositronConsoleOptions {
-	language?: string;
-}
-
-/**
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
@@ -54,15 +47,35 @@ export interface IPositronConsoleService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
-	readonly instances: readonly IPositronConsoleInstance[];
+	/**
+	 * Gets the Positron console instances.
+	 */
+	readonly positronConsoleInstances: readonly IPositronConsoleInstance[];
 
-	readonly activeInstance?: IPositronConsoleInstance;
+	/**
+	 * Gets the active Positron console instance.
+	 */
+	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
 
-	readonly onDidStartConsole: Event<IPositronConsoleInstance>;
+	/**
+	 * The onDidStartPositronConsoleInstance event.
+	 */
+	readonly onDidStartPositronConsoleInstance: Event<IPositronConsoleInstance>;
 
-	readonly onDidChangeActiveConsole: Event<IPositronConsoleInstance | undefined>;
+	/**
+	 * The onDidChangeActivePositronConsoleInstance event.
+	 */
+	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
 
-	createConsole(options?: IPositronConsoleOptions): Promise<IPositronConsoleInstance>;
+	/**
+	 * Executes code in a PositronConsoleInstance.
+	 */
 
-	executeCode(languageId: string, code: string): void;
+	/**
+	 * Executes code in a PositronConsoleInstance.
+	 * @param languageId The language ID.
+	 * @param code The code.
+	 * @returns A value which indicates whether the code could be executed.
+	 */
+	executeCode(languageId: string, code: string): boolean;
 }

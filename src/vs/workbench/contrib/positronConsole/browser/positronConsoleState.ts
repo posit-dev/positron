@@ -49,17 +49,17 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 
-		// If there are already repl instances in the repl service, create their repl instance entries.
-		services.positronConsoleService.instances.forEach((replInstance, index, replInstances) => {
+		// If there are already Positron console instances in the repl service, create their repl instance entries.
+		services.positronConsoleService.positronConsoleInstances.forEach((positronConsoleInstance, index, positronConsoleInstances) => {
 		});
 
-		// Add the onDidStartRepl event handler.
-		disposableStore.add(services.positronConsoleService.onDidStartConsole(positronConsoleInstance => {
+		// Add the onDidStartConsole event handler.
+		disposableStore.add(services.positronConsoleService.onDidStartPositronConsoleInstance(positronConsoleInstance => {
 			setPositronConsoleInstances(positronConsoleInstances => [...positronConsoleInstances, positronConsoleInstance]);
 		}));
 
-		// Add the onDidChangeActiveRepl event handler.
-		disposableStore.add(services.positronConsoleService.onDidChangeActiveConsole(positronConsoleInstance => {
+		// Add the onDidChangeActiveConsole event handler.
+		disposableStore.add(services.positronConsoleService.onDidChangeActivePositronConsoleInstance(positronConsoleInstance => {
 			if (!positronConsoleInstance) {
 				setCurrentPositronConsoleInstance(undefined);
 			} else {

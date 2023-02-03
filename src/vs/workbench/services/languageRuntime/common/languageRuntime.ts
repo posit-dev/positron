@@ -47,16 +47,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private _activeRuntime?: ILanguageRuntime;
 
 	// The event emitter for the onDidStartRuntime event.
-	private readonly _onDidStartRuntime = this._register(new Emitter<ILanguageRuntime>);
+	private readonly _onDidStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+
+	// The event emitter for the onDidBeginStartRuntime event.
+	private readonly _onDidBeginStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
 	// The event emitter for the onDidChangeRuntimeState event.
-	private readonly _onDidChangeRuntimeState = this._register(new Emitter<ILanguageRuntimeStateEvent>());
+	private readonly _onDidChangeRuntimeStateEmitter = this._register(new Emitter<ILanguageRuntimeStateEvent>());
 
 	// The event emitter for the onDidReceiveRuntimeEvent event.
-	private readonly _onDidReceiveRuntimeEvent = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
+	private readonly _onDidReceiveRuntimeEventEmitter = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
 
 	// The event emitter for the onDidChangeActiveRuntime event.
-	private readonly _onDidChangeActiveRuntime = this._register(new Emitter<ILanguageRuntime | undefined>);
+	private readonly _onDidChangeActiveRuntimeEmitter = this._register(new Emitter<ILanguageRuntime | undefined>);
 
 	//#endregion Private Properties
 
@@ -105,17 +108,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
 
+	readonly onDidBeginStartRuntime = this._onDidBeginStartRuntimeEmitter.event;
+
 	// An event that fires when a runtime starts.
-	readonly onDidStartRuntime = this._onDidStartRuntime.event;
+	readonly onDidStartRuntime = this._onDidStartRuntimeEmitter.event;
 
 	// An event that fires when a runtime changes state.
-	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
+	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeStateEmitter.event;
 
 	// An event that fires when a runtime receives a global event.
-	readonly onDidReceiveRuntimeEvent = this._onDidReceiveRuntimeEvent.event;
+	readonly onDidReceiveRuntimeEvent = this._onDidReceiveRuntimeEventEmitter.event;
 
 	// An event that fires when a runtime starts.
-	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntime.event;
+	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntimeEmitter.event;
 
 	/**
 	 * Gets the registered language runtimes.
@@ -169,7 +174,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 
 		// Fire the onDidChangeActiveRuntime event.
-		this._onDidChangeActiveRuntime.fire(this._activeRuntime);
+		this._onDidChangeActiveRuntimeEmitter.fire(this._activeRuntime);
 	}
 
 	/**
@@ -215,7 +220,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			} else {
 				const oldState = languageRuntimeInfo.state;
 				languageRuntimeInfo.setState(state);
-				this._onDidChangeRuntimeState.fire({
+				this._onDidChangeRuntimeStateEmitter.fire({
 					runtime_id: runtime.metadata.runtimeId,
 					old_state: oldState,
 					new_state: state
@@ -225,7 +230,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		this._register(runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
 			// Rebroadcast runtime events globally
-			this._onDidReceiveRuntimeEvent.fire({
+			this._onDidReceiveRuntimeEventEmitter.fire({
 				runtime_id: runtime.metadata.runtimeId,
 				event: languageRuntimeMessageEvent
 			});
@@ -285,10 +290,21 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// order and the console would be there when the runtime started and became active, and sometimes the
 		// runtime would start too fast and the console would not be available when it became the active runtime.
 		// Moving this here is a hack that seems to work and at least improves things. Redo this.
-		this._onDidStartRuntime.fire(runtime);
+		//this._onDidStartRuntimeEmitter.fire(runtime);
+
+		// Fire the onDidBeginStartRuntime event.
+		//this._onDidBeginStartRuntimeEmitter.fire(runtime);
+
+		console.log(`About to start language runtime ${runtime.metadata.languageName}`);
+
+		// Fire the onDidBeginStartRuntime event.
+		this._onDidBeginStartRuntimeEmitter.fire(runtime);
 
 		// Start the runtime.
 		runtime.start().then(languageRuntimeInfo => {
+			console.log(`Back from start language runtime ${runtime.metadata.languageName}`);
+
+
 			// TODO@softwarenerd - I think this should be moved out of this layer.
 			// Execute the Focus into Console command using the command service
 			// to expose the REPL for the new runtime.
@@ -296,7 +312,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// Change the active runtime.
 			this._activeRuntime = runtime;
-			this._onDidChangeActiveRuntime.fire(runtime);
+			this._onDidChangeActiveRuntimeEmitter.fire(runtime);
 		}, (reason) => {
 			// TODO@softwarenerd - No code was here. We need code here.
 			console.log('Starting language runtime failed. Reason:');
