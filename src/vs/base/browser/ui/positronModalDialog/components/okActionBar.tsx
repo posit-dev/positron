@@ -23,7 +23,7 @@ export const OKActionBar = (props: OKActionBarProps) => {
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
-			<a className='action-bar-button' tabIndex={0} role='button' onClick={props.accept}>
+			<a className='button action-bar-button default' tabIndex={0} role='button' onClick={props.accept}>
 				{props.okButtonTitle ?? localize('positronOK', "OK")}
 			</a>
 		</div>
