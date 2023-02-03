@@ -49,6 +49,9 @@ const nodeConfig = (_, { mode }) => ({
         // See: https://github.com/microsoft/vscode-extension-telemetry/issues/41#issuecomment-598852991
         'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics',
         '@opentelemetry/tracing': 'commonjs @opentelemetry/tracing',
+        // --- Start Positron ---
+        '@opentelemetry/instrumentation': 'commonjs @opentelemetry/instrumentation'
+        // --- End Positron ---
     },
     module: {
         rules: [
