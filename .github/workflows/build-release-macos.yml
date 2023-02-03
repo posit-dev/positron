@@ -39,7 +39,7 @@ jobs:
           result=`./versions/show-version.js --short`
           echo "result=$result" >> $GITHUB_OUTPUT
           git fetch --tags
-          tag_exists=`git tag -l ${result}`
+          tag_exists=`git tag -l "${result}"`
           if [ -n tag_exists ]; then exit 78; fi
 
       # Call again to get just the build number. Example: 123
