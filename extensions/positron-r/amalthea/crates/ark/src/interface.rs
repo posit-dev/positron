@@ -68,18 +68,24 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 /// Ensures that the kernel is only ever initialized once
 static INIT: Once = Once::new();
 
-fn process_events() {
-    unsafe {
-        R_ProcessEvents();
+unsafe fn process_events() {
 
-        // Run handlers if we have data available. This is necessary
-        // for things like the HTML help server, which will listen
-        // for requests on an open socket() which would then normally
-        // be handled in a select() call when reading input from stdin.
-        //
-        // https://github.com/wch/r-source/blob/4ca6439c1ffc76958592455c44d83f95d5854b2a/src/unix/sys-std.c#L1084-L1086
-        let fdset = R_checkActivity(0, 1);
+    // Process regular R events.
+    R_ProcessEvents();
+
+    // Run handlers if we have data available. This is necessary
+    // for things like the HTML help server, which will listen
+    // for requests on an open socket() which would then normally
+    // be handled in a select() call when reading input from stdin.
+    //
+    // https://github.com/wch/r-source/blob/4ca6439c1ffc76958592455c44d83f95d5854b2a/src/unix/sys-std.c#L1084-L1086
+    //
+    // We run this in a loop just to make sure the R help server can
+    // be as responsive as possible when rendering help pages.
+    let mut fdset = R_checkActivity(0, 1);
+    while fdset != std::ptr::null_mut() {
         R_runHandlers(R_InputHandlers, fdset);
+        fdset = R_checkActivity(0, 1);
     }
 }
 
@@ -154,7 +160,7 @@ pub extern "C" fn r_read_console(
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
                 // Process events.
-                process_events();
+                unsafe { process_events() };
 
                 if let Some(input) = response {
                     on_console_input(buf, buflen, input);
@@ -174,7 +180,7 @@ pub extern "C" fn r_read_console(
                     Timeout => {
 
                         // Process events.
-                        process_events();
+                        unsafe { process_events() };
 
                         // Keep waiting for console input.
                         continue;
