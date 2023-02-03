@@ -50,7 +50,8 @@ const nodeConfig = (_, { mode }) => ({
         'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics',
         '@opentelemetry/tracing': 'commonjs @opentelemetry/tracing',
         // --- Start Positron ---
-        '@opentelemetry/instrumentation': 'commonjs @opentelemetry/instrumentation'
+        '@opentelemetry/instrumentation': 'commonjs @opentelemetry/instrumentation',
+        '@azure/opentelemetry-instrumentation-azure-sdk': 'commonjs @azure/opentelemetry-instrumentation-azure-sdk'
         // --- End Positron ---
     },
     module: {
