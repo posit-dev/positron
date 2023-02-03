@@ -24,6 +24,7 @@ module.exports = withDefaults({
         'commonjs',
         'applicationinsights-native-metrics',
         '@opentelemetry/tracing',
+        '@opentelemetry/instrumentation'
     ],
     output: {
         filename: '[name].js',
