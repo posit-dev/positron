@@ -153,14 +153,13 @@ function getHeaderInfo(rcFile) {
 
 
 // --- Start Positron ---
-// TOOD: make more robust against dirty working dir, etc.
-console.log(`Installing positron built-in extensions...`);
-if (process.env['POSITRON_GITHUB_PAT']) {
-	// For unattended builds: read-only clone with PAT
-	console.log(`Using POSITRON_GITHUB_PAT for authentication`);
-	cp.execSync(`git -C positron-python pull || git clone https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/positron-python.git positron-python`, { cwd: 'extensions' });
-} else {
-	// For dev environments: read-write clone with developer's default SSH key
-	cp.execSync('git -C positron-python pull || git clone git@github.com:posit-dev/positron-python.git positron-python', { cwd: 'extensions' });
+// TODO: Remove this once we have a standard set of scripts for our repositories
+console.log(`Updating positron built-in extensions...`);
+// For dev environments: if a local sync of extensions/positron-python already
+// exists, "absorb" it as if it were originally added via submodule
+if (fs.existsSync('extensions/positron-python/.git') &&
+	!fs.existsSync('.git/modules/extensions/positron-python')) {
+	cp.execSync('git submodule absorbgitdirs extensions/positron-python');
 }
+cp.execSync('git submodule update --init');
 // --- End Positron ---
