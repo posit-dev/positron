@@ -1,0 +1,29 @@
+name: "Positron: Revive macOS build agent"
+
+# check every hour to see if the agent's online
+on:
+  schedule:
+  - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+
+  revive_agent:
+    name: Revive build agent
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Setup SSH Keys and known_hosts
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.MACOS_PRIVATE_SSH_KEY }}"
+
+      - name: Revive Screen session
+        id: revive_agent
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && ./run.sh'; fi\""
+
+
