@@ -11,7 +11,6 @@ export enum LanguageRuntimeEventType {
 	Busy = 'busy',
 	ShowMessage = 'show_message',
 	ShowHelp = 'show_help',
-	ShowHelpUrl = 'show_help_url',
 }
 
 // Represents a change in the runtime's busy state.
@@ -38,16 +37,11 @@ export interface ShowHelpEvent extends LanguageRuntimeEventData {
 	/** The help content to be shown. */
 	content: string;
 
-	/** The content help type. Must be one of 'html' or 'markdown'. */
+	/** The content help type. Must be one of 'html', 'markdown', or 'url'. */
 	kind: string;
 
-}
-
-// Show help content from an external URL in the Help pane.
-export interface ShowHelpUrlEvent extends LanguageRuntimeEventData {
-
-	/** The URL to be shown in the Help pane. */
-	url: string;
+	/** Focus the Help pane after the Help content has been rendered? */
+	focus: boolean;
 
 }
 

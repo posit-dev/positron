@@ -6,7 +6,7 @@
 //
 
 use amalthea::events::PositronEvent;
-use amalthea::events::ShowHelpUrlEvent;
+use amalthea::events::ShowHelpEvent;
 use harp::exec::RFunction;
 use harp::object::RObject;
 use libR_sys::*;
@@ -44,11 +44,13 @@ unsafe fn ps_browse_url_impl(url: SEXP) -> anyhow::Result<()> {
 
         let replacement = format!("http://127.0.0.1:{}/", PORT);
         let url = url.replace(prefix.as_str(), replacement.as_str());
-        let event = PositronEvent::ShowHelpUrl(ShowHelpUrlEvent {
-            url: url,
+        let event = PositronEvent::ShowHelp(ShowHelpEvent {
+            kind: "url".to_string(),
+            content: url,
+            focus: true,
         });
 
-        info!("Sending ShowHelpUrl event: {:#?}", event);
+        info!("Sending ShowHelp event: {:#?}", event);
         let kernel = KERNEL.as_ref().unwrap().lock().unwrap();
         kernel.send_event(event);
 

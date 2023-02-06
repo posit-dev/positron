@@ -93,7 +93,6 @@ export enum LanguageRuntimeEventType {
 	Busy = 'busy',
 	ShowMessage = 'show_message',
 	ShowHelp = 'show_help',
-	ShowHelpUrl = 'show_help_url',
 }
 /** end positron-language-runtime-event-type */
 

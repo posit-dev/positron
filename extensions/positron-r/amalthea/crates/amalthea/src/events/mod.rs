@@ -41,17 +41,11 @@ pub struct ShowHelpEvent {
     /// The help content to be shown.
     pub content: String,
 
-    /// The content help type. Must be one of 'html' or 'markdown'.
+    /// The content help type. Must be one of 'html', 'markdown', or 'url'.
     pub kind: String,
 
-}
-
-/// Show help content from an external URL in the Help pane.
-#[positron::event("show_help_url")]
-pub struct ShowHelpUrlEvent {
-
-    /// The URL to be shown in the Help pane.
-    pub url: String,
+    /// Focus the Help pane after the Help content has been rendered?
+    pub focus: bool,
 
 }
 
@@ -60,5 +54,4 @@ pub enum PositronEvent {
     Busy(BusyEvent),
     ShowMessage(ShowMessageEvent),
     ShowHelp(ShowHelpEvent),
-    ShowHelpUrl(ShowHelpUrlEvent),
 }
