@@ -24,6 +24,6 @@ jobs:
         env:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
-          ssh user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && ./run.sh'; fi\""
+          ssh -o "StrictHostKeyChecking no" user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && ./run.sh'; fi\""
 
 
