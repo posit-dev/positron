@@ -12,7 +12,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
 import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { LanguageRuntimeEventType, ShowHelpEvent, ShowHelpUrlEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 // The TrustedTypePolicy for rendering.
 const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -55,12 +55,13 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				if (data.kind === 'markdown') {
 					const markdown = new MarkdownString(data.content, true);
 					this.openHelpMarkdown(markdown);
-				} else {
+				} else if (data.kind === 'html') {
 					this.openHelpHtml(data.content);
+				} else if (data.kind === 'url') {
+					this.openHelpUrl(data.content);
+				} else {
+					console.error(`[positron-help]: Unrecognized event ${data}`);
 				}
-			} else if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowHelpUrl) {
-				const data = languageRuntimeMessageEvent.data as ShowHelpUrlEvent;
-				this.openHelpUrl(data.url);
 			}
 		});
 
