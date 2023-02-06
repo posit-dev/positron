@@ -7,6 +7,35 @@ on:
   workflow_dispatch:
 
 jobs:
+  revive_agent:
+    # The build agent runs on a MacInCloud instance that is frequently (at
+    # least once a day) rebooted, which shuts down the build agent. Before we
+    # run a build, ensure that the build agent is running; otherwise, the
+    # `runs-on: macos` steps will not execute.
+    #
+    # We run the build agent in a persistent screen session so that it's
+    # possible to connect to the live session for debugging purposes with
+    # the `screen -r` command.
+    name: Revive build agent
+    runs-on: [self-hosted, linux]
+    steps:
+      # Establish an SSH agent into which we can load the key. The build host
+      # has the public side of this trusted keypair.
+      - name: Setup SSH Keys and known_hosts
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.MACOS_PRIVATE_SSH_KEY }}"
+
+      - name: Revive Screen session
+        id: revive_agent
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          # Connect to the host; if there is a screen session running, do
+          # nothing, but if there isn't one, start one up now.
+          ssh -o "StrictHostKeyChecking no" user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && ./run.sh'; fi\""
 
   version_string:
     name: Determine version
@@ -50,7 +79,7 @@ jobs:
 
   macos-arm64:
     name: Build macOS client (arm64)
-    needs: version_string
+    needs: [revive_agent, version_string]
     runs-on: [self-hosted, macos, arm64]
     timeout-minutes: 40
     env:
@@ -89,7 +118,7 @@ jobs:
   macos-x64:
     name: Build macOS client (x64)
     runs-on: [self-hosted, macos, arm64]
-    needs: version_string
+    needs: [revive_agent, version_string]
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
