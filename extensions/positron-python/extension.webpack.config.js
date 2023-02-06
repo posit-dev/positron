@@ -24,7 +24,8 @@ module.exports = withDefaults({
         'commonjs',
         'applicationinsights-native-metrics',
         '@opentelemetry/tracing',
-        '@opentelemetry/instrumentation'
+        '@opentelemetry/instrumentation',
+        '@azure/opentelemetry-instrumentation-azure-sdk'
     ],
     output: {
         filename: '[name].js',
