@@ -1,13 +1,11 @@
 name: "Positron: Revive macOS build agent"
 
-# check every hour to see if the agent's online
 on:
-  schedule:
-  - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
-
+  # This duplicates the `revive_agent` step in the main macOS build task and
+  # exists as a separate job only for convenience.
   revive_agent:
     name: Revive build agent
     runs-on: [self-hosted, linux]
