@@ -41,10 +41,10 @@
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
-    "tail": "^2.2.4",
-    "uuid": "^8.3.2",
+    "tail": "^2.2.6",
+    "uuid": "^9.0.0",
     "vscode-nls": "^5.2.0",
-    "zeromq": "^6.0.0-beta.6"
+    "zeromq": "^6.0.0-beta.16"
   },
   "repository": {
     "type": "git",
