@@ -47,6 +47,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 	const refContainer = useRef<HTMLDivElement>(undefined!);
 	const [, setHistoryNavigator, refHistoryNavigator] = useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [codeEditorWidget, setCodeEditorWidget, _refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
+	const [, setCurrentCodeFragment, refCurrentCodeFragment] = useStateRef<string | undefined>(undefined);
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
 
 	// Main useEffect.
@@ -57,6 +58,10 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 		if (inputHistoryEntries.length) {
+			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
+			// inputHistoryEntries.forEach((inputHistoryEntry, index) => {
+			// 	console.log(`    Entry: ${index} Code: ${inputHistoryEntry.input}`);
+			// });
 			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000)); // TODO@softwarenerd - get 1000 from settings.
 		}
 
@@ -110,8 +115,15 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Add key down handler.
 		codeEditorWidget.onKeyDown(async e => {
 			if (e.keyCode === KeyCode.UpArrow) {
+				// If there are no history entries, don't process the event.
 				if (refHistoryNavigator.current) {
-					// Get the current history entry.
+					// When the user moves up from the end, set the current code fragment so they can get it back.
+					if (refHistoryNavigator.current.isAtEnd()) {
+						const codeFragment = codeEditorWidget.getValue();
+						setCurrentCodeFragment(codeFragment);
+					}
+
+					// Get the current history entry, set it as the value of the code editor widget, and move to the previous entry.
 					const inputHistoryEntry = refHistoryNavigator.current.current();
 					codeEditorWidget.setValue(inputHistoryEntry.input);
 					codeEditorWidget.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
@@ -122,11 +134,17 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 				e.preventDefault();
 				e.stopPropagation();
 			} else if (e.keyCode === KeyCode.DownArrow) {
+				// If there are no history entries, don't process the event.
 				if (refHistoryNavigator.current) {
+					// When the user reaches the end of the history entries, restore the current code fragment.
 					if (refHistoryNavigator.current.isAtEnd()) {
-						codeEditorWidget.setValue('');
-						codeEditorWidget.setPosition({ lineNumber: 1, column: 1 });
+						if (refCurrentCodeFragment.current !== undefined) {
+							codeEditorWidget.setValue(refCurrentCodeFragment.current);
+							codeEditorWidget.setPosition({ lineNumber: 1, column: refCurrentCodeFragment.current.length + 1 });
+							setCurrentCodeFragment(undefined);
+						}
 					} else {
+						// Move to the next history entry and set it as the value of the code editor widget.
 						const inputHistoryEntry = refHistoryNavigator.current.next();
 						codeEditorWidget.setValue(inputHistoryEntry.input);
 						codeEditorWidget.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
@@ -248,7 +266,6 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Auto-grow the editor as the internal content size changes (i.e. make
 		// it grow vertically as the user enters additional lines of input)
 		codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
-			console.log(`codeEditorWidget.onDidContentSizeChange with content width of ${codeEditorWidget.getContentWidth()}`);
 			codeEditorWidget.layout({ width: refCodeEditorWidth.current, height: codeEditorWidget.getContentHeight() });
 		});
 
