@@ -15,7 +15,7 @@ options(browser = function(url) {
 
 # Set cran mirror
 local({
-    repos = getOption("repos")
+    repos <- getOption("repos")
 
     if (is.null(repos) || identical(repos, "@CRAN@")) {
         options(repos = c(CRAN = "https://cran.rstudio.com/"))
