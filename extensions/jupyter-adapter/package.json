@@ -30,7 +30,7 @@
   },
   "scripts": {
     "compile": "gulp compile-extension:jupyter-adapter",
-    "postinstall": "scripts/postinstall.sh",
+    "postinstall": "ts-node scripts/postinstall.ts",
     "watch": "gulp watch-extension:jupyter-adapter",
     "vscode:prepublish": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.js compile-extension:search-result ./tsconfig.json"
   },
