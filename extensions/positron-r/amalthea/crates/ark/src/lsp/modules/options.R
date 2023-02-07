@@ -13,6 +13,7 @@ options(browser = function(url) {
     .Call("ps_browse_url", as.character(url), PACKAGE = "(embedding)")
 })
 
+# Set cran mirror
 local({
     repos = getOption("repos")
 
