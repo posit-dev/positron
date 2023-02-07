@@ -6,6 +6,11 @@ import { spawnSync } from 'child_process';
 import { arch, platform } from 'os';
 import { argv, env, exit } from 'process';
 
+console.log('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+console.log('++++++++++++++ Skipping jupyter-adapter postinstall.ts ++++++++++++++');
+console.log('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+exit(0);
+
 // Don't do anything on Windows.
 if (platform() === 'win32') {
 	exit(0);
