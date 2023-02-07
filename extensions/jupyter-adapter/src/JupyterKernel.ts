@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChildProcess, spawn, SpawnOptions } from 'child_process';
+import { ChildProcess } from 'child_process';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as zmq from 'zeromq/v5-compat';
@@ -28,7 +28,6 @@ import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterInputReply } from './JupyterInputReply';
-import { StringDecoder } from 'string_decoder';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
 
