@@ -12,7 +12,7 @@ if (platform() === 'darwin' && arch() === 'arm64') {
 }
 
 // Ensure that zeromq is built against the right version of node
-const result = spawnSync('electron-rebuild', ['zeromq', ...argv], {
+const result = spawnSync('electron-rebuild', ['zeromq', ...argv.slice(2)], {
 	encoding: 'utf-8',
 	stdio: 'inherit'
 });
