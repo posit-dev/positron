@@ -12,3 +12,11 @@ options(help_type = "html")
 options(browser = function(url) {
     .Call("ps_browse_url", as.character(url), PACKAGE = "(embedding)")
 })
+
+local({
+    repos = getOption("repos")
+
+    if (is.null(repos) || identical(repos, "@CRAN@")) {
+        options(repos = c(CRAN = "https://cran.rstudio.com/"))
+    }
+})
