@@ -180,14 +180,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const env = {};
 		Object.assign(env, process.env, this._spec.env);
 
-		// Create spawn options.
-		const options = <SpawnOptions>{
-			env: env,
-			detached: false
-			// TODO@softwarenerd - This doesn't work.
-			//shell: true
-		};
-
 		this.setStatus(positron.RuntimeState.Starting);
 
 		this._channel.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
@@ -195,32 +187,32 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._channel.appendLine('Environment: ' + JSON.stringify(this._spec.env));
 		}
 
-		// Create separate output channel to show standard output from the kernel
-		const decoder = new StringDecoder('utf8');
-		this._process = spawn(args[0], args.slice(1), options);
-		const output = vscode.window.createOutputChannel(
-			`${this._spec.display_name} (${this._process.pid})`);
-		this._process.stderr?.on('data', (data) => {
-			output.append(decoder.write(data));
+		// Use the VS Code terminal API to create a terminal for the kernel
+		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
+			name: this._spec.display_name,
+			shellPath: args[0],
+			shellArgs: args.slice(1),
+			env,
+			message: `** ${this._spec.display_name} **`
+			// hideFromUser: true
 		});
-		this._process.stdout?.on('data', (data) => {
-			output.append(decoder.write(data));
-		});
-		this._process.on('close', (code) => {
-			this.setStatus(positron.RuntimeState.Exited);
-			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
 
-			// Remove the output channel if the kernel exited normally
-			if (code === 0) {
-				output.dispose();
+		// When the terminal closes, mark the kernel as exited
+		vscode.window.onDidCloseTerminal((closedTerminal) => {
+			if (closedTerminal.processId === terminal.processId) {
+				this.setStatus(positron.RuntimeState.Exited);
+				this._channel.appendLine(this._spec.display_name + ' kernel exited');
 			}
 		});
-		this._process.once('spawn', () => {
-			this._channel.appendLine(`${this._spec.display_name} kernel started`);
+
+		vscode.window.onDidOpenTerminal((openedTerminal) => {
+			if (openedTerminal.processId !== terminal.processId) {
+				return;
+			}
 
 			// Begin streaming logs
-			output.appendLine(`${this._spec.display_name} kernel started (pid ${this._process!.pid})`);
-			this.streamLogFileToChannel(output);
+			this._channel.appendLine(`${this._spec.display_name} kernel started (pid ${this._process!.pid})`);
+			this.streamLogFileToChannel(this._spec.language, this._channel);
 
 			this._heartbeat?.socket().once('message', (msg: string) => {
 
@@ -700,7 +692,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Streams a log file to the output channel
 	 */
-	private streamLogFileToChannel(output: vscode.OutputChannel) {
+	private streamLogFileToChannel(prefix: string, output: vscode.OutputChannel) {
 		output.appendLine('Streaming log file: ' + this._logFile);
 		try {
 			this._logTail = new Tail(this._logFile!,
@@ -712,10 +704,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Establish a listener for new lines in the log file
 		this._logTail.on('line', function (data: string) {
-			output.appendLine(data);
+			output.appendLine(`[${prefix}] ${data}`);
 		});
 		this._logTail.on('error', function (error: string) {
-			output.appendLine(error);
+			output.appendLine(`[${prefix}] ${error}`);
 		});
 
 		// Start watching the log file. This streams output until the kernel is
