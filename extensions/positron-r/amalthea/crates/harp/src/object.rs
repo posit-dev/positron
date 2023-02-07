@@ -215,8 +215,8 @@ impl From<String> for RObject {
     }
 }
 
-impl From<&Vec<&str>> for RObject {
-    fn from(value: &Vec<&str>) -> Self {
+impl From<Vec<&str>> for RObject {
+    fn from(value: Vec<&str>) -> Self {
         unsafe {
             let n = value.len() as isize;
             let vector = Rf_protect(Rf_allocVector(STRSXP, n));
@@ -232,8 +232,8 @@ impl From<&Vec<&str>> for RObject {
     }
 }
 
-impl From<&Vec<String>> for RObject {
-    fn from(value: &Vec<String>) -> Self {
+impl From<Vec<String>> for RObject {
+    fn from(value: Vec<String>) -> Self {
         unsafe {
             let n = value.len() as isize;
             let vector = Rf_protect(Rf_allocVector(STRSXP, n));
@@ -375,19 +375,16 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_RObject_from_ref_Vec_str() { r_test! {
-        let strings = vec!["Apple", "Orange", "한"];
+        let expected = vec!["Apple", "Orange", "한"];
+        let strings = expected.clone();
         let strings2 : Vec<String> = strings.iter().map(|&s| { String::from(s)}).collect();
         assert_eq!(strings, strings2);
 
-        let r_strings = RObject::from(&strings);
-        let r_strings2 = RObject::from(&strings2);
-
-        // just checking they were just borrowed
-        assert_eq!(strings.len(), 3);
-        assert_eq!(strings2.len(), 3);
+        let r_strings = RObject::from(strings);
+        let r_strings2 = RObject::from(strings2);
 
         // check the contents
-        assert!(r_strings_eq(*r_strings, &strings));
-        assert!(r_strings_eq(*r_strings2, &strings));
+        assert!(r_strings_eq(*r_strings, &expected));
+        assert!(r_strings_eq(*r_strings2, &expected));
     }}
 }
