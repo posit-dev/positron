@@ -48,24 +48,68 @@ pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
     Ok(actual)
 }
 
-pub unsafe fn r_strings_eq(object: SEXP, expected: &Vec<&str>) -> bool {
-    let r_type = r_typeof(object);
-    match r_type {
-        STRSXP => {
-            let n = Rf_xlength(object) as isize;
-            if n != expected.len() as isize {
-                return false;
-            }
-            for i in 0..n {
-                if !expected[i as usize].eq(CStr::from_ptr(R_CHAR(STRING_ELT(object, i))).to_str().unwrap()) {
-                    return false;
+// used for [&str] and [String]
+macro_rules! partial_eq_RObject_slice {
+    ($type:ty) => {
+        impl PartialEq<[$type]> for RObject {
+            fn eq(&self, other: &[$type]) -> bool {
+                unsafe {
+                    let object = self.sexp;
+                    if r_typeof(object) != STRSXP {
+                        return false;
+                    }
+
+                    let n = Rf_xlength(object) as isize;
+                    if n != other.len() as isize {
+                        return false;
+                    }
+                    for i in 0..n {
+                        if !other[i as usize].eq(CStr::from_ptr(R_CHAR(STRING_ELT(object, i))).to_str().unwrap()) {
+                            return false;
+                        }
+                    }
+                    true
                 }
             }
-            true
-        },
-        _ => false
+        }
+
+    };
+}
+
+partial_eq_RObject_slice!{ &str }
+partial_eq_RObject_slice!{ String }
+
+macro_rules! partial_eq_RObject_slice2 {
+    ([$($vars:tt)*] $type:ty) => {
+        impl<$($vars)*> PartialEq<$type> for RObject {
+            fn eq(&self, other: &$type) -> bool {
+                self.eq(&other[..])
+            }
+        }
+
     }
 }
+partial_eq_RObject_slice2!{ [const N: usize] [&str; N]}
+partial_eq_RObject_slice2!{ [] Vec<&str> }
+partial_eq_RObject_slice2!{ [const N: usize] [String; N]}
+partial_eq_RObject_slice2!{ [] Vec<String>}
+
+macro_rules! partial_eq_RObject_rhs {
+    ([$($vars:tt)*] $type:ty) => {
+        impl<$($vars)*> PartialEq<RObject> for $type {
+            fn eq(&self, other: &RObject) -> bool {
+                other.eq(self)
+            }
+        }
+    }
+}
+partial_eq_RObject_rhs!{ [] [&str] }
+partial_eq_RObject_rhs!{ [const N: usize] [&str; N] }
+partial_eq_RObject_rhs!{ [] Vec<&str> }
+
+partial_eq_RObject_rhs!{ [] [String] }
+partial_eq_RObject_rhs!{ [const N: usize] [String; N] }
+partial_eq_RObject_rhs!{ [] Vec<String> }
 
 pub unsafe fn r_typeof(object: SEXP) -> u32 {
     TYPEOF(object) as u32

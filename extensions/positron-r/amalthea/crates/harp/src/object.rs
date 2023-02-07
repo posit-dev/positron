@@ -102,6 +102,7 @@ unsafe fn unprotect(cell: SEXP) {
 
 }
 
+#[derive(Debug)]
 pub struct RObject {
     pub sexp: SEXP,
     pub cell: SEXP,
@@ -368,23 +369,39 @@ impl TryFrom<RObject> for HashMap<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{r_test, utils::r_strings_eq};
+    use crate::r_test;
 
     use super::RObject;
 
     #[test]
     #[allow(non_snake_case)]
-    fn test_RObject_from_ref_Vec_str() { r_test! {
-        let expected = vec!["Apple", "Orange", "한"];
-        let strings = expected.clone();
-        let strings2 : Vec<String> = strings.iter().map(|&s| { String::from(s)}).collect();
-        assert_eq!(strings, strings2);
+    fn test_RObject_from_Vec_str() { r_test! {
+        let expected = ["Apple", "Orange", "한"];
 
-        let r_strings = RObject::from(strings);
-        let r_strings2 = RObject::from(strings2);
+        // RObject from Vec<&str>
+        let r_strings = RObject::from(expected.to_vec());
+        assert_eq!(r_strings, expected);              // [&str]
+        assert_eq!(r_strings, expected[..]);          // [&str; const N]
+        assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
 
-        // check the contents
-        assert!(r_strings_eq(*r_strings, &expected));
-        assert!(r_strings_eq(*r_strings2, &expected));
+        assert_eq!(expected         , r_strings);     // [&str]
+        assert_eq!(expected[..]     , r_strings);     // [&str; const N]
+        assert_eq!(expected.to_vec(), r_strings);     // Vec<&str>
+    }}
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_RObject_from_Vec_String() { r_test! {
+        let expected = [String::from("Apple"), String::from("Orange"), String::from("한")];
+
+        // RObject from Vec<String>
+        let r_strings = RObject::from(expected.to_vec());
+        assert_eq!(r_strings, expected[..]);        // [String]
+        assert_eq!(r_strings, expected);            // [String; const N]
+        assert_eq!(r_strings, expected.to_vec());   // Vec<String>
+
+        assert_eq!(expected[..]     , r_strings);   // [String]
+        assert_eq!(expected         , r_strings);   // [String; const N]
+        assert_eq!(expected.to_vec(), r_strings);   // Vec<String>
     }}
 }
