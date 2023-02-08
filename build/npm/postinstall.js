@@ -7,6 +7,9 @@ const cp = require('child_process');
 const { dirs } = require('./dirs');
 const { setupBuildYarnrc } = require('./setupBuildYarnrc');
 const yarn = process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
+// --- Start Positron ---
+const { arch, platform } = require('os');
+// --- End Positron ---
 
 /**
  * @param {string} location
@@ -76,9 +79,16 @@ for (let dir of dirs) {
 cp.execSync('git config pull.rebase merges');
 cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore');
 
-
 // --- Start Positron ---
-console.log(`Installing positron post-install dependencies...`);
-cp.execSync('cd positron-python && ./scripts/install-python-dependencies.sh', { cwd: 'extensions' });
+// Based on platform, perform the post install.
+if (platform() === 'darwin') {
+	console.log(`Installing Positron post-install dependencies for macOS...`);
+	cp.execSync('cd positron-python && ./scripts/install-python-dependencies.sh', { cwd: 'extensions' });
+} else if (platform() === 'win32') {
+	console.log(`Installing Positron post-install dependencies for Windows...`);
+	// Do the Windows stuff.
+} else {
+	console.error(`Unable to install Positron post-install dependencies for ${platform()}.`);
+	process.exit(1);
+}
 // --- End Positron ---
-
