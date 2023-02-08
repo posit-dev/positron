@@ -64,12 +64,13 @@ jobs:
       # We also use the short_version as a release tag, and stop if the tag already exists.
       - name: Determine Version (Short)
         id: short_version
-        run: |
-          result=`./versions/show-version.js --short`
-          echo "result=$result" >> $GITHUB_OUTPUT
-          git fetch --tags
-          tag_exists=`git tag -l "${result}"`
-          if [ -n "${tag_exists}" ]; then exit 78; fi
+        run: echo "result=$(./versions/show-version.js --short)" >> $GITHUB_OUTPUT
+        # run: |
+        #   result=`./versions/show-version.js --short`
+        #   echo "result=$result" >> $GITHUB_OUTPUT
+        #   git fetch --tags
+        #   tag_exists=`git tag -l "${result}"`
+        #   if [ -n "${tag_exists}" ]; then exit 78; fi
 
       # Call again to get just the build number. Example: 123
       - name: Determine Version (Build Number)
