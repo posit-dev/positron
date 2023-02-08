@@ -104,8 +104,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param lspClientPort The port that the LSP client is listening on, or 0
 	 *   if no LSP is started
 	 */
-	public async start(lspClientPort: number) {
-
+	public async start(lspClientPort: number): Promise<JupyterConnectionSpec> {
 		// Create ZeroMQ sockets
 		this._control = new JupyterSocket('Control', zmq.socket('dealer'), this._channel);
 		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), this._channel);
@@ -196,62 +195,72 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// hideFromUser: true
 		});
 
-		// When the terminal closes, mark the kernel as exited
-		vscode.window.onDidCloseTerminal((closedTerminal) => {
-			if (closedTerminal.processId === terminal.processId) {
-				this.setStatus(positron.RuntimeState.Exited);
-				this._channel.appendLine(this._spec.display_name + ' kernel exited');
-			}
-		});
+		return new Promise<JupyterConnectionSpec>((resolve, reject) => {
+			// When the terminal closes, mark the kernel as exited
+			vscode.window.onDidCloseTerminal((closedTerminal) => {
+				if (closedTerminal.processId === terminal.processId) {
+					if (this.status() === positron.RuntimeState.Starting) {
+						reject(new Error(`${this._spec.display_name} failed to start`));
+					} else {
+						this.setStatus(positron.RuntimeState.Exited);
+						this._channel.appendLine(this._spec.display_name + ' kernel exited');
+					}
+				}
+			});
 
-		vscode.window.onDidOpenTerminal((openedTerminal) => {
-			if (openedTerminal.processId !== terminal.processId) {
-				return;
-			}
+			vscode.window.onDidOpenTerminal((openedTerminal) => {
+				if (openedTerminal.processId !== terminal.processId) {
+					return;
+				}
 
-			// Begin streaming logs
-			this._channel.appendLine(`${this._spec.display_name} kernel started (pid ${this._process!.pid})`);
-			this.streamLogFileToChannel(this._spec.language, this._channel);
+				// Begin streaming logs
+				this._channel.appendLine(`${this._spec.display_name} kernel started (pid ${this._process!.pid})`);
+				this.streamLogFileToChannel(this._spec.language, this._channel);
 
-			this._heartbeat?.socket().once('message', (msg: string) => {
+				this._heartbeat?.socket().once('message', (msg: string) => {
 
-				this._channel.appendLine('Receieved initial heartbeat: ' + msg);
-				this.setStatus(positron.RuntimeState.Ready);
+					// We've received the initial heartbeat, so we can now save
+					// the connection file
+					resolve(conn);
 
-				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-				this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
-				this.heartbeat();
-				this._heartbeat?.socket().on('message', (msg: string) => {
-					this.onHeartbeat(msg);
+					this._channel.appendLine('Receieved initial heartbeat: ' + msg);
+					this.setStatus(positron.RuntimeState.Ready);
+
+					const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+					this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
+					this.heartbeat();
+					this._heartbeat?.socket().on('message', (msg: string) => {
+						this.onHeartbeat(msg);
+					});
+				});
+				this._heartbeat?.socket().send(['hello']);
+
+				// Subscribe to all topics
+				this._iopub?.socket().subscribe('');
+				this._iopub?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._key, this._channel);
+					if (msg !== null) {
+						this.emitMessage(JupyterSockets.iopub, msg);
+					}
+				});
+				this._shell?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._key, this._channel);
+					if (msg !== null) {
+						this.emitMessage(JupyterSockets.shell, msg);
+					}
+				});
+				this._stdin?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._key, this._channel);
+					if (msg !== null) {
+						// If this is an input request, save the header so we can
+						// can line it up with the client's response.
+						if (msg.header.msg_type === 'input_request') {
+							this._inputRequests.set(msg.header.msg_id, msg.header);
+						}
+						this.emitMessage(JupyterSockets.stdin, msg);
+					}
 				});
 			});
-			this._heartbeat?.socket().send(['hello']);
-		});
-
-		// Subscribe to all topics
-		this._iopub.socket().subscribe('');
-		this._iopub.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.iopub, msg);
-			}
-		});
-		this._shell.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.shell, msg);
-			}
-		});
-		this._stdin.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
-			if (msg !== null) {
-				// If this is an input request, save the header so we can
-				// can line it up with the client's response.
-				if (msg.header.msg_type === 'input_request') {
-					this._inputRequests.set(msg.header.msg_id, msg.header);
-				}
-				this.emitMessage(JupyterSockets.stdin, msg);
-			}
 		});
 	}
 
