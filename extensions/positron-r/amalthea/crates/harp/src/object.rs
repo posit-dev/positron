@@ -381,10 +381,6 @@ mod tests {
         assert_eq!(r_strings, expected);              // [&str]
         assert_eq!(r_strings, expected[..]);          // [&str; const N]
         assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
-
-        assert_eq!(expected         , r_strings);     // [&str]
-        assert_eq!(expected[..]     , r_strings);     // [&str; const N]
-        assert_eq!(expected.to_vec(), r_strings);     // Vec<&str>
     }}
 
     #[test]
@@ -397,9 +393,5 @@ mod tests {
         assert_eq!(r_strings, expected[..]);        // [String]
         assert_eq!(r_strings, expected);            // [String; const N]
         assert_eq!(r_strings, expected.to_vec());   // Vec<String>
-
-        assert_eq!(expected[..]     , r_strings);   // [String]
-        assert_eq!(expected         , r_strings);   // [String; const N]
-        assert_eq!(expected.to_vec(), r_strings);   // Vec<String>
     }}
 }
