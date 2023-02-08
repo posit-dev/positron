@@ -55,7 +55,7 @@ pub trait CharSxpEq {
 impl CharSxpEq for &str {
     fn eq_charsxp(&self, s: SEXP) -> bool {
         unsafe {
-            (*self).eq(CStr::from_ptr(R_CHAR(s)).to_str().unwrap())
+            s != R_NaString && (*self).eq(CStr::from_ptr(R_CHAR(s)).to_str().unwrap())
         }
     }
 }
