@@ -83,7 +83,7 @@ cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore');
 // Based on platform, install the post-install dependencies.
 console.log(`Installing Positron post-install dependencies...`);
 if (platform() === 'darwin') {
-	cp.execSync('cd positron-python && ./scripts/install-python-dependencies.sh', { cwd: 'extensions' });
+	cp.execSync('./scripts/install-python-dependencies.sh', { cwd: 'extensions/positron-python' });
 } else if (platform() === 'win32') {
 	cp.execSync('yarn --ignore-engines gulp installPythonLibs', { cwd: 'extensions/positron-python' });
 } else {
