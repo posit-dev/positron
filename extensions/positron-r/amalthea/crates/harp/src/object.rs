@@ -233,8 +233,8 @@ impl ToCharSxp for String {
     }
 }
 
-impl<S> From<Vec<S>> for RObject where S : ToCharSxp {
-    fn from(value: Vec<S>) -> Self {
+impl<S> From<&[S]> for RObject where S : ToCharSxp {
+    fn from(value: &[S]) -> Self {
         unsafe {
             let n = value.len() as isize;
             let vector = Rf_protect(Rf_allocVector(STRSXP, n));
@@ -245,6 +245,18 @@ impl<S> From<Vec<S>> for RObject where S : ToCharSxp {
             Rf_unprotect(1);
             return RObject::new(vector);
         }
+    }
+}
+
+impl<S, const N: usize> From<&[S; N]> for RObject where S : ToCharSxp {
+    fn from(value: &[S; N]) -> Self {
+        RObject::from(&value[..])
+    }
+}
+
+impl<S> From<Vec<S>> for RObject where S : ToCharSxp {
+    fn from(value: Vec<S>) -> Self {
+        RObject::from(&value[..])
     }
 }
 
@@ -392,6 +404,18 @@ mod tests {
     fn test_RObject_from_Vec_str() { r_test! {
         let expected = ["Apple", "Orange", "한"];
 
+        // RObject from &[&str; 3]
+        let r_strings = RObject::from(&expected);
+        assert_eq!(r_strings, expected);              // [&str]
+        assert_eq!(r_strings, expected[..]);          // [&str; const N]
+        assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
+
+        // RObject from &[&str]
+        let r_strings = RObject::from(&expected[..]);
+        assert_eq!(r_strings, expected);              // [&str]
+        assert_eq!(r_strings, expected[..]);          // [&str; const N]
+        assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
+
         // RObject from Vec<&str>
         let r_strings = RObject::from(expected.to_vec());
         assert_eq!(r_strings, expected);              // [&str]
@@ -403,6 +427,18 @@ mod tests {
     #[allow(non_snake_case)]
     fn test_RObject_from_Vec_String() { r_test! {
         let expected = [String::from("Apple"), String::from("Orange"), String::from("한")];
+
+        // RObject from &[String; 3]
+        let r_strings = RObject::from(&expected);
+        assert_eq!(r_strings, expected[..]);        // [String]
+        assert_eq!(r_strings, expected);            // [String; const N]
+        assert_eq!(r_strings, expected.to_vec());   // Vec<String>
+
+        // RObject from &[String; 3]
+        let r_strings = RObject::from(&expected[..]);
+        assert_eq!(r_strings, expected[..]);        // [String]
+        assert_eq!(r_strings, expected);            // [String; const N]
+        assert_eq!(r_strings, expected.to_vec());   // Vec<String>
 
         // RObject from Vec<String>
         let r_strings = RObject::from(expected.to_vec());
