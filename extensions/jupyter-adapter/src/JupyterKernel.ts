@@ -30,6 +30,7 @@ import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterInputReply } from './JupyterInputReply';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
+import { findAvailablePort } from './PortFinder';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -99,12 +100,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Starts the Jupyter kernel.
+	 * Connects to a Jupyter kernel, given the path to the connection JSON file.
 	 *
-	 * @param lspClientPort The port that the LSP client is listening on, or 0
-	 *   if no LSP is started
+	 * @param connectionJsonPath The path to the connection JSON file
 	 */
-	public async start(lspClientPort: number): Promise<JupyterConnectionSpec> {
+	public connect(connectionJsonPath: string): void {
 		// Create ZeroMQ sockets
 		this._control = new JupyterSocket('Control', zmq.socket('dealer'), this._channel);
 		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), this._channel);
@@ -112,20 +112,69 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'), this._channel);
 		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'), this._channel);
 
-		// Create a random ZeroMQ identity for the shell and stdin sockets
-		const shellId = crypto.randomBytes(16);
+		// Create the socket identity for the shell and stdin sockets
+		const shellId = Buffer.from('positron-shell', 'utf8');
 		this._shell.setZmqIdentity(shellId);
 		this._stdin.setZmqIdentity(shellId);
 
+		// Read a JupyterConnectionSpec from the connection file
+		const connectionSpec: JupyterConnectionSpec =
+			JSON.parse(fs.readFileSync(connectionJsonPath, 'utf8'));
+
+		// Bind the sockets to the ports specified in the connection file
+		this._control.connect(connectionSpec.control_port);
+		this._shell.connect(connectionSpec.shell_port);
+	}
+
+	/**
+	 * Creates a connection file for the Jupyter kernel.
+	 *
+	 * @param lspClientPort The port to use for the LSP client, or 0 if no LSP
+	 *   client is supported
+	 */
+	private async createConnectionFile(lspClientPort: number): Promise<string> {
 		// Array of bound ports
 		const ports: Array<number> = [];
+		const maxTries = 25;
 
-		// Find an available port to bind for each socket
-		ports.push(await this._control.bind(ports));
-		ports.push(await this._shell.bind(ports));
-		ports.push(await this._stdin.bind(ports));
-		ports.push(await this._iopub.bind(ports));
-		ports.push(await this._heartbeat.bind(ports));
+		// Create connection definition, allocating new ports as needed
+		const conn: JupyterConnectionSpec = {
+			control_port: await findAvailablePort(ports, maxTries),  // eslint-disable-line
+			shell_port: await findAvailablePort(ports, maxTries),      // eslint-disable-line
+			stdin_port: await findAvailablePort(ports, maxTries),      // eslint-disable-line
+			iopub_port: await findAvailablePort(ports, maxTries),      // eslint-disable-line
+			hb_port: await findAvailablePort(ports, maxTries),     // eslint-disable-line
+			lsp_port: lspClientPort > 0 ? lspClientPort : undefined,  //eslint-disable-line
+			signature_scheme: 'hmac-sha256',     // eslint-disable-line
+			ip: '127.0.0.1',
+			transport: 'tcp',
+			key: crypto.randomBytes(16).toString('hex')
+		};
+
+		// Write the connection definition to a file and return the path
+		const tempdir = os.tmpdir();
+		const sep = path.sep;
+		const kerneldir = fs.mkdtempSync(`${tempdir}${sep}kernel-`);
+		const connectionFile = path.join(kerneldir, 'connection.json');
+		return new Promise((resolve, reject) => {
+			fs.writeFile(connectionFile, JSON.stringify(conn), (err) => {
+				if (err) {
+					reject(err);
+				} else {
+					this._channel.appendLine(`Created connection file ${connectionFile}`);
+					resolve(connectionFile);
+				}
+			});
+		});
+	}
+
+	/**
+	 * Starts the Jupyter kernel.
+	 *
+	 * @param lspClientPort The port that the LSP client is listening on, or 0
+	 *   if no LSP is started
+	 */
+	public async start(lspClientPort: number): Promise<JupyterConnectionSpec> {
 
 		// Save LSP port so we can rebind in the case of a restart
 		this._lspClientPort = lspClientPort;
