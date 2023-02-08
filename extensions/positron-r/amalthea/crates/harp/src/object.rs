@@ -367,7 +367,7 @@ impl TryFrom<RObject> for HashMap<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use libR_sys::STRING_ELT;
+    use libR_sys::{STRING_ELT, R_NaString};
 
     use crate::{r_test, r_string, protect, utils::CharSxpEq};
 
@@ -382,6 +382,9 @@ mod tests {
 
         assert!("Apple".eq_charsxp(apple));
         assert!(String::from("Apple").eq_charsxp(apple));
+
+        assert!(!"Apple".eq_charsxp(R_NaString));
+        assert!(!String::from("Apple").eq_charsxp(R_NaString));
     }}
 
     #[test]
