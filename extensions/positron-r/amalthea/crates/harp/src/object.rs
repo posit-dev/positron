@@ -377,8 +377,7 @@ mod tests {
         let expected = ["Apple", "Orange", "한"];
 
         // RObject from Vec<&str>
-        let vec = expected.to_vec();
-        let r_strings = RObject::from(vec);
+        let r_strings = RObject::from(expected.to_vec());
         assert_eq!(r_strings, expected);              // [&str]
         assert_eq!(r_strings, expected[..]);          // [&str; const N]
         assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
