@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ffi::CStr;
-use std::ffi::CString;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::os::raw::c_char;
@@ -216,39 +215,38 @@ impl From<String> for RObject {
     }
 }
 
-impl From<Vec<&str>> for RObject {
-    fn from(value: Vec<&str>) -> Self {
+pub trait ToCharSxp {
+    fn to_charsxp(&self) -> SEXP;
+}
+
+impl ToCharSxp for &str {
+    fn to_charsxp(&self) -> SEXP {
         unsafe {
-            let n = value.len() as isize;
-            let vector = Rf_protect(Rf_allocVector(STRSXP, n));
-            for i in 0..n {
-                let string = value[i as usize];
-                let c_string = CString::new(string).unwrap();
-                let element = Rf_mkCharLenCE(c_string.as_ptr(), string.len() as i32, cetype_t_CE_UTF8);
-                SET_STRING_ELT(vector, i as R_xlen_t, element);
-            }
-            Rf_unprotect(1);
-            return RObject::new(vector);
+            Rf_mkCharLenCE(self.as_ptr() as *mut c_char, self.len() as i32, cetype_t_CE_UTF8)
         }
     }
 }
 
-impl From<Vec<String>> for RObject {
-    fn from(value: Vec<String>) -> Self {
+impl ToCharSxp for String {
+    fn to_charsxp(&self) -> SEXP {
+        (&self[..]).to_charsxp()
+    }
+}
+
+impl<S> From<Vec<S>> for RObject where S : ToCharSxp {
+    fn from(value: Vec<S>) -> Self {
         unsafe {
             let n = value.len() as isize;
             let vector = Rf_protect(Rf_allocVector(STRSXP, n));
             for i in 0..n {
                 let string = value.get_unchecked(i as usize);
-                let element = Rf_mkCharLenCE(string.as_ptr() as *mut c_char, string.len() as i32, cetype_t_CE_UTF8);
-                SET_STRING_ELT(vector, i as R_xlen_t, element);
+                SET_STRING_ELT(vector, i as R_xlen_t, string.to_charsxp());
             }
             Rf_unprotect(1);
             return RObject::new(vector);
         }
     }
 }
-
 
 /// Convert RObject into other types.
 
@@ -379,7 +377,8 @@ mod tests {
         let expected = ["Apple", "Orange", "한"];
 
         // RObject from Vec<&str>
-        let r_strings = RObject::from(expected.to_vec());
+        let vec = expected.to_vec();
+        let r_strings = RObject::from(vec);
         assert_eq!(r_strings, expected);              // [&str]
         assert_eq!(r_strings, expected[..]);          // [&str; const N]
         assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
