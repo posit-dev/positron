@@ -27,7 +27,7 @@ fi
 
 # Install dependencies using yarn
 pushd $ROOT_DIR
-yarn gulp installPythonLibs
+yarn --ignore-engines gulp installPythonLibs
 popd
 
 # Clean up the temporary folder
