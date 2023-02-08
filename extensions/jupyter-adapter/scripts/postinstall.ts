@@ -13,6 +13,7 @@ if (platform() === 'win32') {
 
 // Make sure that zmq produces arm64 builds where appropriate.
 if (platform() === 'darwin' && arch() === 'arm64') {
+	env['ARCH'] = 'arm64';
 	env['CMAKE_OSX_ARCHITECTURES'] = 'arm64';
 }
 
