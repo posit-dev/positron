@@ -92,6 +92,7 @@ jobs:
       - name: Install dependencies (arm64)
         run: yarn
         env:
+          npm_config_arch: arm64
           RUST_TARGET: aarch64-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
 
