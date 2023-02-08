@@ -8,7 +8,7 @@ const { dirs } = require('./dirs');
 const { setupBuildYarnrc } = require('./setupBuildYarnrc');
 const yarn = process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
 // --- Start Positron ---
-const { arch, platform } = require('os');
+const { platform } = require('os');
 // --- End Positron ---
 
 /**
@@ -80,15 +80,14 @@ cp.execSync('git config pull.rebase merges');
 cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore');
 
 // --- Start Positron ---
-// Based on platform, perform the post install.
+// Based on platform, install the post-install dependencies.
+console.log(`Installing Positron post-install dependencies...`);
 if (platform() === 'darwin') {
-	console.log(`Installing Positron post-install dependencies for macOS...`);
 	cp.execSync('cd positron-python && ./scripts/install-python-dependencies.sh', { cwd: 'extensions' });
 } else if (platform() === 'win32') {
-	console.log(`Installing Positron post-install dependencies for Windows...`);
-	// Do the Windows stuff.
+	cp.execSync('yarn gulp installPythonLibs', { cwd: 'extensions/positron-python' });
 } else {
-	console.error(`Unable to install Positron post-install dependencies for ${platform()}.`);
+	console.error(`Error: The ${platform()} platform is not currently supported.`);
 	process.exit(1);
 }
 // --- End Positron ---
