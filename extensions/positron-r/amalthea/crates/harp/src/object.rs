@@ -367,9 +367,22 @@ impl TryFrom<RObject> for HashMap<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::r_test;
+    use libR_sys::STRING_ELT;
+
+    use crate::{r_test, r_string, protect, utils::CharSxpEq};
 
     use super::RObject;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_eq_charsxp() {r_test! {
+        let mut protect = protect::RProtect::new();
+        let r_string = protect.add(r_string!("Apple"));
+        let apple = STRING_ELT(r_string, 0);
+
+        assert!("Apple".eq_charsxp(apple));
+        assert!(String::from("Apple").eq_charsxp(apple));
+    }}
 
     #[test]
     #[allow(non_snake_case)]
