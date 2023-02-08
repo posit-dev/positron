@@ -9,13 +9,13 @@ use std::process::Command;
 
 #[allow(dead_code)]
 pub struct RVersion {
-    // Major version of the R installation (TODO)
+    // Major version of the R installation
     major: u32,
 
-    // Minor version of the R installation (TODO)
+    // Minor version of the R installation
     minor: u32,
 
-    // Patch version of the R installation (TODO)
+    // Patch version of the R installation
     patch: u32,
 
     // The full path on disk to the R installation -- that is, the value R_HOME
