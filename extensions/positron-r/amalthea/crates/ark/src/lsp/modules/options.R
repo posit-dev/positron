@@ -16,8 +16,19 @@ options(browser = function(url) {
 # Set cran mirror
 local({
     repos <- getOption("repos")
+    rstudio_cran <- "https://cran.rstudio.com/"
 
-    if (is.null(repos) || identical(repos, "@CRAN@")) {
-        options(repos = c(CRAN = "https://cran.rstudio.com/"))
+    if (is.null(repos) || !is.character(repos)) {
+        options(repos = c(CRAN = rstudio_cran))
+    } else {
+        if ("CRAN" %in% names(repos)) {
+            if (identical(repos[["CRAN"]], "@CRAN@")) {
+                repos[["CRAN"]] <- rstudio_cran
+                options(repos = repos)
+            }
+        } else {
+            repos <- c(CRAN = rstudio_cran, repos)
+            options(repos = repos)
+        }
     }
 })
