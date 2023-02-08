@@ -15,9 +15,15 @@ if (platform() === 'win32') {
 // Note that the build pipeline sets 'npm_config_arch' to configure
 // the build architecture.
 if (platform() === 'darwin') {
-	const configArch = env['npm_config_arch'] ?? arch();
+
+	let configArch = env['npm_config_arch'] ?? arch();
+	if (configArch === 'x64') {
+		configArch = 'x86_64';
+	}
+
 	env['ARCH'] = configArch;
 	env['CMAKE_OSX_ARCHITECTURES'] = configArch;
+
 }
 
 // Ensure that zeromq is built against the right version of node.
