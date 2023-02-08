@@ -11,9 +11,19 @@ if (platform() === 'win32') {
 	exit(0);
 }
 
-// Make sure that zmq produces arm64 builds where appropriate.
-if (platform() === 'darwin' && arch() === 'arm64') {
-	env['CMAKE_OSX_ARCHITECTURES'] = 'arm64';
+// Make sure that zmq produces x86 / arm64 builds where appropriate.
+// Note that the build pipeline sets 'npm_config_arch' to configure
+// the build architecture.
+if (platform() === 'darwin') {
+
+	let configArch = env['npm_config_arch'] ?? arch();
+	if (configArch === 'x64') {
+		configArch = 'x86_64';
+	}
+
+	env['ARCH'] = configArch;
+	env['CMAKE_OSX_ARCHITECTURES'] = configArch;
+
 }
 
 // Ensure that zeromq is built against the right version of node.
