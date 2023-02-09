@@ -28,7 +28,6 @@ yarn run kill-watchd
 yarn run kill-watch-webd
 yarn run kill-watch-clientd
 yarn run kill-watch-extensionsd
-yarn run kill-watch-build-toolsd
 
 # Remove any existing node_modules folders.
 git ls-files --directory -i -o -x node_modules | xargs rm -rf
