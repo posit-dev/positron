@@ -124,6 +124,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Bind the sockets to the ports specified in the connection file
 		this._control.connect(connectionSpec.control_port);
 		this._shell.connect(connectionSpec.shell_port);
+		this._stdin.connect(connectionSpec.stdin_port);
+		this._iopub.connect(connectionSpec.iopub_port);
+		this._heartbeat.connect(connectionSpec.hb_port);
+
 	}
 
 	/**
@@ -169,37 +173,80 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
+	 * Connects to a kernel running in a terminal.
+	 *
+	 * @param terminal The terminal to connect to
+	 */
+	private connectToTerminal(terminal: vscode.Terminal): void {
+		// When the terminal closes, mark the kernel as exited
+		vscode.window.onDidCloseTerminal((closedTerminal) => {
+			if (closedTerminal.processId === terminal.processId) {
+				if (this._status === positron.RuntimeState.Starting) {
+					throw new Error(`${this._spec.display_name} failed to start`);
+				} else {
+					this.setStatus(positron.RuntimeState.Exited);
+					this._channel.appendLine(this._spec.display_name + ' kernel exited');
+				}
+			}
+		});
+
+		// Begin streaming logs
+		this._channel.appendLine(`Connecting to ${this._spec.display_name} kernel (pid ${terminal.processId}})`);
+		this.streamLogFileToChannel(this._spec.language, this._channel);
+
+		this._heartbeat?.socket().once('message', (msg: string) => {
+
+			this._channel.appendLine('Receieved initial heartbeat: ' + msg);
+			this.setStatus(positron.RuntimeState.Ready);
+
+			const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+			this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
+			this.heartbeat();
+			this._heartbeat?.socket().on('message', (msg: string) => {
+				this.onHeartbeat(msg);
+			});
+		});
+		this._heartbeat?.socket().send(['hello']);
+
+		// Subscribe to all topics
+		this._iopub?.socket().subscribe('');
+		this._iopub?.socket().on('message', (...args: any[]) => {
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
+			if (msg !== null) {
+				this.emitMessage(JupyterSockets.iopub, msg);
+			}
+		});
+		this._shell?.socket().on('message', (...args: any[]) => {
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
+			if (msg !== null) {
+				this.emitMessage(JupyterSockets.shell, msg);
+			}
+		});
+		this._stdin?.socket().on('message', (...args: any[]) => {
+			const msg = deserializeJupyterMessage(args, this._key, this._channel);
+			if (msg !== null) {
+				// If this is an input request, save the header so we can
+				// can line it up with the client's response.
+				if (msg.header.msg_type === 'input_request') {
+					this._inputRequests.set(msg.header.msg_id, msg.header);
+				}
+				this.emitMessage(JupyterSockets.stdin, msg);
+			}
+		});
+	}
+
+	/**
 	 * Starts the Jupyter kernel.
 	 *
 	 * @param lspClientPort The port that the LSP client is listening on, or 0
 	 *   if no LSP is started
 	 */
-	public async start(lspClientPort: number): Promise<JupyterConnectionSpec> {
+	public async start(lspClientPort: number): void {
 
-		// Save LSP port so we can rebind in the case of a restart
-		this._lspClientPort = lspClientPort;
+		// Create a new connection file
+		this._connectionFile = await this.createConnectionFile(lspClientPort);
 
-		// Create connection definition
-		const conn: JupyterConnectionSpec = {
-			control_port: this._control.port(),  // eslint-disable-line
-			shell_port: this._shell.port(),      // eslint-disable-line
-			stdin_port: this._stdin.port(),      // eslint-disable-line
-			iopub_port: this._iopub.port(),      // eslint-disable-line
-			hb_port: this._heartbeat.port(),     // eslint-disable-line
-			lsp_port: lspClientPort > 0 ? lspClientPort : undefined,  //eslint-disable-line
-			signature_scheme: 'hmac-sha256',     // eslint-disable-line
-			ip: '127.0.0.1',
-			transport: 'tcp',
-			key: this._key
-		};
-
-		// Write connection definition to a file
-		const tempdir = os.tmpdir();
-		const sep = path.sep;
-		const kerneldir = fs.mkdtempSync(`${tempdir}${sep}kernel-`);
-		this._connectionFile = path.join(kerneldir, 'connection.json');
-		fs.writeFileSync(this._connectionFile, JSON.stringify(conn));
-
+		// Form the command-line arguments to the kernel process
 		const args = this._spec.argv.map((arg, _idx) => {
 			// Replace {connection_file} with the connection file path
 			if (arg === '{connection_file}') {
@@ -209,6 +256,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Replace {log_file} with the log file path. Not all kernels
 			// have this argument.
 			if (arg === '{log_file}') {
+				// Get the parent directory of the connection file
+				const kerneldir = path.dirname(this._connectionFile!);
+
 				// Create output log file
 				this._logFile = path.join(kerneldir, 'output.log');
 
@@ -227,6 +277,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const env = {};
 		Object.assign(env, process.env, this._spec.env);
 
+		// We are now starting the kernel
 		this.setStatus(positron.RuntimeState.Starting);
 
 		this._channel.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
@@ -244,72 +295,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// hideFromUser: true
 		});
 
-		return new Promise<JupyterConnectionSpec>((resolve, reject) => {
-			// When the terminal closes, mark the kernel as exited
-			vscode.window.onDidCloseTerminal((closedTerminal) => {
-				if (closedTerminal.processId === terminal.processId) {
-					if (this.status() === positron.RuntimeState.Starting) {
-						reject(new Error(`${this._spec.display_name} failed to start`));
-					} else {
-						this.setStatus(positron.RuntimeState.Exited);
-						this._channel.appendLine(this._spec.display_name + ' kernel exited');
-					}
-				}
-			});
-
-			vscode.window.onDidOpenTerminal((openedTerminal) => {
-				if (openedTerminal.processId !== terminal.processId) {
-					return;
-				}
-
-				// Begin streaming logs
-				this._channel.appendLine(`${this._spec.display_name} kernel started (pid ${this._process!.pid})`);
-				this.streamLogFileToChannel(this._spec.language, this._channel);
-
-				this._heartbeat?.socket().once('message', (msg: string) => {
-
-					// We've received the initial heartbeat, so we can now save
-					// the connection file
-					resolve(conn);
-
-					this._channel.appendLine('Receieved initial heartbeat: ' + msg);
-					this.setStatus(positron.RuntimeState.Ready);
-
-					const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-					this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
-					this.heartbeat();
-					this._heartbeat?.socket().on('message', (msg: string) => {
-						this.onHeartbeat(msg);
-					});
-				});
-				this._heartbeat?.socket().send(['hello']);
-
-				// Subscribe to all topics
-				this._iopub?.socket().subscribe('');
-				this._iopub?.socket().on('message', (...args: any[]) => {
-					const msg = deserializeJupyterMessage(args, this._key, this._channel);
-					if (msg !== null) {
-						this.emitMessage(JupyterSockets.iopub, msg);
-					}
-				});
-				this._shell?.socket().on('message', (...args: any[]) => {
-					const msg = deserializeJupyterMessage(args, this._key, this._channel);
-					if (msg !== null) {
-						this.emitMessage(JupyterSockets.shell, msg);
-					}
-				});
-				this._stdin?.socket().on('message', (...args: any[]) => {
-					const msg = deserializeJupyterMessage(args, this._key, this._channel);
-					if (msg !== null) {
-						// If this is an input request, save the header so we can
-						// can line it up with the client's response.
-						if (msg.header.msg_type === 'input_request') {
-							this._inputRequests.set(msg.header.msg_id, msg.header);
-						}
-						this.emitMessage(JupyterSockets.stdin, msg);
-					}
-				});
-			});
+		vscode.window.onDidOpenTerminal((openedTerminal) => {
+			if (openedTerminal.processId === terminal.processId) {
+				this.connectToTerminal(openedTerminal);
+			}
 		});
 	}
 
