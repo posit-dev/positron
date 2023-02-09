@@ -229,7 +229,7 @@ impl ToCharSxp for &str {
 
 impl ToCharSxp for String {
     fn to_charsxp(&self) -> SEXP {
-        (&self[..]).to_charsxp()
+        self.as_str().to_charsxp()
     }
 }
 
