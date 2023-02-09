@@ -17,6 +17,8 @@ use crate::error::Error;
 use crate::error::RError;
 use crate::error::Result;
 use crate::object::RObject;
+use crate::object::ToRStrings;
+use crate::object::r_strings;
 use crate::protect::RProtect;
 use crate::r_symbol;
 use crate::utils::r_inherits;
@@ -217,11 +219,13 @@ impl MaybeSEXP {
     }
 }
 
-/// Wrapper around R_tryCatchError
+/// Wrappers around R_tryCatch()
 ///
 /// Takes a single closure that returns either a SEXP or `()`. If an R error is
 /// thrown this returns a an RError in the Err variant, otherwise it returns the
 /// result of the closure wrapped in an RObject.
+///
+/// The handler closure is not used per se, we just get the condition verbatim in the Err variant
 ///
 /// Safety: the body of the closure should be as simple as possible because in the event
 ///         of an R error, R will jump and there is no rust unwinding, i.e. rust values
@@ -229,16 +233,17 @@ impl MaybeSEXP {
 ///         as C code.
 ///
 /// ```ignore
-/// SEXP R_tryCatchError(
+/// SEXP R_tryCatch(
 ///     SEXP (*body)(void *), void *bdata,
-///     SEXP (*handler)(SEXP, void *), void *hdata)
+///     SEXP conds,
+///     SEXP (*handler)(SEXP, void *), void *hdata),
+///     void (*finally)(void*), void* fdata
+/// )
 /// ```
-///
-///
-pub unsafe fn r_try_catch_error<F, R>(mut fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
+pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R>, Finally: FnMut(), S: ToRStrings {
     // C function that is passed as `body`
     // the actual closure is passed as a void* through arg
-    extern fn body_fn<S>(arg: *mut c_void) -> SEXP where MaybeSEXP: From<S>{
+    extern fn body_fn<S>(arg: *mut c_void) -> SEXP where MaybeSEXP: From<S> {
         // extract the "closure" from the void*
         let closure: &mut &mut dyn FnMut() -> S = unsafe { mem::transmute(arg) };
 
@@ -271,57 +276,7 @@ pub unsafe fn r_try_catch_error<F, R>(mut fun: F) -> std::result::Result<RObject
         condition
     }
 
-    let result = R_tryCatchError(
-        Some(body_fn::<R>),
-        body_data as *mut _ as *mut c_void,
-        Some(handler_fn),
-        success_ptr as *mut c_void
-    );
-
-    match success {
-        true => Ok(RObject::from(result)),
-        false => Err(RError::new(result))
-    }
-
-}
-
-pub unsafe fn r_try_catch_finally<F, R, Finally>(mut fun: F, classes: Vec<String>, mut finally: Finally) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R>, Finally: FnMut() {
-    // C function that is passed as `body`
-    // the actual closure is passed as a void* through arg
-    extern fn body_fn<S>(arg: *mut c_void) -> SEXP where MaybeSEXP: From<S>{
-        // extract the "closure" from the void*
-        let closure: &mut &mut dyn FnMut() -> S = unsafe { mem::transmute(arg) };
-
-        // call the closure and return it result as a SEXP
-        let out : MaybeSEXP = closure().into();
-        out.get()
-    }
-
-    // The actual closure is passed as a void*
-    let mut body_data: &mut dyn FnMut() -> R = &mut fun;
-    let body_data = &mut body_data;
-
-    // handler just returns the condition and sets success to false
-    // to signal that an error was caught
-    //
-    // This is similar to doing tryCatch(<C code>, error = force) in R
-    // except that we can handle the weird case where the code
-    // succeeds but returns a an error object
-    let mut success: bool = true;
-    let success_ptr: *mut bool = &mut success;
-
-    extern fn handler_fn(condition: SEXP, arg: *mut c_void) -> SEXP {
-        // signal that there was an error
-        let success_ptr = arg as *mut bool;
-        unsafe {
-            *success_ptr = false;
-        }
-
-        // and return the R condition as is
-        condition
-    }
-
-    let classes : RObject = classes.into();
+    let classes = r_strings(classes);
 
     // C function that is passed as `finally`
     // the actual closure is passed as a void* through arg
@@ -355,8 +310,12 @@ pub unsafe fn r_try_catch_finally<F, R, Finally>(mut fun: F, classes: Vec<String
     }
 }
 
-pub unsafe fn r_try_catch<F, R>(fun: F, classes: Vec<String>) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
+pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R>, S : ToRStrings {
     r_try_catch_finally(fun, classes, ||{} )
+}
+
+pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
+    r_try_catch_finally(fun, &["error"], ||{} )
 }
 
 pub enum ParseResult {
