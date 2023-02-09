@@ -86,7 +86,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     strategy:
-      max-parallel: 2
+      parallel: 2
       matrix:
         arch: [[arm64, aarch64-apple-darwin], [x64, x86_64-apple-darwin]]
 
