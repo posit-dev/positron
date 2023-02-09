@@ -86,7 +86,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     strategy:
-      parallel: 2
+      concurrency: ci-${{ matrix.arch[0] }}
       matrix:
         arch: [[arm64, aarch64-apple-darwin], [x64, x86_64-apple-darwin]]
 
