@@ -57,14 +57,14 @@ export class LanguageRuntimeAdapter
 	 */
 	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
-	constructor(private readonly _spec: JupyterKernelSpec,
+	constructor(private readonly _context: vscode.ExtensionContext,
+		private readonly _spec: JupyterKernelSpec,
 		languageId: string,
 		languageVersion: string,
 		runtimeVersion: string,
 		private readonly _lsp: () => Promise<number> | null,
 		private readonly _channel: vscode.OutputChannel,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit) {
-		this._kernel = new JupyterKernel(this._spec, this._channel);
 
 		// Hash all the metadata together
 		const digest = crypto.createHash('sha256');
@@ -75,6 +75,8 @@ export class LanguageRuntimeAdapter
 
 		// Extract the first 32 characters of the hash as the runtime ID
 		const runtimeId = digest.digest('hex').substring(0, 32);
+
+		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel);
 
 		// Generate kernel metadata and ID
 		this.metadata = {

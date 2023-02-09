@@ -9,7 +9,8 @@ import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { LanguageRuntimeAdapter } from './LanguageRuntimeAdapter';
 
 export class Api implements vscode.Disposable {
-	constructor(private readonly _channel: vscode.OutputChannel) {
+	constructor(private readonly _context: vscode.ExtensionContext,
+		private readonly _channel: vscode.OutputChannel) {
 	}
 
 	/**
@@ -27,7 +28,9 @@ export class Api implements vscode.Disposable {
 		kernelVersion: string,
 		lsp: () => Promise<number> | null,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit): positron.LanguageRuntime {
-		return new LanguageRuntimeAdapter(kernel, languageId, languageVersion, kernelVersion, lsp, this._channel, startupBehavior);
+
+		return new LanguageRuntimeAdapter(
+			this._context, kernel, languageId, languageVersion, kernelVersion, lsp, this._channel, startupBehavior);
 	}
 
 	dispose() {

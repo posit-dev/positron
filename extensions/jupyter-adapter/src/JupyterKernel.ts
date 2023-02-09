@@ -28,7 +28,7 @@ import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterInputReply } from './JupyterInputReply';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
-import { createJupyterSession, JupyterSession } from './JupyterSession';
+import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -62,7 +62,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** An object that tracks the Jupyter session information */
 	private _session?: JupyterSession;
 
-	constructor(spec: JupyterKernelSpec,
+	constructor(private readonly _context: vscode.ExtensionContext,
+		spec: JupyterKernelSpec,
+		private readonly _runtimeId: string,
 		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
@@ -77,12 +79,47 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._lastHeartbeat = 0;
 		this._lspClientPort = null;
 
+		// Set the initial status to uninitialized (we'll change it later if we
+		// discover it's actually running)
 		this._status = positron.RuntimeState.Uninitialized;
 
 		// Listen to our own status change events
 		this.on('status', (status: positron.RuntimeState) => {
 			this.onStatusChange(status);
 		});
+
+		// Look for a running kernel in the current workspace. If we find one,
+		// it's a JupyterSessionState object, which contains the connection
+		// information.
+		const state = this._context.workspaceState.get(this._runtimeId);
+		if (state) {
+			// We found session state for this kernel. Connect to it.
+			const sessionState = state as JupyterSessionState;
+			this._channel.appendLine(
+				`Found existing kernel for '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
+			let foundTerminal = false;
+
+			// Look through the list of terminals to see if we can find one that matches
+			// the display name of this kernel.
+			vscode.window.terminals.forEach((terminal) => {
+				if (terminal.name === this._spec.display_name) {
+					foundTerminal = true;
+
+					// We are now "starting" the kernel. (Consider: should we
+					// have a "connecting" state?)
+					this.setStatus(positron.RuntimeState.Starting);
+
+					// Connect to the running kernel in the terminal
+					this.connectToTerminal(terminal, new JupyterSession(sessionState));
+				}
+			});
+
+			if (!foundTerminal) {
+				// We didn't find a terminal, so the kernel must have been terminated
+				// or crashed. Remove the session state from the workspace state.
+				this._context.workspaceState.update(this._runtimeId, undefined);
+			}
+		}
 	}
 
 	/**
@@ -90,7 +127,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @param connectionJsonPath The path to the connection JSON file
 	 */
-	public connect(connectionJsonPath: string): void {
+	private connect(connectionJsonPath: string): void {
 		// Create ZeroMQ sockets
 		this._control = new JupyterSocket('Control', zmq.socket('dealer'), this._channel);
 		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), this._channel);
@@ -151,6 +188,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		this._channel.appendLine(
 			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId}})`);
+
+		// Connect to the kernel's sockets
+		this.connect(session.state.connectionFile);
 
 		// Begin streaming the log file, if it exists. We create the log file
 		// when we start the kernel, if it has an argument that specifies a log
@@ -265,6 +305,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					if (pid) {
 						// Save the process ID in the session state
 						session.state.processId = pid;
+
+						// Write the session state to workspace storage
+						this._context.workspaceState.update(this._runtimeId, session.state);
 
 						// Connect to the kernel running in the terminal
 						this.connectToTerminal(openedTerminal, session);
