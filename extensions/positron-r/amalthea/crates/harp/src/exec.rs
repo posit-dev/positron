@@ -10,7 +10,6 @@ use std::mem;
 use std::os::raw::c_int;
 use std::os::raw::c_void;
 use std::os::raw::c_char;
-use std::mem::MaybeUninit;
 
 use libR_sys::*;
 
@@ -188,36 +187,6 @@ pub unsafe fn geterrmessage() -> String {
     match cstr.to_str() {
         Ok(value) => return value.to_string(),
         Err(_) => return "".to_string(),
-    }
-
-}
-
-pub unsafe fn r_top_level_exec<F, R>(mut fun: F) -> Result<R> where F: FnMut() -> R {
-    // this will hold the result of calling fun() on success
-    let mut result: MaybeUninit<R> = MaybeUninit::uninit();
-
-    // wrap fun into a void closure
-    let mut void_closure: &mut dyn FnMut() = &mut || {
-        result.write(fun());
-    };
-    let void_closure = &mut void_closure;
-
-    extern fn top_level_exec_fn(arg: *mut c_void) {
-        let closure: &mut &mut dyn FnMut() = unsafe { mem::transmute(arg) };
-        closure();
-    }
-
-    let success = R_ToplevelExec(
-        Some(top_level_exec_fn),
-        void_closure as *mut _ as *mut c_void
-    );
-
-    match success != 0 {
-        false => Err(Error::TopLevelExecError()),
-
-        // there was no jump, so we can assume
-        // result has been initialized
-        true => Ok(result.assume_init())
     }
 
 }
@@ -579,37 +548,6 @@ mod tests {
         for handle in handles {
             handle.join().unwrap();
         }
-
-    }}
-
-    #[test]
-    fn test_top_level_exec() { r_test! {
-        let mut ps : ParseStatus = 0;
-        let mut protect = RProtect::new();
-        let code = protect.add(crate::r_string!("force(42)"));
-
-        // successfull
-        let out = r_top_level_exec(|| {
-            R_ParseVector(code, -1, &mut ps, R_NilValue)
-        }).unwrap();
-        assert_eq!(r_typeof(out), EXPRSXP as u32);
-
-        let call = VECTOR_ELT(out, 0);
-        assert_eq!(r_typeof(call), LANGSXP as u32);
-        assert_eq!(Rf_length(call), 2);
-        assert_eq!(CAR(call), r_symbol!("force"));
-
-        let arg = CADR(call);
-        assert_eq!(r_typeof(arg), REALSXP as u32);
-        assert_eq!(*REAL(arg), 42.0);
-
-        // failed
-        let msg = CString::new("ouch").unwrap();
-        let err_msg = unsafe {msg.as_ptr()};
-        let failed = r_top_level_exec(|| {
-            Rf_error(err_msg);
-        });
-        assert!(failed.is_err());
 
     }}
 
