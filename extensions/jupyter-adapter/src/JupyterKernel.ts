@@ -34,7 +34,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
 	private _process: ChildProcess | null;
 
-	/** A tail file th */
+	/** An object that watches (tails) the kernel's log file */
 	private _logTail?: Tail;
 
 	/** The kernel's current state */
@@ -58,6 +58,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	private _heartbeatTimer: NodeJS.Timeout | null;
 	private _lastHeartbeat: number;
+
+	/** An object that tracks the Jupyter session information */
 	private _session?: JupyterSession;
 
 	constructor(spec: JupyterKernelSpec,
@@ -117,21 +119,38 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Connects to a kernel running in a terminal.
 	 *
 	 * @param terminal The terminal to connect to
+	 * @param session The Jupyter session information for the kernel running in
+	 *   the terminal
 	 */
-	private connectToTerminal(terminal: vscode.Terminal): void {
+	private connectToTerminal(terminal: vscode.Terminal, session: JupyterSession): void {
+
+		// Bind to the Jupyter session
+		this._session = session;
+
 		// When the terminal closes, mark the kernel as exited
-		vscode.window.onDidCloseTerminal((closedTerminal) => {
-			if (closedTerminal.processId === terminal.processId) {
-				if (this._status === positron.RuntimeState.Starting) {
-					throw new Error(`${this._spec.display_name} failed to start`);
-				} else {
-					this.setStatus(positron.RuntimeState.Exited);
-					this._channel.appendLine(this._spec.display_name + ' kernel exited');
-				}
+		const disposable = vscode.window.onDidCloseTerminal((closedTerminal) => {
+			// Ignore close events from other terminals
+			if (closedTerminal.name !== this._spec.display_name) {
+				return;
 			}
+
+			if (this._status === positron.RuntimeState.Starting) {
+				// If we were starting the kernel, then we failed to start
+				this._channel.appendLine(
+					`${this._spec.display_name} failed to start; exit code: ${terminal.exitStatus?.code}`);
+			} else {
+				// Otherwise, we exited normally (but print the exit code anyway)
+				this.setStatus(positron.RuntimeState.Exited);
+				this._channel.appendLine(
+					`${this._spec.display_name} exited with code ${terminal.exitStatus?.code}`);
+			}
+
+			// Clean up listener
+			disposable.dispose();
 		});
 
-		this._channel.appendLine(`Connecting to ${this._spec.display_name} kernel (pid ${terminal.processId}})`);
+		this._channel.appendLine(
+			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId}})`);
 
 		// Begin streaming the log file, if it exists. We create the log file
 		// when we start the kernel, if it has an argument that specifies a log
@@ -191,9 +210,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	public async start(lspClientPort: number) {
 
 		// Create a new session
-		this._session = await createJupyterSession(lspClientPort);
-		const connnectionFile = this._session.state.connectionFile;
-		const logFile = this._session.state.logFile;
+		const session = await createJupyterSession(lspClientPort);
+		const connnectionFile = session.state.connectionFile;
+		const logFile = session.state.logFile;
 
 		// Form the command-line arguments to the kernel process
 		const args = this._spec.argv.map((arg, _idx) => {
@@ -205,6 +224,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Replace {log_file} with the log file path. Not all kernels
 			// have this argument.
 			if (arg === '{log_file}') {
+				// Ensure the log file exists, so we can start streaming it before the
+				// kernel starts writing to it.
+				fs.writeFileSync(logFile, '');
 				return logFile;
 			}
 
@@ -226,7 +248,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		}
 
 		// Use the VS Code terminal API to create a terminal for the kernel
-		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
+		vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
 			shellPath: args[0],
 			shellArgs: args.slice(1),
@@ -235,9 +257,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// hideFromUser: true
 		});
 
-		vscode.window.onDidOpenTerminal((openedTerminal) => {
-			if (openedTerminal.processId === terminal.processId) {
-				this.connectToTerminal(openedTerminal);
+		// Wait for the terminal to open
+		const disposable = vscode.window.onDidOpenTerminal((openedTerminal) => {
+			if (openedTerminal.name === this._spec.display_name) {
+				// Read the process ID and connect to the kernel when it's ready
+				openedTerminal.processId.then((pid) => {
+					if (pid) {
+						// Save the process ID in the session state
+						session.state.processId = pid;
+
+						// Connect to the kernel running in the terminal
+						this.connectToTerminal(openedTerminal, session);
+
+						// Clean up event listener now that we've located the
+						// correct terminal
+						disposable.dispose();
+					}
+					// Ignore terminals that don't have a process ID
+				});
 			}
 		});
 	}
