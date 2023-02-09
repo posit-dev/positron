@@ -294,6 +294,12 @@ impl<S: ToCharSxp> ToRStrings for Vec<S> {
     }
 }
 
+impl<S: ToCharSxp> ToRStrings for S {
+    fn to_r_strings(self) -> RObject {
+        [self].to_r_strings()
+    }
+}
+
 pub fn r_strings<S: ToRStrings>(strings: S) -> RObject {
     strings.to_r_strings()
 }
@@ -519,6 +525,18 @@ mod tests {
         let s = r_strings(alphabet.to_vec());
         assert_eq!(r_typeof(s.sexp), STRSXP);
         assert_eq!(s, alphabet);
+
+        // &str
+        let string = "Banana";
+        let s = r_strings(string);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, [string]);
+
+        // String
+        let string = String::from("Pineapple");
+        let s = r_strings(string);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, ["Pineapple"]); // string was moved
 
     }}
 
