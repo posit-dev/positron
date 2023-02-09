@@ -96,7 +96,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// We found session state for this kernel. Connect to it.
 			const sessionState = state as JupyterSessionState;
 			this._channel.appendLine(
-				`Found existing kernel for '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
+				`Found existing kernel for '${this._spec.display_name}: '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
 			let foundTerminal = false;
 
 			// Look through the list of terminals to see if we can find one that matches
@@ -105,6 +105,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				if (terminal.name === this._spec.display_name) {
 					foundTerminal = true;
 
+					this._channel.appendLine(
+						`Connecting '${this._runtimeId}' => terminal '${terminal.name}}'`);
 					// We are now "starting" the kernel. (Consider: should we
 					// have a "connecting" state?)
 					this.setStatus(positron.RuntimeState.Starting);
@@ -117,6 +119,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			if (!foundTerminal) {
 				// We didn't find a terminal, so the kernel must have been terminated
 				// or crashed. Remove the session state from the workspace state.
+				this._channel.appendLine(
+					`No terminal found; removing stale session state '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
 				this._context.workspaceState.update(this._runtimeId, undefined);
 			}
 		}
@@ -187,7 +191,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		});
 
 		this._channel.appendLine(
-			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId}})`);
+			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
 
 		// Connect to the kernel's sockets
 		this.connect(session.state.connectionFile);
@@ -307,6 +311,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						session.state.processId = pid;
 
 						// Write the session state to workspace storage
+						this._channel.appendLine(
+							`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
 						this._context.workspaceState.update(this._runtimeId, session.state);
 
 						// Connect to the kernel running in the terminal
