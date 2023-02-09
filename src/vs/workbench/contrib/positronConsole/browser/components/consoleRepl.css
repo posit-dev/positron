@@ -3,17 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-core .console-repl {
+	overflow-x: visible;
 	-webkit-user-select: text;
 	-moz-user-select: text;
 	-ms-user-select: text;
 	user-select: text;
-}
-
-.yayayayayaya {
-	height: 20px;
-}
-
-.haha {
-	font-weight: bold;
-	margin-right: 10px;
 }

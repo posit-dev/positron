@@ -30,5 +30,8 @@
     comment: The help content to be shown.
   - name: kind
     type: string
-    comment: The content help type. Must be one of 'html' or 'markdown'.
+    comment: The content help type. Must be one of 'html', 'markdown', or 'url'.
+  - name: focus
+    type: boolean
+    comment: Focus the Help pane after the Help content has been rendered?
 

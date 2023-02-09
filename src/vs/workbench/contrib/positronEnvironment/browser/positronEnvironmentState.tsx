@@ -52,7 +52,7 @@ export const usePositronEnvironmentState = (services: PositronEnvironmentService
 				setCurrentLanguageEnvironment(undefined);
 			} else {
 				const languageEnvironment = refLanguageEnvironments.current.find(languageEnvironment =>
-					languageEnvironment.runtime.metadata.id === runtime.metadata.id
+					languageEnvironment.runtime.metadata.runtimeId === runtime.metadata.runtimeId
 				);
 
 				if (languageEnvironment) {

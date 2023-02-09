@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-repl-startup-banner {
-	padding: 8px;
-	border-bottom: 1px solid #cccccc;
+	padding-left: 8px;
+	padding-right: 8px;
 }
 
 .console-repl-startup-banner .timestamp {
@@ -15,8 +15,4 @@
 	-ms-user-select: none;
 	-moz-user-select: none;
 	-webkit-user-select: none;
-}
-
-.console-repl-startup-banner .banner-line {
-	font-family: monospace;
 }

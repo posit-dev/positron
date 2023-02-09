@@ -3,34 +3,41 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { HistoryNavigator2 } from 'vs/base/common/history';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
 
-export interface IPositronConsoleOptions {
-	language?: string;
-}
-
 /**
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
-	readonly languageId: string;
-
+	/**
+	 * Gets the runtime for the Positron console instance.
+	 */
 	readonly runtime: ILanguageRuntime;
 
-	clear(): void;
-
-	executeCode(code: string): void;
-
+	/**
+	 * The onDidClearConsole event.
+	 */
 	readonly onDidClearConsole: Event<void>;
 
+	/**
+	 * The onDidExecuteCode event.
+	 */
 	readonly onDidExecuteCode: Event<string>;
 
-	readonly history: HistoryNavigator2<string>;
+	/**
+	 * Clears the Positron console instance.
+	 */
+	clear(): void;
+
+	/**
+	 * Executes code in the Positron console instance.
+	 * @param code The code to execute.
+	 */
+	executeCode(code: string): void;
 }
 
 /**
@@ -40,17 +47,35 @@ export interface IPositronConsoleService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
-	readonly instances: readonly IPositronConsoleInstance[];
+	/**
+	 * Gets the Positron console instances.
+	 */
+	readonly positronConsoleInstances: readonly IPositronConsoleInstance[];
 
-	readonly activeInstance: IPositronConsoleInstance | undefined;
+	/**
+	 * Gets the active Positron console instance.
+	 */
+	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
 
-	readonly onDidStartConsole: Event<IPositronConsoleInstance>;
+	/**
+	 * The onDidStartPositronConsoleInstance event.
+	 */
+	readonly onDidStartPositronConsoleInstance: Event<IPositronConsoleInstance>;
 
-	readonly onDidChangeActiveConsole: Event<IPositronConsoleInstance | undefined>;
+	/**
+	 * The onDidChangeActivePositronConsoleInstance event.
+	 */
+	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
 
-	createConsole(options?: IPositronConsoleOptions): Promise<IPositronConsoleInstance>;
+	/**
+	 * Executes code in a PositronConsoleInstance.
+	 */
 
-	clearActiveConsole(): void;
-
-	executeCode(languageId: string, code: string): void;
+	/**
+	 * Executes code in a PositronConsoleInstance.
+	 * @param languageId The language ID.
+	 * @param code The code.
+	 * @returns A value which indicates whether the code could be executed.
+	 */
+	executeCode(languageId: string, code: string): boolean;
 }

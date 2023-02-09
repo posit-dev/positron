@@ -21,18 +21,18 @@ export class ConsoleReplItemInput implements ConsoleReplItem {
 
 	/**
 	 * Constructor.
-	 * @param props A ConsoleReplItemInputProps the contains the console REPL item props.
+	 * @param _props A ConsoleReplItemInputProps the contains the console REPL item props.
 	 */
 	constructor(private readonly _props: ConsoleReplItemInputProps) {
 	}
 
 	//#endregion Constructor
 
-	//#region ConsoleReplItem Overrides
+	//#region ConsoleReplItem Implementation
 
 	get element(): JSX.Element {
 		return <ConsoleReplInput {...this._props} />;
 	}
 
-	//#endregion ConsoleReplItem Overrides
+	//#endregion ConsoleReplItem Implementation
 }

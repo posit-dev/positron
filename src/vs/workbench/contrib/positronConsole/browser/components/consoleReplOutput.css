@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-repl-output {
-	padding: 8px;
-	border-bottom: 1px solid #cccccc;
+	padding-left: 8px;
+	/* border-bottom: 1px solid #cccccc; */
 }
 
 .console-repl-output .timestamp {

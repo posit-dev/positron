@@ -4,31 +4,67 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
 
+/**
+ * PositronConsoleInstance class.
+ */
 export class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
+	//#region Private Properties
 
-	private readonly _onDidClearConsole = this._register(new Emitter<void>);
-	readonly onDidClearConsole: Event<void> = this._onDidClearConsole.event;
+	/**
+	 * The onDidClearConsole event emitter.
+	 */
+	private readonly _onDidClearConsoleEmitter = this._register(new Emitter<void>);
 
-	private readonly _onDidExecuteCode = this._register(new Emitter<string>);
-	readonly onDidExecuteCode: Event<string> = this._onDidExecuteCode.event;
+	/**
+	 * The onDidExecuteCode event emitter.
+	 */
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<string>);
 
-	readonly history: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000);
+	//#endregion Private Properties
 
-	constructor(
-		readonly languageId: string,
-		readonly runtime: ILanguageRuntime) {
+	/**
+	 * Constructor.
+	 * @param runtime The language runtime.
+	 */
+	constructor(readonly runtime: ILanguageRuntime) {
+		// Call the base class's constructor.
 		super();
+
+		// Populate with execution history
+		// (TODO: these entries, after being fetched here, should be appended to the UI)
+		// this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.id);
 	}
 
+	// /**
+	//  * Gets the history navigator.
+	//  */
+	// readonly historyNavigator: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000); // TODO@softwarenerd - 1000 should come from settings.
+
+	/**
+	 * onDidClearConsole event.
+	 */
+	readonly onDidClearConsole: Event<void> = this._onDidClearConsoleEmitter.event;
+
+	/**
+	 * onDidExecuteCode event.
+	 */
+	readonly onDidExecuteCode: Event<string> = this._onDidExecuteCodeEmitter.event;
+
+	/**
+	 * Clears the console.
+	 */
 	clear(): void {
-		this._onDidClearConsole.fire();
+		this._onDidClearConsoleEmitter.fire();
 	}
 
+	/**
+	 * Executes code.
+	 * @param code The code to execute.
+	 */
 	executeCode(code: string): void {
-		this._onDidExecuteCode.fire(code);
+		this._onDidExecuteCodeEmitter.fire(code);
 	}
 }

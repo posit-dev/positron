@@ -11,7 +11,6 @@ import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRun
 
 // ConsoleReplOutputProps interface.
 export interface ConsoleReplOutputProps {
-	timestamp: Date;
 	languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput;
 }
 
@@ -20,16 +19,20 @@ export interface ConsoleReplOutputProps {
  * @param props A ConsoleReplOutputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplOutput = ({ timestamp, languageRuntimeMessageOutput }: ConsoleReplOutputProps) => {
+export const ConsoleReplOutput = ({ languageRuntimeMessageOutput }: ConsoleReplOutputProps) => {
 	// Hooks.
 	const replLines = useMemo(() => {
-		return replLineSplitter(languageRuntimeMessageOutput.data['text/plain']);
+		if (languageRuntimeMessageOutput.data['text/plain'].length === 0) {
+			return [];
+		} else {
+			return replLineSplitter(languageRuntimeMessageOutput.data['text/plain']);
+		}
 	}, [languageRuntimeMessageOutput]);
+
 
 	// Render.
 	return (
 		<div className='console-repl-output'>
-			<div className='timestamp'>{timestamp.toLocaleTimeString()} ID: {languageRuntimeMessageOutput.id} PARENT-ID: {languageRuntimeMessageOutput.parent_id}</div>
 			{replLines.map(replLine =>
 				<ConsoleReplLine key={replLine.key} text={replLine.text} />
 			)}

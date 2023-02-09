@@ -49,26 +49,29 @@ export class LanguageInputHistory extends Disposable {
 
 	public attachToRuntime(runtime: ILanguageRuntime): void {
 		// Don't attach to the same runtime twice.
-		if (this._attachedRuntimes.has(runtime.metadata.id)) {
-			this._logService.debug(`LanguageInputHistory (${this._languageId}): Already attached to runtime ${runtime.metadata.id}`);
+		if (this._attachedRuntimes.has(runtime.metadata.runtimeId)) {
+			this._logService.debug(`LanguageInputHistory (${this._languageId}): Already attached to runtime ${runtime.metadata.runtimeId}`);
 			return;
 		}
 
 		// Safety check: ensure that this runtime is associated with the
 		// language for this history recorder.
-		if (runtime.metadata.language !== this._languageId) {
-			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch (expected ${this._languageId}, got ${runtime.metadata.language}))`);
+		if (runtime.metadata.languageId !== this._languageId) {
+			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch (expected ${this._languageId}, got ${runtime.metadata.languageId}))`);
 			return;
 		}
 
 		// When a runtime records an input, emit it to the history.
-		this._register(runtime.onDidReceiveRuntimeMessageInput(message => {
-			const entry: IInputHistoryEntry = {
-				when: Date.parse(message.when),
-				input: message.code
-			};
-			this._pendingEntries.push(entry);
-			this.delayedSave();
+		this._register(runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+			// Do not record history for empty codes.
+			if (languageRuntimeMessageInput.code.length > 0) {
+				const entry: IInputHistoryEntry = {
+					when: Date.parse(languageRuntimeMessageInput.when),
+					input: languageRuntimeMessageInput.code
+				};
+				this._pendingEntries.push(entry);
+				this.delayedSave();
+			}
 		}));
 	}
 

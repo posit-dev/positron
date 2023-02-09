@@ -21,18 +21,18 @@ export class ConsoleReplItemError implements ConsoleReplItem {
 
 	/**
 	 * Constructor.
-	 * @param props A ConsoleReplItemErrorProps the contains the console REPL item props.
+	 * @param _props A ConsoleReplItemErrorProps the contains the console REPL item props.
 	 */
 	constructor(private readonly _props: ConsoleReplItemErrorProps) {
 	}
 
 	//#endregion Constructor
 
-	//#region ConsoleReplItem Overrides
+	//#region ConsoleReplItem Implementation
 
 	get element(): JSX.Element {
 		return <ConsoleReplError {...this._props} />;
 	}
 
-	//#endregion ConsoleReplItem Overrides
+	//#endregion ConsoleReplItem Implementation
 }

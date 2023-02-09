@@ -11,7 +11,6 @@ import { ILanguageRuntimeMessageInput } from 'vs/workbench/services/languageRunt
 
 // ConsoleReplInputProps interface.
 export interface ConsoleReplInputProps {
-	timestamp: Date;
 	languageRuntimeMessageInput: ILanguageRuntimeMessageInput;
 }
 
@@ -20,19 +19,21 @@ export interface ConsoleReplInputProps {
  * @param props A ConsoleReplInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplInput = ({ timestamp, languageRuntimeMessageInput }: ConsoleReplInputProps) => {
+export const ConsoleReplInput = ({ languageRuntimeMessageInput }: ConsoleReplInputProps) => {
 	// Hooks.
 	const replLines = useMemo(() => {
-		return replLineSplitter(languageRuntimeMessageInput.code, '>');
+		return replLineSplitter(languageRuntimeMessageInput.code);
 	}, [languageRuntimeMessageInput]);
 
 	// Render.
 	return (
 		<div className='console-repl-input'>
-			<div className='timestamp'>{timestamp.toLocaleTimeString()} ID: {languageRuntimeMessageInput.id} PARENT-ID: {languageRuntimeMessageInput.parent_id}</div>
-			{replLines.map(replLine =>
-				<ConsoleReplLine key={replLine.key} text={replLine.text} />
-			)}
+			<div className='prompt'>&gt;</div>
+			<div className='lines'>
+				{replLines.map(replLine =>
+					<ConsoleReplLine key={replLine.key} text={replLine.text} />
+				)}
+			</div>
 		</div>
 	);
 };

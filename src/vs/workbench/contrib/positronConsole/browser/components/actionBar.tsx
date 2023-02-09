@@ -34,7 +34,7 @@ export interface ConsoleActionBarProps extends PositronConsoleServices {
 	readonly contextKeyService: IContextKeyService;
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
-	readonly layoutService: IWorkbenchLayoutService;
+	readonly workbenchLayoutService: IWorkbenchLayoutService;
 }
 
 /**
@@ -48,7 +48,7 @@ export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
-		positronConsoleContext.currentConsoleReplInstance?.replInstance.clearRepl();
+		positronConsoleContext.currentPositronConsoleInstance?.clear();
 	};
 
 	// Render.

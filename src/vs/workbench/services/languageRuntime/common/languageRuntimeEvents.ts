@@ -37,8 +37,11 @@ export interface ShowHelpEvent extends LanguageRuntimeEventData {
 	/** The help content to be shown. */
 	content: string;
 
-	/** The content help type. Must be one of 'html' or 'markdown'. */
+	/** The content help type. Must be one of 'html', 'markdown', or 'url'. */
 	kind: string;
+
+	/** Focus the Help pane after the Help content has been rendered? */
+	focus: boolean;
 
 }
 

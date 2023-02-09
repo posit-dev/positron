@@ -33,15 +33,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Constructor.
-	 * @param id The language ID.
+	 * @param runtimeId The ID for the new runtime
 	 * @param version The language version.
 	 */
-	constructor(id: string, version: string) {
+	constructor(runtimeId: string, version: string) {
 		this.metadata = {
-			id,
-			language: 'Zed',
-			name: 'Zed',
-			version,
+			runtimeId,
+			languageId: 'zed',
+			languageName: 'Zed',
+			runtimeName: 'Zed',
+			languageVersion: version,
+			runtimeVersion: '0.0.1',
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
 	}
@@ -73,14 +75,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param errorBehavior The error behavior to conform to.
 	 */
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
-		const busy: positron.LanguageRuntimeState = {
+
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
 			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Busy
-		};
-		this._onDidReceiveRuntimeMessage.fire(busy);
+		} as positron.LanguageRuntimeState);
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 
@@ -88,7 +90,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		let result;
 		switch (code.toLowerCase()) {
 			case 'version':
-				result = `Zed v${this.metadata.version} (${this.metadata.id})`;
+				result = `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`;
 				break;
 			default:
 				result = `Error. '${code}' not recognized.`;
@@ -98,7 +100,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Add the command to the history
 		this._history.push([code, result]);
 
-		const output: positron.LanguageRuntimeOutput = {
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
 			when: new Date().toISOString(),
@@ -106,20 +108,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			data: {
 				'text/plain': result
 			} as any,
-		};
-
-		this._onDidReceiveRuntimeMessage.fire(output);
+		} as positron.LanguageRuntimeOutput);
 
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
 
-		const idle: positron.LanguageRuntimeState = {
+		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: id,
 			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.State,
 			state: positron.RuntimeOnlineState.Idle
-		};
-		this._onDidReceiveRuntimeMessage.fire(idle);
+		} as positron.LanguageRuntimeState);
 	}
 
 	/**
@@ -173,9 +172,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	start(): Thenable<positron.LanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		return Promise.resolve({
-			banner: `Zed ${this.metadata.version}`,
-			implementation_version: this.metadata.version,
-			language_version: this.metadata.version
+			banner: `Zed ${this.metadata.languageVersion} `,
+			implementation_version: this.metadata.runtimeVersion,
+			language_version: this.metadata.languageVersion,
 		} as positron.LanguageRuntimeInfo);
 	}
 
@@ -203,7 +202,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#endregion LanguageRuntime Implementation
 
 	//#region Private Methods
-
 
 	//#endregion Private Methods
 }

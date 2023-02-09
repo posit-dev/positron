@@ -12,6 +12,7 @@ import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/not
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 
 /**
  * Class that implements the ILanguageRuntime interface by wrapping INotebookKernel
@@ -52,18 +53,29 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
-		@ILogService private readonly _logService: ILogService) {
+		@ILogService private readonly _logService: ILogService,
+		@ILanguageService private readonly _languageService: ILanguageService) {
 
 		// Initialize base disposable functionality
 		super();
 
+		// Look up the language name for the kernel
+		const languageId = _kernel.supportedLanguages[0];
+		let languageName = this._languageService.getLanguageName(languageId);
+		if (!languageName) {
+			this._logService.warn(`No language name found for language ID '${languageId}'`);
+			languageName = languageId;
+		}
+
 		// The NotebookKernel interface doesen't have any notion of the language
 		// version, so use 1.0 as the default.
 		this.metadata = {
-			version: '1.0',
-			id: _kernel.id,
-			language: _kernel.supportedLanguages[0],
-			name: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`,
+			runtimeId: _kernel.id,
+			languageId: _kernel.supportedLanguages[0],
+			languageName: languageName,
+			languageVersion: '1.0',
+			runtimeName: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`,
+			runtimeVersion: '0.0.1',
 			startupBehavior: LanguageRuntimeStartupBehavior.Implicit
 		};
 
@@ -82,7 +94,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 				this._startup.fire({
 					banner: `${this._kernel.label} [Notebook Kernel]`,
 					implementation_version: '0.1.0',
-					language_version: this.metadata.version
+					language_version: this.metadata.languageVersion
 				});
 			}
 		});
@@ -93,7 +105,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		//  repl://python-1,
 		//  repl://python-2, etc.
 		this._uri = URI.parse('repl:///' +
-			this.metadata.language +
+			this.metadata.languageId +
 			'-' +
 			NotebookLanguageRuntime._replCounter++);
 
@@ -104,8 +116,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			{
 				cells: [{
 					source: '',
-					language: this.metadata.language,
-					mime: `application/${this.metadata.language}`,
+					language: this.metadata.languageId,
+					mime: `application/${this.metadata.languageId}`,
 					cellKind: CellKind.Code,
 					outputs: [],
 					metadata: {}
@@ -188,8 +200,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		// asked to execute code.
 		return Promise.resolve({
 			banner: '',
-			language_version: this.metadata.version,
-			implementation_version: '1.0',
+			language_version: this.metadata.languageVersion,
+			implementation_version: this.metadata.runtimeVersion,
 		} as ILanguageRuntimeInfo);
 	}
 
@@ -211,8 +223,8 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			editType: CellEditType.Replace,
 			cells: [{
 				source: code,
-				language: this.metadata.language,
-				mime: `text/${this.metadata.language}`,
+				language: this.metadata.languageId,
+				mime: `text/${this.metadata.languageId}`,
 				cellKind: CellKind.Code,
 				outputs: [],
 				metadata: {}

@@ -30,9 +30,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	// The markdown renderer.
 	private _markdownRenderer: MarkdownRenderer;
 
-	// The onSizeChanged event.
-	private _onRenderHelp = this._register(new Emitter<TrustedHTML | undefined>());
-	readonly onRenderHelp: Event<TrustedHTML | undefined> = this._onRenderHelp.event;
+	// The RenderHelp event.
+	private _onRenderHelp = this._register(new Emitter<string>());
+	readonly onRenderHelp: Event<string> = this._onRenderHelp.event;
 
 	/**
 	 * Constructor.
@@ -48,20 +48,21 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		super();
 
 		// Listen for language runtime Help events.
-		languageRuntimeService.onDidStartRuntime(runtime => {
-
-			runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-				if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowHelp) {
-					const data = languageRuntimeMessageEvent.data as ShowHelpEvent;
-					if (data.kind === 'markdown') {
-						const markdown = new MarkdownString(data.content, true);
-						this.openHelpMarkdown(markdown);
-					} else {
-						this.openHelpHtml(data.content);
-					}
+		languageRuntimeService.onDidReceiveRuntimeEvent(globalEvent => {
+			const languageRuntimeMessageEvent = globalEvent.event;
+			if (languageRuntimeMessageEvent.name === LanguageRuntimeEventType.ShowHelp) {
+				const data = languageRuntimeMessageEvent.data as ShowHelpEvent;
+				if (data.kind === 'markdown') {
+					const markdown = new MarkdownString(data.content, true);
+					this.openHelpMarkdown(markdown);
+				} else if (data.kind === 'html') {
+					this.openHelpHtml(data.content);
+				} else if (data.kind === 'url') {
+					this.openHelpUrl(data.content);
+				} else {
+					console.error(`[positron-help]: Unrecognized event ${data}`);
 				}
-
-			});
+			}
 		});
 
 		this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
@@ -81,8 +82,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		const markdownRenderResult = this._markdownRenderer.render(markdown);
 		try {
 			const someOtherString = this.renderHelpDocument(markdownRenderResult.element.innerHTML);
-			const sdf = ttPolicyPositronHelp.createHTML(someOtherString);
-			this._onRenderHelp.fire(sdf);
+			this._onRenderHelp.fire(someOtherString);
 		} finally {
 			markdownRenderResult.dispose();
 		}
@@ -94,10 +94,75 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			return;
 		}
 
-		const trustedHtml = ttPolicyPositronHelp.createHTML(html);
-		this._onRenderHelp.fire(trustedHtml);
+		this._onRenderHelp.fire(html);
 	}
 
+	openHelpUrl(url: string) {
+		const html = this.renderEmbeddedHelpDocument(url);
+		this._onRenderHelp.fire(html);
+	}
+
+	renderEmbeddedHelpDocument(url: string): string {
+
+		const nonce = generateUuid();
+
+		// Render the help document.
+		return `
+		<!DOCTYPE html>
+		<html>
+			<head>
+
+				<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+				<meta http-equiv="Content-Security-Policy" content="
+					default-src 'none';
+					media-src https:;
+					script-src 'self' 'nonce-${nonce}';
+					style-src 'nonce-${nonce}';
+					frame-src *;
+				">
+
+				<style nonce="${nonce}">
+					body {
+						font-family: sans-serif;
+						font-size: 13px;
+						display: flex;
+						flex-direction: column;
+						padding: 0;
+						width: 100%;
+						height: 100%;
+					}
+				</style>
+
+			</head>
+			<body>
+
+				<iframe id="help-iframe"></iframe>
+
+				<script nonce="${nonce}">
+				(function() {
+
+					// Load help tools
+					var script = document.createElement("script");
+					script.src = "${FileAccess.asBrowserUri('positron-help.js')}";
+					script.nonce = "${nonce}";
+					document.body.appendChild(script);
+
+					// Set up iframe
+					var frame = document.getElementById("help-iframe");
+					frame.style.width = "100%";
+					frame.style.height = "100%";
+					frame.style.border = "none";
+					frame.src = "${url}";
+
+					// TODO: Not clear why this is necessary
+					document.documentElement.style.width = "100%";
+					document.documentElement.style.height = "100%";
+
+				})();
+				</script>
+			</body>
+		</html>`;
+	}
 
 	/**
 	 * Renders the help document.

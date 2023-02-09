@@ -20,16 +20,16 @@ export const ConsoleReplMenuButton = () => {
 	const actions = () => {
 		// Build the actions for the available console repl instances.
 		const actions: IAction[] = [];
-		positronConsoleContext.consoleReplInstances.map(consoleReplInstance => {
+		positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance => {
 			actions.push({
-				id: consoleReplInstance.replInstance.runtime.metadata.id,
-				label: consoleReplInstance.displayName,
+				id: positronConsoleInstance.runtime.metadata.runtimeId,
+				label: positronConsoleInstance.runtime.metadata.languageName,
 				tooltip: '',
 				class: undefined,
 				enabled: true,
 				run: () => {
 					//positronConsoleContext.languageRuntimeService.activeRuntime = languageEnvironment.runtime;
-					positronConsoleContext.setCurrentConsoleReplInstance(consoleReplInstance);
+					positronConsoleContext.setCurrentPositronConsoleInstance(positronConsoleInstance);
 				}
 			});
 		});
@@ -41,7 +41,7 @@ export const ConsoleReplMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			text={positronConsoleContext.currentConsoleReplInstance?.displayName ?? 'None'}
+			text={positronConsoleContext.currentPositronConsoleInstance?.runtime.metadata.languageName ?? 'None'}
 			actions={actions}
 		/>
 	);

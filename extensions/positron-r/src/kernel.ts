@@ -113,7 +113,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 				'--connection_file', '{connection_file}',
 				'--log', '{log_file}'],
 			'display_name': `R: ${rHome.rHome}`, // eslint-disable-line
-			'language': 'r',
+			'language': 'R',
 			'env': {
 				'RUST_LOG': 'trace', // eslint-disable-line
 				'R_HOME': rHome.rHome, // eslint-disable-line
@@ -123,8 +123,13 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			}
 		};
 
+		// Get the version of this extension from package.json so we can pass it
+		// to the adapter as the implementation version.
+		const packageJson = require('../package.json');
+		const version = packageJson.version;
+
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(kernelSpec, rHome.rVersion ?? '0.0.1', () => {
+		runtime = ext.exports.adaptKernel(kernelSpec, 'r', rHome.rVersion ?? '0.0.1', version, () => {
 			return activateLsp(context);
 		});
 

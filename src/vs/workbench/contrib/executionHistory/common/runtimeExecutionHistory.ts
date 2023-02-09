@@ -37,7 +37,7 @@ export class RuntimeExecutionHistory extends Disposable {
 		super();
 
 		// Create storage key for this runtime based on its ID
-		this._storageKey = `positron.executionHistory.${_runtime.metadata.id}`;
+		this._storageKey = `positron.executionHistory.${_runtime.metadata.runtimeId}`;
 
 		// Load existing history entries
 		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
@@ -46,7 +46,7 @@ export class RuntimeExecutionHistory extends Disposable {
 				this._entries.push(entry);
 			});
 		} catch (err) {
-			this._logService.warn(`Couldn't load history for ${this._runtime.metadata.name} ${this._runtime.metadata.id}: ${err}}`);
+			this._logService.warn(`Couldn't load history for ${this._runtime.metadata.runtimeName} ${this._runtime.metadata.runtimeVersion}: ${err}}`);
 		}
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageInput(message => {

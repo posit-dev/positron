@@ -2,21 +2,18 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { Codicon } from 'vs/base/common/codicons';
-import Severity from 'vs/base/common/severity';
-import { ILanguageService } from 'vs/editor/common/languages/language';
 import { localize } from 'vs/nls';
+import Severity from 'vs/base/common/severity';
+import { Codicon } from 'vs/base/common/codicons';
 import { ILocalizedString } from 'vs/platform/action/common/action';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IReplService } from 'vs/workbench/contrib/repl/common/repl';
-import { REPL_ACTION_CATEGORY } from 'vs/workbench/contrib/repl/common/replCommands';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 
 export function registerHistoryActions() {
-	const category: ILocalizedString = { value: REPL_ACTION_CATEGORY, original: 'REPL' };
+	const category: ILocalizedString = { value: 'repl', original: 'REPL' };
 
 	registerAction2(class extends Action2 {
 		constructor() {
@@ -40,21 +37,19 @@ export function registerHistoryActions() {
 			const historyService = accessor.get(IExecutionHistoryService);
 			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 			const dialogService = accessor.get(IDialogService);
-			const replService = accessor.get(IReplService);
-			const languageService = accessor.get(ILanguageService);
 
 			// If there's no active language runtime, then we can't clear the
 			// history, since we don't know which language to clear history for.
 			const languageRuntime = languageRuntimeService.activeRuntime;
 			if (!languageRuntime) {
-				dialogService.show(
+				await dialogService.show(
 					Severity.Info,
 					localize('noLanguageRuntime', "Cannot clear input history because no interpreter is currently active."));
 				return;
 			}
 
-			// Look up the user-friendly name for the language.
-			const languageName = languageService.getLanguageName(languageRuntime.metadata.language);
+			// Get the language name.
+			const languageName = languageRuntime.metadata.languageName;
 
 			// Ask the user if they want to clear the history; this is a
 			// destructive action and it can't be undone.
@@ -67,13 +62,10 @@ export function registerHistoryActions() {
 			}
 
 			// Clear the stored history from the history service.
-			historyService.clearInputEntries(languageRuntime.metadata.language);
-
-			// Clear the history from the REPL service.
-			replService.clearInputHistory(languageRuntime.metadata.language);
+			historyService.clearInputEntries(languageRuntime.metadata.languageId);
 
 			// Let the user know that the history was cleared.
-			dialogService.show(Severity.Info, localize('clearedInputHistory', "The {0} input history has been cleared.", languageName));
+			await dialogService.show(Severity.Info, localize('clearedInputHistory', "The {0} input history has been cleared.", languageName));
 		}
 	});
 }

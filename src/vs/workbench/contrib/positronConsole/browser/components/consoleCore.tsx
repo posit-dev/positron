@@ -11,6 +11,7 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps extends PositronConsoleProps {
+	width: number;
 	height: number;
 }
 
@@ -25,7 +26,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// If there are no console instances, render nothing.
 	// TODO@softwarenerd - Render something specific for this case. TBD.
-	if (!positronConsoleContext.consoleReplInstances.length) {
+	if (!positronConsoleContext.positronConsoleInstances.length) {
 		return null;
 	}
 
@@ -33,12 +34,14 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	return (
 		<div className='console-core'>
 			<ConsoleActionBar {...props} />
-			<div className='console-repls-container' style={{ height: props.height - 32 }}>
-				{positronConsoleContext.consoleReplInstances.map(consoleReplInstance =>
+			<div className='console-repls-container' style={{ width: props.width, height: props.height - 32 }}>
+				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 					<ConsoleRepl
-						key={consoleReplInstance.replInstance.runtime.metadata.id}
-						hidden={consoleReplInstance !== positronConsoleContext.currentConsoleReplInstance}
-						consoleReplInstance={consoleReplInstance} />
+						width={props.width}
+						height={props.height - 32}
+						key={positronConsoleInstance.runtime.metadata.languageId}
+						hidden={positronConsoleInstance !== positronConsoleContext.currentPositronConsoleInstance}
+						positronConsoleInstance={positronConsoleInstance} />
 				)}
 			</div>
 		</div>
