@@ -6,10 +6,8 @@ import { ChildProcess } from 'child_process';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as zmq from 'zeromq/v5-compat';
-import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import * as crypto from 'crypto';
 import { JupyterSocket } from './JupyterSocket';
 import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
@@ -30,27 +28,17 @@ import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterInputReply } from './JupyterInputReply';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
-import { findAvailablePort } from './PortFinder';
+import { createJupyterSession, JupyterSession } from './JupyterSession';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
 	private _process: ChildProcess | null;
 
-	/** The kernel connection file (path to JSON file) */
-	private _connectionFile: string | null;
-
-	/** The log file (path to a text file) */
-	private _logFile: string | null;
-	private _logTail: any;
+	/** A tail file th */
+	private _logTail?: Tail;
 
 	/** The kernel's current state */
 	private _status: positron.RuntimeState;
-
-	/** The security key to use to sign messages to the kernel */
-	private readonly _key: string;
-
-	/** The session identifier */
-	private readonly _sessionId: string;
 
 	// ZeroMQ sockets ---
 	private _control: JupyterSocket | null;
@@ -70,15 +58,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	private _heartbeatTimer: NodeJS.Timeout | null;
 	private _lastHeartbeat: number;
+	private _session?: JupyterSession;
 
 	constructor(spec: JupyterKernelSpec,
 		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
 		this._process = null;
-		this._connectionFile = null;
-		this._logFile = null;
-		this._logTail = null;
 
 		this._control = null;
 		this._shell = null;
@@ -90,8 +76,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._lspClientPort = null;
 
 		this._status = positron.RuntimeState.Uninitialized;
-		this._key = crypto.randomBytes(16).toString('hex');
-		this._sessionId = crypto.randomBytes(16).toString('hex');
 
 		// Listen to our own status change events
 		this.on('status', (status: positron.RuntimeState) => {
@@ -127,49 +111,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._stdin.connect(connectionSpec.stdin_port);
 		this._iopub.connect(connectionSpec.iopub_port);
 		this._heartbeat.connect(connectionSpec.hb_port);
-
-	}
-
-	/**
-	 * Creates a connection file for the Jupyter kernel.
-	 *
-	 * @param lspClientPort The port to use for the LSP client, or 0 if no LSP
-	 *   client is supported
-	 */
-	private async createConnectionFile(lspClientPort: number): Promise<string> {
-		// Array of bound ports
-		const ports: Array<number> = [];
-		const maxTries = 25;
-
-		// Create connection definition, allocating new ports as needed
-		const conn: JupyterConnectionSpec = {
-			control_port: await findAvailablePort(ports, maxTries),  // eslint-disable-line
-			shell_port: await findAvailablePort(ports, maxTries),      // eslint-disable-line
-			stdin_port: await findAvailablePort(ports, maxTries),      // eslint-disable-line
-			iopub_port: await findAvailablePort(ports, maxTries),      // eslint-disable-line
-			hb_port: await findAvailablePort(ports, maxTries),     // eslint-disable-line
-			lsp_port: lspClientPort > 0 ? lspClientPort : undefined,  //eslint-disable-line
-			signature_scheme: 'hmac-sha256',     // eslint-disable-line
-			ip: '127.0.0.1',
-			transport: 'tcp',
-			key: crypto.randomBytes(16).toString('hex')
-		};
-
-		// Write the connection definition to a file and return the path
-		const tempdir = os.tmpdir();
-		const sep = path.sep;
-		const kerneldir = fs.mkdtempSync(`${tempdir}${sep}kernel-`);
-		const connectionFile = path.join(kerneldir, 'connection.json');
-		return new Promise((resolve, reject) => {
-			fs.writeFile(connectionFile, JSON.stringify(conn), (err) => {
-				if (err) {
-					reject(err);
-				} else {
-					this._channel.appendLine(`Created connection file ${connectionFile}`);
-					resolve(connectionFile);
-				}
-			});
-		});
 	}
 
 	/**
@@ -190,9 +131,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			}
 		});
 
-		// Begin streaming logs
 		this._channel.appendLine(`Connecting to ${this._spec.display_name} kernel (pid ${terminal.processId}})`);
-		this.streamLogFileToChannel(this._spec.language, this._channel);
+
+		// Begin streaming the log file, if it exists. We create the log file
+		// when we start the kernel, if it has an argument that specifies a log
+		// file.
+		const logFilePath = this._session!.state.logFile;
+		if (fs.existsSync(logFilePath)) {
+			this.streamLogFileToChannel(logFilePath, this._spec.language, this._channel);
+		}
 
 		this._heartbeat?.socket().once('message', (msg: string) => {
 
@@ -211,19 +158,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Subscribe to all topics
 		this._iopub?.socket().subscribe('');
 		this._iopub?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
+			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.iopub, msg);
 			}
 		});
 		this._shell?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
+			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.shell, msg);
 			}
 		});
 		this._stdin?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
+			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 			if (msg !== null) {
 				// If this is an input request, save the header so we can
 				// can line it up with the client's response.
@@ -241,31 +188,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param lspClientPort The port that the LSP client is listening on, or 0
 	 *   if no LSP is started
 	 */
-	public async start(lspClientPort: number): void {
+	public async start(lspClientPort: number) {
 
-		// Create a new connection file
-		this._connectionFile = await this.createConnectionFile(lspClientPort);
+		// Create a new session
+		this._session = await createJupyterSession(lspClientPort);
+		const connnectionFile = this._session.state.connectionFile;
+		const logFile = this._session.state.logFile;
 
 		// Form the command-line arguments to the kernel process
 		const args = this._spec.argv.map((arg, _idx) => {
 			// Replace {connection_file} with the connection file path
 			if (arg === '{connection_file}') {
-				return this._connectionFile;
+				return connnectionFile;
 			}
 
 			// Replace {log_file} with the log file path. Not all kernels
 			// have this argument.
 			if (arg === '{log_file}') {
-				// Get the parent directory of the connection file
-				const kerneldir = path.dirname(this._connectionFile!);
-
-				// Create output log file
-				this._logFile = path.join(kerneldir, 'output.log');
-
-				// Ensure the file exists
-				fs.writeFileSync(this._logFile, '');
-
-				return this._logFile;
+				return logFile;
 			}
 
 			return arg;
@@ -579,15 +519,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Clean up file watcher for log file
 		if (this._logTail) {
-			this._logTail.close();
+			this._logTail.unwatch();
 		}
 
-		// Clean up connection and log files
-		if (this._connectionFile) {
-			fs.rmSync(this._connectionFile);
-		}
-		if (this._logFile) {
-			fs.rmSync(this._logFile);
+		// Clean up session state (connection and log files)
+		if (this._session) {
+			this._session.dispose();
 		}
 
 		// Close sockets
@@ -617,7 +554,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			msg_type: type,        // eslint-disable-line
 			version: '5.0',
 			date: (new Date()).toISOString(),
-			session: this._sessionId,
+			session: this._session!.sessionId,
 			username: os.userInfo().username
 		};
 	}
@@ -654,7 +591,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 		this._channel.appendLine(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
 		return new Promise<void>((resolve, reject) => {
-			dest.socket().send(serializeJupyterMessage(msg, this._key), 0, (err) => {
+			dest.socket().send(serializeJupyterMessage(msg, this._session!.key), 0, (err) => {
 				if (err) {
 					this._channel.appendLine(`SEND ${msg.header.msg_type}: ERR: ${err}`);
 					reject(err);
@@ -738,13 +675,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Streams a log file to the output channel
 	 */
-	private streamLogFileToChannel(prefix: string, output: vscode.OutputChannel) {
-		output.appendLine('Streaming log file: ' + this._logFile);
+	private streamLogFileToChannel(logFilePath: string, prefix: string, output: vscode.OutputChannel) {
+		output.appendLine('Streaming log file: ' + logFilePath);
 		try {
-			this._logTail = new Tail(this._logFile!,
-				{ fromBeginning: true, useWatchFile: true });
+			this._logTail = new Tail(logFilePath, { fromBeginning: true, useWatchFile: true });
 		} catch (err) {
-			this._channel.appendLine(`Error streaming log file ${this._logFile}: ${err}`);
+			this._channel.appendLine(`Error streaming log file ${logFilePath}: ${err}`);
 			return;
 		}
 
