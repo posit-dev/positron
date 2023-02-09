@@ -222,6 +222,18 @@ pub trait ToCharSxp {
 impl ToCharSxp for &str {
     fn to_charsxp(&self) -> SEXP {
         unsafe {
+            /*
+                Rf_mkCharLenCE() will take care of allocating a nul terminated
+                string on the C side, so we don't need to worry about this here
+
+                    c = allocCharsxp(len);
+                    memcpy(CHAR_RW(c), name, len);
+
+                The only caveat is that this will error() if self embeds a nul
+
+                rust strings being utf8, we can use cetype_t_CE_UTF8 and skip
+                worrying about various problems in Rf_mkCharLenCE()
+            */
             Rf_mkCharLenCE(self.as_ptr() as *mut c_char, self.len() as i32, cetype_t_CE_UTF8)
         }
     }
