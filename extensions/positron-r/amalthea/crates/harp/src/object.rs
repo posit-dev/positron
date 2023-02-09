@@ -530,13 +530,13 @@ mod tests {
         let string = "Banana";
         let s = r_strings(string);
         assert_eq!(r_typeof(s.sexp), STRSXP);
-        assert_eq!(s, [string]);
+        assert_eq!(s, string);
 
         // String
         let string = String::from("Pineapple");
         let s = r_strings(string);
         assert_eq!(r_typeof(s.sexp), STRSXP);
-        assert_eq!(s, ["Pineapple"]); // string was moved
+        assert_eq!(s, "Pineapple"); // string was moved
 
     }}
 

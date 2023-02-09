@@ -100,6 +100,20 @@ impl<S> PartialEq<Vec<S>> for RObject where S : CharSxpEq {
     }
 }
 
+impl <S> PartialEq<S> for RObject where S : CharSxpEq {
+    fn eq(&self, other: &S) -> bool {
+        unsafe {
+            let sexp = self.sexp;
+            if Rf_length(sexp) != 1 {
+                return false;
+            }
+
+            other.eq_charsxp(STRING_ELT(sexp, 0))
+        }
+
+    }
+}
+
 pub fn r_is_null(object: SEXP) -> bool {
     unsafe {
         Rf_isNull(object) == 1
