@@ -101,6 +101,7 @@ unsafe fn unprotect(cell: SEXP) {
 
 }
 
+#[derive(Debug)]
 pub struct RObject {
     pub sexp: SEXP,
     pub cell: SEXP,
@@ -214,15 +215,44 @@ impl From<String> for RObject {
     }
 }
 
-impl From<Vec<String>> for RObject {
-    fn from(value: Vec<String>) -> Self {
+pub trait ToCharSxp {
+    fn to_charsxp(&self) -> SEXP;
+}
+
+impl ToCharSxp for &str {
+    fn to_charsxp(&self) -> SEXP {
+        unsafe {
+            /*
+                Rf_mkCharLenCE() will take care of allocating a nul terminated
+                string on the C side, so we don't need to worry about this here
+
+                    c = allocCharsxp(len);
+                    memcpy(CHAR_RW(c), name, len);
+
+                The only caveat is that this will error() if self embeds a nul
+
+                rust strings being utf8, we can use cetype_t_CE_UTF8 and skip
+                worrying about various problems in Rf_mkCharLenCE()
+            */
+            Rf_mkCharLenCE(self.as_ptr() as *mut c_char, self.len() as i32, cetype_t_CE_UTF8)
+        }
+    }
+}
+
+impl ToCharSxp for String {
+    fn to_charsxp(&self) -> SEXP {
+        self.as_str().to_charsxp()
+    }
+}
+
+impl<S> From<&[S]> for RObject where S : ToCharSxp {
+    fn from(value: &[S]) -> Self {
         unsafe {
             let n = value.len() as isize;
             let vector = Rf_protect(Rf_allocVector(STRSXP, n));
             for i in 0..n {
                 let string = value.get_unchecked(i as usize);
-                let element = Rf_mkCharLenCE(string.as_ptr() as *mut c_char, n as i32, cetype_t_CE_UTF8);
-                SET_STRING_ELT(vector, i as R_xlen_t, element);
+                SET_STRING_ELT(vector, i as R_xlen_t, string.to_charsxp());
             }
             Rf_unprotect(1);
             return RObject::new(vector);
@@ -230,6 +260,17 @@ impl From<Vec<String>> for RObject {
     }
 }
 
+impl<S, const N: usize> From<&[S; N]> for RObject where S : ToCharSxp {
+    fn from(value: &[S; N]) -> Self {
+        RObject::from(&value[..])
+    }
+}
+
+impl<S> From<Vec<S>> for RObject where S : ToCharSxp {
+    fn from(value: Vec<S>) -> Self {
+        RObject::from(&value[..])
+    }
+}
 
 /// Convert RObject into other types.
 
@@ -346,4 +387,75 @@ impl TryFrom<RObject> for HashMap<String, String> {
             Ok(map)
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use libR_sys::{STRING_ELT, R_NaString};
+
+    use crate::{r_test, r_string, protect, utils::CharSxpEq};
+
+    use super::RObject;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_eq_charsxp() {r_test! {
+        let mut protect = protect::RProtect::new();
+        let r_string = protect.add(r_string!("Apple"));
+        let apple = STRING_ELT(r_string, 0);
+
+        assert!("Apple".eq_charsxp(apple));
+        assert!(String::from("Apple").eq_charsxp(apple));
+
+        assert!(!"Apple".eq_charsxp(R_NaString));
+        assert!(!String::from("Apple").eq_charsxp(R_NaString));
+    }}
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_RObject_from_Vec_str() { r_test! {
+        let expected = ["Apple", "Orange", "한"];
+
+        // RObject from &[&str; 3]
+        let r_strings = RObject::from(&expected);
+        assert_eq!(r_strings, expected);              // [&str]
+        assert_eq!(r_strings, expected[..]);          // [&str; const N]
+        assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
+
+        // RObject from &[&str]
+        let r_strings = RObject::from(&expected[..]);
+        assert_eq!(r_strings, expected);              // [&str]
+        assert_eq!(r_strings, expected[..]);          // [&str; const N]
+        assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
+
+        // RObject from Vec<&str>
+        let r_strings = RObject::from(expected.to_vec());
+        assert_eq!(r_strings, expected);              // [&str]
+        assert_eq!(r_strings, expected[..]);          // [&str; const N]
+        assert_eq!(r_strings, expected.to_vec());     // Vec<&str>
+    }}
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_RObject_from_Vec_String() { r_test! {
+        let expected = [String::from("Apple"), String::from("Orange"), String::from("한")];
+
+        // RObject from &[String; 3]
+        let r_strings = RObject::from(&expected);
+        assert_eq!(r_strings, expected[..]);        // [String]
+        assert_eq!(r_strings, expected);            // [String; const N]
+        assert_eq!(r_strings, expected.to_vec());   // Vec<String>
+
+        // RObject from &[String; 3]
+        let r_strings = RObject::from(&expected[..]);
+        assert_eq!(r_strings, expected[..]);        // [String]
+        assert_eq!(r_strings, expected);            // [String; const N]
+        assert_eq!(r_strings, expected.to_vec());   // Vec<String>
+
+        // RObject from Vec<String>
+        let r_strings = RObject::from(expected.to_vec());
+        assert_eq!(r_strings, expected[..]);        // [String]
+        assert_eq!(r_strings, expected);            // [String; const N]
+        assert_eq!(r_strings, expected.to_vec());   // Vec<String>
+    }}
 }
