@@ -355,61 +355,8 @@ pub unsafe fn r_try_catch_finally<F, R, Finally>(mut fun: F, classes: Vec<String
     }
 }
 
-pub unsafe fn r_try_catch<F, R>(mut fun: F, classes: Vec<String>) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
-    // C function that is passed as `body`
-    // the actual closure is passed as a void* through arg
-    extern fn body_fn<S>(arg: *mut c_void) -> SEXP where MaybeSEXP: From<S>{
-        // extract the "closure" from the void*
-        let closure: &mut &mut dyn FnMut() -> S = unsafe { mem::transmute(arg) };
-
-        // call the closure and return it result as a SEXP
-        let out : MaybeSEXP = closure().into();
-        out.get()
-    }
-
-    // The actual closure is passed as a void*
-    let mut body_data: &mut dyn FnMut() -> R = &mut fun;
-    let body_data = &mut body_data;
-
-    // handler just returns the condition and sets success to false
-    // to signal that an error was caught
-    //
-    // This is similar to doing tryCatch(<C code>, error = force) in R
-    // except that we can handle the weird case where the code
-    // succeeds but returns a an error object
-    let mut success: bool = true;
-    let success_ptr: *mut bool = &mut success;
-
-    extern fn handler_fn(condition: SEXP, arg: *mut c_void) -> SEXP {
-        // signal that there was an error
-        let success_ptr = arg as *mut bool;
-        unsafe {
-            *success_ptr = false;
-        }
-
-        // and return the R condition as is
-        condition
-    }
-
-    let classes : RObject = classes.into();
-
-    let result = R_tryCatch(
-        Some(body_fn::<R>),
-        body_data as *mut _ as *mut c_void,
-
-        *classes,
-
-        Some(handler_fn),
-        success_ptr as *mut c_void,
-
-        None,
-        std::ptr::null_mut() as *mut c_void
-    );
-
-    match success {
-        true => Ok(RObject::from(result)),
-        false => Err(RError::new(result))
-    }
+pub unsafe fn r_try_catch<F, R>(fun: F, classes: Vec<String>) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
+    r_try_catch_finally(fun, classes, ||{} )
 }
 
 pub enum ParseResult {
