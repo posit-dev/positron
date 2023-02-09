@@ -376,8 +376,14 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     let prompt = prompt_recv.recv().unwrap();
     let kernel = mutex.lock().unwrap();
 
-    // if the prompt is '+', we need to tell the kernel the request is incomplete
-    if prompt.starts_with("+") {
+    // The request is incomplete if we see the continue prompt
+    let continue_prompt = unsafe { r_get_option::<String>("continue") };
+    let continue_prompt = unwrap!(continue_prompt, Err(error) => {
+        warn!("Failed to read R continue prompt: {}", error);
+        return kernel.finish_request();
+    });
+
+    if prompt == continue_prompt {
         trace!("Got R prompt '{}', marking request incomplete", prompt);
         return kernel.report_incomplete_request(&req);
     }
