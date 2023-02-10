@@ -10,6 +10,7 @@ use std::str::Utf8Error;
 
 use libR_sys::*;
 
+use crate::exec::r_try_catch_error;
 use crate::object::RObject;
 use crate::protect::RProtect;
 use crate::r_symbol;
@@ -51,7 +52,29 @@ impl RError {
             let mut protect = RProtect::new();
             let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.0));
 
-            RObject::from(Rf_eval(call, R_BaseEnv)).try_into()
+            let result = r_try_catch_error(|| {
+                Rf_eval(call, R_BaseEnv)
+            });
+            match result {
+                Ok(message) => {
+                    RObject::from(message).try_into()
+                },
+                Err(error) => {
+                    let msg = match error.message() {
+                        Ok(message) => {
+                            message.join("\n")
+                        },
+                        Err(_error) => {
+                            String::from("Error evaluating conditionMessage()")
+                        }
+                    };
+
+                    Err(Error::EvaluationError {
+                        code: String::from("conditionMessage()"),
+                        message: msg
+                    })
+                }
+            }
         }
     }
 
