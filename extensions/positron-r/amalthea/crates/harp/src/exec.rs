@@ -311,7 +311,7 @@ pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut 
 }
 
 pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R>, S : ToRStrings {
-    r_try_catch_finally(fun, classes, ||{} )
+    r_try_catch_finally(fun, classes, || {})
 }
 
 pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
