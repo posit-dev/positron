@@ -436,17 +436,11 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     private invalidateTests(uri: Uri) {
         this.testController.items.forEach((root) => {
             const item = getNodeByUri(root, uri);
-            // --- Start Positron ---
-            // Disable type checks for next line; conflicting `TestItem` types
-            // in VS Code core and proposal APIs (not sure now to resolve this)
-            // @ts-ignore
             if (item && !!item.invalidateResults) {
                 // Minimize invalidating to test case nodes for the test file where
                 // the change occurred
-                // @ts-ignore
                 item.invalidateResults();
             }
-            // --- End Positron ---
         });
     }
 
