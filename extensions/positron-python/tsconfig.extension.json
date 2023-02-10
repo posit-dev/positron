@@ -28,9 +28,7 @@
         "src/client/**/*",
         "src/*",
         "typings/*.d.ts",
-        "../../src/vscode-dts/vscode.d.ts",
-        "../../src/vscode-dts/vscode.proposed.testObserver.d.ts",
-        "../../src/vscode-dts/vscode.proposed.quickPickSortByLabel.d.ts",
+        "types/*.d.ts",
         "../../src/positron-dts/positron.d.ts"
     ]
 }

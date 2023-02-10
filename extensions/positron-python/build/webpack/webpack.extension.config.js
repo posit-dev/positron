@@ -55,6 +55,9 @@ const config = {
     },
     externals: [
         'vscode',
+        // --- Start Positron ---
+        'positron',
+        // --- End Positron ---
         'commonjs',
         ...existingModulesInOutDir,
         // These dependencies are ignored because we don't use them, and App Insights has try-catch protecting their loading if they don't exist
@@ -62,7 +65,8 @@ const config = {
         'applicationinsights-native-metrics',
         '@opentelemetry/tracing',
         // --- Start Positron ---
-        '@opentelemetry/instrumentation'
+        '@opentelemetry/instrumentation',
+        '@azure/opentelemetry-instrumentation-azure-sdk'
         // --- End Positron ---
     ],
     plugins: [...common.getDefaultPlugins('extension')],
