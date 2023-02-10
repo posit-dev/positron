@@ -74,18 +74,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}
 
-		// !!!!!!!!!!!!!!!!!!!
 		// Register the onDidStartRuntime event handler so we start a new REPL for each runtime that is started.
 		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
-			// Note that we do not automatically activate the new REPL. Instead, we wait for onDidChangeActiveRuntime
-			// to be fired by the language runtime service.
-			//this.startConsole(runtime);
-		}));
-		// !!!!!!!!!!!!!!!!!!!
-
-		// Register the onDidBeginStartRuntime event handler so we start a new Positron console.
-		this._register(this._languageRuntimeService.onDidBeginStartRuntime(runtime => {
-			console.log('Starting console.');
 			this.startPositronConsoleInstance(runtime);
 		}));
 

@@ -30,7 +30,7 @@
   },
   "scripts": {
     "compile": "gulp compile-extension:jupyter-adapter",
-    "postinstall": "scripts/postinstall.sh",
+    "postinstall": "ts-node scripts/postinstall.ts",
     "watch": "gulp watch-extension:jupyter-adapter",
     "vscode:prepublish": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.js compile-extension:search-result ./tsconfig.json"
   },
@@ -38,13 +38,14 @@
     "@types/tail": "^2.2.1",
     "@types/uuid": "^8.3.3",
     "@types/zeromq": "^5.2.1",
-    "electron-rebuild": "^3.2.9"
+    "electron-rebuild": "^3.2.9",
+    "ts-node": "^10.9.1"
   },
   "dependencies": {
-    "tail": "^2.2.4",
-    "uuid": "^8.3.2",
+    "tail": "^2.2.6",
+    "uuid": "^9.0.0",
     "vscode-nls": "^5.2.0",
-    "zeromq": "^6.0.0-beta.6"
+    "zeromq": "kevinushey/zeromq.js"
   },
   "repository": {
     "type": "git",

@@ -49,9 +49,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidStartRuntime event.
 	private readonly _onDidStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
-	// The event emitter for the onDidBeginStartRuntime event.
-	private readonly _onDidBeginStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
-
 	// The event emitter for the onDidChangeRuntimeState event.
 	private readonly _onDidChangeRuntimeStateEmitter = this._register(new Emitter<ILanguageRuntimeStateEvent>());
 
@@ -107,8 +104,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
-
-	readonly onDidBeginStartRuntime = this._onDidBeginStartRuntimeEmitter.event;
 
 	// An event that fires when a runtime starts.
 	readonly onDidStartRuntime = this._onDidStartRuntimeEmitter.event;
@@ -292,13 +287,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Moving this here is a hack that seems to work and at least improves things. Redo this.
 		//this._onDidStartRuntimeEmitter.fire(runtime);
 
-		// Fire the onDidBeginStartRuntime event.
-		//this._onDidBeginStartRuntimeEmitter.fire(runtime);
-
-		console.log(`About to start language runtime ${runtime.metadata.languageName}`);
-
-		// Fire the onDidBeginStartRuntime event.
-		this._onDidBeginStartRuntimeEmitter.fire(runtime);
+		// Fire the onDidStartRuntime event.
+		this._onDidStartRuntimeEmitter.fire(runtime);
 
 		// Start the runtime.
 		runtime.start().then(languageRuntimeInfo => {

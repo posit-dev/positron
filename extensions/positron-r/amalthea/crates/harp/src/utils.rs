@@ -48,6 +48,58 @@ pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
     Ok(actual)
 }
 
+pub trait CharSxpEq {
+    fn eq_charsxp(&self, s: SEXP) -> bool;
+}
+
+impl CharSxpEq for &str {
+    fn eq_charsxp(&self, s: SEXP) -> bool {
+        unsafe {
+            s != R_NaString && (*self).eq(CStr::from_ptr(R_CHAR(s)).to_str().unwrap())
+        }
+    }
+}
+
+impl CharSxpEq for String {
+    fn eq_charsxp(&self, s: SEXP) -> bool {
+        (&self[..]).eq_charsxp(s)
+    }
+}
+
+impl<S> PartialEq<[S]> for RObject where S : CharSxpEq {
+    fn eq(&self, other: &[S]) -> bool {
+        unsafe {
+            let object = self.sexp;
+            if r_typeof(object) != STRSXP {
+                return false;
+            }
+
+            let n = Rf_xlength(object) as isize;
+            if n != other.len() as isize {
+                return false;
+            }
+            for i in 0..n {
+                if !other.get_unchecked(i as usize).eq_charsxp(STRING_ELT(object, i)) {
+                    return false;
+                }
+            }
+            true
+        }
+    }
+}
+
+impl<S, const N: usize> PartialEq<[S; N]> for RObject where S : CharSxpEq {
+    fn eq(&self, other: &[S; N]) -> bool {
+        self.eq(&other[..])
+    }
+}
+
+impl<S> PartialEq<Vec<S>> for RObject where S : CharSxpEq {
+    fn eq(&self, other: &Vec<S>) -> bool {
+        self.eq(&other[..])
+    }
+}
+
 pub unsafe fn r_typeof(object: SEXP) -> u32 {
     TYPEOF(object) as u32
 }

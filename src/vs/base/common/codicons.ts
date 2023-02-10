@@ -593,7 +593,8 @@ export const Codicon = {
 	positronList: register('positron-list', 0xf24b),
 	positronTable: register('positron-table', 0xf24c),
 	positronTest: register('positron-test', 0xf24d),
-	positronConsoleView: register('positron-repl-view', 0xf24e),
+	positronConsoleView: register('positron-console-view', 0xf24e),
+	positronWorkspace: register('positron-workspace', 0xf24f),
 
 	// --- End Positron ---
 
