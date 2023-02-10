@@ -240,10 +240,19 @@ impl MaybeSEXP {
 ///     void (*finally)(void*), void* fdata
 /// )
 /// ```
-pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R>, Finally: FnMut(), S: ToRStrings {
+pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> std::result::Result<RObject, RError>
+where
+    F: FnMut() -> R,
+    MaybeSEXP: From<R>,
+    Finally: FnMut(),
+    S: ToRStrings
+{
     // C function that is passed as `body`
     // the actual closure is passed as a void* through arg
-    extern fn body_fn<S>(arg: *mut c_void) -> SEXP where MaybeSEXP: From<S> {
+    extern fn body_fn<S>(arg: *mut c_void) -> SEXP
+    where
+        MaybeSEXP: From<S>
+    {
         // extract the "closure" from the void*
         let closure: &mut &mut dyn FnMut() -> S = unsafe { mem::transmute(arg) };
 
@@ -310,11 +319,20 @@ pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut 
     }
 }
 
-pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R>, S : ToRStrings {
+pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, RError>
+where
+    F: FnMut() -> R,
+    MaybeSEXP: From<R>,
+    S : ToRStrings
+{
     r_try_catch_finally(fun, classes, || {})
 }
 
-pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
+pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, RError>
+where
+    F: FnMut() -> R,
+    MaybeSEXP: From<R>
+{
     r_try_catch_finally(fun, "error", || {})
 }
 

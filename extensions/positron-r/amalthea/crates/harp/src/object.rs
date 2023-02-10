@@ -245,7 +245,7 @@ impl ToCharSxp for String {
     }
 }
 
-impl<S> From<&[S]> for RObject where S : ToCharSxp {
+impl<S: ToCharSxp> From<&[S]> for RObject {
     fn from(value: &[S]) -> Self {
         unsafe {
             let n = value.len() as isize;
@@ -260,13 +260,13 @@ impl<S> From<&[S]> for RObject where S : ToCharSxp {
     }
 }
 
-impl<S, const N: usize> From<&[S; N]> for RObject where S : ToCharSxp {
+impl<S: ToCharSxp, const N: usize> From<&[S; N]> for RObject {
     fn from(value: &[S; N]) -> Self {
         RObject::from(&value[..])
     }
 }
 
-impl<S> From<Vec<S>> for RObject where S : ToCharSxp {
+impl<S: ToCharSxp> From<Vec<S>> for RObject {
     fn from(value: Vec<S>) -> Self {
         RObject::from(&value[..])
     }
