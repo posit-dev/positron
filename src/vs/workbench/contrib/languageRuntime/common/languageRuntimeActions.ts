@@ -93,7 +93,6 @@ export function registerLanguageRuntimeActions() {
 					title: { value: title, original: title },
 					f1: true,
 					category,
-					precondition: IsDevelopmentContext,
 					description: {
 						description: id,
 						args: [{
