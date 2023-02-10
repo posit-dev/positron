@@ -28,10 +28,7 @@ export class TerminalWatcher implements IExtensionSingleActivationService, IDisp
                 clearInterval(handle); // Only need telemetry sent once per VS Code session
             }
         }, 300_000);
-        // --- Start Positron ---
-        // @ts-ignore
         this.handle = handle;
-        // --- End Positron ---
         this.disposables.push(this);
     }
 

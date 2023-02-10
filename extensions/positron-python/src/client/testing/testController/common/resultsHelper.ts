@@ -45,16 +45,12 @@ async function parseXML(data: string): Promise<unknown> {
     const xml2js = await import('xml2js');
 
     return new Promise<unknown>((resolve, reject) => {
-        // --- Start Positron ---
-        // Disable type checks for next line; conflicting types in xml2js
-        //@ts-ignore
         xml2js.parseString(data, (error: Error, result: unknown) => {
             if (error) {
                 return reject(error);
             }
             return resolve(result);
         });
-        // --- End Positron ---
     });
 }
 

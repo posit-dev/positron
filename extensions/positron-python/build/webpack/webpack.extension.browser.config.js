@@ -44,7 +44,9 @@ const nodeConfig = (_, { mode }) => ({
     ],
     externals: {
         vscode: 'commonjs vscode',
-
+        // --- Start Positron ---
+        'positron': 'commonjs positron', // ignored because we inject positron via module loader
+        // --- End Positron ---
         // These dependencies are ignored because we don't use them, and App Insights has try-catch protecting their loading if they don't exist
         // See: https://github.com/microsoft/vscode-extension-telemetry/issues/41#issuecomment-598852991
         'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics',

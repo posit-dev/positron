@@ -1,11 +1,11 @@
 {
-    "extends": "../tsconfig.base.json",
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
             "*": ["types/*"]
         },
         "module": "commonjs",
+        "target": "es2018",
         "outDir": "out",
         "lib": [
             "es6",
@@ -27,9 +27,7 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "resolveJsonModule": true,
-        "removeComments": true,
-        "noImplicitOverride": false,
-        "noImplicitReturns": false
+        "removeComments": true
     },
     "exclude": [
         "node_modules",
@@ -48,9 +46,7 @@
         "src/*",
         "src/client/**/*",
         "typings/*.d.ts",
-        "../../src/vscode-dts/vscode.d.ts",
-        "../../src/vscode-dts/vscode.proposed.testObserver.d.ts",
-        "../../src/vscode-dts/vscode.proposed.quickPickSortByLabel.d.ts",
+        "types/*.d.ts",
         "../../src/positron-dts/positron.d.ts"
     ]
 }
