@@ -435,7 +435,7 @@ mod tests {
 
     use crate::{r_test, r_string, protect, utils::{CharSxpEq, r_typeof}};
 
-    use super::{RObject, r_strings};
+    use super::*;
 
     #[test]
     #[allow(non_snake_case)]
