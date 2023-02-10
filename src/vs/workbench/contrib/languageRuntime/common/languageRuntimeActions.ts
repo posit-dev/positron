@@ -6,7 +6,6 @@ import * as nls from 'vs/nls';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
