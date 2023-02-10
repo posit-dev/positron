@@ -170,6 +170,14 @@ impl From<SEXP> for RObject {
     }
 }
 
+impl From<()> for RObject {
+    fn from(_value: ()) -> Self {
+        unsafe {
+            RObject::from(R_NilValue)
+        }
+    }
+}
+
 impl From<bool> for RObject {
     fn from(value: bool) -> Self {
         unsafe {

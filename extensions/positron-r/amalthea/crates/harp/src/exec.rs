@@ -193,32 +193,6 @@ pub unsafe fn geterrmessage() -> String {
 
 }
 
-pub enum MaybeSEXP {
-    Yes(SEXP),
-    No
-}
-
-impl From<SEXP> for MaybeSEXP {
-    fn from(x: SEXP) -> Self {
-        MaybeSEXP::Yes(x)
-    }
-}
-
-impl From<()> for MaybeSEXP {
-    fn from(_x: ()) -> Self {
-        MaybeSEXP::No
-    }
-}
-
-impl MaybeSEXP {
-    fn get(&self) -> SEXP {
-        match self {
-            MaybeSEXP::Yes(x) => *x,
-            MaybeSEXP::No => unsafe {R_NilValue}
-        }
-    }
-}
-
 /// Wrappers around R_tryCatch()
 ///
 /// Takes a single closure that returns either a SEXP or `()`. If an R error is
@@ -243,7 +217,7 @@ impl MaybeSEXP {
 pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> std::result::Result<RObject, RError>
 where
     F: FnMut() -> R,
-    MaybeSEXP: From<R>,
+    R: Into<RObject>,
     Finally: FnMut(),
     S: ToRStrings
 {
@@ -251,15 +225,15 @@ where
     // the actual closure is passed as a void* through arg
     extern "C" fn body_fn<S>(arg: *mut c_void) -> SEXP
     where
-        MaybeSEXP: From<S>
+        S: Into<RObject>
     {
         // extract the "closure" from the void*
         // idea from https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
         let closure: &mut &mut dyn FnMut() -> S = unsafe { mem::transmute(arg) };
 
         // call the closure and return it result as a SEXP
-        let out : MaybeSEXP = closure().into();
-        out.get()
+        let out : RObject = closure().into();
+        out.sexp
     }
 
     // The actual closure is passed as a void*
@@ -323,7 +297,7 @@ where
 pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, RError>
 where
     F: FnMut() -> R,
-    MaybeSEXP: From<R>,
+    RObject: From<R>,
     S : ToRStrings
 {
     r_try_catch_finally(fun, classes, || {})
@@ -332,7 +306,7 @@ where
 pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, RError>
 where
     F: FnMut() -> R,
-    MaybeSEXP: From<R>
+    RObject: From<R>
 {
     r_try_catch_finally(fun, "error", || {})
 }
