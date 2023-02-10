@@ -107,12 +107,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 					this._channel.appendLine(
 						`Connecting '${this._runtimeId}' => terminal '${terminal.name}}'`);
-					// We are now "starting" the kernel. (Consider: should we
-					// have a "connecting" state?)
-					this.setStatus(positron.RuntimeState.Starting);
 
-					// Connect to the running kernel in the terminal
-					this.connectToTerminal(terminal, new JupyterSession(sessionState));
+					// Defer the connection until the next tick, so that the
+					// caller has a chance to register for the 'status' event we emit
+					// below.
+					setTimeout(() => {
+						// We are now "starting" the kernel. (Consider: should we
+						// have a "connecting" state?)
+						this.setStatus(positron.RuntimeState.Starting);
+
+						// Connect to the running kernel in the terminal
+						this.connectToTerminal(terminal, new JupyterSession(sessionState));
+					});
 				}
 			});
 
@@ -301,8 +307,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			shellPath: args[0],
 			shellArgs: args.slice(1),
 			env,
-			message: `** ${this._spec.display_name} **`
-			// hideFromUser: true
+			message: `** ${this._spec.display_name} **`,
+			hideFromUser: true
 		});
 
 		// Wait for the terminal to open

@@ -224,6 +224,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				this._runningLanguageRuntimesByLanguageId.delete(runtime.metadata.languageId);
 			}
 
+			if (state === RuntimeState.Starting) {
+				// Typically, the runtime starts when we ask it to (in `safeStartRuntime`), but
+				// if the runtime is already running when it is registered, we are reconnecting.
+				// In that case, we need to add it to the running language runtimes and signal
+				// that the runtime has started so UI can connect to it.
+				if (!this._runningLanguageRuntimesByLanguageId.has(runtime.metadata.languageId)) {
+					this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+					this._onDidStartRuntimeEmitter.fire(runtime);
+				}
+			}
 
 			// Let listeners know that the runtime state has changed.
 			const languageRuntimeInfo = this._registeredLanguageRuntimesByRuntimeId.get(runtime.metadata.runtimeId);
