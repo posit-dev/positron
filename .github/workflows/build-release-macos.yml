@@ -76,88 +76,61 @@ jobs:
         id: build_number
         run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
 
-
-  macos-arm64:
-    name: Build macOS client (arm64)
-    needs: [revive_agent, version_string]
-    runs-on: [self-hosted, macos, arm64]
-    timeout-minutes: 40
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      # Perform initial (arm64) dependency download/install
-      - name: Install dependencies (arm64)
-        run: yarn
-        env:
-          npm_config_arch: arm64
-          RUST_TARGET: aarch64-apple-darwin
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
-
-      # Build client for arm64
-      - name: Build client (arm64)
-        run: yarn gulp vscode-darwin-arm64
-        env:
-          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
-
-      # Compress arm64 client to a zip file
-      - name: Create arm64 client archive
-        run: |
-          pushd ..
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip VSCode-darwin-arm64
-          popd
-
-      # Create build artifact
-      - name: Upload arm64 client archive
-        uses: actions/upload-artifact@v3
-        with:
-          name: positron-darwin-arm64-archive
-          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
-
-  macos-x64:
-    name: Build macOS client (x64)
+  build-archs:
+    name: Build macOS
     runs-on: [self-hosted, macos, arm64]
     needs: [revive_agent, version_string]
     timeout-minutes: 40
+
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    strategy:
+      max-parallel: 1
+      matrix:
+        arch: [arm64, x64]
+        include:
+          - arch: arm64
+            rust_target_prefix: aarch64
+          - arch: x64
+            rust_target_prefix: x86_64
+
     steps:
+      # Checkout sources
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      # Install node_modules binaries for x64
-      - name: Install dependencies (x64)
+      # Install node_modules binaries
+      - name: Install dependencies
         env:
-          npm_config_arch: x64
-          RUST_TARGET: x86_64-apple-darwin
+          npm_config_arch: ${{ matrix.arch }}
+          RUST_TARGET: ${{ matrix.rust_target_prefix }}-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn
 
-      # Build client for x64
-      - name: Build client (x64)
-        run: yarn gulp vscode-darwin-x64
+      # Build client
+      - name: Build client
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+        run: yarn gulp vscode-darwin-${{ matrix.arch }}
 
-      # Compress x64 client to a zip file
-      - name: Create x64 client archive
+      # Compress client to a zip file
+      - name: Create client archive
         run: |
           pushd ..
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip VSCode-darwin-x64
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip VSCode-darwin-${{ matrix.arch }}
           popd
 
       # Create build artifact
-      - name: Upload x64 client archive
+      - name: Upload client archive
         uses: actions/upload-artifact@v3
         with:
-          name: positron-darwin-x64-archive
-          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
+          name: positron-darwin-${{ matrix.arch }}-archive
+          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip
 
   macos-universal:
     name: Create macOS universal binary
-    needs: [version_string, macos-arm64, macos-x64]
+    needs: [version_string, build-archs]
     runs-on: [self-hosted, macos, arm64]
     timeout-minutes: 40
     env:
