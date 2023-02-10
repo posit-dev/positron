@@ -235,6 +235,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				}
 			}
 
+			if (state === RuntimeState.Ready) {
+				// If the runtime is ready, and we have no active runtime, set
+				// the active runtime to the new runtime.
+				if (!this._activeRuntime) {
+					this.activeRuntime = runtime;
+				}
+			}
+
 			// Let listeners know that the runtime state has changed.
 			const languageRuntimeInfo = this._registeredLanguageRuntimesByRuntimeId.get(runtime.metadata.runtimeId);
 			if (!languageRuntimeInfo) {
@@ -327,9 +335,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// to expose the REPL for the new runtime.
 			this._commandService.executeCommand('workbench.panel.positronConsole.focus');
 
-			// Change the active runtime.
-			this._activeRuntime = runtime;
-			this._onDidChangeActiveRuntimeEmitter.fire(runtime);
+			// Change the active runtime, if it isn't already set.
+			this.activeRuntime = runtime;
 		}, (reason) => {
 			// TODO@softwarenerd - No code was here. We need code here.
 			console.log('Starting language runtime failed. Reason:');
