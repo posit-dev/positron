@@ -468,6 +468,15 @@ mod tests {
             assert!(r_is_null(*value));
         });
 
+        // ok something else, Vec<&str>
+        let string_ok = r_try_catch_error(|| {
+            vec!["hello", "world"]
+        });
+        assert_match!(string_ok, Ok(value) => {
+            assert_eq!(r_typeof(value.sexp), STRSXP);
+            assert_eq!(value, ["hello", "world"]);
+        });
+
         // error
         let out = r_try_catch_error(|| {
             let msg = CString::new("ouch").unwrap();
