@@ -484,8 +484,12 @@ mod tests {
         });
 
         assert_match!(out, Err(err) => {
-            assert_eq!(err.message(), ["ouch"]);
-            assert_eq!(err.classes(), ["simpleError", "error", "condition"]);
+            assert_match!(err.message(), Ok(message) => {
+                assert_eq!(message, ["ouch"])
+            });
+            assert_match!(err.classes(), Ok(classes) => {
+                assert_eq!(classes, ["simpleError", "error", "condition"]);
+            });
         });
 
     }}

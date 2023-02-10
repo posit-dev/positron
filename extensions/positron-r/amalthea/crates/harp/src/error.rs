@@ -40,18 +40,18 @@ impl RError {
         *self.0
     }
 
-    pub fn classes(&self) -> Vec<String>  {
+    pub fn classes(&self) -> Result<Vec<String>>  {
         unsafe {
-            RObject::from(Rf_getAttrib(*self.0, R_ClassSymbol)).try_into().unwrap()
+            RObject::from(Rf_getAttrib(*self.0, R_ClassSymbol)).try_into()
         }
     }
 
-    pub fn message(&self) -> Vec<String> {
+    pub fn message(&self) -> Result<Vec<String>> {
         unsafe {
             let mut protect = RProtect::new();
             let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.0));
 
-            RObject::from(Rf_eval(call, R_BaseEnv)).try_into().unwrap()
+            RObject::from(Rf_eval(call, R_BaseEnv)).try_into()
         }
     }
 
