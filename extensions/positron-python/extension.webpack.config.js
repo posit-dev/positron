@@ -6,14 +6,11 @@
 
 const path = require('path');
 
-// Load the shared webpack config for all built-in extensions
-const withDefaults = require('../shared.webpack.config');
-
 // Load the webpack config for the Python extension
 const config = require('./build/webpack/webpack.extension.config');
 
 // Merge them with settings for this environment
-module.exports = withDefaults({
+module.exports = {
     ...config.default,
     entry: {
         extension: './src/client/extension.ts',
@@ -33,5 +30,5 @@ module.exports = withDefaults({
         libraryTarget: 'commonjs',
     },
     context: __dirname
-});
+};
 

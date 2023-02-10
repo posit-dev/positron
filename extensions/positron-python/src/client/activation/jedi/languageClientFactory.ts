@@ -75,7 +75,7 @@ export class JediLanguageClientFactory implements ILanguageClientFactory {
                 // Try to connect to LSP port
                 const socket: Socket = await this.tryToConnect(port);
                 return { reader: socket, writer: socket };
-            } catch (error) {
+            } catch (error: any) {
                 if (error?.code == 'ECONNREFUSED') {
                     traceVerbose(`Error '${error.message}' on connection attempt '${attempt}' to Jedi LSP on port '${port}', will retry`);
                 } else {
