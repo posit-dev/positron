@@ -423,7 +423,7 @@ impl TryFrom<RObject> for HashMap<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use libR_sys::{STRING_ELT, R_NaString, STRSXP};
+    use libR_sys::*;
 
     use crate::{r_test, r_string, protect, utils::{CharSxpEq, r_typeof}};
 

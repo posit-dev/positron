@@ -8,7 +8,7 @@
 use std::fmt;
 use std::str::Utf8Error;
 
-use libR_sys::{Rf_getAttrib, R_ClassSymbol, SEXP, Rf_lang2, Rf_eval, R_BaseEnv};
+use libR_sys::*;
 
 use crate::object::RObject;
 use crate::protect::RProtect;
