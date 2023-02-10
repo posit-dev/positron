@@ -254,6 +254,7 @@ where
         MaybeSEXP: From<S>
     {
         // extract the "closure" from the void*
+        // idea from https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
         let closure: &mut &mut dyn FnMut() -> S = unsafe { mem::transmute(arg) };
 
         // call the closure and return it result as a SEXP
