@@ -77,7 +77,7 @@ jobs:
         run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
 
   build-archs:
-    name: Build macOS Archs
+    name: Build macOS
     runs-on: [self-hosted, macos, arm64]
     needs: [revive_agent, version_string]
     timeout-minutes: 40
