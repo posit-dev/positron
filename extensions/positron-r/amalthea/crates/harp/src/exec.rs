@@ -315,7 +315,7 @@ pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RO
 }
 
 pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, RError> where F: FnMut() -> R, MaybeSEXP: From<R> {
-    r_try_catch_finally(fun, "error", ||{} )
+    r_try_catch_finally(fun, "error", || {})
 }
 
 pub enum ParseResult {
