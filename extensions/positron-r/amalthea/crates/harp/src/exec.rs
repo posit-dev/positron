@@ -192,62 +192,6 @@ pub unsafe fn geterrmessage() -> String {
 
 }
 
-pub struct TryCatchError(pub RObject);
-
-impl TryCatchError {
-    pub fn new(condition: SEXP) -> Self {
-        TryCatchError(RObject::from(condition))
-    }
-
-    pub fn condition(&self) -> SEXP {
-        *self.0
-    }
-
-    pub fn classes(&self) -> Result<Vec<String>>  {
-        unsafe {
-            RObject::from(Rf_getAttrib(*self.0, R_ClassSymbol)).try_into()
-        }
-    }
-
-    pub fn message(&self) -> Result<Vec<String>> {
-        unsafe {
-            let mut protect = RProtect::new();
-            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.0));
-
-            let result = r_try_catch_error(|| {
-                Rf_eval(call, R_BaseEnv)
-            });
-            match result {
-                Ok(message) => {
-                    RObject::from(message).try_into()
-                },
-                Err(error) => {
-                    let msg = match error.message() {
-                        Ok(message) => {
-                            message.join("\n")
-                        },
-                        Err(_error) => {
-                            String::from("Error evaluating conditionMessage()")
-                        }
-                    };
-
-                    Err(Error::EvaluationError {
-                        code: String::from("conditionMessage()"),
-                        message: msg
-                    })
-                }
-            }
-        }
-    }
-
-    pub fn inherits(&self, class: &str) -> bool {
-        unsafe {
-            r_inherits(*self.0, &class)
-        }
-    }
-
-}
-
 /// Wrappers around R_tryCatch()
 ///
 /// Takes a single closure that returns either a SEXP or `()`. If an R error is
@@ -269,7 +213,7 @@ impl TryCatchError {
 ///     void (*finally)(void*), void* fdata
 /// )
 /// ```
-pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> std::result::Result<RObject, TryCatchError>
+pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> Result<RObject>
 where
     F: FnMut() -> R,
     R: Into<RObject>,
@@ -344,12 +288,32 @@ where
     );
 
     match success {
-        true => Ok(RObject::from(result)),
-        false => Err(TryCatchError::new(result))
+        true => {
+            // the call to tryCatch() was successful, so we return the result
+            // as an RObject
+            Ok(RObject::from(result))
+        },
+        false => {
+            // the call to tryCatch failed, so result is a condition
+            // from which we can extract classes and message via a call to conditionMessage()
+            let classes : Vec<String> = RObject::from(Rf_getAttrib(result, R_ClassSymbol)).try_into()?;
+
+            let mut protect = RProtect::new();
+            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), result));
+
+            // TODO: wrap the call to conditionMessage() in a tryCatch
+            //       but this cannot be another call to r_try_catch_error()
+            //       because it creates a recursion problem
+            let message: Vec<String> = RObject::from(Rf_eval(call, R_BaseEnv)).try_into()?;
+
+            Err(Error::TryCatchError {
+                message, classes
+            })
+        }
     }
 }
 
-pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, TryCatchError>
+pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> Result<RObject>
 where
     F: FnMut() -> R,
     RObject: From<R>,
@@ -358,7 +322,7 @@ where
     r_try_catch_finally(fun, classes, || {})
 }
 
-pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, TryCatchError>
+pub unsafe fn r_try_catch_error<F, R>(fun: F) -> Result<RObject>
 where
     F: FnMut() -> R,
     RObject: From<R>
@@ -367,17 +331,12 @@ where
 }
 
 pub enum ParseResult {
-    Ok(SEXP),
-    Incomplete(),
-    SyntaxError {
-        message: String,
-        line: i32
-    },
-    ParseError(TryCatchError)
+    Complete(SEXP),
+    Incomplete()
 }
 
 #[allow(non_upper_case_globals)]
-pub unsafe fn r_parse_vector(code: String) -> ParseResult {
+pub unsafe fn r_parse_vector(code: String) -> Result<ParseResult> {
 
     let mut ps : ParseStatus = 0;
     let mut protect = RProtect::new();
@@ -387,20 +346,24 @@ pub unsafe fn r_parse_vector(code: String) -> ParseResult {
         R_ParseVector(r_code, -1, &mut ps, R_NilValue)
     };
 
-    match r_try_catch_error(lambda) {
-        Err(error) => ParseResult::ParseError(TryCatchError::new(*error.0)),
+    let result = r_try_catch_error(lambda)?;
 
-        Ok(out) => {
-            match ps {
-                ParseStatus_PARSE_OK => ParseResult::Ok(*out),
-                ParseStatus_PARSE_INCOMPLETE => ParseResult::Incomplete(),
-                _ => {
-                    ParseResult::SyntaxError{
-                        message: CStr::from_ptr(R_ParseErrorMsg.as_ptr()).to_string_lossy().to_string(),
-                        line: R_ParseError as i32
-                    }
-                }
-            }
+    match ps {
+        ParseStatus_PARSE_OK => {
+            Ok(ParseResult::Complete(*result))
+        },
+        ParseStatus_PARSE_INCOMPLETE => Ok(ParseResult::Incomplete()),
+        ParseStatus_PARSE_ERROR => {
+            Err(Error::ParseSyntaxError {
+                message: CStr::from_ptr(R_ParseErrorMsg.as_ptr()).to_string_lossy().to_string(),
+                line: R_ParseError as i32
+            })
+        },
+        _ => {
+            // should not get here
+            Err(Error::ParseError {
+                code, message: String::from("Unknown parse error")
+            })
         }
     }
 }
@@ -538,13 +501,9 @@ mod tests {
             Rf_error(unsafe {msg.as_ptr()});
         });
 
-        assert_match!(out, Err(err) => {
-            assert_match!(err.message(), Ok(message) => {
-                assert_eq!(message, ["ouch"])
-            });
-            assert_match!(err.classes(), Ok(classes) => {
-                assert_eq!(classes, ["simpleError", "error", "condition"]);
-            });
+        assert_match!(out, Err(Error::TryCatchError { message, classes }) => {
+            assert_eq!(message, ["ouch"]);
+            assert_eq!(classes, ["simpleError", "error", "condition"]);
         });
 
     }}
@@ -554,7 +513,7 @@ mod tests {
         // complete
         assert_match!(
             r_parse_vector(String::from("force(42)")),
-            ParseResult::Ok(out) => {
+            Ok(ParseResult::Complete(out)) => {
                 assert_eq!(r_typeof(out), EXPRSXP as u32);
 
                 let call = VECTOR_ELT(out, 0);
@@ -571,19 +530,19 @@ mod tests {
         // incomplete
         assert_match!(
             r_parse_vector(String::from("force(42")),
-            ParseResult::Incomplete()
+            Ok(ParseResult::Incomplete())
         );
 
         // error
         assert_match!(
             r_parse_vector(String::from("42 + _")),
-            ParseResult::ParseError(_)
+            Err(_) => {}
         );
 
         // "normal" syntax error
         assert_match!(
             r_parse_vector(String::from("1+1\n*42")),
-            ParseResult::SyntaxError {message, line} => {
+            Err(Error::ParseSyntaxError {message, line}) => {
                 assert!(message.contains("unexpected"));
                 assert_eq!(line, 2);
             }
