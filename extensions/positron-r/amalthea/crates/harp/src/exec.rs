@@ -249,7 +249,7 @@ where
 {
     // C function that is passed as `body`
     // the actual closure is passed as a void* through arg
-    extern fn body_fn<S>(arg: *mut c_void) -> SEXP
+    extern "C" fn body_fn<S>(arg: *mut c_void) -> SEXP
     where
         MaybeSEXP: From<S>
     {
@@ -274,7 +274,7 @@ where
     let mut success: bool = true;
     let success_ptr: *mut bool = &mut success;
 
-    extern fn handler_fn(condition: SEXP, arg: *mut c_void) -> SEXP {
+    extern "C" fn handler_fn(condition: SEXP, arg: *mut c_void) -> SEXP {
         // signal that there was an error
         let success_ptr = arg as *mut bool;
         unsafe {
@@ -289,7 +289,7 @@ where
 
     // C function that is passed as `finally`
     // the actual closure is passed as a void* through arg
-    extern fn finally_fn(arg: *mut c_void) {
+    extern "C" fn finally_fn(arg: *mut c_void) {
         // extract the "closure" from the void*
         let closure: &mut &mut dyn FnMut() = unsafe { mem::transmute(arg) };
 
