@@ -88,7 +88,12 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        arch: [[arm64, aarch64-apple-darwin], [x64, x86_64-apple-darwin]]
+        arch: [arm64, x64]
+        include:
+          - arch: arm64
+          rust_target_prefix: aarch64
+          - arch: x64
+          rust_target_prefix: x86_64
 
     steps:
       # Checkout sources
@@ -98,8 +103,8 @@ jobs:
       # Install node_modules binaries
       - name: Install dependencies
         env:
-          npm_config_arch: ${{ matrix.arch[0] }}
-          RUST_TARGET: ${{ matrix.arch[1] }}
+          npm_config_arch: ${{ matrix.arch }}
+          RUST_TARGET: ${{ matrix.rust_target_prefix }}-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn
 
@@ -107,21 +112,21 @@ jobs:
       - name: Build client
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
-        run: yarn gulp vscode-darwin-${{ matrix.arch[0] }}
+        run: yarn gulp vscode-darwin-${{ matrix.arch }}
 
       # Compress client to a zip file
       - name: Create client archive
         run: |
           pushd ..
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch[0] }}.zip VSCode-darwin-${{ matrix.arch[0] }}
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip VSCode-darwin-${{ matrix.arch }}
           popd
 
       # Create build artifact
       - name: Upload client archive
         uses: actions/upload-artifact@v3
         with:
-          name: positron-darwin-${{ matrix.arch[0] }}-archive
-          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch[0] }}.zip
+          name: positron-darwin-${{ matrix.arch }}-archive
+          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip
 
   macos-universal:
     name: Create macOS universal binary
