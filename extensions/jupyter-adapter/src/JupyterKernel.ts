@@ -308,7 +308,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			shellArgs: args.slice(1),
 			env,
 			message: `** ${this._spec.display_name} **`,
-			hideFromUser: true
+			// TODO (jmcphers): We don't want to show the terminal to the user,
+			// but setting `hideFromUser` to `true` causes the terminal to be
+			// destroyed when the window is reloaded, which is opposite of what
+			// we want. We need a way to create a terminal that is not visible
+			// to the user, but that persists across window reloads.
+			hideFromUser: false,
+			isTransient: false
 		});
 
 		// Wait for the terminal to open
