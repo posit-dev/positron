@@ -1407,3 +1407,13 @@ zeromq@6.0.0-beta.16:
     node-addon-api "^5.0.0"
     shelljs "^0.8.5"
     shx "^0.3.4"
+
+zeromq@kevinushey/zeromq.js:
+  version "6.0.0-beta.16"
+  resolved "https://codeload.github.com/kevinushey/zeromq.js/tar.gz/dd0a4dce4f12f4b3230f3aaa14f72ca2a5c748b2"
+  dependencies:
+    "@aminya/node-gyp-build" "4.5.0-aminya.4"
+    cross-env "^7.0.3"
+    node-addon-api "^5.0.0"
+    shelljs "^0.8.5"
+    shx "^0.3.4"
