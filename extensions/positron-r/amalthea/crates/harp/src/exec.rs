@@ -14,7 +14,6 @@ use std::os::raw::c_char;
 use libR_sys::*;
 
 use crate::error::Error;
-use crate::error::RError;
 use crate::error::Result;
 use crate::object::RObject;
 use crate::object::ToRStrings;
@@ -193,6 +192,62 @@ pub unsafe fn geterrmessage() -> String {
 
 }
 
+pub struct TryCatchError(pub RObject);
+
+impl TryCatchError {
+    pub fn new(condition: SEXP) -> Self {
+        TryCatchError(RObject::from(condition))
+    }
+
+    pub fn condition(&self) -> SEXP {
+        *self.0
+    }
+
+    pub fn classes(&self) -> Result<Vec<String>>  {
+        unsafe {
+            RObject::from(Rf_getAttrib(*self.0, R_ClassSymbol)).try_into()
+        }
+    }
+
+    pub fn message(&self) -> Result<Vec<String>> {
+        unsafe {
+            let mut protect = RProtect::new();
+            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.0));
+
+            let result = r_try_catch_error(|| {
+                Rf_eval(call, R_BaseEnv)
+            });
+            match result {
+                Ok(message) => {
+                    RObject::from(message).try_into()
+                },
+                Err(error) => {
+                    let msg = match error.message() {
+                        Ok(message) => {
+                            message.join("\n")
+                        },
+                        Err(_error) => {
+                            String::from("Error evaluating conditionMessage()")
+                        }
+                    };
+
+                    Err(Error::EvaluationError {
+                        code: String::from("conditionMessage()"),
+                        message: msg
+                    })
+                }
+            }
+        }
+    }
+
+    pub fn inherits(&self, class: &str) -> bool {
+        unsafe {
+            r_inherits(*self.0, &class)
+        }
+    }
+
+}
+
 /// Wrappers around R_tryCatch()
 ///
 /// Takes a single closure that returns either a SEXP or `()`. If an R error is
@@ -214,7 +269,7 @@ pub unsafe fn geterrmessage() -> String {
 ///     void (*finally)(void*), void* fdata
 /// )
 /// ```
-pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> std::result::Result<RObject, RError>
+pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> std::result::Result<RObject, TryCatchError>
 where
     F: FnMut() -> R,
     R: Into<RObject>,
@@ -290,11 +345,11 @@ where
 
     match success {
         true => Ok(RObject::from(result)),
-        false => Err(RError::new(result))
+        false => Err(TryCatchError::new(result))
     }
 }
 
-pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, RError>
+pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> std::result::Result<RObject, TryCatchError>
 where
     F: FnMut() -> R,
     RObject: From<R>,
@@ -303,7 +358,7 @@ where
     r_try_catch_finally(fun, classes, || {})
 }
 
-pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, RError>
+pub unsafe fn r_try_catch_error<F, R>(fun: F) -> std::result::Result<RObject, TryCatchError>
 where
     F: FnMut() -> R,
     RObject: From<R>
@@ -318,7 +373,7 @@ pub enum ParseResult {
         message: String,
         line: i32
     },
-    ParseError(RError)
+    ParseError(TryCatchError)
 }
 
 #[allow(non_upper_case_globals)]
@@ -333,7 +388,7 @@ pub unsafe fn r_parse_vector(code: String) -> ParseResult {
     };
 
     match r_try_catch_error(lambda) {
-        Err(error) => ParseResult::ParseError(RError::new(*error.0)),
+        Err(error) => ParseResult::ParseError(TryCatchError::new(*error.0)),
 
         Ok(out) => {
             match ps {

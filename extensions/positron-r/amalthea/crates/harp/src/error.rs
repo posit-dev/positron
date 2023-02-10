@@ -8,13 +8,7 @@
 use std::fmt;
 use std::str::Utf8Error;
 
-use libR_sys::*;
-
-use crate::exec::r_try_catch_error;
-use crate::object::RObject;
-use crate::protect::RProtect;
-use crate::r_symbol;
-use crate::utils::{r_type2char, r_inherits};
+use crate::utils::r_type2char;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -28,62 +22,6 @@ pub enum Error {
     UnexpectedType(u32, Vec<u32>),
     InvalidUtf8(Utf8Error),
     TopLevelExecError()
-}
-
-pub struct RError(pub RObject);
-
-impl RError {
-    pub fn new(condition: SEXP) -> Self {
-        RError(RObject::from(condition))
-    }
-
-    pub fn condition(&self) -> SEXP {
-        *self.0
-    }
-
-    pub fn classes(&self) -> Result<Vec<String>>  {
-        unsafe {
-            RObject::from(Rf_getAttrib(*self.0, R_ClassSymbol)).try_into()
-        }
-    }
-
-    pub fn message(&self) -> Result<Vec<String>> {
-        unsafe {
-            let mut protect = RProtect::new();
-            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), *self.0));
-
-            let result = r_try_catch_error(|| {
-                Rf_eval(call, R_BaseEnv)
-            });
-            match result {
-                Ok(message) => {
-                    RObject::from(message).try_into()
-                },
-                Err(error) => {
-                    let msg = match error.message() {
-                        Ok(message) => {
-                            message.join("\n")
-                        },
-                        Err(_error) => {
-                            String::from("Error evaluating conditionMessage()")
-                        }
-                    };
-
-                    Err(Error::EvaluationError {
-                        code: String::from("conditionMessage()"),
-                        message: msg
-                    })
-                }
-            }
-        }
-    }
-
-    pub fn inherits(&self, class: &str) -> bool {
-        unsafe {
-            r_inherits(*self.0, &class)
-        }
-    }
-
 }
 
 // empty implementation required for 'anyhow'
