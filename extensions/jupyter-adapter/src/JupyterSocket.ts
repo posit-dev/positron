@@ -44,7 +44,8 @@ export class JupyterSocket implements vscode.Disposable {
 	 *
 	 * @param port The port to connect to.
 	 */
-	public connect(port: number) {
+	public async connect(port: number) {
+		const maxTries = 10;
 		this._port = port;
 		this._addr = 'tcp://127.0.0.1:' + port.toString();
 		this._channel.appendLine(`${this._title} socket connecting to ${this._addr}...`);
@@ -61,10 +62,28 @@ export class JupyterSocket implements vscode.Disposable {
 		// @ts-ignore
 		this._socket.monitor();
 
-		// Perform the actual connection to the TCP address
-		this._socket.connect(this._addr);
-	}
+		// Number of times we'll try to connect before giving up
+		let triesLeft = maxTries;
 
+		// Resolve the promise when the socket connects
+		return new Promise<void>((resolve, reject) => {
+			this._socket.on('connect', (_evt, addr) => {
+				this._channel.appendLine(`${this._title} socket connected to ${addr}`);
+				resolve();
+			});
+
+			// If the socket fails to connect, reject the promise
+			this._socket.on('connect_delay', (_evt, addr) => {
+				if (triesLeft-- < 1) {
+					this._channel.appendLine(`${this._title} socket failed to connect to ${addr} after ${maxTries} attempts`);
+					reject();
+				}
+			});
+
+			// Initiate the actual connection to the TCP address
+			this._socket.connect(this._addr);
+		});
+	}
 
 	/**
 	 * Gets the underlying ZeroMQ socket

@@ -131,7 +131,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @param connectionJsonPath The path to the connection JSON file
 	 */
-	private connect(connectionJsonPath: string): void {
+	private async connect(connectionJsonPath: string) {
 		// Create ZeroMQ sockets
 		this._control = new JupyterSocket('Control', zmq.socket('dealer'), this._channel);
 		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), this._channel);
@@ -148,22 +148,26 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const connectionSpec: JupyterConnectionSpec =
 			JSON.parse(fs.readFileSync(connectionJsonPath, 'utf8'));
 
-		// Bind the sockets to the ports specified in the connection file
-		this._control.connect(connectionSpec.control_port);
-		this._shell.connect(connectionSpec.shell_port);
-		this._stdin.connect(connectionSpec.stdin_port);
-		this._iopub.connect(connectionSpec.iopub_port);
-		this._heartbeat.connect(connectionSpec.hb_port);
+		// Bind the sockets to the ports specified in the connection file;
+		// returns a promise that resovles when all the sockets are connected
+		return Promise.all([
+			this._control.connect(connectionSpec.control_port),
+			this._shell.connect(connectionSpec.shell_port),
+			this._stdin.connect(connectionSpec.stdin_port),
+			this._iopub.connect(connectionSpec.iopub_port),
+			this._heartbeat.connect(connectionSpec.hb_port),
+		]);
 	}
 
 	/**
-	 * Connects to a kernel running in a terminal.
+	 * Connects to a kernel running in a terminal, asynchronously. The returned promise
+	 * resolves when the kernel is ready to receive messages.
 	 *
 	 * @param terminal The terminal to connect to
 	 * @param session The Jupyter session information for the kernel running in
 	 *   the terminal
 	 */
-	private connectToTerminal(terminal: vscode.Terminal, session: JupyterSession): void {
+	private async connectToTerminal(terminal: vscode.Terminal, session: JupyterSession) {
 
 		// Bind to the Jupyter session
 		this._session = session;
@@ -193,9 +197,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._channel.appendLine(
 			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
 
-		// Connect to the kernel's sockets
-		this.connect(session.state.connectionFile);
-
 		// Begin streaming the log file, if it exists. We create the log file
 		// when we start the kernel, if it has an argument that specifies a log
 		// file.
@@ -203,6 +204,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (fs.existsSync(logFilePath)) {
 			this.streamLogFileToChannel(logFilePath, this._spec.language, this._channel);
 		}
+
+		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
+		await this.connect(session.state.connectionFile);
 
 		this._heartbeat?.socket().once('message', (msg: string) => {
 
@@ -302,29 +306,35 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		});
 
 		// Wait for the terminal to open
-		const disposable = vscode.window.onDidOpenTerminal((openedTerminal) => {
-			if (openedTerminal.name === this._spec.display_name) {
-				// Read the process ID and connect to the kernel when it's ready
-				openedTerminal.processId.then((pid) => {
-					if (pid) {
-						// Save the process ID in the session state
-						session.state.processId = pid;
+		return new Promise<void>((resolve, reject) => {
+			const disposable = vscode.window.onDidOpenTerminal((openedTerminal) => {
+				if (openedTerminal.name === this._spec.display_name) {
+					// Read the process ID and connect to the kernel when it's ready
+					openedTerminal.processId.then((pid) => {
+						if (pid) {
+							// Save the process ID in the session state
+							session.state.processId = pid;
 
-						// Write the session state to workspace storage
-						this._channel.appendLine(
-							`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
-						this._context.workspaceState.update(this._runtimeId, session.state);
+							// Write the session state to workspace storage
+							this._channel.appendLine(
+								`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
+							this._context.workspaceState.update(this._runtimeId, session.state);
 
-						// Connect to the kernel running in the terminal
-						this.connectToTerminal(openedTerminal, session);
+							// Clean up event listener now that we've located the
+							// correct terminal
+							disposable.dispose();
 
-						// Clean up event listener now that we've located the
-						// correct terminal
-						disposable.dispose();
-					}
-					// Ignore terminals that don't have a process ID
-				});
-			}
+							// Connect to the kernel running in the terminal
+							this.connectToTerminal(openedTerminal, session).then(() => {
+								resolve();
+							}).catch((err) => {
+								reject(err);
+							});
+						}
+						// Ignore terminals that don't have a process ID
+					});
+				}
+			});
 		});
 	}
 
