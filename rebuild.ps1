@@ -22,22 +22,25 @@ if ($confirmation -eq 'n') {
 }
 
 # Kill any running deemons.
-Write-Host "Killing build daemons..."
-yarn run kill-watchd
-yarn run kill-watch-webd
-yarn run kill-watch-clientd
-yarn run kill-watch-extensionsd
+if (Test-Path node_modules\deemon) {
+	Write-Host "Killing build daemons..."
+	yarn run kill-watchd
+	yarn run kill-watch-webd
+	yarn run kill-watch-clientd
+	yarn run kill-watch-extensionsd
 
-# Disabled for now because it hangs. This needs to be investigated, but it's not worth doing right at the moment.
-#yarn run kill-watch-build-toolsd
+	# Disabled for now because it hangs. This needs to be investigated, but it's not worth doing right at the moment.
+	#yarn run kill-watch-build-toolsd
+}
 
 Write-Host "Cleaning up build artifacts..."
 git ls-files --directory -i -o -x node_modules | Remove-Item -Recurse -Force
-Remove-Item -Recurse -Force .build
-
-Write-Host "Killing build daemons"
+if (Test-Path .build) {
+	Remove-Item -Recurse -Force .build
+}
 
 # Run yarn to rebuild 'node_modules'.
+Write-Host "Installing..."
 yarn
 
 Write-Host "Done"
