@@ -101,7 +101,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 			// Look through the list of terminals to see if we can find one that matches
 			// the display name of this kernel.
-			vscode.window.terminals.forEach((terminal) => {
+			for (const terminal of vscode.window.terminals) {
 				if (terminal.name === this._spec.display_name) {
 					foundTerminal = true;
 
@@ -119,12 +119,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						// Connect to the running kernel in the terminal
 						this.connectToTerminal(terminal, new JupyterSession(sessionState));
 					});
+
+					break;
 				}
-			});
+			}
 
 			if (!foundTerminal) {
-				// We didn't find a terminal, so the kernel must have been terminated
-				// or crashed. Remove the session state from the workspace state.
+				// We didn't find a terminal; remove the session state from the
+				// workspace state since we no longer have a terminal we can
+				// connect to.
 				this._channel.appendLine(
 					`No terminal found; removing stale session state '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
 				this._context.workspaceState.update(this._runtimeId, undefined);
