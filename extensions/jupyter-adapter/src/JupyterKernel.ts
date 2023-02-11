@@ -74,6 +74,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** An object that tracks the Jupyter session information */
 	private _session?: JupyterSession;
 
+	/** The terminal in which the kernel process is running */
+	private _terminal?: vscode.Terminal;
+
 	constructor(private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
@@ -191,8 +194,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private async connectToTerminal(terminal: vscode.Terminal, session: JupyterSession) {
 
-		// Bind to the Jupyter session
+		// Bind to the Jupyter session and terminal
 		this._session = session;
+		this._terminal = terminal;
 
 		// When the terminal closes, mark the kernel as exited
 		const disposable = vscode.window.onDidCloseTerminal((closedTerminal) => {
@@ -651,8 +655,34 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._session.dispose();
 		}
 
+		// Dispose heartbeat timers
+		this.disposeHeartbeatTimers();
+
 		// Close sockets
 		this.disposeAllSockets();
+
+		// Ensure we don't try to rebind to kernel
+		this._context.workspaceState.update(this._runtimeId, undefined);
+
+		if (this.status() === positron.RuntimeState.Exited) {
+			// If the terminal has fully exited, we can clean up the terminal
+			// process.
+			if (this._terminal) {
+				this._terminal.dispose();
+			}
+		} else {
+			// TODO(jmcphers): What do we do about the terminal in this case? We
+			// can't just kill it because that may forcibly kill the kernel
+			// process, which we don't want here (the kernel may be in the
+			// middle of a shutdown request and we want to give it a chance to
+			// complete). On the other hand, we don't want to leave it open
+			// forever.
+			//
+			// In the future, we may deal with this by having a mechanism to
+			// clean up orphaned terminals when we start up.
+			//
+			// For now, we'll just leave it open.
+		}
 	}
 
 	/**
@@ -670,6 +700,17 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._stdin = null;
 		this._heartbeat = null;
 		this._iopub = null;
+	}
+
+	private disposeHeartbeatTimers() {
+		if (this._heartbeatTimer) {
+			clearTimeout(this._heartbeatTimer);
+			this._heartbeatTimer = null;
+		}
+		if (this._nextHeartbeat) {
+			clearTimeout(this._nextHeartbeat);
+			this._nextHeartbeat = null;
+		}
 	}
 
 	private generateMessageHeader(id: string, type: string): JupyterMessageHeader {
@@ -784,19 +825,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private onStatusChange(status: positron.RuntimeState) {
 		if (status === positron.RuntimeState.Exited) {
-			// Stop checking for heartbeats
-			if (this._heartbeatTimer) {
-				clearTimeout(this._heartbeatTimer);
-				this._heartbeatTimer = null;
-			}
-			if (this._nextHeartbeat) {
-				clearTimeout(this._nextHeartbeat);
-				this._nextHeartbeat = null;
-			}
-
-			// Dispose all sockets so they don't try to connect to the
-			// now-defunct kernel
-			this.disposeAllSockets();
+			// Dispose this instance when the runtime exits
+			this.dispose();
 		}
 	}
 
