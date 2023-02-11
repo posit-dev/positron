@@ -32,11 +32,18 @@ export abstract class BaseDiagnosticsService implements IDiagnosticsService, IDi
     protected static handledDiagnosticCodeKeys: string[] = [];
     protected readonly filterService: IDiagnosticFilterService;
     constructor(
+        // --- Start Positron ---
+        // @ts-ignore
         @unmanaged() private readonly supportedDiagnosticCodes: string[],
+        // @ts-ignore
         @unmanaged() protected serviceContainer: IServiceContainer,
+        // @ts-ignore
         @unmanaged() protected disposableRegistry: IDisposableRegistry,
+        // @ts-ignore
         @unmanaged() public readonly runInBackground: boolean = false,
+        // @ts-ignore
         @unmanaged() public readonly runInUntrustedWorkspace: boolean = false,
+        // --- End Positron ---
     ) {
         this.filterService = serviceContainer.get<IDiagnosticFilterService>(IDiagnosticFilterService);
         disposableRegistry.push(this);
