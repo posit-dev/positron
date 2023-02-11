@@ -56,7 +56,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private _inputRequests: Map<string, JupyterMessageHeader> = new Map();
 
+	/**
+	 * A timer that listens to heartbeats, is reset on every hearbeat, and
+	 * expires when the kernel goes offline; used to detect when the kernel has
+	 * become unresponsive.
+	 */
 	private _heartbeatTimer: NodeJS.Timeout | null;
+
+	/**
+	 * A timer used to schedule the next heartbeat sent to the kernel
+	 */
+	private _nextHeartbeat: NodeJS.Timeout | null;
+
+	/** The timestamp at which we last received a heartbeat message from the kernel */
 	private _lastHeartbeat: number;
 
 	/** An object that tracks the Jupyter session information */
@@ -76,6 +88,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._iopub = null;
 		this._heartbeat = null;
 		this._heartbeatTimer = null;
+		this._nextHeartbeat = null;
 		this._lastHeartbeat = 0;
 		this._lspClientPort = null;
 
@@ -749,7 +762,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Schedule the next heartbeat at the configured interval
 		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-		setTimeout(() => {
+		this._nextHeartbeat = setTimeout(() => {
 			this.heartbeat();
 		}, seconds * 1000);
 	}
@@ -775,6 +788,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			if (this._heartbeatTimer) {
 				clearTimeout(this._heartbeatTimer);
 				this._heartbeatTimer = null;
+			}
+			if (this._nextHeartbeat) {
+				clearTimeout(this._nextHeartbeat);
+				this._nextHeartbeat = null;
 			}
 
 			// Dispose all sockets so they don't try to connect to the
