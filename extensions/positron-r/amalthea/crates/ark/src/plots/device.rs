@@ -12,6 +12,8 @@ use harp::interrupts::RInterruptsSuspendedScope;
 use libR_sys::*;
 use stdext::cstr;
 
+static mut POSITRON_GRAPHICS_DEVICE : pGEDevDesc = std::ptr::null_mut();
+
 fn trace(label: &str) {
     log::info!("[plots] {}", label);
 }
@@ -28,8 +30,14 @@ extern "C" fn gd_clip(x0: f64, x1: f64, y0: f64, y1: f64, dd: pDevDesc) {
     trace("gd_clip");
 }
 
-extern "C" fn gd_close(dd: pDevDesc) {
+unsafe extern "C" fn gd_close(dd: pDevDesc) {
     trace("gd_close");
+
+    // NOTE: R will take care of deallocating the graphics device
+    // itself, so we don't need to do anything here -- we'd only
+    // want to free device-specific components not managed by R.
+    //
+    // https://github.com/wch/r-source/blob/9065779ee510b7bd8ca93d08f4dd4b6e2bd31923/src/main/engine.c#L75-L87
 }
 
 extern "C" fn gd_deactivate(dd: pDevDesc) {
@@ -134,8 +142,8 @@ extern "C" fn gd_eventHelper(dd: pDevDesc, code: i32) {
     trace("gd_eventHelper");
 }
 
-extern "C" fn gd_holdFlush(dd: pDevDesc, level: i32) -> i32 {
-    trace("gd_holdFlush");
+extern "C" fn gd_holdflush(dd: pDevDesc, level: i32) -> i32 {
+    trace("gd_holdflush");
     return 0;
 }
 
@@ -212,8 +220,7 @@ unsafe extern "C" fn ps_graphics_device() -> SEXP {
     // and then adapt that later as appropriate for the version of
     // R actually being used.
 
-    let mut dev = DevDesc {
-
+    let dev = Box::new(DevDesc {
         left: 0.0,
         right: 0.0,
         bottom: 0.0,
@@ -280,7 +287,7 @@ unsafe extern "C" fn ps_graphics_device() -> SEXP {
         eventEnv: R_NilValue,
         eventHelper: Some(gd_eventHelper),
 
-        holdflush: Some(gd_holdFlush),
+        holdflush: Some(gd_holdflush),
         haveTransparency: 0,
         haveTransparentBg: 0,
         haveRaster: 0,
@@ -310,17 +317,19 @@ unsafe extern "C" fn ps_graphics_device() -> SEXP {
         capabilities: Some(gd_capabilities),
 
         reserved: [0; 64],
+    });
 
-    };
+    // tell Rust not to automatically drop 'dev'; we'll handle this ourselves
+    let dev = Box::leak(dev);
 
     // adapt our device description to the version appropriate
     // for the currently-running version of R
     //
     // TODO: copy the relevant devdesc headers here
+    POSITRON_GRAPHICS_DEVICE = GEcreateDevDesc(dev);
+    GEaddDevice2(POSITRON_GRAPHICS_DEVICE, cstr!("Positron Graphics Device"));
 
-    let dd = GEcreateDevDesc(&mut dev);
-    GEaddDevice2(dd, cstr!("PositronDD"));
-    let number = Rf_ndevNumber((*dd).dev);
+    let number = Rf_ndevNumber((*POSITRON_GRAPHICS_DEVICE).dev);
     Rf_selectDevice(number);
 
     return R_NilValue;
