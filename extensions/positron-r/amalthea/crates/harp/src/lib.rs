@@ -71,52 +71,77 @@ macro_rules! r_string {
 #[macro_export]
 macro_rules! r_pairlist {
 
-    ($head:expr) => {{
+    ($name:ident = $head:expr$(,)?) => {{
 
         use libR_sys::*;
 
         let mut protect = $crate::protect::RProtect::new();
-        let head = $head;
-        protect.add(head);
+        let value = protect.add(Rf_cons($head, R_NilValue));
+        SET_TAG(value, $crate::r_symbol!(stringify!($name)));
 
-        Rf_cons($head, R_NilValue)
-
-    }};
-
-    ($head:expr, $($rest:expr$(,)?)*) => {{
-
-        use libR_sys::*;
-
-        let mut protect = $crate::protect::RProtect::new();
-        let head = $head;
-        protect.add(head);
-
-        let tail = $crate::r_pairlist!($($rest),*);
-        let value = Rf_cons(head, tail);
         value
 
     }};
+
+    ($name:ident = $head:expr, $($rest:tt)+) => {{
+
+        use libR_sys::*;
+
+        let mut protect = $crate::protect::RProtect::new();
+        let value = protect.add(Rf_cons($head, $crate::r_pairlist!($($rest)*)));
+        SET_TAG(value, $crate::r_symbol!(stringify!($name)));
+
+        value
+
+    }};
+
+    ($head:expr$(,)?) => {{
+        use libR_sys::*;
+        Rf_cons($head, R_NilValue)
+    }};
+
+    ($head:expr, $($rest:tt)+) => {{
+        use libR_sys::*;
+        Rf_cons($head, $crate::r_pairlist!($($rest)*))
+    }};
+
+}
+
+#[macro_export]
+macro_rules! r_lang {
+
+    ($(rest:tt)*) => {
+        let value = $crate::r_pairlist!($($rest)*);
+        SET_TYPEOF(value, LISTSXP);
+        value
+    }
 
 }
 
 #[cfg(test)]
 mod tests {
     use libR_sys::*;
+    use crate::object::RObject;
+
     use super::*;
 
     #[test]
     fn test_pairlist() { r_test! {
 
-        let value = r_pairlist! {
-            r_symbol!("a"),
-            r_symbol!("b"),
+        let value = RObject::new(r_pairlist! {
+            A = r_symbol!("a"),
+            B = r_symbol!("b"),
             r_symbol!("c"),
-        };
+            r_symbol!("d"),
+        });
 
-        assert!(CAR(value) == r_symbol!("a"));
-        assert!(CADR(value) == r_symbol!("b"));
-        assert!(CADDR(value) == r_symbol!("c"));
+        assert!(CAR(*value) == r_symbol!("a"));
+        assert!(CADR(*value) == r_symbol!("b"));
+        assert!(CADDR(*value) == r_symbol!("c"));
+        assert!(CADDDR(*value) == r_symbol!("d"));
 
+        assert!(TAG(*value) == r_symbol!("A"));
+        assert!(TAG(CDR(*value)) == r_symbol!("B"));
 
     }}
 
