@@ -60,13 +60,19 @@ jobs:
       # artifact.
       #
       # Example: 2022.10.0-123
-      #
-      # We also use the short_version as a release tag, and stop if the tag already exists.
       - name: Determine Version (Short)
         id: short_version
         run: |
           result=`./versions/show-version.js --short`
           echo "result=$result" >> $GITHUB_OUTPUT
+
+      # If we're on main, we will be producing a release later, so make sure
+      # that no release is already in place with this tag
+      - name: Check for Existing Tag
+        id: tag_check
+        if: github.ref == 'refs/heads/main'
+        run: |
+          result=`./versions/show-version.js --short`
           git fetch --tags
           tag_exists=`git tag -l "${result}"`
           if [ -n "${tag_exists}" ]; then exit 78; fi
@@ -194,7 +200,8 @@ jobs:
           cd VSCode-darwin-universal
           zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip *
 
-      # Create a GitHub release for the universal binary we just created.
+      # Create a GitHub release for the universal binary we just created, if
+      # we're running against the main branch
       #
       # TODO: This shouldn't be nested inside the macOS build task, but since
       # macOS is all we're building now, a macOS release and a Positron release
@@ -202,6 +209,7 @@ jobs:
       - name: Create release
         uses: actions/create-release@v1
         id: create_release
+        if: github.ref == 'refs/heads/main'
         with:
           draft: false
           prerelease: true
@@ -210,6 +218,7 @@ jobs:
 
       - name: Upload release artifact
         uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
