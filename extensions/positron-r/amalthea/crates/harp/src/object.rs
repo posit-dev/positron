@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    fn test_eq_charsxp() {r_test! {
+    fn test_eq_charsxp() { r_test! {
         let mut protect = protect::RProtect::new();
         let r_string = protect.add(r_string!("Apple"));
         let apple = STRING_ELT(r_string, 0);

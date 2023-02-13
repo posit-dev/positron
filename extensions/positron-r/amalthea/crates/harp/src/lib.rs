@@ -23,18 +23,30 @@ pub fn initialize() {
 }
 
 #[macro_export]
+macro_rules! r_lock {
+
+    ($($expr:tt)*) => {{
+        #[allow(unused_unsafe)]
+        $crate::lock::with_r_lock(|| {
+            unsafe { $($expr)* } }
+        )
+    }}
+
+}
+
+#[macro_export]
 macro_rules! r_symbol {
 
     ($id:literal) => {{
         use std::os::raw::c_char;
         let value = concat!($id, "\0");
-        Rf_install(value.as_ptr() as *const c_char)
+        libR_sys::Rf_install(value.as_ptr() as *const c_char)
     }};
 
     ($id:expr) => {{
         use std::os::raw::c_char;
         let cstr = [&*$id, "\0"].concat();
-        Rf_install(cstr.as_ptr() as *const c_char)
+        libR_sys::Rf_install(cstr.as_ptr() as *const c_char)
     }};
 
 }
@@ -57,13 +69,56 @@ macro_rules! r_string {
 }
 
 #[macro_export]
-macro_rules! r_lock {
+macro_rules! r_pairlist {
 
-    ($($expr:tt)*) => {{
-        #[allow(unused_unsafe)]
-        $crate::lock::with_r_lock(|| {
-            unsafe { $($expr)* } }
-        )
+    ($head:expr) => {{
+
+        use libR_sys::*;
+
+        let mut protect = $crate::protect::RProtect::new();
+        let head = $head;
+        protect.add(head);
+
+        Rf_cons($head, R_NilValue)
+
+    }};
+
+    ($head:expr, $($rest:expr$(,)?)*) => {{
+
+        use libR_sys::*;
+
+        let mut protect = $crate::protect::RProtect::new();
+        let head = $head;
+        protect.add(head);
+
+        let tail = $crate::r_pairlist!($($rest),*);
+        let value = Rf_cons(head, tail);
+        value
+
+    }};
+
+}
+
+#[cfg(test)]
+mod tests {
+    use libR_sys::*;
+    use super::*;
+
+    #[test]
+    fn test_pairlist() { r_test! {
+
+        let value = r_pairlist! {
+            r_symbol!("a"),
+            r_symbol!("b"),
+            r_symbol!("c"),
+        };
+
+        assert!(CAR(value) == r_symbol!("a"));
+        assert!(CADR(value) == r_symbol!("b"));
+        assert!(CADDR(value) == r_symbol!("c"));
+
+
     }}
 
 }
+
