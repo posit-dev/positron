@@ -4325,8 +4325,7 @@ declare namespace monaco.editor {
 		 * Defaults to `prefix`.
 		*/
 		mode?: 'prefix' | 'subword' | 'subwordSmart';
-		useExperimentalHints?: boolean;
-		hideHints?: boolean;
+		showToolbar?: 'always' | 'onHover';
 	}
 
 	export interface IBracketPairColorizationOptions {
@@ -6734,6 +6733,10 @@ declare namespace monaco.languages {
 		 * Will be called when an item is shown.
 		*/
 		handleItemDidShow?(completions: T, item: T['items'][number]): void;
+		/**
+		 * Will be called when an item is partially accepted.
+		 */
+		handlePartialAccept?(completions: T, item: T['items'][number], acceptedCharacters: number): void;
 		/**
 		 * Will be called when a completions list is no longer in use and can be garbage-collected.
 		*/
