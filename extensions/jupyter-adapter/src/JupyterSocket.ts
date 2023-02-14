@@ -74,7 +74,7 @@ export class JupyterSocket implements vscode.Disposable {
 
 			// If the socket fails to connect, reject the promise
 			this._socket.on('connect_delay', (_evt, addr) => {
-				if (triesLeft-- < 1) {
+				if (triesLeft-- === 0) {
 					this._channel.appendLine(`${this._title} socket failed to connect to ${addr} after ${maxTries} attempts`);
 					reject();
 				}
