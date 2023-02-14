@@ -36,7 +36,9 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-        run: yarn --immutable --network-timeout 60000
+        run: |
+          npm install -g yarn
+          yarn --immutable --network-timeout 60000
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 --long --parseable compile "electron x64" playwright-install download-builtin-extensions
