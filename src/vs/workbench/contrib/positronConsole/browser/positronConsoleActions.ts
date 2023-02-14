@@ -3,18 +3,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
+import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
+import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { PositronConsoleCommandId, POSITRON_CONSOLE_ACTION_CATEGORY } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
-import { ILanguageService } from 'vs/editor/common/languages/language';
 
 /**
  * Registers Positron console actions.
@@ -35,7 +39,7 @@ export function registerPositronConsoleActions() {
 		 */
 		constructor() {
 			super({
-				id: PositronConsoleCommandId.Clear,
+				id: PositronConsoleCommandId.ClearConsole,
 				title: {
 					value: localize('workbench.action.positronConsole.clearConsole', "Clear Console"),
 					original: 'Clear Console'
@@ -62,7 +66,7 @@ export function registerPositronConsoleActions() {
 			// If there is an active console, clear it. Otherwise, inform the user.
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			if (positronConsoleService.activePositronConsoleInstance) {
-				positronConsoleService.activePositronConsoleInstance.clear();
+				positronConsoleService.activePositronConsoleInstance.clearConsole();
 			} else {
 				accessor.get(INotificationService).notify({
 					severity: Severity.Info,
@@ -70,6 +74,77 @@ export function registerPositronConsoleActions() {
 					sticky: false
 				});
 			}
+		}
+	});
+
+	/**
+	 * Register the clear input history action. This action removes everything from the active console language's input history.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.ClearInputHistory,
+				title: {
+					value: localize('workbench.action.positronConsole.clearInputHistory', "Clear Input History"),
+					original: 'Clear Input History'
+				},
+				f1: true,
+				category,
+				icon: Codicon.clearAll,
+				description: {
+					description: 'workbench.action.positronConsole.clearInputHistory',
+					args: []
+				}
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// Use the service accessor to get the services we need.
+			const executionHistoryService = accessor.get(IExecutionHistoryService);
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const notificationService = accessor.get(INotificationService);
+			const layoutService = accessor.get(IWorkbenchLayoutService);
+
+			// Get the active Positron console instance. The Clear Input History action is bound to the active console, so if there isn't
+			// an active Positron console instance, we can't proceed.
+			const activePositronConsoleInstance = positronConsoleService.activePositronConsoleInstance;
+			if (!activePositronConsoleInstance) {
+				notificationService.notify({
+					severity: Severity.Info,
+					message: localize('positron.inputHistory.noActiveConsole', "Cannot clear input history. A console is not active."),
+					sticky: false
+				});
+				return;
+			}
+
+			// Get the language name.
+			const languageName = activePositronConsoleInstance.runtime.metadata.languageName;
+
+			// Ask the user to confirm the action.
+			if (!await confirmationModalDialog(
+				layoutService,
+				localize('clearInputHistoryTitle', "Clear Input History"),
+				localize('clearInputHistoryPrompt', "Are you sure you want to clear the {0} input history? This can't be undone.", languageName))) {
+				return;
+			}
+
+			// Clear the active Positron console instance and the history for its language from the execution history service.
+			activePositronConsoleInstance.clearInputHistory();
+			executionHistoryService.clearInputEntries(activePositronConsoleInstance.runtime.metadata.languageId);
+
+			// Let the user know that the history was cleared.
+			notificationService.notify({
+				severity: Severity.Info,
+				message: localize('positron.inputHistory.cleared', "The {0} input history has been cleared.", languageName),
+				sticky: false
+			});
 		}
 	});
 
@@ -83,7 +158,7 @@ export function registerPositronConsoleActions() {
 		 */
 		constructor() {
 			super({
-				id: PositronConsoleCommandId.Send,
+				id: PositronConsoleCommandId.ExecuteCode,
 				title: {
 					value: localize('workbench.action.positronConsole.executeCode', "Execute Code"),
 					original: 'Execute Code'
