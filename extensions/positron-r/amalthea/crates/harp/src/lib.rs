@@ -105,6 +105,11 @@ macro_rules! r_pairlist {
         value
     };
 
+    // Dotted pairlist with a single un-named element.
+    ($head:expr, $($name:ident = $tail:expr),* $(,)?) => {
+        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($name = $tail,)*))
+    };
+
     // Regular pairlist entry: recursive case.
     ($head:expr, $($tail:expr),* $(,)?) => {
         $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tail,)*))
@@ -125,11 +130,11 @@ macro_rules! r_pairlist {
 #[macro_export]
 macro_rules! r_lang {
 
-    ($(tts:tt)*) => {
+    ($($tts:tt)*) => {{
         let value = $crate::r_pairlist!($($tts)*);
-        libR_sys::SET_TYPEOF(value, LISTSXP);
+        libR_sys::SET_TYPEOF(value, LISTSXP as i32);
         value
-    }
+    }}
 
 }
 
@@ -191,6 +196,11 @@ mod tests {
 
         let e3 = CADDR(*value);
         assert!(r_typeof(e3) == REALSXP);
+
+        let value = RObject::new(r_lang!("hello", A = 1, B = 2));
+        assert!(r_typeof(CAR(*value)) == STRSXP);
+        assert!(TAG(*value) == R_NilValue);
+
 
     }}
 
