@@ -11,6 +11,7 @@ import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
+import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
@@ -26,7 +27,6 @@ import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
@@ -51,6 +51,26 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 	const [, setCurrentCodeFragment, refCurrentCodeFragment] = useStateRef<string | undefined>(undefined);
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
 
+	/**
+	 * Updates the code editor widget position to such that the cursor
+	 * appers on the last line and the last column.
+	 */
+	const updateCodeEditorWidgetPositionToEnd = () => {
+		// Get the model. If it isn't null (which it won't be), set the code editor widget
+		// position.
+		const textModel = refCodeEditorWidget.current.getModel();
+		if (textModel) {
+			const lineNumber = textModel.getLineCount();
+			refCodeEditorWidget.current.setPosition({
+				lineNumber,
+				column: textModel.getLineContent(lineNumber).length + 1
+			});
+
+			// Ensure that the code editor widget is scrolled into view.
+			refContainer.current?.scrollIntoView({ behavior: 'auto' });
+		}
+	};
+
 	// Memoize the key down event handler.
 	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
 		if (e.keyCode === KeyCode.UpArrow) {
@@ -65,8 +85,8 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 				// Get the current history entry, set it as the value of the code editor widget, and move to the previous entry.
 				const inputHistoryEntry = refHistoryNavigator.current.current();
 				refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
-				refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
 				refHistoryNavigator.current.previous();
+				updateCodeEditorWidgetPositionToEnd();
 			}
 
 			// Eat the event.
@@ -79,15 +99,17 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 				if (refHistoryNavigator.current.isAtEnd()) {
 					if (refCurrentCodeFragment.current !== undefined) {
 						refCodeEditorWidget.current.setValue(refCurrentCodeFragment.current);
-						refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: refCurrentCodeFragment.current.length + 1 });
+						//refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: refCurrentCodeFragment.current.length + 1 });
 						setCurrentCodeFragment(undefined);
 					}
 				} else {
 					// Move to the next history entry and set it as the value of the code editor widget.
 					const inputHistoryEntry = refHistoryNavigator.current.next();
 					refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
-					refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
+					// refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
 				}
+
+				updateCodeEditorWidgetPositionToEnd();
 			}
 
 			// Eat the event.
@@ -133,13 +155,8 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 			// If we're supposed to execute the code fragment, do it.
 			if (executeCode) {
-				// // Execute the code.
-				// const id = `fragment-${generateUuid()}`;
-				// props.positronConsoleInstance.runtime.execute(
-				// 	codeFragment,
-				// 	id,
-				// 	RuntimeCodeExecutionMode.Interactive,
-				// 	RuntimeErrorBehavior.Continue);
+				// Execute the code fragment.
+				props.executeCode(codeFragment);
 
 				// If the code fragment contains more than whitespace characters, add it to the history navigator.
 				if (codeFragment.trim().length) {
@@ -157,11 +174,13 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 					}
 				}
 
-				props.executeCode(codeFragment);
-
 				// Reset the model for the next input.
 				refCodeEditorWidget.current.setValue('');
 			}
+
+			// Eat the event.
+			e.preventDefault();
+			e.stopPropagation();
 		}
 	}, []);
 
@@ -179,6 +198,24 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 			});
 			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000)); // TODO@softwarenerd - get 1000 from settings.
 		}
+
+		// Create the resource URI.
+		const uri = URI.from({
+			scheme: Schemas.inMemory,
+			path: `/repl-${props.positronConsoleInstance.runtime.metadata.languageId}-${generateUuid()}`
+		});
+
+		// Create language selection.
+		const languageSelection = positronConsoleContext.languageService.createById(props.positronConsoleInstance.runtime.metadata.languageId);
+
+		// Create text model; this is the backing store for the Monaco editor that receives
+		// the user's input.
+		const textModel = positronConsoleContext.modelService.createModel(
+			'',					// initial value
+			languageSelection,  // language selection
+			uri,          		// resource URI
+			false               // this widget is not simple
+		);
 
 		// Create the code editor widget.
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
@@ -204,25 +241,6 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Add the code editor widget to the disposables store.
 		disposableStore.add(codeEditorWidget);
 		setCodeEditorWidget(codeEditorWidget);
-
-		// Create the resource URI.
-		const uri = URI.from({
-			scheme: Schemas.inMemory,
-			path: `/repl-${props.positronConsoleInstance.runtime.metadata.languageId}-${generateUuid()}`
-		});
-
-		// Create language selection.
-		// const languageId = positronConsoleContext.languageService.getLanguageIdByLanguageName(props.positronConsoleInstance.runtime.metadata.language);
-		const languageSelection = positronConsoleContext.languageService.createById(props.positronConsoleInstance.runtime.metadata.languageId);
-
-		// Create text model; this is the backing store for the Monaco editor that receives
-		// the user's input.
-		const textModel = positronConsoleContext.modelService.createModel(
-			'',					// initial value
-			languageSelection,  // language selection
-			uri,          		// resource URI
-			false               // this widget is not simple
-		);
 
 		// Attach the text model.
 		codeEditorWidget.setModel(textModel);
