@@ -66,7 +66,7 @@ impl CharSxpEq for String {
     }
 }
 
-impl<S> PartialEq<[S]> for RObject where S : CharSxpEq {
+impl<S: CharSxpEq> PartialEq<[S]> for RObject {
     fn eq(&self, other: &[S]) -> bool {
         unsafe {
             let object = self.sexp;
@@ -88,15 +88,35 @@ impl<S> PartialEq<[S]> for RObject where S : CharSxpEq {
     }
 }
 
-impl<S, const N: usize> PartialEq<[S; N]> for RObject where S : CharSxpEq {
+impl<S: CharSxpEq, const N: usize> PartialEq<[S; N]> for RObject {
     fn eq(&self, other: &[S; N]) -> bool {
         self.eq(&other[..])
     }
 }
 
-impl<S> PartialEq<Vec<S>> for RObject where S : CharSxpEq {
+impl<S: CharSxpEq> PartialEq<Vec<S>> for RObject {
     fn eq(&self, other: &Vec<S>) -> bool {
         self.eq(&other[..])
+    }
+}
+
+impl <S: CharSxpEq> PartialEq<S> for RObject {
+    fn eq(&self, other: &S) -> bool {
+        unsafe {
+            let sexp = self.sexp;
+            if Rf_length(sexp) != 1 {
+                return false;
+            }
+
+            other.eq_charsxp(STRING_ELT(sexp, 0))
+        }
+
+    }
+}
+
+pub fn r_is_null(object: SEXP) -> bool {
+    unsafe {
+        Rf_isNull(object) == 1
     }
 }
 
