@@ -23,18 +23,30 @@ pub fn initialize() {
 }
 
 #[macro_export]
+macro_rules! r_lock {
+
+    ($($expr:tt)*) => {{
+        #[allow(unused_unsafe)]
+        $crate::lock::with_r_lock(|| {
+            unsafe { $($expr)* } }
+        )
+    }}
+
+}
+
+#[macro_export]
 macro_rules! r_symbol {
 
     ($id:literal) => {{
         use std::os::raw::c_char;
         let value = concat!($id, "\0");
-        Rf_install(value.as_ptr() as *const c_char)
+        libR_sys::Rf_install(value.as_ptr() as *const c_char)
     }};
 
     ($id:expr) => {{
         use std::os::raw::c_char;
         let cstr = [&*$id, "\0"].concat();
-        Rf_install(cstr.as_ptr() as *const c_char)
+        libR_sys::Rf_install(cstr.as_ptr() as *const c_char)
     }};
 
 }
@@ -57,13 +69,122 @@ macro_rules! r_string {
 }
 
 #[macro_export]
-macro_rules! r_lock {
+macro_rules! r_double {
+    ($id:expr) => {
+        libR_sys::Rf_ScalarReal($id)
+    }
+}
 
-    ($($expr:tt)*) => {{
-        #[allow(unused_unsafe)]
-        $crate::lock::with_r_lock(|| {
-            unsafe { $($expr)* } }
-        )
+#[macro_export]
+macro_rules! r_pairlist_impl {
+
+    ($head:expr, $tail:expr) => {{
+
+        let head = $crate::object::RObject::from($head);
+        let tail = $crate::object::RObject::from($tail);
+        libR_sys::Rf_cons(*head, *tail)
+
+    }};
+
+}
+
+#[macro_export]
+macro_rules! r_pairlist {
+
+    // Dotted pairlist entry.
+    ($name:pat = $value:expr $(, $($tts:tt)*)?) => {{
+        let value = $crate::r_pairlist_impl!($value, $crate::r_pairlist!($($($tts)*)?));
+        libR_sys::SET_TAG(value, r_symbol!(stringify!($name)));
+        value
+    }};
+
+    // Regular pairlist entry: recursive case.
+    ($value:expr $(, $($tts:tt)*)?) => {
+        $crate::r_pairlist_impl!($value, $crate::r_pairlist!($($($tts)*)?))
+    };
+
+    // Empty pairlist.
+    () => {
+        R_NilValue
+    };
+
+}
+
+#[macro_export]
+macro_rules! r_lang {
+
+    ($($tts:tt)*) => {{
+        let value = $crate::r_pairlist!($($tts)*);
+        libR_sys::SET_TYPEOF(value, LISTSXP as i32);
+        value
     }}
 
 }
+
+#[cfg(test)]
+mod tests {
+    use libR_sys::*;
+    use crate::object::RObject;
+    use crate::utils::r_typeof;
+
+    use super::*;
+
+    #[test]
+    fn test_pairlist() { r_test! {
+
+        let value = RObject::new(r_pairlist! {
+            A = r_symbol!("a"),
+            B = r_symbol!("b"),
+            C = r_symbol!("c"),
+            D = r_symbol!("d"),
+        });
+
+        assert!(CAR(*value) == r_symbol!("a"));
+        assert!(CADR(*value) == r_symbol!("b"));
+        assert!(CADDR(*value) == r_symbol!("c"));
+        assert!(CADDDR(*value) == r_symbol!("d"));
+
+        assert!(TAG(*value) == r_symbol!("A"));
+        assert!(TAG(CDR(*value)) == r_symbol!("B"));
+
+        let value = RObject::new(r_pairlist! {
+            r_symbol!("a"),
+            r_string!("b"),
+            r_double!(42.0),
+        });
+
+        assert!(Rf_length(*value) == 3);
+
+        let e1 = CAR(*value);
+        assert!(r_typeof(e1) == SYMSXP);
+
+        let e2 = CADR(*value);
+        assert!(r_typeof(e2) == STRSXP);
+        assert!(RObject::view(e2).to::<String>().unwrap() == "b");
+
+        let e3 = CADDR(*value);
+        assert!(r_typeof(e3) == REALSXP);
+        assert!(RObject::view(e3).to::<f64>().unwrap() == 42.0);
+
+        let value = RObject::new(r_pairlist! {});
+        assert!(Rf_length(*value) == 0);
+
+        let value = RObject::new(r_pairlist! { "a", 12, 42.0 });
+
+        let e1 = CAR(*value);
+        assert!(r_typeof(e1) == STRSXP);
+
+        let e2 = CADR(*value);
+        assert!(r_typeof(e2) == INTSXP);
+
+        let e3 = CADDR(*value);
+        assert!(r_typeof(e3) == REALSXP);
+
+        let value = RObject::new(r_lang!("hello", A = 1, B = 2));
+        assert!(r_typeof(CAR(*value)) == STRSXP);
+        assert!(TAG(*value) == R_NilValue);
+
+    }
+
+}}
+

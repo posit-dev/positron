@@ -356,6 +356,21 @@ impl TryFrom<RObject> for i32 {
     }
 }
 
+impl TryFrom<RObject> for f64 {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_assert_length(*value, 1)?;
+            match r_typeof(*value) {
+                INTSXP => { Ok((*INTEGER(*value)) as f64) }
+                REALSXP => { Ok((*REAL(*value)) as f64) }
+                _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![REALSXP])) }
+            }
+        }
+    }
+}
+
+
 impl TryFrom<RObject> for HashMap<String, String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
@@ -399,7 +414,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    fn test_eq_charsxp() {r_test! {
+    fn test_eq_charsxp() { r_test! {
         let mut protect = protect::RProtect::new();
         let r_string = protect.add(r_string!("Apple"));
         let apple = STRING_ELT(r_string, 0);
