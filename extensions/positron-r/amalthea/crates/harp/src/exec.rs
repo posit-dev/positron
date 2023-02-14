@@ -6,17 +6,31 @@
 //
 
 use std::ffi::CStr;
+use std::mem;
+use std::os::raw::c_int;
+use std::os::raw::c_void;
+use std::os::raw::c_char;
 
 use libR_sys::*;
 
 use crate::error::Error;
 use crate::error::Result;
 use crate::object::RObject;
+use crate::object::ToRStrings;
+use crate::object::r_strings;
 use crate::protect::RProtect;
 use crate::r_symbol;
 use crate::utils::r_inherits;
 use crate::utils::r_stringify;
 use crate::utils::r_typeof;
+
+extern "C" {
+    pub static R_ParseError: c_int;
+}
+
+extern "C" {
+    pub static R_ParseErrorMsg: [c_char; 256usize];
+}
 
 pub struct RArgument {
     pub name: String,
@@ -178,14 +192,193 @@ pub unsafe fn geterrmessage() -> String {
 
 }
 
+/// Wrappers around R_tryCatch()
+///
+/// Takes a single closure that returns either a SEXP or `()`. If an R error is
+/// thrown this returns a an RError in the Err variant, otherwise it returns the
+/// result of the closure wrapped in an RObject.
+///
+/// The handler closure is not used per se, we just get the condition verbatim in the Err variant
+///
+/// Safety: the body of the closure should be as simple as possible because in the event
+///         of an R error, R will jump and there is no rust unwinding, i.e. rust values
+///         are not dropped. A good rule of thumb is to consider the body of the closure
+///         as C code.
+///
+/// ```ignore
+/// SEXP R_tryCatch(
+///     SEXP (*body)(void *), void *bdata,
+///     SEXP conds,
+///     SEXP (*handler)(SEXP, void *), void *hdata),
+///     void (*finally)(void*), void* fdata
+/// )
+/// ```
+pub unsafe fn r_try_catch_finally<F, R, S, Finally>(mut fun: F, classes: S, mut finally: Finally) -> Result<RObject>
+where
+    F: FnMut() -> R,
+    R: Into<RObject>,
+    Finally: FnMut(),
+    S: ToRStrings
+{
+    // C function that is passed as `body`
+    // the actual closure is passed as a void* through arg
+    extern "C" fn body_fn<S>(arg: *mut c_void) -> SEXP
+    where
+        S: Into<RObject>
+    {
+        // extract the "closure" from the void*
+        // idea from https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
+        let closure: &mut &mut dyn FnMut() -> S = unsafe { mem::transmute(arg) };
+
+        // call the closure and return it result as a SEXP
+        let out : RObject = closure().into();
+        out.sexp
+    }
+
+    // The actual closure is passed as a void*
+    let mut body_data: &mut dyn FnMut() -> R = &mut fun;
+    let body_data = &mut body_data;
+
+    // handler just returns the condition and sets success to false
+    // to signal that an error was caught
+    //
+    // This is similar to doing tryCatch(<C code>, error = force) in R
+    // except that we can handle the weird case where the code
+    // succeeds but returns a an error object
+    let mut success: bool = true;
+    let success_ptr: *mut bool = &mut success;
+
+    extern "C" fn handler_fn(condition: SEXP, arg: *mut c_void) -> SEXP {
+        // signal that there was an error
+        let success_ptr = arg as *mut bool;
+        unsafe {
+            *success_ptr = false;
+        }
+
+        // and return the R condition as is
+        condition
+    }
+
+    let classes = r_strings(classes);
+
+    // C function that is passed as `finally`
+    // the actual closure is passed as a void* through arg
+    extern "C" fn finally_fn(arg: *mut c_void) {
+        // extract the "closure" from the void*
+        let closure: &mut &mut dyn FnMut() = unsafe { mem::transmute(arg) };
+
+        closure();
+    }
+
+    // The actual finally closure is passed as a void*
+    let mut finally_data: &mut dyn FnMut() = &mut finally;
+    let finally_data = &mut finally_data;
+
+    let result = R_tryCatch(
+        Some(body_fn::<R>),
+        body_data as *mut _ as *mut c_void,
+
+        *classes,
+
+        Some(handler_fn),
+        success_ptr as *mut c_void,
+
+        Some(finally_fn),
+        finally_data as *mut _ as *mut c_void,
+    );
+
+    match success {
+        true => {
+            // the call to tryCatch() was successful, so we return the result
+            // as an RObject
+            Ok(RObject::from(result))
+        },
+        false => {
+            // the call to tryCatch failed, so result is a condition
+            // from which we can extract classes and message via a call to conditionMessage()
+            let classes : Vec<String> = RObject::from(Rf_getAttrib(result, R_ClassSymbol)).try_into()?;
+
+            let mut protect = RProtect::new();
+            let call = protect.add(Rf_lang2(r_symbol!("conditionMessage"), result));
+
+            // TODO: wrap the call to conditionMessage() in a tryCatch
+            //       but this cannot be another call to r_try_catch_error()
+            //       because it creates a recursion problem
+            let message: Vec<String> = RObject::from(Rf_eval(call, R_BaseEnv)).try_into()?;
+
+            Err(Error::TryCatchError {
+                message, classes
+            })
+        }
+    }
+}
+
+pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> Result<RObject>
+where
+    F: FnMut() -> R,
+    RObject: From<R>,
+    S : ToRStrings
+{
+    r_try_catch_finally(fun, classes, || {})
+}
+
+pub unsafe fn r_try_catch_error<F, R>(fun: F) -> Result<RObject>
+where
+    F: FnMut() -> R,
+    RObject: From<R>
+{
+    r_try_catch_finally(fun, "error", || {})
+}
+
+pub enum ParseResult {
+    Complete(SEXP),
+    Incomplete()
+}
+
+#[allow(non_upper_case_globals)]
+pub unsafe fn r_parse_vector(code: String) -> Result<ParseResult> {
+
+    let mut ps : ParseStatus = 0;
+    let mut protect = RProtect::new();
+    let r_code = protect.add(crate::r_string!(code));
+
+    let lambda = || {
+        R_ParseVector(r_code, -1, &mut ps, R_NilValue)
+    };
+
+    let result = r_try_catch_error(lambda)?;
+
+    match ps {
+        ParseStatus_PARSE_OK => {
+            Ok(ParseResult::Complete(*result))
+        },
+        ParseStatus_PARSE_INCOMPLETE => Ok(ParseResult::Incomplete()),
+        ParseStatus_PARSE_ERROR => {
+            Err(Error::ParseSyntaxError {
+                message: CStr::from_ptr(R_ParseErrorMsg.as_ptr()).to_string_lossy().to_string(),
+                line: R_ParseError as i32
+            })
+        },
+        _ => {
+            // should not get here
+            Err(Error::ParseError {
+                code, message: String::from("Unknown parse error")
+            })
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
+    use std::ffi::CString;
     use std::io::Write;
 
+    use crate::assert_match;
     use crate::r_lock;
     use crate::r_test;
     use crate::r_test_unlocked;
+    use crate::utils::r_is_null;
 
     use super::*;
 
@@ -272,6 +465,88 @@ mod tests {
         for handle in handles {
             handle.join().unwrap();
         }
+
+    }}
+
+    #[test]
+    fn test_try_catch_error(){ r_test! {
+
+        // ok SEXP
+        let ok = r_try_catch_error(|| {
+            Rf_ScalarInteger(42)
+        });
+        assert_match!(ok, Ok(value) => {
+            assert_eq!(r_typeof(*value), INTSXP as u32);
+            assert_eq!(INTEGER_ELT(*value, 0), 42);
+        });
+
+        // ok void
+        let void_ok = r_try_catch_error(|| {});
+        assert_match!(void_ok, Ok(value) => {
+            assert!(r_is_null(*value));
+        });
+
+        // ok something else, Vec<&str>
+        let string_ok = r_try_catch_error(|| {
+            vec!["hello", "world"]
+        });
+        assert_match!(string_ok, Ok(value) => {
+            assert_eq!(r_typeof(value.sexp), STRSXP);
+            assert_eq!(value, ["hello", "world"]);
+        });
+
+        // error
+        let out = r_try_catch_error(|| {
+            let msg = CString::new("ouch").unwrap();
+            Rf_error(unsafe {msg.as_ptr()});
+        });
+
+        assert_match!(out, Err(Error::TryCatchError { message, classes }) => {
+            assert_eq!(message, ["ouch"]);
+            assert_eq!(classes, ["simpleError", "error", "condition"]);
+        });
+
+    }}
+
+    #[test]
+    fn test_parse_vector() { r_test! {
+        // complete
+        assert_match!(
+            r_parse_vector(String::from("force(42)")),
+            Ok(ParseResult::Complete(out)) => {
+                assert_eq!(r_typeof(out), EXPRSXP as u32);
+
+                let call = VECTOR_ELT(out, 0);
+                assert_eq!(r_typeof(call), LANGSXP as u32);
+                assert_eq!(Rf_length(call), 2);
+                assert_eq!(CAR(call), r_symbol!("force"));
+
+                let arg = CADR(call);
+                assert_eq!(r_typeof(arg), REALSXP as u32);
+                assert_eq!(*REAL(arg), 42.0);
+            }
+        );
+
+        // incomplete
+        assert_match!(
+            r_parse_vector(String::from("force(42")),
+            Ok(ParseResult::Incomplete())
+        );
+
+        // error
+        assert_match!(
+            r_parse_vector(String::from("42 + _")),
+            Err(_) => {}
+        );
+
+        // "normal" syntax error
+        assert_match!(
+            r_parse_vector(String::from("1+1\n*42")),
+            Err(Error::ParseSyntaxError {message, line}) => {
+                assert!(message.contains("unexpected"));
+                assert_eq!(line, 2);
+            }
+        );
 
     }}
 
