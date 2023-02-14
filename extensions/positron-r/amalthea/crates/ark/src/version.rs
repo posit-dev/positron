@@ -39,6 +39,7 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
     let output = Command::new("R")
         .arg("-s")
         .arg("-e")
+        .arg("--vanilla")
         .arg("cat(version$major, \".\", version$minor, sep = \"\")")
         .output()
         .expect("Failed to execute R to determine version number");
