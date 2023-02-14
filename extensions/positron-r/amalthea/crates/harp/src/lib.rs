@@ -91,33 +91,16 @@ macro_rules! r_pairlist_impl {
 #[macro_export]
 macro_rules! r_pairlist {
 
-    // Dotted pairlist entry: recursive case.
-    ($name:pat = $head:expr, $($rname:ident = $rhead:expr),* $(,)?) => {{
-        let value = $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($rname = $rhead,)*));
+    // Dotted pairlist entry.
+    ($name:pat = $value:expr $(, $($tts:tt)*)?) => {{
+        let value = $crate::r_pairlist_impl!($value, $crate::r_pairlist!($($($tts)*)?));
         libR_sys::SET_TAG(value, r_symbol!(stringify!($name)));
         value
     }};
 
-    // Dotted pairlist entry: base case.
-    ($name:pat = $head:expr) => {
-        let value = $crate::r_pairlist_impl!($head, R_NilValue);
-        libR_sys::SET_TAG(value, r_symbol!(stringify!($name)));
-        value
-    };
-
-    // Dotted pairlist with a single un-named element.
-    ($head:expr, $($name:ident = $tail:expr),* $(,)?) => {
-        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($name = $tail,)*))
-    };
-
     // Regular pairlist entry: recursive case.
-    ($head:expr, $($tail:expr),* $(,)?) => {
-        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tail,)*))
-    };
-
-    // Regular pairlist entry: base case.
-    ($head:expr) => {
-        $crate::r_pairlist_impl!($head, R_NilValue)
+    ($value:expr $(, $($tts:tt)*)?) => {
+        $crate::r_pairlist_impl!($value, $crate::r_pairlist!($($($tts)*)?))
     };
 
     // Empty pairlist.
@@ -201,8 +184,7 @@ mod tests {
         assert!(r_typeof(CAR(*value)) == STRSXP);
         assert!(TAG(*value) == R_NilValue);
 
+    }
 
-    }}
-
-}
+}}
 
