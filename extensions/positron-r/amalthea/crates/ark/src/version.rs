@@ -23,7 +23,7 @@ pub struct RVersion {
     pub r_home: String,
 }
 
-pub fn detect_r() -> RVersion {
+pub fn detect_r() -> anyhow::Result<RVersion> {
 
     let output = Command::new("R")
         .arg("RHOME")
@@ -50,18 +50,20 @@ pub fn detect_r() -> RVersion {
 
     let mut version = version.split(".");
 
-    let major : u32 = version.next().unwrap().parse().unwrap();
-    let minor : u32 = version.next().unwrap().parse().unwrap();
-    let patch : u32 = version.next().unwrap().parse().unwrap();
+    let (major, minor, patch) = (
+        version.next().unwrap().parse()?,
+        version.next().unwrap().parse()?,
+        version.next().unwrap().parse()?
+    );
 
     // Execute the R script to get the home path to R
-    RVersion{
+    Ok(RVersion{
         major, minor, patch, r_home
-    }
+    })
 }
 
 #[test]
 fn test_detect_r() {
-    let version = detect_r();
+    let version = detect_r().unwrap();
     println!("{}.{}.{}", version.major, version.minor, version.patch);
 }
