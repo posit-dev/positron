@@ -24,14 +24,24 @@ export interface IPositronConsoleInstance {
 	readonly onDidClearConsole: Event<void>;
 
 	/**
+	 * The onDidClearInputHistory event.
+	 */
+	readonly onDidClearInputHistory: Event<void>;
+
+	/**
 	 * The onDidExecuteCode event.
 	 */
 	readonly onDidExecuteCode: Event<string>;
 
 	/**
-	 * Clears the Positron console instance.
+	 * Clears the console.
 	 */
-	clear(): void;
+	clearConsole(): void;
+
+	/**
+	 * Clears the input hstory.
+	 */
+	clearInputHistory(): void;
 
 	/**
 	 * Executes code in the Positron console instance.
