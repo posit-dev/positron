@@ -70,10 +70,9 @@ macro_rules! r_string {
 
 #[macro_export]
 macro_rules! r_double {
-    ($id:expr) => {{
-        use libR_sys::*;
-        Rf_ScalarReal($id)
-    }}
+    ($id:expr) => {
+        libR_sys::Rf_ScalarReal($id)
+    }
 }
 
 #[macro_export]
@@ -81,14 +80,10 @@ macro_rules! r_pairlist_impl {
 
     ($head:expr, $tail:expr) => {{
 
-        use libR_sys::*;
-
         let mut protect = $crate::protect::RProtect::new();
         let head = protect.add($head);
         let tail = protect.add($tail);
-        let value = protect.add(Rf_cons(head, tail));
-
-        value
+        libR_sys::Rf_cons(head, tail)
 
     }};
 
@@ -97,42 +92,20 @@ macro_rules! r_pairlist_impl {
 #[macro_export]
 macro_rules! r_pairlist {
 
-    // Dotted (named) pairlist entry: '<name> = <expr>'; base case.
-    ($name:ident = $head:expr$(,)?) => {{
-
-        use libR_sys::*;
-
-        let value = $crate::r_pairlist!($head, R_NilValue);
-        SET_TAG(value, $crate::r_symbol!(stringify!($name)));
-
-        value
-
-    }};
-
-    // Dotted (named) pairlist entry: '<name> = <expr>'; recursive case.
-    ($name:ident = $head:expr, $($rest:tt)+) => {{
-
-        use libR_sys::*;
-
+    // Dotted (named) pairlist entry: '<name> = <expr>'.
+    ($name:ident = $head:expr, $($rest:tt)*) => {{
         let value = $crate::r_pairlist!($head, $($rest)*);
-        SET_TAG(value, $crate::r_symbol!(stringify!($name)));
-
+        libR_sys::SET_TAG(value, $crate::r_symbol!(stringify!($name)));
         value
-
     }};
 
-    // Pairlist entry; base case.
-    ($head:expr$(,)?) => {
-        $crate::r_pairlist_impl!($head, R_NilValue)
-    };
-
-    // Pairlist entry; recursive case.
-    ($head:expr, $($rest:tt)+) => {
+    // Regular pairlist entry.
+    ($head:expr, $($rest:tt)*) => {
         $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($rest)*))
     };
 
     // Empty pairlist.
-    ($(,)?) => {
+    () => {
         R_NilValue
     }
 
@@ -143,7 +116,7 @@ macro_rules! r_lang {
 
     ($(rest:tt)*) => {
         let value = $crate::r_pairlist!($($rest)*);
-        SET_TYPEOF(value, LISTSXP);
+        libR_sys::SET_TYPEOF(value, LISTSXP);
         value
     }
 
