@@ -21,12 +21,12 @@ jobs:
 
       - name: Setup Build Environment
         run: |
-          sudo -n apt-get update
-          sudo -n apt-get install -y libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1
-          sudo -n cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo -n chmod +x /etc/init.d/xvfb
-          sudo -n update-rc.d xvfb defaults
-          sudo -n service xvfb start
+          apt-get update
+          apt-get install -y libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1
+          cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          chmod +x /etc/init.d/xvfb
+          update-rc.d xvfb defaults
+          service xvfb start
 
       - uses: actions/setup-node@v3
         with:
