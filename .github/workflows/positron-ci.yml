@@ -36,6 +36,7 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: |
           npm install -g yarn
           yarn --immutable --network-timeout 60000
