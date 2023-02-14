@@ -227,6 +227,16 @@ jobs:
           asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
           asset_content_type: application/zip
 
+      # On the other hand, if  we *aren't* running against the main branch,
+      # just create a regular build artifact for the universal archive, to be
+      # downloaded from the actions page for testing purposes.
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        if: github.ref != 'refs/heads/main'
+        with:
+          name: positron-darwin-universal-archive
+          path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+
   status:
     if: ${{ failure() }}
     runs-on: self-hosted
