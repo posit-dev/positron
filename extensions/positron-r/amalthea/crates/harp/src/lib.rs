@@ -80,37 +80,45 @@ macro_rules! r_pairlist_impl {
 
     ($head:expr, $tail:expr) => {{
 
-        let mut protect = $crate::protect::RProtect::new();
-        let head = protect.add($head);
-        let tail = protect.add($tail);
-        libR_sys::Rf_cons(head, tail)
+        let head = $crate::object::RObject::from($head);
+        let tail = $crate::object::RObject::from($tail);
+        libR_sys::Rf_cons(*head, *tail)
 
     }};
 
 }
 
-// NOTE: We use an 'incremental TT muncher' as described in
-// https://veykril.github.io/tlborm/decl-macros/patterns/tt-muncher.html
 #[macro_export]
 macro_rules! r_pairlist {
 
-    // Dotted (named) pairlist entry: '<name> = <expr>'.
-    ($name:ident = $head:expr, $($tts:tt)*) => {{
-        let value = $crate::r_pairlist!($head, $($tts)*);
-        libR_sys::SET_TAG(value, $crate::r_symbol!(stringify!($name)));
+    // Dotted pairlist entry: recursive case.
+    ($name:pat = $head:expr, $($rname:ident = $rhead:expr),* $(,)?) => {{
+        let value = $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($rname = $rhead,)*));
+        libR_sys::SET_TAG(value, r_symbol!(stringify!($name)));
         value
     }};
 
-    // Regular pairlist entry.
-    ($head:expr, $($tts:tt)*) => {
-        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tts)*))
+    // Dotted pairlist entry: base case.
+    ($name:pat = $head:expr) => {
+        let value = $crate::r_pairlist_impl!($head, R_NilValue);
+        libR_sys::SET_TAG(value, r_symbol!(stringify!($name)));
+        value
     };
 
+    // Regular pairlist entry: recursive case.
+    ($head:expr, $($tail:expr),* $(,)?) => {
+        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tail,)*))
+    };
+
+    // Regular pairlist entry: base case.
+    ($head:expr) => {
+        $crate::r_pairlist_impl!($head, R_NilValue)
+    };
 
     // Empty pairlist.
     () => {
         R_NilValue
-    }
+    };
 
 }
 
@@ -139,8 +147,8 @@ mod tests {
         let value = RObject::new(r_pairlist! {
             A = r_symbol!("a"),
             B = r_symbol!("b"),
-            r_symbol!("c"),
-            r_symbol!("d"),
+            C = r_symbol!("c"),
+            D = r_symbol!("d"),
         });
 
         assert!(CAR(*value) == r_symbol!("a"));
@@ -172,6 +180,17 @@ mod tests {
 
         let value = RObject::new(r_pairlist! {});
         assert!(Rf_length(*value) == 0);
+
+        let value = RObject::new(r_pairlist! { "a", 12, 42.0 });
+
+        let e1 = CAR(*value);
+        assert!(r_typeof(e1) == STRSXP);
+
+        let e2 = CADR(*value);
+        assert!(r_typeof(e2) == INTSXP);
+
+        let e3 = CADDR(*value);
+        assert!(r_typeof(e3) == REALSXP);
 
     }}
 
