@@ -69,41 +69,72 @@ macro_rules! r_string {
 }
 
 #[macro_export]
+macro_rules! r_double {
+    ($id:expr) => {{
+        use libR_sys::*;
+        Rf_ScalarReal($id)
+    }}
+}
+
+#[macro_export]
+macro_rules! r_pairlist_impl {
+
+    ($head:expr, $tail:expr) => {{
+
+        use libR_sys::*;
+
+        let mut protect = $crate::protect::RProtect::new();
+        let head = protect.add($head);
+        let tail = protect.add($tail);
+        let value = protect.add(Rf_cons(head, tail));
+
+        value
+
+    }};
+
+}
+
+#[macro_export]
 macro_rules! r_pairlist {
 
+    // Dotted (named) pairlist entry: '<name> = <expr>'; base case.
     ($name:ident = $head:expr$(,)?) => {{
 
         use libR_sys::*;
 
-        let mut protect = $crate::protect::RProtect::new();
-        let value = protect.add(Rf_cons($head, R_NilValue));
+        let value = $crate::r_pairlist!($head, R_NilValue);
         SET_TAG(value, $crate::r_symbol!(stringify!($name)));
 
         value
 
     }};
 
+    // Dotted (named) pairlist entry: '<name> = <expr>'; recursive case.
     ($name:ident = $head:expr, $($rest:tt)+) => {{
 
         use libR_sys::*;
 
-        let mut protect = $crate::protect::RProtect::new();
-        let value = protect.add(Rf_cons($head, $crate::r_pairlist!($($rest)*)));
+        let value = $crate::r_pairlist!($head, $($rest)*);
         SET_TAG(value, $crate::r_symbol!(stringify!($name)));
 
         value
 
     }};
 
-    ($head:expr$(,)?) => {{
-        use libR_sys::*;
-        Rf_cons($head, R_NilValue)
-    }};
+    // Pairlist entry; base case.
+    ($head:expr$(,)?) => {
+        $crate::r_pairlist_impl!($head, R_NilValue)
+    };
 
-    ($head:expr, $($rest:tt)+) => {{
-        use libR_sys::*;
-        Rf_cons($head, $crate::r_pairlist!($($rest)*))
-    }};
+    // Pairlist entry; recursive case.
+    ($head:expr, $($rest:tt)+) => {
+        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($rest)*))
+    };
+
+    // Empty pairlist.
+    ($(,)?) => {
+        R_NilValue
+    }
 
 }
 
@@ -122,6 +153,7 @@ macro_rules! r_lang {
 mod tests {
     use libR_sys::*;
     use crate::object::RObject;
+    use crate::utils::r_typeof;
 
     use super::*;
 
@@ -142,6 +174,28 @@ mod tests {
 
         assert!(TAG(*value) == r_symbol!("A"));
         assert!(TAG(CDR(*value)) == r_symbol!("B"));
+
+        let value = RObject::new(r_pairlist! {
+            r_symbol!("a"),
+            r_string!("b"),
+            r_double!(42.0),
+        });
+
+        assert!(Rf_length(*value) == 3);
+
+        let e1 = CAR(*value);
+        assert!(r_typeof(e1) == SYMSXP);
+
+        let e2 = CADR(*value);
+        assert!(r_typeof(e2) == STRSXP);
+        assert!(RObject::view(e2).to::<String>().unwrap() == "b");
+
+        let e3 = CADDR(*value);
+        assert!(r_typeof(e3) == REALSXP);
+        assert!(RObject::view(e3).to::<f64>().unwrap() == 42.0);
+
+        let value = RObject::new(r_pairlist! {});
+        assert!(Rf_length(*value) == 0);
 
     }}
 
