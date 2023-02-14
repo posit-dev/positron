@@ -90,14 +90,18 @@ suite('Common Editor Config', () => {
 		const config = new TestWrappingConfiguration({
 			wordWrap: <any>true
 		});
-		assertWrapping(config, true, 80);
+		// --- Start Positron ---
+		assertWrapping(config, true, 88);
+		// --- End Positron ---
 	});
 
 	test('wordWrap on', () => {
 		const config = new TestWrappingConfiguration({
 			wordWrap: 'on'
 		});
-		assertWrapping(config, true, 80);
+		// --- Start Positron ---
+		assertWrapping(config, true, 88);
+		// --- End Positron ---
 	});
 
 	test('wordWrap on without minimap', () => {
@@ -115,7 +119,9 @@ suite('Common Editor Config', () => {
 			wordWrap: 'on',
 			wordWrapColumn: 10
 		});
-		assertWrapping(config, true, 80);
+		// --- Start Positron ---
+		assertWrapping(config, true, 88);
+		// --- End Positron ---
 	});
 
 	test('wordWrap off', () => {
