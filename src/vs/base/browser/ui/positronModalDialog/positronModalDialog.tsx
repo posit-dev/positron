@@ -117,12 +117,12 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		// Add our event handlers.
 		const KEYDOWN = 'keydown';
 		const RESIZE = 'resize';
-		document.addEventListener(KEYDOWN, keydownHandler, false);
+		document.addEventListener(KEYDOWN, keydownHandler, true);
 		window.addEventListener(RESIZE, resizeHandler, false);
 
 		// Return the cleanup function that removes our event handlers.
 		return () => {
-			document.removeEventListener(KEYDOWN, keydownHandler, false);
+			document.removeEventListener(KEYDOWN, keydownHandler, true);
 			window.removeEventListener(RESIZE, resizeHandler, false);
 		};
 	}, []);
