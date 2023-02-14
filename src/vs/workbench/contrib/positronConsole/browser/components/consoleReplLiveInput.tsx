@@ -281,6 +281,18 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
 			// When the console is cleared, erase anything that was partially entered.
 			textModel.setValue('');
+
+			// Re-focus the console.
+			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidClearInputHistory event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidClearInputHistory(() => {
+			// Discard the history navigator.
+			setHistoryNavigator(undefined);
+
+			// Re-focus the console.
+			codeEditorWidget.focus();
 		}));
 
 		// Return the cleanup function that will dispose of the disposables.
