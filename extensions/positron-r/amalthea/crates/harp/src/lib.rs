@@ -106,11 +106,6 @@ macro_rules! r_pairlist {
         $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tts)*))
     };
 
-    // Regular pairlist entry.
-    ($head:expr, $($tts:tt)*) => {
-        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tts)*))
-    };
-
 
     // Empty pairlist.
     () => {
