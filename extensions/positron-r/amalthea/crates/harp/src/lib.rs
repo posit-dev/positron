@@ -89,20 +89,28 @@ macro_rules! r_pairlist_impl {
 
 }
 
+// NOTE: We use an 'incremental TT muncher' as described in
+// https://veykril.github.io/tlborm/decl-macros/patterns/tt-muncher.html
 #[macro_export]
 macro_rules! r_pairlist {
 
     // Dotted (named) pairlist entry: '<name> = <expr>'.
-    ($name:ident = $head:expr, $($rest:tt)*) => {{
-        let value = $crate::r_pairlist!($head, $($rest)*);
+    ($name:ident = $head:expr, $($tts:tt)*) => {{
+        let value = $crate::r_pairlist!($head, $($tts)*);
         libR_sys::SET_TAG(value, $crate::r_symbol!(stringify!($name)));
         value
     }};
 
     // Regular pairlist entry.
-    ($head:expr, $($rest:tt)*) => {
-        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($rest)*))
+    ($head:expr, $($tts:tt)*) => {
+        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tts)*))
     };
+
+    // Regular pairlist entry.
+    ($head:expr, $($tts:tt)*) => {
+        $crate::r_pairlist_impl!($head, $crate::r_pairlist!($($tts)*))
+    };
+
 
     // Empty pairlist.
     () => {
@@ -114,8 +122,8 @@ macro_rules! r_pairlist {
 #[macro_export]
 macro_rules! r_lang {
 
-    ($(rest:tt)*) => {
-        let value = $crate::r_pairlist!($($rest)*);
+    ($(tts:tt)*) => {
+        let value = $crate::r_pairlist!($($tts)*);
         libR_sys::SET_TYPEOF(value, LISTSXP);
         value
     }
