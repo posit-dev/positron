@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  linux:
+    name: Tests on Linux
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Execute yarn
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        run: yarn --immutable --network-timeout 60000
+
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 --long --parseable compile "electron x64" playwright-install download-builtin-extensions
+
+      - name: Run Unit Tests (Electron)
+        id: electron-unit-tests
+        run: DISPLAY=:10 ./scripts/test.sh
+
+      - name: Run Unit Tests (node.js)
+        id: nodejs-unit-tests
+        run: yarn test-node
+
+      - name: Run Unit Tests (Browser, Chromium)
+        id: browser-unit-tests
+        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
