@@ -86,7 +86,7 @@ fn install_kernel_spec() {
 
     // Detect the active version of R and set the R_HOME environment variable
     // accordingly
-    let r_version = detect_r();
+    let r_version = detect_r().unwrap();
     env.insert(
         "R_HOME".to_string(),
         serde_json::Value::String(r_version.r_home.clone()),
