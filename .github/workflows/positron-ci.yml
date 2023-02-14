@@ -1,4 +1,4 @@
-name: CI
+name: "Positron: CI"
 
 on:
   push:
