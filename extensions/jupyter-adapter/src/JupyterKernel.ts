@@ -205,6 +205,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				return;
 			}
 
+			// Ignore close events if the underlying process hasn't actually exited
+			if (terminal.exitStatus?.code === undefined) {
+				return;
+			}
+
 			if (this._status === positron.RuntimeState.Starting) {
 				// If we were starting the kernel, then we failed to start
 				this._channel.appendLine(
