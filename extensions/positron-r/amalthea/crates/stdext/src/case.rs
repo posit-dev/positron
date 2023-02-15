@@ -9,8 +9,8 @@
 macro_rules! case {
 
     (
-        $($cnd:expr => $result:expr$(,)?)+
-        => $default:expr
+        $($cnd:expr => $result:expr $(,)?)+
+        => $default:expr $(,)?
     ) => {
 
         $crate::local! {
@@ -38,7 +38,7 @@ mod tests {
             x < 42  => "apple",
             x > 42  => "banana",
             x == 42 => "cherry",
-            => "danish"
+            => "danish",
         };
 
         assert!(result == "cherry");

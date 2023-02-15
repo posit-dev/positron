@@ -36,9 +36,8 @@ use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition;
 use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::documents::Document;
-use crate::lsp::global::ClientInstance;
-use crate::lsp::global::INSTANCE;
-use crate::lsp::global::get_instance;
+use crate::lsp::global::LSP_CLIENT;
+use crate::lsp::global::SHELL_REQUEST_TX;
 use crate::lsp::help_proxy;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
@@ -578,17 +577,15 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     let (read, write) = (read.compat(), write.compat_write());
 
-    let init = |client| {
+    let init = |client: Client| {
 
-        // initialize global client (needs to be visible for R routines)
-        INSTANCE.set(ClientInstance {
-            client: client,
-            shell_request_tx: shell_request_tx.clone(),
-        }).unwrap();
+        // initialize shared globals (needed for R callbacks)
+        LSP_CLIENT.set(client.clone()).unwrap();
+        SHELL_REQUEST_TX.set(shell_request_tx.clone()).unwrap();
 
         // create backend
         let backend = Backend {
-            client: get_instance().client,
+            client,
             documents: DOCUMENT_INDEX.clone(),
             workspace: Arc::new(Mutex::new(Workspace::default())),
             shell_request_tx: shell_request_tx.clone(),
