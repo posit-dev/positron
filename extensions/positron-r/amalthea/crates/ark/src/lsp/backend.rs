@@ -10,8 +10,8 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::mpsc::SyncSender;
 
+use crossbeam::channel::Sender;
 use dashmap::DashMap;
 use harp::r_lock;
 use log::*;
@@ -75,7 +75,7 @@ pub struct Backend {
     pub documents: Arc<DashMap<Url, Document>>,
     pub workspace: Arc<Mutex<Workspace>>,
     #[allow(dead_code)]
-    pub shell_request_sender: SyncSender<Request>,
+    pub shell_request_sender: Sender<Request>,
 }
 
 impl Backend {
@@ -555,7 +555,7 @@ impl Backend {
 }
 
 #[tokio::main]
-pub async fn start_lsp(address: String, shell_request_sender: SyncSender<Request>) {
+pub async fn start_lsp(address: String, shell_request_sender: Sender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 

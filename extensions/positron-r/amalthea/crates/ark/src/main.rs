@@ -10,6 +10,7 @@
 use amalthea::connection_file::ConnectionFile;
 use amalthea::kernel::Kernel;
 use amalthea::kernel_spec::KernelSpec;
+use crossbeam::channel::unbounded;
 use log::*;
 use std::env;
 use std::io::stdin;
@@ -43,12 +44,14 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
 
     // Create the shell handler; this is the main entry point for the kernel
     let shell_sender = kernel.create_iopub_sender();
-    let shell = Shell::new(shell_sender);
+    let (kernel_init_sender, kernel_init_receiver) = unbounded();
+    let shell = Shell::new(shell_sender, kernel_init_sender.clone(), kernel_init_receiver.clone());
 
     // Create the LSP client; not all Amalthea kernels provide one, but ARK
     // does. It must be able to deliver messages to the shell channel directly.
     let lsp = Arc::new(Mutex::new(lsp::handler::Lsp::new(
         shell.request_sender(),
+        kernel_init_receiver.clone(),
     )));
 
     // Create the control handler; this is used to handle shutdown/interrupt and

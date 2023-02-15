@@ -8,7 +8,7 @@
 use amalthea::{wire::execute_request::ExecuteRequest, events::PositronEvent};
 use amalthea::wire::execute_response::ExecuteResponse;
 use amalthea::wire::input_request::ShellInputRequest;
-use std::sync::mpsc::{Sender, SyncSender};
+use crossbeam::channel::Sender;
 
 /// Represents requests to the primary R execution thread.
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ pub enum Request {
     ExecuteCode(ExecuteRequest, Vec<u8>, Sender<ExecuteResponse>),
 
     /// Establish a channel to the front end to send input requests
-    EstablishInputChannel(SyncSender<ShellInputRequest>),
+    EstablishInputChannel(Sender<ShellInputRequest>),
 
     /// Deliver an event to the front end
     DeliverEvent(PositronEvent),
