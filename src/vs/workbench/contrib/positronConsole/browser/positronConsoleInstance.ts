@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
 
 /**
  * PositronConsoleInstance class.
