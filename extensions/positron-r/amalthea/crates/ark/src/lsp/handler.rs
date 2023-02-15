@@ -16,29 +16,29 @@ use crate::request::Request;
 use super::backend;
 
 pub struct Lsp {
-    shell_request_sender: Sender<Request>,
-    kernel_init_receiver: BusReader<KernelInfo>,
+    shell_request_tx: Sender<Request>,
+    kernel_init_rx: BusReader<KernelInfo>,
 }
 
 impl Lsp {
     pub fn new(
-        shell_request_sender: Sender<Request>,
-        kernel_init_receiver: BusReader<KernelInfo>
+        shell_request_tx: Sender<Request>,
+        kernel_init_rx: BusReader<KernelInfo>
     ) -> Self {
-        Self { shell_request_sender, kernel_init_receiver }
+        Self { shell_request_tx, kernel_init_rx }
     }
 }
 
 impl LspHandler for Lsp {
     fn start(&mut self, tcp_address: String) -> Result<(), amalthea::error::Error> {
 
-        let status = self.kernel_init_receiver.recv();
+        let status = self.kernel_init_rx.recv();
         if let Err(error) = status {
             log::error!("Error waiting for kernel to initialize: {}", error);
         }
 
-        let sender = self.shell_request_sender.clone();
-        thread::spawn(move || backend::start_lsp(tcp_address, sender));
+        let shell_request_tx = self.shell_request_tx.clone();
+        thread::spawn(move || backend::start_lsp(tcp_address, shell_request_tx));
         return Ok(());
     }
 }

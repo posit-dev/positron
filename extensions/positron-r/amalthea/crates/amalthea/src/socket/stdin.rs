@@ -42,16 +42,16 @@ impl Stdin {
     /// 1. Wait for
     pub fn listen(&self) {
         // Create the communication channel for the shell handler and inject it
-        let (sender, receiver) = bounded::<ShellInputRequest>(1);
+        let (tx, rx) = bounded::<ShellInputRequest>(1);
         {
             let mut shell_handler = self.handler.lock().unwrap();
-            shell_handler.establish_input_handler(sender);
+            shell_handler.establish_input_handler(tx);
         }
 
         // Listen for input requests from the back end
         loop {
             // Wait for a message (input request) from the back end
-            let req = receiver.recv().unwrap();
+            let req = rx.recv().unwrap();
 
             // Deliver the message to the front end
             let msg = JupyterMessage::create_with_identity(

@@ -46,38 +46,38 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
 
     // Create the channels used for communication. These are created here
     // as they need to be shared across different components / threads.
-    let iopub = kernel.create_iopub_sender();
+    let iopub_tx = kernel.create_iopub_tx();
 
     // A broadcast channel (bus) used to notify clients when the kernel
     // has finished initialization.
-    let mut kernel_init_sender = Bus::new(1);
+    let mut kernel_init_tx = Bus::new(1);
 
     // A channel pair used for shell requests.
     // These events are used to manage the runtime state, and also to
     // handle message delivery, among other things.
-    let (shell_request_sender, shell_request_receiver) = bounded::<Request>(1);
+    let (shell_request_tx, shell_request_rx) = bounded::<Request>(1);
 
     // Create the LSP client.
     // Not all Amalthea kernels provide one, but ark does.
     // It must be able to deliver messages to the shell channel directly.
     let lsp = Arc::new(Mutex::new(lsp::handler::Lsp::new(
-        shell_request_sender.clone(),
-        kernel_init_sender.add_rx(),
+        shell_request_tx.clone(),
+        kernel_init_tx.add_rx(),
     )));
 
     // Create the shell.
-    let kernel_init_receiver = kernel_init_sender.add_rx();
+    let kernel_init_rx = kernel_init_tx.add_rx();
     let shell = Shell::new(
-        iopub,
-        shell_request_sender,
-        shell_request_receiver,
-        kernel_init_sender,
-        kernel_init_receiver,
+        iopub_tx,
+        shell_request_tx,
+        shell_request_rx,
+        kernel_init_tx,
+        kernel_init_rx,
     );
 
     // Create the control handler; this is used to handle shutdown/interrupt and
     // related requests
-    let control = Arc::new(Mutex::new(Control::new(shell.request_sender())));
+    let control = Arc::new(Mutex::new(Control::new(shell.request_tx())));
 
     // Create the stream behavior; this determines whether the kernel should
     // capture stdout/stderr and send them to the front end as IOPub messages

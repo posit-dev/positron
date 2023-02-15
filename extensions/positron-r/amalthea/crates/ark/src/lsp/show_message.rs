@@ -30,7 +30,7 @@ pub unsafe extern "C" fn ps_show_message(message: SEXP) -> SEXP {
 
         let event = PositronEvent::ShowMessage(ShowMessageEvent { message });
         let event = Request::DeliverEvent(event);
-        let status = unwrap!(instance.shell_request_sender.send(event), Err(error) => {
+        let status = unwrap!(instance.shell_request_tx.send(event), Err(error) => {
             anyhow::bail!("Error sending request: {}", error);
         });
 
