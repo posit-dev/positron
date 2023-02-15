@@ -15,5 +15,5 @@ use crate::error::Error;
 #[async_trait]
 pub trait LspHandler: Send {
     /// Starts the LSP server and binds it to the given TCP address.
-    fn start(&self, tcp_address: String) -> Result<(), Error>;
+    fn start(&mut self, tcp_address: String) -> Result<(), Error>;
 }

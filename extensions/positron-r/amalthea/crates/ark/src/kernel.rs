@@ -18,6 +18,7 @@ use amalthea::wire::input_request::InputRequest;
 use amalthea::wire::input_request::ShellInputRequest;
 use amalthea::wire::jupyter_message::Status;
 use anyhow::*;
+use bus::Bus;
 use crossbeam::channel::Sender;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -37,7 +38,7 @@ pub struct Kernel {
     pub execution_count: u32,
     iopub: Sender<IOPubMessage>,
     console: Sender<Option<String>>,
-    initializer: Sender<KernelInfo>,
+    initializer: Bus<KernelInfo>,
     output: String,
     error: String,
     response_sender: Option<Sender<ExecuteResponse>>,
@@ -47,6 +48,7 @@ pub struct Kernel {
 }
 
 /// Represents kernel metadata (available after the kernel has fully started)
+#[derive(Debug, Clone)]
 pub struct KernelInfo {
     pub version: String,
     pub banner: String,
@@ -57,7 +59,7 @@ impl Kernel {
     pub fn new(
         iopub: Sender<IOPubMessage>,
         console: Sender<Option<String>>,
-        initializer: Sender<KernelInfo>,
+        initializer: Bus<KernelInfo>,
     ) -> Self {
         Self {
             iopub: iopub,
@@ -87,7 +89,7 @@ impl Kernel {
             };
 
             debug!("Sending kernel info: {}", version);
-            self.initializer.send(kernel_info).unwrap();
+            self.initializer.broadcast(kernel_info);
             self.initializing = false;
         } else {
             warn!("Initialization already complete!");

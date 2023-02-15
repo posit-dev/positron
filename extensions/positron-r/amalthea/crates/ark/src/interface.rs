@@ -9,6 +9,7 @@ use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
+use bus::Bus;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::RecvTimeoutError;
 use crossbeam::channel::Sender;
@@ -283,7 +284,7 @@ pub unsafe extern "C" fn r_polled_events() {
 pub fn start_r(
     iopub: Sender<IOPubMessage>,
     receiver: Receiver<Request>,
-    kernel_init_sender: Sender<KernelInfo>,
+    kernel_init_sender: Bus<KernelInfo>,
 ) {
     use std::borrow::BorrowMut;
 

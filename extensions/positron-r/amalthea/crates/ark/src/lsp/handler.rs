@@ -6,10 +6,9 @@
 //
 
 use amalthea::language::lsp_handler::LspHandler;
-use crossbeam::channel::Receiver;
+use bus::BusReader;
 use crossbeam::channel::Sender;
 use std::thread;
-use std::time::Duration;
 
 use crate::kernel::KernelInfo;
 use crate::request::Request;
@@ -18,19 +17,22 @@ use super::backend;
 
 pub struct Lsp {
     shell_request_sender: Sender<Request>,
-    kernel_init_receiver: Receiver<KernelInfo>,
+    kernel_init_receiver: BusReader<KernelInfo>,
 }
 
 impl Lsp {
-    pub fn new(shell_request_sender: Sender<Request>, kernel_init_receiver: Receiver<KernelInfo>) -> Self {
+    pub fn new(
+        shell_request_sender: Sender<Request>,
+        kernel_init_receiver: BusReader<KernelInfo>
+    ) -> Self {
         Self { shell_request_sender, kernel_init_receiver }
     }
 }
 
 impl LspHandler for Lsp {
-    fn start(&self, tcp_address: String) -> Result<(), amalthea::error::Error> {
+    fn start(&mut self, tcp_address: String) -> Result<(), amalthea::error::Error> {
 
-        let status = self.kernel_init_receiver.recv_timeout(Duration::from_secs(10));
+        let status = self.kernel_init_receiver.recv();
         if let Err(error) = status {
             log::error!("Error waiting for kernel to initialize: {}", error);
         }

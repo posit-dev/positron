@@ -28,6 +28,8 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
+use bus::Bus;
+use bus::BusReader;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use crossbeam::channel::bounded;
@@ -44,7 +46,7 @@ use crate::comm::environment::EnvironmentInstance;
 
 pub struct Shell {
     req_sender: Sender<Request>,
-    kernel_init_receiver: crossbeam::channel::Receiver<KernelInfo>,
+    kernel_init_receiver: BusReader<KernelInfo>,
     kernel_info: Option<KernelInfo>,
 }
 
@@ -52,8 +54,8 @@ impl Shell {
     /// Creates a new instance of the shell message handler.
     pub fn new(
         iopub: Sender<IOPubMessage>,
-        kernel_init_sender: crossbeam::channel::Sender<KernelInfo>,
-        kernel_init_receiver: crossbeam::channel::Receiver<KernelInfo>
+        kernel_init_sender: Bus<KernelInfo>,
+        kernel_init_receiver: BusReader<KernelInfo>,
     ) -> Self {
 
         let iopub_sender = iopub.clone();
@@ -74,7 +76,7 @@ impl Shell {
     pub fn execution_thread(
         sender: Sender<IOPubMessage>,
         receiver: Receiver<Request>,
-        kernel_init_sender: crossbeam::channel::Sender<KernelInfo>,
+        kernel_init_sender: Bus<KernelInfo>,
     ) {
         // Start kernel (does not return)
         crate::interface::start_r(sender, receiver, kernel_init_sender);
