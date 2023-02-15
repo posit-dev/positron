@@ -42,8 +42,12 @@ export interface PositronConsoleState extends PositronConsoleServices {
  */
 export const usePositronConsoleState = (services: PositronConsoleServices): PositronConsoleState => {
 	// Hooks.
-	const [positronConsoleInstances, setPositronConsoleInstances, refPositronConsoleInstances] = useStateRef<IPositronConsoleInstance[]>(services.positronConsoleService.positronConsoleInstances);
-	const [currentPositronConsoleInstance, setCurrentPositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(positronConsoleInstances.find(_ => _.runtime.metadata.runtimeId === services.positronConsoleService.activePositronConsoleInstance?.runtime.metadata.runtimeId));
+	const [positronConsoleInstances, setPositronConsoleInstances, refPositronConsoleInstances] = useStateRef<IPositronConsoleInstance[]>(
+		services.positronConsoleService.positronConsoleInstances
+	);
+	const [currentPositronConsoleInstance, setCurrentPositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
+		positronConsoleInstances.find(_ => _.runtime.metadata.runtimeId === services.positronConsoleService.activePositronConsoleInstance?.runtime.metadata.runtimeId)
+	);
 
 	// Add event handlers.
 	useEffect(() => {
