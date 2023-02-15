@@ -6,24 +6,26 @@
  *
  */
 
-use std::{sync::mpsc::SyncSender, os::unix::prelude::{RawFd, AsRawFd}};
+use std::os::fd::AsRawFd;
+use std::os::fd::RawFd;
+
+use crossbeam::channel::Sender;
 use log::warn;
 
-use crate::{error::Error, socket::iopub::IOPubMessage, wire::stream::{Stream, StreamOutput}};
+use crate::error::Error;
+use crate::socket::iopub::IOPubMessage;
+use crate::wire::stream::Stream;
+use crate::wire::stream::StreamOutput;
 
 pub struct StreamCapture {
-    iopub_sender: SyncSender<IOPubMessage>,
+    iopub_sender: Sender<IOPubMessage>,
 }
 
 /// StreamCapture captures the output of a stream and sends it to the IOPub
 /// socket.
 impl StreamCapture {
-    pub fn new(
-        iopub_sender: SyncSender<IOPubMessage>,
-    ) -> Self {
-        Self {
-            iopub_sender,
-        }
+    pub fn new(iopub_sender: Sender<IOPubMessage>) -> Self {
+        Self { iopub_sender }
     }
 
     /// Listens to stdout and stderr and sends the output to the IOPub socket.
@@ -35,7 +37,7 @@ impl StreamCapture {
     }
 
     /// Captures stdout and stderr streams
-    fn output_capture(iopub_sender: SyncSender<IOPubMessage>) -> Result<(), Error> {
+    fn output_capture(iopub_sender: Sender<IOPubMessage>) -> Result<(), Error> {
         // Create redirected file descriptors for stdout and stderr. These are
         // pipes into which stdout/stderr are redirected.
         let stdout_fd = Self::redirect_fd(nix::libc::STDOUT_FILENO)?;
@@ -80,7 +82,7 @@ impl StreamCapture {
                 // If the stream has input (POLLIN), read it and send it to the
                 // IOPub socket.
                 if revents.contains(nix::poll::PollFlags::POLLIN) {
-                    let fd: RawFd = poll_fd.as_raw_fd();
+                    let fd = poll_fd.as_raw_fd();
                     // Look up the stream name from its file descriptor.
                     let stream = if fd == stdout_fd {
                         Stream::Stdout
@@ -101,7 +103,7 @@ impl StreamCapture {
     }
 
     /// Reads data from a file descriptor and sends it to the IOPub socket.
-    fn fd_to_iopub(fd: RawFd, stream: Stream, iopub_sender: SyncSender<IOPubMessage>) {
+    fn fd_to_iopub(fd: RawFd, stream: Stream, iopub_sender: Sender<IOPubMessage>) {
         // Read up to 1024 bytes from the stream into `buf`
         let mut buf = [0u8; 1024];
         let count = match nix::unistd::read(fd, &mut buf) {

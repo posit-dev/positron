@@ -31,13 +31,13 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
+use crossbeam::channel::Sender;
 use log::warn;
 use serde_json::json;
-use std::sync::mpsc::SyncSender;
 
 pub struct Shell {
-    iopub: SyncSender<IOPubMessage>,
-    input_sender: Option<SyncSender<ShellInputRequest>>,
+    iopub: Sender<IOPubMessage>,
+    input_sender: Option<Sender<ShellInputRequest>>,
     execution_count: u32,
 }
 
@@ -60,7 +60,7 @@ impl CommChannel for TestComm {
 
 /// Stub implementation of the shell handler for test harness
 impl Shell {
-    pub fn new(iopub: SyncSender<IOPubMessage>) -> Self {
+    pub fn new(iopub: Sender<IOPubMessage>) -> Self {
         Self {
             iopub: iopub,
             execution_count: 0,
@@ -255,7 +255,7 @@ impl ShellHandler for Shell {
     }
 
 
-    fn establish_input_handler(&mut self, handler: SyncSender<ShellInputRequest>) {
+    fn establish_input_handler(&mut self, handler: Sender<ShellInputRequest>) {
         self.input_sender = Some(handler);
     }
 }

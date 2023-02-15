@@ -5,15 +5,17 @@
  *
  */
 
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use crate::language::shell_handler::ShellHandler;
 use crate::socket::socket::Socket;
 use crate::wire::input_request::ShellInputRequest;
 use crate::wire::jupyter_message::JupyterMessage;
 use crate::wire::jupyter_message::Message;
+use crossbeam::channel::bounded;
 use futures::executor::block_on;
 use log::{trace, warn};
-use std::sync::mpsc::sync_channel;
-use std::sync::{Arc, Mutex};
 
 pub struct Stdin {
     /// The ZeroMQ stdin socket
@@ -40,7 +42,7 @@ impl Stdin {
     /// 1. Wait for
     pub fn listen(&self) {
         // Create the communication channel for the shell handler and inject it
-        let (sender, receiver) = sync_channel::<ShellInputRequest>(1);
+        let (sender, receiver) = bounded::<ShellInputRequest>(1);
         {
             let mut shell_handler = self.handler.lock().unwrap();
             shell_handler.establish_input_handler(sender);

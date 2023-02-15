@@ -21,9 +21,8 @@ use crate::wire::is_complete_request::IsCompleteRequest;
 use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 
-use std::sync::mpsc::SyncSender;
-
 use async_trait::async_trait;
+use crossbeam::channel::Sender;
 
 #[async_trait]
 pub trait ShellHandler: Send {
@@ -89,5 +88,5 @@ pub trait ShellHandler: Send {
     /// input and deliver it via the `handle_input_reply` method.
     ///
     /// https://jupyter-client.readthedocs.io/en/stable/messaging.html#messages-on-the-stdin-router-dealer-channel
-    fn establish_input_handler(&mut self, handler: SyncSender<ShellInputRequest>);
+    fn establish_input_handler(&mut self, handler: Sender<ShellInputRequest>);
 }

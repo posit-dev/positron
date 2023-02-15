@@ -12,20 +12,20 @@ use amalthea::wire::jupyter_message::Status;
 use amalthea::wire::shutdown_reply::ShutdownReply;
 use amalthea::wire::shutdown_request::ShutdownRequest;
 use async_trait::async_trait;
+use crossbeam::channel::Sender;
 use log::*;
 use nix::sys::signal::{self, Signal};
 use nix::unistd::Pid;
-use std::sync::mpsc::SyncSender;
 
 
 use crate::request::Request;
 
 pub struct Control {
-    req_sender: SyncSender<Request>,
+    req_sender: Sender<Request>,
 }
 
 impl Control {
-    pub fn new(sender: SyncSender<Request>) -> Self {
+    pub fn new(sender: Sender<Request>) -> Self {
         Self { req_sender: sender }
     }
 }
