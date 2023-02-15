@@ -1,8 +1,11 @@
+
 # These are speculative; we can update as appropriate.
-binop_separator = "Back"
-format_macro_matchers = true
-group_imports = "StdExternalCrate"
-imports_granularity = "Item"
+# Multiple items are commented out below as they are available only with Rust nightly.
+
+# binop_separator = "Back"
+# format_macro_matchers = true
+# group_imports = "StdExternalCrate"
+# imports_granularity = "Item"
 match_block_trailing_comma = true
-normalize_comments = true
-overflow_delimited_expr = true
+# normalize_comments = true
+# overflow_delimited_expr = true
