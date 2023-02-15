@@ -5,15 +5,16 @@
 //
 //
 
-use std::sync::mpsc::SyncSender;
+use crossbeam::channel::Sender;
 use tower_lsp::Client;
-use crate::request::Request;
 use once_cell::sync::OnceCell;
+
+use crate::request::Request;
 
 #[derive(Debug, Clone)]
 pub struct ClientInstance {
     pub client: Client,
-    pub channel: SyncSender<Request>
+    pub shell_request_sender: Sender<Request>
 }
 
 // This global instance of the LSP client and request channel is used for

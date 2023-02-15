@@ -31,12 +31,13 @@ use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
+use crossbeam::channel::Sender;
 use futures::executor::block_on;
 use log::{debug, trace, warn};
 use std::collections::HashMap;
-use std::sync::mpsc::SyncSender;
-use std::sync::{Arc, Mutex};
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 /// Wrapper for the Shell socket; receives requests for execution, etc. from the
 /// front end and handles them or dispatches them to the execution thread.
@@ -45,7 +46,7 @@ pub struct Shell {
     socket: Socket,
 
     /// Sends messages to the IOPub socket (owned by another thread)
-    iopub_sender: SyncSender<IOPubMessage>,
+    iopub_sender: Sender<IOPubMessage>,
 
     /// Language-provided shell handler object
     handler: Arc<Mutex<dyn ShellHandler>>,
@@ -62,7 +63,7 @@ impl Shell {
     /// * `handler` - The language's shell channel handler
     pub fn new(
         socket: Socket,
-        iopub_sender: SyncSender<IOPubMessage>,
+        iopub_sender: Sender<IOPubMessage>,
         handler: Arc<Mutex<dyn ShellHandler>>,
     ) -> Self {
         Self {

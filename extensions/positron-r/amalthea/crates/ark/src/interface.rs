@@ -9,6 +9,10 @@ use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
+use bus::Bus;
+use crossbeam::channel::Receiver;
+use crossbeam::channel::RecvTimeoutError;
+use crossbeam::channel::Sender;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
 use harp::routines::r_register_routines;
@@ -19,10 +23,10 @@ use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
 use std::os::raw::c_void;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::MutexGuard;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::{Receiver, Sender, SyncSender};
-use std::sync::{Arc, Mutex, Once};
+use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -172,9 +176,9 @@ pub extern "C" fn r_read_console(
 
             Err(error) => {
 
-                use std::sync::mpsc::RecvTimeoutError::*;
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
+                use RecvTimeoutError::*;
                 match error {
 
                     Timeout => {
@@ -278,9 +282,9 @@ pub unsafe extern "C" fn r_polled_events() {
 }
 
 pub fn start_r(
-    iopub: SyncSender<IOPubMessage>,
+    iopub: Sender<IOPubMessage>,
     receiver: Receiver<Request>,
-    initializer: Sender<KernelInfo>,
+    kernel_init_sender: Bus<KernelInfo>,
 ) {
     use std::borrow::BorrowMut;
 
@@ -289,10 +293,10 @@ pub fn start_r(
     unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
     // Start building the channels + kernel objects
-    let (console_send, console_recv) = channel::<Option<String>>();
-    let (rprompt_send, rprompt_recv) = channel::<String>();
+    let (console_send, console_recv) = crossbeam::channel::unbounded();
+    let (rprompt_send, rprompt_recv) = crossbeam::channel::unbounded();
     let console = console_send.clone();
-    let kernel = Kernel::new(iopub, console, initializer);
+    let kernel = Kernel::new(iopub, console, kernel_init_sender);
 
     // Initialize kernel (ensure we only do this once!)
     INIT.call_once(|| unsafe {
