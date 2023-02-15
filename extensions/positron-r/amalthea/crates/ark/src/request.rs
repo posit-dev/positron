@@ -11,6 +11,7 @@ use amalthea::wire::input_request::ShellInputRequest;
 use std::sync::mpsc::{Sender, SyncSender};
 
 /// Represents requests to the primary R execution thread.
+#[derive(Debug, Clone)]
 pub enum Request {
     /// Fulfill an execution request from the front end, producing either a
     /// Reply or an Exception

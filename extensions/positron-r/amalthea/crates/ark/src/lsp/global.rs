@@ -13,7 +13,7 @@ use once_cell::sync::OnceCell;
 #[derive(Debug, Clone)]
 pub struct ClientInstance {
     pub client: Client,
-    pub channel: SyncSender<Request>
+    pub shell_request_sender: SyncSender<Request>
 }
 
 // This global instance of the LSP client and request channel is used for

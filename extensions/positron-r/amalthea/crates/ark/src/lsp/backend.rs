@@ -75,7 +75,7 @@ pub struct Backend {
     pub documents: Arc<DashMap<Url, Document>>,
     pub workspace: Arc<Mutex<Workspace>>,
     #[allow(dead_code)]
-    pub channel: SyncSender<Request>,
+    pub shell_request_sender: SyncSender<Request>,
 }
 
 impl Backend {
@@ -555,7 +555,7 @@ impl Backend {
 }
 
 #[tokio::main]
-pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
+pub async fn start_lsp(address: String, shell_request_sender: SyncSender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
@@ -582,8 +582,8 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
 
         // initialize global client (needs to be visible for R routines)
         INSTANCE.set(ClientInstance {
-            client,
-            channel: channel.clone(),
+            client: client,
+            shell_request_sender: shell_request_sender.clone(),
         }).unwrap();
 
         // create backend
@@ -591,7 +591,7 @@ pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
             client: get_instance().client,
             documents: DOCUMENT_INDEX.clone(),
             workspace: Arc::new(Mutex::new(Workspace::default())),
-            channel: channel,
+            shell_request_sender: shell_request_sender.clone(),
         };
 
         backend

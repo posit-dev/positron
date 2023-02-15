@@ -10,6 +10,8 @@ use harp::object::RObject;
 use libR_sys::*;
 use std::os::raw::c_char;
 use stdext::local;
+use stdext::unwrap;
+use stdext::unwrap::IntoResult;
 
 use crate::request::Request;
 
@@ -20,22 +22,26 @@ use super::global::INSTANCE;
 pub unsafe extern "C" fn ps_show_message(message: SEXP) -> SEXP {
     let result: anyhow::Result<()> = local! {
         // Convert message to a string
-        let msg = RObject::view(message).to::<String>()?;
+        let message = RObject::view(message).to::<String>()?;
 
         // Get the global instance of the channel used to deliver requests to the
         // front end, and send a request to show the message
-        if let Some(inst) = INSTANCE.get() {
-            if let Err(err) = inst.channel.send(Request::DeliverEvent(PositronEvent::ShowMessage(ShowMessageEvent{message: msg}))) {
-                anyhow::bail!("Failed to send message to front end: {}", err);
-            }
-        } else {
-            anyhow::bail!("Client instance not initialized");
-        }
-        Ok(())
+        let instance = INSTANCE.get().into_result()?;
+
+        let event = PositronEvent::ShowMessage(ShowMessageEvent { message });
+        let event = Request::DeliverEvent(event);
+        let status = unwrap!(instance.shell_request_sender.send(event), Err(error) => {
+            anyhow::bail!("Error sending request: {}", error);
+        });
+
+        Ok(status)
     };
 
-    match result {
-        Ok(_) => Rf_ScalarLogical(1),
-        Err(_) => Rf_ScalarLogical(0),
-    }
+    let _result = unwrap!(result, Err(error) => {
+        log::error!("{}", error);
+        return Rf_ScalarLogical(0);
+    });
+
+    Rf_ScalarLogical(1)
+
 }
