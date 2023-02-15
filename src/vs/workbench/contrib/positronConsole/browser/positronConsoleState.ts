@@ -10,8 +10,9 @@ import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.
@@ -41,29 +42,26 @@ export interface PositronConsoleState extends PositronConsoleServices {
  */
 export const usePositronConsoleState = (services: PositronConsoleServices): PositronConsoleState => {
 	// Hooks.
-	const [positronConsoleInstances, setPositronConsoleInstances, refPositronConsoleInstances] = useStateRef<IPositronConsoleInstance[]>([]);
-	const [currentPositronConsoleInstance, setCurrentPositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(undefined);
+	const [positronConsoleInstances, setPositronConsoleInstances, refPositronConsoleInstances] = useStateRef<IPositronConsoleInstance[]>(services.positronConsoleService.positronConsoleInstances);
+	const [currentPositronConsoleInstance, setCurrentPositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(positronConsoleInstances.find(_ => _.runtime.metadata.runtimeId === services.positronConsoleService.activePositronConsoleInstance?.runtime.metadata.runtimeId));
 
 	// Add event handlers.
 	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 
-		// If there are already Positron console instances in the repl service, create their repl instance entries.
-		services.positronConsoleService.positronConsoleInstances.forEach((positronConsoleInstance, index, positronConsoleInstances) => {
-		});
-
-		// Add the onDidStartConsole event handler.
+		// Add the onDidStartPositronConsoleInstance event handler.
 		disposableStore.add(services.positronConsoleService.onDidStartPositronConsoleInstance(positronConsoleInstance => {
 			setPositronConsoleInstances(positronConsoleInstances => [...positronConsoleInstances, positronConsoleInstance]);
 		}));
 
-		// Add the onDidChangeActiveConsole event handler.
+		// Add the onDidChangeActivePositronConsoleInstance event handler.
 		disposableStore.add(services.positronConsoleService.onDidChangeActivePositronConsoleInstance(positronConsoleInstance => {
 			if (!positronConsoleInstance) {
 				setCurrentPositronConsoleInstance(undefined);
 			} else {
-				setCurrentPositronConsoleInstance(refPositronConsoleInstances.current.find(x => x.runtime.metadata.languageId === positronConsoleInstance.runtime.metadata.languageId));
+				const positronConsoleInstance = refPositronConsoleInstances.current.find(_ => _.runtime.metadata.languageId === _.runtime.metadata.languageId);
+				setCurrentPositronConsoleInstance(positronConsoleInstance);
 			}
 		}));
 
