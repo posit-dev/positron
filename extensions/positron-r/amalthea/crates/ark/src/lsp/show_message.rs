@@ -11,11 +11,9 @@ use libR_sys::*;
 use std::os::raw::c_char;
 use stdext::local;
 use stdext::unwrap;
-use stdext::unwrap::IntoResult;
 
+use crate::lsp::global::SHELL_REQUEST_TX;
 use crate::request::Request;
-
-use super::global::INSTANCE;
 
 /// Shows a message in the Positron frontend
 #[harp::register]
@@ -26,11 +24,11 @@ pub unsafe extern "C" fn ps_show_message(message: SEXP) -> SEXP {
 
         // Get the global instance of the channel used to deliver requests to the
         // front end, and send a request to show the message
-        let instance = INSTANCE.get().into_result()?;
-
         let event = PositronEvent::ShowMessage(ShowMessageEvent { message });
         let event = Request::DeliverEvent(event);
-        let status = unwrap!(instance.shell_request_tx.send(event), Err(error) => {
+
+        let shell_request_tx = SHELL_REQUEST_TX.get().unwrap();
+        let status = unwrap!(shell_request_tx.send(event), Err(error) => {
             anyhow::bail!("Error sending request: {}", error);
         });
 
