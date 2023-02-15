@@ -1397,9 +1397,9 @@ yn@3.1.1:
   resolved "https://registry.yarnpkg.com/yn/-/yn-3.1.1.tgz#1e87401a09d767c1d5eab26a6e4c185182d2eb50"
   integrity sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==
 
-zeromq@kevinushey/zeromq.js:
+zeromq@kevinushey/zeromq.js#d6486945247b059bc2c290d83d66064dd91edce5:
   version "6.0.0-beta.16"
-  resolved "https://codeload.github.com/kevinushey/zeromq.js/tar.gz/dd0a4dce4f12f4b3230f3aaa14f72ca2a5c748b2"
+  resolved "https://codeload.github.com/kevinushey/zeromq.js/tar.gz/d6486945247b059bc2c290d83d66064dd91edce5"
   dependencies:
     "@aminya/node-gyp-build" "4.5.0-aminya.4"
     cross-env "^7.0.3"
