@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
 import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { ConsoleReplItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemInput';

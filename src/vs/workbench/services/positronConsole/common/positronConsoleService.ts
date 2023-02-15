@@ -4,51 +4,10 @@
 
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
-
-/**
- * IPositronConsoleInstance interface.
- */
-export interface IPositronConsoleInstance {
-	/**
-	 * Gets the runtime for the Positron console instance.
-	 */
-	readonly runtime: ILanguageRuntime;
-
-	/**
-	 * The onDidClearConsole event.
-	 */
-	readonly onDidClearConsole: Event<void>;
-
-	/**
-	 * The onDidClearInputHistory event.
-	 */
-	readonly onDidClearInputHistory: Event<void>;
-
-	/**
-	 * The onDidExecuteCode event.
-	 */
-	readonly onDidExecuteCode: Event<string>;
-
-	/**
-	 * Clears the console.
-	 */
-	clearConsole(): void;
-
-	/**
-	 * Clears the input hstory.
-	 */
-	clearInputHistory(): void;
-
-	/**
-	 * Executes code in the Positron console instance.
-	 * @param code The code to execute.
-	 */
-	executeCode(code: string): void;
-}
 
 /**
  * IPositronConsoleService interface.
@@ -60,7 +19,7 @@ export interface IPositronConsoleService {
 	/**
 	 * Gets the Positron console instances.
 	 */
-	readonly positronConsoleInstances: readonly IPositronConsoleInstance[];
+	readonly positronConsoleInstances: IPositronConsoleInstance[];
 
 	/**
 	 * Gets the active Positron console instance.
@@ -76,10 +35,6 @@ export interface IPositronConsoleService {
 	 * The onDidChangeActivePositronConsoleInstance event.
 	 */
 	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
-
-	/**
-	 * Executes code in a PositronConsoleInstance.
-	 */
 
 	/**
 	 * Executes code in a PositronConsoleInstance.

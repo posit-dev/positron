@@ -6,8 +6,9 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import { PositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleInstance';
-import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -168,7 +169,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		this._runningPositronConsoleInstancesByRuntimeId.set(runtime.metadata.runtimeId, positronConsoleInstance);
 		this._runningPositronConsoleInstancesByLanguageId.set(runtime.metadata.languageId, positronConsoleInstance);
 
-		// Fire the onDidStartConsole event.
+		// Fire the onDidStartPositronConsoleInstance event.
 		this._onDidStartPositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
 		// When the runtime exits, see if the user wants to restart it.
