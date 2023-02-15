@@ -18,6 +18,8 @@ use amalthea::wire::input_request::InputRequest;
 use amalthea::wire::input_request::ShellInputRequest;
 use amalthea::wire::jupyter_message::Status;
 use anyhow::*;
+use bus::Bus;
+use crossbeam::channel::Sender;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
@@ -28,25 +30,25 @@ use log::*;
 use serde_json::json;
 use std::result::Result::Err;
 use std::result::Result::Ok;
-use std::sync::mpsc::{Sender, SyncSender};
 
 use crate::request::Request;
 
 /// Represents the Rust state of the R kernel
 pub struct Kernel {
     pub execution_count: u32,
-    iopub: SyncSender<IOPubMessage>,
+    iopub: Sender<IOPubMessage>,
     console: Sender<Option<String>>,
-    initializer: Sender<KernelInfo>,
+    initializer: Bus<KernelInfo>,
     output: String,
     error: String,
     response_sender: Option<Sender<ExecuteResponse>>,
-    input_requestor: Option<SyncSender<ShellInputRequest>>,
+    input_requestor: Option<Sender<ShellInputRequest>>,
     banner: String,
     initializing: bool,
 }
 
 /// Represents kernel metadata (available after the kernel has fully started)
+#[derive(Debug, Clone)]
 pub struct KernelInfo {
     pub version: String,
     pub banner: String,
@@ -55,9 +57,9 @@ pub struct KernelInfo {
 impl Kernel {
     /// Create a new R kernel instance
     pub fn new(
-        iopub: SyncSender<IOPubMessage>,
+        iopub: Sender<IOPubMessage>,
         console: Sender<Option<String>>,
-        initializer: Sender<KernelInfo>,
+        initializer: Bus<KernelInfo>,
     ) -> Self {
         Self {
             iopub: iopub,
@@ -87,7 +89,7 @@ impl Kernel {
             };
 
             debug!("Sending kernel info: {}", version);
-            self.initializer.send(kernel_info).unwrap();
+            self.initializer.broadcast(kernel_info);
             self.initializing = false;
         } else {
             warn!("Initialization already complete!");
@@ -311,7 +313,7 @@ impl Kernel {
 
     /// Establishes the input handler for the kernel to request input from the
     /// user
-    pub fn establish_input_handler(&mut self, sender: SyncSender<ShellInputRequest>) {
+    pub fn establish_input_handler(&mut self, sender: Sender<ShellInputRequest>) {
         self.input_requestor = Some(sender);
     }
 
