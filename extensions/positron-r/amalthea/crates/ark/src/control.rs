@@ -21,12 +21,12 @@ use nix::unistd::Pid;
 use crate::request::Request;
 
 pub struct Control {
-    req_sender: Sender<Request>,
+    req_tx: Sender<Request>,
 }
 
 impl Control {
     pub fn new(sender: Sender<Request>) -> Self {
-        Self { req_sender: sender }
+        Self { req_tx: sender }
     }
 }
 
@@ -37,7 +37,7 @@ impl ControlHandler for Control {
         msg: &ShutdownRequest,
     ) -> Result<ShutdownReply, Exception> {
         debug!("Received shutdown request: {:?}", msg);
-        if let Err(err) = self.req_sender.send(Request::Shutdown(msg.restart)) {
+        if let Err(err) = self.req_tx.send(Request::Shutdown(msg.restart)) {
             warn!(
                 "Could not deliver shutdown request to execution thread: {}",
                 err

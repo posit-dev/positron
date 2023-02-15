@@ -36,13 +36,13 @@ use crate::request::Request;
 /// Represents the Rust state of the R kernel
 pub struct Kernel {
     pub execution_count: u32,
-    iopub: Sender<IOPubMessage>,
-    console: Sender<Option<String>>,
-    initializer: Bus<KernelInfo>,
+    iopub_tx: Sender<IOPubMessage>,
+    console_tx: Sender<Option<String>>,
+    kernel_init_tx: Bus<KernelInfo>,
+    execute_response_tx: Option<Sender<ExecuteResponse>>,
+    input_request_tx: Option<Sender<ShellInputRequest>>,
     output: String,
     error: String,
-    response_sender: Option<Sender<ExecuteResponse>>,
-    input_requestor: Option<Sender<ShellInputRequest>>,
     banner: String,
     initializing: bool,
 }
@@ -57,21 +57,21 @@ pub struct KernelInfo {
 impl Kernel {
     /// Create a new R kernel instance
     pub fn new(
-        iopub: Sender<IOPubMessage>,
-        console: Sender<Option<String>>,
-        initializer: Bus<KernelInfo>,
+        iopub_tx: Sender<IOPubMessage>,
+        console_tx: Sender<Option<String>>,
+        kernel_init_tx: Bus<KernelInfo>,
     ) -> Self {
         Self {
-            iopub: iopub,
+            iopub_tx,
             execution_count: 0,
-            console: console,
+            console_tx,
             output: String::new(),
             error: String::new(),
             banner: String::new(),
             initializing: true,
-            initializer: initializer,
-            response_sender: None,
-            input_requestor: None,
+            kernel_init_tx,
+            execute_response_tx: None,
+            input_request_tx: None,
         }
     }
 
@@ -89,7 +89,7 @@ impl Kernel {
             };
 
             debug!("Sending kernel info: {}", version);
-            self.initializer.broadcast(kernel_info);
+            self.kernel_init_tx.broadcast(kernel_info);
             self.initializing = false;
         } else {
             warn!("Initialization already complete!");
@@ -104,7 +104,7 @@ impl Kernel {
                 self.handle_execute_request(req, sender);
             }
             Request::Shutdown(_) => {
-                if let Err(err) = self.console.send(None) {
+                if let Err(err) = self.console_tx.send(None) {
                     warn!("Error sending shutdown message to console: {}", err);
                 }
             }
@@ -115,7 +115,7 @@ impl Kernel {
 
     /// Handle an event from the back end to the front end
     pub fn handle_event(&mut self, event: &PositronEvent){
-        if let Err(err) = self.iopub.send(IOPubMessage::Event(event.clone())) {
+        if let Err(err) = self.iopub_tx.send(IOPubMessage::Event(event.clone())) {
             warn!("Error attempting to deliver client event: {}", err);
         }
     }
@@ -124,12 +124,12 @@ impl Kernel {
     pub fn handle_execute_request(
         &mut self,
         req: &ExecuteRequest,
-        sender: Sender<ExecuteResponse>,
+        execute_response_tx: Sender<ExecuteResponse>,
     ) {
         // Clear output and error accumulators from previous execution
         self.output = String::new();
         self.error = String::new();
-        self.response_sender = Some(sender);
+        self.execute_response_tx = Some(execute_response_tx);
 
         // Increment counter if we are storing this execution in history
         if req.store_history {
@@ -139,7 +139,7 @@ impl Kernel {
         // If the code is not to be executed silently, re-broadcast the
         // execution to all frontends
         if !req.silent {
-            if let Err(err) = self.iopub.send(IOPubMessage::ExecuteInput(ExecuteInput {
+            if let Err(err) = self.iopub_tx.send(IOPubMessage::ExecuteInput(ExecuteInput {
                 code: req.code.clone(),
                 execution_count: self.execution_count,
             })) {
@@ -151,7 +151,7 @@ impl Kernel {
         }
 
         // Send the code to the R console to be evaluated
-        self.console.send(Some(req.code.clone())).unwrap();
+        self.console_tx.send(Some(req.code.clone())).unwrap();
     }
 
     /// Converts a data frame to HTML
@@ -171,7 +171,7 @@ impl Kernel {
             Request::ExecuteCode(req, _, _) => req.code.clone(),
             _ => String::new(),
         };
-        if let Some(sender) = self.response_sender.as_ref() {
+        if let Some(sender) = self.execute_response_tx.as_ref() {
             let reply = ExecuteReplyException {
                 status: Status::Error,
                 execution_count: self.execution_count,
@@ -198,7 +198,7 @@ impl Kernel {
 
     /// Requests input from the front end
     pub fn request_input(&self, originator: &Vec<u8>, prompt: &str) {
-        if let Some(requestor) = &self.input_requestor {
+        if let Some(requestor) = &self.input_request_tx {
             trace!("Requesting input from front-end for prompt: {}", prompt);
             requestor
                 .send(ShellInputRequest {
@@ -214,7 +214,7 @@ impl Kernel {
         }
 
         // Send an execute reply to the front end
-        if let Some(sender) = &self.response_sender {
+        if let Some(sender) = &self.execute_response_tx {
             sender
                 .send(ExecuteResponse::Reply(ExecuteReply {
                     status: Status::Ok,
@@ -228,7 +228,7 @@ impl Kernel {
     fn emit_error(&self) {
         let error = self.error.clone();
         // Send the reply to the front end
-        if let Some(sender) = &self.response_sender {
+        if let Some(sender) = &self.execute_response_tx {
             sender
                 .send(ExecuteResponse::ReplyException(ExecuteReplyException {
                     status: Status::Error,
@@ -265,7 +265,7 @@ impl Kernel {
         }
 
         trace!("Sending kernel output: {}", self.output);
-        if let Err(err) = self.iopub.send(IOPubMessage::ExecuteResult(ExecuteResult {
+        if let Err(err) = self.iopub_tx.send(IOPubMessage::ExecuteResult(ExecuteResult {
             execution_count: self.execution_count,
             data: serde_json::Value::Object(data),
             metadata: json!({}),
@@ -277,7 +277,7 @@ impl Kernel {
         }
 
         // Send the reply to the front end
-        if let Some(sender) = &self.response_sender {
+        if let Some(sender) = &self.execute_response_tx {
             sender
                 .send(ExecuteResponse::Reply(ExecuteReply {
                     status: Status::Ok,
@@ -313,14 +313,14 @@ impl Kernel {
 
     /// Establishes the input handler for the kernel to request input from the
     /// user
-    pub fn establish_input_handler(&mut self, sender: Sender<ShellInputRequest>) {
-        self.input_requestor = Some(sender);
+    pub fn establish_input_handler(&mut self, input_request_tx: Sender<ShellInputRequest>) {
+        self.input_request_tx = Some(input_request_tx);
     }
 
     /// Sends an event to the front end (Positron-specific)
     pub fn send_event(&self, event: PositronEvent) {
         info!("Sending Positron event: {:?}", event);
-        if let Err(err) = self.iopub.send(IOPubMessage::Event(event)) {
+        if let Err(err) = self.iopub_tx.send(IOPubMessage::Event(event)) {
             warn!("Could not publish event on iopub: {}", err);
         }
     }

@@ -27,8 +27,8 @@ fn start_kernel(connection_file: ConnectionFile) {
         }
     };
 
-    let shell_sender = kernel.create_iopub_sender();
-    let shell = Arc::new(Mutex::new(Shell::new(shell_sender)));
+    let shell_tx = kernel.create_iopub_tx();
+    let shell = Arc::new(Mutex::new(Shell::new(shell_tx)));
     let control = Arc::new(Mutex::new(Control {}));
 
     match kernel.connect(shell, control, None, StreamBehavior::None) {

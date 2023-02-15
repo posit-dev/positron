@@ -14,7 +14,7 @@ use crate::request::Request;
 #[derive(Debug, Clone)]
 pub struct ClientInstance {
     pub client: Client,
-    pub shell_request_sender: Sender<Request>
+    pub shell_request_tx: Sender<Request>
 }
 
 // This global instance of the LSP client and request channel is used for

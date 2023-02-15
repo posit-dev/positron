@@ -44,48 +44,47 @@ use crate::comm::environment::EnvironmentInstance;
 
 
 pub struct Shell {
-    shell_request_sender: Sender<Request>,
-    kernel_init_receiver: BusReader<KernelInfo>,
+    shell_request_tx: Sender<Request>,
+    kernel_init_rx: BusReader<KernelInfo>,
     kernel_info: Option<KernelInfo>,
 }
 
 impl Shell {
     /// Creates a new instance of the shell message handler.
     pub fn new(
-        iopub: Sender<IOPubMessage>,
-        shell_request_sender: Sender<Request>,
-        shell_request_receiver: Receiver<Request>,
-        kernel_init_sender: Bus<KernelInfo>,
-        kernel_init_receiver: BusReader<KernelInfo>,
+        iopub_tx: Sender<IOPubMessage>,
+        shell_request_tx: Sender<Request>,
+        shell_request_rx: Receiver<Request>,
+        kernel_init_tx: Bus<KernelInfo>,
+        kernel_init_rx: BusReader<KernelInfo>,
     ) -> Self {
 
-        let iopub_sender = iopub.clone();
-
+        let iopub_tx = iopub_tx.clone();
         std::thread::spawn(move || {
-            Self::execution_thread(iopub_sender, shell_request_receiver, kernel_init_sender);
+            Self::execution_thread(iopub_tx, kernel_init_tx, shell_request_rx);
         });
 
         Self {
-            shell_request_sender,
-            kernel_init_receiver,
+            shell_request_tx,
+            kernel_init_rx,
             kernel_info: None
         }
     }
 
     /// Starts the R execution thread (does not return)
     pub fn execution_thread(
-        sender: Sender<IOPubMessage>,
-        receiver: Receiver<Request>,
-        kernel_init_sender: Bus<KernelInfo>,
+        iopub_tx: Sender<IOPubMessage>,
+        kernel_init_tx: Bus<KernelInfo>,
+        shell_request_rx: Receiver<Request>,
     ) {
         // Start kernel (does not return)
-        crate::interface::start_r(sender, receiver, kernel_init_sender);
+        crate::interface::start_r(iopub_tx, kernel_init_tx, shell_request_rx);
     }
 
     /// Returns a sender channel for the R execution thread; used outside the
     /// shell handler
-    pub fn request_sender(&self) -> Sender<Request> {
-        self.shell_request_sender.clone()
+    pub fn request_tx(&self) -> Sender<Request> {
+        self.shell_request_tx.clone()
     }
 }
 
@@ -106,7 +105,7 @@ impl ShellHandler for Shell {
         //    ready.
         if self.kernel_info.is_none() {
             trace!("Got kernel info request; waiting for R to complete initialization");
-            self.kernel_info = Some(self.kernel_init_receiver.recv().unwrap());
+            self.kernel_info = Some(self.kernel_init_rx.recv().unwrap());
         } else {
             trace!("R already started, using existing kernel information")
         }
@@ -178,7 +177,7 @@ impl ShellHandler for Shell {
         req: &ExecuteRequest,
     ) -> Result<ExecuteReply, ExecuteReplyException> {
         let (sender, receiver) = unbounded::<ExecuteResponse>();
-        if let Err(err) = self.shell_request_sender.send(Request::ExecuteCode(
+        if let Err(err) = self.shell_request_tx.send(Request::ExecuteCode(
             req.clone(),
             originator.clone(),
             sender,
@@ -245,7 +244,7 @@ impl ShellHandler for Shell {
         };
         let originator = Vec::new();
         let (sender, receiver) = unbounded::<ExecuteResponse>();
-        if let Err(err) = self.shell_request_sender.send(Request::ExecuteCode(
+        if let Err(err) = self.shell_request_tx.send(Request::ExecuteCode(
             req.clone(),
             originator.clone(),
             sender,
@@ -263,7 +262,7 @@ impl ShellHandler for Shell {
     }
 
     fn establish_input_handler(&mut self, handler: Sender<ShellInputRequest>) {
-        self.shell_request_sender
+        self.shell_request_tx
             .send(Request::EstablishInputChannel(handler))
             .unwrap();
     }

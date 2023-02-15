@@ -137,8 +137,8 @@ pub extern "C" fn r_read_console(
 
     // TODO: if R prompt is +, we need to tell the user their input is incomplete
     let mutex = unsafe { RPROMPT_SEND.as_ref().unwrap() };
-    let sender = mutex.lock().unwrap();
-    sender
+    let r_prompt_tx = mutex.lock().unwrap();
+    r_prompt_tx
         .send(r_prompt.to_string_lossy().into_owned())
         .unwrap();
 
@@ -282,9 +282,9 @@ pub unsafe extern "C" fn r_polled_events() {
 }
 
 pub fn start_r(
-    iopub: Sender<IOPubMessage>,
-    receiver: Receiver<Request>,
-    kernel_init_sender: Bus<KernelInfo>,
+    iopub_tx: Sender<IOPubMessage>,
+    kernel_init_tx: Bus<KernelInfo>,
+    shell_request_rx: Receiver<Request>,
 ) {
     use std::borrow::BorrowMut;
 
@@ -293,20 +293,19 @@ pub fn start_r(
     unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
     // Start building the channels + kernel objects
-    let (console_send, console_recv) = crossbeam::channel::unbounded();
-    let (rprompt_send, rprompt_recv) = crossbeam::channel::unbounded();
-    let console = console_send.clone();
-    let kernel = Kernel::new(iopub, console, kernel_init_sender);
+    let (console_tx, console_rx) = crossbeam::channel::unbounded();
+    let (rprompt_tx, rprompt_rx) = crossbeam::channel::unbounded();
+    let kernel = Kernel::new(iopub_tx, console_tx.clone(), kernel_init_tx);
 
     // Initialize kernel (ensure we only do this once!)
     INIT.call_once(|| unsafe {
-        *CONSOLE_RECV.borrow_mut() = Some(Mutex::new(console_recv));
-        *RPROMPT_SEND.borrow_mut() = Some(Mutex::new(rprompt_send));
+        *CONSOLE_RECV.borrow_mut() = Some(Mutex::new(console_rx));
+        *RPROMPT_SEND.borrow_mut() = Some(Mutex::new(rprompt_tx));
         *KERNEL.borrow_mut() = Some(Arc::new(Mutex::new(kernel)));
     });
 
     // Start thread to listen to execution requests
-    thread::spawn(move || listen(receiver, rprompt_recv));
+    thread::spawn(move || listen(shell_request_rx, rprompt_rx));
 
     unsafe {
 
