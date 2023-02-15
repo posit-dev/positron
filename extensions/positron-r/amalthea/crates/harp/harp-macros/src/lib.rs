@@ -6,29 +6,37 @@
 //
 
 use proc_macro::TokenStream;
-use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
+use quote::ToTokens;
 
 extern crate proc_macro;
 
 fn invalid_parameter(stream: impl ToTokens) -> ! {
-    panic!("Invalid parameter `{}`: registered routines can only accept SEXP parameters.", stream.to_token_stream());
+    panic!(
+        "Invalid parameter `{}`: registered routines can only accept SEXP parameters.",
+        stream.to_token_stream()
+    );
 }
 
 fn invalid_return_type(stream: impl ToTokens) -> ! {
-    panic!("Invalid return type `{}`: registered routines must return a SEXP.", stream.to_token_stream());
+    panic!(
+        "Invalid return type `{}`: registered routines must return a SEXP.",
+        stream.to_token_stream()
+    );
 }
 
 fn invalid_extern(stream: impl ToTokens) -> ! {
-    panic!("Invalid signature `{}`: registered routines must be 'extern \"C\"'.", stream.to_token_stream());
+    panic!(
+        "Invalid signature `{}`: registered routines must be 'extern \"C\"'.",
+        stream.to_token_stream()
+    );
 }
 
 #[proc_macro_attribute]
 pub fn register(_attr: TokenStream, item: TokenStream) -> TokenStream {
-
     // Get metadata about the function being registered.
-    let function : syn::ItemFn = syn::parse(item).unwrap();
+    let function: syn::ItemFn = syn::parse(item).unwrap();
 
     // Make sure the function is 'extern "C"'.
     let abi = match function.sig.abi {
@@ -48,7 +56,6 @@ pub fn register(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Make sure that the function only accepts SEXPs.
     for input in function.sig.inputs.iter() {
-
         let pattern = match input {
             syn::FnArg::Typed(pattern) => pattern,
             syn::FnArg::Receiver(receiver) => invalid_parameter(receiver),
@@ -63,13 +70,12 @@ pub fn register(_attr: TokenStream, item: TokenStream) -> TokenStream {
         if value != "SEXP" {
             invalid_parameter(pattern);
         }
-
     }
 
     // Make sure that the function returns a SEXP.
     let ty = match function.sig.output {
         syn::ReturnType::Type(_, ref ty) => ty,
-        _ => invalid_return_type(function.sig.output)
+        _ => invalid_return_type(function.sig.output),
     };
 
     let stream = ty.into_token_stream();
@@ -97,7 +103,7 @@ pub fn register(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             unsafe {
                 harp::routines::add(R_CallMethodDef {
-                    name: (#name).as_ptr() as *const i8,
+                    name: (#name).as_ptr() as *const c_char,
                     fun: Some(::std::mem::transmute(#ident as *const ())),
                     numArgs: #nargs
                 });
@@ -110,5 +116,4 @@ pub fn register(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Put everything together.
     let all = quote! { #function #registration };
     all.into()
-
 }

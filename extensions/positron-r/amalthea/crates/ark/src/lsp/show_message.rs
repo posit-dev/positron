@@ -5,9 +5,10 @@
 //
 //
 
-use amalthea::events::{ShowMessageEvent, PositronEvent};
+use amalthea::events::{PositronEvent, ShowMessageEvent};
 use harp::object::RObject;
 use libR_sys::*;
+use std::os::raw::c_char;
 use stdext::local;
 
 use crate::request::Request;
@@ -17,8 +18,7 @@ use super::global::INSTANCE;
 /// Shows a message in the Positron frontend
 #[harp::register]
 pub unsafe extern "C" fn ps_show_message(message: SEXP) -> SEXP {
-
-    let result : anyhow::Result<()> = local! {
+    let result: anyhow::Result<()> = local! {
         // Convert message to a string
         let msg = RObject::view(message).to::<String>()?;
 
