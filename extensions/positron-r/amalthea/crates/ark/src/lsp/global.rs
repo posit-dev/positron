@@ -11,16 +11,11 @@ use once_cell::sync::OnceCell;
 
 use crate::request::Request;
 
-#[derive(Debug, Clone)]
-pub struct ClientInstance {
-    pub client: Client,
-    pub shell_request_tx: Sender<Request>
-}
+// The LSP client.
+// For use within R callback functions.
+pub static LSP_CLIENT: OnceCell<Client> = OnceCell::new();
 
-// This global instance of the LSP client and request channel is used for
-// context in the R callback functions.
-pub static INSTANCE: OnceCell<ClientInstance> = OnceCell::new();
+// The shell request channel.
+// For use within R callback functions.
+pub static SHELL_REQUEST_TX: OnceCell<Sender<Request>> = OnceCell::new();
 
-pub fn get_instance() -> ClientInstance {
-    INSTANCE.get().unwrap().clone()
-}
