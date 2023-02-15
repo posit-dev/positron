@@ -9,7 +9,6 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "*"
 quote = "*"
-libc = "0.2"
 syn = { version = "*", features = ["full"] }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

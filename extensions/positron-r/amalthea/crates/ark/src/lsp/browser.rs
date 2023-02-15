@@ -10,8 +10,8 @@ use amalthea::events::ShowHelpEvent;
 use harp::exec::RFunction;
 use harp::object::RObject;
 use libR_sys::*;
-use libc::c_char;
 use log::info;
+use std::os::raw::c_char;
 
 use crate::interface::KERNEL;
 
