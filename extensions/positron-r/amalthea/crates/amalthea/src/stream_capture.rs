@@ -18,26 +18,26 @@ use crate::wire::stream::Stream;
 use crate::wire::stream::StreamOutput;
 
 pub struct StreamCapture {
-    iopub_sender: Sender<IOPubMessage>,
+    iopub_tx: Sender<IOPubMessage>,
 }
 
 /// StreamCapture captures the output of a stream and sends it to the IOPub
 /// socket.
 impl StreamCapture {
-    pub fn new(iopub_sender: Sender<IOPubMessage>) -> Self {
-        Self { iopub_sender }
+    pub fn new(iopub_tx: Sender<IOPubMessage>) -> Self {
+        Self { iopub_tx }
     }
 
     /// Listens to stdout and stderr and sends the output to the IOPub socket.
     /// Does not return.
     pub fn listen(&self) {
-        if let Err(err) = Self::output_capture(self.iopub_sender.clone()) {
+        if let Err(err) = Self::output_capture(self.iopub_tx.clone()) {
             warn!("Error capturing output; stdout/stderr won't be forwarded: {}", err);
         };
     }
 
     /// Captures stdout and stderr streams
-    fn output_capture(iopub_sender: Sender<IOPubMessage>) -> Result<(), Error> {
+    fn output_capture(iopub_tx: Sender<IOPubMessage>) -> Result<(), Error> {
         // Create redirected file descriptors for stdout and stderr. These are
         // pipes into which stdout/stderr are redirected.
         let stdout_fd = Self::redirect_fd(nix::libc::STDOUT_FILENO)?;
@@ -94,7 +94,7 @@ impl StreamCapture {
                     };
 
                     // Read the data from the stream and send it to iopub.
-                    Self::fd_to_iopub(fd, stream, iopub_sender.clone());
+                    Self::fd_to_iopub(fd, stream, iopub_tx.clone());
                 }
             }
         };
@@ -103,7 +103,7 @@ impl StreamCapture {
     }
 
     /// Reads data from a file descriptor and sends it to the IOPub socket.
-    fn fd_to_iopub(fd: RawFd, stream: Stream, iopub_sender: Sender<IOPubMessage>) {
+    fn fd_to_iopub(fd: RawFd, stream: Stream, iopub_tx: Sender<IOPubMessage>) {
         // Read up to 1024 bytes from the stream into `buf`
         let mut buf = [0u8; 1024];
         let count = match nix::unistd::read(fd, &mut buf) {
@@ -125,7 +125,7 @@ impl StreamCapture {
 
         // Create and send the IOPub
         let message = IOPubMessage::Stream(output);
-        if let Err(e) = iopub_sender.send(message) {
+        if let Err(e) = iopub_tx.send(message) {
             warn!("Error sending stream data to iopub: {}", e);
         }
     }
