@@ -6,12 +6,12 @@
 	// Placeholders with the same ids are connected.
 	// Example:
 	"Posit Copyright Header": {
-		"scope": "javascript,typescript,css",
+		"scope": "javascript,typescript,css,rust,html",
 		"prefix": ["copyright","header","posit"],
 		"body": [
-			"/*---------------------------------------------------------------------------------------------",
+			"$BLOCK_COMMENT_START---------------------------------------------------------------------------------------------",
 			" * Copyright (C) $CURRENT_YEAR Posit Software, PBC, all rights reserved",
-			" *--------------------------------------------------------------------------------------------*/",
+			" *--------------------------------------------------------------------------------------------$BLOCK_COMMENT_END",
 			"",
 			"$0"
 		],
