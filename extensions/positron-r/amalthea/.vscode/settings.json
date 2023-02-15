@@ -1,5 +1,9 @@
 {
-    "rust-analyzer.checkOnSave.extraArgs": [
+    "rust-analyzer.imports.prefix": "crate",
+    "rust-analyzer.imports.granularity.group": "item",
+    "rust-analyzer.imports.granularity.enforce": true,
+
+    "rust-analyzer.check.extraArgs": [
         "--target-dir", "${workspaceFolder}/target/check"
     ]
 }
