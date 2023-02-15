@@ -32,7 +32,6 @@ use bus::Bus;
 use bus::BusReader;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use crossbeam::channel::bounded;
 use crossbeam::channel::unbounded;
 use harp::object::RObject;
 use libR_sys::*;
@@ -45,7 +44,7 @@ use crate::comm::environment::EnvironmentInstance;
 
 
 pub struct Shell {
-    req_sender: Sender<Request>,
+    shell_request_sender: Sender<Request>,
     kernel_init_receiver: BusReader<KernelInfo>,
     kernel_info: Option<KernelInfo>,
 }
@@ -54,20 +53,21 @@ impl Shell {
     /// Creates a new instance of the shell message handler.
     pub fn new(
         iopub: Sender<IOPubMessage>,
+        shell_request_sender: Sender<Request>,
+        shell_request_receiver: Receiver<Request>,
         kernel_init_sender: Bus<KernelInfo>,
         kernel_init_receiver: BusReader<KernelInfo>,
     ) -> Self {
 
         let iopub_sender = iopub.clone();
-        let (req_sender, req_receiver) = bounded::<Request>(1);
 
         std::thread::spawn(move || {
-            Self::execution_thread(iopub_sender, req_receiver, kernel_init_sender);
+            Self::execution_thread(iopub_sender, shell_request_receiver, kernel_init_sender);
         });
 
         Self {
-            req_sender: req_sender.clone(),
-            kernel_init_receiver: kernel_init_receiver,
+            shell_request_sender,
+            kernel_init_receiver,
             kernel_info: None
         }
     }
@@ -85,7 +85,7 @@ impl Shell {
     /// Returns a sender channel for the R execution thread; used outside the
     /// shell handler
     pub fn request_sender(&self) -> Sender<Request> {
-        self.req_sender.clone()
+        self.shell_request_sender.clone()
     }
 }
 
@@ -178,7 +178,7 @@ impl ShellHandler for Shell {
         req: &ExecuteRequest,
     ) -> Result<ExecuteReply, ExecuteReplyException> {
         let (sender, receiver) = unbounded::<ExecuteResponse>();
-        if let Err(err) = self.req_sender.send(Request::ExecuteCode(
+        if let Err(err) = self.shell_request_sender.send(Request::ExecuteCode(
             req.clone(),
             originator.clone(),
             sender,
@@ -245,7 +245,7 @@ impl ShellHandler for Shell {
         };
         let originator = Vec::new();
         let (sender, receiver) = unbounded::<ExecuteResponse>();
-        if let Err(err) = self.req_sender.send(Request::ExecuteCode(
+        if let Err(err) = self.shell_request_sender.send(Request::ExecuteCode(
             req.clone(),
             originator.clone(),
             sender,
@@ -263,7 +263,7 @@ impl ShellHandler for Shell {
     }
 
     fn establish_input_handler(&mut self, handler: Sender<ShellInputRequest>) {
-        self.req_sender
+        self.shell_request_sender
             .send(Request::EstablishInputChannel(handler))
             .unwrap();
     }
