@@ -10,7 +10,7 @@
 		"prefix": ["copyright","header","posit"],
 		"body": [
 			"$BLOCK_COMMENT_START---------------------------------------------------------------------------------------------",
-			" * Copyright (C) $CURRENT_YEAR Posit Software, PBC, all rights reserved",
+			" *  Copyright (C) $CURRENT_YEAR Posit Software, PBC, all rights reserved",
 			" *--------------------------------------------------------------------------------------------$BLOCK_COMMENT_END",
 			"",
 			"$0"
