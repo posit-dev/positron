@@ -56,7 +56,7 @@ export class RuntimeExecutionHistory extends Disposable {
 			const pending = this._pendingExecutions.get(message.parent_id);
 			if (pending) {
 				// If this is a duplicate input with different code, warn the user.
-				if (pending.input && pending.input !== message.code) {
+				if (pending.input) {
 					this._logService.warn(`Received duplicate input messages for execution ${message.id}; replacing previous input '${pending.input}' with '${message.code}'.`);
 				}
 
