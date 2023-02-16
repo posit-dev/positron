@@ -6,8 +6,8 @@
  *
  */
 
-use std::os::fd::AsRawFd;
-use std::os::fd::RawFd;
+use std::os::unix::prelude::AsRawFd;
+use std::os::unix::prelude::RawFd;
 
 use crossbeam::channel::Sender;
 use log::warn;
