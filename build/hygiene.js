@@ -22,9 +22,9 @@ const copyrightHeaderLines = [
 
 // --- Start Positron ---
 const positCopyrightHeaderLines = [
-	'/*---------------------------------------------------------------------------------------------',
-	' *  Copyright (c) Posit Software, PBC.',
-	' *--------------------------------------------------------------------------------------------*/',
+	/\/\*---------------------------------------------------------------------------------------------\s*/g,
+	/ \*  Copyright \([cC]{1}\)\s?(20\d{2})?(-20\d{2})? Posit Software, PBC\.( All rights reserved\.)?\s*/g,
+	/ \*--------------------------------------------------------------------------------------------\*\/\s*/g,
 ];
 // --- End Positron ---
 
@@ -116,7 +116,17 @@ function hygiene(some, linting = true) {
 			return true;
 		};
 
-		if (!(matchHeaderLines(copyrightHeaderLines) || matchHeaderLines(positCopyrightHeaderLines))) {
+		const regexMatchHeaderLines = (headerLines) => {
+			for (let i = 0; i < headerLines.length; i++) {
+				if (!lines[i]?.match(headerLines[i])) {
+					return false;
+				}
+			}
+
+			return true;
+		};
+
+		if (!(matchHeaderLines(copyrightHeaderLines) || regexMatchHeaderLines(positCopyrightHeaderLines))) {
 			console.error(file.relative + ': Missing or bad copyright statement');
 			errorCount++;
 		}

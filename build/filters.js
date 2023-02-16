@@ -29,6 +29,7 @@ module.exports.all = [
 
 	// --- Start Positron ---
 	'!**/amalthea/**/*',
+	'!extensions/positron-python/**/*',
 	// --- End Positron ---
 ];
 

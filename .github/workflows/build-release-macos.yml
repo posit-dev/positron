@@ -112,7 +112,7 @@ jobs:
           npm_config_arch: ${{ matrix.arch }}
           RUST_TARGET: ${{ matrix.rust_target_prefix }}-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
-        run: yarn
+        run: yarn --network-timeout 120000
 
       # Build client
       - name: Build client

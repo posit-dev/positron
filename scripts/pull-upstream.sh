@@ -7,8 +7,8 @@ Pull upstream changes from the Code - OSS repository into the Positron repositor
 EOF
 
 if [ "$1" = "--help" ]; then
-  printf "%s\n" "${USAGE}"
-  exit 0
+	printf "%s\n" "${USAGE}"
+	exit 0
 fi
 
 # get script directory
@@ -23,10 +23,10 @@ set -e
 
 # determine branch name; default to active branch
 if [ -z "$1" ]; then
-  BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  echo "Merging upstream branch: ${BRANCH}"
+	BRANCH=$(git rev-parse --abbrev-ref HEAD)
+	echo "Merging upstream branch: ${BRANCH}"
 else
-  BRANCH="$1"
+	BRANCH="$1"
 fi
 
 # fetch remote
@@ -34,14 +34,14 @@ git fetch
 
 # don't allow merge unless HEAD is the same branch as the origin
 if [ "$(git rev-parse "origin/${BRANCH}")" != "$(git rev-parse HEAD)" ]; then
-  echo "ERROR: Can't merge, HEAD is not same commit as origin/${BRANCH}"
-  exit 1
+	echo "ERROR: Can't merge, HEAD is not same commit as origin/${BRANCH}"
+	exit 1
 fi
 
 # don't allow merge if tree is dirty
 if [ -n "$(git status --porcelain)" ]; then
-  echo "ERROR: Can't merge, working tree is dirty"
-  exit 1
+	echo "ERROR: Can't merge, working tree is dirty"
+	exit 1
 fi
 
 # merge from remote
