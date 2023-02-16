@@ -23,7 +23,7 @@ const copyrightHeaderLines = [
 // --- Start Positron ---
 const positCopyrightHeaderLines = [
 	/\/\*---------------------------------------------------------------------------------------------\s*/g,
-	/ \*  Copyright \([cC]{1}\)\s?(20\d{2})?(-20\d{2})? Posit Software, PBC(\.|, all rights reserved)?\s*/g,
+	/ \*  Copyright \([cC]{1}\)\s?(20\d{2})?(-20\d{2})? Posit Software, PBC\.( All rights reserved\.)?\s*/g,
 	/ \*--------------------------------------------------------------------------------------------\*\/\s*/g,
 ];
 // --- End Positron ---
