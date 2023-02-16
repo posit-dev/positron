@@ -216,6 +216,23 @@
 			],
 			"perScriptSourcemaps": "yes"
 		},
+		// NOTE: The VSCode internal extension for debugging of tests requires
+		// a launch target called 'Attach to VS Code', so we keep this around.
+		// See: https://github.com/microsoft/vscode-selfhost-test-provider/blob/1e18eea05b47a9a8b0175d1ee0650386e6bcaae9/src/vscodeTestRunner.ts#L22
+		{
+			"type": "chrome",
+			"request": "attach",
+			"name": "Attach to VS Code",
+			"browserAttachLocation": "workspace",
+			"port": 9222,
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"resolveSourceMapLocations": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"perScriptSourcemaps": "yes"
+		},
 		{
 			"type": "chrome",
 			"request": "launch",

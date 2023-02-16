@@ -12,7 +12,6 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { RuntimeExecutionHistory } from 'vs/workbench/contrib/executionHistory/common/runtimeExecutionHistory';
 import { LanguageInputHistory } from 'vs/workbench/contrib/executionHistory/common/languageInputHistory';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { registerHistoryActions } from 'vs/workbench/contrib/executionHistory/common/executionHistoryActions';
 
 /**
  * Service that manages execution histories for all runtimes.
@@ -115,5 +114,3 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 }
 
 registerSingleton(IExecutionHistoryService, ExecutionHistoryService, InstantiationType.Delayed);
-
-registerHistoryActions();

@@ -31,12 +31,13 @@ use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
+use crossbeam::channel::Sender;
 use futures::executor::block_on;
 use log::{debug, trace, warn};
 use std::collections::HashMap;
-use std::sync::mpsc::SyncSender;
-use std::sync::{Arc, Mutex};
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 /// Wrapper for the Shell socket; receives requests for execution, etc. from the
 /// front end and handles them or dispatches them to the execution thread.
@@ -45,7 +46,7 @@ pub struct Shell {
     socket: Socket,
 
     /// Sends messages to the IOPub socket (owned by another thread)
-    iopub_sender: SyncSender<IOPubMessage>,
+    iopub_tx: Sender<IOPubMessage>,
 
     /// Language-provided shell handler object
     handler: Arc<Mutex<dyn ShellHandler>>,
@@ -58,16 +59,16 @@ impl Shell {
     /// Create a new Shell socket.
     ///
     /// * `socket` - The underlying ZeroMQ Shell socket
-    /// * `iopub_sender` - A channel that delivers messages to the IOPub socket
+    /// * `iopub_tx` - A channel that delivers messages to the IOPub socket
     /// * `handler` - The language's shell channel handler
     pub fn new(
         socket: Socket,
-        iopub_sender: SyncSender<IOPubMessage>,
+        iopub_tx: Sender<IOPubMessage>,
         handler: Arc<Mutex<dyn ShellHandler>>,
     ) -> Self {
         Self {
             socket,
-            iopub_sender,
+            iopub_tx,
             handler,
             open_comms: HashMap::new(),
         }
@@ -173,7 +174,7 @@ impl Shell {
             execution_state: state,
         };
         if let Err(err) = self
-            .iopub_sender
+            .iopub_tx
             .send(IOPubMessage::Status(parent.header, reply))
         {
             return Err(Error::SendError(format!("{}", err)));

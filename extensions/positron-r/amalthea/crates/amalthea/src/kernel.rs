@@ -5,6 +5,10 @@
  *
  */
 
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::thread;
+
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;
@@ -19,10 +23,10 @@ use crate::socket::shell::Shell;
 use crate::socket::socket::Socket;
 use crate::socket::stdin::Stdin;
 use crate::stream_capture::StreamCapture;
-use std::sync::mpsc::sync_channel;
-use std::sync::mpsc::{Receiver, SyncSender};
-use std::sync::{Arc, Mutex};
-use std::thread;
+
+use crossbeam::channel::Receiver;
+use crossbeam::channel::Sender;
+use crossbeam::channel::bounded;
 use log::{warn, info};
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
@@ -35,10 +39,10 @@ pub struct Kernel {
     session: Session,
 
     /// Sends messages to the IOPub socket
-    iopub_sender: SyncSender<IOPubMessage>,
+    iopub_tx: Sender<IOPubMessage>,
 
     /// Receives message sent to the IOPub socket
-    iopub_receiver: Option<Receiver<IOPubMessage>>,
+    iopub_rx: Option<Receiver<IOPubMessage>>,
 }
 
 /// Possible behaviors for the stream capture thread. When set to `Capture`,
@@ -55,13 +59,13 @@ impl Kernel {
     pub fn new(file: ConnectionFile) -> Result<Kernel, Error> {
         let key = file.key.clone();
 
-        let (iopub_sender, iopub_receiver) = sync_channel::<IOPubMessage>(10);
+        let (iopub_tx, iopub_rx) = bounded::<IOPubMessage>(10);
 
         Ok(Self {
             connection: file,
             session: Session::create(key)?,
-            iopub_sender,
-            iopub_receiver: Some(iopub_receiver),
+            iopub_tx: iopub_tx,
+            iopub_rx: Some(iopub_rx),
         })
     }
 
@@ -87,8 +91,8 @@ impl Kernel {
         )?;
 
         let shell_clone = shell_handler.clone();
-        let iopub_sender_clone = self.create_iopub_sender();
-        thread::spawn(move || Self::shell_thread(shell_socket, iopub_sender_clone, shell_clone));
+        let iopub_tx_clone = self.create_iopub_tx();
+        thread::spawn(move || Self::shell_thread(shell_socket, iopub_tx_clone, shell_clone));
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to
         // the client. IOPub only broadcasts messages, so it listens to other
@@ -101,8 +105,8 @@ impl Kernel {
             None,
             self.connection.endpoint(self.connection.iopub_port),
         )?;
-        let iopub_receiver = self.iopub_receiver.take().unwrap();
-        thread::spawn(move || Self::iopub_thread(iopub_socket, iopub_receiver));
+        let iopub_rx = self.iopub_rx.take().unwrap();
+        thread::spawn(move || Self::iopub_thread(iopub_socket, iopub_rx));
 
         // Create the heartbeat socket and start a thread to listen for
         // heartbeat messages.
@@ -132,8 +136,8 @@ impl Kernel {
 
         // Create the thread that handles stdout and stderr, if requested
         if stream_behavior == StreamBehavior::Capture {
-            let iopub_sender = self.create_iopub_sender();
-            thread::spawn(move || Self::output_capture_thread(iopub_sender));
+            let iopub_tx = self.create_iopub_tx();
+            thread::spawn(move || Self::output_capture_thread(iopub_tx));
         }
 
         // Create the Control ROUTER/DEALER socket
@@ -164,8 +168,8 @@ impl Kernel {
     }
 
     /// Returns a copy of the IOPub sending channel.
-    pub fn create_iopub_sender(&self) -> SyncSender<IOPubMessage> {
-        self.iopub_sender.clone()
+    pub fn create_iopub_tx(&self) -> Sender<IOPubMessage> {
+        self.iopub_tx.clone()
     }
 
     /// Starts the control thread
@@ -177,10 +181,10 @@ impl Kernel {
     /// Starts the shell thread.
     fn shell_thread(
         socket: Socket,
-        iopub_sender: SyncSender<IOPubMessage>,
+        iopub_tx: Sender<IOPubMessage>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
     ) -> Result<(), Error> {
-        let mut shell = Shell::new(socket, iopub_sender.clone(), shell_handler);
+        let mut shell = Shell::new(socket, iopub_tx.clone(), shell_handler);
         shell.listen();
         Ok(())
     }
@@ -210,10 +214,8 @@ impl Kernel {
     }
 
     /// Starts the output capture thread.
-    fn output_capture_thread(
-        iopub_sender: SyncSender<IOPubMessage>,
-    ) -> Result<(), Error> {
-        let output_capture = StreamCapture::new(iopub_sender);
+    fn output_capture_thread(iopub_tx: Sender<IOPubMessage>) -> Result<(), Error> {
+        let output_capture = StreamCapture::new(iopub_tx);
         output_capture.listen();
         Ok(())
     }

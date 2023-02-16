@@ -4,7 +4,6 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
@@ -69,7 +68,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param _logService The log service.
 	 */
 	constructor(
-		@ICommandService private readonly _commandService: ICommandService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService
 	) {
@@ -329,14 +327,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		runtime.start().then(languageRuntimeInfo => {
 			console.log(`Back from start language runtime ${runtime.metadata.languageName}`);
 
-
-			// TODO@softwarenerd - I think this should be moved out of this layer.
-			// Execute the Focus into Console command using the command service
-			// to expose the REPL for the new runtime.
-			this._commandService.executeCommand('workbench.panel.positronConsole.focus');
-
 			// Change the active runtime, if it isn't already set.
 			this.activeRuntime = runtime;
+
 		}, (reason) => {
 			// TODO@softwarenerd - No code was here. We need code here.
 			console.log('Starting language runtime failed. Reason:');
@@ -347,4 +340,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	//#region Private Methods
 }
 
-registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Delayed);
+// Instantiate the language runtime service "eagerly", meaning as soon as a consumer depdends on it.
+// This fixes an issue where languages are encountered BEFORE the language runtime service has been
+// instantiated.
+registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Eager);

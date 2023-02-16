@@ -12,21 +12,21 @@ use amalthea::wire::jupyter_message::Status;
 use amalthea::wire::shutdown_reply::ShutdownReply;
 use amalthea::wire::shutdown_request::ShutdownRequest;
 use async_trait::async_trait;
+use crossbeam::channel::Sender;
 use log::*;
 use nix::sys::signal::{self, Signal};
 use nix::unistd::Pid;
-use std::sync::mpsc::SyncSender;
 
 
 use crate::request::Request;
 
 pub struct Control {
-    req_sender: SyncSender<Request>,
+    req_tx: Sender<Request>,
 }
 
 impl Control {
-    pub fn new(sender: SyncSender<Request>) -> Self {
-        Self { req_sender: sender }
+    pub fn new(sender: Sender<Request>) -> Self {
+        Self { req_tx: sender }
     }
 }
 
@@ -37,7 +37,7 @@ impl ControlHandler for Control {
         msg: &ShutdownRequest,
     ) -> Result<ShutdownReply, Exception> {
         debug!("Received shutdown request: {:?}", msg);
-        if let Err(err) = self.req_sender.send(Request::Shutdown(msg.restart)) {
+        if let Err(err) = self.req_tx.send(Request::Shutdown(msg.restart)) {
             warn!(
                 "Could not deliver shutdown request to execution thread: {}",
                 err

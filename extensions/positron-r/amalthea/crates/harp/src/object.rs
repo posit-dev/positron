@@ -170,6 +170,14 @@ impl From<SEXP> for RObject {
     }
 }
 
+impl From<()> for RObject {
+    fn from(_value: ()) -> Self {
+        unsafe {
+            RObject::from(R_NilValue)
+        }
+    }
+}
+
 impl From<bool> for RObject {
     fn from(value: bool) -> Self {
         unsafe {
@@ -245,7 +253,7 @@ impl ToCharSxp for String {
     }
 }
 
-impl<S> From<&[S]> for RObject where S : ToCharSxp {
+impl<S: ToCharSxp> From<&[S]> for RObject {
     fn from(value: &[S]) -> Self {
         unsafe {
             let n = value.len() as isize;
@@ -260,16 +268,48 @@ impl<S> From<&[S]> for RObject where S : ToCharSxp {
     }
 }
 
-impl<S, const N: usize> From<&[S; N]> for RObject where S : ToCharSxp {
+impl<S: ToCharSxp, const N: usize> From<&[S; N]> for RObject {
     fn from(value: &[S; N]) -> Self {
         RObject::from(&value[..])
     }
 }
 
-impl<S> From<Vec<S>> for RObject where S : ToCharSxp {
+impl<S: ToCharSxp> From<Vec<S>> for RObject {
     fn from(value: Vec<S>) -> Self {
         RObject::from(&value[..])
     }
+}
+
+pub trait ToRStrings {
+    fn to_r_strings(self) -> RObject;
+}
+
+impl<S: ToCharSxp> ToRStrings for &[S] {
+    fn to_r_strings(self) -> RObject {
+        self.into()
+    }
+}
+
+impl<S: ToCharSxp, const N: usize> ToRStrings for &[S; N] {
+    fn to_r_strings(self) -> RObject {
+        self.into()
+    }
+}
+
+impl<S: ToCharSxp> ToRStrings for Vec<S> {
+    fn to_r_strings(self) -> RObject {
+        self.into()
+    }
+}
+
+impl<S: ToCharSxp> ToRStrings for S {
+    fn to_r_strings(self) -> RObject {
+        [self].to_r_strings()
+    }
+}
+
+pub fn r_strings<S: ToRStrings>(strings: S) -> RObject {
+    strings.to_r_strings()
 }
 
 /// Convert RObject into other types.
@@ -356,6 +396,21 @@ impl TryFrom<RObject> for i32 {
     }
 }
 
+impl TryFrom<RObject> for f64 {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_assert_length(*value, 1)?;
+            match r_typeof(*value) {
+                INTSXP => { Ok((*INTEGER(*value)) as f64) }
+                REALSXP => { Ok((*REAL(*value)) as f64) }
+                _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![REALSXP])) }
+            }
+        }
+    }
+}
+
+
 impl TryFrom<RObject> for HashMap<String, String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
@@ -391,15 +446,15 @@ impl TryFrom<RObject> for HashMap<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use libR_sys::{STRING_ELT, R_NaString};
+    use libR_sys::*;
 
-    use crate::{r_test, r_string, protect, utils::CharSxpEq};
+    use crate::{r_test, r_string, protect, utils::{CharSxpEq, r_typeof}};
 
-    use super::RObject;
+    use super::*;
 
     #[test]
     #[allow(non_snake_case)]
-    fn test_eq_charsxp() {r_test! {
+    fn test_eq_charsxp() { r_test! {
         let mut protect = protect::RProtect::new();
         let r_string = protect.add(r_string!("Apple"));
         let apple = STRING_ELT(r_string, 0);
@@ -458,4 +513,54 @@ mod tests {
         assert_eq!(r_strings, expected);            // [String; const N]
         assert_eq!(r_strings, expected.to_vec());   // Vec<String>
     }}
+
+    #[test]
+    fn test_r_strings() { r_test! {
+        let alphabet = ["a", "b", "c"];
+
+        // &[&str]
+        let s = r_strings(&alphabet);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, alphabet);
+
+        // &[&str; N]
+        let s = r_strings(&alphabet[..]);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, alphabet);
+
+        // Vec<&str>
+        let s = r_strings(alphabet.to_vec());
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, alphabet);
+
+        // &[String]
+        let alphabet = alphabet.map(|s| { String::from(s) });
+        let s = r_strings(&alphabet);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, alphabet);
+
+        // &[String; N]
+        let s = r_strings(&alphabet[..]);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, alphabet);
+
+        // Vec<String>
+        let s = r_strings(alphabet.to_vec());
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, alphabet);
+
+        // &str
+        let string = "Banana";
+        let s = r_strings(string);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, string);
+
+        // String
+        let string = String::from("Pineapple");
+        let s = r_strings(string);
+        assert_eq!(r_typeof(s.sexp), STRSXP);
+        assert_eq!(s, "Pineapple"); // string was moved
+
+    }}
+
 }
