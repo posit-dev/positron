@@ -3,11 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as net from 'net';
 
 import {
 	LanguageClient,
 	LanguageClientOptions,
 	createClientSocketTransport,
+	StreamInfo,
 } from 'vscode-languageclient/node';
 
 import { trace, traceOutputChannel } from './logging';
@@ -23,51 +25,42 @@ let client: LanguageClient;
  * @param context The VSCode extension context.
  */
 export async function activateLsp(port: number,
-	context: vscode.ExtensionContext): Promise<number> {
+	context: vscode.ExtensionContext): Promise<void> {
 
-	return new Promise((resolve, reject) => {
-
-		// Define server options for the language server; this is a callback
-		// that creates and returns the reader/writer stream for TCP
-		// communication.
-		const serverOptions = async () => {
-
-			// Create our own socket transport
-			const address = `127.0.0.1:${port}`;
-			const transport = await createClientSocketTransport(port);
-
-			// Resolve the promise to indicate that the transport is ready
-			resolve(port);
-
-			// Wait for the language server to connect to us
-			trace(`Waiting to connect to language server at ${address}...`);
-			const protocol = await transport.onConnected();
-			trace(`Connected to language server at ${address}, returning protocol transports`);
-
-			return {
-				reader: protocol[0],
-				writer: protocol[1],
-			};
-
-		};
-
-		const clientOptions: LanguageClientOptions = {
-			documentSelector: [{ scheme: 'file', language: 'r' }],
-			synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R') },
-			traceOutputChannel: traceOutputChannel(),
-		};
-
-		trace('Creating Positron R language client...');
-		client = new LanguageClient('positron-r', 'Positron R Language Server', serverOptions, clientOptions);
-
-		client.onDidChangeState(event => {
-			trace(`ARK language client state changed ${event.oldState} => ${event.newState}`);
+	// Define server options for the language server; this is a callback
+	// that creates and returns the reader/writer stream for TCP
+	// communication.
+	const serverOptions = async () => {
+		const socket = net.connect({
+			port: port,
+			host: 'localhost',
 		});
+		const streams: StreamInfo = {
+			reader: socket,
+			writer: socket
+		};
+		return streams;
+	};
 
-		context.subscriptions.push(client.start());
+	const clientOptions: LanguageClientOptions = {
+		documentSelector: [{ scheme: 'file', language: 'r' }],
+		synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R') },
+		traceOutputChannel: traceOutputChannel(),
+	};
 
+	trace('Creating Positron R language client...');
+	client = new LanguageClient('positron-r', 'Positron R Language Server', serverOptions, clientOptions);
+
+	client.onDidChangeState(event => {
+		trace(`ARK language client state changed ${event.oldState} => ${event.newState}`);
+	});
+
+	context.subscriptions.push(client.start());
+
+	return new Promise<void>((resolve, reject) => {
 		client.onReady().then(() => {
 			trace('Positron R language client is ready');
+			resolve();
 
 			// Placeholder for custom notification.
 			setTimeout(async () => {
@@ -90,7 +83,6 @@ export async function activateLsp(port: number,
 
 			}, 5000);
 		});
-
 	});
 }
 

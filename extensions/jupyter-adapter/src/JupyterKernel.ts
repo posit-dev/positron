@@ -233,18 +233,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.streamLogFileToChannel(logFilePath, this._spec.language, this._channel);
 		}
 
-		if (this._lsp) {
-			const port = session.spec.lsp_port;
-			if (port && port > 0) {
-				this._channel.appendLine(`Connecting to ${this._spec.display_name} LSP server on port ${session.spec.lsp_port}...`);
-				this._lsp(port).then(() => {
-					this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
-				});
-			} else {
-				this._channel.appendLine(`Warning: ${this._spec.display_name} has an LSP but no allocated port; not starting LSP`);
-			}
-		}
-
 		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
 		await this.connect(session.state.connectionFile);
 
@@ -824,6 +812,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 			// Dispose the remainder of the connection state
 			this.dispose();
+		} else if (status === positron.RuntimeState.Ready) {
+			// When the kernel becomes ready, start the LSP server if it's configured
+			if (this._lsp && this._session) {
+				const port = this._session.spec.lsp_port;
+				if (port && port > 0) {
+					this._channel.appendLine(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
+					this._lsp(port).then(() => {
+						this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
+					});
+				} else {
+					this._channel.appendLine(`Warning: ${this._spec.display_name} has an LSP but no allocated port; not starting LSP`);
+				}
+			}
 		}
 	}
 
