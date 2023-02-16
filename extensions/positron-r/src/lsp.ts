@@ -35,6 +35,15 @@ export async function activateLsp(port: number,
 			port: port,
 			host: 'localhost',
 		});
+		socket.on('error', (error) => {
+			trace(`Error connecting to language server on port ${port}: ${error}`);
+		});
+		socket.on('ready', () => {
+			trace(`Connection to language server is ready on port ${port}`);
+		});
+		socket.on('connect', () => {
+			trace(`Connected to R language server on port ${port}`);
+		});
 		const streams: StreamInfo = {
 			reader: socket,
 			writer: socket
