@@ -37,6 +37,10 @@ unsafe extern "C" fn gd_close(dd: pDevDesc) {
     // itself, so we don't need to do anything here -- we'd only
     // want to free device-specific components not managed by R.
     //
+    // TODO: Since R is going to call 'free()' to release the
+    // relevant data structures, do we need to make sure the
+    // associated memory was malloc()-ed by R as well?
+    //
     // https://github.com/wch/r-source/blob/9065779ee510b7bd8ca93d08f4dd4b6e2bd31923/src/main/engine.c#L75-L87
 }
 

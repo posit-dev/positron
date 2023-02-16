@@ -8,7 +8,6 @@
 use amalthea::events::{PositronEvent, ShowMessageEvent};
 use harp::object::RObject;
 use libR_sys::*;
-use std::os::raw::c_char;
 use stdext::local;
 use stdext::unwrap;
 
