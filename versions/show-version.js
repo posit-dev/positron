@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
@@ -9,9 +8,9 @@
 //
 // With no arguments, it displays the version and commit hash. Run with --help for more options.
 
-var fs = require('fs');
-var path = require('path');
-var child_process = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const child_process = require('child_process');
 
 if (process.argv.includes('--help')) {
     console.log(`Usage: ${path.basename(process.argv[1])} [options]

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
@@ -7,9 +6,9 @@
 // This script records the anchor commit for the current version of Positron, as specified
 // in the product.json file.
 
-var fs = require('fs');
-var path = require('path');
-var child_process = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const child_process = require('child_process');
 
 // Read the product details from the product.json file in the directory above
 // this script
