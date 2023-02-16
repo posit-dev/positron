@@ -108,24 +108,34 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (state) {
 			// We found session state for this kernel. Connect to it.
 			const sessionState = state as JupyterSessionState;
-			this._channel.appendLine(
-				`Found record of existing kernel for '${this._spec.display_name}: '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
 
 			// Set the status to initializing so that we don't try to start a
 			// new kernel before we've tried to connect to the existing one.
 			this.setStatus(positron.RuntimeState.Initializing);
 
+			// Get the list of all terminals in the current workspace. We'll
+			// look for a terminal with the same process ID as the one we saved
+			// in the session state.
+			const allTerminals = vscode.window.terminals;
+			this._channel.appendLine(
+				`Found record of existing kernel for '${this._spec.display_name} with PID ${sessionState.processId}; checking ${allTerminals.length} terminals...`);
+
 			// Look for a terminal with the same process ID as the one we saved.
 			// We can't fetch the process IDs synchronously, so we resolve them
 			// asynchronously and then look for a match.
-			Promise.all(vscode.window.terminals.map(async (terminal) => {
+			Promise.all(allTerminals.map((terminal) => {
 				// Note that the terminal name can't be used to match here
 				// because, empirically, it is not always set when we initially
 				// query the list of terminals.
-				return terminal.processId.then((pid) => {
-					return pid === sessionState.processId ? terminal : undefined;
+				return new Promise<vscode.Terminal | undefined>((resolve, _reject) => {
+					terminal.processId.then((pid) => {
+						resolve(pid === sessionState.processId ? terminal : undefined);
+					});
 				});
-			})).then((terminals) => {
+			})).then((results) => {
+				// Filter out any undefined results; they are terminals that
+				// don't have a process ID matching the one we saved.
+				const terminals = results.filter((terminal) => terminal !== undefined);
 				if (terminals.length === 0) {
 					// We didn't find a terminal; remove the session state from the
 					// workspace state since we no longer have a terminal we can
@@ -138,10 +148,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					this.setStatus(positron.RuntimeState.Uninitialized);
 					return;
 				}
-				if (terminals.length > 1) {
-					this._channel.appendLine(
-						`WARNING: Found multiple terminals for process ID ${sessionState.processId}; using the first one.`);
-				}
+
 				const terminal = terminals[0] as vscode.Terminal;
 				this._channel.appendLine(
 					`Connecting ${this._spec.language} to terminal '${terminal.name}' (PID ${sessionState.processId}))`);
@@ -303,21 +310,34 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._channel.appendLine(`Attempt to start ${this._spec.display_name} kernel while initializing; deferring.`);
 
 			// Wait for the next status change to see what action we should take next.
-			this.once('status', (status) => {
-				if (status === positron.RuntimeState.Uninitialized) {
-					// The kernel was initializing but returned to the
-					// uninitialized state; this generally means we couldn't
-					// connect to an existing kernel, and it's safe to start a
-					// new one.
-					this._channel.appendLine(`Performing deferred start for ${this._spec.display_name} kernel`);
-					return this.start();
-				} else {
-					// The kernel was initializing but has moved on to another
-					// state; resolve the promise and treat it als already
-					// started.
-					this._channel.appendLine(`Skipping deferred start for ${this._spec.display_name} kernel; already '${status}'`);
-					return;
-				}
+			return new Promise<void>((resolve, reject) => {
+				const callback = (status: positron.RuntimeState) => {
+					if (status === positron.RuntimeState.Initializing) {
+						// Ignore status changes to initializing; we're waiting for
+						// the kernel to move on to another state.
+						return;
+					}
+
+					// Unsubscribe from status changes now that we're done waiting
+					this.off('status', callback);
+
+					if (status === positron.RuntimeState.Uninitialized) {
+						// The kernel was initializing but returned to the
+						// uninitialized state; this generally means we couldn't
+						// connect to an existing kernel, and it's safe to start a
+						// new one.
+						this._channel.appendLine(`Performing deferred start for ${this._spec.display_name} kernel`);
+						resolve(this.start());
+					} else {
+						// The kernel was initializing but has moved on to another
+						// state; resolve the promise and treat it als already
+						// started.
+						this._channel.appendLine(`Skipping deferred start for ${this._spec.display_name} kernel; already '${status}'`);
+						reject(new Error(`Kernel already '${status}'`));
+					}
+				};
+
+				this.on('status', callback);
 			});
 		}
 
@@ -326,10 +346,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (this._status !== positron.RuntimeState.Uninitialized &&
 			this._status !== positron.RuntimeState.Exited) {
 			this._channel.appendLine(`Attempt to start ${this._spec.display_name} kernel but it's already '${this._status}'; ignoring.`);
+			return;
 		}
 
-		// If we have an LSP client, allocate a port for it and wait for it to
-		// start before starting the kernel
+		// Mark the kernel as initializing so we don't try to start it again
+		// during bootup
+		this.setStatus(positron.RuntimeState.Initializing);
+
+		// If we have an LSP client, allocate a port for it now
 		let lspClientPort = 0;
 		if (this._lsp) {
 			const portfinder = require('portfinder');

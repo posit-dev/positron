@@ -191,19 +191,12 @@ export class LanguageRuntimeAdapter
 	 * @returns A promise with information about the newly started runtime.
 	 */
 	public start(): Thenable<positron.LanguageRuntimeInfo> {
-		this._channel.appendLine(`Starting ${this.metadata.languageName}...`);
-
-		// Reject if the kernel is already running; only in the Unintialized state
-		// can we start the kernel
-		if (this._kernel.status() !== positron.RuntimeState.Uninitialized) {
-			this._channel.appendLine(`Not started (already running or starting up)`);
-			Promise.reject('Kernel is already started or running');
+		// If the kernel is already ready, return its info
+		if (this._kernel.status() === positron.RuntimeState.Ready) {
+			return this.getKernelInfo();
 		}
 
-		// Update the kernel's state to Initializing
-		this.onStatus(positron.RuntimeState.Initializing);
-
-		// Start the kernel
+		// If not, start the kernel
 		return this.startKernel();
 	}
 
