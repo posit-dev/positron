@@ -19,7 +19,7 @@ use parking_lot::Mutex;
 use regex::Regex;
 use serde_json::Value;
 use stdext::*;
-use tokio::net::TcpStream;
+use tokio::net::TcpListener;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::lsp_types::request::GotoImplementationParams;
@@ -558,8 +558,8 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-    debug!("Connecting to LSP at '{}'", address);
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
+    debug!("Connecting to LSP at '{}'", &address);
+    let listener = TcpListener::bind(&address)
         .await
         .unwrap();
     let (stream, _) = listener.accept().await.unwrap();
