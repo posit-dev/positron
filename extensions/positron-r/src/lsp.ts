@@ -16,12 +16,14 @@ import { trace, traceOutputChannel } from './logging';
 let client: LanguageClient;
 
 /**
- * Activate the language server; returns a promise that resolves to the port on
- * which the client is listening.
+ * Activate the language server; returns a promise that resolves when the LSP is
+ * activated.
  *
+ * @param port The port on which the language server is listening.
  * @param context The VSCode extension context.
  */
-export async function activateLsp(context: vscode.ExtensionContext): Promise<number> {
+export async function activateLsp(port: number,
+	context: vscode.ExtensionContext): Promise<number> {
 
 	return new Promise((resolve, reject) => {
 
@@ -30,16 +32,11 @@ export async function activateLsp(context: vscode.ExtensionContext): Promise<num
 		// communication.
 		const serverOptions = async () => {
 
-			// Find an open port for the language server to listen on.
-			trace('Finding open port for R language server...');
-			const portfinder = require('portfinder');
-			const port = await portfinder.getPortPromise();
-			const address = `127.0.0.1:${port}`;
-
 			// Create our own socket transport
+			const address = `127.0.0.1:${port}`;
 			const transport = await createClientSocketTransport(port);
 
-			// Allow kernel startup to proceed
+			// Resolve the promise to indicate that the transport is ready
 			resolve(port);
 
 			// Wait for the language server to connect to us

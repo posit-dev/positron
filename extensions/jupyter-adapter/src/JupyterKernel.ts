@@ -47,9 +47,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _iopub: JupyterSocket | null;
 	private _heartbeat: JupyterSocket | null;
 
-	/** The LSP port (if the LSP has been started) */
-	private _lspClientPort: number | null;
-
 	/**
 	 * A map of IDs to pending input requests; used to match up input replies
 	 * with the correct request
@@ -80,7 +77,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	constructor(private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
-		private readonly _channel: vscode.OutputChannel) {
+		private readonly _channel: vscode.OutputChannel,
+		private readonly _lsp?: (port: number) => Promise<void>) {
 		super();
 		this._spec = spec;
 		this._process = null;
@@ -93,7 +91,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeatTimer = null;
 		this._nextHeartbeat = null;
 		this._lastHeartbeat = 0;
-		this._lspClientPort = null;
 
 		// Set the initial status to uninitialized (we'll change it later if we
 		// discover it's actually running)
@@ -236,6 +233,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.streamLogFileToChannel(logFilePath, this._spec.language, this._channel);
 		}
 
+		if (this._lsp) {
+			const port = session.spec.lsp_port;
+			if (port && port > 0) {
+				this._channel.appendLine(`Connecting to ${this._spec.display_name} LSP server on port ${session.spec.lsp_port}...`);
+				this._lsp(port).then(() => {
+					this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
+				});
+			} else {
+				this._channel.appendLine(`Warning: ${this._spec.display_name} has an LSP but no allocated port; not starting LSP`);
+			}
+		}
+
 		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
 		await this.connect(session.state.connectionFile);
 
@@ -282,11 +291,16 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/**
 	 * Starts the Jupyter kernel.
-	 *
-	 * @param lspClientPort The port that the LSP client is listening on, or 0
-	 *   if no LSP is started
 	 */
-	public async start(lspClientPort: number) {
+	public async start() {
+
+		// If we have an LSP client, allocate a port for it and wait for it to
+		// start before starting the kernel
+		let lspClientPort = 0;
+		if (this._lsp) {
+			const portfinder = require('portfinder');
+			lspClientPort = await portfinder.getPortPromise();
+		}
 
 		// Create a new session
 		const session = await createJupyterSession(lspClientPort);
@@ -488,9 +502,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Start the kernel again once the process finishes shutting down
 		this._process?.once('exit', () => {
 			this._channel.appendLine(`Waiting for '${this._spec.display_name}' to restart...`);
-			// Start the kernel again, rebinding to the LSP client if we have
-			// one
-			this.start(this._lspClientPort ?? 0);
+			this.start();
 		});
 	}
 

@@ -19,18 +19,20 @@ export class Api implements vscode.Disposable {
 	 * @param kernel A Jupyter kernel spec containing the information needed to start the kernel.
 	 * @param languageVersion The version of the language interpreter.
 	 * @param kernelVersion The version of the kernel itself.
-	 * @param lsp An optional function that returns a client port number for the LSP server to connect to.
+	 * @param lsp An optional function that starts an LSP server, given the port
+	 *   on which the kernel is listening, and returns a promise that resolves
+	 *   when the server is ready.
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
 	adaptKernel(kernel: JupyterKernelSpec,
 		languageId: string,
 		languageVersion: string,
 		kernelVersion: string,
-		lsp: () => Promise<number> | null,
-		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit): positron.LanguageRuntime {
+		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
+		lsp?: (port: number) => Promise<void>): positron.LanguageRuntime {
 
 		return new LanguageRuntimeAdapter(
-			this._context, kernel, languageId, languageVersion, kernelVersion, lsp, this._channel, startupBehavior);
+			this._context, kernel, languageId, languageVersion, kernelVersion, this._channel, startupBehavior, lsp);
 	}
 
 	dispose() {

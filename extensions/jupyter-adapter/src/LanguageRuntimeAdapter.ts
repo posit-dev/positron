@@ -35,7 +35,6 @@ export class LanguageRuntimeAdapter
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
-	private _lspPort: number | null = null;
 	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
@@ -62,9 +61,9 @@ export class LanguageRuntimeAdapter
 		languageId: string,
 		languageVersion: string,
 		runtimeVersion: string,
-		private readonly _lsp: () => Promise<number> | null,
 		private readonly _channel: vscode.OutputChannel,
-		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit) {
+		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
+		private readonly _lsp?: (port: number) => Promise<void>) {
 
 		// Hash all the metadata together
 		const digest = crypto.createHash('sha256');
@@ -76,7 +75,7 @@ export class LanguageRuntimeAdapter
 		// Extract the first 32 characters of the hash as the runtime ID
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
-		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel);
+		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel, this._lsp);
 
 		// Generate kernel metadata and ID
 		this.metadata = {
@@ -89,9 +88,6 @@ export class LanguageRuntimeAdapter
 			startupBehavior: startupBehavior
 		};
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
-
-		// No LSP port has been emitted yet
-		this._lspPort = null;
 
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
@@ -207,30 +203,13 @@ export class LanguageRuntimeAdapter
 		// Update the kernel's state to Initializing
 		this.onStatus(positron.RuntimeState.Initializing);
 
-		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
-			if (this._lsp) {
-				// If we have an LSP, start it, then start the kernel
-				this._lsp()!.then((port) => {
-					// Save the LSP port for use on restarts
-					this._lspPort = port;
-					return this.startKernel(port);
-				}).then((info) => {
-					resolve(info);
-				}).catch((err) => {
-					reject(err);
-				});
-			} else {
-				// Otherwise, just start the kernel
-				this.startKernel(0).then(info => {
-					resolve(info);
-				});
-			}
-		});
+		// Start the kernel
+		return this.startKernel();
 	}
 
-	private async startKernel(lspPort: number): Promise<positron.LanguageRuntimeInfo> {
-		await this._kernel.start(lspPort);
-		return await this.getKernelInfo();
+	private async startKernel(): Promise<positron.LanguageRuntimeInfo> {
+		await this._kernel.start();
+		return this.getKernelInfo();
 	}
 
 	/**
@@ -262,7 +241,7 @@ export class LanguageRuntimeAdapter
 	 */
 	public restart(): void {
 		this._kernel.shutdown(true);
-		this._kernel.start(this._lspPort ?? 0);
+		this._kernel.start();
 	}
 
 	/**
