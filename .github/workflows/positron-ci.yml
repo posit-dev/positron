@@ -37,13 +37,12 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
-          RUST_TARGET: x86_64-unknown-linux-gnu
         run: |
           npm install -g yarn
           yarn --immutable --network-timeout 120000
 
       - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 --long --parseable compile "electron x64" playwright-install download-builtin-extensions
+        run: yarn npm-run-all --max_old_space_size=4095 --lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
