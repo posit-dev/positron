@@ -68,7 +68,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** The timestamp at which we last received a heartbeat message from the kernel */
 	private _lastHeartbeat: number;
 
-	/** An object that tracks the Jupyter session information */
+	/** An object that tracks the Jupyter session information, such as session ID and ZeroMQ ports */
 	private _session?: JupyterSession;
 
 	/** The terminal in which the kernel process is running */
@@ -101,8 +101,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.onStatusChange(status);
 		});
 
-		// Look for a running kernel in the current workspace. If we find one,
-		// it's a JupyterSessionState object, which contains the connection
+		// Look for metadata about a running kernel in the current workspace by
+		// checking the value stored for this runtime ID (we support running
+		// exactly one kernel per runtime ID). If we find it, it's a
+		// JupyterSessionState object, which contains the connection
 		// information.
 		const state = this._context.workspaceState.get(this._runtimeId);
 		if (state) {
@@ -130,7 +132,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._channel.appendLine(
 			`Found record of existing kernel for '${this._spec.display_name} with PID ${sessionState.processId}; checking ${allTerminals.length} terminals...`);
 
-		// We can't fetch the process IDs synchronously, so we resolve them
+		// We can't fetch the process IDs synchronously, so we discover them
 		// asynchronously and then look for a match.
 		Promise.all(allTerminals.map((terminal) => {
 			// Note that the terminal name can't be used to match here
@@ -184,6 +186,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/**
 	 * Connects to a Jupyter kernel, given the path to the connection JSON file.
+	 * Returns a promise that resolves when all the ZeroMQ sockets are connected.
+	 *
+	 * Note that this is used both in the kernel's initial startup and when
+	 * reconnecting.
 	 *
 	 * @param connectionJsonPath The path to the connection JSON file
 	 */
@@ -373,7 +379,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			lspClientPort = await portfinder.getPortPromise();
 		}
 
-		// Create a new session
+		// Create a new session; this allocates a connection file and log file
+		// and establishes available ports and sockets for the kernel to connect
+		// to.
 		const session = await createJupyterSession(lspClientPort);
 		const connnectionFile = session.state.connectionFile;
 		const logFile = session.state.logFile;
