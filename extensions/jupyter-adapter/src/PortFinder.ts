@@ -41,6 +41,9 @@ export async function findAvailablePort(excluding: Array<number>, maxTries: numb
 		// port when it's available
 		test.once('listening', function () {
 			test.once('close', function () {
+				// Add the port to the exclusion list so we don't try to bind to
+				// it again
+				excluding.push(candidate);
 				resolve(candidate);
 			});
 			test.close();
