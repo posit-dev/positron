@@ -5,4 +5,5 @@
 //
 //
 
-mod device;
+mod dev_desc;
+mod graphics_device;
