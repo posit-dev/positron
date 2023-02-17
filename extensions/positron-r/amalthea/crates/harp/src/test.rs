@@ -48,6 +48,7 @@ pub fn start_r() {
 
         unsafe {
             Rf_initialize_R(arguments.len() as i32, arguments.as_mut_ptr() as *mut *mut c_char);
+            R_CStackLimit = usize::MAX;
             setup_Rmainloop();
         }
     });
