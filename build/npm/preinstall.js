@@ -153,6 +153,11 @@ function getHeaderInfo(rcFile) {
 
 
 // --- Start Positron ---
+// On Windows and Linux, we need to slam the zeromq dependency.
+if (process.platform !== 'darwin') {
+	require('./positron-zeromq-hack').slamZeromq();
+}
+
 // TOOD: make more robust against dirty working dir, etc.
 console.log(`Installing positron built-in extensions...`);
 if (process.env['POSITRON_GITHUB_PAT']) {

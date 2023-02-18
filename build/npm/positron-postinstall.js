@@ -15,3 +15,8 @@ if (platform() === 'darwin') {
 	console.error(`Error: The ${platform()} platform is not currently supported.`);
 	process.exit(1);
 }
+
+// On Windows and Linux, we need to unslam the zeromq dependency.
+if (process.platform !== 'darwin') {
+	require('./positron-zeromq-hack').unslamZeromq();
+}
