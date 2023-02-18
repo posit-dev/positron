@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 // This script records the anchor commit for the current version of Positron, as specified
