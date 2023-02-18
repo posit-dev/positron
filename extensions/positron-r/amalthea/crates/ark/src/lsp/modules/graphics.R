@@ -20,25 +20,27 @@
     device <- .Devices[[dev.cur()]]
 
     # Get device attributes to be passed along.
+    #
     # TODO: What about other things like DPI, and so on?
-    size <- dev.size()
+    size <- dev.size(units = "px")
     width <- size[[1L]]
     height <- size[[2L]]
-    units <- "in"
-    res <- 72L
 
     # Copy to a new graphics device.
+    # TODO: We'll want some indirection around which graphics device is selected here.
+    filepath <- attr(device, "filepath")
     dev.copy(
         device = grDevices:::png,
-        filename = attr(device, "filepath"),
+        filename = filepath,
         width = width,
-        height = height,
-        units = units,
-        res = res
+        height = height
     )
 
     # Turn off the graphics device.
     dev.off()
+
+    # For debugging; open the rendered plot.
+    system(paste("open", shQuote(filepath)))
 
 }
 

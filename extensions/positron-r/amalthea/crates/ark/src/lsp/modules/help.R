@@ -45,3 +45,4 @@ suppressMessages(tools::startDynamicHelp(start = TRUE))
   paste(contents, collapse = "\n")
 
 }
+
