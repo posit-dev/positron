@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
