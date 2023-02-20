@@ -2,13 +2,6 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-input {
-	display: flex;
-}
-
-.console-repl-input .prompt {
-	display: flex;
-	width: 22px;
-	justify-content: right;
-	margin-right: 16px;
+.repl-activity {
+	background: transparent;
 }

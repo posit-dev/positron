@@ -2,8 +2,9 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-line {
+.repl-line {
 	white-space: pre;
 	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
-	font-size: 12px; /* TODO@softwarenerd - must find a way to get this at runtime */
+	/* TODO@softwarenerd - must find a way to get this at runtime */
+	/* font-size: 12px;  */
 }

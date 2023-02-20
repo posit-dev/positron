@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleReplLiveInput';
+import 'vs/css!./replLiveInput';
 import * as React from 'react';
 import { forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
@@ -26,23 +26,22 @@ import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
+import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleInstance';
 
-// ConsoleReplLiveInputProps interface.
-export interface ConsoleReplLiveInputProps {
+// ReplLiveInputProps interface.
+export interface ReplLiveInputProps {
 	hidden: boolean;
 	width: number;
-	executingCode: boolean;
 	executeCode: (codeFragment: string) => void;
 	positronConsoleInstance: IPositronConsoleInstance;
 }
 
 /**
- * ConsoleReplLiveInput component.
- * @param props A ConsoleReplLiveInputProps that contains the component properties.
+ * ReplLiveInput component.
+ * @param props A ReplLiveInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveInputProps>((props: ConsoleReplLiveInputProps, ref) => {
+export const ReplLiveInput = forwardRef<HTMLDivElement, ReplLiveInputProps>((props: ReplLiveInputProps, ref) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const refContainer = useRef<HTMLDivElement>(undefined!);
@@ -334,7 +333,7 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 	// Render.
 	return (
-		<div ref={ref} className='console-repl-live-input'>
+		<div ref={ref} className='repl-live-input'>
 			<div ref={refContainer} className='container'></div>
 		</div>
 	);

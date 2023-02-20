@@ -6,9 +6,9 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import { PositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleInstance';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
+import { IPositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleInstance';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -131,6 +131,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	// 	}
 	// 	return this.startPositronConsoleInstance(runtime);
 	// }
+
+	initialize() {
+
+	}
 
 	/**
 	 * Executes code in a PositronConsoleInstance.

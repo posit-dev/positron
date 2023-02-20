@@ -2,12 +2,16 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-/**
- * ConsoleReplItem class.
- */
-export interface ConsoleReplItem {
-	/**
-	 * Gets the element for the console REPL item.
-	 */
-	readonly element: JSX.Element;
+.runtime-trace {
+	color: #606060;
+	padding: 4px 0;
+	font-size: 10px;
+	margin-bottom: 1px;
+	line-height: normal;
+	background: #d2d2d2;
+}
+
+.runtime-trace-header {
+	padding-left: 8px;
+	padding-right: 8px;
 }

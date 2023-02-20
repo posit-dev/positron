@@ -2,11 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-trace {
-	color: #fff;
-	font-size: 10px;
+.repl-lines {
 	padding-left: 8px;
 	padding-right: 8px;
-	margin-bottom: 1px;
-	background: #828282;
 }
