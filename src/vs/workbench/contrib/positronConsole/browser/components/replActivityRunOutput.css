@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-error {
+.repl-activcity-run-output {
 	padding-left: 8px;
-	padding-right: 8px;
+	/* border-bottom: 1px solid #cccccc; */
 }

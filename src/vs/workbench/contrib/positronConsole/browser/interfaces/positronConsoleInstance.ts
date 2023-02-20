@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
+import { RuntimeItem } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItem';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -13,6 +14,26 @@ export interface IPositronConsoleInstance {
 	 * Gets the runtime for the Positron console instance.
 	 */
 	readonly runtime: ILanguageRuntime;
+
+	/**
+	 * Gets a value which indicates whether trace is enabled.
+	 */
+	readonly trace: boolean;
+
+	/**
+	 * Gets the runtime items.
+	 */
+	readonly runtimeItems: RuntimeItem[];
+
+	/**
+	 * The onDidChangeTrace event.
+	 */
+	readonly onDidChangeTrace: Event<boolean>;
+
+	/**
+	 * The onDidChangeRuntimeItems event.
+	 */
+	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]>;
 
 	/**
 	 * The onDidClearConsole event.
@@ -28,6 +49,11 @@ export interface IPositronConsoleInstance {
 	 * The onDidExecuteCode event.
 	 */
 	readonly onDidExecuteCode: Event<string>;
+
+	/**
+	 * Toggles trace.
+	 */
+	toggleTrace(): void;
 
 	/**
 	 * Clears the console.

@@ -16,8 +16,8 @@ import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegis
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
+import { IPositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleService';
 import { PositronConsoleCommandId, POSITRON_CONSOLE_ACTION_CATEGORY } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
 
 /**

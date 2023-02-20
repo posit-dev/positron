@@ -2,16 +2,12 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-output {
-	padding-left: 8px;
-	/* border-bottom: 1px solid #cccccc; */
+.repl-activity-run-input {
+	display: flex;
 }
 
-.console-repl-output .timestamp {
-	font-size: 9px;
-
-	user-select: none;
-	-ms-user-select: none;
-	-moz-user-select: none;
-	-webkit-user-select: none;
+.repl-activity-run-input .prompt {
+	display: flex;
+	width: 22px;
+	justify-content: right;
 }

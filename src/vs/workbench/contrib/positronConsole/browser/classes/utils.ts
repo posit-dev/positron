@@ -5,24 +5,26 @@
 import { generateUuid } from 'vs/base/common/uuid';
 
 /**
- * ReplLine interface.
+ * Line interface.
  */
-interface ReplLine {
-	key: string;
+export interface Line {
+	id: string;
 	text: string;
 }
 
 /**
  * Splits a text string into lines.
  * @param text The text string to split.
- * @returns An array of the split lines.
+ * @returns An array of the lines.
  */
-export const replLineSplitter = (text: string): ReplLine[] => {
-	const replLines = new Array<ReplLine>();
+export const lineSplitter = (text: string): readonly Line[] => {
+	const lines: Line[] = [];
+
 	text.split('\n').forEach((text, index, textLines) => {
 		if (!(textLines.length > 1 && index === textLines.length - 1 && text.length === 0)) {
-			replLines.push({ key: generateUuid(), text });
+			lines.push({ id: generateUuid(), text });
 		}
 	});
-	return replLines;
+
+	return lines;
 };

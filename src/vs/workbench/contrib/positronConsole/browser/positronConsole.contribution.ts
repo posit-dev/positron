@@ -11,13 +11,13 @@ import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneCont
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { PositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleService';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import { registerPositronConsoleActions } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleActions';
+import { IPositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleService';
 import { PositronConsoleCommandId, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 
 // Register the Positron console service.
-registerSingleton(IPositronConsoleService, PositronConsoleService, InstantiationType.Delayed);
+registerSingleton(IPositronConsoleService, PositronConsoleService, InstantiationType.Eager);
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon('positron-console-view-icon', Codicon.positronConsoleView, nls.localize('positronConsoleViewIcon', 'View icon of the Positron console view.'));
