@@ -10,9 +10,9 @@ import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
+import { IPositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleInstance';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.

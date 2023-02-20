@@ -2,23 +2,23 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleReplLine';
+import 'vs/css!./replLine';
 import * as React from 'react';
 
-// ConsoleReplLineProps interface.
-export interface ConsoleReplLineProps {
+// ReplLineProps interface.
+export interface ReplLineProps {
 	text: string;
 }
 
 /**
- * ConsoleReplLine component.
- * @param props A ConsoleReplLineProps that contains the component properties.
+ * ReplLine component.
+ * @param props A ReplLineProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleReplLine = ({ text }: ConsoleReplLineProps) => {
+export const ReplLine = ({ text }: ReplLineProps) => {
 	// Render.
 	return (
-		<div className='console-repl-line'>
+		<div className='repl-line'>
 			{!text.length ? <br /> : <div>{text}</div>}
 		</div>
 	);
