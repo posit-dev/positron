@@ -5,16 +5,16 @@
 import { generateUuid } from 'vs/base/common/uuid';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { RuntimeItem } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItem';
-import { ActivityItem } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItem';
-import { RuntimeItemTrace } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItemTrace';
-import { ActivityItemError } from 'vs/workbench/contrib/positronConsole/browser/classes/ativityItemError';
-import { ActivityItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItemInput';
-import { ActivityItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItemOutput';
-import { RuntimeItemStartup } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItemStartup';
-import { RuntimeItemActivity } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItemActivity';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
+import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
+import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
+import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
+import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { ILanguageRuntime, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleInstance';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
 
 /**
 * PositronConsoleInstance class.

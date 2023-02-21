@@ -4,7 +4,7 @@
 
 import 'vs/css!./replLines';
 import * as React from 'react';
-import { Line } from 'vs/workbench/contrib/positronConsole/browser/classes/utils';
+import { Line } from 'vs/workbench/services/positronConsole/common/classes/utils';
 import { ReplLine } from 'vs/workbench/contrib/positronConsole/browser/components/replLine';
 
 // ReplLinesProps interface.
