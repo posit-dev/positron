@@ -5,9 +5,9 @@
 import 'vs/css!./replActivityRunOutput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
-import { lineSplitter } from 'vs/workbench/contrib/positronConsole/browser/classes/utils';
-import { ActivityItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItemOutput';
+import { lineSplitter } from 'vs/workbench/services/positronConsole/common/classes/utils';
 import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
+import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 
 // ReplActivityRunOutputProps interface.
 export interface ReplActivityRunOutputProps {

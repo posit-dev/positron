@@ -7,16 +7,15 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { RuntimeItem } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
-import { RuntimeItemTrace } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItemTrace';
 import { ReplActivity } from 'vs/workbench/contrib/positronConsole/browser/components/replActivity';
 import { ReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/replLiveInput';
-import { RuntimeItemStartup } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItemStartup';
-import { RuntimeItemActivity } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItemActivity';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleInstance';
+import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
+import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // ConsoleReplProps interface.
@@ -34,9 +33,9 @@ interface ConsoleReplProps {
  */
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
-	const positronConsoleContext = usePositronConsoleContext();
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
+	const [marker, setMarker] = useState(generateUuid());
 
 	// Executes code.
 	const executeCode = (codeFragment: string) => {
@@ -56,13 +55,19 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidClearConsole event handler.
+		// Add the onDidChangeTrace event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeTrace(trace => {
 			setTrace(trace);
 		}));
 
+		// Add the onDidChangeRuntimeItems event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeRuntimeItems(runtimeItems => {
+			setMarker(generateUuid());
+		}));
+
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
+
 		}));
 
 		// Add the onDidExecuteCode event handler.
@@ -78,18 +83,18 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Experimental.
 	useEffect(() => {
 		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
-	}, [positronConsoleContext]);
+	}, [marker]);
 
 	/**
-	 * Renders a repl item.
-	 * @param runtimeItem The repl item.
-	 * @returns The rendered repl item.
+	 * Renders a runtime item.
+	 * @param runtimeItem The runtime item.
+	 * @returns The rendered runtime item.
 	 */
-	const renderReplItem = (runtimeItem: RuntimeItem) => {
+	const renderRuntimeItem = (runtimeItem: RuntimeItem) => {
 		if (runtimeItem instanceof RuntimeItemActivity) {
 			return <ReplActivity key={runtimeItem.id} replItemActivity={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemStartup) {
-			return <ReplLines {...runtimeItem} />;
+			return <ReplLines key={runtimeItem.id} {...runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemTrace) {
 			return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
 		} else {
@@ -100,8 +105,8 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Render.
 	return (
 		<div className='console-repl' hidden={props.hidden}>
-			{props.positronConsoleInstance.runtimeItems.map(replItem =>
-				renderReplItem(replItem)
+			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
+				renderRuntimeItem(runtimeItem)
 			)}
 			<ReplLiveInput
 				ref={consoleReplLiveInputRef}

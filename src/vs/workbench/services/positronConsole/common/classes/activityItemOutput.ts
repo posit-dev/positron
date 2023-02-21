@@ -2,7 +2,7 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActivityItem } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItem';
+import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 
 /**
  * ActivityItemOutput class.

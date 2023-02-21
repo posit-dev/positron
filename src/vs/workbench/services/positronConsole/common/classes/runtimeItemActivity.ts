@@ -2,8 +2,8 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { RuntimeItem } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItem';
-import { ActivityItem } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 
 /**
  * RuntimeItemActivity class.
