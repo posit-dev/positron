@@ -7,9 +7,11 @@
 
 use crate::comm::comm_channel::Comm;
 use crate::comm::comm_channel::CommChannel;
+use crate::comm::lsp_comm::StartLsp;
 use crate::error::Error;
 use crate::language::lsp_handler::LspHandler;
 use crate::language::shell_handler::ShellHandler;
+use crate::comm::lsp_comm::LspComm;
 use crate::socket::iopub::IOPubMessage;
 use crate::socket::socket::Socket;
 use crate::wire::comm_close::CommClose;
@@ -279,9 +281,6 @@ impl Shell {
     ) -> Result<(), Error> {
         debug!("Received request to open comm: {:?}", req);
 
-        // Lock the shell handler object on this thread
-        let handler = self.shell_handler.lock().unwrap();
-
         let comm = match Comm::from_str(&req.content.target_name) {
             Ok(comm) => comm,
             Err(err) => {
@@ -295,27 +294,51 @@ impl Shell {
             }
         };
 
-        match block_on(handler.handle_comm_open(comm)) {
-            Err(err) => {
-                req.send_error::<CommMsg>(err, &self.socket)
+        let data_str = serde_json::to_string(&req.content.data)
+            .map_err(|err| Error::InvalidCommMessage(req.content.target_name.clone(), "unparseable".to_string(), err.to_string()))?;
+
+        let comm_channel = match comm {
+            Comm::Lsp => {
+                if let Some(handler) = self.lsp_handler.clone() {
+                    // Parse the data parameter to a StartLsp message
+                    let start_lsp: StartLsp = serde_json::from_value(req.content.data)
+                        .map_err(|err| Error::InvalidCommMessage(req.content.target_name, data_str, err.to_string()))?;
+                    let lsp_comm = LspComm::new(handler);
+                    lsp_comm.start(&start_lsp)?;
+                    Some(Box::new(lsp_comm) as Box<dyn CommChannel>)
+                } else {
+                    warn!("Client attempted to start LSP, but no LSP handler was provided by kernel.");
+                    return Err(Error::UnknownCommName(req.content.target_name.clone()))
+                }
             },
-            Ok(comm) => match comm {
-                Some(comm) => match self.open_comms.insert(req.content.comm_id.clone(), comm) {
-                    Some(_) => {
-                        // We already knew about this comm; warn and discard
-                        warn!("Comm {} was already open", req.content.comm_id);
-                        Ok(())
+            _ => {
+                // Lock the shell handler object on this thread
+                let handler = self.shell_handler.lock().unwrap();
+
+                match block_on(handler.handle_comm_open(comm)) {
+                    Err(err) => {
+                        req.send_error::<CommMsg>(err, &self.socket)?;
+                        None
                     },
-                    None => {
-                        Ok(())
-                    }
-                },
-                None => {
-                    // The comm is known to us, but not supported by the
-                    // underlying handler.
-                    Err(Error::UnknownCommName(req.content.target_name))
+                    Ok(comm) => comm
                 }
             }
+        };
+
+        // If we got a comm channel, add it to our open comms
+        if let Some(channel) = comm_channel {
+            match self.open_comms.insert(req.content.comm_id.clone(), channel) {
+                Some(_) => {
+                    // We already knew about this comm; warn and discard
+                    warn!("Comm {} was already open", req.content.comm_id);
+                    Ok(())
+                },
+                None => {
+                    Ok(())
+                }
+            }
+        } else {
+            Ok(())
         }
     }
 

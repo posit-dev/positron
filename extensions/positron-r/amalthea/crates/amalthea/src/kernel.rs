@@ -27,7 +27,7 @@ use crate::stream_capture::StreamCapture;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use crossbeam::channel::bounded;
-use log::{warn, info};
+use log::info;
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
 /// execution and messaging threads.
