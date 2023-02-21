@@ -2,8 +2,8 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { RuntimeItem } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItem';
-import { Line, lineSplitter } from 'vs/workbench/contrib/positronConsole/browser/classes/utils';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { Line, lineSplitter } from 'vs/workbench/services/positronConsole/common/classes/utils';
 
 /**
  * RuntimeItemStartup class.

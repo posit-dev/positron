@@ -4,11 +4,11 @@
 
 import 'vs/css!./replActivity';
 import * as React from 'react';
-import { RuntimeItemActivity } from 'vs/workbench/contrib/positronConsole/browser/classes/runtimeItemActivity';
-import { ActivityItem } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItem';
-import { ActivityItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItemInput';
-import { ActivityItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItemOutput';
-import { ActivityItemError } from 'vs/workbench/contrib/positronConsole/browser/classes/ativityItemError';
+import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
+import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
+import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { ReplActivityRunInput } from 'vs/workbench/contrib/positronConsole/browser/components/replActivityRunInput';
 import { ReplActivityRunOutput } from 'vs/workbench/contrib/positronConsole/browser/components/replActivityRunOutput';
 

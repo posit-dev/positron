@@ -5,7 +5,7 @@
 import 'vs/css!./replActivityRunInput';
 import * as React from 'react';
 import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
-import { ActivityItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItemInput';
+import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
 // ReplActivityRunInputProps interface.
 export interface ReplActivityRunInputProps {

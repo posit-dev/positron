@@ -4,7 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleInstance';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');

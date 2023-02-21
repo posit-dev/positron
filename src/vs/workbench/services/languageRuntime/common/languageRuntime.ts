@@ -7,7 +7,6 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-// import { IPositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -71,10 +70,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	constructor(
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService
-		// @IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 	) {
 		super();
-
 
 		this._register(this._languageService.onDidEncounterLanguage(languageId => {
 			// Add the language to the set of encountered languages.

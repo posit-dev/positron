@@ -2,12 +2,19 @@
  *  Copyright (c) Posit Software, PBC.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActivityItem } from 'vs/workbench/contrib/positronConsole/browser/classes/activityItem';
+import { Line, lineSplitter } from 'vs/workbench/services/positronConsole/common/classes/utils';
+import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 
 /**
- * ActivityItemError class.
+ * ActivityItemInput class.
  */
-export class ActivityItemError extends ActivityItem {
+export class ActivityItemInput extends ActivityItem {
+	//#region Public Properties
+
+	public readonly lines: readonly Line[];
+
+	//#endregion Public Properties
+
 	//#region Constructor
 
 	/**
@@ -15,18 +22,15 @@ export class ActivityItemError extends ActivityItem {
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
-	 * @param name The name of the error.
-	 * @param message The error message.
-	 * @param traceback The error traceback.
+	 * @param code The code.
 	 */
 	constructor(
 		id: string,
 		parentId: string,
 		when: Date,
-		public readonly name: string,
-		public readonly message: string,
-		public readonly traceback: string[]) {
+		public readonly code: string) {
 		super(id, parentId, when);
+		this.lines = lineSplitter(code);
 	}
 
 	//#endregion Constructor

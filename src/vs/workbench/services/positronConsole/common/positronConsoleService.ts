@@ -6,10 +6,11 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-import { PositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleInstance';
-import { IPositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleService';
-import { IPositronConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/interfaces/positronConsoleInstance';
+import { PositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 
 /**
  * PositronConsoleService class.
@@ -206,3 +207,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 	//#endregion Private Methods
 }
+
+// Register the Positron console service.
+registerSingleton(IPositronConsoleService, PositronConsoleService, InstantiationType.Delayed);
