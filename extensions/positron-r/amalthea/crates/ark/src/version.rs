@@ -51,11 +51,9 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
 
     let mut version = version.split(".");
 
-    let (major, minor, patch) = (
-        version.next().unwrap().parse()?,
-        version.next().unwrap().parse()?,
-        version.next().unwrap().parse()?
-    );
+    let major = version.next().unwrap().parse()?;
+    let minor = version.next().unwrap().parse()?;
+    let patch = version.next().unwrap().parse()?;
 
     // Execute the R script to get the home path to R
     Ok(RVersion{
