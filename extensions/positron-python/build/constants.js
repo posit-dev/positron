@@ -10,4 +10,6 @@ exports.ExtensionRootDir = util.ExtensionRootDir;
 exports.existingFiles = util.getListOfFiles('existingFiles.json');
 exports.contributedFiles = util.getListOfFiles('contributedFiles.json');
 exports.isWindows = /^win/.test(process.platform);
-exports.isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined;
+// --- Start Positron ---
+exports.isCI = process.env.GITHUB_ACTIONS === 'true' || process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined;
+// --- End Positron ---
