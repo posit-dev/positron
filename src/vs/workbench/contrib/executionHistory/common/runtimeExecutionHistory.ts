@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -50,25 +50,26 @@ export class RuntimeExecutionHistory extends Disposable {
 		}
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageInput(message => {
-			// It's possible for messages to be received out of order, so it's
-			// possible -- if the code was executed very quickly -- that the
-			// input will be received after we already know the output. In that
-			// case, we'll just update the existing entry.
-			if (this._pendingExecutions.has(message.id)) {
-				// We should only get input for a message one time, but if for
-				// some reason we get a second input, just warn and overwrite.
-				const pending = this._pendingExecutions.get(message.id)!;
+			// See if there is already a pending execution for the parent ID.
+			// This is possible if an output message arrives before the input
+			// message that caused it.
+			const pending = this._pendingExecutions.get(message.parent_id);
+			if (pending) {
+				// If this is a duplicate input with different code, warn the user.
 				if (pending.input) {
-					this._logService.warn(`Received duplicate input for execution ${message.id}; replacing previous input ('${pending.input}' => '${message.code}')`);
+					this._logService.warn(`Received duplicate input messages for execution ${message.id}; replacing previous input '${pending.input}' with '${message.code}'.`);
 				}
-				this._pendingExecutions.get(message.id)!.input = message.code;
+
+				// Set the input of the pending execution.
+				pending.input = message.code;
 			} else {
-				// Create a new entry
+				// This is the first time we've seen this execution; create
+				// a new entry.
 				const entry: IExecutionHistoryEntry<string> = {
 					id: message.parent_id,
 					when: Date.parse(message.when),
 					input: message.code,
-					outputType: '',
+					outputType: 'text/plain',
 					output: '',
 					durationMs: 0
 				};
@@ -79,34 +80,30 @@ export class RuntimeExecutionHistory extends Disposable {
 		}));
 
 		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(message => {
-			// Currently, only plain text data is stored in the command history
-			if (!Object.keys(message.data).includes('text/plain')) {
-				return;
-			}
-			const outputText = (message.data as any)['text/plain'];
+			// Get the output.
+			const output = message.data['text/plain'];
 
-			if (this._pendingExecutions.has(message.id)) {
-				const pending = this._pendingExecutions.get(message.id)!;
-				if (pending) {
-					// It's normal to receive several output events; if we do,
-					// just concatenate the output.
-					const output = pending.output || '';
-					pending.output = output + outputText;
-				} else {
-					// This is the first time we've seen this execution; create
-					// a new entry.
-					const entry: IExecutionHistoryEntry<string> = {
-						id: message.parent_id,
-						when: Date.parse(message.when),
-						input: '',
-						outputType: 'text',
-						output: outputText,
-						durationMs: 0
-					};
-
-					// Add the entry to the pending executions map
-					this._pendingExecutions.set(message.parent_id, entry);
+			// Get the pending execution and set its output.
+			const pending = this._pendingExecutions.get(message.parent_id);
+			if (pending) {
+				// Append the output.
+				if (output) {
+					pending.output += output;
 				}
+			} else {
+				// This is the first time we've seen this execution; create
+				// a new entry.
+				const entry: IExecutionHistoryEntry<string> = {
+					id: message.parent_id,
+					when: Date.parse(message.when),
+					input: '',
+					outputType: 'text/plain',
+					output: output || '',
+					durationMs: 0
+				};
+
+				// Add the entry to the pending executions map
+				this._pendingExecutions.set(message.parent_id, entry);
 			}
 		}));
 
@@ -114,16 +111,16 @@ export class RuntimeExecutionHistory extends Disposable {
 		// we'll move it from the pending executions map to the history entries.
 		this._register(this._runtime.onDidReceiveRuntimeMessageState(message => {
 			if (message.state === RuntimeOnlineState.Idle) {
-				if (this._pendingExecutions.has(message.parent_id)) {
+				const pending = this._pendingExecutions.get(message.parent_id);
+				if (pending) {
 					// Update the entry with the duration
-					const entry = this._pendingExecutions.get(message.parent_id)!;
-					entry.durationMs = Date.now() - entry.when;
+					pending.durationMs = Date.now() - pending.when;
 
 					// Remove from set of pending executions
 					this._pendingExecutions.delete(message.parent_id);
 
 					// Save the history after a delay
-					this._entries.push(entry);
+					this._entries.push(pending);
 					this._dirty = true;
 					this.delayedSave();
 				}

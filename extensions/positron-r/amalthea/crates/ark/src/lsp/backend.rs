@@ -1,7 +1,7 @@
 //
 // backend.rs
 //
-// Copyright (C) 2022 by Posit Software, PBC
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
@@ -10,8 +10,8 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::mpsc::SyncSender;
 
+use crossbeam::channel::Sender;
 use dashmap::DashMap;
 use harp::r_lock;
 use log::*;
@@ -19,7 +19,7 @@ use parking_lot::Mutex;
 use regex::Regex;
 use serde_json::Value;
 use stdext::*;
-use tokio::net::TcpStream;
+use tokio::net::TcpListener;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::lsp_types::request::GotoImplementationParams;
@@ -36,9 +36,8 @@ use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition;
 use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::documents::Document;
-use crate::lsp::global::ClientInstance;
-use crate::lsp::global::INSTANCE;
-use crate::lsp::global::get_instance;
+use crate::lsp::global::LSP_CLIENT;
+use crate::lsp::global::SHELL_REQUEST_TX;
 use crate::lsp::help_proxy;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
@@ -75,7 +74,7 @@ pub struct Backend {
     pub documents: Arc<DashMap<Url, Document>>,
     pub workspace: Arc<Mutex<Workspace>>,
     #[allow(dead_code)]
-    pub channel: SyncSender<Request>,
+    pub shell_request_tx: Sender<Request>,
 }
 
 impl Backend {
@@ -555,43 +554,33 @@ impl Backend {
 }
 
 #[tokio::main]
-pub async fn start_lsp(address: String, channel: SyncSender<Request>) {
+pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-    /*
-    NOTE: The example LSP from tower-lsp uses a TcpListener, but we're using a
-    TcpStream because -- according to LSP docs -- the client and server roles
-    are reversed in terms of opening ports: the client listens, and the server
-    opens a connection to it. The client and server can't BOTH listen on the port,
-    so we let the client do it and connect to it here.
-
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
+    debug!("Connecting to LSP at '{}'", &address);
+    let listener = TcpListener::bind(&address)
         .await
         .unwrap();
     let (stream, _) = listener.accept().await.unwrap();
-    */
-    debug!("Connecting to LSP client at '{}'", address);
-    let stream = TcpStream::connect(address).await.unwrap();
+    debug!("Connected to LSP at '{}'", address);
     let (read, write) = tokio::io::split(stream);
 
     #[cfg(feature = "runtime-agnostic")]
     let (read, write) = (read.compat(), write.compat_write());
 
-    let init = |client| {
+    let init = |client: Client| {
 
-        // initialize global client (needs to be visible for R routines)
-        INSTANCE.set(ClientInstance {
-            client,
-            channel: channel.clone(),
-        }).unwrap();
+        // initialize shared globals (needed for R callbacks)
+        LSP_CLIENT.set(client.clone()).unwrap();
+        SHELL_REQUEST_TX.set(shell_request_tx.clone()).unwrap();
 
         // create backend
         let backend = Backend {
-            client: get_instance().client,
+            client,
             documents: DOCUMENT_INDEX.clone(),
             workspace: Arc::new(Mutex::new(Workspace::default())),
-            channel: channel,
+            shell_request_tx: shell_request_tx.clone(),
         };
 
         backend

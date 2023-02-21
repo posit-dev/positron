@@ -76,9 +76,6 @@ for (let dir of dirs) {
 cp.execSync('git config pull.rebase merges');
 cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore');
 
-
 // --- Start Positron ---
-console.log(`Installing positron post-install dependencies...`);
-cp.execSync('cd positron-python && ./scripts/install-python-dependencies.sh', { cwd: 'extensions' });
+require('./positron-postinstall');
 // --- End Positron ---
-

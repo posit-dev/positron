@@ -1,7 +1,7 @@
 /*
  * iopub.rs
  *
- * Copyright (C) 2022 by Posit Software, PBC
+ * Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *
  */
 
@@ -18,8 +18,8 @@ use crate::wire::jupyter_message::ProtocolMessage;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
 use crate::wire::stream::StreamOutput;
+use crossbeam::channel::Receiver;
 use log::{trace, warn};
-use std::sync::mpsc::Receiver;
 
 pub struct IOPub {
     /// The underlying IOPub socket

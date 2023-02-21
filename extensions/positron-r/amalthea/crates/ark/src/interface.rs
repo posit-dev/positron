@@ -1,7 +1,7 @@
 //
 // r_interface.rs
 //
-// Copyright (C) 2022 by Posit Software, PBC
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
@@ -9,6 +9,10 @@ use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
+use bus::Bus;
+use crossbeam::channel::Receiver;
+use crossbeam::channel::RecvTimeoutError;
+use crossbeam::channel::Sender;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_TASKS_PENDING;
 use harp::routines::r_register_routines;
@@ -19,10 +23,10 @@ use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
 use std::os::raw::c_void;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::MutexGuard;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::{Receiver, Sender, SyncSender};
-use std::sync::{Arc, Mutex, Once};
+use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -133,8 +137,8 @@ pub extern "C" fn r_read_console(
 
     // TODO: if R prompt is +, we need to tell the user their input is incomplete
     let mutex = unsafe { RPROMPT_SEND.as_ref().unwrap() };
-    let sender = mutex.lock().unwrap();
-    sender
+    let r_prompt_tx = mutex.lock().unwrap();
+    r_prompt_tx
         .send(r_prompt.to_string_lossy().into_owned())
         .unwrap();
 
@@ -172,9 +176,9 @@ pub extern "C" fn r_read_console(
 
             Err(error) => {
 
-                use std::sync::mpsc::RecvTimeoutError::*;
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
+                use RecvTimeoutError::*;
                 match error {
 
                     Timeout => {
@@ -278,9 +282,9 @@ pub unsafe extern "C" fn r_polled_events() {
 }
 
 pub fn start_r(
-    iopub: SyncSender<IOPubMessage>,
-    receiver: Receiver<Request>,
-    initializer: Sender<KernelInfo>,
+    iopub_tx: Sender<IOPubMessage>,
+    kernel_init_tx: Bus<KernelInfo>,
+    shell_request_rx: Receiver<Request>,
 ) {
     use std::borrow::BorrowMut;
 
@@ -289,20 +293,19 @@ pub fn start_r(
     unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
 
     // Start building the channels + kernel objects
-    let (console_send, console_recv) = channel::<Option<String>>();
-    let (rprompt_send, rprompt_recv) = channel::<String>();
-    let console = console_send.clone();
-    let kernel = Kernel::new(iopub, console, initializer);
+    let (console_tx, console_rx) = crossbeam::channel::unbounded();
+    let (rprompt_tx, rprompt_rx) = crossbeam::channel::unbounded();
+    let kernel = Kernel::new(iopub_tx, console_tx.clone(), kernel_init_tx);
 
     // Initialize kernel (ensure we only do this once!)
     INIT.call_once(|| unsafe {
-        *CONSOLE_RECV.borrow_mut() = Some(Mutex::new(console_recv));
-        *RPROMPT_SEND.borrow_mut() = Some(Mutex::new(rprompt_send));
+        *CONSOLE_RECV.borrow_mut() = Some(Mutex::new(console_rx));
+        *RPROMPT_SEND.borrow_mut() = Some(Mutex::new(rprompt_tx));
         *KERNEL.borrow_mut() = Some(Arc::new(Mutex::new(kernel)));
     });
 
     // Start thread to listen to execution requests
-    thread::spawn(move || listen(receiver, rprompt_recv));
+    thread::spawn(move || listen(shell_request_rx, rprompt_rx));
 
     unsafe {
 
@@ -376,8 +379,14 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     let prompt = prompt_recv.recv().unwrap();
     let kernel = mutex.lock().unwrap();
 
-    // if the prompt is '+', we need to tell the kernel the request is incomplete
-    if prompt.starts_with("+") {
+    // The request is incomplete if we see the continue prompt
+    let continue_prompt = unsafe { r_get_option::<String>("continue") };
+    let continue_prompt = unwrap!(continue_prompt, Err(error) => {
+        warn!("Failed to read R continue prompt: {}", error);
+        return kernel.finish_request();
+    });
+
+    if prompt == continue_prompt {
         trace!("Got R prompt '{}', marking request incomplete", prompt);
         return kernel.report_incomplete_request(&req);
     }

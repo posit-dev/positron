@@ -1,19 +1,21 @@
 /*
  * stdin.rs
  *
- * Copyright (C) 2022 by Posit Software, PBC
+ * Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *
  */
+
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::language::shell_handler::ShellHandler;
 use crate::socket::socket::Socket;
 use crate::wire::input_request::ShellInputRequest;
 use crate::wire::jupyter_message::JupyterMessage;
 use crate::wire::jupyter_message::Message;
+use crossbeam::channel::bounded;
 use futures::executor::block_on;
 use log::{trace, warn};
-use std::sync::mpsc::sync_channel;
-use std::sync::{Arc, Mutex};
 
 pub struct Stdin {
     /// The ZeroMQ stdin socket
@@ -40,16 +42,16 @@ impl Stdin {
     /// 1. Wait for
     pub fn listen(&self) {
         // Create the communication channel for the shell handler and inject it
-        let (sender, receiver) = sync_channel::<ShellInputRequest>(1);
+        let (tx, rx) = bounded::<ShellInputRequest>(1);
         {
             let mut shell_handler = self.handler.lock().unwrap();
-            shell_handler.establish_input_handler(sender);
+            shell_handler.establish_input_handler(tx);
         }
 
         // Listen for input requests from the back end
         loop {
             // Wait for a message (input request) from the back end
-            let req = receiver.recv().unwrap();
+            let req = rx.recv().unwrap();
 
             // Deliver the message to the front end
             let msg = JupyterMessage::create_with_identity(

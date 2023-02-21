@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from 'vs/nls';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ILocalizedString } from 'vs/platform/action/common/action';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
@@ -93,7 +93,6 @@ export function registerLanguageRuntimeActions() {
 					title: { value: title, original: title },
 					f1: true,
 					category,
-					precondition: IsDevelopmentContext,
 					description: {
 						description: id,
 						args: [{
@@ -119,6 +118,7 @@ export function registerLanguageRuntimeActions() {
 	// Registers the start language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.start', 'Start Language Runtime', async accessor => {
 		// Access services.
+		const commandService = accessor.get(ICommandService);
 		const extensionService = accessor.get(IExtensionService);
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 		const quickInputService = accessor.get(IQuickInputService);
@@ -136,7 +136,11 @@ export function registerLanguageRuntimeActions() {
 		// Ask the user to select the language runtime to start. If they selected one, start it.
 		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the language runtime to start');
 		if (languageRuntime) {
+			// Start the language runtime.
 			languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId);
+
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
 		}
 	});
 

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronModalDialog';
@@ -66,15 +66,34 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	const keydownHandler = useCallback((e: KeyboardEvent) => {
 		// Handle the event.
 		switch (e.key) {
+			// Enter accepts dialog.
 			case 'Enter':
 				e.preventDefault();
 				e.stopPropagation();
 				props.accept?.();
 				break;
+
+			// Escape cancels dialog.
 			case 'Escape':
 				e.preventDefault();
 				e.stopPropagation();
 				props.cancel?.();
+				break;
+
+			// Allow tab so the user can set focus to the UI elements in the
+			// modal dialog.
+			case 'Tab':
+				break;
+
+			// Eat other keys.
+			// TODO@softwarenerd - For the moment, this appears to be the right
+			// way to handle keyboard events in Positron modal dialog boxes
+			// insofar as we need the rest of the UI (e.g. F1 for the command
+			// palette) to be disabled when a modal dialog is being shown. I am
+			// certain there is more work to be done here.
+			default:
+				e.preventDefault();
+				e.stopPropagation();
 				break;
 		}
 	}, []);
@@ -117,12 +136,15 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		// Add our event handlers.
 		const KEYDOWN = 'keydown';
 		const RESIZE = 'resize';
-		document.addEventListener(KEYDOWN, keydownHandler, false);
+		document.addEventListener(KEYDOWN, keydownHandler, true);
 		window.addEventListener(RESIZE, resizeHandler, false);
+
+		// Drive focus to the dialog.
+		dialogContainerRef.current.focus();
 
 		// Return the cleanup function that removes our event handlers.
 		return () => {
-			document.removeEventListener(KEYDOWN, keydownHandler, false);
+			document.removeEventListener(KEYDOWN, keydownHandler, true);
 			window.removeEventListener(RESIZE, resizeHandler, false);
 		};
 	}, []);

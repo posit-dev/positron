@@ -1,7 +1,7 @@
 //
 // test.rs
 //
-// Copyright (C) 2022 by Posit Software, PBC
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
@@ -13,6 +13,7 @@
 // in other files.
 #![allow(dead_code)]
 
+use std::os::raw::c_char;
 use std::process::Command;
 use std::sync::Once;
 
@@ -46,7 +47,8 @@ pub fn start_r() {
         let mut arguments = cargs!["R", "--slave", "--no-save", "--no-restore"];
 
         unsafe {
-            Rf_initialize_R(arguments.len() as i32, arguments.as_mut_ptr() as *mut *mut ::std::os::raw::c_char);
+            Rf_initialize_R(arguments.len() as i32, arguments.as_mut_ptr() as *mut *mut c_char);
+            R_CStackLimit = usize::MAX;
             setup_Rmainloop();
         }
     });

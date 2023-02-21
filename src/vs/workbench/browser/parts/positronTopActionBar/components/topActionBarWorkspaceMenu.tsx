@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topActionBarWorkspaceMenu';
@@ -49,7 +49,7 @@ export const TopActionBarWorkspaceMenu = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			iconId='root-folder'
+			iconId='positron-workspace'
 			align='right'
 			actions={actions}
 			text={positronTopActionBarContext.workspaceFolder ? positronTopActionBarContext.workspaceFolder.name : undefined}

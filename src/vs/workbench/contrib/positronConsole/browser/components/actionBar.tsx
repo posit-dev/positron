@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./actionBar';
@@ -48,7 +48,7 @@ export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
-		positronConsoleContext.currentPositronConsoleInstance?.clear();
+		positronConsoleContext.currentPositronConsoleInstance?.clearConsole();
 	};
 
 	// Render.

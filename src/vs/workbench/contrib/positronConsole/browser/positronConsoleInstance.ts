@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
 
 /**
  * PositronConsoleInstance class.
@@ -17,6 +17,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * The onDidClearConsole event emitter.
 	 */
 	private readonly _onDidClearConsoleEmitter = this._register(new Emitter<void>);
+
+	/**
+	 * The onDidClearInputHistory event emitter.
+	 */
+	private readonly _onDidClearInputHistoryEmitter = this._register(new Emitter<void>);
 
 	/**
 	 * The onDidExecuteCode event emitter.
@@ -38,15 +43,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// this._executionHistoryService.getExecutionEntries(this._instance.runtime.metadata.id);
 	}
 
-	// /**
-	//  * Gets the history navigator.
-	//  */
-	// readonly historyNavigator: HistoryNavigator2<string> = new HistoryNavigator2([''], 1000); // TODO@softwarenerd - 1000 should come from settings.
-
 	/**
 	 * onDidClearConsole event.
 	 */
 	readonly onDidClearConsole: Event<void> = this._onDidClearConsoleEmitter.event;
+
+	/**
+	 * onDidClearInputHistory event.
+	 */
+	readonly onDidClearInputHistory: Event<void> = this._onDidClearInputHistoryEmitter.event;
 
 	/**
 	 * onDidExecuteCode event.
@@ -56,8 +61,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	/**
 	 * Clears the console.
 	 */
-	clear(): void {
+	clearConsole(): void {
 		this._onDidClearConsoleEmitter.fire();
+	}
+
+	/**
+	 * Clears the input history.
+	 */
+	clearInputHistory(): void {
+		this._onDidClearInputHistoryEmitter.fire();
 	}
 
 	/**

@@ -1,7 +1,7 @@
 //
 // error.rs
 //
-// Copyright (C) 2022 by Posit Software, PBC
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
@@ -20,7 +20,9 @@ pub enum Error {
     UnsafeEvaluationError(String),
     UnexpectedLength(u32, u32),
     UnexpectedType(u32, Vec<u32>),
-    InvalidUtf8(Utf8Error)
+    InvalidUtf8(Utf8Error),
+    TryCatchError { message: Vec<String>, classes : Vec<String> },
+    ParseSyntaxError { message: String, line: i32 }
 }
 
 // empty implementation required for 'anyhow'
@@ -72,6 +74,14 @@ impl fmt::Display for Error {
 
             Error::InvalidUtf8(error) => {
                 write!(f, "Invalid UTF-8 in string: {}", error)
+            }
+
+            Error::TryCatchError { message: _, classes: _ } => {
+                write!(f, "tryCatch error")
+            }
+
+            Error::ParseSyntaxError { message, line } => {
+                write!(f, "Syntax error on line {} when parsing: {}", line, message)
             }
 
         }

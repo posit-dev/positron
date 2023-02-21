@@ -37,6 +37,8 @@ tree-sitter = "0.20.6"
 tree-sitter-r = { git = "https://github.com/r-lib/tree-sitter-r", branch = "next" }
 walkdir = "2"
 yaml-rust = "0.4.5"
+crossbeam = { version = "0.8.2", features = ["crossbeam-channel"] }
+bus = "2.3.0"
 
 [profile.dev]
 rpath = true

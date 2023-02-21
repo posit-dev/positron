@@ -1,16 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleReplLiveInput';
 import * as React from 'react';
-import { forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
+import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
@@ -21,11 +22,11 @@ import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestCont
 import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
 import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
 import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsole';
 import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
 
 // ConsoleReplLiveInputProps interface.
 export interface ConsoleReplLiveInputProps {
@@ -46,9 +47,142 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 	const positronConsoleContext = usePositronConsoleContext();
 	const refContainer = useRef<HTMLDivElement>(undefined!);
 	const [, setHistoryNavigator, refHistoryNavigator] = useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
-	const [codeEditorWidget, setCodeEditorWidget, _refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
+	const [, setCodeEditorWidget, refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCurrentCodeFragment, refCurrentCodeFragment] = useStateRef<string | undefined>(undefined);
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
+
+	/**
+	 * Updates the code editor widget position to such that the cursor
+	 * appers on the last line and the last column.
+	 */
+	const updateCodeEditorWidgetPositionToEnd = () => {
+		// Get the model. If it isn't null (which it won't be), set the code editor widget
+		// position.
+		const textModel = refCodeEditorWidget.current.getModel();
+		if (textModel) {
+			const lineNumber = textModel.getLineCount();
+			refCodeEditorWidget.current.setPosition({
+				lineNumber,
+				column: textModel.getLineContent(lineNumber).length + 1
+			});
+
+			// Ensure that the code editor widget is scrolled into view.
+			refContainer.current?.scrollIntoView({ behavior: 'auto' });
+		}
+	};
+
+	// Memoize the key down event handler.
+	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
+		if (e.keyCode === KeyCode.UpArrow) {
+			// If there are history entries, process the event.
+			if (refHistoryNavigator.current) {
+				// When the user moves up from the end, and we don't have a current code editor fragment, set the current code fragment.
+				if (refHistoryNavigator.current.isAtEnd() && refCurrentCodeFragment.current === undefined) {
+					const codeFragment = refCodeEditorWidget.current.getValue();
+					setCurrentCodeFragment(codeFragment);
+				}
+
+				// Get the current history entry, set it as the value of the code editor widget, and move to the previous entry.
+				const inputHistoryEntry = refHistoryNavigator.current.current();
+				refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
+				refHistoryNavigator.current.previous();
+				updateCodeEditorWidgetPositionToEnd();
+			}
+
+			// Eat the event.
+			e.preventDefault();
+			e.stopPropagation();
+		} else if (e.keyCode === KeyCode.DownArrow) {
+			// If there are history entries, process the event.
+			if (refHistoryNavigator.current) {
+				// When the user reaches the end of the history entries, restore the current code fragment.
+				if (refHistoryNavigator.current.isAtEnd()) {
+					if (refCurrentCodeFragment.current !== undefined) {
+						refCodeEditorWidget.current.setValue(refCurrentCodeFragment.current);
+						//refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: refCurrentCodeFragment.current.length + 1 });
+						setCurrentCodeFragment(undefined);
+					}
+				} else {
+					// Move to the next history entry and set it as the value of the code editor widget.
+					const inputHistoryEntry = refHistoryNavigator.current.next();
+					refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
+					// refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
+				}
+
+				updateCodeEditorWidgetPositionToEnd();
+			}
+
+			// Eat the event.
+			e.preventDefault();
+			e.stopPropagation();
+		} else if (e.keyCode === KeyCode.Enter) {
+			// If the shift key is pressed, do not process the event because the user is entering multiple lines.
+			if (e.shiftKey) {
+				return;
+			}
+
+			// Get the code fragment from the editor.
+			const codeFragment = refCodeEditorWidget.current.getValue();
+
+			// Check on whether the code fragment is complete and can be executed.
+			let executeCode;
+			const runtimeCodeFragmentStatus = await props.positronConsoleInstance.runtime.isCodeFragmentComplete(codeFragment);
+			switch (runtimeCodeFragmentStatus) {
+				// If the code fragment is complete, execute it.
+				case RuntimeCodeFragmentStatus.Complete:
+					executeCode = true;
+					break;
+
+				// If the code fragment is incomplete, don't do anything. The user will just see a new line in the input area.
+				case RuntimeCodeFragmentStatus.Incomplete:
+					executeCode = false;
+					break;
+
+				// If the code is invalid (contains syntax errors), warn but execute it anyway (so the user can see a syntax error from
+				// the interpreter).
+				case RuntimeCodeFragmentStatus.Invalid:
+					positronConsoleContext.logService.warn(`Executing invalid code fragment: '${codeFragment}'`);
+					executeCode = true;
+					break;
+
+				// If the code is invalid (contains syntax errors), warn but execute it anyway (so the user can see a syntax error from
+				// the interpreter).
+				case RuntimeCodeFragmentStatus.Unknown:
+					positronConsoleContext.logService.warn(`Could not determine whether code fragment: '${codeFragment}' is complete.`);
+					executeCode = true;
+					break;
+			}
+
+			// If we're supposed to execute the code fragment, do it.
+			if (executeCode) {
+				// Execute the code fragment.
+				props.executeCode(codeFragment);
+
+				// If the code fragment contains more than whitespace characters, add it to the history navigator.
+				if (codeFragment.trim().length) {
+					// Create the input history entry.
+					const inputHistoryEntry = {
+						when: new Date().getTime(),
+						input: codeFragment,
+					} satisfies IInputHistoryEntry;
+
+					// Add the input history entry.
+					if (refHistoryNavigator.current) {
+						refHistoryNavigator.current.add(inputHistoryEntry);
+					} else {
+						setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>([inputHistoryEntry], 1000)); // TODO@softwarenerd - get 1000 from settings.
+					}
+				}
+
+				// Reset the model for the next input.
+				refCodeEditorWidget.current.setValue('');
+			}
+
+			// Eat the event.
+			e.preventDefault();
+			e.stopPropagation();
+		}
+	}, []);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -58,12 +192,30 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 		if (inputHistoryEntries.length) {
-			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
-			// inputHistoryEntries.forEach((inputHistoryEntry, index) => {
-			// 	console.log(`    Entry: ${index} Code: ${inputHistoryEntry.input}`);
-			// });
+			console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
+			inputHistoryEntries.forEach((inputHistoryEntry, index) => {
+				console.log(`    Entry: ${index} Code: ${inputHistoryEntry.input}`);
+			});
 			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000)); // TODO@softwarenerd - get 1000 from settings.
 		}
+
+		// Create the resource URI.
+		const uri = URI.from({
+			scheme: Schemas.inMemory,
+			path: `/repl-${props.positronConsoleInstance.runtime.metadata.languageId}-${generateUuid()}`
+		});
+
+		// Create language selection.
+		const languageSelection = positronConsoleContext.languageService.createById(props.positronConsoleInstance.runtime.metadata.languageId);
+
+		// Create text model; this is the backing store for the Monaco editor that receives
+		// the user's input.
+		const textModel = positronConsoleContext.modelService.createModel(
+			'',					// initial value
+			languageSelection,  // language selection
+			uri,          		// resource URI
+			false               // this widget is not simple
+		);
 
 		// Create the code editor widget.
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
@@ -90,148 +242,13 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		disposableStore.add(codeEditorWidget);
 		setCodeEditorWidget(codeEditorWidget);
 
-		// Create the resource URI.
-		const uri = URI.from({
-			scheme: Schemas.inMemory,
-			path: `/repl-${props.positronConsoleInstance.runtime.metadata.languageId}-${generateUuid()}`
-		});
-
-		// Create language selection.
-		// const languageId = positronConsoleContext.languageService.getLanguageIdByLanguageName(props.positronConsoleInstance.runtime.metadata.language);
-		const languageSelection = positronConsoleContext.languageService.createById(props.positronConsoleInstance.runtime.metadata.languageId);
-
-		// Create text model; this is the backing store for the Monaco editor that receives
-		// the user's input.
-		const textModel = positronConsoleContext.modelService.createModel(
-			'',					// initial value
-			languageSelection,  // language selection
-			uri,          		// resource URI
-			false               // this widget is not simple
-		);
-
 		// Attach the text model.
 		codeEditorWidget.setModel(textModel);
 
-		// Add key down handler.
-		codeEditorWidget.onKeyDown(async e => {
-			if (e.keyCode === KeyCode.UpArrow) {
-				// If there are no history entries, don't process the event.
-				if (refHistoryNavigator.current) {
-					// When the user moves up from the end, set the current code fragment so they can get it back.
-					if (refHistoryNavigator.current.isAtEnd()) {
-						const codeFragment = codeEditorWidget.getValue();
-						setCurrentCodeFragment(codeFragment);
-					}
+		// Set the key down handler.
+		codeEditorWidget.onKeyDown(keyDownHandler);
 
-					// Get the current history entry, set it as the value of the code editor widget, and move to the previous entry.
-					const inputHistoryEntry = refHistoryNavigator.current.current();
-					codeEditorWidget.setValue(inputHistoryEntry.input);
-					codeEditorWidget.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
-					refHistoryNavigator.current.previous();
-				}
-
-				// Eat the event.
-				e.preventDefault();
-				e.stopPropagation();
-			} else if (e.keyCode === KeyCode.DownArrow) {
-				// If there are no history entries, don't process the event.
-				if (refHistoryNavigator.current) {
-					// When the user reaches the end of the history entries, restore the current code fragment.
-					if (refHistoryNavigator.current.isAtEnd()) {
-						if (refCurrentCodeFragment.current !== undefined) {
-							codeEditorWidget.setValue(refCurrentCodeFragment.current);
-							codeEditorWidget.setPosition({ lineNumber: 1, column: refCurrentCodeFragment.current.length + 1 });
-							setCurrentCodeFragment(undefined);
-						}
-					} else {
-						// Move to the next history entry and set it as the value of the code editor widget.
-						const inputHistoryEntry = refHistoryNavigator.current.next();
-						codeEditorWidget.setValue(inputHistoryEntry.input);
-						codeEditorWidget.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
-					}
-				}
-
-				// Eat the event.
-				e.preventDefault();
-				e.stopPropagation();
-			} else if (e.keyCode === KeyCode.Enter) {
-				// If the shift key is pressed, do not attempt to execute the code fragment.
-				if (e.shiftKey) {
-					return;
-				}
-
-				// Get the code fragment from the editor.
-				const codeFragment = codeEditorWidget.getValue();
-
-				// Check on whether the code fragment is complete and can be executed.
-				let executeCode;
-				const runtimeCodeFragmentStatus = await props.positronConsoleInstance.runtime.isCodeFragmentComplete(codeFragment);
-				switch (runtimeCodeFragmentStatus) {
-					// If the code fragment is complete, execute it.
-					case RuntimeCodeFragmentStatus.Complete:
-						executeCode = true;
-						break;
-
-					// If the code fragment is incomplete, don't do anything. The user will just see a new line in the input area.
-					case RuntimeCodeFragmentStatus.Incomplete:
-						executeCode = false;
-						break;
-
-					// If the code is invalid (contains syntax errors), warn but execute it anyway (so the user can see a syntax error from
-					// the interpreter).
-					case RuntimeCodeFragmentStatus.Invalid:
-						positronConsoleContext.logService.warn(`Executing invalid code fragment: '${codeFragment}'`);
-						executeCode = true;
-						break;
-
-					// If the code is invalid (contains syntax errors), warn but execute it anyway (so the user can see a syntax error from
-					// the interpreter).
-					case RuntimeCodeFragmentStatus.Unknown:
-						positronConsoleContext.logService.warn(`Could not determine whether code fragment: '${codeFragment}' is complete.`);
-						executeCode = true;
-						break;
-				}
-
-				// If we're supposed to execute the code fragment, do it.
-				if (executeCode) {
-					// // Execute the code.
-					// const id = `fragment-${generateUuid()}`;
-					// props.positronConsoleInstance.runtime.execute(
-					// 	codeFragment,
-					// 	id,
-					// 	RuntimeCodeExecutionMode.Interactive,
-					// 	RuntimeErrorBehavior.Continue);
-
-					// If the code fragment contains more than whitespace characters, add it to the history navigator.
-					if (codeFragment.trim().length) {
-						// Create the input history entry.
-						const inputHistoryEntry = {
-							when: new Date().getTime(),
-							input: codeFragment,
-						} satisfies IInputHistoryEntry;
-
-						// Add the input history entry.
-						if (refHistoryNavigator.current) {
-							refHistoryNavigator.current.add(inputHistoryEntry);
-						} else {
-							setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>([inputHistoryEntry], 1000)); // TODO@softwarenerd - get 1000 from settings.
-						}
-					}
-
-					props.executeCode(codeFragment);
-
-					// Reset the model for the next input.
-					textModel.setValue('');
-				}
-
-				// this._onDidSubmitInput.fire(<IReplInputSubmitEvent>{
-				// 	code: this._editor.getValue(),
-				// 	focus: this._editor.hasTextFocus()
-				// });
-			}
-		});
-
-		// Turn off most editor chrome so we can host in the REPL
+		// Turn off most editor chrome.
 		const editorOptions: IEditorOptions = {
 			lineNumbers: (n: number) => {
 				// Render the prompt as > for the first line; do not render
@@ -282,6 +299,18 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
 			// When the console is cleared, erase anything that was partially entered.
 			textModel.setValue('');
+
+			// Re-focus the console.
+			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidClearInputHistory event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidClearInputHistory(() => {
+			// Discard the history navigator.
+			setHistoryNavigator(undefined);
+
+			// Re-focus the console.
+			codeEditorWidget.focus();
 		}));
 
 		// Return the cleanup function that will dispose of the disposables.
@@ -290,16 +319,16 @@ export const ConsoleReplLiveInput = forwardRef<HTMLDivElement, ConsoleReplLiveIn
 
 	// Experimental.
 	useEffect(() => {
-		if (codeEditorWidget) {
+		if (refCodeEditorWidget.current) {
 			setCodeEditorWidth(props.width);
-			codeEditorWidget.layout({ width: props.width, height: codeEditorWidget.getContentHeight() });
+			refCodeEditorWidget.current.layout({ width: props.width, height: refCodeEditorWidget.current.getContentHeight() });
 		}
 	}, [props.width]);
 
 	// Experimental.
 	useEffect(() => {
-		if (!props.hidden && codeEditorWidget && !codeEditorWidget.hasTextFocus()) {
-			codeEditorWidget.focus();
+		if (!props.hidden && refCodeEditorWidget.current && !refCodeEditorWidget.current.hasTextFocus()) {
+			refCodeEditorWidget.current.focus();
 		}
 	}, [props.hidden]);
 

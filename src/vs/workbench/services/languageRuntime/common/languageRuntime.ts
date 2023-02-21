@@ -1,10 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
@@ -69,7 +68,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param _logService The log service.
 	 */
 	constructor(
-		@ICommandService private readonly _commandService: ICommandService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService
 	) {
@@ -189,6 +187,23 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._registeredLanguageRuntimes.push(languageRuntimeInfo);
 		this._registeredLanguageRuntimesByRuntimeId.set(runtime.metadata.runtimeId, languageRuntimeInfo);
 
+		// Runtimes are usually registered in the Uninitialized state. If the
+		// runtime is already running when it is registered, we are reconnecting
+		// to it, so we need to add it to the running language runtimes.
+		if (runtime.getRuntimeState() !== RuntimeState.Uninitialized &&
+			runtime.getRuntimeState() !== RuntimeState.Exited) {
+			this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+
+			// Signal that the runtime has started so UI can connect to it.
+			this._onDidStartRuntimeEmitter.fire(runtime);
+
+			// If we have no active runtime, set the active runtime to the new runtime, since
+			// it's already active.
+			if (!this._activeRuntime) {
+				this.activeRuntime = runtime;
+			}
+		}
+
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} successfully registered.`);
 
@@ -207,6 +222,24 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				this._runningLanguageRuntimesByLanguageId.delete(runtime.metadata.languageId);
 			}
 
+			if (state === RuntimeState.Starting) {
+				// Typically, the runtime starts when we ask it to (in `safeStartRuntime`), but
+				// if the runtime is already running when it is registered, we are reconnecting.
+				// In that case, we need to add it to the running language runtimes and signal
+				// that the runtime has started so UI can connect to it.
+				if (!this._runningLanguageRuntimesByLanguageId.has(runtime.metadata.languageId)) {
+					this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+					this._onDidStartRuntimeEmitter.fire(runtime);
+				}
+			}
+
+			if (state === RuntimeState.Ready) {
+				// If the runtime is ready, and we have no active runtime, set
+				// the active runtime to the new runtime.
+				if (!this._activeRuntime) {
+					this.activeRuntime = runtime;
+				}
+			}
 
 			// Let listeners know that the runtime state has changed.
 			const languageRuntimeInfo = this._registeredLanguageRuntimesByRuntimeId.get(runtime.metadata.runtimeId);
@@ -294,15 +327,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		runtime.start().then(languageRuntimeInfo => {
 			console.log(`Back from start language runtime ${runtime.metadata.languageName}`);
 
+			// Change the active runtime, if it isn't already set.
+			this.activeRuntime = runtime;
 
-			// TODO@softwarenerd - I think this should be moved out of this layer.
-			// Execute the Focus into Console command using the command service
-			// to expose the REPL for the new runtime.
-			this._commandService.executeCommand('workbench.panel.positronConsole.focus');
-
-			// Change the active runtime.
-			this._activeRuntime = runtime;
-			this._onDidChangeActiveRuntimeEmitter.fire(runtime);
 		}, (reason) => {
 			// TODO@softwarenerd - No code was here. We need code here.
 			console.log('Starting language runtime failed. Reason:');
@@ -313,4 +340,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	//#region Private Methods
 }
 
-registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Delayed);
+// Instantiate the language runtime service "eagerly", meaning as soon as a consumer depdends on it.
+// This fixes an issue where languages are encountered BEFORE the language runtime service has been
+// instantiated.
+registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Eager);

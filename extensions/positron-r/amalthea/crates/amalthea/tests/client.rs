@@ -1,7 +1,7 @@
 /*
  * client.rs
  *
- * Copyright (C) 2022 by Posit Software, PBC
+ * Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *
  */
 
@@ -31,8 +31,8 @@ fn test_kernel() {
     let frontend = frontend::Frontend::new();
     let connection_file = frontend.get_connection_file();
     let mut kernel = Kernel::new(connection_file).unwrap();
-    let shell_sender = kernel.create_iopub_sender();
-    let shell = Arc::new(Mutex::new(shell::Shell::new(shell_sender)));
+    let shell_tx = kernel.create_iopub_tx();
+    let shell = Arc::new(Mutex::new(shell::Shell::new(shell_tx)));
     let control = Arc::new(Mutex::new(control::Control {}));
 
     // Initialize logging

@@ -12,6 +12,9 @@ This script will:
 This will probably take a while, so only run this script
 if you're stuck and you need to restart from a fresh slate.
 
+After running this script, you can run the build task in
+Visual Studio Code using ⇧⌘B (macOS) or Ctrl+Shift+B (Windows).
+
 EOF
 read -p 'Do you want to proceed? [y/N]: ' proceed
 
@@ -28,7 +31,9 @@ yarn run kill-watchd
 yarn run kill-watch-webd
 yarn run kill-watch-clientd
 yarn run kill-watch-extensionsd
-yarn run kill-watch-build-toolsd
+
+# Disabled for now because it hangs. This needs to be investigated, but it's not worth doing right at the moment.
+#yarn run kill-watch-build-toolsd
 
 # Remove any existing node_modules folders.
 git ls-files --directory -i -o -x node_modules | xargs rm -rf
@@ -39,6 +44,4 @@ rm -rf .build
 # Run yarn to rebuild 'node_modules'.
 yarn
 
-# Run a single compile to make sure the generated JavaScript is up-to-date.
-yarn run compile
-
+echo "Done"
