@@ -1,7 +1,7 @@
 /*
  * lsp_handler.rs
  *
- * Copyright (C) 2022 by Posit Software, PBC
+ * Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *
  */
 
