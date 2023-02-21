@@ -29,6 +29,7 @@ import { JupyterInputReply } from './JupyterInputReply';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
+import { findAvailablePort } from './PortFinder';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -372,17 +373,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// during bootup
 		this.setStatus(positron.RuntimeState.Initializing);
 
-		// If we have an LSP client, allocate a port for it now
-		let lspClientPort = 0;
-		if (this._lsp) {
-			const portfinder = require('portfinder');
-			lspClientPort = await portfinder.getPortPromise();
-		}
-
 		// Create a new session; this allocates a connection file and log file
 		// and establishes available ports and sockets for the kernel to connect
 		// to.
-		const session = await createJupyterSession(lspClientPort);
+		const session = await createJupyterSession();
 		const connnectionFile = session.state.connectionFile;
 		const logFile = session.state.logFile;
 
@@ -886,7 +880,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @param status The new status of the kernel
 	 */
-	private onStatusChange(status: positron.RuntimeState) {
+	private async onStatusChange(status: positron.RuntimeState) {
 		if (status === positron.RuntimeState.Exited) {
 			// Ensure we don't try to reconnect to this kernel
 			this._context.workspaceState.update(this._runtimeId, undefined);
@@ -906,15 +900,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		} else if (status === positron.RuntimeState.Ready) {
 			// When the kernel becomes ready, start the LSP server if it's configured
 			if (this._lsp && this._session) {
-				const port = this._session.spec.lsp_port;
-				if (port && port > 0) {
-					this._channel.appendLine(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
-					this._lsp(port).then(() => {
-						this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
-					});
-				} else {
-					this._channel.appendLine(`Warning: ${this._spec.display_name} has an LSP but no allocated port; not starting LSP`);
-				}
+				const port = await findAvailablePort(this._session.portsInUse, 25);
+				this._channel.appendLine(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
+				this.startLsp(`127.0.0.1:${port}`);
+				this._lsp(port).then(() => {
+					this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
+				});
 			}
 		}
 	}

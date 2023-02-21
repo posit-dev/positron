@@ -281,6 +281,7 @@ impl Shell {
     ) -> Result<(), Error> {
         debug!("Received request to open comm: {:?}", req);
 
+        // Look up the comm ID from the request
         let comm = match Comm::from_str(&req.content.target_name) {
             Ok(comm) => comm,
             Err(err) => {
@@ -294,51 +295,82 @@ impl Shell {
             }
         };
 
+        // Get the data parameter as a string (for error reporting)
         let data_str = serde_json::to_string(&req.content.data)
             .map_err(|err| Error::InvalidCommMessage(req.content.target_name.clone(), "unparseable".to_string(), err.to_string()))?;
 
         let comm_channel = match comm {
+            // If this is the special LSP comm, start the LSP server and create
+            // a comm that wraps it
             Comm::Lsp => {
                 if let Some(handler) = self.lsp_handler.clone() {
-                    // Parse the data parameter to a StartLsp message
+                    // Parse the data parameter to a StartLsp message. This is a
+                    // message from the front end that contains the information
+                    // about the client side of the LSP; specifically, the
+                    // address to bind to.
                     let start_lsp: StartLsp = serde_json::from_value(req.content.data)
                         .map_err(|err| Error::InvalidCommMessage(req.content.target_name, data_str, err.to_string()))?;
+
+                    // Create the new comm wrapper channel for the LSP and start
+                    // the LSP server in a separate thread
                     let lsp_comm = LspComm::new(handler);
                     lsp_comm.start(&start_lsp)?;
-                    Some(Box::new(lsp_comm) as Box<dyn CommChannel>)
+
+                    // Return the new comm channel
+                    Box::new(lsp_comm) as Box<dyn CommChannel>
                 } else {
+                    // If we don't have an LSP handler, return an error
                     warn!("Client attempted to start LSP, but no LSP handler was provided by kernel.");
                     return Err(Error::UnknownCommName(req.content.target_name.clone()))
                 }
             },
             _ => {
-                // Lock the shell handler object on this thread
+                // Only the LSP comm is handled by the Amalthea kernel framework
+                // itself; all other comms are passed through to the shell
+                // handler.
+                //
+                // Lock the shell handler object on this thread.
                 let handler = self.shell_handler.lock().unwrap();
 
+                // Call the shell handler to open the comm
                 match block_on(handler.handle_comm_open(comm)) {
                     Err(err) => {
+                        // If the shell handler returns an error, send it back.
+                        // This is a language evaluation error, so we can send
+                        // it back in that form.
+                        let errname = err.ename.clone();
                         req.send_error::<CommMsg>(err, &self.socket)?;
-                        None
+
+                        // Return an error to the caller indicating that the
+                        // comm could not be opened due to the invalid open
+                        // call.
+                        return Err(Error::InvalidCommMessage(req.content.target_name.clone(), data_str, errname))
                     },
-                    Ok(comm) => comm
+                    Ok(comm) => match comm {
+                        // If the shell handler returns a comm channel, we're in good shape.
+                        Some(comm) => comm,
+                        // If the shell handler returns None, send an error
+                        // message back to the client; this indicates that the
+                        // comm type was unknown to the shell handler.
+                        None => {
+                            return Err(Error::UnknownCommName(req.content.target_name.clone()))
+                        }
+                    }
                 }
             }
         };
 
-        // If we got a comm channel, add it to our open comms
-        if let Some(channel) = comm_channel {
-            match self.open_comms.insert(req.content.comm_id.clone(), channel) {
-                Some(_) => {
-                    // We already knew about this comm; warn and discard
-                    warn!("Comm {} was already open", req.content.comm_id);
-                    Ok(())
-                },
-                None => {
-                    Ok(())
-                }
+        // If we got this far, we have just opened a comm channel. Add it to our
+        // open comms.
+        match self.open_comms.insert(req.content.comm_id.clone(), comm_channel) {
+            Some(_) => {
+                // We already knew about this comm; warn and discard
+                warn!("Comm {} was already open", req.content.comm_id);
+                Ok(())
+            },
+            None => {
+                Ok(())
             }
-        } else {
-            Ok(())
         }
     }
 
