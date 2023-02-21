@@ -5,7 +5,7 @@
 import { spawnSync } from 'child_process';
 import { platform } from 'os';
 
-let zeromqVersion = '6.0.0-beta.16';
+let zeromqVersion = 'zeromq@6.0.0-beta.16';
 
 if (platform() === 'darwin') {
 	zeromqVersion = [
