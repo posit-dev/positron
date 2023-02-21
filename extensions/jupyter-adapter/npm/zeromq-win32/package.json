@@ -1,0 +1,10 @@
+{
+  "name": "zeromq-win32",
+  "version": "1.0.0",
+  "os": [
+    "win32"
+  ],
+  "dependencies": {
+    "zeromq": "6.0.0-beta.16"
+  }
+}

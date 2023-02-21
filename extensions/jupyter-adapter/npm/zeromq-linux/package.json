@@ -1,0 +1,10 @@
+{
+  "name": "zeromq-linux",
+  "version": "1.0.0",
+  "os": [
+    "linux"
+  ],
+  "dependencies": {
+    "zeromq": "6.0.0-beta.16"
+  }
+}
