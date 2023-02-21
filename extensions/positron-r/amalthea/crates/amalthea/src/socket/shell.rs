@@ -8,6 +8,7 @@
 use crate::comm::comm_channel::Comm;
 use crate::comm::comm_channel::CommChannel;
 use crate::error::Error;
+use crate::language::lsp_handler::LspHandler;
 use crate::language::shell_handler::ShellHandler;
 use crate::socket::iopub::IOPubMessage;
 use crate::socket::socket::Socket;
@@ -49,7 +50,10 @@ pub struct Shell {
     iopub_tx: Sender<IOPubMessage>,
 
     /// Language-provided shell handler object
-    handler: Arc<Mutex<dyn ShellHandler>>,
+    shell_handler: Arc<Mutex<dyn ShellHandler>>,
+
+    /// Language-provided LSP handler object
+    lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
 
     /// Map of open comm channels (UUID to CommChannel)
     open_comms: HashMap<String, Box<dyn CommChannel>>,
@@ -60,16 +64,19 @@ impl Shell {
     ///
     /// * `socket` - The underlying ZeroMQ Shell socket
     /// * `iopub_tx` - A channel that delivers messages to the IOPub socket
-    /// * `handler` - The language's shell channel handler
+    /// * `shell_handler` - The language's shell channel handler
+    /// * `lsp_handler` - The language's LSP handler, if it supports LSP
     pub fn new(
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
-        handler: Arc<Mutex<dyn ShellHandler>>,
+        shell_handler: Arc<Mutex<dyn ShellHandler>>,
+        lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Self {
         Self {
             socket,
             iopub_tx,
-            handler,
+            shell_handler,
+            lsp_handler,
             open_comms: HashMap::new(),
         }
     }
@@ -144,7 +151,7 @@ impl Shell {
         }
 
         // Lock the shell handler object on this thread
-        let mut shell_handler = self.handler.lock().unwrap();
+        let mut shell_handler = self.shell_handler.lock().unwrap();
 
         // Handle the message!
         //
@@ -273,7 +280,7 @@ impl Shell {
         debug!("Received request to open comm: {:?}", req);
 
         // Lock the shell handler object on this thread
-        let handler = self.handler.lock().unwrap();
+        let handler = self.shell_handler.lock().unwrap();
 
         let comm = match Comm::from_str(&req.content.target_name) {
             Ok(comm) => comm,

@@ -167,7 +167,6 @@ impl Frontend {
             stdin_port: self.stdin_port,
             iopub_port: self.iopub_port,
             hb_port: self.heartbeat_port,
-            lsp_port: None,
             transport: String::from("tcp"),
             signature_scheme: String::from("hmac-sha256"),
             ip: String::from("127.0.0.1"),
