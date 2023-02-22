@@ -572,8 +572,8 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
     let init = |client: Client| {
 
         // initialize shared globals (needed for R callbacks)
-        LSP_CLIENT.set(client.clone()).unwrap();
-        SHELL_REQUEST_TX.set(shell_request_tx.clone()).unwrap();
+        LSP_CLIENT.lock().unwrap().replace(client.clone());
+        SHELL_REQUEST_TX.lock().unwrap().replace(shell_request_tx.clone());
 
         // create backend
         let backend = Backend {
