@@ -23,7 +23,7 @@ pub struct RModuleInfo {
 // NOTE: We use a custom watcher implementation here to detect changes
 // to module files, and automatically source those files when they change.
 //
-// The intention here is to make it easy to iterate and developer R modules
+// The intention here is to make it easy to iterate and develop R modules
 // within Positron; files are automatically sourced when they change and
 // so any changes should appear live within Positrion immediately.
 //
