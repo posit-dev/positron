@@ -27,6 +27,10 @@ pub struct LspComm {
     handler: Arc<Mutex<dyn LspHandler>>
 }
 
+/**
+ * LspComm makes an LSP look like a CommChannel; it's used to start the LSP and
+ * track the server thread.
+ */
 impl LspComm {
     pub fn new(handler: Arc<Mutex<dyn LspHandler>>) -> LspComm {
         LspComm {
@@ -41,15 +45,14 @@ impl LspComm {
             let mut handler = handler.lock().unwrap();
             handler.start(address).unwrap();
         });
-        let json = serde_json::to_value(data).unwrap();
-        self.send_request(&json);
         Ok(())
     }
 }
 
 impl CommChannel for LspComm {
-    fn send_request(&self, data: &Value) {
-        println!("LspComm::send_request - data: {:?}", data);
+    fn send_request(&self, _data: &Value) {
+        // Not implemented; LSP messages are delivered directly to the LSP
+        // handler via TCP, not proxied here.
     }
 
     fn target_name(&self) -> String {
@@ -57,6 +60,7 @@ impl CommChannel for LspComm {
     }
 
     fn close(&self) {
-        println!("LspComm::close");
+        // Not implemented; the LSP is closed automatically when the TCP
+        // connection is closed.
     }
 }
