@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
@@ -188,6 +188,23 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._registeredLanguageRuntimes.push(languageRuntimeInfo);
 		this._registeredLanguageRuntimesByRuntimeId.set(runtime.metadata.runtimeId, languageRuntimeInfo);
 
+		// Runtimes are usually registered in the Uninitialized state. If the
+		// runtime is already running when it is registered, we are reconnecting
+		// to it, so we need to add it to the running language runtimes.
+		if (runtime.getRuntimeState() !== RuntimeState.Uninitialized &&
+			runtime.getRuntimeState() !== RuntimeState.Exited) {
+			this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+
+			// Signal that the runtime has started so UI can connect to it.
+			this._onDidStartRuntimeEmitter.fire(runtime);
+
+			// If we have no active runtime, set the active runtime to the new runtime, since
+			// it's already active.
+			if (!this._activeRuntime) {
+				this.activeRuntime = runtime;
+			}
+		}
+
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} successfully registered.`);
 
@@ -204,6 +221,25 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// If the state is exited, remove the language runtime from the set of running language runtimes.
 			if (state === RuntimeState.Exited) {
 				this._runningLanguageRuntimesByLanguageId.delete(runtime.metadata.languageId);
+			}
+
+			if (state === RuntimeState.Starting) {
+				// Typically, the runtime starts when we ask it to (in `safeStartRuntime`), but
+				// if the runtime is already running when it is registered, we are reconnecting.
+				// In that case, we need to add it to the running language runtimes and signal
+				// that the runtime has started so UI can connect to it.
+				if (!this._runningLanguageRuntimesByLanguageId.has(runtime.metadata.languageId)) {
+					this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+					this._onDidStartRuntimeEmitter.fire(runtime);
+				}
+			}
+
+			if (state === RuntimeState.Ready) {
+				// If the runtime is ready, and we have no active runtime, set
+				// the active runtime to the new runtime.
+				if (!this._activeRuntime) {
+					this.activeRuntime = runtime;
+				}
 			}
 
 			// Let listeners know that the runtime state has changed.
@@ -290,9 +326,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// Start the runtime.
 		runtime.start().then(languageRuntimeInfo => {
-			// Change the active runtime.
-			this._activeRuntime = runtime;
-			this._onDidChangeActiveRuntimeEmitter.fire(runtime);
+			console.log(`Back from start language runtime ${runtime.metadata.languageName}`);
+
+			// Change the active runtime, if it isn't already set.
+			this.activeRuntime = runtime;
+
 		}, (reason) => {
 			// TODO@softwarenerd - No code was here. We need code here.
 			console.log('Starting language runtime failed. Reason:');

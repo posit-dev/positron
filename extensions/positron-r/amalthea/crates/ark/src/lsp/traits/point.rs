@@ -1,9 +1,9 @@
-// 
+//
 // point.rs
-// 
-// Copyright (C) 2022 by Posit Software, PBC
-// 
-// 
+//
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+//
+//
 
 use tower_lsp::lsp_types::Position;
 use tree_sitter::Point;
