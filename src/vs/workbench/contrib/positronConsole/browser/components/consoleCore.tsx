@@ -4,9 +4,9 @@
 
 import 'vs/css!./consoleCore';
 import * as React from 'react';
+import { ActionBar } from 'vs/workbench/contrib/positronConsole/browser/components/actionBar';
 import { ConsoleRepl } from 'vs/workbench/contrib/positronConsole/browser/components/consoleRepl';
 import { PositronConsoleProps } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
-import { ConsoleActionBar } from 'vs/workbench/contrib/positronConsole/browser/components/actionBar';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 // ConsoleCoreProps interface.
@@ -33,7 +33,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	// Render.
 	return (
 		<div className='console-core'>
-			<ConsoleActionBar {...props} />
+			<ActionBar {...props} />
 			<div className='console-repls-container' style={{ width: props.width, height: props.height - 32 }}>
 				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 					<ConsoleRepl

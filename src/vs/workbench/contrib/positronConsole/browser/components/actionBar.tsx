@@ -26,9 +26,9 @@ const kPaddingLeft = 14;
 const kPaddingRight = 8;
 
 /**
- * ConsoleActionBarProps interface.
+ * ActionBarProps interface.
  */
-export interface ConsoleActionBarProps extends PositronConsoleServices {
+export interface ActionBarProps extends PositronConsoleServices {
 	// Services.
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
@@ -39,11 +39,11 @@ export interface ConsoleActionBarProps extends PositronConsoleServices {
 }
 
 /**
- * ConsoleActionBar component.
- * @param props A ConsoleActionBarProps that contains the component properties.
+ * ActionBar component.
+ * @param props An ActionBarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>) => {
+export const ActionBar = (props: PropsWithChildren<ActionBarProps>) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
