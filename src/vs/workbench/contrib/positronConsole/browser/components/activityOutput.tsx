@@ -6,7 +6,6 @@ import 'vs/css!./activityOutput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
 import { lineSplitter } from 'vs/workbench/services/positronConsole/common/classes/utils';
-import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 
 // ActivityOutputProps interface.
@@ -29,11 +28,16 @@ export const ActivityOutput = ({ activityItemOutput }: ActivityOutputProps) => {
 		}
 	}, [activityItemOutput]);
 
-
 	// Render.
 	return (
 		<div className='activity-output'>
-			<ReplLines lines={lines} />
+			<div className='output-lines'>
+				{lines.map(line =>
+					<div key={line.id} className='output-line'>
+						{line.text.length ? <div>{line.text}</div> : <br />}
+					</div>
+				)}
+			</div>
 		</div>
 	);
 };

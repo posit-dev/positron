@@ -11,3 +11,10 @@
 	width: 22px;
 	justify-content: right;
 }
+
+.activity-input .code {
+	margin-left: 16px;
+	white-space: pre;
+	font-size: 12px; /* TODO@softwarenerd - must find a way to get this at runtime */
+	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
+}

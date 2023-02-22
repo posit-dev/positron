@@ -13,18 +13,24 @@ export interface Line {
 }
 
 /**
- * Splits a text string into lines.
- * @param text The text string to split.
+ * Splits a string or array of strings into lines.
+ * @param value The string or array of strings.
  * @returns An array of the lines.
  */
-export const lineSplitter = (text: string): readonly Line[] => {
+export const lineSplitter = (value: string | string[]): Line[] => {
 	const lines: Line[] = [];
 
-	text.split('\n').forEach((text, index, textLines) => {
-		if (!(textLines.length > 1 && index === textLines.length - 1 && text.length === 0)) {
-			lines.push({ id: generateUuid(), text });
-		}
-	});
+	if (Array.isArray(value)) {
+		value.forEach(line => {
+			lines.push(...lineSplitter(line));
+		});
+	} else {
+		value.split('\n').forEach((line, index, splitLines) => {
+			if (!(splitLines.length > 1 && index === splitLines.length - 1 && line.length === 0)) {
+				lines.push({ id: generateUuid(), text: line });
+			}
+		});
+	}
 
 	return lines;
 };
