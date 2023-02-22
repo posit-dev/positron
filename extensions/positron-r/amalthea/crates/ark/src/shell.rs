@@ -146,8 +146,7 @@ impl ShellHandler for Shell {
 
     /// Handle a request to test code for completion.
     async fn handle_is_complete_request(&self, req: &IsCompleteRequest,) -> Result<IsCompleteReply, Exception> {
-        let code = req.code.clone();
-        match unsafe{r_parse_vector(code)} {
+        match unsafe{r_parse_vector(req.code.as_str())} {
             Ok(ParseResult::Complete(_)) => {
                 Ok(IsCompleteReply {
                     status: IsComplete::Complete,

@@ -26,7 +26,7 @@ pub unsafe fn r_parse_eval(code: &str, options: RParseEvalOptions) -> Result<ROb
     }
 
     // Parse the provided code.
-    let parsed_sexp = match r_parse_vector(code.to_string())? {
+    let parsed_sexp = match r_parse_vector(code)? {
         ParseResult::Complete(x) => RObject::from(x),
         ParseResult::Incomplete() => {
             return Err(Error::ParseError {
