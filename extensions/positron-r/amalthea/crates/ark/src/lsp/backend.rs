@@ -1,7 +1,7 @@
 //
 // backend.rs
 //
-// Copyright (C) 2022 by Posit Software, PBC
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
@@ -19,7 +19,7 @@ use parking_lot::Mutex;
 use regex::Regex;
 use serde_json::Value;
 use stdext::*;
-use tokio::net::TcpStream;
+use tokio::net::TcpListener;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::lsp_types::request::GotoImplementationParams;
@@ -558,20 +558,12 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-    /*
-    NOTE: The example LSP from tower-lsp uses a TcpListener, but we're using a
-    TcpStream because -- according to LSP docs -- the client and server roles
-    are reversed in terms of opening ports: the client listens, and the server
-    opens a connection to it. The client and server can't BOTH listen on the port,
-    so we let the client do it and connect to it here.
-
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
+    debug!("Connecting to LSP at '{}'", &address);
+    let listener = TcpListener::bind(&address)
         .await
         .unwrap();
     let (stream, _) = listener.accept().await.unwrap();
-    */
-    debug!("Connecting to LSP client at '{}'", address);
-    let stream = TcpStream::connect(address).await.unwrap();
+    debug!("Connected to LSP at '{}'", address);
     let (read, write) = tokio::io::split(stream);
 
     #[cfg(feature = "runtime-agnostic")]

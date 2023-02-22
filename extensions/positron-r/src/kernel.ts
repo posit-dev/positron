@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -129,9 +129,15 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		const version = packageJson.version;
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(kernelSpec, 'r', rHome.rVersion ?? '0.0.1', version, () => {
-			return activateLsp(context);
-		});
+		runtime = ext.exports.adaptKernel(kernelSpec,
+			'r',      // Language ID
+			rHome.rVersion ?? '0.0.1',   // Version of R, if we know it
+			version,  // Version of this extension
+			positron.LanguageRuntimeStartupBehavior.Implicit, // OK to start the kernel automatically
+			(port: number) => {
+				// Activate the LSP language server when the adapter is ready.
+				return activateLsp(port, context);
+			});
 
 		// Register a language runtime provider for the ARK kernel.
 		return positron.runtime.registerLanguageRuntime(runtime);
