@@ -2,37 +2,37 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./replActivityRunOutput';
+import 'vs/css!./activityOutput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
 import { lineSplitter } from 'vs/workbench/services/positronConsole/common/classes/utils';
 import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 
-// ReplActivityRunOutputProps interface.
-export interface ReplActivityRunOutputProps {
-	replItemActivityRunOutput: ActivityItemOutput;
+// ActivityOutputProps interface.
+export interface ActivityOutputProps {
+	activityItemOutput: ActivityItemOutput;
 }
 
 /**
- * ReplActivityRunOutput component.
- * @param props A ConsoleReplOutputProps that contains the component properties.
+ * ActivityOutput component.
+ * @param props An ActivityOutputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ReplActivityRunOutput = ({ replItemActivityRunOutput }: ReplActivityRunOutputProps) => {
+export const ActivityOutput = ({ activityItemOutput }: ActivityOutputProps) => {
 	// Hooks.
 	const lines = useMemo(() => {
-		if (replItemActivityRunOutput.data['text/plain'].length === 0) {
+		if (activityItemOutput.data['text/plain'].length === 0) {
 			return [];
 		} else {
-			return lineSplitter(replItemActivityRunOutput.data['text/plain']);
+			return lineSplitter(activityItemOutput.data['text/plain']);
 		}
-	}, [replItemActivityRunOutput]);
+	}, [activityItemOutput]);
 
 
 	// Render.
 	return (
-		<div className='repl-activity-run-output'>
+		<div className='activity-output'>
 			<ReplLines lines={lines} />
 		</div>
 	);

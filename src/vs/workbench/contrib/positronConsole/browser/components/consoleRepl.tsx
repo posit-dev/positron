@@ -10,7 +10,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
-import { ReplActivity } from 'vs/workbench/contrib/positronConsole/browser/components/replActivity';
+import { RuntimeActivity } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeActivity';
 import { ReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/replLiveInput';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
@@ -92,7 +92,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 	 */
 	const renderRuntimeItem = (runtimeItem: RuntimeItem) => {
 		if (runtimeItem instanceof RuntimeItemActivity) {
-			return <ReplActivity key={runtimeItem.id} replItemActivity={runtimeItem} />;
+			return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemStartup) {
 			return <ReplLines key={runtimeItem.id} {...runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemTrace) {

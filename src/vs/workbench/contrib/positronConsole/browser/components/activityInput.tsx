@@ -2,27 +2,27 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./replActivityRunInput';
+import 'vs/css!./activityInput';
 import * as React from 'react';
 import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
-// ReplActivityRunInputProps interface.
-export interface ReplActivityRunInputProps {
-	replItemActivityRunInput: ActivityItemInput;
+// ActivityInputProps interface.
+export interface ActivityInputProps {
+	activityItemInput: ActivityItemInput;
 }
 
 /**
- * ReplActivityRunInput component.
- * @param props A ReplActivityRunInputProps that contains the component properties.
+ * ActivityInput component.
+ * @param props An ActivityInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ReplActivityRunInput = ({ replItemActivityRunInput }: ReplActivityRunInputProps) => {
+export const ActivityInput = ({ activityItemInput }: ActivityInputProps) => {
 	// Render.
 	return (
-		<div className='repl-activity-run-input'>
+		<div className='activity-input'>
 			<div className='prompt'>&gt;</div>
-			<ReplLines {...replItemActivityRunInput} />
+			<ReplLines {...activityItemInput} />
 		</div>
 	);
 };

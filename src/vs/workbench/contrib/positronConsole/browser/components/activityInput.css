@@ -2,7 +2,12 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.repl-activcity-run-output {
-	padding-left: 8px;
-	/* border-bottom: 1px solid #cccccc; */
+.activity-input {
+	display: flex;
+}
+
+.activity-input .prompt {
+	display: flex;
+	width: 22px;
+	justify-content: right;
 }

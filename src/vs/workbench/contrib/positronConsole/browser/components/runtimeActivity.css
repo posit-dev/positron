@@ -2,14 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-console .console-core {
-	background: transparent; /* placeholder */
-}
-
-.positron-console .console-core .console-repls-container {
-	overflow-y: scroll;
-}
-
-.positron-console .console-core .console-repls-container:focus {
-	outline: none !important;
+.runtime-activity {
+	background: transparent;
 }
