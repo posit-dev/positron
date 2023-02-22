@@ -65,11 +65,6 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			setMarker(generateUuid());
 		}));
 
-		// Add the onDidClearConsole event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-
-		}));
-
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(codeFragment => {
 			// Execute the code fragment.

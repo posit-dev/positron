@@ -5,3 +5,10 @@
 .activity-output {
 	padding-left: 8px;
 }
+
+.activity-output .output-lines {
+	margin-left: 4px;
+	white-space: pre;
+	font-size: 12px; /* TODO@softwarenerd - must find a way to get this at runtime */
+	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
+}
