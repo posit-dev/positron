@@ -9,6 +9,7 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::r_lock;
 use libR_sys::*;
+use stdext::local;
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
@@ -47,26 +48,34 @@ impl Watcher {
     pub fn watch(&mut self) -> anyhow::Result<()> {
 
         // initialize
-        let entries = std::fs::read_dir(Path::new(&self.path))?;
+        let entries = std::fs::read_dir(&self.path)?;
         for entry in entries.into_iter() {
             if let Ok(entry) = entry {
                 let path = entry.path();
                 let meta = path.metadata()?;
                 self.cache.insert(path, meta);
-
             }
         }
 
         // start looking for changes
         loop {
+
             std::thread::sleep(Duration::from_secs(1));
-            for (path, oldmeta) in self.cache.iter_mut() {
-                let newmeta = path.metadata()?;
-                if oldmeta.modified()? != newmeta.modified()? {
-                    r_lock! { import(path) };
-                    *oldmeta = newmeta;
+            let status = local! {
+                for (path, oldmeta) in self.cache.iter_mut() {
+                    let newmeta = path.metadata()?;
+                    if oldmeta.modified()? != newmeta.modified()? {
+                        r_lock! { import(path) };
+                        *oldmeta = newmeta;
+                    }
                 }
+                anyhow::Ok(())
+            };
+
+            if let Err(error) = status {
+                log::error!("[watcher] error detecting changes: {}", error);
             }
+
         }
 
     }
