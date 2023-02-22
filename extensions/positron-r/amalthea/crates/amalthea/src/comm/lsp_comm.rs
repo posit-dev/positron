@@ -7,7 +7,6 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
 
 use serde_json::Value;
 
@@ -39,12 +38,8 @@ impl LspComm {
     }
 
     pub fn start(&self, data: &StartLsp) ->  Result<(), Error> {
-        let handler = self.handler.clone();
-        let address = data.client_address.clone();
-        thread::spawn(move || {
-            let mut handler = handler.lock().unwrap();
-            handler.start(address).unwrap();
-        });
+        let mut handler = self.handler.lock().unwrap();
+        handler.start(data.client_address.clone()).unwrap();
         Ok(())
     }
 }
