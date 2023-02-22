@@ -75,6 +75,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** The terminal in which the kernel process is running */
 	private _terminal?: vscode.Terminal;
 
+	/** The comm ID of the LSP comm, if one is running */
+	private _lspCommId?: string;
+
 	constructor(private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
@@ -480,11 +483,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// (QueryInterface style) instead of just demanding it?
 
 		this._channel.appendLine(`Starting LSP server for ${clientAddress}`);
+		this._lspCommId = uuidv4();
 
 		// Create the message to send to the kernel
 		const msg: JupyterCommOpen = {
 			target_name: 'lsp',
-			comm_id: 'C8C5265A-028C-4A3E-BA3F-D50A28E2B8E4',
+			comm_id: this._lspCommId,
 			data: {
 				client_address: clientAddress,  // eslint-disable-line
 			}
@@ -734,6 +738,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * session or the kernel itself; it remains running in a terminal.
 	 */
 	public dispose() {
+		// Clean up the LSP comm, if it's set up
+		if (this._lspCommId) {
+			this.closeComm(this._lspCommId);
+		}
+
 		// Clean up file watcher for log file
 		if (this._logTail) {
 			this._logTail.unwatch();
