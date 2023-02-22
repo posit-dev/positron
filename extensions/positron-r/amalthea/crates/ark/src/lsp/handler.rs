@@ -33,6 +33,8 @@ impl Lsp {
 impl LspHandler for Lsp {
     fn start(&mut self, tcp_address: String) -> Result<(), amalthea::error::Error> {
 
+        let lsp_initialized = self.kernel_initialized;
+
         // If the kernel hasn't been initialized yet, wait for it to finish.
         // This prevents the LSP from attempting to start up before the kernel
         // is ready; on subsequent starts (reconnects), the kernel will already
@@ -46,7 +48,7 @@ impl LspHandler for Lsp {
         }
 
         let shell_request_tx = self.shell_request_tx.clone();
-        thread::spawn(move || backend::start_lsp(tcp_address, shell_request_tx));
+        thread::spawn(move || backend::start_lsp(tcp_address, shell_request_tx, lsp_initialized));
         return Ok(());
     }
 }
