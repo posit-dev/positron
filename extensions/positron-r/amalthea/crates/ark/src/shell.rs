@@ -1,7 +1,7 @@
 //
 // shell.rs
 //
-// Copyright (C) 2022 by Posit Software, PBC
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
@@ -33,8 +33,8 @@ use bus::BusReader;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use crossbeam::channel::unbounded;
-use harp::object::RObject;
-use libR_sys::*;
+use harp::exec::ParseResult;
+use harp::exec::r_parse_vector;
 use log::*;
 use serde_json::json;
 
@@ -146,27 +146,26 @@ impl ShellHandler for Shell {
 
     /// Handle a request to test code for completion.
     async fn handle_is_complete_request(&self, req: &IsCompleteRequest,) -> Result<IsCompleteReply, Exception> {
-
-        // Test if the code can be successfully parsed.
-        let mut ps : ParseStatus = 0;
-        unsafe {
-            let code = RObject::from(req.code.as_str());
-            R_ParseVector(*code, 1, &mut ps, R_NilValue);
+        match unsafe{r_parse_vector(req.code.as_str())} {
+            Ok(ParseResult::Complete(_)) => {
+                Ok(IsCompleteReply {
+                    status: IsComplete::Complete,
+                    indent: String::from(""),
+                })
+            },
+            Ok(ParseResult::Incomplete()) => {
+                Ok(IsCompleteReply {
+                    status: IsComplete::Incomplete,
+                    indent: String::from("+"),
+                })
+            }
+            Err(_) =>  {
+                Ok(IsCompleteReply {
+                    status: IsComplete::Invalid,
+                    indent: String::from(""),
+                })
+            }
         }
-
-        // TODO: Handle incomplete parse, etc.
-        if ps == ParseStatus_PARSE_OK {
-            Ok(IsCompleteReply {
-                status: IsComplete::Complete,
-                indent: String::from(""),
-            })
-        } else {
-            Ok(IsCompleteReply {
-                status: IsComplete::Incomplete,
-                indent: String::from("+"),
-            })
-        }
-
     }
 
     /// Handles an ExecuteRequest by sending the code to the R execution thread

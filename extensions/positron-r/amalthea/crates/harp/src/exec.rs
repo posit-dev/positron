@@ -1,7 +1,7 @@
 //
 // exec.rs
 //
-// Copyright (C) 2022 by Posit Software, PBC
+// Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
@@ -336,17 +336,15 @@ pub enum ParseResult {
 }
 
 #[allow(non_upper_case_globals)]
-pub unsafe fn r_parse_vector(code: String) -> Result<ParseResult> {
+pub unsafe fn r_parse_vector(code: &str) -> Result<ParseResult> {
 
     let mut ps : ParseStatus = 0;
     let mut protect = RProtect::new();
     let r_code = protect.add(crate::r_string!(code));
 
-    let lambda = || {
+    let result = r_try_catch_error(|| {
         R_ParseVector(r_code, -1, &mut ps, R_NilValue)
-    };
-
-    let result = r_try_catch_error(lambda)?;
+    })?;
 
     match ps {
         ParseStatus_PARSE_OK => {
@@ -362,7 +360,8 @@ pub unsafe fn r_parse_vector(code: String) -> Result<ParseResult> {
         _ => {
             // should not get here
             Err(Error::ParseError {
-                code, message: String::from("Unknown parse error")
+                code: code.to_string(),
+                message: String::from("Unknown parse error")
             })
         }
     }
@@ -512,7 +511,7 @@ mod tests {
     fn test_parse_vector() { r_test! {
         // complete
         assert_match!(
-            r_parse_vector(String::from("force(42)")),
+            r_parse_vector("force(42)"),
             Ok(ParseResult::Complete(out)) => {
                 assert_eq!(r_typeof(out), EXPRSXP as u32);
 
@@ -529,19 +528,19 @@ mod tests {
 
         // incomplete
         assert_match!(
-            r_parse_vector(String::from("force(42")),
+            r_parse_vector("force(42"),
             Ok(ParseResult::Incomplete())
         );
 
         // error
         assert_match!(
-            r_parse_vector(String::from("42 + _")),
+            r_parse_vector("42 + _"),
             Err(_) => {}
         );
 
         // "normal" syntax error
         assert_match!(
-            r_parse_vector(String::from("1+1\n*42")),
+            r_parse_vector("1+1\n*42"),
             Err(Error::ParseSyntaxError {message, line}) => {
                 assert!(message.contains("unexpected"));
                 assert_eq!(line, 2);

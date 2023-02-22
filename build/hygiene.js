@@ -309,7 +309,9 @@ if (require.main === module) {
 		});
 	} else {
 		cp.exec(
-			'git diff --cached --name-only',
+			// --- Start Positron ---
+			'git diff --cached --name-only --ignore-submodules',
+			// --- End Positron ---
 			{ maxBuffer: 2000 * 1024 },
 			(err, out) => {
 				if (err) {

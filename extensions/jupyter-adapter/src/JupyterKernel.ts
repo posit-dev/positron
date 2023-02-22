@@ -1,15 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC.
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChildProcess, spawn, SpawnOptions } from 'child_process';
+import { ChildProcess } from 'child_process';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as zmq from 'zeromq/v5-compat';
-import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import * as crypto from 'crypto';
 import { JupyterSocket } from './JupyterSocket';
 import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
@@ -28,29 +26,19 @@ import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterInputReply } from './JupyterInputReply';
-import { StringDecoder } from 'string_decoder';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
+import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
 	private _process: ChildProcess | null;
 
-	/** The kernel connection file (path to JSON file) */
-	private _connectionFile: string | null;
-
-	/** The log file (path to a text file) */
-	private _logFile: string | null;
-	private _logTail: any;
+	/** An object that watches (tails) the kernel's log file */
+	private _logTail?: Tail;
 
 	/** The kernel's current state */
 	private _status: positron.RuntimeState;
-
-	/** The security key to use to sign messages to the kernel */
-	private readonly _key: string;
-
-	/** The session identifier */
-	private readonly _sessionId: string;
 
 	// ZeroMQ sockets ---
 	private _control: JupyterSocket | null;
@@ -59,26 +47,41 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _iopub: JupyterSocket | null;
 	private _heartbeat: JupyterSocket | null;
 
-	/** The LSP port (if the LSP has been started) */
-	private _lspClientPort: number | null;
-
 	/**
 	 * A map of IDs to pending input requests; used to match up input replies
 	 * with the correct request
 	 */
 	private _inputRequests: Map<string, JupyterMessageHeader> = new Map();
 
+	/**
+	 * A timer that listens to heartbeats, is reset on every hearbeat, and
+	 * expires when the kernel goes offline; used to detect when the kernel has
+	 * become unresponsive.
+	 */
 	private _heartbeatTimer: NodeJS.Timeout | null;
+
+	/**
+	 * A timer used to schedule the next heartbeat sent to the kernel
+	 */
+	private _nextHeartbeat: NodeJS.Timeout | null;
+
+	/** The timestamp at which we last received a heartbeat message from the kernel */
 	private _lastHeartbeat: number;
 
-	constructor(spec: JupyterKernelSpec,
-		private readonly _channel: vscode.OutputChannel) {
+	/** An object that tracks the Jupyter session information, such as session ID and ZeroMQ ports */
+	private _session?: JupyterSession;
+
+	/** The terminal in which the kernel process is running */
+	private _terminal?: vscode.Terminal;
+
+	constructor(private readonly _context: vscode.ExtensionContext,
+		spec: JupyterKernelSpec,
+		private readonly _runtimeId: string,
+		private readonly _channel: vscode.OutputChannel,
+		private readonly _lsp?: (port: number) => Promise<void>) {
 		super();
 		this._spec = spec;
 		this._process = null;
-		this._connectionFile = null;
-		this._logFile = null;
-		this._logTail = null;
 
 		this._control = null;
 		this._shell = null;
@@ -86,27 +89,111 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._iopub = null;
 		this._heartbeat = null;
 		this._heartbeatTimer = null;
+		this._nextHeartbeat = null;
 		this._lastHeartbeat = 0;
-		this._lspClientPort = null;
 
+		// Set the initial status to uninitialized (we'll change it later if we
+		// discover it's actually running)
 		this._status = positron.RuntimeState.Uninitialized;
-		this._key = crypto.randomBytes(16).toString('hex');
-		this._sessionId = crypto.randomBytes(16).toString('hex');
 
 		// Listen to our own status change events
 		this.on('status', (status: positron.RuntimeState) => {
 			this.onStatusChange(status);
 		});
+
+		// Look for metadata about a running kernel in the current workspace by
+		// checking the value stored for this runtime ID (we support running
+		// exactly one kernel per runtime ID). If we find it, it's a
+		// JupyterSessionState object, which contains the connection
+		// information.
+		const state = this._context.workspaceState.get(this._runtimeId);
+		if (state) {
+			// We found session state for this kernel. Connect to it.
+			const sessionState = state as JupyterSessionState;
+			this.reconnect(sessionState);
+		}
 	}
 
 	/**
-	 * Starts the Jupyter kernel.
+	 * Attempts to discover and reconnect to a running kernel.
 	 *
-	 * @param lspClientPort The port that the LSP client is listening on, or 0
-	 *   if no LSP is started
+	 * @param sessionState The saved session state for the kernel
 	 */
-	public async start(lspClientPort: number) {
+	private reconnect(sessionState: JupyterSessionState) {
 
+		// Set the status to initializing so that we don't try to start a
+		// new kernel before we've tried to connect to the existing one.
+		this.setStatus(positron.RuntimeState.Initializing);
+
+		// Get the list of all terminals in the current workspace. We'll
+		// look for a terminal with the same process ID as the one we saved
+		// in the session state.
+		const allTerminals = vscode.window.terminals;
+		this._channel.appendLine(
+			`Found record of existing kernel for '${this._spec.display_name} with PID ${sessionState.processId}; checking ${allTerminals.length} terminals...`);
+
+		// We can't fetch the process IDs synchronously, so we discover them
+		// asynchronously and then look for a match.
+		Promise.all(allTerminals.map((terminal) => {
+			// Note that the terminal name can't be used to match here
+			// because, empirically, it is not always set when we initially
+			// query the list of terminals.
+			return new Promise<vscode.Terminal | undefined>((resolve, _reject) => {
+				terminal.processId.then((pid) => {
+					// If the terminal looks like one of ours, but it has a
+					// different process ID than we saved, then it's a stale
+					// (orphaned) terminal that we need to dispose of.
+					if (terminal.name === this._spec.display_name && pid !== sessionState.processId) {
+						terminal.dispose();
+					}
+					resolve(pid === sessionState.processId ? terminal : undefined);
+				});
+			});
+		})).then((results) => {
+			// Filter out any undefined results; they are terminals that
+			// don't have a process ID matching the one we saved.
+			const terminals = results.filter((terminal) => terminal !== undefined);
+			if (terminals.length === 0) {
+				// We didn't find a terminal; remove the session state from the
+				// workspace state since we no longer have a terminal we can
+				// connect to.
+				this._channel.appendLine(
+					`No terminal found; removing stale session state '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
+				this._context.workspaceState.update(this._runtimeId, undefined);
+
+				// Return to the uninitialized state
+				this.setStatus(positron.RuntimeState.Uninitialized);
+				return;
+			}
+
+			const terminal = terminals[0] as vscode.Terminal;
+			this._channel.appendLine(
+				`Connecting ${this._spec.language} to terminal '${terminal.name}' (PID ${sessionState.processId}))`);
+
+			// Defer the connection until the next tick, so that the
+			// caller has a chance to register for the 'status' event we emit
+			// below.
+			setTimeout(() => {
+				// We are now "starting" the kernel. (Consider: should we
+				// have a "connecting" state?)
+				this.setStatus(positron.RuntimeState.Starting);
+
+				// Connect to the running kernel in the terminal
+				this.connectToTerminal(terminal, new JupyterSession(sessionState));
+			});
+		});
+	}
+
+	/**
+	 * Connects to a Jupyter kernel, given the path to the connection JSON file.
+	 * Returns a promise that resolves when all the ZeroMQ sockets are connected.
+	 *
+	 * Note that this is used both in the kernel's initial startup and when
+	 * reconnecting.
+	 *
+	 * @param connectionJsonPath The path to the connection JSON file
+	 */
+	private async connect(connectionJsonPath: string) {
 		// Create ZeroMQ sockets
 		this._control = new JupyterSocket('Control', zmq.socket('dealer'), this._channel);
 		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), this._channel);
@@ -114,61 +201,205 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'), this._channel);
 		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'), this._channel);
 
-		// Create a random ZeroMQ identity for the shell and stdin sockets
-		const shellId = crypto.randomBytes(16);
+		// Create the socket identity for the shell and stdin sockets
+		const shellId = Buffer.from('positron-shell', 'utf8');
 		this._shell.setZmqIdentity(shellId);
 		this._stdin.setZmqIdentity(shellId);
 
-		// Array of bound ports
-		const ports: Array<number> = [];
+		// Read a JupyterConnectionSpec from the connection file
+		const connectionSpec: JupyterConnectionSpec =
+			JSON.parse(fs.readFileSync(connectionJsonPath, 'utf8'));
 
-		// Find an available port to bind for each socket
-		ports.push(await this._control.bind(ports));
-		ports.push(await this._shell.bind(ports));
-		ports.push(await this._stdin.bind(ports));
-		ports.push(await this._iopub.bind(ports));
-		ports.push(await this._heartbeat.bind(ports));
+		// Bind the sockets to the ports specified in the connection file;
+		// returns a promise that resovles when all the sockets are connected
+		return Promise.all([
+			this._control.connect(connectionSpec.control_port),
+			this._shell.connect(connectionSpec.shell_port),
+			this._stdin.connect(connectionSpec.stdin_port),
+			this._iopub.connect(connectionSpec.iopub_port),
+			this._heartbeat.connect(connectionSpec.hb_port),
+		]);
+	}
 
-		// Save LSP port so we can rebind in the case of a restart
-		this._lspClientPort = lspClientPort;
+	/**
+	 * Connects to a kernel running in a terminal, asynchronously. The returned promise
+	 * resolves when the kernel is ready to receive messages.
+	 *
+	 * @param terminal The terminal to connect to
+	 * @param session The Jupyter session information for the kernel running in
+	 *   the terminal
+	 */
+	private async connectToTerminal(terminal: vscode.Terminal, session: JupyterSession) {
 
-		// Create connection definition
-		const conn: JupyterConnectionSpec = {
-			control_port: this._control.port(),  // eslint-disable-line
-			shell_port: this._shell.port(),      // eslint-disable-line
-			stdin_port: this._stdin.port(),      // eslint-disable-line
-			iopub_port: this._iopub.port(),      // eslint-disable-line
-			hb_port: this._heartbeat.port(),     // eslint-disable-line
-			lsp_port: lspClientPort > 0 ? lspClientPort : undefined,  //eslint-disable-line
-			signature_scheme: 'hmac-sha256',     // eslint-disable-line
-			ip: '127.0.0.1',
-			transport: 'tcp',
-			key: this._key
-		};
+		// Bind to the Jupyter session and terminal
+		this._session = session;
+		this._terminal = terminal;
 
-		// Write connection definition to a file
-		const tempdir = os.tmpdir();
-		const sep = path.sep;
-		const kerneldir = fs.mkdtempSync(`${tempdir}${sep}kernel-`);
-		this._connectionFile = path.join(kerneldir, 'connection.json');
-		fs.writeFileSync(this._connectionFile, JSON.stringify(conn));
+		// When the terminal closes, mark the kernel as exited
+		const disposable = vscode.window.onDidCloseTerminal((closedTerminal) => {
+			// Ignore close events from other terminals
+			if (closedTerminal.name !== this._spec.display_name) {
+				return;
+			}
 
+			// Ignore close events if the underlying process hasn't actually exited
+			if (terminal.exitStatus?.code === undefined) {
+				return;
+			}
+
+			if (this._status === positron.RuntimeState.Starting) {
+				// If we were starting the kernel, then we failed to start
+				this._channel.appendLine(
+					`${this._spec.display_name} failed to start; exit code: ${terminal.exitStatus?.code}`);
+			} else {
+				// Otherwise, we exited normally (but print the exit code anyway)
+				this.setStatus(positron.RuntimeState.Exited);
+				this._channel.appendLine(
+					`${this._spec.display_name} exited with code ${terminal.exitStatus?.code}`);
+			}
+
+			// Clean up listener
+			disposable.dispose();
+		});
+
+		this._channel.appendLine(
+			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
+
+		// Begin streaming the log file, if it exists. We create the log file
+		// when we start the kernel, if it has an argument that specifies a log
+		// file.
+		const logFilePath = this._session!.state.logFile;
+		if (fs.existsSync(logFilePath)) {
+			this.streamLogFileToChannel(logFilePath, this._spec.language, this._channel);
+		}
+
+		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
+		await this.connect(session.state.connectionFile);
+
+		this._heartbeat?.socket().once('message', (msg: string) => {
+
+			this._channel.appendLine('Receieved initial heartbeat: ' + msg);
+			this.setStatus(positron.RuntimeState.Ready);
+
+			const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+			this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
+			this.heartbeat();
+			this._heartbeat?.socket().on('message', (msg: string) => {
+				this.onHeartbeat(msg);
+			});
+		});
+		this._heartbeat?.socket().send(['hello']);
+
+		// Subscribe to all topics
+		this._iopub?.socket().subscribe('');
+		this._iopub?.socket().on('message', (...args: any[]) => {
+			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+			if (msg !== null) {
+				this.emitMessage(JupyterSockets.iopub, msg);
+			}
+		});
+		this._shell?.socket().on('message', (...args: any[]) => {
+			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+			if (msg !== null) {
+				this.emitMessage(JupyterSockets.shell, msg);
+			}
+		});
+		this._stdin?.socket().on('message', (...args: any[]) => {
+			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+			if (msg !== null) {
+				// If this is an input request, save the header so we can
+				// can line it up with the client's response.
+				if (msg.header.msg_type === 'input_request') {
+					this._inputRequests.set(msg.header.msg_id, msg.header);
+				}
+				this.emitMessage(JupyterSockets.stdin, msg);
+			}
+		});
+	}
+
+	/**
+	 * Starts the Jupyter kernel.
+	 */
+	public async start() {
+
+		// If a request to start the kernel arrives while we are initializing,
+		// we can't handle it right away. Defer the request to start the kernel
+		// until initialization either completes or fails.
+		if (this._status === positron.RuntimeState.Initializing) {
+			this._channel.appendLine(`Attempt to start ${this._spec.display_name} kernel while initializing; deferring.`);
+
+			// Wait for the next status change to see what action we should take next.
+			return new Promise<void>((resolve, reject) => {
+				const callback = (status: positron.RuntimeState) => {
+					if (status === positron.RuntimeState.Initializing) {
+						// Ignore status changes to initializing; we're waiting for
+						// the kernel to move on to another state.
+						return;
+					}
+
+					// Unsubscribe from status changes now that we're done waiting
+					this.off('status', callback);
+
+					if (status === positron.RuntimeState.Uninitialized) {
+						// The kernel was initializing but returned to the
+						// uninitialized state; this generally means we couldn't
+						// connect to an existing kernel, and it's safe to start a
+						// new one.
+						this._channel.appendLine(`Performing deferred start for ${this._spec.display_name} kernel`);
+						resolve(this.start());
+					} else {
+						// The kernel was initializing but has moved on to another
+						// state; resolve the promise and treat it als already
+						// started.
+						this._channel.appendLine(`Skipping deferred start for ${this._spec.display_name} kernel; already '${status}'`);
+						reject(new Error(`Kernel already '${status}'`));
+					}
+				};
+
+				this.on('status', callback);
+			});
+		}
+
+		// We can only start the kernel if it's uninitialized (never started) or
+		// fully exited; trying to start from any other state is an error.
+		if (this._status !== positron.RuntimeState.Uninitialized &&
+			this._status !== positron.RuntimeState.Exited) {
+			this._channel.appendLine(`Attempt to start ${this._spec.display_name} kernel but it's already '${this._status}'; ignoring.`);
+			return;
+		}
+
+		// Mark the kernel as initializing so we don't try to start it again
+		// during bootup
+		this.setStatus(positron.RuntimeState.Initializing);
+
+		// If we have an LSP client, allocate a port for it now
+		let lspClientPort = 0;
+		if (this._lsp) {
+			const portfinder = require('portfinder');
+			lspClientPort = await portfinder.getPortPromise();
+		}
+
+		// Create a new session; this allocates a connection file and log file
+		// and establishes available ports and sockets for the kernel to connect
+		// to.
+		const session = await createJupyterSession(lspClientPort);
+		const connnectionFile = session.state.connectionFile;
+		const logFile = session.state.logFile;
+
+		// Form the command-line arguments to the kernel process
 		const args = this._spec.argv.map((arg, _idx) => {
 			// Replace {connection_file} with the connection file path
 			if (arg === '{connection_file}') {
-				return this._connectionFile;
+				return connnectionFile;
 			}
 
 			// Replace {log_file} with the log file path. Not all kernels
 			// have this argument.
 			if (arg === '{log_file}') {
-				// Create output log file
-				this._logFile = path.join(kerneldir, 'output.log');
-
-				// Ensure the file exists
-				fs.writeFileSync(this._logFile, '');
-
-				return this._logFile;
+				// Ensure the log file exists, so we can start streaming it before the
+				// kernel starts writing to it.
+				fs.writeFileSync(logFile, '');
+				return logFile;
 			}
 
 			return arg;
@@ -180,14 +411,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const env = {};
 		Object.assign(env, process.env, this._spec.env);
 
-		// Create spawn options.
-		const options = <SpawnOptions>{
-			env: env,
-			detached: false
-			// TODO@softwarenerd - This doesn't work.
-			//shell: true
-		};
-
+		// We are now starting the kernel
 		this.setStatus(positron.RuntimeState.Starting);
 
 		this._channel.appendLine('Starting ' + this._spec.display_name + ' kernel: ' + command + '...');
@@ -195,72 +419,52 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._channel.appendLine('Environment: ' + JSON.stringify(this._spec.env));
 		}
 
-		// Create separate output channel to show standard output from the kernel
-		const decoder = new StringDecoder('utf8');
-		this._process = spawn(args[0], args.slice(1), options);
-		const output = vscode.window.createOutputChannel(
-			`${this._spec.display_name} (${this._process.pid})`);
-		this._process.stderr?.on('data', (data) => {
-			output.append(decoder.write(data));
-		});
-		this._process.stdout?.on('data', (data) => {
-			output.append(decoder.write(data));
-		});
-		this._process.on('close', (code) => {
-			this.setStatus(positron.RuntimeState.Exited);
-			this._channel.appendLine(this._spec.display_name + ' kernel exited with status ' + code);
-
-			// Remove the output channel if the kernel exited normally
-			if (code === 0) {
-				output.dispose();
-			}
-		});
-		this._process.once('spawn', () => {
-			this._channel.appendLine(`${this._spec.display_name} kernel started`);
-
-			// Begin streaming logs
-			output.appendLine(`${this._spec.display_name} kernel started (pid ${this._process!.pid})`);
-			this.streamLogFileToChannel(output);
-
-			this._heartbeat?.socket().once('message', (msg: string) => {
-
-				this._channel.appendLine('Receieved initial heartbeat: ' + msg);
-				this.setStatus(positron.RuntimeState.Ready);
-
-				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-				this._channel.appendLine(`Starting heartbeat check at ${seconds} second intervals...`);
-				this.heartbeat();
-				this._heartbeat?.socket().on('message', (msg: string) => {
-					this.onHeartbeat(msg);
-				});
-			});
-			this._heartbeat?.socket().send(['hello']);
+		// Use the VS Code terminal API to create a terminal for the kernel
+		vscode.window.createTerminal(<vscode.TerminalOptions>{
+			name: this._spec.display_name,
+			shellPath: args[0],
+			shellArgs: args.slice(1),
+			env,
+			message: `** ${this._spec.display_name} **`,
+			// TODO (jmcphers): We don't want to show the terminal to the user,
+			// but setting `hideFromUser` to `true` causes the terminal to be
+			// destroyed when the window is reloaded, which is opposite of what
+			// we want. We need a way to create a terminal that is not visible
+			// to the user, but that persists across window reloads.
+			hideFromUser: false,
+			isTransient: false
 		});
 
-		// Subscribe to all topics
-		this._iopub.socket().subscribe('');
-		this._iopub.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.iopub, msg);
-			}
-		});
-		this._shell.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.shell, msg);
-			}
-		});
-		this._stdin.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._key, this._channel);
-			if (msg !== null) {
-				// If this is an input request, save the header so we can
-				// can line it up with the client's response.
-				if (msg.header.msg_type === 'input_request') {
-					this._inputRequests.set(msg.header.msg_id, msg.header);
+		// Wait for the terminal to open
+		return new Promise<void>((resolve, reject) => {
+			const disposable = vscode.window.onDidOpenTerminal((openedTerminal) => {
+				if (openedTerminal.name === this._spec.display_name) {
+					// Read the process ID and connect to the kernel when it's ready
+					openedTerminal.processId.then((pid) => {
+						if (pid) {
+							// Save the process ID in the session state
+							session.state.processId = pid;
+
+							// Write the session state to workspace storage
+							this._channel.appendLine(
+								`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
+							this._context.workspaceState.update(this._runtimeId, session.state);
+
+							// Clean up event listener now that we've located the
+							// correct terminal
+							disposable.dispose();
+
+							// Connect to the kernel running in the terminal
+							this.connectToTerminal(openedTerminal, session).then(() => {
+								resolve();
+							}).catch((err) => {
+								reject(err);
+							});
+						}
+						// Ignore terminals that don't have a process ID
+					});
 				}
-				this.emitMessage(JupyterSockets.stdin, msg);
-			}
+			});
 		});
 	}
 
@@ -377,9 +581,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Start the kernel again once the process finishes shutting down
 		this._process?.once('exit', () => {
 			this._channel.appendLine(`Waiting for '${this._spec.display_name}' to restart...`);
-			// Start the kernel again, rebinding to the LSP client if we have
-			// one
-			this.start(this._lspClientPort ?? 0);
+			this.start();
 		});
 	}
 
@@ -529,28 +731,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.send(packet.msgId, packet.msgType, socket, packet.message);
 	}
 
+	/**
+	 * Dispose the kernel connection. Note that this does not dispose the
+	 * session or the kernel itself; it remains running in a terminal.
+	 */
 	public dispose() {
-		// If kernel isn't already shut down (or shutting down), shut it down. Note that
-		// this must be done before disposing of the sockets, as we need them to send
-		// the shutdown request.
-		if (this.status() !== positron.RuntimeState.Exiting &&
-			this.status() !== positron.RuntimeState.Exited) {
-			this._channel.appendLine('Shutting down ' + this._spec.display_name + ' kernel');
-			this.shutdown(false);
-		}
-
 		// Clean up file watcher for log file
 		if (this._logTail) {
-			this._logTail.close();
+			this._logTail.unwatch();
 		}
 
-		// Clean up connection and log files
-		if (this._connectionFile) {
-			fs.rmSync(this._connectionFile);
-		}
-		if (this._logFile) {
-			fs.rmSync(this._logFile);
-		}
+		// Dispose heartbeat timers
+		this.disposeHeartbeatTimers();
 
 		// Close sockets
 		this.disposeAllSockets();
@@ -573,13 +765,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._iopub = null;
 	}
 
+	private disposeHeartbeatTimers() {
+		if (this._heartbeatTimer) {
+			clearTimeout(this._heartbeatTimer);
+			this._heartbeatTimer = null;
+		}
+		if (this._nextHeartbeat) {
+			clearTimeout(this._nextHeartbeat);
+			this._nextHeartbeat = null;
+		}
+	}
+
 	private generateMessageHeader(id: string, type: string): JupyterMessageHeader {
 		return {
 			msg_id: id,            // eslint-disable-line
 			msg_type: type,        // eslint-disable-line
 			version: '5.0',
 			date: (new Date()).toISOString(),
-			session: this._sessionId,
+			session: this._session!.sessionId,
 			username: os.userInfo().username
 		};
 	}
@@ -616,7 +819,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 		this._channel.appendLine(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
 		return new Promise<void>((resolve, reject) => {
-			dest.socket().send(serializeJupyterMessage(msg, this._key), 0, (err) => {
+			dest.socket().send(serializeJupyterMessage(msg, this._session!.key), 0, (err) => {
 				if (err) {
 					this._channel.appendLine(`SEND ${msg.header.msg_type}: ERR: ${err}`);
 					reject(err);
@@ -663,7 +866,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Schedule the next heartbeat at the configured interval
 		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-		setTimeout(() => {
+		this._nextHeartbeat = setTimeout(() => {
 			this.heartbeat();
 		}, seconds * 1000);
 	}
@@ -685,37 +888,55 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private onStatusChange(status: positron.RuntimeState) {
 		if (status === positron.RuntimeState.Exited) {
-			// Stop checking for heartbeats
-			if (this._heartbeatTimer) {
-				clearTimeout(this._heartbeatTimer);
-				this._heartbeatTimer = null;
+			// Ensure we don't try to reconnect to this kernel
+			this._context.workspaceState.update(this._runtimeId, undefined);
+
+			// Clean up the session files (logs, connection files, etc.)
+			if (this._session) {
+				this._session.dispose();
 			}
 
-			// Dispose all sockets so they don't try to connect to the
-			// now-defunct kernel
-			this.disposeAllSockets();
+			// If the terminal's still open, close it.
+			if (this._terminal && this._terminal.exitStatus === undefined) {
+				this._terminal.dispose();
+			}
+
+			// Dispose the remainder of the connection state
+			this.dispose();
+		} else if (status === positron.RuntimeState.Ready) {
+			// When the kernel becomes ready, start the LSP server if it's configured
+			if (this._lsp && this._session) {
+				const port = this._session.spec.lsp_port;
+				if (port && port > 0) {
+					this._channel.appendLine(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
+					this._lsp(port).then(() => {
+						this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
+					});
+				} else {
+					this._channel.appendLine(`Warning: ${this._spec.display_name} has an LSP but no allocated port; not starting LSP`);
+				}
+			}
 		}
 	}
 
 	/**
 	 * Streams a log file to the output channel
 	 */
-	private streamLogFileToChannel(output: vscode.OutputChannel) {
-		output.appendLine('Streaming log file: ' + this._logFile);
+	private streamLogFileToChannel(logFilePath: string, prefix: string, output: vscode.OutputChannel) {
+		output.appendLine('Streaming log file: ' + logFilePath);
 		try {
-			this._logTail = new Tail(this._logFile!,
-				{ fromBeginning: true, useWatchFile: true });
+			this._logTail = new Tail(logFilePath, { fromBeginning: true, useWatchFile: true });
 		} catch (err) {
-			this._channel.appendLine(`Error streaming log file ${this._logFile}: ${err}`);
+			this._channel.appendLine(`Error streaming log file ${logFilePath}: ${err}`);
 			return;
 		}
 
 		// Establish a listener for new lines in the log file
 		this._logTail.on('line', function (data: string) {
-			output.appendLine(data);
+			output.appendLine(`[${prefix}] ${data}`);
 		});
 		this._logTail.on('error', function (error: string) {
-			output.appendLine(error);
+			output.appendLine(`[${prefix}] ${error}`);
 		});
 
 		// Start watching the log file. This streams output until the kernel is

@@ -101,7 +101,6 @@
 		"vsce": "^2.11.0"
 	},
 	"dependencies": {
-		"portfinder": "^1.0.28",
 		"vscode-languageclient": "^7.0.0"
 	},
 	"repository": {
