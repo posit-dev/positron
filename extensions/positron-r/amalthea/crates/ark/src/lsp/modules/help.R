@@ -7,10 +7,11 @@
 
 options(help_type = "html")
 
-# Start the R help server on startup
-suppressMessages(tools::startDynamicHelp(start = TRUE))
+# Start the R help server on startup. We use 'NA' here to support
+# hot-reloading this file.
+suppressMessages(tools::startDynamicHelp(start = NA))
 
-.rs.help.getHtmlHelpContents <- function(topic, package = "") {
+.ps.help.getHtmlHelpContents <- function(topic, package = "") {
 
   # If a package name is encoded into 'topic', split that here.
   if (grepl(":{2,3}", topic)) {
@@ -45,3 +46,4 @@ suppressMessages(tools::startDynamicHelp(start = TRUE))
   paste(contents, collapse = "\n")
 
 }
+
