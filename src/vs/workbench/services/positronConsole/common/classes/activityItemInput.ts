@@ -11,7 +11,10 @@ import { ActivityItem } from 'vs/workbench/services/positronConsole/common/class
 export class ActivityItemInput extends ActivityItem {
 	//#region Public Properties
 
-	public readonly lines: readonly Line[];
+	/**
+	 * Gets the code lines.
+	 */
+	public readonly codeLines: readonly Line[];
 
 	//#endregion Public Properties
 
@@ -30,7 +33,7 @@ export class ActivityItemInput extends ActivityItem {
 		when: Date,
 		public readonly code: string) {
 		super(id, parentId, when);
-		this.lines = lineSplitter(code);
+		this.codeLines = lineSplitter(code);
 	}
 
 	//#endregion Constructor

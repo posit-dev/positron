@@ -3,5 +3,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 .activity-error {
-	padding-left: 8px;
+	color: red;
+	padding-left: 14px;
+}
+
+.activity-error .message-lines {
+	white-space: pre;
+	font-size: 12px; /* TODO@softwarenerd - must find a way to get this at runtime */
+	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
+}
+
+.activity-error .traceback-lines {
+	border-top: 1px solid red;
+	white-space: pre;
+	font-size: 12px; /* TODO@softwarenerd - must find a way to get this at runtime */
+	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
 }

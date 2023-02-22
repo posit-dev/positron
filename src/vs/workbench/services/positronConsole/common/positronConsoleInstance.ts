@@ -249,6 +249,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * Clears the console.
 	 */
 	clearConsole(): void {
+		this._runtimeItems = [];
+		this._runtimeItemActivities.clear();
+		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
 		this._onDidClearConsoleEmitter.fire();
 	}
 
