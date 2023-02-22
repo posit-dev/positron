@@ -3,7 +3,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawnSync } from 'child_process';
-import { platform } from 'os';
+import { arch, platform } from 'os';
+import { env } from 'process';
+
+// Make sure that zmq produces x86 / arm64 builds where appropriate.
+// Note that the build pipeline sets 'npm_config_arch' to configure
+// the build architecture.
+if (platform() === 'darwin') {
+
+	let configArch = env['npm_config_arch'] ?? arch();
+	if (configArch === 'x64') {
+		configArch = 'x86_64';
+	}
+
+	env['ARCH'] = configArch;
+	env['CMAKE_OSX_ARCHITECTURES'] = configArch;
+
+}
 
 let zeromqVersion = 'zeromq@6.0.0-beta.16';
 
