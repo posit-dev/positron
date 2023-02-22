@@ -347,7 +347,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						// connect to an existing kernel, and it's safe to start a
 						// new one.
 						this._channel.appendLine(`Performing deferred start for ${this._spec.display_name} kernel`);
-						resolve(this.start());
+
+						// Defer the start until the next tick so we don't recurse
+						setTimeout(() => {
+							resolve(this.start());
+						}, 0);
 					} else {
 						// The kernel was initializing but has moved on to another
 						// state; resolve the promise and treat it als already
@@ -479,8 +483,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Create the message to send to the kernel
 		const msg: JupyterCommOpen = {
-			target_name: 'Language Server Protocol',  // eslint-disable-line
-			comm_id: 'C8C5265A-028C-4A3E-BA3F-D50A28E2B8E4',  // eslint-disable-line
+			target_name: 'lsp',
+			comm_id: 'C8C5265A-028C-4A3E-BA3F-D50A28E2B8E4',
 			data: {
 				client_address: clientAddress,  // eslint-disable-line
 			}
