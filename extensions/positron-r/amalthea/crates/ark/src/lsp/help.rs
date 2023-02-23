@@ -39,7 +39,7 @@ impl RHtmlHelp {
         let package = package.map(|s| s.replace("package:", ""));
 
         // get help document
-        let contents = RFunction::from(".rs.help.getHtmlHelpContents")
+        let contents = RFunction::from(".ps.help.getHtmlHelpContents")
             .param("topic", topic)
             .param("package", package)
             .call()?;

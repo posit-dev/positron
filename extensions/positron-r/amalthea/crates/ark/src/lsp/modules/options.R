@@ -13,6 +13,10 @@ options(browser = function(url) {
     .Call("ps_browse_url", as.character(url), PACKAGE = "(embedding)")
 })
 
+options(device = function() {
+    .Call("ps_graphics_device", PACKAGE = "(embedding)")
+})
+
 # Set cran mirror
 local({
     repos <- getOption("repos")

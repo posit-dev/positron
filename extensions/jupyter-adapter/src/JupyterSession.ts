@@ -56,9 +56,19 @@ export class JupyterSession implements vscode.Disposable {
 	get sessionId(): string {
 		return this.state.sessionId;
 	}
+
+	get portsInUse(): Array<number> {
+		return [
+			this.spec.control_port,
+			this.spec.shell_port,
+			this.spec.stdin_port,
+			this.spec.iopub_port,
+			this.spec.hb_port
+		];
+	}
 }
 
-export async function createJupyterSession(lspClientPort: number): Promise<JupyterSession> {
+export async function createJupyterSession(): Promise<JupyterSession> {
 	// Array of bound ports
 	const ports: Array<number> = [];
 	const maxTries = 25;
@@ -70,7 +80,6 @@ export async function createJupyterSession(lspClientPort: number): Promise<Jupyt
 		stdin_port: await findAvailablePort(ports, maxTries),
 		iopub_port: await findAvailablePort(ports, maxTries),
 		hb_port: await findAvailablePort(ports, maxTries),
-		lsp_port: lspClientPort > 0 ? lspClientPort : undefined,
 		signature_scheme: 'hmac-sha256',
 		ip: '127.0.0.1',
 		transport: 'tcp',
