@@ -8,6 +8,7 @@
 pub mod eval;
 pub mod error;
 pub mod exec;
+pub mod interrupts;
 pub mod lock;
 pub mod object;
 pub mod protect;
