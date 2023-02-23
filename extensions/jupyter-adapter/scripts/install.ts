@@ -21,17 +21,22 @@ if (platform() === 'darwin') {
 
 }
 
-let zeromqVersion = 'zeromq@6.0.0-beta.16';
-
-if (platform() === 'darwin') {
-	zeromqVersion = [
-		'kevinushey/zeromq.js',
-		'fa6b52f85293d9fe14958d18f031d65520afd272'
-	].join('#');
-}
+// Use an older version of zeromq on macOS, to avoid issues with
+// linking to libsodium. There are patches available on GitHub:
+//
+// https://github.com/kevinushey/zeromq.js
+//
+// but it seems like npm isn't smart enough to cache node dependencies
+// installed from GitHub, so one ends up paying the installation cost
+// on every invocation in that case, which is no fun.
+const zeromqVersion = platform() === 'darwin'
+	? 'zeromq@6.0.0-beta.6'
+	: 'zeromq@6.0.0-beta.16';
 
 const args = [
 	'install',
+	'--no-audit',
+	'--no-fund',
 	'--no-save',
 	'--no-package-lock',
 	zeromqVersion,
