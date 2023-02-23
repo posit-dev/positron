@@ -7,6 +7,12 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 
 /**
+ * Constants.
+ */
+const ESC = '\x1b';		// ESC
+const CSI = ESC + '[';	// CSI
+
+/**
  * PositronZedLanguageRuntime.
  */
 export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
@@ -18,9 +24,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	private readonly _helpLines = [
 		'Zed help:',
 		'',
-		'help        - Shows help',
 		'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 		'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+		'help        - Shows this help',
+		'progress    - Renders a progress bar',
 		'version     - Shows the Zed version'
 	].join('\n');
 
@@ -140,6 +147,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.simulateSuccessfulCodeExecution(id, code, this._helpLines);
 				break;
 
+			case 'progress':
+				this.simulateProgressBar(id, code);
+				break;
+
 			case 'version':
 				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})\n`);
 				break;
@@ -232,6 +243,37 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#endregion LanguageRuntime Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Simulates a progress bar.
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 */
+	private simulateProgressBar(parentId: string, code: string) {
+		// Start the progress bar simulation.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this.simulateOutputMessage(parentId, 'Starting long running task');
+
+		// After a tingle of delay, output the progress bar.
+		setTimeout(() => {
+			// Simulate the progress bar in 100 50ms intervals.
+			let progress = 0;
+			const interval = setInterval(() => {
+				// Simulate progress - (need to add ANSI escapes)
+				this.simulateOutputMessage(parentId, `Progress ${++progress}%`);
+
+				// When the progress bar reaches 100%, clear the interval.
+				if (progress === 100) {
+					clearInterval(interval);
+				}
+			}, 50);
+
+			// End the progress bar.
+			this.simulateOutputMessage(parentId, 'Long running task is complete');
+			this.simulateIdleState(parentId);
+		}, 500);
+	}
 
 	/**
 	 * Simulates successful code execution.
