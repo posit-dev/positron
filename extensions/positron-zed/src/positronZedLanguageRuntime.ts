@@ -132,6 +132,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Process the "code".
 		switch (code) {
+			case '':
+				this.simulateSuccessfulCodeExecution(id, code);
+				break;
+
 			case 'help':
 				this.simulateSuccessfulCodeExecution(id, code, this._helpLines);
 				break;
@@ -233,13 +237,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Simulates successful code execution.
 	 * @param parentId The parent ID.
 	 * @param code The code.
-	 * @param output The output from the code.
+	 * @param output The optional output from the code.
 	 */
-	private simulateSuccessfulCodeExecution(parentId: string, code: string, output: string) {
+	private simulateSuccessfulCodeExecution(parentId: string, code: string, output: string | undefined = undefined) {
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
-		this._history.push([code, output]);
-		this.simulateOutputMessage(parentId, output);
+		this._history.push([code, output || '']);
+		if (output) {
+			this.simulateOutputMessage(parentId, output);
+		}
 		this.simulateIdleState(parentId);
 	}
 
@@ -318,7 +324,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: {
 				'text/plain': output
-			} as any,
+			} as Record<string, string>,
 		} as positron.LanguageRuntimeOutput);
 	}
 
