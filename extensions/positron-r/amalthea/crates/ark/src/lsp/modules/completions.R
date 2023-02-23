@@ -5,7 +5,7 @@
 #
 #
 
-.rs.formalNames <- function(value) {
+.ps.formalNames <- function(value) {
     names(formals(args(value)))
 }
 

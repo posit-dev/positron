@@ -759,7 +759,7 @@ unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str
 
     if Rf_isFunction(*value) != 0 {
 
-        let strings = RFunction::from(".rs.formalNames")
+        let strings = RFunction::from(".ps.formalNames")
             .add(*value)
             .call()?
             .to::<Vec<String>>()?;

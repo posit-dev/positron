@@ -8,7 +8,6 @@
 use amalthea::events::{PositronEvent, ShowMessageEvent};
 use harp::object::RObject;
 use libR_sys::*;
-use std::os::raw::c_char;
 use stdext::local;
 use stdext::unwrap;
 
@@ -27,7 +26,10 @@ pub unsafe extern "C" fn ps_show_message(message: SEXP) -> SEXP {
         let event = PositronEvent::ShowMessage(ShowMessageEvent { message });
         let event = Request::DeliverEvent(event);
 
-        let shell_request_tx = SHELL_REQUEST_TX.get().unwrap();
+        let shell_request_tx = SHELL_REQUEST_TX.lock().unwrap();
+        let shell_request_tx = unwrap!(shell_request_tx.as_ref(), Err(error) => {
+             anyhow::bail!("Error getting shell request channel: {}", error);
+        });
         let status = unwrap!(shell_request_tx.send(event), Err(error) => {
             anyhow::bail!("Error sending request: {}", error);
         });

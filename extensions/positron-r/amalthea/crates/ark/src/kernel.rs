@@ -157,7 +157,7 @@ impl Kernel {
     /// Converts a data frame to HTML
     pub fn to_html(frame: SEXP) -> Result<String> {
         unsafe {
-            let result = RFunction::from(".rs.format.toHtml")
+            let result = RFunction::from(".ps.format.toHtml")
                 .add(frame)
                 .call()?
                 .to::<String>()?;

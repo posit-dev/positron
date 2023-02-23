@@ -34,6 +34,7 @@ use stdext::*;
 
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
+use crate::plots::graphics_device;
 use crate::request::Request;
 
 extern "C" {
@@ -72,7 +73,7 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 /// Ensures that the kernel is only ever initialized once
 static INIT: Once = Once::new();
 
-unsafe fn process_events() {
+pub unsafe fn process_events() {
 
     // Process regular R events.
     R_ProcessEvents();
@@ -91,6 +92,10 @@ unsafe fn process_events() {
         R_runHandlers(R_InputHandlers, fdset);
         fdset = R_checkActivity(0, 1);
     }
+
+    // Render pending plots.
+    graphics_device::on_process_events();
+
 }
 
 fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {

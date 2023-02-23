@@ -27,7 +27,7 @@ use crate::stream_capture::StreamCapture;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use crossbeam::channel::bounded;
-use log::{warn, info};
+use log::info;
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
 /// execution and messaging threads.
@@ -92,7 +92,8 @@ impl Kernel {
 
         let shell_clone = shell_handler.clone();
         let iopub_tx_clone = self.create_iopub_tx();
-        thread::spawn(move || Self::shell_thread(shell_socket, iopub_tx_clone, shell_clone));
+        let lsp_handler_clone = lsp_handler.clone();
+        thread::spawn(move || Self::shell_thread(shell_socket, iopub_tx_clone, shell_clone, lsp_handler_clone));
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to
         // the client. IOPub only broadcasts messages, so it listens to other
@@ -150,16 +151,6 @@ impl Kernel {
             self.connection.endpoint(self.connection.control_port),
         )?;
 
-        // If we have an LSP handler, start it
-        if let Some(lsp_handler) = lsp_handler {
-            if let Some(lsp_port) = self.connection.lsp_port {
-                let client_address = format!("{}:{}", self.connection.ip, lsp_port);
-                lsp_handler.lock().unwrap().start(client_address)?;
-            } else {
-                warn!("LSP handler supplied, but LSP port not specified in connection file. Not starting LSP server.");
-            }
-        }
-
         // TODO: thread/join thread? Exiting this thread will cause the whole
         // kernel to exit.
         Self::control_thread(control_socket, control_handler);
@@ -183,8 +174,9 @@ impl Kernel {
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
+        lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Result<(), Error> {
-        let mut shell = Shell::new(socket, iopub_tx.clone(), shell_handler);
+        let mut shell = Shell::new(socket, iopub_tx.clone(), shell_handler, lsp_handler);
         shell.listen();
         Ok(())
     }

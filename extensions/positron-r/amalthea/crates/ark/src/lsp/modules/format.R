@@ -5,6 +5,6 @@
 #
 #
 
-.rs.format.toHtml <- function(data) {
+.ps.format.toHtml <- function(data) {
     "<table><tr><td>Hello, world!</td></tr></table>"
 }

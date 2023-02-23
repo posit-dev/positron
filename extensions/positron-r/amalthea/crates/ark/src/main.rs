@@ -23,6 +23,7 @@ mod interface;
 mod kernel;
 mod logger;
 mod lsp;
+mod plots;
 mod request;
 mod shell;
 mod version;
