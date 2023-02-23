@@ -112,6 +112,7 @@ dependencies = [
  "libc",
  "log",
  "nix 0.24.2",
+ "once_cell",
  "parking_lot",
  "regex",
  "ropey",
