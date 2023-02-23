@@ -13,8 +13,43 @@ import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
-import { ILanguageRuntime, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
+import { ILanguageRuntime, ILanguageRuntimeMessage, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+
+/**
+ * Formats a timestamp.
+ * @param timestamp The timestamp.
+ * @returns The formatted timestamp.
+ */
+const formatTimestamp = (timestamp: Date) => {
+	const toTwoDigits = (v: number) => v < 10 ? `0${v}` : v;
+	const toFourDigits = (v: number) => v < 10 ? `000${v}` : v < 1000 ? `0${v}` : v;
+	return `${toTwoDigits(timestamp.getHours())}:${toTwoDigits(timestamp.getMinutes())}:${toTwoDigits(timestamp.getSeconds())}.${toFourDigits(timestamp.getMilliseconds())}`;
+};
+
+/**
+ * Formats callback trace.
+ * @param callback The callback name.
+ * @param languageRuntimeMessage The ILanguageRuntimeMessage.
+ * @returns The formatted callback trace.
+ */
+const formatCallbackTrace = (callback: string, languageRuntimeMessage: ILanguageRuntimeMessage) =>
+	`${callback} (ID: ${languageRuntimeMessage.id} Parent ID: ${languageRuntimeMessage.parent_id}) When: ${formatTimestamp(new Date(languageRuntimeMessage.when))}`;
+
+/**
+ * Formats a traceback.
+ * @param traceback The traceback.
+ * @returns The formatted traceback.
+ */
+const formatTraceback = (traceback: string[]) => {
+	let result = '\nTraceback:';
+	if (!traceback.length) {
+		result += ' None';
+	} else {
+		traceback.forEach((tracebackEntry, index) => result += `\n[${index + 1}]: ${tracebackEntry}`);
+	}
+	return result;
+};
 
 /**
 * PositronConsoleInstance class.
@@ -89,10 +124,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 		/**
 		 * Adds a trace runtime item.
-		 * @param text The text.
+		 * @param trace The text.
 		 */
-		const addRuntimeItemTrace = (text: string) => {
-			addRuntimeItem(new RuntimeItemTrace(generateUuid(), text));
+		const addRuntimeItemTrace = (trace: string) => {
+			addRuntimeItem(new RuntimeItemTrace(generateUuid(), trace));
 		};
 
 		const addUpdateRuntimeItemActivity = (parentId: string, activityItem: ActivityItem) => {
@@ -142,7 +177,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Add the onDidReceiveRuntimeMessageInput event handler.
 		this._register(runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Add trace item.
-			addRuntimeItemTrace(`onDidReceiveRuntimeMessageInput (ID: ${languageRuntimeMessageInput.id} Parent ID: ${languageRuntimeMessageInput.parent_id})`);
+			addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
+				'\nCode:\n' +
+				languageRuntimeMessageInput.code
+			);
 
 			// Add or update the activity event.
 			addUpdateRuntimeItemActivity(languageRuntimeMessageInput.parent_id, new ActivityItemInput(
@@ -156,7 +195,13 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Add the onDidReceiveRuntimeMessageError event handler.
 		this._register(runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
 			// Add trace item.
-			addRuntimeItemTrace(`onDidReceiveRuntimeMessageError (ID: ${languageRuntimeMessageError.id} Parent ID: ${languageRuntimeMessageError.parent_id})`);
+			addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
+				`\nName: ${languageRuntimeMessageError.name}` +
+				'\nMessage:\n' +
+				languageRuntimeMessageError.message +
+				formatTraceback(languageRuntimeMessageError.traceback)
+			);
 
 			// Add or update the activity event.
 			addUpdateRuntimeItemActivity(languageRuntimeMessageError.parent_id, new ActivityItemError(
@@ -178,7 +223,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Add the onDidReceiveRuntimeMessageState event handler.
 		this._register(runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
 			// Add trace event.
-			addRuntimeItemTrace(`onDidReceiveRuntimeMessageState (State: ${languageRuntimeMessageState.state} ID: ${languageRuntimeMessageState.id} Parent ID: ${languageRuntimeMessageState.parent_id})`);
+			addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
+				`\nState: ${languageRuntimeMessageState.state}`);
 
 			switch (languageRuntimeMessageState.state) {
 				case RuntimeOnlineState.Starting: {

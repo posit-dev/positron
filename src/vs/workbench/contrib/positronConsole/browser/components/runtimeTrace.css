@@ -9,9 +9,8 @@
 	margin-bottom: 1px;
 	line-height: normal;
 	background: #d2d2d2;
-}
-
-.runtime-trace-header {
 	padding-left: 8px;
 	padding-right: 8px;
+	font-size: 10px; /* TODO@softwarenerd - must find a way to get this at runtime */
+	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
 }
