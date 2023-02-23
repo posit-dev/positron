@@ -162,7 +162,6 @@ pub fn initialize(file: Option<&str>) {
     ONCE.call_once(|| {
 
         // Initialize the log level, using RUST_LOG.
-        log::set_max_level(log::LevelFilter::Info);
         let level = std::env::var("RUST_LOG").unwrap_or("info".into());
         match log::LevelFilter::from_str(level.as_str()) {
             Ok(level) => log::set_max_level(level),
