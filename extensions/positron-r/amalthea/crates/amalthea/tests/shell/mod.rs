@@ -45,7 +45,7 @@ pub struct TestComm {
 }
 
 impl CommChannel for TestComm {
-    fn send_request(&self, _data: &serde_json::Value) {
+    fn handle_request(&self, _data: &serde_json::Value) {
         // No-op for test comm
     }
 

@@ -55,7 +55,7 @@ where F: Fn(Value) -> () {
 
 impl<F> CommChannel for LspComm<F>
 where F: Fn(Value) -> () + Send {
-    fn send_request(&self, _data: &Value) {
+    fn handle_request(&self, _data: &Value) {
         // Not implemented; LSP messages are delivered directly to the LSP
         // handler via TCP, not proxied here.
     }

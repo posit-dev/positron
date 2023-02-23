@@ -410,7 +410,7 @@ impl Shell {
                 return Err(Error::UnknownCommId(req.content.comm_id));
             }
         };
-        comm.send_request(&req.content.data);
+        comm.handle_request(&req.content.data);
         Ok(())
     }
 

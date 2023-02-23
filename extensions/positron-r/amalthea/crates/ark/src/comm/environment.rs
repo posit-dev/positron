@@ -12,8 +12,8 @@ pub struct EnvironmentInstance {
 }
 
 impl CommChannel for EnvironmentInstance {
-    fn send_request(&self, data: &Value) {
-        println!("EnvironmentComm::send_request - data: {:?}", data);
+    fn handle_request(&self, data: &Value) {
+        println!("EnvironmentComm::handle_request - data: {:?}", data);
     }
 
     fn target_name(&self) -> String {

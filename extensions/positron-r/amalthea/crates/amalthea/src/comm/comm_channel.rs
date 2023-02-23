@@ -10,7 +10,7 @@ use strum_macros::EnumString;
 
 /// Rust trait that defines a custom Jupyter communication channel
 pub trait CommChannel: Send {
-    fn send_request(&self, data: &Value);
+    fn handle_request(&self, data: &Value);
     fn target_name(&self) -> String;
     fn close(&self);
 }
