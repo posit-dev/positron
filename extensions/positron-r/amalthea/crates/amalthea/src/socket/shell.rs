@@ -36,7 +36,9 @@ use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
+use log::info;
 use log::{debug, trace, warn};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -374,7 +376,9 @@ impl Shell {
         }
     }
 
-    /// Handle a request to send a comm message
+    /// Deliver a request from the front end to a comm. Specifically, this is a
+    /// request from the front end to deliver a message to a backend, often as
+    /// the request side of a request/response pair.
     fn handle_comm_msg(
         &self,
         _handler: &dyn ShellHandler,
@@ -391,6 +395,36 @@ impl Shell {
         };
         comm.send_request(&req.content.data);
         Ok(())
+    }
+
+    /// Emit a message from a back end of a comm to the front end, often the
+    /// response side of a request/response pair.
+    fn emit_comm_msg(
+        &self,
+        comm_id: String,
+        data: Value) -> Result<(), Error>
+    {
+        // Look for the comm ID in our open comms; we should not deliver a
+        // message from a comm that isn't open.
+        let comm = match self.open_comms.get(&comm_id) {
+            Some(comm) => comm,
+            None => {
+                warn!("Comm {} requested to send a message to the front end, but it is not open. Message: {:?}", comm_id, data);
+                return Err(Error::UnknownCommId(comm_id));
+            }
+        };
+        info!("Sending message to front end from '{}' comm {}: {:?}", comm.target_name(), comm_id, data);
+
+        // Create the message and send it. Note that we always set the parent
+        // header to None here. This is appropriate for messages that aren't
+        // part of a request/response pair, but we should consider adding some
+        // accounting so we can properly set the parent header when the message
+        // *is* part of a request/response pair. This would allow the front end
+        // to deterministically pair up requests and responses for RPCs that
+        // tunnel over the comm channel.
+        let comm_msg = CommMsg { comm_id, data };
+        let msg = JupyterMessage::create(comm_msg, None, &self.socket.session);
+        msg.send(&self.socket)
     }
 
     /// Handle a request to close a comm
