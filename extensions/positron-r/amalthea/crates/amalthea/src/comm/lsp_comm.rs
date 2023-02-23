@@ -22,18 +22,22 @@ pub struct StartLsp {
     pub client_address: String,
 }
 
-pub struct LspComm {
-    handler: Arc<Mutex<dyn LspHandler>>
+pub struct LspComm<F>
+where F: Fn(Value) -> Result<(), Error> {
+    handler: Arc<Mutex<dyn LspHandler>>,
+    msg_emitter: F,
 }
 
 /**
  * LspComm makes an LSP look like a CommChannel; it's used to start the LSP and
  * track the server thread.
  */
-impl LspComm {
-    pub fn new(handler: Arc<Mutex<dyn LspHandler>>) -> LspComm {
+impl<F> LspComm<F>
+where F: Fn(Value) -> Result<(), Error> {
+    pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_emitter: F) -> LspComm<F> {
         LspComm {
-            handler
+            handler,
+            msg_emitter,
         }
     }
 
@@ -44,7 +48,8 @@ impl LspComm {
     }
 }
 
-impl CommChannel for LspComm {
+impl<F> CommChannel for LspComm<F>
+where F: Fn(Value) -> Result<(), Error> + Send{
     fn send_request(&self, _data: &Value) {
         // Not implemented; LSP messages are delivered directly to the LSP
         // handler via TCP, not proxied here.

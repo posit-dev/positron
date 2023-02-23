@@ -301,6 +301,11 @@ impl Shell {
         let data_str = serde_json::to_string(&req.content.data)
             .map_err(|err| Error::InvalidCommMessage(req.content.target_name.clone(), "unparseable".to_string(), err.to_string()))?;
 
+        let comm_id = req.content.comm_id.clone();
+        let emitter = | val: Value| -> Result<(), Error> {
+            self.emit_comm_msg(comm_id, val)
+        };
+
         let comm_channel = match comm {
             // If this is the special LSP comm, start the LSP server and create
             // a comm that wraps it
@@ -315,7 +320,7 @@ impl Shell {
 
                     // Create the new comm wrapper channel for the LSP and start
                     // the LSP server in a separate thread
-                    let lsp_comm = LspComm::new(handler);
+                    let lsp_comm = LspComm::new(handler, emitter);
                     lsp_comm.start(&start_lsp)?;
 
                     // Return the new comm channel
