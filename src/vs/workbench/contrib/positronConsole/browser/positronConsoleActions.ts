@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
@@ -16,9 +16,20 @@ import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegis
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { PositronConsoleCommandId, POSITRON_CONSOLE_ACTION_CATEGORY } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+
+export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
+
+export const enum PositronConsoleCommandId {
+	New = 'workbench.action.positronConsole.new',
+	Open = 'workbench.action.positronConsole.open',
+	ClearConsole = 'workbench.action.positronConsole.clearConsole',
+	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
+	ExecuteCode = 'workbench.action.positronConsole.executeCode'
+}
+
+export const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
 
 /**
  * Registers Positron console actions.

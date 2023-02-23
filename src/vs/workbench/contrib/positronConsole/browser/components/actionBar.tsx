@@ -15,6 +15,7 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
@@ -25,9 +26,9 @@ const kPaddingLeft = 14;
 const kPaddingRight = 8;
 
 /**
- * ConsoleActionBarProps interface.
+ * ActionBarProps interface.
  */
-export interface ConsoleActionBarProps extends PositronConsoleServices {
+export interface ActionBarProps extends PositronConsoleServices {
 	// Services.
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
@@ -38,13 +39,18 @@ export interface ConsoleActionBarProps extends PositronConsoleServices {
 }
 
 /**
- * ConsoleActionBar component.
- * @param props A ConsoleActionBarProps that contains the component properties.
+ * ActionBar component.
+ * @param props An ActionBarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>) => {
+export const ActionBar = (props: PropsWithChildren<ActionBarProps>) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+
+	// Toggle trace handler.
+	const toggleTraceHandler = async () => {
+		positronConsoleContext.currentPositronConsoleInstance?.toggleTrace();
+	};
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
@@ -60,6 +66,8 @@ export const ConsoleActionBar = (props: PropsWithChildren<ConsoleActionBarProps>
 						<ConsoleReplMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
+						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle Trace")} onClick={toggleTraceHandler} />
+						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-clean' align='right' tooltip={localize('positronClearConsole', "Clear console")} onClick={clearConsoleHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>

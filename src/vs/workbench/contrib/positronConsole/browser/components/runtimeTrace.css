@@ -1,8 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.console-repl-error {
+.runtime-trace {
+	color: #606060;
+	padding: 4px 0;
+	font-size: 10px;
+	margin-bottom: 1px;
+	line-height: normal;
+	background: #d2d2d2;
+}
+
+.runtime-trace-header {
 	padding-left: 8px;
 	padding-right: 8px;
 }

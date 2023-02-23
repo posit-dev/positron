@@ -8,16 +8,9 @@ import { Registry } from 'vs/platform/registry/common/platform';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
-import { PositronConsoleService } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleService';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/positronConsoleService';
-import { registerPositronConsoleActions } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleActions';
-import { PositronConsoleCommandId, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/contrib/positronConsole/common/positronConsole';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
-
-// Register the Positron console service.
-registerSingleton(IPositronConsoleService, PositronConsoleService, InstantiationType.Delayed);
+import { PositronConsoleCommandId, POSITRON_CONSOLE_VIEW_ID, registerPositronConsoleActions } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleActions';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon('positron-console-view-icon', Codicon.positronConsoleView, nls.localize('positronConsoleViewIcon', 'View icon of the Positron console view.'));

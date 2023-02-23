@@ -13,6 +13,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#region Private Properties
 
 	/**
+	 * Gets the help lines.
+	 */
+	private readonly _helpLines = [
+		'Zed help:',
+		'',
+		'help        - Shows help',
+		'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+		'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+		'version     - Shows the Zed version'
+	].join('\n');
+
+	/**
 	 * The onDidReceiveRuntimeMessage event emitter.
 	 */
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
@@ -75,50 +87,63 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param errorBehavior The error behavior to conform to.
 	 */
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
+		// Trim the code.
+		code = code.trim();
 
-		this._onDidReceiveRuntimeMessage.fire({
-			id: randomUUID(),
-			parent_id: id,
-			when: new Date().toISOString(),
-			type: positron.LanguageRuntimeMessageType.State,
-			state: positron.RuntimeOnlineState.Busy
-		} as positron.LanguageRuntimeState);
+		// Check for commands by regex.
+		let match;
+		if (match = code.match(/^code ([1-9]{1}[\d]*) ([\d]+)$/)) {
+			// Build the code.
+			let code = '';
+			for (let i = 1; i <= +match[1]; i++) {
+				code += `Code line ${i}\n`;
+			}
 
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+			// Build the output.
+			const output = '';
+			for (let i = 1; i <= +match[2]; i++) {
+				code += `Output line ${i}\n`;
+			}
 
-		// Process the "code".
-		let result;
-		switch (code.toLowerCase()) {
-			case 'version':
-				result = `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`;
-				break;
-			default:
-				result = `Error. '${code}' not recognized.`;
-				break;
+			// Simulate successful code execution.
+			return this.simulateSuccessfulCodeExecution(id, code, output);
+		} else if (match = code.match(/^error ([1-9]{1}[\d]*) ([1-9]{1}[\d]*) ([\d]+)$/)) {
+			// Build the code.
+			let code = '';
+			for (let i = 1; i <= +match[1]; i++) {
+				code += `Code line ${i}\n`;
+			}
+
+			// Build the message.
+			let message = '';
+			for (let i = 1; i <= +match[2]; i++) {
+				message += `Error message line ${i}\n`;
+			}
+
+			// Build the traceback.
+			const traceback: string[] = [];
+			for (let i = 1; i <= +match[3]; i++) {
+				traceback.push(`Traceback line ${i}`);
+			}
+
+			// Simulate unsuccessful code execution.
+			return this.simulateUnsuccessfulCodeExecution(id, code, 'Simulated Error', message, traceback);
 		}
 
-		// Add the command to the history
-		this._history.push([code, result]);
+		// Process the "code".
+		switch (code) {
+			case 'help':
+				this.simulateSuccessfulCodeExecution(id, code, this._helpLines);
+				break;
 
-		this._onDidReceiveRuntimeMessage.fire({
-			id: randomUUID(),
-			parent_id: id,
-			when: new Date().toISOString(),
-			type: positron.LanguageRuntimeMessageType.Output,
-			data: {
-				'text/plain': result
-			} as any,
-		} as positron.LanguageRuntimeOutput);
+			case 'version':
+				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})\n`);
+				break;
 
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
-
-		this._onDidReceiveRuntimeMessage.fire({
-			id: randomUUID(),
-			parent_id: id,
-			when: new Date().toISOString(),
-			type: positron.LanguageRuntimeMessageType.State,
-			state: positron.RuntimeOnlineState.Idle
-		} as positron.LanguageRuntimeState);
+			default:
+				this.simulateUnsuccessfulCodeExecution(id, code, 'Unknown Command', `Error. '${code}' not recognized.\n`, []);
+				break;
+		}
 	}
 
 	/**
@@ -127,8 +152,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @returns A Thenable that resolves with the status of the code fragment.
 	 */
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		// All Zed code fragments are complete. There is no incomplete code in
-		// Zed. ALL IS COMPLETE IN ZED
+		const parentId = randomUUID();
+		this.simulateBusyState(parentId);
+		this.simulateIdleState(parentId);
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
@@ -169,10 +195,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Starts the runtime; returns a Thenable that resolves with information about the runtime.
 	 * @returns A Thenable that resolves with information about the runtime
 	 */
-	start(): Thenable<positron.LanguageRuntimeInfo> {
+	start(): Promise<positron.LanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		return Promise.resolve({
-			banner: `Zed ${this.metadata.languageVersion} `,
+			banner: `Zed ${this.metadata.languageVersion}\nThis is the Zed test language.\n\nEnter 'help' for help.\n`,
 			implementation_version: this.metadata.runtimeVersion,
 			language_version: this.metadata.languageVersion,
 		} as positron.LanguageRuntimeInfo);
@@ -202,6 +228,118 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#endregion LanguageRuntime Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Simulates successful code execution.
+	 * @param parentId The parent ID.
+	 * @param code The code.
+	 * @param output The output from the code.
+	 */
+	private simulateSuccessfulCodeExecution(parentId: string, code: string, output: string) {
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this._history.push([code, output]);
+		this.simulateOutputMessage(parentId, output);
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates unsuccessful code execution.
+	 * @param parentId The parent ID.
+	 * @param code The code.
+	 * @param name The error name.
+	 * @param message The error message.
+	 * @param traceback The error traceback.
+	 */
+	private simulateUnsuccessfulCodeExecution(parentId: string, code: string, name: string, message: string, traceback: string[]) {
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this.simulateErrorMessage(parentId, name, message, traceback);
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates transitioning to the busy state.
+	 * @param parentId The parent identifier.
+	 */
+	private simulateBusyState(parentId: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.State,
+			state: positron.RuntimeOnlineState.Busy
+		} as positron.LanguageRuntimeState);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+	}
+
+	/**
+	 * Simulates transitioning to the idle state.
+	 * @param parentId The parent identifier.
+	 */
+	private simulateIdleState(parentId: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.State,
+			state: positron.RuntimeOnlineState.Idle
+		} as positron.LanguageRuntimeState);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+	}
+
+	/**
+	 * Simulates sending an input message.
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 */
+	private simulateInputMessage(parentId: string, code: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Input,
+			state: positron.RuntimeOnlineState.Busy,
+			code: code,
+			execution_count: 1
+		} as positron.LanguageRuntimeInput);
+	}
+
+	/**
+	 * Simulates sending an output message.
+	 * @param parentId The parent identifier.
+	 * @param output The output.
+	 */
+	private simulateOutputMessage(parentId: string, output: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': output
+			} as any,
+		} as positron.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Simulates sending an error message.
+	 * @param parentId The parent identifier.
+	 * @param name The name.
+	 * @param message The message.
+	 * @param traceback The traceback.
+	 */
+	private simulateErrorMessage(parentId: string, name: string, message: string, traceback: string[]) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Error,
+			name,
+			message,
+			traceback
+		} as positron.LanguageRuntimeError);
+	}
 
 	//#endregion Private Methods
 }

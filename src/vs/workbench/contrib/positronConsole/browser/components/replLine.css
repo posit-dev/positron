@@ -2,10 +2,9 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.console-core .console-repl {
-	overflow-x: visible;
-	-webkit-user-select: text;
-	-moz-user-select: text;
-	-ms-user-select: text;
-	user-select: text;
+.repl-line {
+	white-space: pre;
+	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
+	/* TODO@softwarenerd - must find a way to get this at runtime */
+	/* font-size: 12px;  */
 }

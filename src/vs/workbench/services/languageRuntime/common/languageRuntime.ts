@@ -72,6 +72,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		@ILogService private readonly _logService: ILogService
 	) {
 		super();
+
 		this._register(this._languageService.onDidEncounterLanguage(languageId => {
 			// Add the language to the set of encountered languages.
 			this._encounteredLanguagesByLanguageId.add(languageId);
