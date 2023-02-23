@@ -383,6 +383,12 @@
                     "scope": "window",
                     "type": "string"
                 },
+                "python.activeStateToolPath": {
+                    "default": "state",
+                    "description": "%python.activeStateToolPath.description%",
+                    "scope": "machine-overridable",
+                    "type": "string"
+                },
                 "python.autoComplete.extraPaths": {
                     "default": [],
                     "description": "%python.autoComplete.extraPaths.description%",
@@ -1621,7 +1627,7 @@
                     "category": "Python",
                     "command": "python.reportIssue",
                     "title": "%python.command.python.reportIssue.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                    "when": "!virtualWorkspace && shellExecutionSupported"
                 },
                 {
                     "category": "Test",
