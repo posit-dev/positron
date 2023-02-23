@@ -17,9 +17,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	private readonly _helpLines = [
 		'Zed help:',
+		'',
 		'help        - Shows help',
-		'error       - Simulates a one line error message',
-		'traceback   - Simulates a one line error message with a two line traceback',
+		'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+		'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 		'version     - Shows the Zed version'
 	].join('\n');
 
@@ -86,28 +87,62 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param errorBehavior The error behavior to conform to.
 	 */
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
+		// Trim the code.
+		code = code.trim();
+
+		// Check for commands by regex.
+		let match;
+		if (match = code.match(/^code ([1-9]{1}[\d]*) ([\d]+)$/)) {
+			// Build the code.
+			let code = '';
+			for (let i = 1; i <= +match[1]; i++) {
+				code += `Code line ${i}\n`;
+			}
+
+			// Build the output.
+			const output = '';
+			for (let i = 1; i <= +match[2]; i++) {
+				code += `Output line ${i}\n`;
+			}
+
+			// Simulate successful code execution.
+			return this.simulateSuccessfulCodeExecution(id, code, output);
+		} else if (match = code.match(/^error ([1-9]{1}[\d]*) ([1-9]{1}[\d]*) ([\d]+)$/)) {
+			// Build the code.
+			let code = '';
+			for (let i = 1; i <= +match[1]; i++) {
+				code += `Code line ${i}\n`;
+			}
+
+			// Build the message.
+			let message = '';
+			for (let i = 1; i <= +match[2]; i++) {
+				message += `Error message line ${i}\n`;
+			}
+
+			// Build the traceback.
+			const traceback: string[] = [];
+			for (let i = 1; i <= +match[3]; i++) {
+				traceback.push(`Traceback line ${i}`);
+			}
+
+			// Simulate unsuccessful code execution.
+			return this.simulateUnsuccessfulCodeExecution(id, code, 'Simulated Error', message, traceback);
+		}
 
 		// Process the "code".
 		switch (code) {
 			case 'help':
-				this.simulateSuccessfulCodeExecution(code, this._helpLines);
-				return;
-
-			case 'error':
-				this.simulateUnsuccessfulCodeExecution(code, 'Simulated Error', `Simulated error message`, []);
-				break;
-
-			case 'traceback':
-				this.simulateUnsuccessfulCodeExecution(code, 'Simulated Error', `Simulated error message`, ['Traceback line 1', 'Traceback line 2']);
+				this.simulateSuccessfulCodeExecution(id, code, this._helpLines);
 				break;
 
 			case 'version':
-				this.simulateSuccessfulCodeExecution(code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`);
-				return;
+				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})\n`);
+				break;
 
 			default:
-				this.simulateUnsuccessfulCodeExecution(code, 'Unknown Command', `Error. '${code}' not recognized.`, []);
-				return;
+				this.simulateUnsuccessfulCodeExecution(id, code, 'Unknown Command', `Error. '${code}' not recognized.\n`, []);
+				break;
 		}
 	}
 
@@ -163,7 +198,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	start(): Promise<positron.LanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		return Promise.resolve({
-			banner: `Zed ${this.metadata.languageVersion} `,
+			banner: `Zed ${this.metadata.languageVersion}\nThis is the Zed test language.\n\nEnter 'help' for help.\n`,
 			implementation_version: this.metadata.runtimeVersion,
 			language_version: this.metadata.languageVersion,
 		} as positron.LanguageRuntimeInfo);
@@ -196,11 +231,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Simulates successful code execution.
+	 * @param parentId The parent ID.
 	 * @param code The code.
 	 * @param output The output from the code.
 	 */
-	private simulateSuccessfulCodeExecution(code: string, output: string) {
-		const parentId = randomUUID();
+	private simulateSuccessfulCodeExecution(parentId: string, code: string, output: string) {
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
 		this._history.push([code, output]);
@@ -210,13 +245,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Simulates unsuccessful code execution.
+	 * @param parentId The parent ID.
 	 * @param code The code.
 	 * @param name The error name.
 	 * @param message The error message.
 	 * @param traceback The error traceback.
 	 */
-	private simulateUnsuccessfulCodeExecution(code: string, name: string, message: string, traceback: string[]) {
-		const parentId = randomUUID();
+	private simulateUnsuccessfulCodeExecution(parentId: string, code: string, name: string, message: string, traceback: string[]) {
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
 		this.simulateErrorMessage(parentId, name, message, traceback);
