@@ -36,7 +36,6 @@ use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
-use log::info;
 use log::{debug, trace, warn};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -81,12 +80,14 @@ impl Shell {
             iopub_tx,
             shell_handler,
             lsp_handler,
-            open_comms: HashMap::new(),
+            open_comms: HashMap::new()
         }
     }
 
     /// Main loop for the Shell thread; to be invoked by the kernel.
     pub fn listen(&mut self) {
+
+        // Begin listening for shell messages
         loop {
             trace!("Waiting for shell messages");
             // Attempt to read the next message from the ZeroMQ socket
@@ -301,10 +302,20 @@ impl Shell {
         let data_str = serde_json::to_string(&req.content.data)
             .map_err(|err| Error::InvalidCommMessage(req.content.target_name.clone(), "unparseable".to_string(), err.to_string()))?;
 
+        // Create a routine to send messages to the front end over the IOPub
+        // channel. This routine will be passed to the comm channel so it can
+        // deliver messages to the front end without having to store its own
+        // internal ID or a reference to the IOPub channel.
+        let comm_msg_tx = self.iopub_tx.clone();
         let comm_id = req.content.comm_id.clone();
-        let socket = &self.socket;
-        let emitter = move | val: Value| -> Result<(), Error> {
-            Shell::emit_comm_msg(&socket, &comm_id, val)
+        let emitter = move | val: Value| {
+            let msg = CommMsg {
+                comm_id: comm_id.clone(),
+                data: val,
+            };
+            if let Err(err) = comm_msg_tx.send(IOPubMessage::CommMsg(msg)) {
+                warn!("Failed to send comm message: {}", err);
+            }
         };
 
         let comm_channel = match comm {
@@ -401,25 +412,6 @@ impl Shell {
         };
         comm.send_request(&req.content.data);
         Ok(())
-    }
-
-    /// Emit a message from a back end of a comm to the front end, often the
-    /// response side of a request/response pair.
-    fn emit_comm_msg(
-        socket: &Socket,
-        comm_id: &String,
-        data: Value) -> Result<(), Error>
-    {
-        // Create the message and send it. Note that we always set the parent
-        // header to None here. This is appropriate for messages that aren't
-        // part of a request/response pair, but we should consider adding some
-        // accounting so we can properly set the parent header when the message
-        // *is* part of a request/response pair. This would allow the front end
-        // to deterministically pair up requests and responses for RPCs that
-        // tunnel over the comm channel.
-        let comm_msg = CommMsg { comm_id: comm_id.clone(), data };
-        let msg = JupyterMessage::create(comm_msg, None, &socket.session);
-        msg.send(&socket)
     }
 
     /// Handle a request to close a comm

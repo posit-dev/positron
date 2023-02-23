@@ -24,8 +24,6 @@ pub struct Socket {
     socket: zmq::Socket,
 }
 
-unsafe impl Send for Socket {}
-
 impl Socket {
     /// Create a new Socket instance from a kernel session and a ZeroMQ context.
     pub fn new(

@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use serde_json::Value;
+use serde_json::json;
 
 use crate::comm::comm_channel::CommChannel;
 use crate::error::Error;
@@ -23,7 +24,7 @@ pub struct StartLsp {
 }
 
 pub struct LspComm<F>
-where F: Fn(Value) -> Result<(), Error> {
+where F: Fn(Value) -> () {
     handler: Arc<Mutex<dyn LspHandler>>,
     msg_emitter: F,
 }
@@ -33,7 +34,7 @@ where F: Fn(Value) -> Result<(), Error> {
  * track the server thread.
  */
 impl<F> LspComm<F>
-where F: Fn(Value) -> Result<(), Error> {
+where F: Fn(Value) -> () {
     pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_emitter: F) -> LspComm<F> {
         LspComm {
             handler,
@@ -44,12 +45,16 @@ where F: Fn(Value) -> Result<(), Error> {
     pub fn start(&self, data: &StartLsp) ->  Result<(), Error> {
         let mut handler = self.handler.lock().unwrap();
         handler.start(data.client_address.clone()).unwrap();
+        (self.msg_emitter)(json!({
+            "msg_type": "lsp_started",
+            "content": {}
+        }));
         Ok(())
     }
 }
 
 impl<F> CommChannel for LspComm<F>
-where F: Fn(Value) -> Result<(), Error> + Send{
+where F: Fn(Value) -> () + Send {
     fn send_request(&self, _data: &Value) {
         // Not implemented; LSP messages are delivered directly to the LSP
         // handler via TCP, not proxied here.
