@@ -302,8 +302,9 @@ impl Shell {
             .map_err(|err| Error::InvalidCommMessage(req.content.target_name.clone(), "unparseable".to_string(), err.to_string()))?;
 
         let comm_id = req.content.comm_id.clone();
-        let emitter = | val: Value| -> Result<(), Error> {
-            self.emit_comm_msg(comm_id, val)
+        let socket = &self.socket;
+        let emitter = move | val: Value| -> Result<(), Error> {
+            Shell::emit_comm_msg(&socket, &comm_id, val)
         };
 
         let comm_channel = match comm {
@@ -405,21 +406,10 @@ impl Shell {
     /// Emit a message from a back end of a comm to the front end, often the
     /// response side of a request/response pair.
     fn emit_comm_msg(
-        &self,
-        comm_id: String,
+        socket: &Socket,
+        comm_id: &String,
         data: Value) -> Result<(), Error>
     {
-        // Look for the comm ID in our open comms; we should not deliver a
-        // message from a comm that isn't open.
-        let comm = match self.open_comms.get(&comm_id) {
-            Some(comm) => comm,
-            None => {
-                warn!("Comm {} requested to send a message to the front end, but it is not open. Message: {:?}", comm_id, data);
-                return Err(Error::UnknownCommId(comm_id));
-            }
-        };
-        info!("Sending message to front end from '{}' comm {}: {:?}", comm.target_name(), comm_id, data);
-
         // Create the message and send it. Note that we always set the parent
         // header to None here. This is appropriate for messages that aren't
         // part of a request/response pair, but we should consider adding some
@@ -427,9 +417,9 @@ impl Shell {
         // *is* part of a request/response pair. This would allow the front end
         // to deterministically pair up requests and responses for RPCs that
         // tunnel over the comm channel.
-        let comm_msg = CommMsg { comm_id, data };
-        let msg = JupyterMessage::create(comm_msg, None, &self.socket.session);
-        msg.send(&self.socket)
+        let comm_msg = CommMsg { comm_id: comm_id.clone(), data };
+        let msg = JupyterMessage::create(comm_msg, None, &socket.session);
+        msg.send(&socket)
     }
 
     /// Handle a request to close a comm
