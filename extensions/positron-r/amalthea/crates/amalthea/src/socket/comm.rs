@@ -38,13 +38,13 @@ impl CommSocket {
 
     pub fn handle_msg(&self, msg: Value) {
         if let Some(comm_msg_handler_tx) = &self.comm_msg_handler_tx {
-            comm_msg_handler_tx.send(CommChannelMsg::Data(msg));
+            comm_msg_handler_tx.send(CommChannelMsg::Data(msg)).unwrap();
         }
     }
 
     pub fn close(&self) {
         if let Some(comm_msg_handler_tx) = &self.comm_msg_handler_tx {
-            comm_msg_handler_tx.send(CommChannelMsg::Close);
+            comm_msg_handler_tx.send(CommChannelMsg::Close).unwrap();
         }
     }
 }

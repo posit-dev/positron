@@ -6,6 +6,7 @@
  */
 
 use crate::comm::comm_channel::Comm;
+use crate::comm::comm_channel::CommChannelMsg;
 use crate::wire::complete_reply::CompleteReply;
 use crate::wire::complete_request::CompleteRequest;
 use crate::wire::exception::Exception;
@@ -84,7 +85,7 @@ pub trait ShellHandler: Send {
         &self,
         comm: Comm,
         msg_tx: Sender<Value>,
-    ) -> Result<Option<Sender<Value>>, Exception>;
+    ) -> Result<Option<Sender<CommChannelMsg>>, Exception>;
 
     /// Handles a reply to a request for input from the front end (from stdin socket)
     ///

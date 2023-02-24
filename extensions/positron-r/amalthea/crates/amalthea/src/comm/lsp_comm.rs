@@ -12,6 +12,7 @@ use crossbeam::channel::Sender;
 use serde_json::json;
 use serde_json::Value;
 
+use crate::comm::comm_channel::CommChannelMsg;
 use crate::error::Error;
 use crate::language::lsp_handler::LspHandler;
 
@@ -40,15 +41,17 @@ impl LspComm {
     pub fn start(&self, data: &StartLsp) -> Result<(), Error> {
         let mut handler = self.handler.lock().unwrap();
         handler.start(data.client_address.clone()).unwrap();
-        self.msg_tx.send(json!({
-            "msg_type": "lsp_started",
-            "content": {}
-        }));
+        self.msg_tx
+            .send(json!({
+                "msg_type": "lsp_started",
+                "content": {}
+            }))
+            .unwrap();
         Ok(())
     }
 
-    pub fn msg_rx(&self) -> Sender<Value> {
-        let (msg_tx, msg_rx) = crossbeam::channel::unbounded();
+    pub fn msg_rx(&self) -> Sender<CommChannelMsg> {
+        let (msg_tx, _msg_rx) = crossbeam::channel::unbounded();
         msg_tx
     }
 }

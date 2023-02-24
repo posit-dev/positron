@@ -40,7 +40,6 @@ use crossbeam::channel::Select;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
 use log::{debug, trace, warn};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -361,7 +360,7 @@ impl Shell {
 
         let comm_id = req.content.comm_id.clone();
         let comm_name = req.content.target_name.clone();
-        let comm_socket = CommSocket::new(comm_id, comm_name);
+        let mut comm_socket = CommSocket::new(comm_id, comm_name);
 
         // Create a routine to send messages to the front end over the IOPub
         // channel. This routine will be passed to the comm channel so it can
@@ -438,6 +437,8 @@ impl Shell {
                 }
             },
         };
+
+        comm_socket.set_msg_handler(comm_channel);
 
         // If we got this far, we have just opened a comm channel. Add it to our
         // open comms.

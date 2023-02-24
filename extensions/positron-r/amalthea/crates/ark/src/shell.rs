@@ -6,6 +6,7 @@
 //
 
 use amalthea::comm::comm_channel::Comm;
+use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::complete_reply::CompleteReply;
@@ -217,11 +218,11 @@ impl ShellHandler for Shell {
         &self,
         comm: Comm,
         msg_tx: Sender<Value>,
-    ) -> Result<Option<Sender<Value>>, Exception> {
+    ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         match comm {
             Comm::Environment => {
-                let (sender, receiver) = unbounded::<Value>();
-                Some(sender)
+                let (sender, receiver) = unbounded::<CommChannelMsg>();
+                Ok(Some(sender))
             },
             _ => Ok(None),
         }

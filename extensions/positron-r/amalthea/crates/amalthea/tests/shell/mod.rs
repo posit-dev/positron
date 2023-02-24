@@ -6,6 +6,7 @@
  */
 
 use amalthea::comm::comm_channel::Comm;
+use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::complete_reply::CompleteReply;
@@ -231,7 +232,7 @@ impl ShellHandler for Shell {
         &self,
         _req: Comm,
         _sender: Sender<Value>,
-    ) -> Result<Option<Sender<Value>>, Exception> {
+    ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         // Open a test comm channel; this test comm channel is used for every
         // comm open request (regardless of the target name)
         let (msg_tx, msg_rx) = unbounded();
