@@ -16,6 +16,11 @@ export interface IPositronConsoleInstance {
 	readonly runtime: ILanguageRuntime;
 
 	/**
+	 * Gets a value which indicates whether the runtime is starting.
+	 */
+	readonly runtimeStarting: boolean;
+
+	/**
 	 * Gets a value which indicates whether trace is enabled.
 	 */
 	readonly trace: boolean;

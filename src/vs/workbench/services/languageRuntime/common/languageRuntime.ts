@@ -34,7 +34,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
 
 	// The array of registered language runtimes.
-	private readonly _registeredLanguageRuntimes = new Array<LanguageRuntimeInfo>();
+	private readonly _registeredLanguageRuntimes: LanguageRuntimeInfo[] = [];
 
 	// A map of the registered language runtimes. This is keyed by the runtimeId (metadata.runtimeId) of the language runtime.
 	private readonly _registeredLanguageRuntimesByRuntimeId = new Map<string, LanguageRuntimeInfo>();
@@ -44,6 +44,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// The active runtime.
 	private _activeRuntime?: ILanguageRuntime;
+
+	// The event emitter for the onWillStartRuntime event.
+	private readonly _onWillStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
 	// The event emitter for the onDidStartRuntime event.
 	private readonly _onDidStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
@@ -103,6 +106,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
+
+	// An event that fires when a runtime is about to start.
+	readonly onWillStartRuntime = this._onWillStartRuntimeEmitter.event;
 
 	// An event that fires when a runtime starts.
 	readonly onDidStartRuntime = this._onDidStartRuntimeEmitter.event;
@@ -311,27 +317,23 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param runtime The language runtime to start.
 	 */
 	private safeStartRuntime(runtime: ILanguageRuntime): void {
-		// Start the language runtime.
+		// Add the runtime to the running language runtimes.
 		this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
-		// TODO@softwarenerd - OK, there was a race condition here. In the old code, we were firing this event
-		// _after_ asynchronously starting the language runtime. Sometimes things would happen in the right
-		// order and the console would be there when the runtime started and became active, and sometimes the
-		// runtime would start too fast and the console would not be available when it became the active runtime.
-		// Moving this here is a hack that seems to work and at least improves things. Redo this.
-		//this._onDidStartRuntimeEmitter.fire(runtime);
-
-		// Fire the onDidStartRuntime event.
-		this._onDidStartRuntimeEmitter.fire(runtime);
+		// Fire the onWillStartRuntime event.
+		this._onWillStartRuntimeEmitter.fire(runtime);
 
 		// Start the runtime.
 		runtime.start().then(languageRuntimeInfo => {
-			console.log(`Back from start language runtime ${runtime.metadata.languageName}`);
+			// Fire the onDidStartRuntime event.
+			this._onDidStartRuntimeEmitter.fire(runtime);
 
-			// Change the active runtime, if it isn't already set.
+			// Set the active runtime.
 			this.activeRuntime = runtime;
-
 		}, (reason) => {
+			// Remove the runtime from the running language runtimes.
+			this._runningLanguageRuntimesByLanguageId.delete(runtime.metadata.languageId);
+
 			// TODO@softwarenerd - No code was here. We need code here.
 			console.log('Starting language runtime failed. Reason:');
 			console.log(reason);
