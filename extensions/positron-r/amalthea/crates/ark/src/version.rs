@@ -7,6 +7,8 @@
 
 use std::process::Command;
 
+use anyhow::Context;
+
 #[allow(dead_code)]
 pub struct RVersion {
     // Major version of the R installation
@@ -27,10 +29,12 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
 
     let output = Command::new("R")
         .arg("RHOME")
-        .output()?;
+        .output()
+        .context("Failed to execute R to determine R_HOME")?;
 
     // Convert the output to a string
-    let r_home = String::from_utf8(output.stdout)?
+    let r_home = String::from_utf8(output.stdout)
+        .context("Failed to convert R_HOME output to string")?
         .trim()
         .to_string();
 
@@ -39,15 +43,22 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
         .arg("-s")
         .arg("-e")
         .arg("cat(version$major, \".\", version$minor, sep = \"\")")
-        .output()?;
+        .output()
+        .context("Failed to execute R to determine version number")?;
 
-    let version = String::from_utf8(output.stdout)?
+    let version = String::from_utf8(output.stdout)
+        .context("Failed to convert R version number to a string")?
         .trim()
         .to_string();
 
-    let version = version.split(".").take(3).map(|x| {
-        x.parse::<u32>()
-    }).collect::<Result<Vec<u32>, _>>()?;
+    let version = version.
+        split(".").
+        take(3).
+        map(|x| {
+            x.parse::<u32>()
+        })
+        .collect::<Result<Vec<u32>, _>>()
+        .context("Failed to extract version numbers")?;
 
     // Execute the R script to get the home path to R
     Ok(RVersion{
