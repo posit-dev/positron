@@ -122,8 +122,18 @@ impl Shell {
 
                 // Look up the index in the set of open comms
                 if index > open_comms.len() {
-                    let msg = oper.recv(&comm_changed_rx).unwrap();
-                    continue;
+                    match oper.recv(&comm_changed_rx).unwrap() {
+                        CommChanged::Opened(comm_socket) => {
+                            open_comms.push(comm_socket);
+                        },
+                        CommChanged::Closed(comm_id) => {
+                            let index = open_comms
+                                .iter()
+                                .position(|comm_socket| comm_socket.comm_id == comm_id)
+                                .unwrap();
+                            open_comms.remove(index);
+                        },
+                    }
                 } else {
                     let comm_socket = &open_comms[index];
                     let data = oper.recv(&comm_socket.comm_msg_rx).unwrap();
@@ -440,6 +450,12 @@ impl Shell {
 
         comm_socket.set_msg_handler(comm_channel);
 
+        // Send a notification to the comm message listener thread that a new
+        // comm has been opened
+        self.comm_changed_tx
+            .send(CommChanged::Opened(comm_socket.clone()))
+            .unwrap();
+
         // If we got this far, we have just opened a comm channel. Add it to our
         // open comms.
         match self
@@ -499,6 +515,12 @@ impl Shell {
 
         // Remove the comm from the set of open comms
         self.open_comms.remove(&req.content.comm_id);
+
+        // Send a notification to the comm message listener thread notifying it that
+        // the comm has been closed
+        self.comm_changed_tx
+            .send(CommChanged::Closed(req.content.comm_id))
+            .unwrap();
 
         Ok(())
     }

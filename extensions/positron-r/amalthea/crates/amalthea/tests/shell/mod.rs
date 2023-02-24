@@ -234,8 +234,10 @@ impl ShellHandler for Shell {
         _sender: Sender<Value>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         // Open a test comm channel; this test comm channel is used for every
-        // comm open request (regardless of the target name)
-        let (msg_tx, msg_rx) = unbounded();
+        // comm open request (regardless of the target name). We don't actually
+        // process messages sent to the comm channel, so we just drop the
+        // receiver here.
+        let (msg_tx, _msg_rx) = unbounded();
         Ok(Some(msg_tx))
     }
 

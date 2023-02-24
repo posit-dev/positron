@@ -217,11 +217,11 @@ impl ShellHandler for Shell {
     async fn handle_comm_open(
         &self,
         comm: Comm,
-        msg_tx: Sender<Value>,
+        _msg_tx: Sender<Value>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         match comm {
             Comm::Environment => {
-                let (sender, receiver) = unbounded::<CommChannelMsg>();
+                let (sender, _receiver) = unbounded::<CommChannelMsg>();
                 Ok(Some(sender))
             },
             _ => Ok(None),
