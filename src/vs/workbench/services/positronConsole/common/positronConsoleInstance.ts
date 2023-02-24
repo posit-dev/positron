@@ -58,6 +58,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	//#region Private Properties
 
 	/**
+	 * A value which indicates whether the runtime is starting.
+	 */
+	private _runtimeStarting = false;
+
+	/**
 	 * A value which indicates whether trace is enabled.
 	 */
 	private _trace = false;
@@ -103,9 +108,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * Constructor.
 	 * @param runtime The language runtime.
 	 */
-	constructor(readonly runtime: ILanguageRuntime) {
+	constructor(readonly runtime: ILanguageRuntime, starting: boolean) {
 		// Call the base class's constructor.
 		super();
+
+		// Initialize state.
+		this._runtimeStarting = starting;
 
 		/**
 		 * Adds a runtime item.
@@ -130,6 +138,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			addRuntimeItem(new RuntimeItemTrace(generateUuid(), trace));
 		};
 
+		/**
+		 * Adds or updates an activity runtime item.
+		 * @param parentId The parent identifier.
+		 * @param activityItem The activity item.
+		 */
 		const addUpdateRuntimeItemActivity = (parentId: string, activityItem: ActivityItem) => {
 			const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
 			if (runtimeItemActivity) {
@@ -150,6 +163,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		this._register(runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			// Add item trace.
 			addRuntimeItemTrace(`onDidCompleteStartup`);
+
+			// Clear the starting mode.
+			if (this._runtimeStarting) {
+				this._runtimeStarting = false;
+			}
 
 			// Add the item startup.
 			addRuntimeItem(new RuntimeItemStartup(
@@ -249,6 +267,13 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Add the onDidReceiveRuntimeMessageEvent event handler.
 		this._register(runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
 		}));
+	}
+
+	/**
+	 * Gets a value which indicates whether the runtime is starting.
+	 */
+	get runtimeStarting(): boolean {
+		return this._runtimeStarting;
 	}
 
 	get trace(): boolean {

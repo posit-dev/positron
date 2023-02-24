@@ -18,8 +18,9 @@ export interface Line {
  * @returns An array of the lines.
  */
 export const lineSplitter = (value: string | string[]): Line[] => {
+	// If an array of lines was supplied, process and split them. Otherwise,
+	// split the string that was presented into lines.
 	const lines: Line[] = [];
-
 	if (Array.isArray(value)) {
 		value.forEach(line => {
 			lines.push(...lineSplitter(line));
@@ -32,5 +33,6 @@ export const lineSplitter = (value: string | string[]): Line[] => {
 		});
 	}
 
+	// Done. Return the lines.
 	return lines;
 };
