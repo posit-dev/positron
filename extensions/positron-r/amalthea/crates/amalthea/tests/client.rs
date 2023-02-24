@@ -40,16 +40,16 @@ fn test_kernel() {
     info!("Starting test kernel");
 
     // Create the thread that will run the Amalthea kernel
-    thread::spawn(move || {
-        match kernel.connect(shell, control, None, StreamBehavior::None) {
+    thread::spawn(
+        move || match kernel.connect(shell, control, None, StreamBehavior::None) {
             Ok(_) => {
                 info!("Kernel connection initiated");
             },
             Err(e) => {
                 panic!("Error connecting kernel: {}", e);
-            }
-        }
-    });
+            },
+        },
+    );
 
     // Give the kernel a little time to start up
     info!("Waiting 500ms for kernel startup to complete");
@@ -70,10 +70,10 @@ fn test_kernel() {
         Message::KernelInfoReply(reply) => {
             info!("Kernel info received: {:?}", reply);
             assert_eq!(reply.content.language_info.name, "Test");
-        }
+        },
         _ => {
             panic!("Unexpected message received: {:?}", reply);
-        }
+        },
     }
 
     // Ask the kernel to execute some code
@@ -95,10 +95,10 @@ fn test_kernel() {
             info!("Received execute reply: {:?}", reply);
             assert_eq!(reply.content.status, Status::Ok);
             assert_eq!(reply.content.execution_count, 1);
-        }
+        },
         _ => {
             panic!("Unexpected execute reply received: {:?}", reply);
-        }
+        },
     }
 
     // The IOPub channel should receive six messages, in this order:
@@ -120,13 +120,13 @@ fn test_kernel() {
             info!("Got kernel status: {:?}", status);
             // TODO: validate parent header
             assert_eq!(status.content.execution_state, ExecutionState::Busy);
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected status): {:?}",
                 iopub_1
             );
-        }
+        },
     }
 
     info!("Waiting for IOPub execution information messsage 2 of 6: Status");
@@ -136,13 +136,13 @@ fn test_kernel() {
             info!("Got kernel status: {:?}", status);
             // TODO: validate parent header
             assert_eq!(status.content.execution_state, ExecutionState::Idle);
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected status): {:?}",
                 iopub_2
             );
-        }
+        },
     }
 
     info!("Waiting for IOPub execution information messsage 3 of 6: Status");
@@ -151,13 +151,13 @@ fn test_kernel() {
         Message::Status(status) => {
             info!("Got kernel status: {:?}", status);
             assert_eq!(status.content.execution_state, ExecutionState::Busy);
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected status): {:?}",
                 iopub_3
             );
-        }
+        },
     }
 
     info!("Waiting for IOPub execution information messsage 4 of 6: Input Broadcast");
@@ -166,13 +166,13 @@ fn test_kernel() {
         Message::ExecuteInput(input) => {
             info!("Got input rebroadcast: {:?}", input);
             assert_eq!(input.content.code, "42");
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected input rebroadcast): {:?}",
                 iopub_4
             );
-        }
+        },
     }
 
     info!("Waiting for IOPub execution information messsage 5 of 6: Execution Result");
@@ -180,13 +180,13 @@ fn test_kernel() {
     match iopub_5 {
         Message::ExecuteResult(result) => {
             info!("Got execution result: {:?}", result);
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected execution result): {:?}",
                 iopub_5
             );
-        }
+        },
     }
 
     info!("Waiting for IOPub execution information messsage 6 of 6: Status");
@@ -195,13 +195,13 @@ fn test_kernel() {
         Message::Status(status) => {
             info!("Got kernel status: {:?}", status);
             assert_eq!(status.content.execution_state, ExecutionState::Idle);
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected status): {:?}",
                 iopub_6
             );
-        }
+        },
     }
 
     info!("Sending request to generate an input prompt");
@@ -220,13 +220,13 @@ fn test_kernel() {
         Message::InputRequest(request) => {
             info!("Got input request: {:?}", request);
             assert_eq!(request.content.prompt, "Amalthea Echo> ");
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected input request): {:?}",
                 request
             );
-        }
+        },
     }
 
     info!("Sending input to the kernel");
@@ -274,10 +274,10 @@ fn test_kernel() {
             info!("Received execute reply: {:?}", reply);
             assert_eq!(reply.content.status, Status::Ok);
             assert_eq!(reply.content.execution_count, 2);
-        }
+        },
         _ => {
             panic!("Unexpected execute reply received: {:?}", reply);
-        }
+        },
     }
 
     // Test the heartbeat
@@ -309,13 +309,13 @@ fn test_kernel() {
             // Ensure the comm we just opened is in the list of comms
             let comms = request.content.comms.as_object().unwrap();
             assert!(comms.contains_key(comm_id));
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected comm info): {:?}",
                 reply
             );
-        }
+        },
     }
 
     // Test closing the comm we just opened
@@ -337,13 +337,12 @@ fn test_kernel() {
             // Ensure the comm we just closed not present in the list of comms
             let comms = request.content.comms.as_object().unwrap();
             assert!(!comms.contains_key(comm_id));
-        }
+        },
         _ => {
             panic!(
                 "Unexpected message received (expected comm info): {:?}",
                 reply
             );
-        }
+        },
     }
-
 }

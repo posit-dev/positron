@@ -39,6 +39,7 @@ use crossbeam::channel::Receiver;
 use crossbeam::channel::Select;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
+use log::info;
 use log::{debug, trace, warn};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -66,10 +67,15 @@ pub struct Shell {
     /// Language-provided LSP handler object
     lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
 
-    /// Map of open comm channels (UUID to CommChannel)
+    /// Map of open comm channels (UUID to CommSocket)
     open_comms: HashMap<String, CommSocket>,
 
+    /// Sender side of channel used to notify the listener thread that a comm
+    /// channel has been opened or closed
     comm_changed_tx: Sender<CommChanged>,
+
+    /// Receiver side of channel used to notify the listener thread that a comm
+    /// channel has been opened or closed
     comm_changed_rx: Receiver<CommChanged>,
 }
 
@@ -86,7 +92,10 @@ impl Shell {
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Self {
+        // Create the pair of channels that will be used to relay messages from
+        // the open comms
         let (comm_changed_tx, comm_changed_rx) = bounded(10);
+
         Self {
             socket,
             iopub_tx,
@@ -100,50 +109,93 @@ impl Shell {
 
     /// Main loop for the Shell thread; to be invoked by the kernel.
     pub fn listen(&mut self) {
-        // Start a thread to listen for messages from the comm implementations
+        // Start a thread to listen for messages from the comm implementations.
+        // We'll amend these messages with the comm's metadata and then relay
+        // them to the front end via IOPub.
+        //
+        // This is done in a separate thread so that the main thread can
+        // continue to receive messages from the front end.
         let iopub_tx = self.iopub_tx.clone();
         let comm_changed_rx = self.comm_changed_rx.clone();
         thread::spawn(move || {
+            // Create a vector of the open comms
             let mut open_comms = Vec::<CommSocket>::new();
             loop {
-                // Listen for messages from each of the open comms
                 let mut sel = Select::new();
+
+                // Listen for messages from each of the open comms
                 for comm_socket in &open_comms {
                     sel.recv(&comm_socket.comm_msg_rx);
                 }
 
-                // Add a receiver for the comm_changed channel; this is used to unblock
-                // the select when a new comm is added
+                // Add a receiver for the comm_changed channel; this is used to
+                // unblock the select when a comm is added or remove so we can
+                // start a new `Select` with the updated set of open comms.
                 sel.recv(&comm_changed_rx);
 
-                // Complete the selected operation.
+                // Wait until a message is received (blocking call)
                 let oper = sel.select();
-                let index = oper.index();
 
                 // Look up the index in the set of open comms
-                if index > open_comms.len() {
-                    match oper.recv(&comm_changed_rx).unwrap() {
+                let index = oper.index();
+                if index >= open_comms.len() {
+                    // If the index is greater than the number of open comms,
+                    // then the message was received on the comm_changed channel.
+                    let comm_changed = oper.recv(&comm_changed_rx);
+                    if let Err(err) = comm_changed {
+                        warn!("Error receiving comm_changed message: {}", err);
+                        continue;
+                    }
+                    match comm_changed.unwrap() {
+                        // A Comm was opened; add it to the list of open comms
                         CommChanged::Opened(comm_socket) => {
                             open_comms.push(comm_socket);
+                            info!(
+                                "Comm channel opened; there are now {} open comms",
+                                open_comms.len()
+                            );
                         },
+
+                        // A Comm was closed; attempt to remove it from the set of open comms
                         CommChanged::Closed(comm_id) => {
+                            // Find the index of the comm in the vector
                             let index = open_comms
                                 .iter()
-                                .position(|comm_socket| comm_socket.comm_id == comm_id)
-                                .unwrap();
-                            open_comms.remove(index);
+                                .position(|comm_socket| comm_socket.comm_id == comm_id);
+
+                            // If we found it, remove it.
+                            if let Some(index) = index {
+                                open_comms.remove(index);
+                                info!(
+                                    "Comm channel closed; there are now {} open comms",
+                                    open_comms.len()
+                                );
+                            } else {
+                                warn!(
+                                    "Received close message for unknown comm channel {}",
+                                    comm_id
+                                );
+                            }
                         },
                     }
                 } else {
+                    // Otherwise, the message was received on one of the open comms.
                     let comm_socket = &open_comms[index];
-                    let data = oper.recv(&comm_socket.comm_msg_rx).unwrap();
+                    let data = match oper.recv(&comm_socket.comm_msg_rx) {
+                        Ok(data) => data,
+                        Err(err) => {
+                            warn!("Error receiving comm message: {}", err);
+                            continue;
+                        },
+                    };
 
-                    // Send the message to the front-end
+                    // Amend the message with the comm's ID
                     let msg = CommMsg {
                         comm_id: comm_socket.comm_id.clone(),
                         data,
                     };
 
+                    // Deliver the message to the front end
                     iopub_tx.send(IOPubMessage::CommMsg(msg)).unwrap();
                 }
             }
@@ -452,9 +504,15 @@ impl Shell {
 
         // Send a notification to the comm message listener thread that a new
         // comm has been opened
-        self.comm_changed_tx
+        if let Err(err) = self
+            .comm_changed_tx
             .send(CommChanged::Opened(comm_socket.clone()))
-            .unwrap();
+        {
+            warn!(
+                "Failed to send '{}' comm open notification to listener thread: {}",
+                comm_socket.comm_name, err
+            );
+        }
 
         // If we got this far, we have just opened a comm channel. Add it to our
         // open comms.
