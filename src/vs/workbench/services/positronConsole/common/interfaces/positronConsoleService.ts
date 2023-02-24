@@ -36,6 +36,9 @@ export interface IPositronConsoleService {
 	 */
 	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
 
+	/**
+	 * Placeholder that gets called to "initialize" the PositronConsoleService.
+	 */
 	initialize(): void;
 
 	/**

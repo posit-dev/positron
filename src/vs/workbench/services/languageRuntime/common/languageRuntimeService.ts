@@ -371,6 +371,12 @@ export interface ILanguageRuntimeService {
 	// An event that fires when a runtime starts.
 	readonly onDidStartRuntime: Event<ILanguageRuntime>;
 
+	// An event that fires when a runtime fails to start.
+	readonly onDidFailStartRuntime: Event<ILanguageRuntime>;
+
+	// An event that fires when a runtime is reconnected.
+	readonly onDidReconnectRuntime: Event<ILanguageRuntime>;
+
 	// An event that fires when a runtime changes state.
 	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
 
