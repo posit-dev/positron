@@ -27,37 +27,34 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
 
     let output = Command::new("R")
         .arg("RHOME")
-        .output()
-        .expect("Failed to execute R to determine R_HOME");
+        .output()?;
 
     // Convert the output to a string
-    let r_home = String::from_utf8(output.stdout)
-        .expect("Failed to convert R_HOME output to string")
+    let r_home = String::from_utf8(output.stdout)?
         .trim()
         .to_string();
 
     let output = Command::new("R")
+        .arg("--vanilla")
         .arg("-s")
         .arg("-e")
-        .arg("--vanilla")
         .arg("cat(version$major, \".\", version$minor, sep = \"\")")
-        .output()
-        .expect("Failed to execute R to determine version number");
+        .output()?;
 
-    let version = String::from_utf8(output.stdout)
-        .expect("Failed to convert R version number to a string")
+    let version = String::from_utf8(output.stdout)?
         .trim()
         .to_string();
 
-    let mut version = version.split(".");
-
-    let major = version.next().unwrap().parse()?;
-    let minor = version.next().unwrap().parse()?;
-    let patch = version.next().unwrap().parse()?;
+    let version = version.split(".").take(3).map(|x| {
+        x.parse::<u32>()
+    }).collect::<Result<Vec<u32>, _>>()?;
 
     // Execute the R script to get the home path to R
     Ok(RVersion{
-        major, minor, patch, r_home
+        major : version[0],
+        minor: version[1],
+        patch: version[2],
+        r_home
     })
 }
 
