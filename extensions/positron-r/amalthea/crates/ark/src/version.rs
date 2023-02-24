@@ -51,8 +51,7 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
         .trim()
         .to_string();
 
-    let version = version
-        .split(".")
+    let version = version.split(".")
         .take(3)
         .map(|x| {
             x.parse::<u32>()
