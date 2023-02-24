@@ -5,6 +5,10 @@
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 
+export interface Run {
+
+}
+
 /**
  * RuntimeItemActivity class.
  */
@@ -15,6 +19,8 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * The activity items.
 	 */
 	public readonly activityItems: ActivityItem[] = [];
+
+	// public readonly activityRuns:
 
 	//#endregion Private Properties
 
@@ -40,7 +46,24 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 */
 	addActivityItem(activityItem: ActivityItem) {
 		this.activityItems.push(activityItem);
+		this.verifyActivityItemsOrder();
 	}
 
 	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Verifies the activity items order and resorts the activities, if one is out of order.
+	 */
+	private verifyActivityItemsOrder() {
+		for (let i = 1; i < this.activityItems.length; i++) {
+			if (this.activityItems[i].when < this.activityItems[i - 1].when) {
+				this.activityItems.sort((x, y) => y.when.getTime() - x.when.getTime());
+				return;
+			}
+		}
+	}
+
+	//#endregion Private Methods
 }
