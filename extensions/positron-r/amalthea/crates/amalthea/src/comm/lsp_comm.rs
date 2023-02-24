@@ -8,10 +8,10 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use serde_json::Value;
+use crossbeam::channel::Sender;
 use serde_json::json;
+use serde_json::Value;
 
-use crate::comm::comm_channel::CommChannel;
 use crate::error::Error;
 use crate::language::lsp_handler::LspHandler;
 
@@ -23,49 +23,32 @@ pub struct StartLsp {
     pub client_address: String,
 }
 
-pub struct LspComm<F>
-where F: Fn(Value) -> () {
+pub struct LspComm {
     handler: Arc<Mutex<dyn LspHandler>>,
-    msg_emitter: F,
+    msg_tx: Sender<Value>,
 }
 
 /**
  * LspComm makes an LSP look like a CommChannel; it's used to start the LSP and
  * track the server thread.
  */
-impl<F> LspComm<F>
-where F: Fn(Value) -> () {
-    pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_emitter: F) -> LspComm<F> {
-        LspComm {
-            handler,
-            msg_emitter,
-        }
+impl LspComm {
+    pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_tx: Sender<Value>) -> LspComm {
+        LspComm { handler, msg_tx }
     }
 
-    pub fn start(&self, data: &StartLsp) ->  Result<(), Error> {
+    pub fn start(&self, data: &StartLsp) -> Result<(), Error> {
         let mut handler = self.handler.lock().unwrap();
         handler.start(data.client_address.clone()).unwrap();
-        (self.msg_emitter)(json!({
+        self.msg_tx.send(json!({
             "msg_type": "lsp_started",
             "content": {}
         }));
         Ok(())
     }
-}
 
-impl<F> CommChannel for LspComm<F>
-where F: Fn(Value) -> () + Send {
-    fn handle_request(&self, _data: &Value) {
-        // Not implemented; LSP messages are delivered directly to the LSP
-        // handler via TCP, not proxied here.
-    }
-
-    fn target_name(&self) -> String {
-        "lsp".to_string()
-    }
-
-    fn close(&self) {
-        // Not implemented; the LSP is closed automatically when the TCP
-        // connection is closed.
+    pub fn msg_rx(&self) -> Sender<Value> {
+        let (msg_tx, msg_rx) = crossbeam::channel::unbounded();
+        msg_tx
     }
 }
