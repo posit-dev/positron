@@ -7,6 +7,16 @@ import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classe
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
+ * The PositronConsoleState
+ */
+export const enum PositronConsoleState {
+	Uninitialized,
+	Starting,
+	Running,
+	Exited
+}
+
+/**
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
@@ -16,9 +26,9 @@ export interface IPositronConsoleInstance {
 	readonly runtime: ILanguageRuntime;
 
 	/**
-	 * Gets a value which indicates whether the runtime is starting.
+	 * Gets the state.
 	 */
-	readonly runtimeStarting: boolean;
+	readonly state: PositronConsoleState;
 
 	/**
 	 * Gets a value which indicates whether trace is enabled.
@@ -29,6 +39,11 @@ export interface IPositronConsoleInstance {
 	 * Gets the runtime items.
 	 */
 	readonly runtimeItems: RuntimeItem[];
+
+	/**
+	 * The onDidChangeState event.
+	 */
+	readonly onDidChangeState: Event<PositronConsoleState>;
 
 	/**
 	 * The onDidChangeTrace event.

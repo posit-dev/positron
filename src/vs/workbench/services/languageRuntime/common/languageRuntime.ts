@@ -51,6 +51,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidStartRuntime event.
 	private readonly _onDidStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
+	// The event emitter for the onDidFailStartRuntime event.
+	private readonly _onDidFailStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+
+	// The event emitter for the onDidReconnectRuntime event.
+	private readonly _onDidReconnectRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+
 	// The event emitter for the onDidChangeRuntimeState event.
 	private readonly _onDidChangeRuntimeStateEmitter = this._register(new Emitter<ILanguageRuntimeStateEvent>());
 
@@ -96,7 +102,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Start the first language runtime that was found. This isn't random; the runtimes are sorted by priority when
 			// registered by the extension, so they will be in the right order so the first one is the right one to start.
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntimeInfos[0].runtime)} automatically starting`);
-			this.safeStartRuntime(languageRuntimeInfos[0].runtime);
+			this.doStartRuntime(languageRuntimeInfos[0].runtime);
 		}));
 	}
 
@@ -110,8 +116,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// An event that fires when a runtime is about to start.
 	readonly onWillStartRuntime = this._onWillStartRuntimeEmitter.event;
 
-	// An event that fires when a runtime starts.
+	// An event that fires when a runtime successfully starts.
 	readonly onDidStartRuntime = this._onDidStartRuntimeEmitter.event;
+
+	// An event that fires when a runtime fails to start.
+	readonly onDidFailStartRuntime = this._onDidFailStartRuntimeEmitter.event;
+
+	// An event that fires when a runtime is reconnected.
+	readonly onDidReconnectRuntime = this._onDidReconnectRuntimeEmitter.event;
 
 	// An event that fires when a runtime changes state.
 	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeStateEmitter.event;
@@ -199,10 +211,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// to it, so we need to add it to the running language runtimes.
 		if (runtime.getRuntimeState() !== RuntimeState.Uninitialized &&
 			runtime.getRuntimeState() !== RuntimeState.Exited) {
+			// Add the runtime to the running runtimes.
 			this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
-			// Signal that the runtime has started so UI can connect to it.
-			this._onDidStartRuntimeEmitter.fire(runtime);
+			// Signal that the runtime has been reconnected.
+			this._onDidReconnectRuntimeEmitter.fire(runtime);
 
 			// If we have no active runtime, set the active runtime to the new runtime, since
 			// it's already active.
@@ -220,7 +233,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			!this._runningLanguageRuntimesByLanguageId.has(runtime.metadata.languageId) &&
 			startupBehavior === LanguageRuntimeStartupBehavior.Implicit) {
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} automatically starting.`);
-			this.safeStartRuntime(languageRuntimeInfo.runtime);
+			this.doStartRuntime(languageRuntimeInfo.runtime);
 		}
 
 		this._register(runtime.onDidChangeRuntimeState(state => {
@@ -230,13 +243,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 
 			if (state === RuntimeState.Starting) {
-				// Typically, the runtime starts when we ask it to (in `safeStartRuntime`), but
+				// Typically, the runtime starts when we ask it to (in `doStartRuntime`), but
 				// if the runtime is already running when it is registered, we are reconnecting.
 				// In that case, we need to add it to the running language runtimes and signal
 				// that the runtime has started so UI can connect to it.
 				if (!this._runningLanguageRuntimesByLanguageId.has(runtime.metadata.languageId)) {
+					// Add the runtime to the running runtimes.
 					this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
-					this._onDidStartRuntimeEmitter.fire(runtime);
+
+					// Signal that the runtime has been reconnected.
+					this._onDidReconnectRuntimeEmitter.fire(runtime);
 				}
 			}
 
@@ -305,7 +321,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 
 		// Start the language runtime.
-		this.safeStartRuntime(languageRuntimeInfo.runtime);
+		this.doStartRuntime(languageRuntimeInfo.runtime);
 	}
 
 	//#endregion ILanguageRuntimeService Implementation
@@ -316,7 +332,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Starts a language runtime.
 	 * @param runtime The language runtime to start.
 	 */
-	private safeStartRuntime(runtime: ILanguageRuntime): void {
+	private doStartRuntime(runtime: ILanguageRuntime): void {
 		// Add the runtime to the running language runtimes.
 		this._runningLanguageRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
@@ -324,7 +340,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._onWillStartRuntimeEmitter.fire(runtime);
 
 		// Start the runtime.
-		runtime.start().then(languageRuntimeInfo => {
+		runtime.start().then(_languageRuntimeInfo => {
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(runtime);
 
@@ -334,9 +350,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Remove the runtime from the running language runtimes.
 			this._runningLanguageRuntimesByLanguageId.delete(runtime.metadata.languageId);
 
-			// TODO@softwarenerd - No code was here. We need code here.
-			console.log('Starting language runtime failed. Reason:');
-			console.log(reason);
+			// Fire the onDidFailStartRuntime event.
+			this._onDidFailStartRuntimeEmitter.fire(runtime);
+
+			// TODO@softwarenerd - What value(s) can come for reason? What do
+			// we do with the readon? Should it be displated in the Positron
+			// console?
+			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
 		});
 	}
 
