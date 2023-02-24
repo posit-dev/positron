@@ -51,22 +51,29 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
         .trim()
         .to_string();
 
-    let version = version.split(".")
+    let mut version = version.split(".")
         .map(|x| {
             x.parse::<u32>()
-        })
-        .collect::<Result<Vec<u32>, _>>()
-        .context("Failed to extract version numbers")?;
+        });
 
-    if version.len() != 3 {
-        anyhow::bail!("Incorrect number of version components: {}, expected 3", version.len());
-    }
+    let major = match version.next() {
+        Some(Ok(x)) => x,
+        _           => anyhow::bail!("Failed to extract major version component")
+    };
+    let minor = match version.next() {
+        Some(Ok(x)) => x,
+        _           => anyhow::bail!("Failed to extract minor version component")
+    };
+    let patch = match version.next() {
+        Some(Ok(x)) => x,
+        _           => anyhow::bail!("Failed to extract patch version component")
+    };
 
     // Execute the R script to get the home path to R
     Ok(RVersion{
-        major : version[0],
-        minor : version[1],
-        patch : version[2],
+        major,
+        minor,
+        patch,
         r_home
     })
 
