@@ -6,6 +6,7 @@
 //
 
 use std::process::Command;
+use itertools::Itertools;
 
 use anyhow::Context;
 
@@ -51,31 +52,21 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
         .trim()
         .to_string();
 
-    let mut version = version.split(".")
+    let version = version.split(".")
         .map(|x| {
             x.parse::<u32>()
         });
 
-    let major = match version.next() {
-        Some(Ok(x)) => x,
-        _           => anyhow::bail!("Failed to extract major version component")
-    };
-    let minor = match version.next() {
-        Some(Ok(x)) => x,
-        _           => anyhow::bail!("Failed to extract minor version component")
-    };
-    let patch = match version.next() {
-        Some(Ok(x)) => x,
-        _           => anyhow::bail!("Failed to extract patch version component")
-    };
-
-    // Execute the R script to get the home path to R
-    Ok(RVersion{
-        major,
-        minor,
-        patch,
-        r_home
-    })
+    if let Some((Ok(major), Ok(minor), Ok(patch))) = version.collect_tuple() {
+        Ok(RVersion{
+            major,
+            minor,
+            patch,
+            r_home
+        })
+    } else {
+        anyhow::bail!("Failed to extract R version");
+    }
 
 }
 

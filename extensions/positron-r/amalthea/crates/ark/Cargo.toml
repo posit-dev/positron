@@ -39,6 +39,7 @@ walkdir = "2"
 yaml-rust = "0.4.5"
 crossbeam = { version = "0.8.2", features = ["crossbeam-channel"] }
 bus = "2.3.0"
+itertools = "0.8.0"
 
 [profile.dev]
 rpath = true
