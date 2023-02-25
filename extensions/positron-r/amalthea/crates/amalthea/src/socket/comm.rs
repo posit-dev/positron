@@ -7,6 +7,7 @@
 
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
+use log::warn;
 use serde_json::Value;
 
 use crate::comm::comm_channel::CommChannelMsg;
@@ -38,13 +39,33 @@ impl CommSocket {
 
     pub fn handle_msg(&self, msg: Value) {
         if let Some(comm_msg_handler_tx) = &self.comm_msg_handler_tx {
-            comm_msg_handler_tx.send(CommChannelMsg::Data(msg)).unwrap();
+            if let Err(e) = comm_msg_handler_tx.send(CommChannelMsg::Data(msg)) {
+                warn!(
+                    "Error sending close message for comm '{}' ({}): {}",
+                    self.comm_name, self.comm_id, e
+                );
+            }
+        } else {
+            warn!(
+                "No message handler for comm {} ({}); dropping: {}",
+                self.comm_name, self.comm_id, msg
+            )
         }
     }
 
     pub fn close(&self) {
         if let Some(comm_msg_handler_tx) = &self.comm_msg_handler_tx {
-            comm_msg_handler_tx.send(CommChannelMsg::Close).unwrap();
+            if let Err(e) = comm_msg_handler_tx.send(CommChannelMsg::Close) {
+                warn!(
+                    "Error sending close message for comm '{}' ({}): {}",
+                    self.comm_name, self.comm_id, e
+                );
+            }
+        } else {
+            warn!(
+                "No message handler for comm {} ({}); dropping close",
+                self.comm_name, self.comm_id
+            )
         }
     }
 }
