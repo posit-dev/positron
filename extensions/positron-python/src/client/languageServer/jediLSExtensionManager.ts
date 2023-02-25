@@ -5,7 +5,11 @@ import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOp
 import { JediLanguageClientFactory } from '../activation/jedi/languageClientFactory';
 import { JediLanguageServerProxy } from '../activation/jedi/languageServerProxy';
 import { JediLanguageServerManager } from '../activation/jedi/manager';
-import { ILanguageServerOutputChannel } from '../activation/types';
+// --- Start Positron ---
+import * as vscode from 'vscode';
+import { ILanguageServerOutputChannel, ILanguageServerProxy } from '../activation/types';
+import { PositronJediLanguageServerProxy } from '../activation/jedi/positronLanguageRuntimes';
+// --- End Positron ---
 import { IWorkspaceService, ICommandManager } from '../common/application/types';
 import {
     IExperimentService,
@@ -22,7 +26,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { ILanguageServerExtensionManager } from './types';
 
 export class JediLSExtensionManager implements IDisposable, ILanguageServerExtensionManager {
-    private serverProxy: JediLanguageServerProxy;
+    private serverProxy: ILanguageServerProxy;
 
     serverManager: JediLanguageServerManager;
 
@@ -49,7 +53,12 @@ export class JediLSExtensionManager implements IDisposable, ILanguageServerExten
         );
         this.clientFactory = new JediLanguageClientFactory(interpreterService);
         // --- Start Positron ---
-        this.serverProxy = new JediLanguageServerProxy(serviceContainer, interpreterService, this.clientFactory);
+        const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+        if (ext) {
+            this.serverProxy = new PositronJediLanguageServerProxy(serviceContainer, interpreterService);
+        } else {
+            this.serverProxy = new JediLanguageServerProxy(this.clientFactory);
+        }
         // --- End Positron ---
         this.serverManager = new JediLanguageServerManager(
             serviceContainer,
