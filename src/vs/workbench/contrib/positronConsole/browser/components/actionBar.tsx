@@ -22,7 +22,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { ConsoleReplMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplMenuButton';
 
 // Constants.
-const kPaddingLeft = 14;
+const kPaddingLeft = 8;
 const kPaddingRight = 8;
 
 /**

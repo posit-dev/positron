@@ -19,14 +19,14 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	//#region Private Properties
 
 	/**
-	 * A map of the running Positron console instances by runtime ID.
-	 */
-	private readonly _runningPositronConsoleInstancesByRuntimeId = new Map<string, IPositronConsoleInstance>();
-
-	/**
 	 * A map of the running Positron console instances by language ID.
 	 */
 	private readonly _runningPositronConsoleInstancesByLanguageId = new Map<string, IPositronConsoleInstance>();
+
+	/**
+	 * A map of the running Positron console instances by runtime ID.
+	 */
+	private readonly _runningPositronConsoleInstancesByRuntimeId = new Map<string, IPositronConsoleInstance>();
 
 	/**
 	 * The active Positron console instance.
@@ -94,12 +94,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Register the onDidReconnectRuntime event handler so we start a new Positron console instance when a runtime is reconnected.
 		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
-			this.startOrUpdatePositronConsoleInstance(runtime, true);
+			this.startOrUpdatePositronConsoleInstance(runtime, false);
 		}));
-
-
-
-
 
 		// Register the onDidStartRuntime event handler so we start a new REPL for each runtime that is started.
 		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
@@ -178,13 +174,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @returns The new Positron console instance.
 	 */
 	private startOrUpdatePositronConsoleInstance(runtime: ILanguageRuntime, starting: boolean): IPositronConsoleInstance {
-
 		// Create the new Positron console instance.
-		const positronConsoleInstance = new PositronConsoleInstance(runtime, true);
+		const positronConsoleInstance = new PositronConsoleInstance(runtime, starting);
 
 		// Add the Positron console instance to the running instances.
-		this._runningPositronConsoleInstancesByRuntimeId.set(runtime.metadata.runtimeId, positronConsoleInstance);
 		this._runningPositronConsoleInstancesByLanguageId.set(runtime.metadata.languageId, positronConsoleInstance);
+		this._runningPositronConsoleInstancesByRuntimeId.set(runtime.metadata.runtimeId, positronConsoleInstance);
 
 		// Fire the onDidStartPositronConsoleInstance event.
 		this._onDidStartPositronConsoleInstanceEmitter.fire(positronConsoleInstance);

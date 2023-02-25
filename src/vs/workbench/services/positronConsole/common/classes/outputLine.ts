@@ -5,34 +5,34 @@
 import { generateUuid } from 'vs/base/common/uuid';
 
 /**
- * Line interface.
+ * OutputLine interface.
  */
-export interface Line {
+export interface OutputLine {
 	id: string;
 	text: string;
 }
 
 /**
- * Splits a string or array of strings into lines.
+ * Splits a string or array of strings into an OutputLine array.
  * @param value The string or array of strings.
- * @returns An array of the lines.
+ * @returns An OutputLine array.
  */
-export const lineSplitter = (value: string | string[]): Line[] => {
-	// If an array of lines was supplied, process and split them. Otherwise,
-	// split the string that was presented into lines.
-	const lines: Line[] = [];
+export const outputLineSplitter = (value: string | string[]): OutputLine[] => {
+	// If an array was supplied, recursively split each string. Otherwise,
+	// split the string.
+	const outputLines: OutputLine[] = [];
 	if (Array.isArray(value)) {
 		value.forEach(line => {
-			lines.push(...lineSplitter(line));
+			outputLines.push(...outputLineSplitter(line));
 		});
 	} else {
 		value.split('\n').forEach((line, index, splitLines) => {
 			if (!(splitLines.length > 1 && index === splitLines.length - 1 && line.length === 0)) {
-				lines.push({ id: generateUuid(), text: line });
+				outputLines.push({ id: generateUuid(), text: line });
 			}
 		});
 	}
 
-	// Done. Return the lines.
-	return lines;
+	// Done. Return the output lines.
+	return outputLines;
 };

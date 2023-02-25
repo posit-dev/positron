@@ -15,6 +15,8 @@ import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
 import { ILanguageRuntime, ILanguageRuntimeMessage, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
+import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 
 /**
  * Formats a timestamp.
@@ -137,6 +139,20 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 		// Set the state.
 		this.setState(starting ? PositronConsoleState.Starting : PositronConsoleState.Running);
+
+		// Add the appropriate runtime item to indicate whether the Positron console instance is
+		// is starting or is reconnected.
+		if (starting) {
+			this.addRuntimeItem(new RuntimeItemStarting(
+				generateUuid(),
+				`${runtime.metadata.runtimeName} ${runtime.metadata.languageVersion} starting.`
+			));
+		} else {
+			this.addRuntimeItem(new RuntimeItemReconnected(
+				generateUuid(),
+				`${runtime.metadata.runtimeName} ${runtime.metadata.languageVersion} reconnected.`
+			));
+		}
 
 		// Add the onDidChangeRuntimeState event handler.
 		this._register(runtime.onDidChangeRuntimeState(runtimeState => {
