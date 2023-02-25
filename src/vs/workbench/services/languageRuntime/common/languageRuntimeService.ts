@@ -410,15 +410,16 @@ export interface ILanguageRuntimeService {
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
-	 * Gets a runtime by ID; returns undefined if the runtime is not found
-	 *
-	 * @param id The ID of the runtime to retrieve
+	 * Returns a specific runtime by runtime identifier.
+	 * @param runtimeId The runtime identifier of the runtime to retrieve.
+	 * @returns The runtime with the given runtime identifier, or undefined if
+	 * no runtime with the given runtime identifier exists.
 	 */
-	getRuntime(id: string): ILanguageRuntime | undefined;
+	getRuntime(runtimeId: string): ILanguageRuntime | undefined;
 
 	/**
-	 * Starts a language runtime
-	 * @param id The id of the runtime to start
+	 * Starts a runtime.
+	 * @param runtimeId The runtime identifier of the runtime to start.
 	 */
-	startRuntime(id: string): void;
+	startRuntime(runtimeId: string): void;
 }

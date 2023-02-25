@@ -2,12 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.activity-error {
-	color: red;
+.runtime-reconnected {
 	font-size: 12px;
 	padding-left: 14px;
-}
-
-.activity-error .traceback-lines {
-	border-top: 1px solid red;
 }

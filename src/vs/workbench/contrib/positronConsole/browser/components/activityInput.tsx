@@ -4,6 +4,7 @@
 
 import 'vs/css!./activityInput';
 import * as React from 'react';
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
 // ActivityInputProps interface.
@@ -22,11 +23,7 @@ export const ActivityInput = ({ activityItemInput }: ActivityInputProps) => {
 		<div className='activity-input'>
 			<div className='prompt'>&gt;</div>
 			<div className='code'>
-				{activityItemInput.codeLines.map(codeLine =>
-					<div key={codeLine.id} className='code-line'>
-						{codeLine.text.length ? <div>{codeLine.text}</div> : <br />}
-					</div>
-				)}
+				<OutputLines outputLines={activityItemInput.codeOutputLines} />
 			</div>
 		</div>
 	);

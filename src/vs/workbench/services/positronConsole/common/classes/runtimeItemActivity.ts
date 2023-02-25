@@ -5,10 +5,6 @@
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 
-export interface Run {
-
-}
-
 /**
  * RuntimeItemActivity class.
  */
