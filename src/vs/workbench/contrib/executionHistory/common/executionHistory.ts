@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -41,15 +40,15 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 
 		// Listen for runtimes to start; when they do, begin recording
 		// executions
-		this._languageRuntimeService.onDidStartRuntime(runtime => {
+		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
-		});
+		}));
 
 		// Listen for runtimes to reconnect; when they do, begin recording
 		// executions
-		this._languageRuntimeService.onDidReconnectRuntime(runtime => {
+		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
-		});
+		}));
 	}
 
 	/**
