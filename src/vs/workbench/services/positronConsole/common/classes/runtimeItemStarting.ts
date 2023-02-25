@@ -6,15 +6,10 @@ import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classe
 import { OutputLine, outputLineSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputLine';
 
 /**
- * RuntimeItemTrace class.
+ * RuntimeItemStarting class.
  */
-export class RuntimeItemTrace extends RuntimeItem {
+export class RuntimeItemStarting extends RuntimeItem {
 	//#region Public Properties
-
-	/**
-	 * Gets the timestamp.
-	 */
-	public readonly timestamp = new Date();
 
 	/**
 	 * Gets the output lines.
@@ -28,11 +23,13 @@ export class RuntimeItemTrace extends RuntimeItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param text The text.
+	 * @param banner The banner.
 	 */
-	constructor(id: string, text: string) {
+	constructor(
+		id: string,
+		banner: string) {
 		super(id);
-		this.outputLines = outputLineSplitter(text);
+		this.outputLines = outputLineSplitter(banner);
 	}
 
 	//#endregion Constructor

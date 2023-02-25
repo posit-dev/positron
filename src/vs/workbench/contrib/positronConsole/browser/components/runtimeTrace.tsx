@@ -4,6 +4,7 @@
 
 import 'vs/css!./runtimeTrace';
 import * as React from 'react';
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 
 // RuntimeTraceProps interface.
@@ -34,9 +35,7 @@ export const RuntimeTrace = ({ runtimeItemTrace }: RuntimeTraceProps) => {
 			<div>
 				{formatTimestamp(runtimeItemTrace.timestamp)}
 			</div>
-			{runtimeItemTrace.lines.map(line =>
-				<div key={line.id}>{line.text}</div>
-			)}
+			<OutputLines outputLines={runtimeItemTrace.outputLines} />
 		</div>
 	);
 };

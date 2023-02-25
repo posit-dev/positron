@@ -19,7 +19,7 @@ export interface RuntimeActivityProps {
 }
 
 /**
- * ReplActivity component.
+ * RuntimeActivity component.
  * @param props A RuntimeActivityProps that contains the component properties.
  * @returns The rendered component.
  */

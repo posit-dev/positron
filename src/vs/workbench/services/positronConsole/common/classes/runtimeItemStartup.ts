@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { Line, lineSplitter } from 'vs/workbench/services/positronConsole/common/classes/utils';
+import { OutputLine, outputLineSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputLine';
 
 /**
  * RuntimeItemStartup class.
@@ -12,9 +12,9 @@ export class RuntimeItemStartup extends RuntimeItem {
 	//#region Public Properties
 
 	/**
-	 * Gets the lines.
+	 * Gets the output lines.
 	 */
-	public readonly lines: readonly Line[];
+	public readonly outputLines: readonly OutputLine[];
 
 	//#endregion Public Properties
 
@@ -33,7 +33,7 @@ export class RuntimeItemStartup extends RuntimeItem {
 		public readonly implementationVersion: string,
 		public readonly languageVersion: string) {
 		super(id);
-		this.lines = lineSplitter(banner);
+		this.outputLines = outputLineSplitter(banner);
 	}
 
 	//#endregion Constructor

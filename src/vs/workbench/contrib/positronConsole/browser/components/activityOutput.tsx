@@ -5,8 +5,9 @@
 import 'vs/css!./activityOutput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
-import { lineSplitter } from 'vs/workbench/services/positronConsole/common/classes/utils';
+import { outputLineSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputLine';
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 
 // ActivityOutputProps interface.
 export interface ActivityOutputProps {
@@ -20,24 +21,18 @@ export interface ActivityOutputProps {
  */
 export const ActivityOutput = ({ activityItemOutput }: ActivityOutputProps) => {
 	// Hooks.
-	const lines = useMemo(() => {
+	const outputLines = useMemo(() => {
 		if (activityItemOutput.data['text/plain'].length === 0) {
 			return [];
 		} else {
-			return lineSplitter(activityItemOutput.data['text/plain']);
+			return outputLineSplitter(activityItemOutput.data['text/plain']);
 		}
 	}, [activityItemOutput]);
 
 	// Render.
 	return (
 		<div className='activity-output'>
-			<div className='output-lines'>
-				{lines.map(line =>
-					<div key={line.id} className='output-line'>
-						{line.text.length ? <div>{line.text}</div> : <br />}
-					</div>
-				)}
-			</div>
+			<OutputLines outputLines={outputLines} />
 		</div>
 	);
 };
