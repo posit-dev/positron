@@ -8,6 +8,7 @@
 use amalthea::kernel::{Kernel, StreamBehavior};
 use amalthea::wire::comm_close::CommClose;
 use amalthea::wire::comm_info_request::CommInfoRequest;
+use amalthea::wire::comm_msg::CommMsg;
 use amalthea::wire::comm_open::CommOpen;
 use amalthea::wire::execute_input::ExecuteInput;
 use amalthea::wire::execute_request::ExecuteRequest;
@@ -316,6 +317,31 @@ fn test_kernel() {
                 reply
             );
         },
+    }
+
+    info!("Sending comm message to the test comm and waiting for a reply");
+    frontend.send_shell(CommMsg {
+        comm_id: comm_id.to_string(),
+        data: serde_json::Value::Null,
+    });
+    loop {
+        let msg = frontend.receive_iopub();
+        match msg {
+            Message::CommMsg(msg) => {
+                // This is the message we were looking for; break out of the
+                // loop
+                info!("Got comm message: {:?}", msg);
+                assert_eq!(msg.content.comm_id, comm_id);
+                break;
+            },
+            _ => {
+                // It isn't the message; keep looking for it (we expect a
+                // number of other messages, e.g. busy/idle notifications as
+                // the kernel processes the comm message)
+                info!("Ignoring message: {:?}", msg);
+                continue;
+            },
+        }
     }
 
     // Test closing the comm we just opened

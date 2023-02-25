@@ -5,6 +5,8 @@
  *
  */
 
+use std::thread;
+
 use amalthea::comm::comm_channel::Comm;
 use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
@@ -231,13 +233,25 @@ impl ShellHandler for Shell {
     async fn handle_comm_open(
         &self,
         _req: Comm,
-        _sender: Sender<Value>,
+        sender: Sender<Value>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         // Open a test comm channel; this test comm channel is used for every
-        // comm open request (regardless of the target name). We don't actually
-        // process messages sent to the comm channel, so we just drop the
-        // receiver here.
-        let (msg_tx, _msg_rx) = unbounded();
+        // comm open request (regardless of the target name). It just echoes back any
+        // messages it receives.
+        let (msg_tx, msg_rx) = unbounded();
+        thread::spawn(move || loop {
+            match msg_rx.recv().unwrap() {
+                CommChannelMsg::Data(val) => {
+                    // Echo back the data we received on the comm channel to the
+                    // sender.
+                    sender.send(val).unwrap();
+                },
+                CommChannelMsg::Close => {
+                    // Close the channel and exit the thread.
+                    break;
+                },
+            }
+        });
         Ok(Some(msg_tx))
     }
 
