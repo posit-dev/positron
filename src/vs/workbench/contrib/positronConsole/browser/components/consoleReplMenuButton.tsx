@@ -28,8 +28,7 @@ export const ConsoleReplMenuButton = () => {
 				class: undefined,
 				enabled: true,
 				run: () => {
-					//positronConsoleContext.languageRuntimeService.activeRuntime = languageEnvironment.runtime;
-					//positronConsoleContext.setActivePositronConsoleInstance(positronConsoleInstance);
+					positronConsoleContext.languageRuntimeService.activeRuntime = positronConsoleInstance.runtime;
 				}
 			});
 		});
