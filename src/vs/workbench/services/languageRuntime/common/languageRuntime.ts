@@ -144,7 +144,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// An event that fires when a runtime receives a global event.
 	readonly onDidReceiveRuntimeEvent = this._onDidReceiveRuntimeEventEmitter.event;
 
-	// An event that fires when a runtime starts.
+	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntimeEmitter.event;
 
 	/**
