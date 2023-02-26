@@ -383,7 +383,7 @@ export interface ILanguageRuntimeService {
 	// An event that fires when a runtime receives a global event.
 	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
 
-	// An event that fires when a runtime starts.
+	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
 
 	/**

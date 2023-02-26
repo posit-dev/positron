@@ -150,7 +150,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			}
 		}));
 
-		// Register the onDidStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
+		// Register the onDidFailStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
 		this._register(this._languageRuntimeService.onDidFailStartRuntime(runtime => {
 			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
 			if (positronConsoleInstance) {
