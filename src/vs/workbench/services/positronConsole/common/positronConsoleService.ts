@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -13,13 +13,15 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
+import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 //#region Helper Functions
 
@@ -139,14 +141,19 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// Register the onWillStartRuntime event handler so we start a new Positron console instance before a runtime starts up.
 		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
-			this.startPositronConsoleInstance(runtime, true);
+			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(runtime.metadata.languageId);
+			if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
+				positronConsoleInstance.setRuntime(runtime, true);
+			} else {
+				this.startPositronConsoleInstance(runtime, true);
+			}
 		}));
 
 		// Register the onDidStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
 		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
 			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
 			if (positronConsoleInstance) {
-				positronConsoleInstance.state = PositronConsoleState.Running;
+				positronConsoleInstance.setState(PositronConsoleState.Running);
 			}
 		}));
 
@@ -154,13 +161,28 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		this._register(this._languageRuntimeService.onDidFailStartRuntime(runtime => {
 			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
 			if (positronConsoleInstance) {
-				positronConsoleInstance.state = PositronConsoleState.Exited;
+				positronConsoleInstance.setState(PositronConsoleState.Exited);
 			}
 		}));
 
 		// Register the onDidReconnectRuntime event handler so we start a new Positron console instance when a runtime is reconnected.
 		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
 			this.startPositronConsoleInstance(runtime, false);
+		}));
+
+		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the active runtime.
+		this._register(this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(languageRuntimeStateEvent.runtime_id);
+			if (!positronConsoleInstance) {
+				// TODO@softwarenerd... Handle this in some special way.
+				return;
+			}
+
+			switch (languageRuntimeStateEvent.new_state) {
+				case RuntimeState.Exited:
+					positronConsoleInstance.setState(PositronConsoleState.Exited);
+					break;
+			}
 		}));
 
 		// Register the onDidChangeActiveRuntime event handler so we can activate the REPL for the active runtime.
@@ -275,17 +297,27 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	//#region Private Properties
 
 	/**
-	 * Gets the state.
+	 * Gets or sets the runtime.
+	 */
+	private _runtime: ILanguageRuntime;
+
+	/**
+	 * Gets or sets the runtime event handlers disposable store.
+	 */
+	private _runtimeEventHandlersDisposableStore = new DisposableStore();
+
+	/**
+	 * Gets or sets the state.
 	 */
 	private _state = PositronConsoleState.Uninitialized;
 
 	/**
-	 * A value which indicates whether trace is enabled.
+	 * Gets or sets a value which indicates whether trace is enabled.
 	 */
 	private _trace = false;
 
 	/**
-	 * The runtime items.
+	 * Gets or sets the runtime items.
 	 */
 	private _runtimeItems: RuntimeItem[] = [];
 
@@ -333,164 +365,32 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param runtime The language runtime.
 	 * @param starting A value which indicates whether the Positron console instance is starting.
 	 */
-	constructor(readonly runtime: ILanguageRuntime, starting: boolean) {
+	constructor(runtime: ILanguageRuntime, starting: boolean) {
 		// Call the base class's constructor.
 		super();
 
-		// Add the appropriate runtime item to indicate whether the Positron console instance is
-		// is starting or is reconnected.
-		if (starting) {
-			this._state = PositronConsoleState.Starting;
-			this.addRuntimeItem(new RuntimeItemStarting(
-				generateUuid(),
-				`${runtime.metadata.runtimeName} ${runtime.metadata.languageVersion} starting.`
-			));
-		} else {
-			this._state = PositronConsoleState.Running;
-			this.addRuntimeItem(new RuntimeItemReconnected(
-				generateUuid(),
-				`${runtime.metadata.runtimeName} ${runtime.metadata.languageVersion} reconnected.`
-			));
-		}
+		// Set the runtime.
+		this._runtime = runtime;
 
-		// Add the onDidChangeRuntimeState event handler.
-		this._register(runtime.onDidChangeRuntimeState(runtimeState => {
-			this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
-		}));
+		// Initialize for runtime.
+		this.attachRuntime(starting);
+	}
 
-		// Add the onDidCompleteStartup event handler.
-		this._register(runtime.onDidCompleteStartup(languageRuntimeInfo => {
-			// Add item trace.
-			this.addRuntimeItemTrace(`onDidCompleteStartup`);
-
-			// Add the item startup.
-			this.addRuntimeItem(new RuntimeItemStartup(
-				generateUuid(),
-				languageRuntimeInfo.banner,
-				languageRuntimeInfo.implementation_version,
-				languageRuntimeInfo.language_version
-			));
-		}));
-
-		// Add the onDidReceiveRuntimeMessageOutput event handler.
-		this._register(runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
-				formatOutputData(languageRuntimeMessageOutput.data)
-			);
-
-			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutput(
-				languageRuntimeMessageOutput.id,
-				languageRuntimeMessageOutput.parent_id,
-				new Date(languageRuntimeMessageOutput.when),
-				languageRuntimeMessageOutput.data
-			));
-		}));
-
-		// Add the onDidReceiveRuntimeMessageInput event handler.
-		this._register(runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
-				'\nCode:\n' +
-				languageRuntimeMessageInput.code
-			);
-
-			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageInput.parent_id, new ActivityItemInput(
-				languageRuntimeMessageInput.id,
-				languageRuntimeMessageInput.parent_id,
-				new Date(languageRuntimeMessageInput.when),
-				languageRuntimeMessageInput.code
-			));
-		}));
-
-		// Add the onDidReceiveRuntimeMessageError event handler.
-		this._register(runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
-				`\nName: ${languageRuntimeMessageError.name}` +
-				'\nMessage:\n' +
-				languageRuntimeMessageError.message +
-				formatTraceback(languageRuntimeMessageError.traceback)
-			);
-
-			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageError.parent_id, new ActivityItemError(
-				languageRuntimeMessageError.id,
-				languageRuntimeMessageError.parent_id,
-				new Date(languageRuntimeMessageError.when),
-				languageRuntimeMessageError.name,
-				languageRuntimeMessageError.message,
-				languageRuntimeMessageError.traceback
-			));
-		}));
-
-		// Add the onDidReceiveRuntimeMessagePrompt event handler.
-		this._register(runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
-			// Add trace event.
-			this.addRuntimeItemTrace(`onDidReceiveRuntimeMessagePrompt: ID: ${languageRuntimeMessagePrompt.id} Parent ID: ${languageRuntimeMessagePrompt.parent_id}\nPassword: ${languageRuntimeMessagePrompt.password}\Prompt: ${languageRuntimeMessagePrompt.prompt}`);
-		}));
-
-		// Add the onDidReceiveRuntimeMessageState event handler.
-		this._register(runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
-			// Add trace event.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
-				`\nState: ${languageRuntimeMessageState.state}`);
-
-			switch (languageRuntimeMessageState.state) {
-				case RuntimeOnlineState.Starting: {
-					break;
-				}
-
-				case RuntimeOnlineState.Busy: {
-					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
-						break;
-					}
-				}
-
-				case RuntimeOnlineState.Idle: {
-					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
-						break;
-					}
-				}
-			}
-		}));
-
-		// Add the onDidReceiveRuntimeMessageEvent event handler.
-		this._register(runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-		}));
+	override dispose(): void {
+		super.dispose();
+		this._runtimeEventHandlersDisposableStore.dispose();
 	}
 
 	//#endregion Constructor & Dispose
 
-	//#region Public Properties
+	//#region IPositronConsoleInstance Implementation
 
 	/**
-	 * Sets the state.
+	 * Gets the state.
 	 */
-	set state(state: PositronConsoleState) {
-		// Remove the starting runtime item when we transition from starting to running.
-		if (this._state === PositronConsoleState.Starting &&
-			state === PositronConsoleState.Running &&
-			this._runtimeItems.length &&
-			this._runtimeItems[0] instanceof RuntimeItemStarting) {
-			// Remove the starting runtime item.
-			this._runtimeItems.shift();
-		}
-
-		// Set the new state and raise the onDidChangeState event.
-		this._state = state;
-		this._onDidChangeStateEmitter.fire(this._state);
+	get runtime(): ILanguageRuntime {
+		return this._runtime;
 	}
-
-	//#endregion Public Properties
-
-	//#region IPositronConsoleInstance Implementation
 
 	/**
 	 * Gets the state.
@@ -580,13 +480,195 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	//#region Public Methods
 
-	foo() {
-		console.log('FOO');
+	/**
+	 * Sets the runtime.
+	 * @param runtime The runtime.
+	 * @param starting A value which indicates whether the runtime is starting.
+	 */
+	setRuntime(runtime: ILanguageRuntime, starting: boolean) {
+		// Set the runtime.
+		this._runtime = runtime;
+
+		// Attach the runtime.
+		this.attachRuntime(starting);
+	}
+
+	/**
+	 * Sets the state.
+	 * @param state The new state.
+	 */
+	setState(state: PositronConsoleState) {
+		// Remove the starting runtime item when we transition from starting to running.
+		if (this._state === PositronConsoleState.Starting && state === PositronConsoleState.Running) {
+			for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
+				if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
+					this._runtimeItems[i] = new RuntimeItemStarted(
+						generateUuid(),
+						`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} started.`
+					);
+					this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+				}
+			}
+		}
+
+		// Set the new state and raise the onDidChangeState event.
+		this._state = state;
+		this._onDidChangeStateEmitter.fire(this._state);
 	}
 
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Attaches to a runtime.
+	 * @param starting A value which indicates whether the runtime is starting.
+	 */
+	private attachRuntime(starting: boolean) {
+		// Add the appropriate runtime item to indicate whether the Positron console instance is
+		// is starting or is reconnected.
+		if (starting) {
+			this.setState(PositronConsoleState.Starting);
+			this.addRuntimeItem(new RuntimeItemStarting(
+				generateUuid(),
+				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} starting.`
+			));
+		} else {
+			this.setState(PositronConsoleState.Running);
+			this.addRuntimeItem(new RuntimeItemReconnected(
+				generateUuid(),
+				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} reconnected.`
+			));
+		}
+
+		// Add the onDidChangeRuntimeState event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidChangeRuntimeState(runtimeState => {
+			this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
+			if (runtimeState === RuntimeState.Exited) {
+				this.detachRuntime();
+			}
+		}));
+
+		// Add the onDidCompleteStartup event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
+			// Add item trace.
+			this.addRuntimeItemTrace(`onDidCompleteStartup`);
+
+			// Add the item startup.
+			this.addRuntimeItem(new RuntimeItemStartup(
+				generateUuid(),
+				languageRuntimeInfo.banner,
+				languageRuntimeInfo.implementation_version,
+				languageRuntimeInfo.language_version
+			));
+		}));
+
+		// Add the onDidReceiveRuntimeMessageOutput event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
+			// Add trace item.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
+				formatOutputData(languageRuntimeMessageOutput.data)
+			);
+
+			// Add or update the activity event.
+			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutput(
+				languageRuntimeMessageOutput.id,
+				languageRuntimeMessageOutput.parent_id,
+				new Date(languageRuntimeMessageOutput.when),
+				languageRuntimeMessageOutput.data
+			));
+		}));
+
+		// Add the onDidReceiveRuntimeMessageInput event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+			// Add trace item.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
+				'\nCode:\n' +
+				languageRuntimeMessageInput.code
+			);
+
+			// Add or update the activity event.
+			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageInput.parent_id, new ActivityItemInput(
+				languageRuntimeMessageInput.id,
+				languageRuntimeMessageInput.parent_id,
+				new Date(languageRuntimeMessageInput.when),
+				languageRuntimeMessageInput.code
+			));
+		}));
+
+		// Add the onDidReceiveRuntimeMessageError event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
+			// Add trace item.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
+				`\nName: ${languageRuntimeMessageError.name}` +
+				'\nMessage:\n' +
+				languageRuntimeMessageError.message +
+				formatTraceback(languageRuntimeMessageError.traceback)
+			);
+
+			// Add or update the activity event.
+			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageError.parent_id, new ActivityItemError(
+				languageRuntimeMessageError.id,
+				languageRuntimeMessageError.parent_id,
+				new Date(languageRuntimeMessageError.when),
+				languageRuntimeMessageError.name,
+				languageRuntimeMessageError.message,
+				languageRuntimeMessageError.traceback
+			));
+		}));
+
+		// Add the onDidReceiveRuntimeMessagePrompt event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+			// Add trace event.
+			this.addRuntimeItemTrace(`onDidReceiveRuntimeMessagePrompt: ID: ${languageRuntimeMessagePrompt.id} Parent ID: ${languageRuntimeMessagePrompt.parent_id}\nPassword: ${languageRuntimeMessagePrompt.password}\Prompt: ${languageRuntimeMessagePrompt.prompt}`);
+		}));
+
+		// Add the onDidReceiveRuntimeMessageState event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+			// Add trace event.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
+				`\nState: ${languageRuntimeMessageState.state}`);
+
+			switch (languageRuntimeMessageState.state) {
+				case RuntimeOnlineState.Starting: {
+					break;
+				}
+
+				case RuntimeOnlineState.Busy: {
+					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
+						break;
+					}
+				}
+
+				case RuntimeOnlineState.Idle: {
+					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
+						break;
+					}
+				}
+			}
+		}));
+
+		// Add the onDidReceiveRuntimeMessageEvent event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+		}));
+	}
+
+	/**
+	 * Detaches from a runtime.
+	 */
+	private detachRuntime() {
+		this._runtimeEventHandlersDisposableStore.dispose();
+		this._runtimeEventHandlersDisposableStore = new DisposableStore();
+
+		this.addRuntimeItem(new RuntimeItemExited(
+			generateUuid(),
+			`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} has exited.`
+		));
+	}
 
 	/**
 	 * Adds a trace runtime item.
