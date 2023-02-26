@@ -5,9 +5,9 @@
 import 'vs/css!./activityOutput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { outputLineSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputLine';
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 
 // ActivityOutputProps interface.
 export interface ActivityOutputProps {
