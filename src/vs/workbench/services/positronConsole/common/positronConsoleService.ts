@@ -474,6 +474,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Sets the state.
 	 */
 	set state(state: PositronConsoleState) {
+		// Remove the starting runtime item when we transition from starting to running.
+		if (this._state === PositronConsoleState.Starting &&
+			state === PositronConsoleState.Running &&
+			this._runtimeItems.length &&
+			this._runtimeItems[0] instanceof RuntimeItemStarting) {
+			this._runtimeItems.shift();
+		}
+
+		// Set the new state and raise the onDidChangeState event.
 		this._state = state;
 		this._onDidChangeStateEmitter.fire(this._state);
 	}
