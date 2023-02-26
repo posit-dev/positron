@@ -187,15 +187,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				return;
 			}
 
-			// Sanity check that the runtime that was specified is running.
-			const runningRuntime = this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
-			if (!runningRuntime || runningRuntime.metadata.runtimeId !== runtime.metadata.runtimeId) {
+			// Find the runtime.
+			const activeRuntime = this._startingRuntimesByLanguageId.get(runtime.metadata.languageId) || this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
+			if (!activeRuntime) {
 				this._logService.error(`Cannot activate language runtime ${formatLanguageRuntime(runtime)} because it is not running.`);
 				return;
 			}
 
 			// Set the active runtime to the running runtime.
-			this._activeRuntime = runningRuntime;
+			this._activeRuntime = activeRuntime;
 		}
 
 		// Fire the onDidChangeActiveRuntime event.
@@ -259,7 +259,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// if the runtime is already running when it is registered, we are reconnecting.
 					// In that case, we need to add it to the running runtimes and signal that the
 					// runtime has reconnected.
-					if (!this._runningRuntimesByLanguageId.has(runtime.metadata.languageId)) {
+					if (!this.runtimeForLanguageIsStartingOrRunning(runtime.metadata.languageId)) {
 						// Add the runtime to the running runtimes.
 						this._runningRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
@@ -388,7 +388,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._onDidStartRuntimeEmitter.fire(runtime);
 
 			// Set the active runtime.
-			this.activeRuntime = runtime;
+			//this.activeRuntime = runtime;
 		}, (reason) => {
 			// Remove the runtime from the starting runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
