@@ -216,10 +216,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 
-		const parentId = randomUUID();
-		this.simulateBusyState(parentId);
-		this.simulateIdleState(parentId);
+		// A lot of the time, a real runtime goes busy and then idle after it starts.
+		setTimeout(() => {
+			const parentId = randomUUID();
+			this.simulateBusyState(parentId);
+			this.simulateIdleState(parentId);
+		}, 100);
 
+		// Done.
 		return Promise.resolve({
 			banner: `Zed ${this.metadata.languageVersion}\nThis is the Zed test language.\n\nEnter 'help' for help.\n`,
 			implementation_version: this.metadata.runtimeVersion,
