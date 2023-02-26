@@ -9,18 +9,18 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
-import { RuntimeActivity } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeActivity';
 import { ReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/replLiveInput';
-import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
-import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
-import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
-import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
-import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
-import { RuntimeStarting } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarting';
 import { RuntimeStartup } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartup';
+import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
+import { RuntimeStarting } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarting';
+import { RuntimeActivity } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeActivity';
+import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
+import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
+import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // ConsoleReplProps interface.
 interface ConsoleReplProps {
@@ -58,6 +58,13 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Add the onDidChangeState event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
+			if (state === PositronConsoleState.Exited) {
+
+			}
+		}));
 
 		// Add the onDidChangeTrace event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeTrace(trace => {
@@ -111,12 +118,14 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}
-			<ReplLiveInput
-				ref={consoleReplLiveInputRef}
-				hidden={props.hidden}
-				width={props.width}
-				executeCode={executeCode}
-				positronConsoleInstance={props.positronConsoleInstance} />
+			{props.positronConsoleInstance.state === PositronConsoleState.Running &&
+				<ReplLiveInput
+					ref={consoleReplLiveInputRef}
+					hidden={props.hidden}
+					width={props.width}
+					executeCode={executeCode}
+					positronConsoleInstance={props.positronConsoleInstance} />
+			}
 		</div>
 	);
 };
