@@ -4,10 +4,21 @@
 
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleInstance';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
+
+/**
+ * The PositronConsoleState
+ */
+export const enum PositronConsoleState {
+	Uninitialized,
+	Starting,
+	Running,
+	Exited
+}
 
 /**
  * IPositronConsoleService interface.
@@ -48,4 +59,80 @@ export interface IPositronConsoleService {
 	 * @returns A value which indicates whether the code could be executed.
 	 */
 	executeCode(languageId: string, code: string): boolean;
+}
+
+/**
+ * IPositronConsoleInstance interface.
+ */
+export interface IPositronConsoleInstance {
+	/**
+	 * Gets the runtime for the Positron console instance.
+	 */
+	readonly runtime: ILanguageRuntime;
+
+	/**
+	 * Gets the state.
+	 */
+	readonly state: PositronConsoleState;
+
+	/**
+	 * Gets a value which indicates whether trace is enabled.
+	 */
+	readonly trace: boolean;
+
+	/**
+	 * Gets the runtime items.
+	 */
+	readonly runtimeItems: RuntimeItem[];
+
+	/**
+	 * The onDidChangeState event.
+	 */
+	readonly onDidChangeState: Event<PositronConsoleState>;
+
+	/**
+	 * The onDidChangeTrace event.
+	 */
+	readonly onDidChangeTrace: Event<boolean>;
+
+	/**
+	 * The onDidChangeRuntimeItems event.
+	 */
+	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]>;
+
+	/**
+	 * The onDidClearConsole event.
+	 */
+	readonly onDidClearConsole: Event<void>;
+
+	/**
+	 * The onDidClearInputHistory event.
+	 */
+	readonly onDidClearInputHistory: Event<void>;
+
+	/**
+	 * The onDidExecuteCode event.
+	 */
+	readonly onDidExecuteCode: Event<string>;
+
+	/**
+	 * Toggles trace.
+	 */
+	toggleTrace(): void;
+
+	/**
+	 * Clears the console.
+	 */
+	clearConsole(): void;
+
+	/**
+	 * Clears the input hstory.
+	 */
+	clearInputHistory(): void;
+
+	/**
+	 * Executes code in the Positron console instance.
+	 * @param code The code to execute.
+	 */
+	executeCode(code: string): void;
 }

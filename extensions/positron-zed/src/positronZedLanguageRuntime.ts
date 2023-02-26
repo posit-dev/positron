@@ -211,7 +211,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @returns A Thenable that resolves with information about the runtime
 	 */
 	start(): Promise<positron.LanguageRuntimeInfo> {
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+
+		const parentId = randomUUID();
+		this.simulateBusyState(parentId);
+		this.simulateIdleState(parentId);
+
 		return Promise.resolve({
 			banner: `Zed ${this.metadata.languageVersion}\nThis is the Zed test language.\n\nEnter 'help' for help.\n`,
 			implementation_version: this.metadata.runtimeVersion,
