@@ -49,12 +49,12 @@ export const ActionBar = (props: PropsWithChildren<ActionBarProps>) => {
 
 	// Toggle trace handler.
 	const toggleTraceHandler = async () => {
-		positronConsoleContext.currentPositronConsoleInstance?.toggleTrace();
+		positronConsoleContext.activePositronConsoleInstance?.toggleTrace();
 	};
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
-		positronConsoleContext.currentPositronConsoleInstance?.clearConsole();
+		positronConsoleContext.activePositronConsoleInstance?.clearConsole();
 	};
 
 	// Render.
