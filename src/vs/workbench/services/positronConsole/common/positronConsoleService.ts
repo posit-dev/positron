@@ -242,11 +242,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		this._positronConsoleInstancesByLanguageId.set(runtime.metadata.languageId, positronConsoleInstance);
 		this._positronConsoleInstancesByRuntimeId.set(runtime.metadata.runtimeId, positronConsoleInstance);
 
-		// Set the active positron console instance.
-		this._activePositronConsoleInstance = positronConsoleInstance;
-
 		// Fire the onDidStartPositronConsoleInstance event.
 		this._onDidStartPositronConsoleInstanceEmitter.fire(positronConsoleInstance);
+
+		// Set the active positron console instance.
+		this._activePositronConsoleInstance = positronConsoleInstance;
 
 		// Fire the onDidChangeActivePositronConsoleInstance event.
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);

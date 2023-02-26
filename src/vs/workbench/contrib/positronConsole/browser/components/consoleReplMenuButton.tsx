@@ -23,13 +23,13 @@ export const ConsoleReplMenuButton = () => {
 		positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance => {
 			actions.push({
 				id: positronConsoleInstance.runtime.metadata.runtimeId,
-				label: positronConsoleInstance.runtime.metadata.languageName,
+				label: `${positronConsoleInstance.runtime.metadata.runtimeName} ${positronConsoleInstance.runtime.metadata.languageVersion}`,
 				tooltip: '',
 				class: undefined,
 				enabled: true,
 				run: () => {
 					//positronConsoleContext.languageRuntimeService.activeRuntime = languageEnvironment.runtime;
-					positronConsoleContext.setCurrentPositronConsoleInstance(positronConsoleInstance);
+					//positronConsoleContext.setActivePositronConsoleInstance(positronConsoleInstance);
 				}
 			});
 		});
@@ -41,7 +41,7 @@ export const ConsoleReplMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			text={positronConsoleContext.currentPositronConsoleInstance?.runtime.metadata.languageName ?? 'None'}
+			text={positronConsoleContext.activePositronConsoleInstance?.runtime.metadata.languageName ?? 'None'}
 			actions={actions}
 		/>
 	);

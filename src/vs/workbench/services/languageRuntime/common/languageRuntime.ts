@@ -272,7 +272,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// If the runtime is ready, and we have no active runtime,
 					// set the active runtime to the new runtime.
 					if (!this._activeRuntime) {
-						this.activeRuntime = runtime;
+						//this.activeRuntime = runtime;
 					}
 					break;
 
