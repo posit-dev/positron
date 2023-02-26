@@ -479,6 +479,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			state === PositronConsoleState.Running &&
 			this._runtimeItems.length &&
 			this._runtimeItems[0] instanceof RuntimeItemStarting) {
+			// Remove the starting runtime item.
 			this._runtimeItems.shift();
 		}
 
