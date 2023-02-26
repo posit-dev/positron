@@ -5,13 +5,13 @@
 import 'vs/css!./runtimeActivity';
 import * as React from 'react';
 import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
+import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
+import { ActivityError } from 'vs/workbench/contrib/positronConsole/browser/components/activityError';
+import { ActivityOutput } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutput';
 import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
-import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
-import { ActivityOutput } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutput';
-import { ActivityError } from 'vs/workbench/contrib/positronConsole/browser/components/activityError';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
