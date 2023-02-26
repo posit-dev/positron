@@ -10,11 +10,15 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
 import { ReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/replLiveInput';
+import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
 import { RuntimeStartup } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartup';
+import { RuntimeStarted } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarted';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { RuntimeStarting } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarting';
 import { RuntimeActivity } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeActivity';
+import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
+import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
@@ -105,6 +109,10 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemStarting) {
 			return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemStarted) {
+			return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemExited) {
+			return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemTrace) {
 			return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
 		} else {

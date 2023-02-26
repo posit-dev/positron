@@ -2,7 +2,8 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.runtime-starting {
+.runtime-exited {
 	font-size: 12px;
 	padding-left: 14px;
+	border-bottom: 1px solid #292929;
 }
