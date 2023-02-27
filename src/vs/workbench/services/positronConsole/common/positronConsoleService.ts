@@ -17,6 +17,7 @@ import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
+import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
@@ -143,6 +144,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
 			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(runtime.metadata.languageId);
 			if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
+				this._positronConsoleInstancesByRuntimeId.delete(positronConsoleInstance.runtime.metadata.runtimeId);
+				this._positronConsoleInstancesByRuntimeId.set(positronConsoleInstance.runtime.metadata.runtimeId, positronConsoleInstance);
 				positronConsoleInstance.setRuntime(runtime, true);
 			} else {
 				this.startPositronConsoleInstance(runtime, true);
@@ -153,7 +156,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
 			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
 			if (positronConsoleInstance) {
-				positronConsoleInstance.setState(PositronConsoleState.Running);
+				positronConsoleInstance.setState(PositronConsoleState.Ready);
 			}
 		}));
 
@@ -179,6 +182,26 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			}
 
 			switch (languageRuntimeStateEvent.new_state) {
+				case RuntimeState.Uninitialized:
+				case RuntimeState.Initializing:
+					break;
+
+				case RuntimeState.Starting:
+					positronConsoleInstance.setState(PositronConsoleState.Starting);
+					break;
+
+				case RuntimeState.Ready:
+					positronConsoleInstance.setState(PositronConsoleState.Ready);
+					break;
+
+				case RuntimeState.Offline:
+					positronConsoleInstance.setState(PositronConsoleState.Offline);
+					break;
+
+				case RuntimeState.Exiting:
+					positronConsoleInstance.setState(PositronConsoleState.Exiting);
+					break;
+
 				case RuntimeState.Exited:
 					positronConsoleInstance.setState(PositronConsoleState.Exited);
 					break;
@@ -372,7 +395,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Set the runtime.
 		this._runtime = runtime;
 
-		// Initialize for runtime.
+		// Attach to the runtime.
 		this.attachRuntime(starting);
 	}
 
@@ -498,17 +521,45 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param state The new state.
 	 */
 	setState(state: PositronConsoleState) {
-		// Remove the starting runtime item when we transition from starting to running.
-		if (this._state === PositronConsoleState.Starting && state === PositronConsoleState.Running) {
-			for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
-				if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
-					this._runtimeItems[i] = new RuntimeItemStarted(
-						generateUuid(),
-						`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} started.`
-					);
-					this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		switch (state) {
+			case PositronConsoleState.Uninitialized:
+			case PositronConsoleState.Starting:
+				break;
+
+			case PositronConsoleState.Ready:
+				switch (this._state) {
+					// Remove the starting runtime item when we transition from starting to running.
+					case PositronConsoleState.Starting:
+						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
+							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
+								this._runtimeItems[i] = new RuntimeItemStarted(
+									generateUuid(),
+									`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} started.`
+								);
+								this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+							}
+						}
+						break;
+
+					case PositronConsoleState.Offline:
+						this.addRuntimeItem(
+							new RuntimeItemReconnected(
+								generateUuid(),
+								`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} reconnected.`
+							)
+						);
+						break;
 				}
-			}
+				break;
+
+			case PositronConsoleState.Offline:
+				this.addRuntimeItem(
+					new RuntimeItemOffline(
+						generateUuid(),
+						`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} offline. Waiting to reconnect.`
+					)
+				);
+				break;
 		}
 
 		// Set the new state and raise the onDidChangeState event.
@@ -534,7 +585,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} starting.`
 			));
 		} else {
-			this.setState(PositronConsoleState.Running);
+			this.setState(PositronConsoleState.Ready);
 			this.addRuntimeItem(new RuntimeItemReconnected(
 				generateUuid(),
 				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} reconnected.`
