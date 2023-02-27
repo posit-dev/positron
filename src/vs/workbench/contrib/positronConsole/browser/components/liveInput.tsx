@@ -76,15 +76,16 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 			// If there are history entries, process the event.
 			if (refHistoryNavigator.current) {
 				// When the user moves up from the end, and we don't have a current code editor fragment, set the current code fragment.
+				// Otherwise, move to the previous entry.
 				if (refHistoryNavigator.current.isAtEnd() && refCurrentCodeFragment.current === undefined) {
-					const codeFragment = refCodeEditorWidget.current.getValue();
-					setCurrentCodeFragment(codeFragment);
+					setCurrentCodeFragment(refCodeEditorWidget.current.getValue());
+				} else {
+					refHistoryNavigator.current.previous();
 				}
 
 				// Get the current history entry, set it as the value of the code editor widget, and move to the previous entry.
 				const inputHistoryEntry = refHistoryNavigator.current.current();
 				refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
-				refHistoryNavigator.current.previous();
 
 				// Position the cursor to the end.
 				updateCodeEditorWidgetPositionToEnd();

@@ -18,6 +18,7 @@ const CSI = ESC + '[';	// CSI
 const HelpLines = [
 	'Zed help:',
 	'',
+	'ansi        - ANSI text',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
@@ -143,6 +144,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		switch (code) {
 			case '':
 				this.simulateSuccessfulCodeExecution(id, code);
+				break;
+
+			case 'ansi':
+				this.simulateSuccessfulCodeExecution(id, code,
+					`${CSI}0;31mThis is red${CSI}0m This is normal.`);
 				break;
 
 			case 'help':
