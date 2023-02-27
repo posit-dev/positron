@@ -13,23 +13,25 @@ const ESC = '\x1b';		// ESC
 const CSI = ESC + '[';	// CSI
 
 /**
+ * The help lines.
+ */
+const HelpLines = [
+	'Zed help:',
+	'',
+	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'help        - Shows this help',
+	'offline     - Simulates going offline for two seconds',
+	'progress    - Renders a progress bar',
+	'shutdown    - Simulates orderly shutdown',
+	'version     - Shows the Zed version'
+].join('\n');
+
+/**
  * PositronZedLanguageRuntime.
  */
 export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#region Private Properties
-
-	/**
-	 * Gets the help lines.
-	 */
-	private readonly _helpLines = [
-		'Zed help:',
-		'',
-		'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
-		'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-		'help        - Shows this help',
-		'progress    - Renders a progress bar',
-		'version     - Shows the Zed version'
-	].join('\n');
 
 	/**
 	 * The onDidReceiveRuntimeMessage event emitter.
@@ -144,11 +146,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 
 			case 'help':
-				this.simulateSuccessfulCodeExecution(id, code, this._helpLines);
+				this.simulateSuccessfulCodeExecution(id, code, HelpLines);
+				break;
+
+			case 'offline':
+				this.simulateOffline();
 				break;
 
 			case 'progress':
 				this.simulateProgressBar(id, code);
+				break;
+
+			case 'shutdown':
+				this.shutdown();
 				break;
 
 			case 'version':
@@ -211,6 +221,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @returns A Thenable that resolves with information about the runtime
 	 */
 	start(): Promise<positron.LanguageRuntimeInfo> {
+		// Zed 0.98.0 always fails to start.
+		if (this.metadata.runtimeId === '00000000-0000-0000-0000-000000000098') {
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
+			this.simulateErrorMessage(randomUUID(), 'StartupFailed', 'Startup failed');
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+			return Promise.reject('Failure');
+		}
+
+		// Fire state changes.
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
@@ -249,12 +271,31 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Shuts down the runtime.
 	 */
 	shutdown(): void {
-		throw new Error('Method not implemented.');
+		// Simulate the busy/idle that happens first.
+		const parentId = randomUUID();
+		this.simulateBusyState(parentId);
+		this.simulateIdleState(parentId);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
+		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 	}
 
 	//#endregion LanguageRuntime Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Simulates going offline for two seconds.
+	 */
+	private simulateOffline() {
+		// Change state to offline.
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Offline);
+
+		// Change state back to online after two seconds.
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+		}, 2000);
+	}
 
 	/**
 	 * Simulates a progress bar.
@@ -389,7 +430,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param message The message.
 	 * @param traceback The traceback.
 	 */
-	private simulateErrorMessage(parentId: string, name: string, message: string, traceback: string[]) {
+	private simulateErrorMessage(parentId: string, name: string, message: string, traceback: string[] = []) {
 		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),
 			parent_id: parentId,

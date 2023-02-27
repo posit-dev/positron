@@ -313,6 +313,9 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 			codeEditorWidget.focus();
 		}));
 
+		// Focus the console.
+		codeEditorWidget.focus();
+
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
 	}, []);
@@ -324,13 +327,6 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 			refCodeEditorWidget.current.layout({ width: props.width, height: refCodeEditorWidget.current.getContentHeight() });
 		}
 	}, [props.width]);
-
-	// Experimental.
-	useEffect(() => {
-		if (!props.hidden && refCodeEditorWidget.current && !refCodeEditorWidget.current.hasTextFocus()) {
-			refCodeEditorWidget.current.focus();
-		}
-	}, [props.hidden]);
 
 	// Render.
 	return (
