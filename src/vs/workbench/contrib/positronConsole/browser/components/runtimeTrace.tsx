@@ -4,7 +4,7 @@
 
 import 'vs/css!./runtimeTrace';
 import * as React from 'react';
-import { ReplLines } from 'vs/workbench/contrib/positronConsole/browser/components/replLines';
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 
 // RuntimeTraceProps interface.
@@ -32,12 +32,10 @@ export const RuntimeTrace = ({ runtimeItemTrace }: RuntimeTraceProps) => {
 	// Render.
 	return (
 		<div className='runtime-trace'>
-			<div className='runtime-trace-header'>
+			<div>
 				{formatTimestamp(runtimeItemTrace.timestamp)}
 			</div>
-			<div>
-				<ReplLines lines={runtimeItemTrace.lines} />
-			</div>
+			<OutputLines outputLines={runtimeItemTrace.outputLines} />
 		</div>
 	);
 };

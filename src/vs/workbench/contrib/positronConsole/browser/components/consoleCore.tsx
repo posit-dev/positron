@@ -40,7 +40,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 						width={props.width}
 						height={props.height - 32}
 						key={positronConsoleInstance.runtime.metadata.languageId}
-						hidden={positronConsoleInstance !== positronConsoleContext.currentPositronConsoleInstance}
+						hidden={positronConsoleInstance !== positronConsoleContext.activePositronConsoleInstance}
 						positronConsoleInstance={positronConsoleInstance} />
 				)}
 			</div>

@@ -2,9 +2,9 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
+import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
@@ -365,8 +365,17 @@ export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
+	// An event that fires when a runtime is about to start.
+	readonly onWillStartRuntime: Event<ILanguageRuntime>;
+
 	// An event that fires when a runtime starts.
 	readonly onDidStartRuntime: Event<ILanguageRuntime>;
+
+	// An event that fires when a runtime fails to start.
+	readonly onDidFailStartRuntime: Event<ILanguageRuntime>;
+
+	// An event that fires when a runtime is reconnected.
+	readonly onDidReconnectRuntime: Event<ILanguageRuntime>;
 
 	// An event that fires when a runtime changes state.
 	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
@@ -374,7 +383,7 @@ export interface ILanguageRuntimeService {
 	// An event that fires when a runtime receives a global event.
 	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
 
-	// An event that fires when a runtime starts.
+	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
 
 	/**
@@ -401,15 +410,16 @@ export interface ILanguageRuntimeService {
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
-	 * Gets a runtime by ID; returns undefined if the runtime is not found
-	 *
-	 * @param id The ID of the runtime to retrieve
+	 * Returns a specific runtime by runtime identifier.
+	 * @param runtimeId The runtime identifier of the runtime to retrieve.
+	 * @returns The runtime with the given runtime identifier, or undefined if
+	 * no runtime with the given runtime identifier exists.
 	 */
-	getRuntime(id: string): ILanguageRuntime | undefined;
+	getRuntime(runtimeId: string): ILanguageRuntime | undefined;
 
 	/**
-	 * Starts a language runtime
-	 * @param id The id of the runtime to start
+	 * Starts a runtime.
+	 * @param runtimeId The runtime identifier of the runtime to start.
 	 */
-	startRuntime(id: string): void;
+	startRuntime(runtimeId: string): void;
 }

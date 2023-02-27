@@ -7,6 +7,12 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 
 /**
+ * Constants.
+ */
+const ESC = '\x1b';		// ESC
+const CSI = ESC + '[';	// CSI
+
+/**
  * PositronZedLanguageRuntime.
  */
 export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
@@ -18,9 +24,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	private readonly _helpLines = [
 		'Zed help:',
 		'',
-		'help        - Shows help',
 		'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 		'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+		'help        - Shows this help',
+		'progress    - Renders a progress bar',
 		'version     - Shows the Zed version'
 	].join('\n');
 
@@ -132,8 +139,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Process the "code".
 		switch (code) {
+			case '':
+				this.simulateSuccessfulCodeExecution(id, code);
+				break;
+
 			case 'help':
 				this.simulateSuccessfulCodeExecution(id, code, this._helpLines);
+				break;
+
+			case 'progress':
+				this.simulateProgressBar(id, code);
 				break;
 
 			case 'version':
@@ -196,7 +211,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @returns A Thenable that resolves with information about the runtime
 	 */
 	start(): Promise<positron.LanguageRuntimeInfo> {
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+
+		// A lot of the time, a real runtime goes busy and then idle after it starts.
+		setTimeout(() => {
+			const parentId = randomUUID();
+			this.simulateBusyState(parentId);
+			this.simulateIdleState(parentId);
+		}, 100);
+
+		// Done.
 		return Promise.resolve({
 			banner: `Zed ${this.metadata.languageVersion}\nThis is the Zed test language.\n\nEnter 'help' for help.\n`,
 			implementation_version: this.metadata.runtimeVersion,
@@ -230,16 +257,49 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#region Private Methods
 
 	/**
+	 * Simulates a progress bar.
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 */
+	private simulateProgressBar(parentId: string, code: string) {
+		// Start the progress bar simulation.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this.simulateOutputMessage(parentId, 'Starting long running task');
+
+		// After a tingle of delay, output the progress bar.
+		setTimeout(() => {
+			// Simulate the progress bar in 100 50ms intervals.
+			let progress = 0;
+			const interval = setInterval(() => {
+				// Simulate progress - (need to add ANSI escapes)
+				this.simulateOutputMessage(parentId, `Progress ${++progress}%`);
+
+				// When the progress bar reaches 100%, clear the interval.
+				if (progress === 100) {
+					clearInterval(interval);
+				}
+			}, 50);
+
+			// End the progress bar.
+			this.simulateOutputMessage(parentId, 'Long running task is complete');
+			this.simulateIdleState(parentId);
+		}, 500);
+	}
+
+	/**
 	 * Simulates successful code execution.
 	 * @param parentId The parent ID.
 	 * @param code The code.
-	 * @param output The output from the code.
+	 * @param output The optional output from the code.
 	 */
-	private simulateSuccessfulCodeExecution(parentId: string, code: string, output: string) {
+	private simulateSuccessfulCodeExecution(parentId: string, code: string, output: string | undefined = undefined) {
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
-		this._history.push([code, output]);
-		this.simulateOutputMessage(parentId, output);
+		this._history.push([code, output || '']);
+		if (output) {
+			this.simulateOutputMessage(parentId, output);
+		}
 		this.simulateIdleState(parentId);
 	}
 
@@ -318,7 +378,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: {
 				'text/plain': output
-			} as any,
+			} as Record<string, string>,
 		} as positron.LanguageRuntimeOutput);
 	}
 

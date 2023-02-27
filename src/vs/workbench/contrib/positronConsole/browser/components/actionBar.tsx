@@ -22,7 +22,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { ConsoleReplMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplMenuButton';
 
 // Constants.
-const kPaddingLeft = 14;
+const kPaddingLeft = 8;
 const kPaddingRight = 8;
 
 /**
@@ -49,12 +49,12 @@ export const ActionBar = (props: PropsWithChildren<ActionBarProps>) => {
 
 	// Toggle trace handler.
 	const toggleTraceHandler = async () => {
-		positronConsoleContext.currentPositronConsoleInstance?.toggleTrace();
+		positronConsoleContext.activePositronConsoleInstance?.toggleTrace();
 	};
 
 	// Clear console handler.
 	const clearConsoleHandler = async () => {
-		positronConsoleContext.currentPositronConsoleInstance?.clearConsole();
+		positronConsoleContext.activePositronConsoleInstance?.clearConsole();
 	};
 
 	// Render.
