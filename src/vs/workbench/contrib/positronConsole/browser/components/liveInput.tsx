@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./replLiveInput';
+import 'vs/css!./liveInput';
 import * as React from 'react';
 import { forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
@@ -28,8 +28,8 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
-// ReplLiveInputProps interface.
-export interface ReplLiveInputProps {
+// LiveInputProps interface.
+export interface LiveInputProps {
 	hidden: boolean;
 	width: number;
 	executeCode: (codeFragment: string) => void;
@@ -37,11 +37,11 @@ export interface ReplLiveInputProps {
 }
 
 /**
- * ReplLiveInput component.
- * @param props A ReplLiveInputProps that contains the component properties.
+ * LiveInput component.
+ * @param props A LiveInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ReplLiveInput = forwardRef<HTMLDivElement, ReplLiveInputProps>((props: ReplLiveInputProps, ref) => {
+export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: LiveInputProps, ref) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const refContainer = useRef<HTMLDivElement>(undefined!);
@@ -51,8 +51,8 @@ export const ReplLiveInput = forwardRef<HTMLDivElement, ReplLiveInputProps>((pro
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
 
 	/**
-	 * Updates the code editor widget position to such that the cursor
-	 * appers on the last line and the last column.
+	 * Updates the code editor widget position such that the cursor appers on
+	 * the last line and the last column.
 	 */
 	const updateCodeEditorWidgetPositionToEnd = () => {
 		// Get the model. If it isn't null (which it won't be), set the code editor widget
@@ -85,6 +85,8 @@ export const ReplLiveInput = forwardRef<HTMLDivElement, ReplLiveInputProps>((pro
 				const inputHistoryEntry = refHistoryNavigator.current.current();
 				refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
 				refHistoryNavigator.current.previous();
+
+				// Position the cursor to the end.
 				updateCodeEditorWidgetPositionToEnd();
 			}
 
@@ -98,16 +100,15 @@ export const ReplLiveInput = forwardRef<HTMLDivElement, ReplLiveInputProps>((pro
 				if (refHistoryNavigator.current.isAtEnd()) {
 					if (refCurrentCodeFragment.current !== undefined) {
 						refCodeEditorWidget.current.setValue(refCurrentCodeFragment.current);
-						//refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: refCurrentCodeFragment.current.length + 1 });
 						setCurrentCodeFragment(undefined);
 					}
 				} else {
 					// Move to the next history entry and set it as the value of the code editor widget.
 					const inputHistoryEntry = refHistoryNavigator.current.next();
 					refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
-					// refCodeEditorWidget.current.setPosition({ lineNumber: 1, column: inputHistoryEntry.input.length + 1 });
 				}
 
+				// Position the cursor to the end.
 				updateCodeEditorWidgetPositionToEnd();
 			}
 
@@ -333,8 +334,8 @@ export const ReplLiveInput = forwardRef<HTMLDivElement, ReplLiveInputProps>((pro
 
 	// Render.
 	return (
-		<div ref={ref} className='repl-live-input'>
-			<div ref={refContainer} className='container'></div>
+		<div ref={ref} className='live-input'>
+			<div ref={refContainer}></div>
 		</div>
 	);
 });

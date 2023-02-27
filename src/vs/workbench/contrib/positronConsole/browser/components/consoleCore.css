@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .console-core {
-	background: transparent; /* placeholder */
+	cursor: text;
 }
 
 .positron-console .console-core .console-repls-container {

@@ -7,9 +7,9 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { LiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/liveInput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
-import { ReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/replLiveInput';
 import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
 import { RuntimeStartup } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartup';
 import { RuntimeStarted } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarted';
@@ -42,7 +42,7 @@ interface ConsoleReplProps {
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
-	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
+	const liveInputRef = useRef<HTMLDivElement>(undefined!);
 	const [marker, setMarker] = useState(generateUuid());
 
 	// Executes code.
@@ -92,7 +92,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 	// Experimental.
 	useEffect(() => {
-		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
+		liveInputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [marker]);
 
 	/**
@@ -127,8 +127,8 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 				renderRuntimeItem(runtimeItem)
 			)}
 			{props.positronConsoleInstance.state === PositronConsoleState.Running &&
-				<ReplLiveInput
-					ref={consoleReplLiveInputRef}
+				<LiveInput
+					ref={liveInputRef}
 					hidden={props.hidden}
 					width={props.width}
 					executeCode={executeCode}
