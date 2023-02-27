@@ -98,9 +98,9 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/** Create a new client inside the runtime */
-	createClient(type: RuntimeClientType): Thenable<IRuntimeClientInstance> {
+	createClient(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance> {
 		return new Promise((resolve, reject) => {
-			this._proxy.$createClient(this.handle, type).then((clientId) => {
+			this._proxy.$createClient(this.handle, type, params).then((clientId) => {
 				const client = new ExtHostRuntimeClientInstance(clientId, type, this.handle, this._proxy);
 				this._clients.set(clientId, client);
 				resolve(client);

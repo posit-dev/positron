@@ -101,6 +101,7 @@ export enum LanguageRuntimeEventType {
  */
 export enum RuntimeClientType {
 	Environment = 'environment',
+	Lsp = 'lsp',
 
 	// Future client types may include:
 	// - Data viewer window
