@@ -83,7 +83,7 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					refHistoryNavigator.current.previous();
 				}
 
-				// Get the current history entry, set it as the value of the code editor widget, and move to the previous entry.
+				// Get the current history entry, set it as the value of the code editor widget.
 				const inputHistoryEntry = refHistoryNavigator.current.current();
 				refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
 
