@@ -134,6 +134,15 @@ export class PtyService extends Disposable implements IPtyService {
 	async serializeTerminalState(ids: number[]): Promise<string> {
 		const promises: Promise<ISerializedTerminalState>[] = [];
 		for (const [persistentProcessId, persistentProcess] of this._ptys.entries()) {
+
+			// --- Start Positron ---
+			// Skip serializing Positron language runtime kernel processes
+			const positronLanguage = persistentProcess.shellLaunchConfig.env?.POSITRON_LANGUAGE;
+			if (positronLanguage) {
+				continue;
+			}
+			// --- End Positron ---
+
 			// Only serialize persistent processes that have had data written or performed a replay
 			if (persistentProcess.hasWrittenData && ids.indexOf(persistentProcessId) !== -1) {
 				promises.push(Promises.withAsyncBody<ISerializedTerminalState>(async r => {
