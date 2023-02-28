@@ -25,6 +25,7 @@ import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { JupyterHistoryReply } from './JupyterHistoryReply';
 import { JupyterHistoryRequest } from './JupyterHistoryRequest';
 import { findAvailablePort } from './PortFinder';
+import { JupyterCommMsg } from './JupyterCommMsg';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -390,6 +391,8 @@ export class LanguageRuntimeAdapter
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
+			case 'comm_msg':
+				this.onCommMessage(msg, message as JupyterCommMsg);
 		}
 	}
 
@@ -409,6 +412,22 @@ export class LanguageRuntimeAdapter
 			prompt: req.prompt,
 			password: req.password,
 		} as positron.LanguageRuntimePrompt);
+	}
+
+	/**
+	 * Delivers a comm_msg message from the kernel to the appropriate client instance.
+	 *
+	 * @param message The outer message packet
+	 * @param msg The inner comm_msg message
+	 */
+	private onCommMessage(message: JupyterMessagePacket, msg: JupyterCommMsg): void {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			when: message.when,
+			type: positron.LanguageRuntimeMessageType.CommData,
+			data: msg.data,
+		} as positron.LanguageRuntimeCommMessage);
 	}
 
 	/**

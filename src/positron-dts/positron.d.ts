@@ -218,7 +218,7 @@ declare module 'positron' {
 	}
 
 	/** LanguageRuntimeCommMessage is a LanguageRuntimeMessage that represents data for a comm (client instance) */
-	export interface LanguageRuntimeCommMessage {
+	export interface LanguageRuntimeCommMessage extends LanguageRuntimeMessage {
 		/** The unique ID of the client comm ID for which the message is intended */
 		comm_id: string;
 
