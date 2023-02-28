@@ -3,13 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
+import { OutputRun, outputRunSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputRun';
 
 /**
  * OutputLine interface.
  */
 export interface OutputLine {
 	id: string;
-	text: string;
+	outputRuns: OutputRun[];
 }
 
 /**
@@ -28,7 +29,7 @@ export const outputLineSplitter = (value: string | string[]): OutputLine[] => {
 	} else {
 		value.split('\n').forEach((line, index, splitLines) => {
 			if (!(splitLines.length > 1 && index === splitLines.length - 1 && line.length === 0)) {
-				outputLines.push({ id: generateUuid(), text: line });
+				outputLines.push({ id: generateUuid(), outputRuns: outputRunSplitter(line) });
 			}
 		});
 	}
