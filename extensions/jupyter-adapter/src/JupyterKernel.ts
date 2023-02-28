@@ -29,7 +29,6 @@ import { JupyterInputReply } from './JupyterInputReply';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
-import { findAvailablePort } from './PortFinder';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -75,14 +74,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** The terminal in which the kernel process is running */
 	private _terminal?: vscode.Terminal;
 
-	/** The comm ID of the LSP comm, if one is running */
-	private _lspCommId?: string;
-
 	constructor(private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
-		private readonly _channel: vscode.OutputChannel,
-		private readonly _lsp?: (port: number) => Promise<void>) {
+		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
 		this._process = null;
@@ -470,40 +465,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Requests that the kernel start a Language Server Protocol server, and
-	 * connect it to the client with the given TCP address.
-	 *
-	 * Note: This is only useful if the kernel hasn't already started an LSP
-	 * server.
-	 *
-	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
-	 */
-	public startLsp(clientAddress: string) {
-		// TODO: Should we query the kernel to see if it can create an LSP
-		// (QueryInterface style) instead of just demanding it?
-
-		this._channel.appendLine(`Starting LSP server for ${clientAddress}`);
-		this._lspCommId = uuidv4();
-
-		// Create the message to send to the kernel
-		const msg: JupyterCommOpen = {
-			target_name: 'lsp',
-			comm_id: this._lspCommId,
-			data: {
-				client_address: clientAddress,  // eslint-disable-line
-			}
-		};
-		this.send(uuidv4(), 'comm_open', this._shell!, msg);
-	}
-
-	/**
 	 * Opens a new communications channel (comm) with the kernel.
 	 *
 	 * @param targetName The name of the target comm to create.
 	 * @param id The ID of the comm to create.
 	 * @param data Data to send to the comm.
 	 */
-	public openComm(targetName: string, id: string, data: any) {
+	public openComm(targetName: string, id: string, data: any): Promise<void> {
 		// Create the message to send to the kernel
 		const msg: JupyterCommOpen = {
 			target_name: targetName,  // eslint-disable-line
@@ -512,7 +480,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Dispatch it
-		this.send(uuidv4(), 'comm_open', this._shell!, msg);
+		return this.send(uuidv4(), 'comm_open', this._shell!, msg);
 	}
 
 	/**
@@ -738,10 +706,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * session or the kernel itself; it remains running in a terminal.
 	 */
 	public dispose() {
-		// Clean up the LSP comm, if it's set up
-		if (this._lspCommId) {
-			this.closeComm(this._lspCommId);
-		}
 
 		// Clean up file watcher for log file
 		if (this._logTail) {
@@ -910,16 +874,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 			// Dispose the remainder of the connection state
 			this.dispose();
-		} else if (status === positron.RuntimeState.Ready) {
-			// When the kernel becomes ready, start the LSP server if it's configured
-			if (this._lsp && this._session) {
-				const port = await findAvailablePort(this._session.portsInUse, 25);
-				this._channel.appendLine(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
-				this.startLsp(`127.0.0.1:${port}`);
-				this._lsp(port).then(() => {
-					this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
-				});
-			}
 		}
 	}
 

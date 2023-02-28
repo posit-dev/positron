@@ -24,6 +24,7 @@ import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { JupyterHistoryReply } from './JupyterHistoryReply';
 import { JupyterHistoryRequest } from './JupyterHistoryRequest';
+import { findAvailablePort } from './PortFinder';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -75,7 +76,7 @@ export class LanguageRuntimeAdapter
 		// Extract the first 32 characters of the hash as the runtime ID
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
-		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel, this._lsp);
+		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel);
 
 		// Generate kernel metadata and ID
 		this.metadata = {
@@ -253,9 +254,10 @@ export class LanguageRuntimeAdapter
 	 * @returns A new client instance, or empty string if the type is not supported
 	 */
 	public createClient(type: positron.RuntimeClientType, params: any): string {
-		if (type === positron.RuntimeClientType.Environment) {
+		if (type === positron.RuntimeClientType.Environment ||
+			type === positron.RuntimeClientType.Lsp) {
 			// Currently the only supported client type
-			this._channel.appendLine(`Creating ${type} client for ${this.metadata.languageName}`);
+			this._channel.appendLine(`Creating '${type}' client for ${this.metadata.languageName}`);
 
 			// Create a new client adapter to wrap the comm channel
 			const adapter = new RuntimeClientAdapter(type, params, this._kernel);
@@ -585,6 +587,37 @@ export class LanguageRuntimeAdapter
 		this._channel.appendLine(`Kernel status changed to ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
+
+		// When the kernel becomes ready, start the LSP server if it's configured
+		if (status === positron.RuntimeState.Ready && this._lsp) {
+			findAvailablePort([], 25).then(port => {
+				this._channel.appendLine(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
+				this.startLsp(`127.0.0.1:${port}`);
+				this._lsp!(port).then(() => {
+					this._channel.appendLine(`${this._spec.display_name} LSP server connected`);
+				});
+			});
+		}
+	}
+
+	/**
+	 * Requests that the kernel start a Language Server Protocol server, and
+	 * connect it to the client with the given TCP address.
+	 *
+	 * Note: This is only useful if the kernel hasn't already started an LSP
+	 * server.
+	 *
+	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
+	 */
+	public startLsp(clientAddress: string) {
+		// TODO: Should we query the kernel to see if it can create an LSP
+		// (QueryInterface style) instead of just demanding it?
+		//
+		// The Jupyter kernel spec does not provide a way to query for
+		// supported comms; the only way to know is to try to create one.
+
+		this._channel.appendLine(`Starting LSP server for ${clientAddress}`);
+		this.createClient(positron.RuntimeClientType.Lsp, { client_address: clientAddress });
 	}
 
 	/**
