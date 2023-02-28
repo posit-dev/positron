@@ -57,6 +57,15 @@ export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 	password: boolean;
 }
 
+/** ILanguageRuntimeMessageCommData is a LanguageRuntimeMessage representing data received from a comm */
+export interface ILanguageRuntimeMessageCommData extends ILanguageRuntimeMessage {
+	/** The comm ID */
+	comm_id: string;
+
+	/** The data received from the comm */
+	data: any;
+}
+
 /**
  * The set of possible statuses for a language runtime
  */
@@ -176,6 +185,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a runtime event */
 	Event = 'event',
+
+	/** A message representing data received via a comm */
+	CommData = 'comm_data',
 }
 
 export enum LanguageRuntimeStartupBehavior {

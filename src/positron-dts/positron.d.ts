@@ -30,6 +30,9 @@ declare module 'positron' {
 
 		/** A message representing a runtime event */
 		Event = 'event',
+
+		/** A message representing data received via a comm */
+		CommData = 'comm_data',
 	}
 
 	/** begin positron-language-runtime-event-type */
@@ -214,6 +217,15 @@ declare module 'positron' {
 		traceback: Array<string>;
 	}
 
+	/** LanguageRuntimeCommMessage is a LanguageRuntimeMessage that represents data for a comm (client instance) */
+	export interface LanguageRuntimeCommMessage {
+		/** The unique ID of the client comm ID for which the message is intended */
+		comm_id: string;
+
+		/** The data from the back-end */
+		data: any;
+	}
+
 	/** LanguageRuntimeMetadata contains information about a language runtime that is known
 	 * before the runtime is started.
 	 */
@@ -332,7 +344,7 @@ declare module 'positron' {
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
 
-		/** An object that emits he current state of the runtime */
+		/** An object that emits the current state of the runtime */
 		onDidChangeRuntimeState: vscode.Event<RuntimeState>;
 
 		/** Execute code in the runtime */

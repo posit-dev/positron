@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -87,12 +87,12 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	/**
 	 * Relays a message from the server side of a comm to the client side.
 	 */
-	emitDidReceiveClientMessage(id: string, message: ILanguageRuntimeMessage): void {
-		const client = this._clients.get(id);
+	emitDidReceiveClientMessage(message: ILanguageRuntimeMessageCommData): void {
+		const client = this._clients.get(message.comm_id);
 		if (client) {
 			client.emitMessage(message);
 		} else {
-			console.error(`Client ${id} not found`);
+			console.error(`Client ${message.comm_id} not found`);
 		}
 	}
 
@@ -272,8 +272,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 	}
 
-	$emitRuntimeClientMessage(handle: number, id: string, message: ILanguageRuntimeMessage): void {
-		this.findRuntime(handle).emitDidReceiveClientMessage(id, message);
+	$emitRuntimeClientMessage(handle: number, message: ILanguageRuntimeMessageCommData): void {
+		this.findRuntime(handle).emitDidReceiveClientMessage(message);
 	}
 
 	$emitRuntimeClientState(handle: number, id: string, state: RuntimeClientState): void {

@@ -4023,6 +4023,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a runtime event */
 	Event = 'event',
+
+	/** A message representing data received via a comm */
+	CommData = 'comm_data',
 }
 
 /**
