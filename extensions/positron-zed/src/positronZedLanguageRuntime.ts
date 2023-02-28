@@ -148,7 +148,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			case 'ansi':
 				this.simulateSuccessfulCodeExecution(id, code,
-					`${CSI}0;31mThis is red${CSI}0m This is normal.`);
+					`${CSI}0;30mThis is regular black${CSI}0m\n` +
+					`${CSI}0;31mThis is regular red${CSI}0m\n` +
+					`${CSI}0;32mThis is regular green${CSI}0m\n` +
+					`${CSI}0;33mThis is regular yellow${CSI}0m\n` +
+					`${CSI}0;34mThis is regular blue${CSI}0m\n` +
+					`${CSI}0;35mThis is regular purple${CSI}0m\n` +
+					`${CSI}0;36mThis is regular cyan${CSI}0m\n` +
+					`${CSI}0;37mThis is regular white${CSI}0m\n` +
+					''
+				);
 				break;
 
 			case 'help':
