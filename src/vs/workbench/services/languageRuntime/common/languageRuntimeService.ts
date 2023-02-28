@@ -67,6 +67,18 @@ export interface ILanguageRuntimeMessageCommData extends ILanguageRuntimeMessage
 }
 
 /**
+ * ILanguageRuntimeMessageCommClosed is a LanguageRuntimeMessage indicating the
+ * closure of a comm from the server side
+ */
+export interface ILanguageRuntimeMessageCommClosed extends ILanguageRuntimeMessage {
+	/** The comm ID */
+	comm_id: string;
+
+	/** The shutdown data received from the comm, if any */
+	data: any;
+}
+
+/**
  * The set of possible statuses for a language runtime
  */
 export enum RuntimeState {
