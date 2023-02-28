@@ -19,10 +19,50 @@ export interface OutputLinesProps {
 export const OutputLines = ({ outputLines }: OutputLinesProps) => {
 	// Render.
 	return (
-		<div>
+		<div className='output-lines'>
 			{outputLines.map(outputLine =>
 				<div key={outputLine.id} className='output-line'>
-					{!outputLine.text.length ? <br /> : <div>{outputLine.text}</div>}
+					{!outputLine.outputRuns.length ?
+						<br /> :
+						outputLine.outputRuns.map(outputRun => {
+							let color;
+							switch (outputRun.foreground) {
+								case 'ansiBlack':
+									color = 'black';
+									break;
+
+								case 'ansiRed':
+									color = 'red';
+									break;
+
+								case 'ansiGreen':
+									color = 'green';
+									break;
+
+								case 'ansiYellow':
+									color = 'yellow';
+									break;
+
+								case 'ansiBlue':
+									color = 'blue';
+									break;
+
+								case 'ansiMagenta':
+									color = 'magenta';
+									break;
+
+								case 'ansiCyan':
+									color = 'cyan';
+									break;
+
+								case 'ansiWhite':
+									color = '#efefef';
+									break;
+							}
+
+							return <span key={outputRun.id} style={{ color }}>{outputRun.text}</span>;
+						})
+					}
 				</div>
 			)}
 		</div>
