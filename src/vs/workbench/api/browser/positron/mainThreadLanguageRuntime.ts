@@ -84,6 +84,30 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._stateEmitter.fire(state);
 	}
 
+	/**
+	 * Relays a message from the server side of a comm to the client side.
+	 */
+	emitDidReceiveClientMessage(id: string, message: ILanguageRuntimeMessage): void {
+		const client = this._clients.get(id);
+		if (client) {
+			client.emitMessage(message);
+		} else {
+			console.error(`Client ${id} not found`);
+		}
+	}
+
+	/**
+	 * Updates the state of a client from the server side of a comm.
+	 */
+	emitClientState(id: string, state: RuntimeClientState): void {
+		const client = this._clients.get(id);
+		if (client) {
+			client.setClientState(state);
+		} else {
+			console.error(`Client ${id} not found`);
+		}
+	}
+
 	/** Gets the current state of the notebook runtime */
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
@@ -155,6 +179,8 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 
 	private readonly _stateEmitter = new Emitter<RuntimeClientState>();
 
+	private readonly _messageEmitter = new Emitter<ILanguageRuntimeMessage>();
+
 	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
 
 	constructor(
@@ -166,6 +192,9 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 
 		this.onDidChangeClientState = this._stateEmitter.event;
 		this._register(this._stateEmitter);
+
+		this.onDidReceiveMessage = this._messageEmitter.event;
+		this._register(this._messageEmitter);
 
 		this._stateEmitter.event((state) => {
 			this._state = state;
@@ -181,7 +210,27 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 		this._proxy.$sendClientMessage(this._handle, this._id, message);
 	}
 
+	/**
+	 * Emits a message (of any type) to the client side of the comm.
+	 *
+	 * @param message The message to emit to the client
+	 */
+	emitMessage(message: ILanguageRuntimeMessage): void {
+		this._messageEmitter.fire(message);
+	}
+
+	/**
+	 * Sets the state of the client by firing an event bearing the new state.
+	 *
+	 * @param state The new state of the client
+	 */
+	setClientState(state: RuntimeClientState): void {
+		this._stateEmitter.fire(state);
+	}
+
 	onDidChangeClientState: Event<RuntimeClientState>;
+
+	onDidReceiveMessage: Event<ILanguageRuntimeMessage>;
 
 	getClientState(): RuntimeClientState {
 		return this._state;
@@ -224,11 +273,11 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	$emitRuntimeClientMessage(handle: number, id: string, message: ILanguageRuntimeMessage): void {
-		throw new Error('Method not implemented.');
+		this.findRuntime(handle).emitDidReceiveClientMessage(id, message);
 	}
 
 	$emitRuntimeClientState(handle: number, id: string, state: RuntimeClientState): void {
-		throw new Error('Method not implemented.');
+		this.findRuntime(handle).emitClientState(id, state);
 	}
 
 	$emitLanguageRuntimeMessageOutput(handle: number, message: ILanguageRuntimeMessageOutput): void {
