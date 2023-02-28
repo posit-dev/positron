@@ -26,6 +26,7 @@ import { JupyterHistoryReply } from './JupyterHistoryReply';
 import { JupyterHistoryRequest } from './JupyterHistoryRequest';
 import { findAvailablePort } from './PortFinder';
 import { JupyterCommMsg } from './JupyterCommMsg';
+import { JupyterCommClose } from './JupyterCommClose';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -393,6 +394,8 @@ export class LanguageRuntimeAdapter
 				break;
 			case 'comm_msg':
 				this.onCommMessage(msg, message as JupyterCommMsg);
+			case 'comm_close':
+				this.onCommClose(msg, message as JupyterCommClose);
 		}
 	}
 
@@ -430,6 +433,21 @@ export class LanguageRuntimeAdapter
 		} as positron.LanguageRuntimeCommMessage);
 	}
 
+	/**
+	 * Notifies the client that a comm has been closed from the kernel side.
+	 *
+	 * @param message The outer message packet
+	 * @param close The inner comm_msg message
+	 */
+	private onCommClose(message: JupyterMessagePacket, msg: JupyterCommMsg): void {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			when: message.when,
+			type: positron.LanguageRuntimeMessageType.CommClosed,
+			data: msg.data,
+		} as positron.LanguageRuntimeCommClosed);
+	}
 	/**
 	 * Converts a Positron event into a language runtime event and emits it.
 	 *

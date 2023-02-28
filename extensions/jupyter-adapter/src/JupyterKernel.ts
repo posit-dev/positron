@@ -489,7 +489,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	public closeComm(id: string) {
 		// Create the message to send to the kernel
 		const msg: JupyterCommClose = {
-			comm_id: id  // eslint-disable-line
+			comm_id: id,  // eslint-disable-line
+			data: null
 		};
 
 		// Dispatch it

@@ -31,8 +31,11 @@ declare module 'positron' {
 		/** A message representing a runtime event */
 		Event = 'event',
 
-		/** A message representing data received via a comm */
+		/** A message representing data received via a comm (to a client instance) */
 		CommData = 'comm_data',
+
+		/** A message indicating that a comm (client instance) was closed from the server side */
+		CommClosed = 'comm_closed',
 	}
 
 	/** begin positron-language-runtime-event-type */
@@ -219,6 +222,18 @@ declare module 'positron' {
 
 	/** LanguageRuntimeCommMessage is a LanguageRuntimeMessage that represents data for a comm (client instance) */
 	export interface LanguageRuntimeCommMessage extends LanguageRuntimeMessage {
+		/** The unique ID of the client comm ID for which the message is intended */
+		comm_id: string;
+
+		/** The data from the back-end */
+		data: any;
+	}
+
+	/**
+	 * LanguageRuntimeCommClosed is a LanguageRuntimeMessage that indicates a
+	 * comm (client instance) was closed from the server side
+	 */
+	export interface LanguageRuntimeCommClosed extends LanguageRuntimeMessage {
 		/** The unique ID of the client comm ID for which the message is intended */
 		comm_id: string;
 
