@@ -10,11 +10,14 @@
 	display: flex;
 	width: 22px;
 	justify-content: right;
+	font-family: var(--console-monospace-font);
+
+	user-select: none;
+	-ms-user-select: none;
+	-moz-user-select: none;
+	-webkit-user-select: none;
 }
 
 .activity-input .code {
 	margin-left: 16px;
-	white-space: pre;
-	font-size: 12px; /* TODO@softwarenerd - must find a way to get this at runtime */
-	font-family: Menlo, Monaco, "Courier New", monospace; /* TODO@softwarenerd - must find a way to get this at runtime */
 }
