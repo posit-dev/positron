@@ -376,7 +376,7 @@ declare module 'positron' {
 		 * is not supported by this runtime, or a string containing the ID of
 		 * the client if it is supported.
 		 */
-		createClient(type: RuntimeClientType, params: any): string;
+		createClient(type: RuntimeClientType, params: any): Thenable<string>;
 
 		/** Remove an instance of a client (created with `createClient`) */
 		removeClient(id: string): void;

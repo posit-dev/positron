@@ -255,7 +255,7 @@ export class LanguageRuntimeAdapter
 	 *   specific to the client type
 	 * @returns A new client instance, or empty string if the type is not supported
 	 */
-	public createClient(type: positron.RuntimeClientType, params: any): string {
+	public async createClient(type: positron.RuntimeClientType, params: any): Promise<string> {
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp) {
 			// Currently the only supported client type
@@ -272,6 +272,9 @@ export class LanguageRuntimeAdapter
 					}
 				}
 			});
+
+			// Open the client (this will send the comm_open message; wait for it to complete)
+			await adapter.open();
 
 			// Add the client to the map
 			this._comms.set(adapter.getId(), adapter);

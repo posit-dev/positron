@@ -46,13 +46,16 @@ export class RuntimeClientAdapter {
 		// Bind to status stream from kernel
 		this.onStatus = this.onStatus.bind(this);
 		this._kernel.addListener('status', this.onStatus);
+	}
 
+	/**
+	 * Opens the communications channel between the client and the runtime.
+	 */
+	public async open() {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
-		this._kernel.openComm(this._type, this.id, this._params).then(() => {
-			// Consider the client connected once we've opened the comm
-			this._state.fire(positron.RuntimeClientState.Connected);
-		});
+		await this._kernel.openComm(this._type, this.id, this._params);
+		this._state.fire(positron.RuntimeClientState.Connected);
 	}
 
 	/**
