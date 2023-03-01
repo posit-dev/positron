@@ -137,7 +137,7 @@ export class PtyService extends Disposable implements IPtyService {
 
 			// --- Start Positron ---
 			// Skip serializing Positron language runtime kernel processes
-			const positronLanguage = persistentProcess.shellLaunchConfig.env?.POSITRON_LANGUAGE;
+			const positronLanguage = persistentProcess.shellLaunchConfig.env?.POSITRON_VERSION;
 			if (positronLanguage) {
 				continue;
 			}

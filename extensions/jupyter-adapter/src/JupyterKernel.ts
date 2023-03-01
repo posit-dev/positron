@@ -409,7 +409,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const command = args.join(' ');
 
 		// Create environment.
-		const env = { POSITRON_LANGUAGE: this._spec.language };
+		const env = { POSITRON_VERSION: positron.version };
 		Object.assign(env, process.env, this._spec.env);
 
 		// We are now starting the kernel
