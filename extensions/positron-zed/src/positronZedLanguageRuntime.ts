@@ -5,12 +5,14 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
+import { MakeSGR, SGR } from './ansi';
+import * as ansi from 'ansi-escape-sequences';
 
 /**
  * Constants.
  */
-const ESC = '\x1b';		// ESC
-const CSI = ESC + '[';	// CSI
+export const ESC = '\x1b';
+export const CSI = ESC + '[';
 
 /**
  * The help lines.
@@ -147,16 +149,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 
 			case 'ansi':
+				console.log(`Red is ${ansi.style.red}`);
 				this.simulateSuccessfulCodeExecution(id, code,
-					`${CSI}0;30mThis is regular black${CSI}0m\n` +
-					`${CSI}0;31mThis is regular red${CSI}0m\n` +
-					`${CSI}0;32mThis is regular green${CSI}0m\n` +
-					`${CSI}0;33mThis is regular yellow${CSI}0m\n` +
-					`${CSI}0;34mThis is regular blue${CSI}0m\n` +
-					`${CSI}0;35mThis is regular purple${CSI}0m\n` +
-					`${CSI}0;36mThis is regular cyan${CSI}0m\n` +
-					`${CSI}0;37mThis is regular white${CSI}0m\n` +
-					''
+					`${MakeSGR(SGR.ForegroundBlack)}This is regular black\n` +
+					`${MakeSGR(SGR.ForegroundRed)}This is regular red\n` +
+					`${MakeSGR(SGR.ForegroundGreen)}This is regular green\n` +
+					`${MakeSGR(SGR.ForegroundYellow)}This is regular yellow\n` +
+					`${MakeSGR(SGR.ForegroundBlue)}This is regular blue\n` +
+					`${MakeSGR(SGR.ForegroundMagenta)}This is regular magenta\n` +
+					`${MakeSGR(SGR.ForegroundCyan)}This is regular cyan\n` +
+					`${MakeSGR(SGR.ForegroundWhite)}This is regular white${MakeSGR(SGR.Reset)}`
 				);
 				break;
 
@@ -262,7 +264,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Done.
 		return Promise.resolve({
-			banner: `Zed ${this.metadata.languageVersion}\nThis is the Zed test language.\n\nEnter 'help' for help.\n`,
+			banner: `${MakeSGR(SGR.ForegroundBlue)}Zed ${this.metadata.languageVersion}${MakeSGR(SGR.Reset)}\nThis is the ${MakeSGR(SGR.ForegroundGreen)}Zed${MakeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
 			implementation_version: this.metadata.runtimeVersion,
 			language_version: this.metadata.languageVersion,
 		} as positron.LanguageRuntimeInfo);
