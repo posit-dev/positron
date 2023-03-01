@@ -549,6 +549,7 @@
 				"Attach to Main Process",
 				"Attach to Extension Host",
 				"Attach to Shared Process",
+				"Attach to Pty Host Process"
 			],
 			"preLaunchTask": "Ensure Prelaunch Dependencies",
 			"presentation": {
