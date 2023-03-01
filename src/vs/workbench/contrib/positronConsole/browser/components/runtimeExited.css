@@ -3,8 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .runtime-exited {
-	font-size: 12px;
 	padding-left: 14px;
-	border-bottom: 1px solid #758286;
 	margin-bottom: 2px;
+	border-bottom: 1px solid #758286;
 }

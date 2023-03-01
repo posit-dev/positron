@@ -107,6 +107,7 @@ export const outputRunSplitter = (text: string): OutputRun[] => {
 	let customBackgroundColor: string | RGBA | undefined;
 	let customUnderlineColor: string | RGBA | undefined;
 	let colorsInverted = false;
+	console.log(customUnderlineColor);
 
 	// The buffer and the output runs.
 	let buffer = '';

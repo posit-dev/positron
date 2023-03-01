@@ -37,3 +37,17 @@ export const outputLineSplitter = (value: string | string[]): OutputLine[] => {
 	// Done. Return the output lines.
 	return outputLines;
 };
+
+export const outputLineSplitter2 = (value: string | string[], outputLines: OutputLine[] = []) => {
+	if (Array.isArray(value)) {
+		value.forEach(line => {
+			outputLineSplitter2(line, outputLines);
+		});
+	} else {
+		value.split('\n').forEach((line, index, splitLines) => {
+			if (!(splitLines.length > 1 && index === splitLines.length - 1 && line.length === 0)) {
+				outputLines.push({ id: generateUuid(), outputRuns: outputRunSplitter(line) });
+			}
+		});
+	}
+};
