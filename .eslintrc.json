@@ -104,7 +104,7 @@
 			"block",
 			[
 				{
-					"pattern": "-{93}\n [*] {2}((Copyright [(]c[)] Microsoft Corporation. All rights reserved.\n [*] {2}Licensed under the MIT License. See License.txt in the project root for license information.)|(Copyright [(][cC]{1}[)]\\s?(20\\d{2})?(-20\\d{2})? Posit Software, PBC\\.( All rights reserved\\.)?))\n [*]-{92}"
+					"pattern": "-{93}\r?\n [*] {2}((Copyright [(]c[)] Microsoft Corporation. All rights reserved.\r?\n [*] {2}Licensed under the MIT License. See License.txt in the project root for license information.)|(Copyright [(][cC]{1}[)]\\s?(20\\d{2})?(-20\\d{2})? Posit Software, PBC\\.( All rights reserved\\.)?))\r?\n [*]-{92}"
 				}
 			]
 		]
@@ -232,6 +232,7 @@
 							"@vscode/vscode-languagedetection",
 							"@vscode/ripgrep",
 							"@vscode/iconv-lite-umd",
+							"@vscode/policy-watcher",
 							"assert",
 							"child_process",
 							"console",
@@ -259,7 +260,6 @@
 							"url",
 							"util",
 							"v8-inspect-profiler",
-							"vscode-policy-watcher",
 							"vscode-proxy-agent",
 							"vscode-regexpp",
 							"vscode-textmate",

@@ -31,10 +31,10 @@ export const RuntimeActivity = ({ runtimeItemActivity }: RuntimeActivityProps) =
 	 * @returns The rendered activity item.
 	 */
 	const renderActivityItem = (activityItem: ActivityItem) => {
-		if (activityItem instanceof ActivityItemInput) {
-			return <ActivityInput key={activityItem.id} activityItemInput={activityItem} />;
-		} else if (activityItem instanceof ActivityItemOutput) {
+		if (activityItem instanceof ActivityItemOutput) {
 			return <ActivityOutput key={activityItem.id} activityItemOutput={activityItem} />;
+		} else if (activityItem instanceof ActivityItemInput) {
+			return <ActivityInput key={activityItem.id} activityItemInput={activityItem} />;
 		} else if (activityItem instanceof ActivityItemError) {
 			return <ActivityError key={activityItem.id} activityItemError={activityItem} />;
 		} else {

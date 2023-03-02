@@ -7,18 +7,20 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { LiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/liveInput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
-import { ReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/replLiveInput';
 import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
 import { RuntimeStartup } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartup';
 import { RuntimeStarted } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarted';
+import { RuntimeOffline } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeOffline';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { RuntimeStarting } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarting';
 import { RuntimeActivity } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeActivity';
 import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
+import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
@@ -42,7 +44,7 @@ interface ConsoleReplProps {
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
-	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
+	const liveInputRef = useRef<HTMLDivElement>(undefined!);
 	const [marker, setMarker] = useState(generateUuid());
 
 	// Executes code.
@@ -65,9 +67,6 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
-			if (state === PositronConsoleState.Exited) {
-
-			}
 		}));
 
 		// Add the onDidChangeTrace event handler.
@@ -92,7 +91,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 	// Experimental.
 	useEffect(() => {
-		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
+		liveInputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [marker]);
 
 	/**
@@ -111,6 +110,8 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemStarted) {
 			return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemOffline) {
+			return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemExited) {
 			return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemTrace) {
@@ -120,16 +121,18 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		}
 	};
 
+	console.log(`Rendering console repl in state ${props.positronConsoleInstance.state}`);
+
 	// Render.
 	return (
 		<div className='console-repl' hidden={props.hidden}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}
-			{props.positronConsoleInstance.state === PositronConsoleState.Running &&
-				<ReplLiveInput
-					ref={consoleReplLiveInputRef}
-					hidden={props.hidden}
+			{props.positronConsoleInstance.state === PositronConsoleState.Ready &&
+				<LiveInput
+					ref={liveInputRef}
+					hidden={props.positronConsoleInstance.state !== PositronConsoleState.Ready}
 					width={props.width}
 					executeCode={executeCode}
 					positronConsoleInstance={props.positronConsoleInstance} />
