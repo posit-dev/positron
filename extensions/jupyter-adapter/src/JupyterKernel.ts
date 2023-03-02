@@ -915,7 +915,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @param msg The message to log
 	 */
-	private log(msg: string) {
+	public log(msg: string) {
 		if (this._logChannel) {
 			// If we have a kernel-specific log channel, log to that. The kernel
 			// log channel primarily streams the kernel's log, so prefix our
