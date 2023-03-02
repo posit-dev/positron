@@ -621,7 +621,7 @@ export async function copyExtensionBinaries(outputRoot: string) {
 		// Collect all the Positron extension metadata for binaries that need to
 		// be copied.  The Positron extension metadata lives in the
 		// `positron.json` file in the extension's root directory.
-		const binaryMetadata = _.flatten(
+		const binaryMetadata = (
 			(<string[]>glob.sync('extensions/*/positron.json'))
 				.map(metadataPath => {
 					// Read the metadata file.
@@ -647,7 +647,7 @@ export async function copyExtensionBinaries(outputRoot: string) {
 					}
 					return null;
 				})
-		);
+		).flat();
 
 		fancyLog(`Copying ${binaryMetadata.length} binary sets for built-in Positron extensions`);
 
