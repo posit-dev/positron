@@ -38,16 +38,26 @@ export const outputLineSplitter = (value: string | string[]): OutputLine[] => {
 	return outputLines;
 };
 
-export const outputLineSplitter2 = (value: string | string[], outputLines: OutputLine[] = []) => {
+export const ansiParser = (value: string | string[], outputLines: OutputLine[] = []) => {
+	// If the value is an array, recursively split it.
 	if (Array.isArray(value)) {
 		value.forEach(line => {
-			outputLineSplitter2(line, outputLines);
+			ansiParser(line, outputLines);
 		});
-	} else {
-		value.split('\n').forEach((line, index, splitLines) => {
-			if (!(splitLines.length > 1 && index === splitLines.length - 1 && line.length === 0)) {
-				outputLines.push({ id: generateUuid(), outputRuns: outputRunSplitter(line) });
-			}
-		});
+
+		return outputLines;
 	}
+
+	// Enumerate the characters in the value being processed.
+	for (let index = 0; index < value.length;) {
+	}
+
+
+	return outputLines;
+
+	// value.split('\n').forEach((line, index, splitLines) => {
+	// 	if (!(splitLines.length > 1 && index === splitLines.length - 1 && line.length === 0)) {
+	// 		outputLines.push({ id: generateUuid(), outputRuns: outputRunSplitter(line) });
+	// 	}
+	// });
 };

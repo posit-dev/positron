@@ -14,25 +14,24 @@ const CSI = ESC + '[';	// CSI
  * The ANSI color map.
  */
 const ansiColorMap: string[] = [
-	// Regular colors.
-	'ansiBlack',
-	'ansiRed',
-	'ansiGreen',
-	'ansiYellow',
-	'ansiBlue',
-	'ansiMagenta',
-	'ansiCyan',
-	'ansiWhite',
+	'ansiForegroundBlack',
+	'ansiForegroundRed',
+	'ansiForegroundGreen',
+	'ansiForegroundYellow',
+	'ansiForegroundBlue',
+	'ansiForegroundMagenta',
+	'ansiForegroundCyan',
+	'ansiForegroundWhite',
 
 	// Bright colors.
-	'ansiBrightBlack',
-	'ansiBrightRed',
-	'ansiBrightGreen',
-	'ansiBrightYellow',
-	'ansiBrightBlue',
-	'ansiBrightMagenta',
-	'ansiBrightCyan',
-	'ansiBrightWhite'
+	'ansiBrightForegroundBlack',
+	'ansiBrightForegroundRed',
+	'ansiBrightForegroundGreen',
+	'ansiBrightForegroundYellow',
+	'ansiBrightForegroundBlue',
+	'ansiBrightForegroundMagenta',
+	'ansiBrightForegroundCyan',
+	'ansiBrightForegroundWhite'
 ];
 
 /**
@@ -461,6 +460,7 @@ export const outputRunSplitter = (text: string): OutputRun[] => {
 		let colorIndex: number | undefined;
 
 		if (styleCode >= 30 && styleCode <= 37) {
+			// Regular foreground color.
 			colorIndex = styleCode - 30;
 			colorType = 'foreground';
 		} else if (styleCode >= 90 && styleCode <= 97) {
@@ -487,9 +487,6 @@ export const outputRunSplitter = (text: string): OutputRun[] => {
 	 */
 	const flushBuffer = () => {
 		if (buffer) {
-			if (buffer === 'This is regular red') {
-				console.log('');
-			}
 			outputRuns.push({
 				id: generateUuid(),
 				foreground: customForegroundColor,
