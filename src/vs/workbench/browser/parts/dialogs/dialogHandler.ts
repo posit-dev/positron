@@ -77,8 +77,13 @@ export class BrowserDialogHandler extends AbstractDialogHandler {
 	async about(): Promise<void> {
 		const detailString = (useAgo: boolean): string => {
 			return localize('aboutDetail',
-				"Version: {0}\nCommit: {1}\nDate: {2}\nBrowser: {3}",
+				// --- Start Positron ---
+				"{0} Version: {1} build {2}\nCode - OSS Version: {3}\nCommit: {4}\nDate: {5}\nBrowser: {6}",
+				this.productService.nameLong,
+				this.productService.positronVersion,
+				this.productService.positronBuildNumber,
 				this.productService.version || 'Unknown',
+				// --- End Positron ---
 				this.productService.commit || 'Unknown',
 				this.productService.date ? `${this.productService.date}${useAgo ? ' (' + fromNow(new Date(this.productService.date), true) + ')' : ''}` : 'Unknown',
 				navigator.userAgent
