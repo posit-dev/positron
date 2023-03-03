@@ -31,7 +31,8 @@ export class RuntimeItemStartup extends RuntimeItem {
 		id: string,
 		banner: string,
 		public readonly implementationVersion: string,
-		public readonly languageVersion: string) {
+		public readonly languageVersion: string
+	) {
 		super(id);
 		this.outputLines = ANSIOutput.processOutput(banner);
 	}

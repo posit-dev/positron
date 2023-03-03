@@ -17,7 +17,8 @@ export class ActivityItem {
 	constructor(
 		public readonly id: string,
 		public readonly parentId: string,
-		public readonly when: Date) {
+		public readonly when: Date
+	) {
 	}
 
 	//#endregion Constructor

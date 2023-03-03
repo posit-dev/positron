@@ -40,7 +40,8 @@ export class ActivityItemError extends ActivityItem {
 		when: Date,
 		public readonly name: string,
 		public readonly message: string,
-		public readonly traceback: string[]) {
+		public readonly traceback: string[]
+	) {
 		super(id, parentId, when);
 		this.messageOutputLines = ANSIOutput.processOutput(message);
 		this.tracebackOutputLines = ANSIOutput.processOutput(traceback);
