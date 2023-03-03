@@ -226,6 +226,8 @@ class SGRState {
 
 	/**
 	 * Sets reversed.
+	 * @param reversed A value which indicates whether the foreground and
+	 * background colors are reversed.
 	 */
 	setReversed(reversed: boolean) {
 		if (this._reversed !== reversed) {
@@ -234,6 +236,10 @@ class SGRState {
 		}
 	}
 
+	/**
+	 * Creates a copy of the SGRState.
+	 * @returns The copy of the SGRState.
+	 */
 	copy(): SGRState {
 		const copy = new SGRState();
 		this._styles.forEach(style => copy._styles.add(style));
@@ -247,19 +253,19 @@ class SGRState {
 
 	/**
 	 * Determines whether two SGRState objects are equal.
-	 * @param a SGRState a.
-	 * @param b SGRState b.
+	 * @param left The first SGRState.
+	 * @param right The second SGRState.
 	 * @returns true, if the SGRState objects are equal; otherwise, false.
 	 */
-	static equals(a: SGRState, b: SGRState): boolean {
+	static equals(left: SGRState, right: SGRState): boolean {
 		// Compare styles size.
-		if (a._styles.size !== b._styles.size) {
+		if (left._styles.size !== right._styles.size) {
 			return false;
 		}
 
 		// Compare styles.
-		const aStyles = [...a._styles];
-		const bStyles = [...b._styles];
+		const aStyles = [...left._styles];
+		const bStyles = [...right._styles];
 		for (let i = 0; i < aStyles.length; i++) {
 			if (aStyles[i] !== bStyles[i]) {
 				return false;
@@ -267,11 +273,11 @@ class SGRState {
 		}
 
 		// Compare colors and font.
-		return a._foregroundColor === b._foregroundColor &&
-			a._backgroundColor === b._backgroundColor &&
-			a._underlinedColor === b._underlinedColor &&
-			a._reversed === b._reversed &&
-			a._font === b._font;
+		return left._foregroundColor === right._foregroundColor &&
+			left._backgroundColor === right._backgroundColor &&
+			left._underlinedColor === right._underlinedColor &&
+			left._reversed === right._reversed &&
+			left._font === right._font;
 	}
 
 	//#endregion Public Methods
