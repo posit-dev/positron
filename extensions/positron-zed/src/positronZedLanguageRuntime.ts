@@ -158,7 +158,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.ForegroundBlue)}This is regular blue\n` +
 					`${MakeSGR(SGR.ForegroundMagenta)}This is regular magenta\n` +
 					`${MakeSGR(SGR.ForegroundCyan)}This is regular cyan\n` +
-					`${MakeSGR(SGR.ForegroundWhite)}This is regular white${MakeSGR(SGR.Reset)}`
+					`${MakeSGR(SGR.ForegroundWhite)}This is regular white${MakeSGR()}`
 				);
 				break;
 
@@ -179,7 +179,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 
 			case 'version':
-				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})\n`);
+				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`);
 				break;
 
 			default:

@@ -2,8 +2,8 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
 import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
-import { OutputLine, outputLineSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputLine';
 
 /**
  * ActivityItemError class.
@@ -14,12 +14,12 @@ export class ActivityItemError extends ActivityItem {
 	/**
 	 * Gets the message output lines.
 	 */
-	public readonly messageOutputLines: readonly OutputLine[];
+	public readonly messageOutputLines: readonly ANSIOutputLine[];
 
 	/**
 	 * Gets the traceback output lines.
 	 */
-	public readonly tracebackOutputLines: readonly OutputLine[];
+	public readonly tracebackOutputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -42,8 +42,8 @@ export class ActivityItemError extends ActivityItem {
 		public readonly message: string,
 		public readonly traceback: string[]) {
 		super(id, parentId, when);
-		this.messageOutputLines = outputLineSplitter(message);
-		this.tracebackOutputLines = outputLineSplitter(traceback);
+		this.messageOutputLines = ANSIOutput.processOutput(message);
+		this.tracebackOutputLines = ANSIOutput.processOutput(traceback);
 	}
 
 	//#endregion Constructor
