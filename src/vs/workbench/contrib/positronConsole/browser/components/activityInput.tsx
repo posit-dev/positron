@@ -23,7 +23,7 @@ export const ActivityInput = ({ activityItemInput }: ActivityInputProps) => {
 		<div className='activity-input'>
 			<div className='prompt'>&gt;</div>
 			<div className='code'>
-				<ANSIOutputLines outputLines={activityItemInput.codeOutputLines} />
+				<ANSIOutputLines outputLines={activityItemInput.outputLines} />
 			</div>
 		</div>
 	);
