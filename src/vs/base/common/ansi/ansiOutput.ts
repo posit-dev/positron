@@ -3,7 +3,121 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
-import { SGRParam } from 'vs/base/common/ansi/ansiDefinitions';
+import { ANSIColor, ANSIFont, ANSIStyle } from 'vs/base/common/ansi/ansiDefinitions';
+
+/**
+ * SGRParam enumeration.
+ */
+enum SGRParam {
+	Reset = 0,
+	Bold = 1,
+	Dim = 2,
+	Italic = 3,
+	Underlined = 4,
+	SlowBlink = 5,
+	RapidBlink = 6,
+	Reversed = 7,
+	Hidden = 8,
+	CrossedOut = 9,
+	PrimaryFont = 10,
+	AlternativeFont1 = 11,
+	AlternativeFont2 = 12,
+	AlternativeFont3 = 13,
+	AlternativeFont4 = 14,
+	AlternativeFont5 = 15,
+	AlternativeFont6 = 16,
+	AlternativeFont7 = 17,
+	AlternativeFont8 = 18,
+	AlternativeFont9 = 19,
+	Fraktur = 20,
+	DoubleUnderlined = 21,
+	NormalIntensity = 22,
+	NotItalicNotFraktur = 23,
+	NotUnderlined = 24,
+	NotBlinking = 25,
+	ProportionalSpacing = 26,
+	NotReversed = 27,
+	Reveal = 28,
+	NotCrossedOut = 29,
+	ForegroundBlack = 30,
+	ForegroundRed = 31,
+	ForegroundGreen = 32,
+	ForegroundYellow = 33,
+	ForegroundBlue = 34,
+	ForegroundMagenta = 35,
+	ForegroundCyan = 36,
+	ForegroundWhite = 37,
+	SetForeground = 38,
+	DefaultForeground = 39,
+	BackgroundBlack = 40,
+	BackgroundRed = 41,
+	BackgroundGreen = 42,
+	BackgroundYellow = 43,
+	BackgroundBlue = 44,
+	BackgroundMagenta = 45,
+	BackgroundCyan = 46,
+	BackgroundWhite = 47,
+	SetBackground = 48,
+	DefaultBackground = 49,
+	DisableProportionalSpacing = 50,
+	Framed = 51,
+	Encircled = 52,
+	Overlined = 53,
+	NotFramedNotEncircled = 54,
+	NotOverlined = 55,
+	// 56 unsupported
+	// 57 unsupported
+	SetUnderline = 58,
+	DefaultUnderline = 59,
+	IdeogramUnderlineOrRightSideLine = 60,
+	IdeogramDoubleUnderlineOrDoubleRightSideLine = 61,
+	IdeogramOverlineOrLeftSideLine = 62,
+	IdeogramDoubleOverlineOrDoubleLeftSideLine = 63,
+	IdeogramStressMarking = 64,
+	NoIdeogramAttributes = 65,
+	// 66 unsupported
+	// 67 unsupported
+	// 68 unsupported
+	// 69 unsupported
+	// 70 unsupported
+	// 71 unsupported
+	// 72 unsupported
+	Superscript = 73,
+	Subscript = 74,
+	NotSuperscriptNotSubscript = 75,
+	// 76 unsupported
+	// 77 unsupported
+	// 78 unsupported
+	// 79 unsupported
+	// 80 unsupported
+	// 81 unsupported
+	// 82 unsupported
+	// 83 unsupported
+	// 84 unsupported
+	// 85 unsupported
+	// 86 unsupported
+	// 87 unsupported
+	// 88 unsupported
+	// 89 unsupported
+	ForegroundBrightBlack = 90,
+	ForegroundBrightRed = 91,
+	ForegroundBrightGreen = 92,
+	ForegroundBrightYellow = 93,
+	ForegroundBrightBlue = 94,
+	ForegroundBrightMagenta = 95,
+	ForegroundBrightCyan = 96,
+	ForegroundBrightWhite = 97,
+	// 98 unsupported
+	// 99 unsupported
+	BackgroundBrightBlack = 100,
+	BackgroundBrightRed = 101,
+	BackgroundBrightGreen = 102,
+	BackgroundBrightYellow = 103,
+	BackgroundBrightBlue = 104,
+	BackgroundBrightMagenta = 105,
+	BackgroundBrightCyan = 106,
+	BackgroundBrightWhite = 107
+}
 
 /**
  * ParserState enumeration.
@@ -14,63 +128,164 @@ enum ParserState {
 	ParsingControlSequence
 }
 
+/**
+ * SGRState class.
+ */
 class SGRState {
-	/**
-	 * Gets or sets the SGR params.
-	 */
-	public sgrParams: SGRParam[] = [];
+	//#region Private Properties.
 
 	/**
-	 * Gets or sets the SGR custom foreground color (in the form #rrggbbaa).
+	 * Gets or sets the SGR styles.
 	 */
-	public sgrCustomForegroundColor: string | undefined = undefined;
+	private _styles: ANSIStyle[] = [];
 
 	/**
-	 * Gets or sets the SGR custom background color (in the form #rrggbbaa).
+	 * Gets or sets the foreground color.
 	 */
-	public sgrCustomBackgroundColor: string | undefined = undefined;
+	private _foregroundColor?: ANSIColor | string = undefined;
 
 	/**
-	 * Gets or sets the SGR custom underlined color (in the form #rrggbbaa).
+	 * Gets or sets the background color.
 	 */
-	public sgrCustomUnderlinedColor: string | undefined = undefined;
+	private _backgroundColor?: ANSIColor | string = undefined;
 
 	/**
-	 * Gets or sets a value which indicates whether the SGR foreground and
+	 * Gets or sets the underlined color.
+	 */
+	private _underlinedColor?: string = undefined;
+
+	/**
+	 * Gets or sets a value which indicates whether the foreground and
 	 * background colors are reversed.
 	 */
-	public sgrReversed = false;
+	private _reversed = false;
 
+	/**
+	 * Gets or sets the font.
+	 */
+	private _font?: ANSIFont = undefined;
+
+	//#endregion Private Properties.
+
+	//#region Public Methods
+
+	/**
+	 * Resets the SGRState.
+	 */
+	reset() {
+		this._styles = [];
+		this._foregroundColor = undefined;
+		this._backgroundColor = undefined;
+		this._underlinedColor = undefined;
+		this._reversed = false;
+		this._font = undefined;
+	}
+
+	/**
+	 * Sets a style.
+	 * @param style The style to set.
+	 * @param stylesToClear The styles to clear.
+	 */
+	setStyle(style: ANSIStyle, ...stylesToClear: ANSIStyle[]) {
+		// Clear styles.
+		this.clearStyles(style, ...stylesToClear);
+
+		// Set the style.
+		this._styles.push(style);
+	}
+
+	/**
+	 * Clears styles.
+	 * @param stylesToClear The styles to clear.
+	 */
+	clearStyles(...stylesToClear: ANSIStyle[]) {
+		this._styles = this._styles.filter(sgrStyle => !stylesToClear.includes(sgrStyle));
+	}
+
+	/**
+	 * Sets the foreground color.
+	 */
+	setForegroundColor(sgrColor?: ANSIColor | string) {
+		if (!this._reversed) {
+			this._foregroundColor = sgrColor;
+		} else {
+			this._backgroundColor = sgrColor;
+		}
+	}
+
+	/**
+	 * Sets the background color.
+	 */
+	setBackgroundColor(sgrColor?: ANSIColor | string) {
+		if (!this._reversed) {
+			this._backgroundColor = sgrColor;
+		} else {
+			this._foregroundColor = sgrColor;
+		}
+	}
+
+	/**
+	 * Sets reversed.
+	 */
+	setReversed(reversed: boolean) {
+		if (this._reversed !== reversed) {
+			this._reversed = reversed;
+			this.reverseForegroundAndBackgroundColors();
+		}
+	}
+
+	copy(): SGRState {
+		const copy = new SGRState();
+		copy._styles = [...this._styles];
+		copy._foregroundColor = this._foregroundColor;
+		copy._backgroundColor = this._backgroundColor;
+		copy._underlinedColor = this._underlinedColor;
+		copy._reversed = this._reversed;
+		copy._font = this._font;
+		return copy;
+	}
+
+	/**
+	 * Determines whether two SGRState objects are equal.
+	 * @param a SGRState a.
+	 * @param b SGRState b.
+	 * @returns true, if the SGRState objects are equal; otherwise, false.
+	 */
 	static equals(a: SGRState, b: SGRState): boolean {
-
-		if (a.sgrParams.length !== b.sgrParams.length) {
+		// Compare styles length.
+		if (a._styles.length !== b._styles.length) {
 			return false;
 		}
 
-		for (let i = 0; i < a.sgrParams.length; i++) {
-			if (a.sgrParams[i] !== b.sgrParams[i]) {
+		// Compare styles.
+		for (let i = 0; i < a._styles.length; i++) {
+			if (a._styles[i] !== b._styles[i]) {
 				return false;
 			}
 		}
 
-		if (a.sgrCustomForegroundColor !== b.sgrCustomForegroundColor) {
-			return false;
-		}
-
-		if (a.sgrCustomBackgroundColor !== b.sgrCustomBackgroundColor) {
-			return false;
-		}
-
-		if (a.sgrCustomUnderlinedColor !== b.sgrCustomUnderlinedColor) {
-			return false;
-		}
-
-		if (a.sgrReversed !== b.sgrReversed) {
-			return false;
-		}
-
-		return true;
+		// Compare colors and font.
+		return a._foregroundColor === b._foregroundColor &&
+			a._backgroundColor === b._backgroundColor &&
+			a._underlinedColor === b._underlinedColor &&
+			a._reversed === b._reversed &&
+			a._font === b._font;
 	}
+
+	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Reverses the foreground and background colors.
+	 */
+	private reverseForegroundAndBackgroundColors() {
+		const foregroundColor = this._foregroundColor;
+		this._foregroundColor = this._backgroundColor;
+		this._backgroundColor = foregroundColor;
+	}
+
+	//#endregion Private Methods
 }
 
 /**
@@ -94,33 +309,10 @@ export class ANSIOutput {
 	 */
 	private controlSequence = '';
 
+	/**
+	 * Gets or sets the SGR state.
+	 */
 	private sgrState = new SGRState();
-
-	// /**
-	//  * Gets or sets the SGR params.
-	//  */
-	// private sgrParams: SGRParam[] = [];
-
-	// /**
-	//  * Gets or sets the SGR custom foreground color (in the form #rrggbbaa).
-	//  */
-	// private sgrCustomForegroundColor: string | undefined;
-
-	// /**
-	//  * Gets or sets the SGR custom background color (in the form #rrggbbaa).
-	//  */
-	// private sgrCustomBackgroundColor: string | undefined;
-
-	// /**
-	//  * Gets or sets the SGR custom underlined color (in the form #rrggbbaa).
-	//  */
-	// private sgrCustomUnderlinedColor: string | undefined;
-
-	// /**
-	//  * Gets or sets a value which indicates whether the SGR foreground and
-	//  * background colors are reversed.
-	//  */
-	// private sgrReversed = false;
 
 	/**
 	 * The current set of output lines.
@@ -171,9 +363,9 @@ export class ANSIOutput {
 				if (char === '[') {
 					this.parserState = ParserState.ParsingControlSequence;
 				} else {
-					// We encountered an ESC that is not part of a CSI.
-					// Ignore the ESC, go back to the buffering output
-					// state, and process the character.
+					// We encountered an ESC that is not part of a CSI. Ignore
+					// the ESC, go back to the buffering output state, and
+					// process the character.
 					this.parserState = ParserState.BufferingOutput;
 					this.processCharacter(char);
 				}
@@ -211,9 +403,6 @@ export class ANSIOutput {
 	 * Processes a control sequence.
 	 */
 	private processControlSequence() {
-		// Flush the current buffer.
-		this.flushBuffer();
-
 		// Process SGR control sequence.
 		if (this.controlSequence.endsWith('m')) {
 			this.processSGRControlSequence();
@@ -247,9 +436,9 @@ export class ANSIOutput {
 		this.outputLines[this.currentOutputLine].outputRuns.push({
 			id: generateUuid(),
 			styles: [],//this.styles,
-			customForegroundColor: this.sgrState.sgrCustomForegroundColor,
-			customBackgroundColor: this.sgrState.sgrCustomBackgroundColor,
-			customUnderlinedColor: this.sgrState.sgrCustomUnderlinedColor,
+			customForegroundColor: '', // this.sgrState.customForegroundColor,
+			customBackgroundColor: '', // this.sgrState.customBackgroundColor,
+			customUnderlinedColor: '', // this.sgrState.underlinedColor,
 			text: this.buffer
 		});
 
@@ -266,8 +455,12 @@ export class ANSIOutput {
 
 		// Parse the SGR parameters.
 		const sgrParams = this.controlSequence
-			.slice(0, -1)	// Remove ending m.
+			// Remove ending m.
+			.slice(0, -1)
+			// Split the SGR parameters.
 			.split(';')
+			// Parse the parameter. An empty parameter is a reset. For example,
+			// ESC[31;m does not produce read output.
 			.map(sgrParam => sgrParam === '' ? SGRParam.Reset : parseInt(sgrParam, 10));
 
 		// Process the SGR parameters.
@@ -278,46 +471,43 @@ export class ANSIOutput {
 			// Process the SGR parameter.
 			switch (sgrParam) {
 				case SGRParam.Reset:
-					this.resetSGR();
+					this.sgrState.reset();
 					break;
 
 				case SGRParam.Bold:
-					this.updateSGRParams(sgrParam);
+					this.sgrState.setStyle(ANSIStyle.Bold);
 					break;
 
 				case SGRParam.Dim:
-					this.updateSGRParams(sgrParam);
+					this.sgrState.setStyle(ANSIStyle.Dim);
 					break;
 
 				case SGRParam.Italic:
-					this.updateSGRParams(sgrParam);
+					this.sgrState.setStyle(ANSIStyle.Italic);
 					break;
 
 				case SGRParam.Underlined:
-					this.updateSGRParams(sgrParam, SGRParam.DoubleUnderlined);
+					this.sgrState.setStyle(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
 
 				case SGRParam.SlowBlink:
-					this.updateSGRParams(sgrParam, SGRParam.RapidBlink);
+					this.sgrState.setStyle(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
 
 				case SGRParam.RapidBlink:
-					this.updateSGRParams(sgrParam, SGRParam.SlowBlink);
+					this.sgrState.setStyle(ANSIStyle.RapidBlink, ANSIStyle.SlowBlink);
 					break;
 
 				case SGRParam.Reversed:
-					if (!this.sgrState.sgrReversed) {
-						this.sgrState.sgrReversed = true;
-						// reverseForegroundAndBackgroundColors()
-					}
+					this.sgrState.setReversed(true);
 					break;
 
 				case SGRParam.Hidden:
-					this.updateSGRParams(sgrParam);
+					this.sgrState.setStyle(ANSIStyle.Hidden);
 					break;
 
 				case SGRParam.CrossedOut:
-					this.updateSGRParams(sgrParam);
+					this.sgrState.setStyle(ANSIStyle.CrossedOut);
 					break;
 
 				case SGRParam.PrimaryFont:
@@ -330,59 +520,78 @@ export class ANSIOutput {
 				case SGRParam.AlternativeFont7:
 				case SGRParam.AlternativeFont8:
 				case SGRParam.AlternativeFont9:
+					break;
+
 				case SGRParam.Fraktur:
-					// Do nothing for now.
+					this.sgrState.setStyle(ANSIStyle.Fraktur);
 					break;
 
 				case SGRParam.DoubleUnderlined:
-					this.updateSGRParams(sgrParam, SGRParam.Underlined);
+					this.sgrState.setStyle(ANSIStyle.DoubleUnderlined, ANSIStyle.Underlined);
 					break;
 
 				case SGRParam.NormalIntensity:
-					this.clearSGRParams(SGRParam.Bold, SGRParam.Dim);
+					this.sgrState.clearStyles(ANSIStyle.Bold, ANSIStyle.Dim);
 					break;
 
 				case SGRParam.NotItalicNotFraktur:
-					this.clearSGRParams(SGRParam.Italic);
+					this.sgrState.clearStyles(ANSIStyle.Italic, ANSIStyle.Fraktur);
 					break;
 
 				case SGRParam.NotUnderlined:
-					this.clearSGRParams(SGRParam.Underlined, SGRParam.DoubleUnderlined);
+					this.sgrState.clearStyles(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
 
 				case SGRParam.NotBlinking:
-					this.clearSGRParams(SGRParam.SlowBlink, SGRParam.RapidBlink);
+					this.sgrState.clearStyles(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
 
 				case SGRParam.ProportionalSpacing:
-					// Do nothing for now.
+					// Do nothing.
 					break;
 
 				case SGRParam.NotReversed:
-					if (this.sgrState.sgrReversed) {
-						this.sgrState.sgrReversed = false;
-						// reverseForegroundAndBackgroundColors()
-					}
+					this.sgrState.setReversed(false);
 					break;
 
 				case SGRParam.Reveal:
-					this.clearSGRParams(SGRParam.Hidden);
+					this.sgrState.clearStyles(ANSIStyle.Hidden);
 					break;
 
 				case SGRParam.NotCrossedOut:
-					this.clearSGRParams(SGRParam.CrossedOut);
+					this.sgrState.clearStyles(ANSIStyle.CrossedOut);
 					break;
 
 				case SGRParam.ForegroundBlack:
+					this.sgrState.setForegroundColor(ANSIColor.Black);
+					break;
+
 				case SGRParam.ForegroundRed:
+					this.sgrState.setForegroundColor(ANSIColor.Red);
+					break;
+
 				case SGRParam.ForegroundGreen:
+					this.sgrState.setForegroundColor(ANSIColor.Green);
+					break;
+
 				case SGRParam.ForegroundYellow:
+					this.sgrState.setForegroundColor(ANSIColor.Yellow);
+					break;
+
 				case SGRParam.ForegroundBlue:
+					this.sgrState.setForegroundColor(ANSIColor.Blue);
+					break;
+
 				case SGRParam.ForegroundMagenta:
+					this.sgrState.setForegroundColor(ANSIColor.Magenta);
+					break;
+
 				case SGRParam.ForegroundCyan:
+					this.sgrState.setForegroundColor(ANSIColor.Cyan);
+					break;
+
 				case SGRParam.ForegroundWhite:
-					this.clearForegroundSGRParams();
-					this.sgrState.sgrParams.push(sgrParam);
+					this.sgrState.setForegroundColor(ANSIColor.White);
 					break;
 
 				case SGRParam.SetForeground:
@@ -390,91 +599,106 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.DefaultForeground:
+					this.sgrState.setForegroundColor();
 					break;
 
 				case SGRParam.BackgroundBlack:
+					this.sgrState.setBackgroundColor(ANSIColor.Black);
+					break;
+
 				case SGRParam.BackgroundRed:
+					this.sgrState.setBackgroundColor(ANSIColor.Red);
+					break;
+
 				case SGRParam.BackgroundGreen:
+					this.sgrState.setBackgroundColor(ANSIColor.Green);
+					break;
+
 				case SGRParam.BackgroundYellow:
+					this.sgrState.setBackgroundColor(ANSIColor.Yellow);
+					break;
+
 				case SGRParam.BackgroundBlue:
+					this.sgrState.setBackgroundColor(ANSIColor.Blue);
+					break;
+
 				case SGRParam.BackgroundMagenta:
+					this.sgrState.setBackgroundColor(ANSIColor.Magenta);
+					break;
+
 				case SGRParam.BackgroundCyan:
+					this.sgrState.setBackgroundColor(ANSIColor.Cyan);
+					break;
+
 				case SGRParam.BackgroundWhite:
-					this.clearBackgroundSGRParams();
-					this.sgrState.sgrParams.push(sgrParam);
+					this.sgrState.setBackgroundColor(ANSIColor.White);
 					break;
 
 				case SGRParam.ForegroundBrightBlack:
-				case SGRParam.ForegroundBrightRed:
-				case SGRParam.ForegroundBrightGreen:
-				case SGRParam.ForegroundBrightYellow:
-				case SGRParam.ForegroundBrightBlue:
-				case SGRParam.ForegroundBrightMagenta:
-				case SGRParam.ForegroundBrightCyan:
-				case SGRParam.ForegroundBrightWhite:
-					this.clearForegroundSGRParams();
-					this.sgrState.sgrParams.push(sgrParam);
+					this.sgrState.setForegroundColor(ANSIColor.BrightBlack);
 					break;
 
+				case SGRParam.ForegroundBrightRed:
+					this.sgrState.setForegroundColor(ANSIColor.BrightRed);
+					break;
+
+				case SGRParam.ForegroundBrightGreen:
+					this.sgrState.setForegroundColor(ANSIColor.BrightGreen);
+					break;
+
+				case SGRParam.ForegroundBrightYellow:
+					this.sgrState.setForegroundColor(ANSIColor.BrightYellow);
+					break;
+
+				case SGRParam.ForegroundBrightBlue:
+					this.sgrState.setForegroundColor(ANSIColor.BrightBlue);
+					break;
+
+				case SGRParam.ForegroundBrightMagenta:
+					this.sgrState.setForegroundColor(ANSIColor.BrightMagenta);
+					break;
+
+				case SGRParam.ForegroundBrightCyan:
+					this.sgrState.setForegroundColor(ANSIColor.BrightCyan);
+					break;
+
+				case SGRParam.ForegroundBrightWhite:
+					this.sgrState.setForegroundColor(ANSIColor.BrightWhite);
+					break;
 
 				case SGRParam.BackgroundBrightBlack:
+					this.sgrState.setBackgroundColor(ANSIColor.BrightBlack);
+					break;
+
 				case SGRParam.BackgroundBrightRed:
+					this.sgrState.setBackgroundColor(ANSIColor.BrightRed);
+					break;
+
 				case SGRParam.BackgroundBrightGreen:
+					this.sgrState.setBackgroundColor(ANSIColor.BrightGreen);
+					break;
+
 				case SGRParam.BackgroundBrightYellow:
+					this.sgrState.setBackgroundColor(ANSIColor.BrightYellow);
+					break;
+
 				case SGRParam.BackgroundBrightBlue:
+					this.sgrState.setBackgroundColor(ANSIColor.BrightBlue);
+					break;
+
 				case SGRParam.BackgroundBrightMagenta:
+					this.sgrState.setBackgroundColor(ANSIColor.BrightMagenta);
+					break;
+
 				case SGRParam.BackgroundBrightCyan:
+					this.sgrState.setBackgroundColor(ANSIColor.BrightCyan);
+					break;
+
 				case SGRParam.BackgroundBrightWhite:
-					this.clearBackgroundSGRParams();
-					this.sgrState.sgrParams.push(sgrParam);
+					this.sgrState.setBackgroundColor(ANSIColor.BrightWhite);
 					break;
 			}
 		}
-	}
-
-	private resetSGR() {
-		this.sgrState = new SGRState();
-	}
-
-	/**
-	 * Updates SGR params.
-	 * @param sgrParam The SGR param to set.
-	 * @param sgrParamsToClear The SGR params to clear.
-	 */
-	private updateSGRParams(sgrParam: SGRParam, ...sgrParamsToClear: SGRParam[]) {
-		// Clear SGR params.
-		this.clearSGRParams(sgrParam, ...sgrParamsToClear);
-
-		// Set the SGR param.
-		this.sgrState.sgrParams.push(sgrParam);
-	}
-
-	/**
-	 * Clears SGR params.
-	 * @param sgrParamsToClear
-	 */
-	private clearSGRParams(...sgrParamsToClear: SGRParam[]) {
-		this.sgrState.sgrParams = this.sgrState.sgrParams.filter(sgrParam => !sgrParamsToClear.includes(sgrParam));
-	}
-
-	/**
-	 * Clears any foreground SGR params.
-	 */
-	private clearForegroundSGRParams() {
-		this.sgrState.sgrParams = this.sgrState.sgrParams.filter(sgrParam =>
-			!(sgrParam >= SGRParam.ForegroundBlack && sgrParam <= SGRParam.ForegroundWhite) &&
-			!(sgrParam >= SGRParam.ForegroundBrightBlack && sgrParam <= SGRParam.ForegroundBrightWhite)
-		);
-	}
-
-	/**
-	 * Clears any background SGR params.
-	 */
-	private clearBackgroundSGRParams() {
-		this.sgrState.sgrParams = this.sgrState.sgrParams.filter(sgr =>
-			!(sgr >= SGRParam.BackgroundBlack && sgr <= SGRParam.BackgroundWhite) &&
-			!(sgr >= SGRParam.BackgroundBrightBlack && sgr <= SGRParam.BackgroundBrightWhite)
-		);
 	}
 
 	//#endregion Private Methods
