@@ -357,10 +357,18 @@ export class ANSIOutput {
 	 */
 	private _currentOutputLine = 0;
 
+	/**
+	 * Gets or sets a value which indicates whether there is a pending newline.
+	 */
 	private _pendingNewline = false;
 
 	//#endregion Private Properties
 
+	/**
+	 * Processes output and returns the result.
+	 * @param output The output to process.
+	 * @returns The ANSIOutput lines of the output.
+	 */
 	static processOutput(output: string | string[]) {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(output);
