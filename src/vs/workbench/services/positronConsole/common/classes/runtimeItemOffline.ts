@@ -25,9 +25,7 @@ export class RuntimeItemOffline extends RuntimeItem {
 	 * @param id The identifier.
 	 * @param banner The banner.
 	 */
-	constructor(
-		id: string,
-		banner: string) {
+	constructor(id: string, banner: string) {
 		super(id);
 		this.outputLines = ANSIOutput.processOutput(banner);
 	}

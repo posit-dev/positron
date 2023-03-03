@@ -12,9 +12,9 @@ export class ActivityItemInput extends ActivityItem {
 	//#region Public Properties
 
 	/**
-	 * Gets the code output lines.
+	 * Gets the output lines.
 	 */
-	public readonly codeOutputLines: readonly ANSIOutputLine[];
+	public readonly outputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -31,9 +31,10 @@ export class ActivityItemInput extends ActivityItem {
 		id: string,
 		parentId: string,
 		when: Date,
-		public readonly code: string) {
+		public readonly code: string
+	) {
 		super(id, parentId, when);
-		this.codeOutputLines = ANSIOutput.processOutput(code);
+		this.outputLines = ANSIOutput.processOutput(code);
 	}
 
 	//#endregion Constructor
