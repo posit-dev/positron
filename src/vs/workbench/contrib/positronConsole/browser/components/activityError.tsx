@@ -4,8 +4,8 @@
 
 import 'vs/css!./activityError';
 import * as React from 'react';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
+import { ANSIOutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/ansiOutputLines';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorProps {
@@ -21,10 +21,10 @@ export const ActivityError = ({ activityItemError }: ActivityErrorProps) => {
 	// Render.
 	return (
 		<div className='activity-error'>
-			<OutputLines outputLines={activityItemError.messageOutputLines} />
+			<ANSIOutputLines outputLines={activityItemError.messageOutputLines} />
 			{activityItemError.tracebackOutputLines.length > 0 &&
 				<div className='traceback-lines'>
-					<OutputLines outputLines={activityItemError.tracebackOutputLines} />
+					<ANSIOutputLines outputLines={activityItemError.tracebackOutputLines} />
 				</div>
 			}
 		</div>

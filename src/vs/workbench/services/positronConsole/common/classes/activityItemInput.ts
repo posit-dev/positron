@@ -2,8 +2,8 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
 import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
-import { OutputLine, outputLineSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputLine';
 
 /**
  * ActivityItemInput class.
@@ -14,7 +14,7 @@ export class ActivityItemInput extends ActivityItem {
 	/**
 	 * Gets the code output lines.
 	 */
-	public readonly codeOutputLines: readonly OutputLine[];
+	public readonly codeOutputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -33,7 +33,7 @@ export class ActivityItemInput extends ActivityItem {
 		when: Date,
 		public readonly code: string) {
 		super(id, parentId, when);
-		this.codeOutputLines = outputLineSplitter(code);
+		this.codeOutputLines = ANSIOutput.processOutput(code);
 	}
 
 	//#endregion Constructor

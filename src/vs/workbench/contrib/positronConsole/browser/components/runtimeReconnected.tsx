@@ -4,7 +4,7 @@
 
 import 'vs/css!./runtimeReconnected';
 import * as React from 'react';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
+import { ANSIOutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/ansiOutputLines';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 
 // RuntimeReconnectedProps interface.
@@ -21,7 +21,7 @@ export const RuntimeReconnected = ({ runtimeItemReconnected }: RuntimeReconnecte
 	// Render.
 	return (
 		<div className='runtime-reconnected'>
-			<OutputLines outputLines={runtimeItemReconnected.outputLines} />
+			<ANSIOutputLines outputLines={runtimeItemReconnected.outputLines} />
 		</div>
 	);
 };

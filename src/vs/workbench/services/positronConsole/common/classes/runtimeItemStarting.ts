@@ -2,8 +2,8 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { OutputLine, outputLineSplitter } from 'vs/workbench/services/positronConsole/common/classes/outputLine';
 
 /**
  * RuntimeItemStarting class.
@@ -14,7 +14,7 @@ export class RuntimeItemStarting extends RuntimeItem {
 	/**
 	 * Gets the output lines.
 	 */
-	public readonly outputLines: readonly OutputLine[];
+	public readonly outputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -29,7 +29,7 @@ export class RuntimeItemStarting extends RuntimeItem {
 		id: string,
 		banner: string) {
 		super(id);
-		this.outputLines = outputLineSplitter(banner);
+		this.outputLines = ANSIOutput.processOutput(banner);
 	}
 
 	//#endregion Constructor
