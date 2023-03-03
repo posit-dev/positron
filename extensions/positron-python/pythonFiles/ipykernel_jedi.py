@@ -79,8 +79,10 @@ def ipk_error_handler(error):
 if __name__ == "__main__":
 
     # Start ipykernel as an async process
-    pool = Pool(processes=1)
+    pool = Pool(processes=1, maxtasksperchild=1)
     result = pool.apply_async(start_ipykernel, error_callback=ipk_error_handler)
 
     # Start Jedi language server using TCP
-    sys.exit(start_jedi())
+    exitStatus = start_jedi()
+    pool.terminate()
+    sys.exit(exitStatus)
