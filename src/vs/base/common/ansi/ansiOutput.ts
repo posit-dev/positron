@@ -14,6 +14,65 @@ enum ParserState {
 	ParsingControlSequence
 }
 
+class SGRState {
+	/**
+	 * Gets or sets the SGR params.
+	 */
+	public sgrParams: SGRParam[] = [];
+
+	/**
+	 * Gets or sets the SGR custom foreground color (in the form #rrggbbaa).
+	 */
+	public sgrCustomForegroundColor: string | undefined = undefined;
+
+	/**
+	 * Gets or sets the SGR custom background color (in the form #rrggbbaa).
+	 */
+	public sgrCustomBackgroundColor: string | undefined = undefined;
+
+	/**
+	 * Gets or sets the SGR custom underlined color (in the form #rrggbbaa).
+	 */
+	public sgrCustomUnderlinedColor: string | undefined = undefined;
+
+	/**
+	 * Gets or sets a value which indicates whether the SGR foreground and
+	 * background colors are reversed.
+	 */
+	public sgrReversed = false;
+
+	static equals(a: SGRState, b: SGRState): boolean {
+
+		if (a.sgrParams.length !== b.sgrParams.length) {
+			return false;
+		}
+
+		for (let i = 0; i < a.sgrParams.length; i++) {
+			if (a.sgrParams[i] !== b.sgrParams[i]) {
+				return false;
+			}
+		}
+
+		if (a.sgrCustomForegroundColor !== b.sgrCustomForegroundColor) {
+			return false;
+		}
+
+		if (a.sgrCustomBackgroundColor !== b.sgrCustomBackgroundColor) {
+			return false;
+		}
+
+		if (a.sgrCustomUnderlinedColor !== b.sgrCustomUnderlinedColor) {
+			return false;
+		}
+
+		if (a.sgrReversed !== b.sgrReversed) {
+			return false;
+		}
+
+		return true;
+	}
+}
+
 /**
  * ANSIOutput class.
  */
@@ -35,31 +94,33 @@ export class ANSIOutput {
 	 */
 	private controlSequence = '';
 
-	/**
-	 * Gets or sets the SGR params.
-	 */
-	private sgrParams: SGRParam[] = [];
+	private sgrState = new SGRState();
 
-	/**
-	 * Gets or sets the SGR custom foreground color (in the form #rrggbbaa).
-	 */
-	private sgrCustomForegroundColor: string | undefined;
+	// /**
+	//  * Gets or sets the SGR params.
+	//  */
+	// private sgrParams: SGRParam[] = [];
 
-	/**
-	 * Gets or sets the SGR custom background color (in the form #rrggbbaa).
-	 */
-	private sgrCustomBackgroundColor: string | undefined;
+	// /**
+	//  * Gets or sets the SGR custom foreground color (in the form #rrggbbaa).
+	//  */
+	// private sgrCustomForegroundColor: string | undefined;
 
-	/**
-	 * Gets or sets the SGR custom underlined color (in the form #rrggbbaa).
-	 */
-	private sgrCustomUnderlinedColor: string | undefined;
+	// /**
+	//  * Gets or sets the SGR custom background color (in the form #rrggbbaa).
+	//  */
+	// private sgrCustomBackgroundColor: string | undefined;
 
-	/**
-	 * Gets or sets a value which indicates whether the SGR foreground and
-	 * background colors are reversed.
-	 */
-	private sgrReversed = false;
+	// /**
+	//  * Gets or sets the SGR custom underlined color (in the form #rrggbbaa).
+	//  */
+	// private sgrCustomUnderlinedColor: string | undefined;
+
+	// /**
+	//  * Gets or sets a value which indicates whether the SGR foreground and
+	//  * background colors are reversed.
+	//  */
+	// private sgrReversed = false;
 
 	/**
 	 * The current set of output lines.
@@ -186,9 +247,9 @@ export class ANSIOutput {
 		this.outputLines[this.currentOutputLine].outputRuns.push({
 			id: generateUuid(),
 			styles: [],//this.styles,
-			customForegroundColor: this.sgrCustomForegroundColor,
-			customBackgroundColor: this.sgrCustomBackgroundColor,
-			customUnderlinedColor: this.sgrCustomUnderlinedColor,
+			customForegroundColor: this.sgrState.sgrCustomForegroundColor,
+			customBackgroundColor: this.sgrState.sgrCustomBackgroundColor,
+			customUnderlinedColor: this.sgrState.sgrCustomUnderlinedColor,
 			text: this.buffer
 		});
 
@@ -245,8 +306,8 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.Reversed:
-					if (!this.sgrReversed) {
-						this.sgrReversed = true;
+					if (!this.sgrState.sgrReversed) {
+						this.sgrState.sgrReversed = true;
 						// reverseForegroundAndBackgroundColors()
 					}
 					break;
@@ -298,8 +359,8 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.NotReversed:
-					if (this.sgrReversed) {
-						this.sgrReversed = false;
+					if (this.sgrState.sgrReversed) {
+						this.sgrState.sgrReversed = false;
 						// reverseForegroundAndBackgroundColors()
 					}
 					break;
@@ -321,7 +382,7 @@ export class ANSIOutput {
 				case SGRParam.ForegroundCyan:
 				case SGRParam.ForegroundWhite:
 					this.clearForegroundSGRParams();
-					this.sgrParams.push(sgrParam);
+					this.sgrState.sgrParams.push(sgrParam);
 					break;
 
 				case SGRParam.SetForeground:
@@ -340,7 +401,7 @@ export class ANSIOutput {
 				case SGRParam.BackgroundCyan:
 				case SGRParam.BackgroundWhite:
 					this.clearBackgroundSGRParams();
-					this.sgrParams.push(sgrParam);
+					this.sgrState.sgrParams.push(sgrParam);
 					break;
 
 				case SGRParam.ForegroundBrightBlack:
@@ -352,7 +413,7 @@ export class ANSIOutput {
 				case SGRParam.ForegroundBrightCyan:
 				case SGRParam.ForegroundBrightWhite:
 					this.clearForegroundSGRParams();
-					this.sgrParams.push(sgrParam);
+					this.sgrState.sgrParams.push(sgrParam);
 					break;
 
 
@@ -365,17 +426,14 @@ export class ANSIOutput {
 				case SGRParam.BackgroundBrightCyan:
 				case SGRParam.BackgroundBrightWhite:
 					this.clearBackgroundSGRParams();
-					this.sgrParams.push(sgrParam);
+					this.sgrState.sgrParams.push(sgrParam);
+					break;
 			}
 		}
 	}
 
 	private resetSGR() {
-		this.sgrParams = [];
-		this.sgrCustomForegroundColor = undefined;
-		this.sgrCustomBackgroundColor = undefined;
-		this.sgrCustomUnderlinedColor = undefined;
-		this.sgrReversed = false;
+		this.sgrState = new SGRState();
 	}
 
 	/**
@@ -388,7 +446,7 @@ export class ANSIOutput {
 		this.clearSGRParams(sgrParam, ...sgrParamsToClear);
 
 		// Set the SGR param.
-		this.sgrParams.push(sgrParam);
+		this.sgrState.sgrParams.push(sgrParam);
 	}
 
 	/**
@@ -396,14 +454,14 @@ export class ANSIOutput {
 	 * @param sgrParamsToClear
 	 */
 	private clearSGRParams(...sgrParamsToClear: SGRParam[]) {
-		this.sgrParams = this.sgrParams.filter(sgrParam => !sgrParamsToClear.includes(sgrParam));
+		this.sgrState.sgrParams = this.sgrState.sgrParams.filter(sgrParam => !sgrParamsToClear.includes(sgrParam));
 	}
 
 	/**
 	 * Clears any foreground SGR params.
 	 */
 	private clearForegroundSGRParams() {
-		this.sgrParams = this.sgrParams.filter(sgrParam =>
+		this.sgrState.sgrParams = this.sgrState.sgrParams.filter(sgrParam =>
 			!(sgrParam >= SGRParam.ForegroundBlack && sgrParam <= SGRParam.ForegroundWhite) &&
 			!(sgrParam >= SGRParam.ForegroundBrightBlack && sgrParam <= SGRParam.ForegroundBrightWhite)
 		);
@@ -413,7 +471,7 @@ export class ANSIOutput {
 	 * Clears any background SGR params.
 	 */
 	private clearBackgroundSGRParams() {
-		this.sgrParams = this.sgrParams.filter(sgr =>
+		this.sgrState.sgrParams = this.sgrState.sgrParams.filter(sgr =>
 			!(sgr >= SGRParam.BackgroundBlack && sgr <= SGRParam.BackgroundWhite) &&
 			!(sgr >= SGRParam.BackgroundBrightBlack && sgr <= SGRParam.BackgroundBrightWhite)
 		);
