@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
-import { ANSIColor, ANSIFont, ANSIStyle } from 'vs/base/common/ansi/ansiDefinitions';
 
 /**
  * SGRParam enumeration.
@@ -170,6 +169,22 @@ class SGRState {
 	//#region Public Methods
 
 	/**
+	 * Creates an output run.
+	 * @param text
+	 */
+	createOutputRun(text: string): ANSIOutputRun {
+		return {
+			id: generateUuid(),
+			styles: [...this._styles],
+			foregroundColor: this._foregroundColor,
+			backgroundColor: this._backgroundColor,
+			underlinedColor: this._underlinedColor,
+			font: this._font,
+			text,
+		};
+	}
+
+	/**
 	 * Resets the SGRState.
 	 */
 	reset() {
@@ -188,7 +203,7 @@ class SGRState {
 	 */
 	setStyle(style: ANSIStyle, ...stylesToDelete: ANSIStyle[]) {
 		// Delete styles.
-		this.deleteStyles(style, ...stylesToDelete);
+		this.deleteStyles(...stylesToDelete);
 
 		// Set the style.
 		this._styles.add(style);
@@ -199,7 +214,7 @@ class SGRState {
 	 * @param stylesToDelete The styles to delete.
 	 */
 	deleteStyles(...stylesToDelete: ANSIStyle[]) {
-		stylesToDelete.forEach(styleToDelete => this._styles.delete(styleToDelete));
+		stylesToDelete.forEach(style => this._styles.delete(style));
 	}
 
 	/**
@@ -315,43 +330,65 @@ export class ANSIOutput {
 	/**
 	 * Gets or sets the parser state.
 	 */
-	private parserState = ParserState.BufferingOutput;
+	private _parserState = ParserState.BufferingOutput;
 
 	/**
 	 * Gets or sets the buffer.
 	 */
-	private buffer = '';
+	private _buffer = '';
 
 	/**
 	 * Gets or sets the control sequence that's being parsed.
 	 */
-	private controlSequence = '';
+	private _controlSequence = '';
 
 	/**
 	 * Gets or sets the SGR state.
 	 */
-	private sgrState = new SGRState();
+	private _sgrState = new SGRState();
 
 	/**
 	 * The current set of output lines.
 	 */
-	private outputLines: ANSIOutputLine[] = [];
+	private _outputLines: ANSIOutputLine[] = [];
 
 	/**
 	 * Gets the current output line.
 	 */
-	private currentOutputLine = 0;
+	private _currentOutputLine = 0;
+
+	private _pendingNewline = false;
 
 	//#endregion Private Properties
+
+	static processOutput(output: string | string[]) {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(output);
+		return ansiOutput.flushOutput();
+	}
 
 	//#region Public Methods
 
 	/**
 	 * Processes output.
 	 * @param output The output value to process.
+	 * @returns The output lines.
 	 */
-	processOutput(...output: string[]) {
-		output.forEach(output => this.doProcessOutput(output));
+	processOutput(output: string | string[]) {
+		if (output instanceof Array) {
+			output.forEach(output => this.doProcessOutput(output));
+		} else {
+			this.doProcessOutput(output);
+		}
+	}
+
+	/**
+	 * Flushes the output and returns an array of output lines.
+	 * @returns An array of output lines.
+	 */
+	flushOutput(): ANSIOutputLine[] {
+		this.flushBuffer();
+		return this._outputLines;
 	}
 
 	//#endregion Public Methods
@@ -369,27 +406,27 @@ export class ANSIOutput {
 			const char = output.charAt(i);
 
 			// Parse the character.
-			if (this.parserState === ParserState.BufferingOutput) {
+			if (this._parserState === ParserState.BufferingOutput) {
 				// Check for the start of an control sequence.
 				if (char === '\x1b') {
-					this.parserState = ParserState.ControlSequenceStarted;
+					this._parserState = ParserState.ControlSequenceStarted;
 				} else {
 					this.processCharacter(char);
 				}
-			} else if (this.parserState === ParserState.ControlSequenceStarted) {
+			} else if (this._parserState === ParserState.ControlSequenceStarted) {
 				// Check for CSI.
 				if (char === '[') {
-					this.parserState = ParserState.ParsingControlSequence;
+					this._parserState = ParserState.ParsingControlSequence;
 				} else {
 					// We encountered an ESC that is not part of a CSI. Ignore
 					// the ESC, go back to the buffering output state, and
 					// process the character.
-					this.parserState = ParserState.BufferingOutput;
+					this._parserState = ParserState.BufferingOutput;
 					this.processCharacter(char);
 				}
-			} else if (this.parserState === ParserState.ParsingControlSequence) {
+			} else if (this._parserState === ParserState.ParsingControlSequence) {
 				// Append the character to the control sequence.
-				this.controlSequence += char;
+				this._controlSequence += char;
 
 				// If this character ends the control sequence, process it.
 				if (char.match(/^[A-Za-z]$/)) {
@@ -404,16 +441,19 @@ export class ANSIOutput {
 	 * @param char The character.
 	 */
 	private processCharacter(char: string) {
+		if (this._pendingNewline) {
+			this._pendingNewline = false;
+			this._currentOutputLine++;
+		}
+
 		// Handle special characters.
 		if (char === '\n') {
 			// Flush the buffer to the current output line.
 			this.flushBuffer();
-
-			// Increment the current output line.
-			this.currentOutputLine++;
+			this._pendingNewline = true;
 		} else {
 			// Buffer the character.
-			this.buffer += char;
+			this._buffer += char;
 		}
 	}
 
@@ -422,46 +462,15 @@ export class ANSIOutput {
 	 */
 	private processControlSequence() {
 		// Process SGR control sequence.
-		if (this.controlSequence.endsWith('m')) {
+		if (this._controlSequence.endsWith('m')) {
 			this.processSGRControlSequence();
 		} else {
-			console.log(`Ignoring control sequence: CSI${this.controlSequence}`);
+			console.log(`Ignoring control sequence: CSI${this._controlSequence}`);
 		}
 
 		// Clear the control sequence and go back to the buffering output state.
-		this.controlSequence = '';
-		this.parserState = ParserState.BufferingOutput;
-	}
-
-	/**
-	 * Flushes the buffer.
-	 */
-	private flushBuffer() {
-		// Ensure that we have sufficient output lines.
-		for (let i = this.outputLines.length; i < this.currentOutputLine + 1; i++) {
-			this.outputLines.push({
-				id: generateUuid(),
-				outputRuns: []
-			});
-		}
-
-		// If the buffer is empty, do nothing.
-		if (!this.buffer) {
-			return;
-		}
-
-		// Append the run to the current output line.
-		this.outputLines[this.currentOutputLine].outputRuns.push({
-			id: generateUuid(),
-			styles: [],//this.styles,
-			customForegroundColor: '', // this.sgrState.customForegroundColor,
-			customBackgroundColor: '', // this.sgrState.customBackgroundColor,
-			customUnderlinedColor: '', // this.sgrState.underlinedColor,
-			text: this.buffer
-		});
-
-		// Clear the buffer.
-		this.buffer = '';
+		this._controlSequence = '';
+		this._parserState = ParserState.BufferingOutput;
 	}
 
 	/**
@@ -469,10 +478,13 @@ export class ANSIOutput {
 	 */
 	private processSGRControlSequence() {
 		// Log.
-		console.log(`Processing control sequence SGR: CSI${this.controlSequence}`);
+		console.log(`Processing control sequence SGR: CSI${this._controlSequence}`);
+
+		// Make a copy of the SGR state.
+		const sgrState = this._sgrState.copy();
 
 		// Parse the SGR parameters.
-		const sgrParams = this.controlSequence
+		const sgrParams = this._controlSequence
 			// Remove ending m.
 			.slice(0, -1)
 			// Split the SGR parameters.
@@ -489,106 +501,106 @@ export class ANSIOutput {
 			// Process the SGR parameter.
 			switch (sgrParam) {
 				case SGRParam.Reset:
-					this.sgrState.reset();
+					sgrState.reset();
 					break;
 
 				case SGRParam.Bold:
-					this.sgrState.setStyle(ANSIStyle.Bold);
+					sgrState.setStyle(ANSIStyle.Bold);
 					break;
 
 				case SGRParam.Dim:
-					this.sgrState.setStyle(ANSIStyle.Dim);
+					sgrState.setStyle(ANSIStyle.Dim);
 					break;
 
 				case SGRParam.Italic:
-					this.sgrState.setStyle(ANSIStyle.Italic);
+					sgrState.setStyle(ANSIStyle.Italic);
 					break;
 
 				case SGRParam.Underlined:
-					this.sgrState.setStyle(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
+					sgrState.setStyle(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
 
 				case SGRParam.SlowBlink:
-					this.sgrState.setStyle(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
+					sgrState.setStyle(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
 
 				case SGRParam.RapidBlink:
-					this.sgrState.setStyle(ANSIStyle.RapidBlink, ANSIStyle.SlowBlink);
+					sgrState.setStyle(ANSIStyle.RapidBlink, ANSIStyle.SlowBlink);
 					break;
 
 				case SGRParam.Reversed:
-					this.sgrState.setReversed(true);
+					sgrState.setReversed(true);
 					break;
 
 				case SGRParam.Hidden:
-					this.sgrState.setStyle(ANSIStyle.Hidden);
+					sgrState.setStyle(ANSIStyle.Hidden);
 					break;
 
 				case SGRParam.CrossedOut:
-					this.sgrState.setStyle(ANSIStyle.CrossedOut);
+					sgrState.setStyle(ANSIStyle.CrossedOut);
 					break;
 
 				case SGRParam.PrimaryFont:
-					this.sgrState.setFont();
+					sgrState.setFont();
 					break;
 
 				case SGRParam.AlternativeFont1:
-					this.sgrState.setFont(ANSIFont.AlternativeFont1);
+					sgrState.setFont(ANSIFont.AlternativeFont1);
 					break;
 
 				case SGRParam.AlternativeFont2:
-					this.sgrState.setFont(ANSIFont.AlternativeFont2);
+					sgrState.setFont(ANSIFont.AlternativeFont2);
 					break;
 
 				case SGRParam.AlternativeFont3:
-					this.sgrState.setFont(ANSIFont.AlternativeFont3);
+					sgrState.setFont(ANSIFont.AlternativeFont3);
 					break;
 
 				case SGRParam.AlternativeFont4:
-					this.sgrState.setFont(ANSIFont.AlternativeFont4);
+					sgrState.setFont(ANSIFont.AlternativeFont4);
 					break;
 				case SGRParam.AlternativeFont5:
-					this.sgrState.setFont(ANSIFont.AlternativeFont5);
+					sgrState.setFont(ANSIFont.AlternativeFont5);
 					break;
 
 				case SGRParam.AlternativeFont6:
-					this.sgrState.setFont(ANSIFont.AlternativeFont6);
+					sgrState.setFont(ANSIFont.AlternativeFont6);
 					break;
 
 				case SGRParam.AlternativeFont7:
-					this.sgrState.setFont(ANSIFont.AlternativeFont7);
+					sgrState.setFont(ANSIFont.AlternativeFont7);
 					break;
 
 				case SGRParam.AlternativeFont8:
-					this.sgrState.setFont(ANSIFont.AlternativeFont8);
+					sgrState.setFont(ANSIFont.AlternativeFont8);
 					break;
 
 				case SGRParam.AlternativeFont9:
-					this.sgrState.setFont(ANSIFont.AlternativeFont9);
+					sgrState.setFont(ANSIFont.AlternativeFont9);
 					break;
 
 				case SGRParam.Fraktur:
-					this.sgrState.setStyle(ANSIStyle.Fraktur);
+					sgrState.setStyle(ANSIStyle.Fraktur);
 					break;
 
 				case SGRParam.DoubleUnderlined:
-					this.sgrState.setStyle(ANSIStyle.DoubleUnderlined, ANSIStyle.Underlined);
+					sgrState.setStyle(ANSIStyle.DoubleUnderlined, ANSIStyle.Underlined);
 					break;
 
 				case SGRParam.NormalIntensity:
-					this.sgrState.deleteStyles(ANSIStyle.Bold, ANSIStyle.Dim);
+					sgrState.deleteStyles(ANSIStyle.Bold, ANSIStyle.Dim);
 					break;
 
 				case SGRParam.NotItalicNotFraktur:
-					this.sgrState.deleteStyles(ANSIStyle.Italic, ANSIStyle.Fraktur);
+					sgrState.deleteStyles(ANSIStyle.Italic, ANSIStyle.Fraktur);
 					break;
 
 				case SGRParam.NotUnderlined:
-					this.sgrState.deleteStyles(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
+					sgrState.deleteStyles(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
 
 				case SGRParam.NotBlinking:
-					this.sgrState.deleteStyles(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
+					sgrState.deleteStyles(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
 
 				case SGRParam.ProportionalSpacing:
@@ -596,47 +608,47 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.NotReversed:
-					this.sgrState.setReversed(false);
+					sgrState.setReversed(false);
 					break;
 
 				case SGRParam.Reveal:
-					this.sgrState.deleteStyles(ANSIStyle.Hidden);
+					sgrState.deleteStyles(ANSIStyle.Hidden);
 					break;
 
 				case SGRParam.NotCrossedOut:
-					this.sgrState.deleteStyles(ANSIStyle.CrossedOut);
+					sgrState.deleteStyles(ANSIStyle.CrossedOut);
 					break;
 
 				case SGRParam.ForegroundBlack:
-					this.sgrState.setForegroundColor(ANSIColor.Black);
+					sgrState.setForegroundColor(ANSIColor.Black);
 					break;
 
 				case SGRParam.ForegroundRed:
-					this.sgrState.setForegroundColor(ANSIColor.Red);
+					sgrState.setForegroundColor(ANSIColor.Red);
 					break;
 
 				case SGRParam.ForegroundGreen:
-					this.sgrState.setForegroundColor(ANSIColor.Green);
+					sgrState.setForegroundColor(ANSIColor.Green);
 					break;
 
 				case SGRParam.ForegroundYellow:
-					this.sgrState.setForegroundColor(ANSIColor.Yellow);
+					sgrState.setForegroundColor(ANSIColor.Yellow);
 					break;
 
 				case SGRParam.ForegroundBlue:
-					this.sgrState.setForegroundColor(ANSIColor.Blue);
+					sgrState.setForegroundColor(ANSIColor.Blue);
 					break;
 
 				case SGRParam.ForegroundMagenta:
-					this.sgrState.setForegroundColor(ANSIColor.Magenta);
+					sgrState.setForegroundColor(ANSIColor.Magenta);
 					break;
 
 				case SGRParam.ForegroundCyan:
-					this.sgrState.setForegroundColor(ANSIColor.Cyan);
+					sgrState.setForegroundColor(ANSIColor.Cyan);
 					break;
 
 				case SGRParam.ForegroundWhite:
-					this.sgrState.setForegroundColor(ANSIColor.White);
+					sgrState.setForegroundColor(ANSIColor.White);
 					break;
 
 				case SGRParam.SetForeground:
@@ -644,107 +656,257 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.DefaultForeground:
-					this.sgrState.setForegroundColor();
+					sgrState.setForegroundColor();
 					break;
 
 				case SGRParam.BackgroundBlack:
-					this.sgrState.setBackgroundColor(ANSIColor.Black);
+					sgrState.setBackgroundColor(ANSIColor.Black);
 					break;
 
 				case SGRParam.BackgroundRed:
-					this.sgrState.setBackgroundColor(ANSIColor.Red);
+					sgrState.setBackgroundColor(ANSIColor.Red);
 					break;
 
 				case SGRParam.BackgroundGreen:
-					this.sgrState.setBackgroundColor(ANSIColor.Green);
+					sgrState.setBackgroundColor(ANSIColor.Green);
 					break;
 
 				case SGRParam.BackgroundYellow:
-					this.sgrState.setBackgroundColor(ANSIColor.Yellow);
+					sgrState.setBackgroundColor(ANSIColor.Yellow);
 					break;
 
 				case SGRParam.BackgroundBlue:
-					this.sgrState.setBackgroundColor(ANSIColor.Blue);
+					sgrState.setBackgroundColor(ANSIColor.Blue);
 					break;
 
 				case SGRParam.BackgroundMagenta:
-					this.sgrState.setBackgroundColor(ANSIColor.Magenta);
+					sgrState.setBackgroundColor(ANSIColor.Magenta);
 					break;
 
 				case SGRParam.BackgroundCyan:
-					this.sgrState.setBackgroundColor(ANSIColor.Cyan);
+					sgrState.setBackgroundColor(ANSIColor.Cyan);
 					break;
 
 				case SGRParam.BackgroundWhite:
-					this.sgrState.setBackgroundColor(ANSIColor.White);
+					sgrState.setBackgroundColor(ANSIColor.White);
 					break;
 
 				case SGRParam.ForegroundBrightBlack:
-					this.sgrState.setForegroundColor(ANSIColor.BrightBlack);
+					sgrState.setForegroundColor(ANSIColor.BrightBlack);
 					break;
 
 				case SGRParam.ForegroundBrightRed:
-					this.sgrState.setForegroundColor(ANSIColor.BrightRed);
+					sgrState.setForegroundColor(ANSIColor.BrightRed);
 					break;
 
 				case SGRParam.ForegroundBrightGreen:
-					this.sgrState.setForegroundColor(ANSIColor.BrightGreen);
+					sgrState.setForegroundColor(ANSIColor.BrightGreen);
 					break;
 
 				case SGRParam.ForegroundBrightYellow:
-					this.sgrState.setForegroundColor(ANSIColor.BrightYellow);
+					sgrState.setForegroundColor(ANSIColor.BrightYellow);
 					break;
 
 				case SGRParam.ForegroundBrightBlue:
-					this.sgrState.setForegroundColor(ANSIColor.BrightBlue);
+					sgrState.setForegroundColor(ANSIColor.BrightBlue);
 					break;
 
 				case SGRParam.ForegroundBrightMagenta:
-					this.sgrState.setForegroundColor(ANSIColor.BrightMagenta);
+					sgrState.setForegroundColor(ANSIColor.BrightMagenta);
 					break;
 
 				case SGRParam.ForegroundBrightCyan:
-					this.sgrState.setForegroundColor(ANSIColor.BrightCyan);
+					sgrState.setForegroundColor(ANSIColor.BrightCyan);
 					break;
 
 				case SGRParam.ForegroundBrightWhite:
-					this.sgrState.setForegroundColor(ANSIColor.BrightWhite);
+					sgrState.setForegroundColor(ANSIColor.BrightWhite);
 					break;
 
 				case SGRParam.BackgroundBrightBlack:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightBlack);
+					sgrState.setBackgroundColor(ANSIColor.BrightBlack);
 					break;
 
 				case SGRParam.BackgroundBrightRed:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightRed);
+					sgrState.setBackgroundColor(ANSIColor.BrightRed);
 					break;
 
 				case SGRParam.BackgroundBrightGreen:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightGreen);
+					sgrState.setBackgroundColor(ANSIColor.BrightGreen);
 					break;
 
 				case SGRParam.BackgroundBrightYellow:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightYellow);
+					sgrState.setBackgroundColor(ANSIColor.BrightYellow);
 					break;
 
 				case SGRParam.BackgroundBrightBlue:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightBlue);
+					sgrState.setBackgroundColor(ANSIColor.BrightBlue);
 					break;
 
 				case SGRParam.BackgroundBrightMagenta:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightMagenta);
+					sgrState.setBackgroundColor(ANSIColor.BrightMagenta);
 					break;
 
 				case SGRParam.BackgroundBrightCyan:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightCyan);
+					sgrState.setBackgroundColor(ANSIColor.BrightCyan);
 					break;
 
 				case SGRParam.BackgroundBrightWhite:
-					this.sgrState.setBackgroundColor(ANSIColor.BrightWhite);
+					sgrState.setBackgroundColor(ANSIColor.BrightWhite);
+					break;
+
+				// Unexpected SGR parameter.
+				default:
+					console.log(`    Unexpected SGR parameter: ${sgrParam}`);
 					break;
 			}
 		}
+
+		// Detect changes.
+		if (!SGRState.equals(sgrState, this._sgrState)) {
+			this.flushBuffer();
+			this._sgrState = sgrState;
+		}
+	}
+
+	/**
+	 * Flushes the buffer.
+	 */
+	private flushBuffer() {
+		// Ensure that we have sufficient output lines.
+		for (let i = this._outputLines.length; i < this._currentOutputLine + 1; i++) {
+			this._outputLines.push({
+				id: generateUuid(),
+				outputRuns: []
+			});
+		}
+
+		// If the buffer is empty, do nothing.
+		if (!this._buffer) {
+			return;
+		}
+
+		// Append the run to the current output line.
+		this._outputLines[this._currentOutputLine].outputRuns.push(
+			this._sgrState.createOutputRun(this._buffer)
+		);
+
+		// Clear the buffer.
+		this._buffer = '';
 	}
 
 	//#endregion Private Methods
+}
+
+/**
+ * ANSIStyle enumeration.
+ */
+export enum ANSIStyle {
+	Bold = 'ansi-style-bold',
+	Dim = 'ansi-style-dim',
+	Italic = 'ansi-style-italic',
+	Underlined = 'ansi-style-underlined',
+	SlowBlink = 'ansi-style-slow-blink',
+	RapidBlink = 'ansi-style-rapid-blink',
+	Hidden = 'ansi-style-hidden',
+	CrossedOut = 'ansi-style-crossed-out',
+	Fraktur = 'ansi-style-fraktur',
+	DoubleUnderlined = 'ansi-style-double-underlined',
+	Framed = 'ansi-framed',
+	Encircled = 'ansi-encircled',
+	Overlined = 'ansi-overlined',
+	Superscript = 'ansi-style-superscript',
+	Subscript = 'ansi-style-subscript'
+}
+
+/**
+ * ANSIFont enumeration.
+ */
+export enum ANSIFont {
+	AlternativeFont1 = 'ansi-alternative-font-1',
+	AlternativeFont2 = 'ansi-alternative-font-2',
+	AlternativeFont3 = 'ansi-alternative-font-3',
+	AlternativeFont4 = 'ansi-alternative-font-4',
+	AlternativeFont5 = 'ansi-alternative-font-5',
+	AlternativeFont6 = 'ansi-alternative-font-6',
+	AlternativeFont7 = 'ansi-alternative-font-7',
+	AlternativeFont8 = 'ansi-alternative-font-8',
+	AlternativeFont9 = 'ansi-alternative-font-9'
+}
+
+/**
+ * SGRColor enumeration.
+ */
+export enum ANSIColor {
+	Black = 'ansi-color-black',
+	Red = 'ansi-color-red',
+	Green = 'ansi-color-green',
+	Yellow = 'ansi-color-yellow',
+	Blue = 'ansi-color-blue',
+	Magenta = 'ansi-color-magenta',
+	Cyan = 'ansi-color-cyan',
+	White = 'ansi-color-white',
+	BrightBlack = 'ansi-color-bright-black',
+	BrightRed = 'ansi-color-bright-red',
+	BrightGreen = 'ansi-color-bright-green',
+	BrightYellow = 'ansi-color-bright-yellow',
+	BrightBlue = 'ansi-color-bright-blue',
+	BrightMagenta = 'ansi-color-bright-magenta',
+	BrightCyan = 'ansi-color-bright-cyan',
+	BrightWhite = 'ansi-color-bright-white'
+}
+
+/**
+ * ANSIOutputLine interface.
+ */
+export interface ANSIOutputLine {
+	/**
+	 * The identifier of the line/
+	 */
+	id: string;
+
+	/**
+	 * The output runs that make up the output line.
+	 */
+	outputRuns: ANSIOutputRun[];
+}
+
+/**
+* ANSIOutputRun interface.
+*/
+export interface ANSIOutputRun {
+	/**
+	 * Gets the identifier.
+	 */
+	readonly id: string;
+
+	/**
+	 * Gets the styles.
+	 */
+	readonly styles: ANSIStyle[];
+
+	/**
+	 * Gets the foreground color.
+	 */
+	readonly foregroundColor: ANSIColor | string | undefined;
+
+	/**
+	 * Gets the background color.
+	 */
+	readonly backgroundColor: ANSIColor | string | undefined;
+
+	/**
+	 * Gets the underlined color.
+	 */
+	readonly underlinedColor: string | undefined;
+
+	/**
+	 * Gets the font.
+	 */
+	readonly font: string | undefined;
+
+	/**
+	 * Gets the text.
+	 */
+	readonly text: string;
 }

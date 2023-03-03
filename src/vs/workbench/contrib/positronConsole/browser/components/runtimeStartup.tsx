@@ -4,7 +4,7 @@
 
 import 'vs/css!./runtimeStartup';
 import * as React from 'react';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
+import { ANSIOutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/ansiOutputLines';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 
 // RuntimeStartupProps interface.
@@ -21,7 +21,7 @@ export const RuntimeStartup = ({ runtimeItemStartup }: RuntimeStartupProps) => {
 	// Render.
 	return (
 		<div className='runtime-startup'>
-			<OutputLines outputLines={runtimeItemStartup.outputLines} />
+			<ANSIOutputLines outputLines={runtimeItemStartup.outputLines} />
 		</div>
 	);
 };

@@ -4,7 +4,7 @@
 
 import 'vs/css!./runtimeOffline';
 import * as React from 'react';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
+import { ANSIOutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/ansiOutputLines';
 import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
 
 // RuntimeExitedProps interface.
@@ -21,7 +21,7 @@ export const RuntimeOffline = ({ runtimeItemOffline }: RuntimeOfflineProps) => {
 	// Render.
 	return (
 		<div className='runtime-offline'>
-			<OutputLines outputLines={runtimeItemOffline.outputLines} />
+			<ANSIOutputLines outputLines={runtimeItemOffline.outputLines} />
 		</div>
 	);
 };
