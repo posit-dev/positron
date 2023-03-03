@@ -110,7 +110,6 @@ export enum SGR {
 	BrightForegroundWhite = 97,
 	// 98 unsupported
 	// 99 unsupported
-	BackgroundGray = 100,
 	BrightBackgroundBlack = 100,
 	BrightBackgroundRed = 101,
 	BrightBackgroundGreen = 102,
