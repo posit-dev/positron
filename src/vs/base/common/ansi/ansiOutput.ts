@@ -137,7 +137,7 @@ class SGRState {
 	/**
 	 * Gets or sets the SGR styles.
 	 */
-	private _styles: ANSIStyle[] = [];
+	private _styles = new Set<ANSIStyle>();
 
 	/**
 	 * Gets or sets the foreground color.
@@ -173,7 +173,7 @@ class SGRState {
 	 * Resets the SGRState.
 	 */
 	reset() {
-		this._styles = [];
+		this._styles = new Set<ANSIStyle>();
 		this._foregroundColor = undefined;
 		this._backgroundColor = undefined;
 		this._underlinedColor = undefined;
@@ -184,22 +184,22 @@ class SGRState {
 	/**
 	 * Sets a style.
 	 * @param style The style to set.
-	 * @param stylesToClear The styles to clear.
+	 * @param stylesToDelete The styles to delete.
 	 */
-	setStyle(style: ANSIStyle, ...stylesToClear: ANSIStyle[]) {
-		// Clear styles.
-		this.clearStyles(style, ...stylesToClear);
+	setStyle(style: ANSIStyle, ...stylesToDelete: ANSIStyle[]) {
+		// Delete styles.
+		this.deleteStyles(style, ...stylesToDelete);
 
 		// Set the style.
-		this._styles.push(style);
+		this._styles.add(style);
 	}
 
 	/**
-	 * Clears styles.
-	 * @param stylesToClear The styles to clear.
+	 * Deletes styles.
+	 * @param stylesToDelete The styles to delete.
 	 */
-	clearStyles(...stylesToClear: ANSIStyle[]) {
-		this._styles = this._styles.filter(sgrStyle => !stylesToClear.includes(sgrStyle));
+	deleteStyles(...stylesToDelete: ANSIStyle[]) {
+		stylesToDelete.forEach(styleToDelete => this._styles.delete(styleToDelete));
 	}
 
 	/**
@@ -236,7 +236,7 @@ class SGRState {
 
 	copy(): SGRState {
 		const copy = new SGRState();
-		copy._styles = [...this._styles];
+		this._styles.forEach(style => copy._styles.add(style));
 		copy._foregroundColor = this._foregroundColor;
 		copy._backgroundColor = this._backgroundColor;
 		copy._underlinedColor = this._underlinedColor;
@@ -252,14 +252,16 @@ class SGRState {
 	 * @returns true, if the SGRState objects are equal; otherwise, false.
 	 */
 	static equals(a: SGRState, b: SGRState): boolean {
-		// Compare styles length.
-		if (a._styles.length !== b._styles.length) {
+		// Compare styles size.
+		if (a._styles.size !== b._styles.size) {
 			return false;
 		}
 
 		// Compare styles.
-		for (let i = 0; i < a._styles.length; i++) {
-			if (a._styles[i] !== b._styles[i]) {
+		const aStyles = [...a._styles];
+		const bStyles = [...b._styles];
+		for (let i = 0; i < aStyles.length; i++) {
+			if (aStyles[i] !== bStyles[i]) {
 				return false;
 			}
 		}
@@ -531,19 +533,19 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.NormalIntensity:
-					this.sgrState.clearStyles(ANSIStyle.Bold, ANSIStyle.Dim);
+					this.sgrState.deleteStyles(ANSIStyle.Bold, ANSIStyle.Dim);
 					break;
 
 				case SGRParam.NotItalicNotFraktur:
-					this.sgrState.clearStyles(ANSIStyle.Italic, ANSIStyle.Fraktur);
+					this.sgrState.deleteStyles(ANSIStyle.Italic, ANSIStyle.Fraktur);
 					break;
 
 				case SGRParam.NotUnderlined:
-					this.sgrState.clearStyles(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
+					this.sgrState.deleteStyles(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
 
 				case SGRParam.NotBlinking:
-					this.sgrState.clearStyles(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
+					this.sgrState.deleteStyles(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
 
 				case SGRParam.ProportionalSpacing:
@@ -555,11 +557,11 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.Reveal:
-					this.sgrState.clearStyles(ANSIStyle.Hidden);
+					this.sgrState.deleteStyles(ANSIStyle.Hidden);
 					break;
 
 				case SGRParam.NotCrossedOut:
-					this.sgrState.clearStyles(ANSIStyle.CrossedOut);
+					this.sgrState.deleteStyles(ANSIStyle.CrossedOut);
 					break;
 
 				case SGRParam.ForegroundBlack:
