@@ -204,23 +204,25 @@ class SGRState {
 
 	/**
 	 * Sets the foreground color.
+	 * @param color The foreground color.
 	 */
-	setForegroundColor(sgrColor?: ANSIColor | string) {
+	setForegroundColor(color?: ANSIColor | string) {
 		if (!this._reversed) {
-			this._foregroundColor = sgrColor;
+			this._foregroundColor = color;
 		} else {
-			this._backgroundColor = sgrColor;
+			this._backgroundColor = color;
 		}
 	}
 
 	/**
 	 * Sets the background color.
+	 * @param color The background color.
 	 */
-	setBackgroundColor(sgrColor?: ANSIColor | string) {
+	setBackgroundColor(color?: ANSIColor | string) {
 		if (!this._reversed) {
-			this._backgroundColor = sgrColor;
+			this._backgroundColor = color;
 		} else {
-			this._foregroundColor = sgrColor;
+			this._foregroundColor = color;
 		}
 	}
 
@@ -234,6 +236,14 @@ class SGRState {
 			this._reversed = reversed;
 			this.reverseForegroundAndBackgroundColors();
 		}
+	}
+
+	/**
+	 * Sets the font.
+	 * @param font The font.
+	 */
+	setFont(font?: ANSIFont) {
+		this._font = font;
 	}
 
 	/**
@@ -519,15 +529,42 @@ export class ANSIOutput {
 					break;
 
 				case SGRParam.PrimaryFont:
+					this.sgrState.setFont();
+					break;
+
 				case SGRParam.AlternativeFont1:
+					this.sgrState.setFont(ANSIFont.AlternativeFont1);
+					break;
+
 				case SGRParam.AlternativeFont2:
+					this.sgrState.setFont(ANSIFont.AlternativeFont2);
+					break;
+
 				case SGRParam.AlternativeFont3:
+					this.sgrState.setFont(ANSIFont.AlternativeFont3);
+					break;
+
 				case SGRParam.AlternativeFont4:
+					this.sgrState.setFont(ANSIFont.AlternativeFont4);
+					break;
 				case SGRParam.AlternativeFont5:
+					this.sgrState.setFont(ANSIFont.AlternativeFont5);
+					break;
+
 				case SGRParam.AlternativeFont6:
+					this.sgrState.setFont(ANSIFont.AlternativeFont6);
+					break;
+
 				case SGRParam.AlternativeFont7:
+					this.sgrState.setFont(ANSIFont.AlternativeFont7);
+					break;
+
 				case SGRParam.AlternativeFont8:
+					this.sgrState.setFont(ANSIFont.AlternativeFont8);
+					break;
+
 				case SGRParam.AlternativeFont9:
+					this.sgrState.setFont(ANSIFont.AlternativeFont9);
 					break;
 
 				case SGRParam.Fraktur:
