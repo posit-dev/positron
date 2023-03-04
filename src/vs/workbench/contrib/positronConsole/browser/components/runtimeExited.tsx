@@ -4,7 +4,7 @@
 
 import 'vs/css!./runtimeExited';
 import * as React from 'react';
-import { ANSIOutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/ansiOutputLines';
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
 
 // RuntimeExitedProps interface.
@@ -21,7 +21,7 @@ export const RuntimeExited = ({ runtimeItemExited }: RuntimeExitedProps) => {
 	// Render.
 	return (
 		<div className='runtime-exited'>
-			<ANSIOutputLines outputLines={runtimeItemExited.outputLines} />
+			<OutputLines outputLines={runtimeItemExited.outputLines} />
 		</div>
 	);
 };

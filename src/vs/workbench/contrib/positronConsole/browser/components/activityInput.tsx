@@ -4,7 +4,7 @@
 
 import 'vs/css!./activityInput';
 import * as React from 'react';
-import { ANSIOutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/ansiOutputLines';
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
 // ActivityInputProps interface.
@@ -23,7 +23,7 @@ export const ActivityInput = ({ activityItemInput }: ActivityInputProps) => {
 		<div className='activity-input'>
 			<div className='prompt'>&gt;</div>
 			<div className='code'>
-				<ANSIOutputLines outputLines={activityItemInput.outputLines} />
+				<OutputLines outputLines={activityItemInput.outputLines} />
 			</div>
 		</div>
 	);
