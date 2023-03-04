@@ -44,7 +44,7 @@ export class ActivityItemError extends ActivityItem {
 	) {
 		super(id, parentId, when);
 		this.messageOutputLines = ANSIOutput.processOutput(message);
-		this.tracebackOutputLines = ANSIOutput.processOutput(traceback);
+		this.tracebackOutputLines = ANSIOutput.processOutput(traceback.join('\n'));
 	}
 
 	//#endregion Constructor
