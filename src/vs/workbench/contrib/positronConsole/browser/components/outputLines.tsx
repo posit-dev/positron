@@ -20,7 +20,7 @@ export interface OutputLinesProps {
 export const OutputLines = ({ outputLines }: OutputLinesProps) => {
 	// Render.
 	return (
-		<div className='ansi-output-lines'>
+		<div className='output-lines'>
 			{outputLines.map(outputLine =>
 				<OutputLine key={outputLine.id} outputLine={outputLine} />
 			)}
