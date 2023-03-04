@@ -4,8 +4,8 @@
 
 import 'vs/css!./activityError';
 import * as React from 'react';
-import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
+import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorProps {
