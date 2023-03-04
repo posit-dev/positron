@@ -151,14 +151,41 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			case 'ansi':
 				console.log(`Red is ${ansi.style.red}`);
 				this.simulateSuccessfulCodeExecution(id, code,
-					`${MakeSGR(SGR.ForegroundBlack)}This is regular black\n` +
-					`${MakeSGR(SGR.ForegroundRed)}This is regular red\n` +
-					`${MakeSGR(SGR.ForegroundGreen)}This is regular green\n` +
-					`${MakeSGR(SGR.ForegroundYellow)}This is regular yellow\n` +
-					`${MakeSGR(SGR.ForegroundBlue)}This is regular blue\n` +
-					`${MakeSGR(SGR.ForegroundMagenta)}This is regular magenta\n` +
-					`${MakeSGR(SGR.ForegroundCyan)}This is regular cyan\n` +
-					`${MakeSGR(SGR.ForegroundWhite)}This is regular white${MakeSGR()}`
+					`${MakeSGR(SGR.ForegroundBlack)}This is foreground black\n` +
+					`${MakeSGR(SGR.ForegroundRed)}This is ${MakeSGR(SGR.Italic, SGR.Underlined)}foreground red${MakeSGR(SGR.NotItalicNotFraktur, SGR.NotUnderlined)} text\n` +
+					`${MakeSGR(SGR.ForegroundGreen)}This is ${MakeSGR(SGR.Italic, SGR.DoubleUnderlined)}foreground green${MakeSGR(SGR.NotItalicNotFraktur, SGR.NotUnderlined)} text\n` +
+					`${MakeSGR(SGR.ForegroundYellow)}This is foreground yellow\n` +
+					`${MakeSGR(SGR.ForegroundBlue)}This is ${MakeSGR(SGR.CrossedOut)}foreground blue${MakeSGR(SGR.NotCrossedOut)}\n` +
+					`${MakeSGR(SGR.ForegroundMagenta)}This is foreground magenta\n` +
+					`${MakeSGR(SGR.ForegroundCyan)}This is ${MakeSGR(SGR.Bold)}foreground cyan${MakeSGR(SGR.NormalIntensity)} text\n` +
+					`${MakeSGR(SGR.ForegroundWhite)}This is foreground white${MakeSGR()}\n\n` +
+
+					`${MakeSGR(SGR.ForegroundBrightBlack)}This is foreground bright black\n` +
+					`${MakeSGR(SGR.ForegroundBrightRed)}This is foreground bright red\n` +
+					`${MakeSGR(SGR.ForegroundBrightGreen)}This is foreground bright green\n` +
+					`${MakeSGR(SGR.ForegroundBrightYellow)}This is foreground bright yellow\n` +
+					`${MakeSGR(SGR.ForegroundBrightBlue)}This is foreground bright blue\n` +
+					`${MakeSGR(SGR.ForegroundBrightMagenta)}This is foreground bright magenta\n` +
+					`${MakeSGR(SGR.ForegroundBrightCyan)}This is foreground bright cyan\n` +
+					`${MakeSGR(SGR.ForegroundBrightWhite)}This is foreground bright white${MakeSGR()}\n\n` +
+
+					`${MakeSGR(SGR.BackgroundBlack)}This is background black\n` +
+					`${MakeSGR(SGR.BackgroundRed)}This is background red\n` +
+					`${MakeSGR(SGR.BackgroundGreen)}This is background green\n` +
+					`${MakeSGR(SGR.BackgroundYellow)}This is background yellow\n` +
+					`${MakeSGR(SGR.BackgroundBlue)}This is background blue\n` +
+					`${MakeSGR(SGR.BackgroundMagenta)}This is background magenta\n` +
+					`${MakeSGR(SGR.BackgroundCyan)}This is background cyan\n` +
+					`${MakeSGR(SGR.BackgroundWhite)}This is background white${MakeSGR()}\n\n` +
+
+					`${MakeSGR(SGR.BackgroundBrightBlack)}This is background bright black\n` +
+					`${MakeSGR(SGR.BackgroundBrightRed)}This is background bright red\n` +
+					`${MakeSGR(SGR.BackgroundBrightGreen)}This is background bright green\n` +
+					`${MakeSGR(SGR.BackgroundBrightYellow)}This is background bright yellow\n` +
+					`${MakeSGR(SGR.BackgroundBrightBlue)}This is background bright blue\n` +
+					`${MakeSGR(SGR.BackgroundBrightMagenta)}This is background bright magenta\n` +
+					`${MakeSGR(SGR.BackgroundBrightCyan)}This is background bright cyan\n` +
+					`${MakeSGR(SGR.BackgroundBrightWhite)}This is background bright white${MakeSGR()}`
 				);
 				break;
 

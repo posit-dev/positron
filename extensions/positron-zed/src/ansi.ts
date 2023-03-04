@@ -30,7 +30,7 @@ export enum SGR {
 	AlternativeFont8 = 18,
 	AlternativeFont9 = 19,
 	Fraktur = 20,
-	DoublyUnderlined = 21,
+	DoubleUnderlined = 21,
 	NormalIntensity = 22,
 	NotItalicNotFraktur = 23,
 	NotUnderlined = 24,
@@ -99,25 +99,24 @@ export enum SGR {
 	// 87 unsupported
 	// 88 unsupported
 	// 89 unsupported
-	ForegroundGray = 90,
-	BrightForegroundBlack = 90,
-	BrightForegroundRed = 91,
-	BrightForegroundGreen = 92,
-	BrightForegroundYellow = 93,
-	BrightForegroundBlue = 94,
-	BrightForegroundMagenta = 95,
-	BrightForegroundCyan = 96,
-	BrightForegroundWhite = 97,
+	ForegroundBrightBlack = 90,
+	ForegroundBrightRed = 91,
+	ForegroundBrightGreen = 92,
+	ForegroundBrightYellow = 93,
+	ForegroundBrightBlue = 94,
+	ForegroundBrightMagenta = 95,
+	ForegroundBrightCyan = 96,
+	ForegroundBrightWhite = 97,
 	// 98 unsupported
 	// 99 unsupported
-	BrightBackgroundBlack = 100,
-	BrightBackgroundRed = 101,
-	BrightBackgroundGreen = 102,
-	BrightBackgroundYellow = 103,
-	BrightBackgroundBlue = 104,
-	BrightBackgroundMagenta = 105,
-	BrightBackgroundCyan = 106,
-	BrightBackgroundWhite = 107
+	BackgroundBrightBlack = 100,
+	BackgroundBrightRed = 101,
+	BackgroundBrightGreen = 102,
+	BackgroundBrightYellow = 103,
+	BackgroundBrightBlue = 104,
+	BackgroundBrightMagenta = 105,
+	BackgroundBrightCyan = 106,
+	BackgroundBrightWhite = 107
 }
 
 /**
