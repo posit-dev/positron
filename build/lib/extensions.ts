@@ -24,7 +24,6 @@ const buffer = require('gulp-buffer');
 import * as jsoncParser from 'jsonc-parser';
 import webpack = require('webpack');
 import { getProductionDependencies } from './dependencies';
-import _ = require('underscore');
 import { getExtensionStream } from './builtInExtensions';
 import { getVersion } from './getVersion';
 
@@ -373,7 +372,7 @@ export function packageLocalExtensionsStream(forWeb: boolean): Stream {
 	} else {
 		// also include shared production node modules
 		const productionDependencies = getProductionDependencies('extensions/');
-		const dependenciesSrc = _.flatten(productionDependencies.map(d => path.relative(root, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]));
+		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
 
 		result = es.merge(
 			localExtensionsStream,
@@ -622,7 +621,7 @@ export async function copyExtensionBinaries(outputRoot: string) {
 		// Collect all the Positron extension metadata for binaries that need to
 		// be copied.  The Positron extension metadata lives in the
 		// `positron.json` file in the extension's root directory.
-		const binaryMetadata = _.flatten(
+		const binaryMetadata = (
 			(<string[]>glob.sync('extensions/*/positron.json'))
 				.map(metadataPath => {
 					// Read the metadata file.
@@ -648,7 +647,7 @@ export async function copyExtensionBinaries(outputRoot: string) {
 					}
 					return null;
 				})
-		);
+		).flat();
 
 		fancyLog(`Copying ${binaryMetadata.length} binary sets for built-in Positron extensions`);
 
