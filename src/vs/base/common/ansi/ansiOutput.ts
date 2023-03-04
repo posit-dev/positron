@@ -134,7 +134,7 @@ class SGRState {
 	//#region Private Properties.
 
 	/**
-	 * Gets or sets the SGR styles.
+	 * Gets or sets the styles.
 	 */
 	private _styles = new Set<ANSIStyle>();
 
@@ -365,11 +365,11 @@ export class ANSIOutput {
 	//#endregion Private Properties
 
 	/**
-	 * Processes output and returns the result.
+	 * Processes output and returns the ANSIOutput lines of the output.
 	 * @param output The output to process.
 	 * @returns The ANSIOutput lines of the output.
 	 */
-	static processOutput(output: string | string[]) {
+	static processOutput(output: string) {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(output);
 		return ansiOutput.flushOutput();
@@ -379,15 +379,11 @@ export class ANSIOutput {
 
 	/**
 	 * Processes output.
-	 * @param output The output value to process.
+	 * @param output The output to process.
 	 * @returns The output lines.
 	 */
-	processOutput(output: string | string[]) {
-		if (output instanceof Array) {
-			output.forEach(output => this.doProcessOutput(output));
-		} else {
-			this.doProcessOutput(output);
-		}
+	processOutput(output: string) {
+		this.parseOutput(output);
 	}
 
 	/**
@@ -404,10 +400,10 @@ export class ANSIOutput {
 	//#region Private Methods
 
 	/**
-	 * Processes output.
-	 * @param output The output to process.
+	 * Parses output.
+	 * @param output The output to parse.
 	 */
-	private doProcessOutput(output: string) {
+	private parseOutput(output: string) {
 		// Enumerate the characters in the output.
 		for (let i = 0; i < output.length; i++) {
 			// Get the character.
@@ -810,58 +806,58 @@ export class ANSIOutput {
  * ANSIStyle enumeration.
  */
 export enum ANSIStyle {
-	Bold = 'ansi-style-bold',
-	Dim = 'ansi-style-dim',
-	Italic = 'ansi-style-italic',
-	Underlined = 'ansi-style-underlined',
-	SlowBlink = 'ansi-style-slow-blink',
-	RapidBlink = 'ansi-style-rapid-blink',
-	Hidden = 'ansi-style-hidden',
-	CrossedOut = 'ansi-style-crossed-out',
-	Fraktur = 'ansi-style-fraktur',
-	DoubleUnderlined = 'ansi-style-double-underlined',
-	Framed = 'ansi-framed',
-	Encircled = 'ansi-encircled',
-	Overlined = 'ansi-overlined',
-	Superscript = 'ansi-style-superscript',
-	Subscript = 'ansi-style-subscript'
+	Bold = 'ansiBold',
+	Dim = 'ansiDim',
+	Italic = 'ansiItalic',
+	Underlined = 'ansiUnderlined',
+	SlowBlink = 'ansiSlowBlink',
+	RapidBlink = 'ansiRapidBlink',
+	Hidden = 'ansiHidden',
+	CrossedOut = 'ansiCrossedOut',
+	Fraktur = 'ansiFraktur',
+	DoubleUnderlined = 'ansiDoubleUnderlined',
+	Framed = 'ansiFramed',
+	Encircled = 'ansiEncircled',
+	Overlined = 'ansiOverlined',
+	Superscript = 'ansiSuperscript',
+	Subscript = 'ansiSubscript'
 }
 
 /**
  * ANSIFont enumeration.
  */
 export enum ANSIFont {
-	AlternativeFont1 = 'ansi-alternative-font-1',
-	AlternativeFont2 = 'ansi-alternative-font-2',
-	AlternativeFont3 = 'ansi-alternative-font-3',
-	AlternativeFont4 = 'ansi-alternative-font-4',
-	AlternativeFont5 = 'ansi-alternative-font-5',
-	AlternativeFont6 = 'ansi-alternative-font-6',
-	AlternativeFont7 = 'ansi-alternative-font-7',
-	AlternativeFont8 = 'ansi-alternative-font-8',
-	AlternativeFont9 = 'ansi-alternative-font-9'
+	AlternativeFont1 = 'ansiAlternativeFont1',
+	AlternativeFont2 = 'ansiAlternativeFont2',
+	AlternativeFont3 = 'ansiAlternativeFont3',
+	AlternativeFont4 = 'ansiAlternativeFont4',
+	AlternativeFont5 = 'ansiAlternativeFont5',
+	AlternativeFont6 = 'ansiAlternativeFont6',
+	AlternativeFont7 = 'ansiAlternativeFont7',
+	AlternativeFont8 = 'ansiAlternativeFont8',
+	AlternativeFont9 = 'ansiAlternativeFont9'
 }
 
 /**
  * SGRColor enumeration.
  */
 export enum ANSIColor {
-	Black = 'ansi-color-black',
-	Red = 'ansi-color-red',
-	Green = 'ansi-color-green',
-	Yellow = 'ansi-color-yellow',
-	Blue = 'ansi-color-blue',
-	Magenta = 'ansi-color-magenta',
-	Cyan = 'ansi-color-cyan',
-	White = 'ansi-color-white',
-	BrightBlack = 'ansi-color-bright-black',
-	BrightRed = 'ansi-color-bright-red',
-	BrightGreen = 'ansi-color-bright-green',
-	BrightYellow = 'ansi-color-bright-yellow',
-	BrightBlue = 'ansi-color-bright-blue',
-	BrightMagenta = 'ansi-color-bright-magenta',
-	BrightCyan = 'ansi-color-bright-cyan',
-	BrightWhite = 'ansi-color-bright-white'
+	Black = 'ansiBlack',
+	Red = 'ansiRed',
+	Green = 'ansiGreen',
+	Yellow = 'ansiYellow',
+	Blue = 'ansiBlue',
+	Magenta = 'ansiMagenta',
+	Cyan = 'ansiCyan',
+	White = 'ansiWhite',
+	BrightBlack = 'ansiBrightBlack',
+	BrightRed = 'ansiBrightRed',
+	BrightGreen = 'ansiBrightGreen',
+	BrightYellow = 'ansiBrightYellow',
+	BrightBlue = 'ansiBrightBlue',
+	BrightMagenta = 'ansiBrightMagenta',
+	BrightCyan = 'ansiBrightCyan',
+	BrightWhite = 'ansiBrightWhite'
 }
 
 /**
