@@ -134,6 +134,15 @@ export class PtyService extends Disposable implements IPtyService {
 	async serializeTerminalState(ids: number[]): Promise<string> {
 		const promises: Promise<ISerializedTerminalState>[] = [];
 		for (const [persistentProcessId, persistentProcess] of this._ptys.entries()) {
+
+			// --- Start Positron ---
+			// Skip serializing Positron language runtime kernel processes
+			const positronLanguage = persistentProcess.shellLaunchConfig.env?.POSITRON_VERSION;
+			if (positronLanguage) {
+				continue;
+			}
+			// --- End Positron ---
+
 			// Only serialize persistent processes that have had data written or performed a replay
 			if (persistentProcess.hasWrittenData && ids.indexOf(persistentProcessId) !== -1) {
 				promises.push(Promises.withAsyncBody<ISerializedTerminalState>(async r => {
@@ -365,7 +374,7 @@ export class PtyService extends Disposable implements IPtyService {
 			}
 			return new Promise<string>(c => {
 				const proc = execFile(wslExecutable, ['-e', 'wslpath', original], {}, (error, stdout, stderr) => {
-					c(escapeNonWindowsPath(stdout.trim()));
+					c(error ? original : escapeNonWindowsPath(stdout.trim()));
 				});
 				proc.stdin!.end();
 			});
@@ -383,7 +392,7 @@ export class PtyService extends Disposable implements IPtyService {
 				}
 				return new Promise<string>(c => {
 					const proc = execFile(wslExecutable, ['-e', 'wslpath', '-w', original], {}, (error, stdout, stderr) => {
-						c(stdout.trim());
+						c(error ? original : stdout.trim());
 					});
 					proc.stdin!.end();
 				});

@@ -18,7 +18,7 @@ import { TelemetryLevel } from 'vs/platform/telemetry/common/telemetry';
 import { getTelemetryLevel, supportsTelemetry } from 'vs/platform/telemetry/common/telemetryUtils';
 import { getRemoteServerRootPath } from 'vs/platform/remote/common/remoteHosts';
 
-export const WEB_EXTENSION_RESOURCE_END_POINT = 'web-extension-resource';
+const WEB_EXTENSION_RESOURCE_END_POINT = 'web-extension-resource';
 
 export const IExtensionResourceLoaderService = createDecorator<IExtensionResourceLoaderService>('extensionResourceLoaderService');
 
