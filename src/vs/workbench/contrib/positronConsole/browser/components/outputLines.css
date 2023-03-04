@@ -1,0 +1,9 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.output-lines {
+	font-size: 13px;
+	white-space: pre;
+	font-family: var(--console-monospace-font);
+}
