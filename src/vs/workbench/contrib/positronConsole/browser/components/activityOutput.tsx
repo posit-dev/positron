@@ -6,7 +6,7 @@ import 'vs/css!./activityOutput';
 import * as React from 'react';
 import { useMemo } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ANSIOutput } from 'vs/base/common/ansi/ansiOutput';
-import { ANSIOutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/ansiOutputLines';
+import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 
 // ActivityOutputProps interface.
@@ -32,7 +32,7 @@ export const ActivityOutput = ({ activityItemOutput }: ActivityOutputProps) => {
 	// Render.
 	return (
 		<div className='activity-output'>
-			<ANSIOutputLines outputLines={outputLines} />
+			<OutputLines outputLines={outputLines} />
 		</div>
 	);
 };

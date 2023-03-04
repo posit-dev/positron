@@ -2,30 +2,22 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./ansiOutputLines';
+import 'vs/css!./outputRun';
 import * as React from 'react';
 import { CSSProperties } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ANSIColor, ANSIOutputLine, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansi/ansiOutput';
+import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansi/ansiOutput';
 
-// ANSIOutputLinesProps interface.
-export interface ANSIOutputLinesProps {
-	readonly outputLines: readonly ANSIOutputLine[];
+// OutputRunProps interface.
+export interface OutputRunProps {
+	readonly outputRun: ANSIOutputRun;
 }
 
 /**
- * ANSIOutputLines component.
- * @param props A ANSIOutputLinesProps that contains the component properties.
+ * OutputRun component.
+ * @param props A OutputRunProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ANSIOutputLines = ({ outputLines }: ANSIOutputLinesProps) => {
-
-	// readonly styles: ANSIStyle[];
-	// readonly foregroundColor: ANSIColor | string | undefined;
-	// readonly backgroundColor: ANSIColor | string | undefined;
-	// readonly underlinedColor: string | undefined;
-	// readonly font: string | undefined;
-	// readonly text: string;
-
+export const OutputRun = ({ outputRun }: OutputRunProps) => {
 	/**
 	 * ColorType enumeration.
 	 */
@@ -150,17 +142,6 @@ export const ANSIOutputLines = ({ outputLines }: ANSIOutputLinesProps) => {
 
 	// Render.
 	return (
-		<div className='ansi-output-lines'>
-			{outputLines.map(outputLine =>
-				<div key={outputLine.id} className='ansi-output-line'>
-					{!outputLine.outputRuns.length ?
-						<br /> :
-						outputLine.outputRuns.map(outputRun => {
-							return <span key={outputRun.id} style={computeCSSProperties(outputRun)}>{outputRun.text}</span>;
-						})
-					}
-				</div>
-			)}
-		</div>
+		<span style={computeCSSProperties(outputRun)}>{outputRun.text}</span>
 	);
 };
