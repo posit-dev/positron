@@ -31,13 +31,19 @@ const HelpLines = [
 	'version     - Shows the Zed version'
 ].join('\n');
 
+/**
+ * Returns a right-aligned three digit decimal value.
+ * @param value The value (must be between 0 and 255).
+ * @returns The right-right-aligned three digit decimal value such that:
+ *   1 = '   1 ' and
+ * 255 = ' 255 '.
+ */
 const rightAlignedThreeDigitDecimal = (value: number) => {
 	if (value < 0 && value > 255) {
-		return '???';
+		return ' ??? ';
 	} else {
 		// Return the value right aligned to three places.
 		const decimal = value.toString(10);
-
 		if (decimal.length === 1) {
 			return `   ${decimal} `;
 		} else if (decimal.length === 2) {
@@ -45,14 +51,8 @@ const rightAlignedThreeDigitDecimal = (value: number) => {
 		} else {
 			return ` ${decimal} `;
 		}
-
 	}
-
-
-	const hex = value.toString(16);
-	return hex.length === 2 ? hex : '0' + hex;
 };
-
 
 /**
  * PositronZedLanguageRuntime.
