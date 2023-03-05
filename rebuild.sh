@@ -3,17 +3,16 @@
 cat <<- EOF
 This script will:
 
-- Kill any running build daemons,
-- Recursively remove any existing 'node_modules' folders,
-- Remove the '.build' directory,
-- Rebuild the aforementioned 'node_modules' folders,
-- Re-compile the existing Typescript source.
+- Kill any running build daemons
+- Recursively remove any existing 'node_modules' folders
+- Remove the '.build' directory
+- Rebuild the aforementioned 'node_modules' folders
 
-This will probably take a while, so only run this script
-if you're stuck and you need to restart from a fresh slate.
+This will probably take a while, so only run this script if you're stuck and
+you need to restart from a fresh slate.
 
-After running this script, you can run the build task in
-Visual Studio Code using ⇧⌘B (macOS) or Ctrl+Shift+B (Windows).
+Once this script is done, launch the build tasks using ⇧⌘B (macOS) or
+Ctrl+Shift+B (Linux).
 
 EOF
 read -p 'Do you want to proceed? [y/N]: ' proceed
