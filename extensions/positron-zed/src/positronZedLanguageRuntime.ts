@@ -216,7 +216,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				for (let i = 0; i < 16; i++) {
 					for (let j = 0; j < 16; j++) {
 						const colorIndex = i * 16 + j;
-						output += ` ${MakeSGR(SGR.SetForeground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)}${MakeSGR()} `;
+						output += `${MakeSGR(SGR.SetForeground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)}${MakeSGR()} `;
 					}
 					output += `${MakeSGR()}\n`;
 				}
@@ -226,7 +226,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				for (let i = 0; i < 16; i++) {
 					for (let j = 0; j < 16; j++) {
 						const colorIndex = i * 16 + j;
-						output += ` ${MakeSGR(SGR.SetBackground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)}${MakeSGR()} `;
+						output += `${MakeSGR(SGR.SetBackground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)}${MakeSGR()} `;
 					}
 					output += `${MakeSGR()}\n`;
 				}
