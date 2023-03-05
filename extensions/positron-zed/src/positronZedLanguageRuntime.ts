@@ -39,11 +39,11 @@ const rightAlignedThreeDigitDecimal = (value: number) => {
 		const decimal = value.toString(10);
 
 		if (decimal.length === 1) {
-			return `  ${decimal}`;
+			return `   ${decimal} `;
 		} else if (decimal.length === 2) {
-			return ` ${decimal}`;
+			return `  ${decimal} `;
 		} else {
-			return decimal;
+			return ` ${decimal} `;
 		}
 
 	}
@@ -216,7 +216,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				for (let i = 0; i < 16; i++) {
 					for (let j = 0; j < 16; j++) {
 						const colorIndex = i * 16 + j;
-						output += `${MakeSGR(SGR.SetForeground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)} `;
+						output += ` ${MakeSGR(SGR.SetForeground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)}${MakeSGR()} `;
+					}
+					output += `${MakeSGR()}\n`;
+				}
+
+				output += '\n';
+
+				for (let i = 0; i < 16; i++) {
+					for (let j = 0; j < 16; j++) {
+						const colorIndex = i * 16 + j;
+						output += ` ${MakeSGR(SGR.SetBackground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)}${MakeSGR()} `;
 					}
 					output += `${MakeSGR()}\n`;
 				}
