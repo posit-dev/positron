@@ -2,8 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
-
 /**
  * SGRParam enumeration.
  */
@@ -174,7 +172,7 @@ class SGRState {
 	 */
 	createOutputRun(text: string): ANSIOutputRun {
 		return {
-			id: generateUuid(),
+			id: crypto.randomUUID(),
 			styles: [...this._styles],
 			foregroundColor: this._foregroundColor,
 			backgroundColor: this._backgroundColor,
@@ -780,7 +778,7 @@ export class ANSIOutput {
 		// Ensure that we have sufficient output lines.
 		for (let i = this._outputLines.length; i < this._currentOutputLine + 1; i++) {
 			this._outputLines.push({
-				id: generateUuid(),
+				id: crypto.randomUUID(),
 				outputRuns: []
 			});
 		}
