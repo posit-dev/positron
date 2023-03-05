@@ -20,7 +20,8 @@ export const CSI = ESC + '[';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'ansi        - ANSI text',
+	'ansi 16     - Displays the standard ANSI colors as foreground and background colors',
+	'ansi 256    - Displays the indexed ANSI colors as foreground and background colors',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
@@ -29,6 +30,29 @@ const HelpLines = [
 	'shutdown    - Simulates orderly shutdown',
 	'version     - Shows the Zed version'
 ].join('\n');
+
+const rightAlignedThreeDigitDecimal = (value: number) => {
+	if (value < 0 && value > 255) {
+		return '???';
+	} else {
+		// Return the value right aligned to three places.
+		const decimal = value.toString(10);
+
+		if (decimal.length === 1) {
+			return `  ${decimal}`;
+		} else if (decimal.length === 2) {
+			return ` ${decimal}`;
+		} else {
+			return decimal;
+		}
+
+	}
+
+
+	const hex = value.toString(16);
+	return hex.length === 2 ? hex : '0' + hex;
+};
+
 
 /**
  * PositronZedLanguageRuntime.
@@ -148,18 +172,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.simulateSuccessfulCodeExecution(id, code);
 				break;
 
-			case 'ansi':
+			case 'ansi 16':
 				console.log(`Red is ${ansi.style.red}`);
 				this.simulateSuccessfulCodeExecution(id, code,
+					`Standard ANSI colors:\n` +
 					`${MakeSGR(SGR.ForegroundBlack)}This is foreground black\n` +
-					`${MakeSGR(SGR.ForegroundRed)}This is ${MakeSGR(SGR.Italic, SGR.Underlined)}foreground red${MakeSGR(SGR.NotItalicNotFraktur, SGR.NotUnderlined)} text\n` +
-					`${MakeSGR(SGR.ForegroundGreen)}This is ${MakeSGR(SGR.Italic, SGR.DoubleUnderlined)}foreground green${MakeSGR(SGR.NotItalicNotFraktur, SGR.NotUnderlined)} text\n` +
+					`${MakeSGR(SGR.ForegroundRed)}This is foreground red\n` +
+					`${MakeSGR(SGR.ForegroundGreen)}This is foreground green\n` +
 					`${MakeSGR(SGR.ForegroundYellow)}This is foreground yellow\n` +
-					`${MakeSGR(SGR.ForegroundBlue)}This is ${MakeSGR(SGR.CrossedOut)}foreground blue${MakeSGR(SGR.NotCrossedOut)}\n` +
+					`${MakeSGR(SGR.ForegroundBlue)}This is foreground blue\n` +
 					`${MakeSGR(SGR.ForegroundMagenta)}This is foreground magenta\n` +
-					`${MakeSGR(SGR.ForegroundCyan)}This is ${MakeSGR(SGR.Bold)}foreground cyan${MakeSGR(SGR.NormalIntensity)} text\n` +
-					`${MakeSGR(SGR.ForegroundWhite)}This is foreground white${MakeSGR()}\n\n` +
-
+					`${MakeSGR(SGR.ForegroundCyan)}This is foreground cyan text\n` +
+					`${MakeSGR(SGR.ForegroundWhite)}This is foreground white\n` +
 					`${MakeSGR(SGR.ForegroundBrightBlack)}This is foreground bright black\n` +
 					`${MakeSGR(SGR.ForegroundBrightRed)}This is foreground bright red\n` +
 					`${MakeSGR(SGR.ForegroundBrightGreen)}This is foreground bright green\n` +
@@ -167,8 +191,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.ForegroundBrightBlue)}This is foreground bright blue\n` +
 					`${MakeSGR(SGR.ForegroundBrightMagenta)}This is foreground bright magenta\n` +
 					`${MakeSGR(SGR.ForegroundBrightCyan)}This is foreground bright cyan\n` +
-					`${MakeSGR(SGR.ForegroundBrightWhite)}This is foreground bright white${MakeSGR()}\n\n` +
-
+					`${MakeSGR(SGR.ForegroundBrightWhite)}This is foreground bright white\n` +
 					`${MakeSGR(SGR.BackgroundBlack)}This is background black\n` +
 					`${MakeSGR(SGR.BackgroundRed)}This is background red\n` +
 					`${MakeSGR(SGR.BackgroundGreen)}This is background green\n` +
@@ -176,8 +199,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.BackgroundBlue)}This is background blue\n` +
 					`${MakeSGR(SGR.BackgroundMagenta)}This is background magenta\n` +
 					`${MakeSGR(SGR.BackgroundCyan)}This is background cyan\n` +
-					`${MakeSGR(SGR.BackgroundWhite)}This is background white${MakeSGR()}\n\n` +
-
+					`${MakeSGR(SGR.BackgroundWhite)}This is background white\n` +
 					`${MakeSGR(SGR.BackgroundBrightBlack)}This is background bright black\n` +
 					`${MakeSGR(SGR.BackgroundBrightRed)}This is background bright red\n` +
 					`${MakeSGR(SGR.BackgroundBrightGreen)}This is background bright green\n` +
@@ -188,6 +210,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.BackgroundBrightWhite)}This is background bright white${MakeSGR()}`
 				);
 				break;
+
+			case 'ansi 256': {
+				let output = '';
+				for (let i = 0; i < 16; i++) {
+					for (let j = 0; j < 16; j++) {
+						const colorIndex = i * 16 + j;
+						output += `${MakeSGR(SGR.SetForeground, 5, colorIndex)}${rightAlignedThreeDigitDecimal(colorIndex)} `;
+					}
+					output += `${MakeSGR()}\n`;
+				}
+				this.simulateSuccessfulCodeExecution(id, code, output);
+				break;
+			}
 
 			case 'help':
 				this.simulateSuccessfulCodeExecution(id, code, HelpLines);

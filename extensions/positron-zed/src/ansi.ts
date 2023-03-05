@@ -124,6 +124,6 @@ export enum SGR {
  * @param parameters The SGR parameters.
  * @returns The SGR escape sequence.
  */
-export const MakeSGR = (...parameters: SGR[]): string => {
+export const MakeSGR = (...parameters: number[]): string => {
 	return CSI + parameters.map(parameter => `${parameter}`).join(';') + 'm';
 };

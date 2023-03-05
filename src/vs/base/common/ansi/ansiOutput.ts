@@ -5,7 +5,7 @@
 /**
  * SGRParam enumeration.
  */
-enum SGRParam {
+export enum SGRParam {
 	Reset = 0,
 	Bold = 1,
 	Dim = 2,
@@ -114,6 +114,36 @@ enum SGRParam {
 	BackgroundBrightMagenta = 105,
 	BackgroundBrightCyan = 106,
 	BackgroundBrightWhite = 107
+}
+
+/**
+ * SGRParamColor enumeration.
+ */
+export enum SGRParamColor {
+	Color256 = 5,
+	ColorRGB = 2
+}
+
+/**
+ * SGRParamIndexedColor enumeration.
+ */
+export enum SGRParamIndexedColor {
+	Black = 0,
+	Red = 1,
+	Green = 2,
+	Yellow = 3,
+	Blue = 4,
+	Magenta = 5,
+	Cyan = 6,
+	White = 7,
+	BrightBlack = 8,
+	BrightRed = 9,
+	BrightGreen = 10,
+	BrightYellow = 11,
+	BrightBlue = 12,
+	BrightMagenta = 13,
+	BrightCyan = 14,
+	BrightWhite = 15
 }
 
 /**
@@ -496,9 +526,141 @@ export class ANSIOutput {
 			.map(sgrParam => sgrParam === '' ? SGRParam.Reset : parseInt(sgrParam, 10));
 
 		// Process the SGR parameters.
-		for (let i = 0; i < sgrParams.length; i++) {
+		for (let index = 0; index < sgrParams.length; index++) {
 			// Get the SGR parameter.
-			const sgrParam = sgrParams[i];
+			const sgrParam = sgrParams[index];
+
+			/**
+			 * Process SetForeground, SetBackground, or SetUnderline. Contrary
+			 * to information you will find on the web, these parameters can be
+			 * combined with other parameters. As an example:
+			 *
+			 * For the 256-color palette:
+			 * console.log('\x1b[31;38;5;196mThis will be red\x1b[m');
+			 * console.log('\x1b[31;38;5;20mThis will be blue\x1b[m')
+			 *
+			 * For RGB:
+			 * console.log('\x1b[31;38;2;255;0;0mThis will be red\x1b[m');
+			 * console.log('\x1b[31;38;2;0;0;255mThis will be blue\x1b[m');
+			 */
+			const processSetColor = (): ANSIColor | string | undefined => {
+				// If there isn't an SGRColorParam in the parameters, return
+				// undefined to indicate that we did not process the set color.
+				if (index + 1 === sgrParams.length) {
+					return undefined;
+				}
+
+				// Advance to the next parameter and process the SGRColorParam,
+				// which should be next.
+				switch (sgrParams[++index]) {
+					// SGRColorParam.Color256 is an indexed color.
+					case SGRParamColor.Color256: {
+						// If there isn't an indexed color parameter, return
+						// undefined to indicate that we did not process the
+						// set color.
+						if (index + 1 === sgrParams.length) {
+							return undefined;
+						}
+
+						// Get the color index.
+						const colorIndex = sgrParams[++index];
+
+						// Process the color index. The first 16 indexes map to
+						// normal ANSIColors.
+						switch (colorIndex) {
+							case SGRParamIndexedColor.Black:
+								return ANSIColor.Black;
+
+							case SGRParamIndexedColor.Red:
+								return ANSIColor.Red;
+
+							case SGRParamIndexedColor.Green:
+								return ANSIColor.Green;
+
+							case SGRParamIndexedColor.Yellow:
+								return ANSIColor.Yellow;
+
+							case SGRParamIndexedColor.Blue:
+								return ANSIColor.Blue;
+
+							case SGRParamIndexedColor.Magenta:
+								return ANSIColor.Magenta;
+
+							case SGRParamIndexedColor.Cyan:
+								return ANSIColor.Cyan;
+
+							case SGRParamIndexedColor.White:
+								return ANSIColor.White;
+
+							case SGRParamIndexedColor.BrightBlack:
+								return ANSIColor.BrightBlack;
+
+							case SGRParamIndexedColor.BrightRed:
+								return ANSIColor.BrightRed;
+
+							case SGRParamIndexedColor.BrightGreen:
+								return ANSIColor.BrightGreen;
+
+							case SGRParamIndexedColor.BrightYellow:
+								return ANSIColor.BrightYellow;
+
+							case SGRParamIndexedColor.BrightBlue:
+								return ANSIColor.BrightBlue;
+
+							case SGRParamIndexedColor.BrightMagenta:
+								return ANSIColor.BrightMagenta;
+
+							case SGRParamIndexedColor.BrightCyan:
+								return ANSIColor.Cyan;
+
+							case SGRParamIndexedColor.BrightWhite:
+								return ANSIColor.BrightWhite;
+
+							// Process other color indexes.
+							default:
+								// Sanity check that the color index is an integer.
+								if (colorIndex % 1 !== 0) {
+									return undefined;
+								}
+
+								// Process the color index as RGB or grayscale.
+								if (colorIndex >= 16 && colorIndex <= 231) {
+									// Convert the color index to one of 216 RGB colors.
+									let colorNumber = colorIndex - 16;
+									let blue = colorNumber % 6;
+									colorNumber = (colorNumber - blue) / 6;
+									let green = colorNumber % 6;
+									colorNumber = (colorNumber - green) / 6;
+									let red = colorNumber;
+
+									// Map red, green, and blue from 0-5 to 0-255.
+									blue = Math.round(blue * 255 / 5);
+									green = Math.round(green * 255 / 5);
+									red = Math.round(red * 255 / 5);
+
+									// Return the RGB color.
+									return '#' + twoDigitHex(red) + twoDigitHex(green) + twoDigitHex(blue);
+								} else if (colorIndex >= 232 && colorIndex <= 255) {
+									// Calculate the grayscale value.
+									const grayscale = twoDigitHex(Math.round((colorIndex - 232) / 23 * 255));
+
+									// Return the RGB color.
+									return '#' + grayscale + grayscale + grayscale;
+								} else {
+									// Wonky!
+									return undefined;
+								}
+						}
+					}
+
+					// SGRParamColor.ColorRGB is an r;g;b color.
+					case SGRParamColor.ColorRGB:
+						break;
+				}
+
+				// The set color was not regognized.
+				return undefined;
+			};
 
 			// Process the SGR parameter.
 			switch (sgrParam) {
@@ -653,9 +815,13 @@ export class ANSIOutput {
 					sgrState.setForegroundColor(ANSIColor.White);
 					break;
 
-				case SGRParam.SetForeground:
-					// Get the 3 bit or 24 bit color.
+				case SGRParam.SetForeground: {
+					const foregroundColor = processSetColor();
+					if (foregroundColor) {
+						sgrState.setForegroundColor(foregroundColor);
+					}
 					break;
+				}
 
 				case SGRParam.DefaultForeground:
 					sgrState.setForegroundColor();
@@ -692,6 +858,14 @@ export class ANSIOutput {
 				case SGRParam.BackgroundWhite:
 					sgrState.setBackgroundColor(ANSIColor.White);
 					break;
+
+				case SGRParam.SetBackground: {
+					const backgroundColor = processSetColor();
+					if (backgroundColor) {
+						sgrState.setBackgroundColor(backgroundColor);
+					}
+					break;
+				}
 
 				case SGRParam.ForegroundBrightBlack:
 					sgrState.setForegroundColor(ANSIColor.BrightBlack);
@@ -912,3 +1086,16 @@ export interface ANSIOutputRun {
 	 */
 	readonly text: string;
 }
+
+const twoDigitHex = (value: number) => {
+	// Sanity check the value.
+	if (value < 0) {
+		return '00';
+	} else if (value > 255) {
+		return 'ff';
+	}
+
+	// Return the value in hex format.
+	const hex = value.toString(16);
+	return hex.length === 2 ? hex : '0' + hex;
+};
