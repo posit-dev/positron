@@ -30,6 +30,12 @@ declare module 'positron' {
 
 		/** A message representing a runtime event */
 		Event = 'event',
+
+		/** A message representing data received via a comm (to a client instance) */
+		CommData = 'comm_data',
+
+		/** A message indicating that a comm (client instance) was closed from the server side */
+		CommClosed = 'comm_closed',
 	}
 
 	/** begin positron-language-runtime-event-type */
@@ -214,6 +220,27 @@ declare module 'positron' {
 		traceback: Array<string>;
 	}
 
+	/** LanguageRuntimeCommMessage is a LanguageRuntimeMessage that represents data for a comm (client instance) */
+	export interface LanguageRuntimeCommMessage extends LanguageRuntimeMessage {
+		/** The unique ID of the client comm ID for which the message is intended */
+		comm_id: string;
+
+		/** The data from the back-end */
+		data: object;
+	}
+
+	/**
+	 * LanguageRuntimeCommClosed is a LanguageRuntimeMessage that indicates a
+	 * comm (client instance) was closed from the server side
+	 */
+	export interface LanguageRuntimeCommClosed extends LanguageRuntimeMessage {
+		/** The unique ID of the client comm ID for which the message is intended */
+		comm_id: string;
+
+		/** The data from the back-end */
+		data: object;
+	}
+
 	/** LanguageRuntimeMetadata contains information about a language runtime that is known
 	 * before the runtime is started.
 	 */
@@ -258,6 +285,7 @@ declare module 'positron' {
 	 */
 	export enum RuntimeClientType {
 		Environment = 'environment',
+		Lsp = 'lsp'
 
 		// Future client types may include:
 		// - Data viewer window
@@ -331,7 +359,7 @@ declare module 'positron' {
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
 
-		/** An object that emits he current state of the runtime */
+		/** An object that emits the current state of the runtime */
 		onDidChangeRuntimeState: vscode.Event<RuntimeState>;
 
 		/** Execute code in the runtime */
@@ -348,7 +376,7 @@ declare module 'positron' {
 		 * is not supported by this runtime, or a string containing the ID of
 		 * the client if it is supported.
 		 */
-		createClient(type: RuntimeClientType): string;
+		createClient(type: RuntimeClientType, params: any): Thenable<string>;
 
 		/** Remove an instance of a client (created with `createClient`) */
 		removeClient(id: string): void;

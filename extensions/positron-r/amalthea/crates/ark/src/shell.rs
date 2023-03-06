@@ -6,7 +6,7 @@
 //
 
 use amalthea::comm::comm_channel::Comm;
-use amalthea::comm::comm_channel::CommChannel;
+use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::complete_reply::CompleteReply;
@@ -30,18 +30,17 @@ use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
 use bus::Bus;
 use bus::BusReader;
+use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use crossbeam::channel::unbounded;
-use harp::exec::ParseResult;
 use harp::exec::r_parse_vector;
+use harp::exec::ParseResult;
 use log::*;
 use serde_json::json;
+use serde_json::Value;
 
 use crate::kernel::KernelInfo;
 use crate::request::Request;
-use crate::comm::environment::EnvironmentInstance;
-
 
 pub struct Shell {
     shell_request_tx: Sender<Request>,
@@ -58,7 +57,6 @@ impl Shell {
         kernel_init_tx: Bus<KernelInfo>,
         kernel_init_rx: BusReader<KernelInfo>,
     ) -> Self {
-
         let iopub_tx = iopub_tx.clone();
         std::thread::spawn(move || {
             Self::execution_thread(iopub_tx, kernel_init_tx, shell_request_rx);
@@ -67,7 +65,7 @@ impl Shell {
         Self {
             shell_request_tx,
             kernel_init_rx,
-            kernel_info: None
+            kernel_info: None,
         }
     }
 
@@ -145,26 +143,23 @@ impl ShellHandler for Shell {
     }
 
     /// Handle a request to test code for completion.
-    async fn handle_is_complete_request(&self, req: &IsCompleteRequest,) -> Result<IsCompleteReply, Exception> {
-        match unsafe{r_parse_vector(req.code.as_str())} {
-            Ok(ParseResult::Complete(_)) => {
-                Ok(IsCompleteReply {
-                    status: IsComplete::Complete,
-                    indent: String::from(""),
-                })
-            },
-            Ok(ParseResult::Incomplete()) => {
-                Ok(IsCompleteReply {
-                    status: IsComplete::Incomplete,
-                    indent: String::from("+"),
-                })
-            }
-            Err(_) =>  {
-                Ok(IsCompleteReply {
-                    status: IsComplete::Invalid,
-                    indent: String::from(""),
-                })
-            }
+    async fn handle_is_complete_request(
+        &self,
+        req: &IsCompleteRequest,
+    ) -> Result<IsCompleteReply, Exception> {
+        match unsafe { r_parse_vector(req.code.as_str()) } {
+            Ok(ParseResult::Complete(_)) => Ok(IsCompleteReply {
+                status: IsComplete::Complete,
+                indent: String::from(""),
+            }),
+            Ok(ParseResult::Incomplete()) => Ok(IsCompleteReply {
+                status: IsComplete::Incomplete,
+                indent: String::from("+"),
+            }),
+            Err(_) => Ok(IsCompleteReply {
+                status: IsComplete::Invalid,
+                indent: String::from(""),
+            }),
         }
     }
 
@@ -204,10 +199,10 @@ impl ShellHandler for Shell {
         let data = match req.code.as_str() {
             "err" => {
                 json!({"text/plain": "This generates an error!"})
-            }
+            },
             "teapot" => {
                 json!({"text/plain": "This is clearly a teapot."})
-            }
+            },
             _ => serde_json::Value::Null,
         };
         Ok(InspectReply {
@@ -219,14 +214,17 @@ impl ShellHandler for Shell {
     }
 
     /// Handles a request to open a new comm channel
-    async fn handle_comm_open(&self, comm: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
+    async fn handle_comm_open(
+        &self,
+        comm: Comm,
+        _msg_tx: Sender<Value>,
+    ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         match comm {
             Comm::Environment => {
-                Ok(Some(Box::new(EnvironmentInstance{})))
-            }
-            _ => {
-                Ok(None)
-            }
+                let (sender, _receiver) = unbounded::<CommChannelMsg>();
+                Ok(Some(sender))
+            },
+            _ => Ok(None),
         }
     }
 

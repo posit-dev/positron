@@ -204,7 +204,7 @@ class SGRState {
 		return {
 			id: crypto.randomUUID(),
 			styles: [...this._styles],
-			foregroundColor: this._foregroundColor,
+			foregroundColor: this.automaticallyContrastingForegroundColorForBackgroundColor(),
 			backgroundColor: this._backgroundColor,
 			underlinedColor: this._underlinedColor,
 			font: this._font,
@@ -344,6 +344,46 @@ class SGRState {
 		const foregroundColor = this._foregroundColor;
 		this._foregroundColor = this._backgroundColor;
 		this._backgroundColor = foregroundColor;
+	}
+
+	/**
+	 * Returns a contrasting foreground color when a background color is set
+	 * and a foreground color is not set. At the moment, this only affects the
+	 * the standard background colors, with the presumption being that when the
+	 * 256-color or RGB color options are used, a foreground color is probably
+	 * explicitly set.
+	 * @returns The foreground color to use.
+	 */
+	private automaticallyContrastingForegroundColorForBackgroundColor(): ANSIColor | string | undefined {
+		// When a background color is set and a foreground color is not set,
+		// and the background color is one of the standard colors, return a
+		// contrasting foreground color.
+		if (this._backgroundColor && !this._foregroundColor) {
+			switch (this._backgroundColor) {
+				case ANSIColor.Black:
+				case ANSIColor.BrightBlack:
+				case ANSIColor.Red:
+				case ANSIColor.BrightRed:
+					return ANSIColor.White;
+
+				case ANSIColor.Green:
+				case ANSIColor.BrightGreen:
+				case ANSIColor.Yellow:
+				case ANSIColor.BrightYellow:
+				case ANSIColor.Blue:
+				case ANSIColor.BrightBlue:
+				case ANSIColor.Magenta:
+				case ANSIColor.BrightMagenta:
+				case ANSIColor.Cyan:
+				case ANSIColor.BrightCyan:
+				case ANSIColor.White:
+				case ANSIColor.BrightWhite:
+					return ANSIColor.Black;
+			}
+		}
+
+		// Do nothing.
+		return this._foregroundColor;
 	}
 
 	//#endregion Private Methods
@@ -892,6 +932,10 @@ export class ANSIOutput {
 					}
 					break;
 				}
+
+				case SGRParam.DefaultBackground:
+					sgrState.setBackgroundColor();
+					break;
 
 				case SGRParam.ForegroundBrightBlack:
 					sgrState.setForegroundColor(ANSIColor.BrightBlack);
