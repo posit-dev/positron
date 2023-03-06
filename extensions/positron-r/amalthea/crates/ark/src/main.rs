@@ -19,6 +19,7 @@ use std::sync::{Arc, Mutex};
 use stdext::unwrap;
 
 mod control;
+mod environment;
 mod interface;
 mod kernel;
 mod logger;

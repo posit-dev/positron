@@ -39,6 +39,7 @@ use log::*;
 use serde_json::json;
 use serde_json::Value;
 
+use crate::environment::r_environment::REnvironment;
 use crate::kernel::KernelInfo;
 use crate::request::Request;
 
@@ -217,12 +218,12 @@ impl ShellHandler for Shell {
     async fn handle_comm_open(
         &self,
         comm: Comm,
-        _msg_tx: Sender<Value>,
+        msg_tx: Sender<Value>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         match comm {
             Comm::Environment => {
-                let (sender, _receiver) = unbounded::<CommChannelMsg>();
-                Ok(Some(sender))
+                let env: REnvironment = REnvironment::new(msg_tx);
+                Ok(Some(env.channel_msg_tx))
             },
             _ => Ok(None),
         }
