@@ -6,4 +6,5 @@
  */
 
 pub mod comm_channel;
-pub mod environment;
+pub mod environment_comm;
+pub mod lsp_comm;

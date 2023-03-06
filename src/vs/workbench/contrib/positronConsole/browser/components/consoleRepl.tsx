@@ -7,17 +7,26 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/positronConsoleInstance';
-import { ConsoleReplItem } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItem';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { ConsoleReplItemInput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemInput';
-import { ConsoleReplItemError } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemError';
-// import { ConsoleReplItemTrace } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemTrace';
-import { ConsoleReplItemOutput } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemOutput';
-import { ConsoleReplLiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplLiveInput';
-import { ConsoleReplItemStartupBanner } from 'vs/workbench/contrib/positronConsole/browser/classes/consoleReplItemStartupBanner';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/liveInput';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
+import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
+import { RuntimeStartup } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartup';
+import { RuntimeStarted } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarted';
+import { RuntimeOffline } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeOffline';
+import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
+import { RuntimeStarting } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarting';
+import { RuntimeActivity } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeActivity';
+import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
+import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
+import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
+import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
+import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
+import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
 // ConsoleReplProps interface.
 interface ConsoleReplProps {
@@ -27,12 +36,6 @@ interface ConsoleReplProps {
 	positronConsoleInstance: IPositronConsoleInstance;
 }
 
-// ExecutingCodeDescriptor interface.
-interface ExecutingCodeDescriptor {
-	id: string;
-	codeFragment: string;
-}
-
 /**
  * ConsoleRepl component.
  * @param props A ConsoleProps that contains the component properties.
@@ -40,27 +43,14 @@ interface ExecutingCodeDescriptor {
  */
 export const ConsoleRepl = (props: ConsoleReplProps) => {
 	// Hooks.
-	const positronConsoleContext = usePositronConsoleContext();
-	const [consoleReplItems, setConsoleReplItems] = useState<ConsoleReplItem[]>([]);
-	const consoleReplLiveInputRef = useRef<HTMLDivElement>(undefined!);
-	const [executingCodeDescriptor, setExecutingCodeDescriptor, refExecutingCodeDescriptor] = useStateRef<ExecutingCodeDescriptor | undefined>(undefined);
-
-	// Adds a ConsoleReplItemTrace to the console.
-	const trace = (message: string) => {
-		console.log(`${props.positronConsoleInstance.runtime.metadata.languageName} - ${message}`);
-		//setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemTrace({ key: generateUuid(), timestamp: new Date(), message })]);
-	};
+	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
+	const liveInputRef = useRef<HTMLDivElement>(undefined!);
+	const [marker, setMarker] = useState(generateUuid());
 
 	// Executes code.
 	const executeCode = (codeFragment: string) => {
 		// Create the ID.
 		const id = `fragment-${generateUuid()}`;
-
-		// Set the executing code descriptor.
-		setExecutingCodeDescriptor({
-			id,
-			codeFragment
-		});
 
 		// Execute the code fragment.
 		props.positronConsoleInstance.runtime.execute(
@@ -75,102 +65,78 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidClearConsole event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-			// Clear the console.
-			setConsoleReplItems([]);
+		// Add the onDidChangeState event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 		}));
 
-		// // Replay history as ConsoleReplItems.
-		//positronConsoleContext.executionHistoryService.getExecutionEntries(props.positronConsoleInstance.runtime.metadata.languageId);
-		// console.log(`Execution entries for ${props.positronConsoleInstance.runtime.metadata.id} ${props.positronConsoleInstance.runtime.metadata.language}`);
-		// console.log(executionEntries);
-		// for (const executionEntry of executionEntries) {
-		// 	console.log('---');
-		// 	console.log(`input ${executionEntry.input}`);
-		// 	console.log(`output ${executionEntry.output}`);
-		// }
-
-		// Add the onDidChangeRuntimeState event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidChangeRuntimeState(runtimeState => {
-			trace(`onDidChangeRuntimeState (${runtimeState})`);
+		// Add the onDidChangeTrace event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeTrace(trace => {
+			setTrace(trace);
 		}));
 
-		// Add the onDidCompleteStartup event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidCompleteStartup(languageRuntimeInfo => {
-			trace(`onDidCompleteStartup`);
-			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemStartupBanner({ key: generateUuid(), timestamp: new Date(), languageRuntimeInfo })]);
+		// Add the onDidChangeRuntimeItems event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeRuntimeItems(runtimeItems => {
+			setMarker(generateUuid());
 		}));
 
-		// Add the onDidReceiveRuntimeMessageOutput event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-			trace(`onDidReceiveRuntimeMessageOutput`);
-			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemOutput({ key: languageRuntimeMessageOutput.id, languageRuntimeMessageOutput })]);
-		}));
-
-		// Add the onDidReceiveRuntimeMessageInput event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-			trace(`onDidReceiveRuntimeMessageInput`);
-			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemInput({ key: languageRuntimeMessageInput.id, languageRuntimeMessageInput })]);
-		}));
-
-		// Add the onDidReceiveRuntimeMessageError event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-			trace(`onDidReceiveRuntimeMessageError`);
-			setConsoleReplItems(consoleReplItems => [...consoleReplItems, new ConsoleReplItemError({ key: languageRuntimeMessageError.id, languageRuntimeMessageError })]);
-		}));
-
-		// Add the onDidReceiveRuntimeMessagePrompt event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
-			trace(`onDidReceiveRuntimeMessagePrompt`);
-		}));
-
-		// Add the onDidReceiveRuntimeMessageState event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
-			trace(`onDidReceiveRuntimeMessageState (${languageRuntimeMessageState.state} ${languageRuntimeMessageState.parent_id})`);
-
-			if (refExecutingCodeDescriptor.current && languageRuntimeMessageState.parent_id === refExecutingCodeDescriptor.current.id) {
-				if (languageRuntimeMessageState.state === RuntimeOnlineState.Busy) {
-					console.log('Still busy');
-				} else if (languageRuntimeMessageState.state === RuntimeOnlineState.Idle) {
-					console.log('Done!');
-					setExecutingCodeDescriptor(undefined);
-				}
-			}
-		}));
-
-		// Add the onDidReceiveRuntimeMessageEvent event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-			trace(`onDidReceiveRuntimeMessageEvent (${languageRuntimeMessageEvent.name})`);
+		// Add the onDidExecuteCode event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(codeFragment => {
+			// Execute the code fragment.
+			executeCode(codeFragment);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Scroll the live input into view when the items change.
-	useEffect(() => {
-		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
-	}, [consoleReplItems]);
-
 	// Experimental.
 	useEffect(() => {
-		consoleReplLiveInputRef.current?.scrollIntoView({ behavior: 'auto' });
-	}, [positronConsoleContext]);
+		liveInputRef.current?.scrollIntoView({ behavior: 'auto' });
+	}, [marker]);
+
+	/**
+	 * Renders a runtime item.
+	 * @param runtimeItem The runtime item.
+	 * @returns The rendered runtime item.
+	 */
+	const renderRuntimeItem = (runtimeItem: RuntimeItem) => {
+		if (runtimeItem instanceof RuntimeItemActivity) {
+			return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemStartup) {
+			return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemReconnected) {
+			return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemStarting) {
+			return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemStarted) {
+			return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemOffline) {
+			return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemExited) {
+			return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemTrace) {
+			return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
+		} else {
+			return null;
+		}
+	};
+
+	console.log(`Rendering console repl in state ${props.positronConsoleInstance.state}`);
 
 	// Render.
 	return (
 		<div className='console-repl' hidden={props.hidden}>
-			{consoleReplItems.map(consoleReplItem =>
-				consoleReplItem.element
+			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
+				renderRuntimeItem(runtimeItem)
 			)}
-			<ConsoleReplLiveInput
-				ref={consoleReplLiveInputRef}
-				hidden={props.hidden}
-				width={props.width}
-				executingCode={!!executingCodeDescriptor}
-				executeCode={executeCode}
-				positronConsoleInstance={props.positronConsoleInstance} />
+			{props.positronConsoleInstance.state === PositronConsoleState.Ready &&
+				<LiveInput
+					ref={liveInputRef}
+					hidden={props.positronConsoleInstance.state !== PositronConsoleState.Ready}
+					width={props.width}
+					executeCode={executeCode}
+					positronConsoleInstance={props.positronConsoleInstance} />
+			}
 		</div>
 	);
 };

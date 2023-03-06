@@ -15,18 +15,18 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
-    "languages": [
-      {
-        "id": "Zed",
-        "extensions": [
-          ".zed"
-        ],
-        "aliases": [
-          "Zed"
-        ],
-        "configuration": "./language-configuration.json"
-      }
-    ]
+		"languages": [
+			{
+				"id": "Zed",
+				"extensions": [
+					".zed"
+				],
+				"aliases": [
+					"Zed"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "yarn run compile",
@@ -34,7 +34,11 @@
 		"watch": "tsc -watch -p ./",
 		"lint": "eslint src --ext ts"
 	},
+	"dependencies": {
+		"ansi-escape-sequences": "^6.2.1"
+	},
 	"devDependencies": {
+		"@types/ansi-escape-sequences": "^4.0.0",
 		"@types/glob": "^7.2.0",
 		"@types/mocha": "^9.1.0",
 		"@types/node": "14.x",

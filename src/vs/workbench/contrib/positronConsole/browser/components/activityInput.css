@@ -1,0 +1,23 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.activity-input {
+	display: flex;
+}
+
+.activity-input .prompt {
+	display: flex;
+	width: 22px;
+	justify-content: right;
+	font-family: var(--console-monospace-font);
+
+	user-select: none;
+	-ms-user-select: none;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
+
+.activity-input .code {
+	margin-left: 16px;
+}

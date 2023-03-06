@@ -75,6 +75,7 @@ pub struct Backend {
     pub workspace: Arc<Mutex<Workspace>>,
     #[allow(dead_code)]
     pub shell_request_tx: Sender<Request>,
+    pub lsp_initialized: bool,
 }
 
 impl Backend {
@@ -112,10 +113,17 @@ impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         backend_trace!(self, "initialize({:#?})", params);
 
-        // initialize our support functions
-        let r_module_info = r_lock! {
-            modules::initialize().unwrap()
-        };
+        // Initialize our support functions if this is the first run of the LSP
+        // server. A Positron front-end reload will trigger a new LSP server
+        // instance to be created, but we only want to run this initialization once per R
+        // session.
+        if !self.lsp_initialized {
+            let r_module_info = r_lock! {
+                modules::initialize().unwrap()
+            };
+            // start R help server proxy
+            help_proxy::start(r_module_info.help_server_port);
+        }
 
         // initialize the set of known workspaces
         let mut workspace = self.workspace.lock();
@@ -135,9 +143,6 @@ impl LanguageServer for Backend {
 
         // start indexing
         indexer::start(folders);
-
-        // start R help server proxy
-        help_proxy::start(r_module_info.help_server_port);
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -554,7 +559,7 @@ impl Backend {
 }
 
 #[tokio::main]
-pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
+pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, lsp_initialized: bool) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
@@ -572,8 +577,8 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
     let init = |client: Client| {
 
         // initialize shared globals (needed for R callbacks)
-        LSP_CLIENT.set(client.clone()).unwrap();
-        SHELL_REQUEST_TX.set(shell_request_tx.clone()).unwrap();
+        LSP_CLIENT.lock().unwrap().replace(client.clone());
+        SHELL_REQUEST_TX.lock().unwrap().replace(shell_request_tx.clone());
 
         // create backend
         let backend = Backend {
@@ -581,6 +586,7 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
             documents: DOCUMENT_INDEX.clone(),
             workspace: Arc::new(Mutex::new(Workspace::default())),
             shell_request_tx: shell_request_tx.clone(),
+            lsp_initialized
         };
 
         backend
@@ -593,4 +599,5 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>) {
         .finish();
 
     Server::new(read, write, socket).serve(service).await;
+    debug!("LSP thread exiting gracefully after connection closed ({:?}).", address);
 }

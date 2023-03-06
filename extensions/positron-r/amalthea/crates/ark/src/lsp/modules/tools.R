@@ -5,14 +5,15 @@
 #
 #
 
-.rs.stopf <- function(fmt, ...) {
-    message <- sprintf(fmt, ...)
-    stop(message)
-}
+.ps.replaceBinding <- function(symbol, replacement, envir) {
 
-.ps.writeDeparsedRepresentationToFile <- function(object) {
-    contents <- deparse(object)
-    tempfile <- tempfile(pattern = "posit-object-", fileext = ".R")
-    writeLines(contents, con = tempfile)
-    tempfile
+    if (bindingIsLocked(symbol, envir)) {
+        unlockBinding(symbol, envir)
+        on.exit(lockBinding(symbol, envir), add = TRUE)
+    }
+
+    original <- envir[[symbol]]
+    assign(symbol, replacement, envir = envir)
+    invisible(original)
+
 }

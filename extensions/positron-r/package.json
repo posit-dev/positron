@@ -81,7 +81,8 @@
 		"pretest": "yarn run compile && yarn run lint",
 		"postinstall": "ts-node scripts/post-install.ts",
 		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js"
+		"test": "node ./out/test/runTest.js",
+		"test-amalthea": "cd amalthea && cargo test"
 	},
 	"extensionDependencies": [
 		"vscode.jupyter-adapter"
