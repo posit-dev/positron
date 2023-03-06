@@ -18,6 +18,7 @@ use std::io::stdin;
 use std::sync::{Arc, Mutex};
 use stdext::unwrap;
 
+mod comm;
 mod control;
 mod interface;
 mod kernel;
@@ -27,7 +28,6 @@ mod plots;
 mod request;
 mod shell;
 mod version;
-mod comm;
 
 use crate::control::Control;
 use crate::request::Request;
@@ -35,14 +35,13 @@ use crate::shell::Shell;
 use crate::version::detect_r;
 
 fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
-
     // Create a new kernel from the connection file
     let mut kernel = match Kernel::new(connection_file) {
         Ok(k) => k,
         Err(e) => {
             error!("Failed to create kernel: {}", e);
             return;
-        }
+        },
     };
 
     // Create the channels used for communication. These are created here
@@ -83,7 +82,7 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
     // Create the stream behavior; this determines whether the kernel should
     // capture stdout/stderr and send them to the front end as IOPub messages
     let stream_behavior = match capture_streams {
-        true  => amalthea::kernel::StreamBehavior::Capture,
+        true => amalthea::kernel::StreamBehavior::Capture,
         false => amalthea::kernel::StreamBehavior::None,
     };
 
@@ -96,10 +95,10 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
             if let Err(err) = stdin().read_line(&mut s) {
                 error!("Could not read from stdin: {:?}", err);
             }
-        }
+        },
         Err(err) => {
             error!("Couldn't connect to front end: {:?}", err);
-        }
+        },
     }
 }
 
@@ -141,9 +140,12 @@ fn install_kernel_spec() {
     println!(
         "Successfully installed Ark Jupyter kernelspec.
 
-    R:      {}
+    R ({}.{}.{}): {}
     Kernel: {}
     ",
+        r_version.major,
+        r_version.minor,
+        r_version.patch,
         r_version.r_home,
         dest.to_string_lossy()
     );
@@ -158,19 +160,20 @@ fn parse_file(connection_file: &String, capture_streams: bool) {
             );
             debug!("Connection data: {:?}", connection);
             start_kernel(connection, capture_streams);
-        }
+        },
         Err(error) => {
             error!(
                 "Couldn't read connection file {}: {:?}",
                 connection_file, error
             );
-        }
+        },
     }
 }
 
 fn print_usage() {
     println!("Ark {}, the Amalthea R Kernel.", env!("CARGO_PKG_VERSION"));
-    println!(r#"
+    println!(
+        r#"
 Usage: ark [OPTIONS]
 
 Available options:
@@ -188,7 +191,6 @@ Available options:
 }
 
 fn main() {
-
     #[cfg(target_os = "macos")]
     {
         // Unset DYLD_INSERT_LIBRARIES if it was passed down
@@ -214,25 +216,25 @@ fn main() {
                     connection_file = Some(file);
                     has_action = true;
                 } else {
-                    eprintln!("A connection file must be specified with the --connection_file argument.");
+                    eprintln!(
+                        "A connection file must be specified with the --connection_file argument."
+                    );
                     break;
                 }
-            }
+            },
             "--version" => {
                 println!("Ark {}", env!("CARGO_PKG_VERSION"));
                 has_action = true;
-            }
+            },
             "--install" => {
                 install_kernel_spec();
                 has_action = true;
-            }
+            },
             "--help" => {
                 print_usage();
                 has_action = true;
-            }
-            "--no-capture-streams" => {
-                capture_streams = false
             },
+            "--no-capture-streams" => capture_streams = false,
             "--log" => {
                 if let Some(file) = argv.next() {
                     log_file = Some(file);
@@ -240,17 +242,17 @@ fn main() {
                     eprintln!("A log file must be specified with the --log argument.");
                     break;
                 }
-            }
+            },
             other => {
                 eprintln!("Argument '{}' unknown", other);
                 break;
-            }
+            },
         }
     }
 
     // If the user didn't specify an action, print the usage instructions and
     // exit
-    if !has_action  {
+    if !has_action {
         print_usage();
         return;
     }

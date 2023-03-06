@@ -5,21 +5,20 @@
 //
 //
 
-use std::process::Command;
 use itertools::Itertools;
+use std::process::Command;
 
 use anyhow::Context;
 
-#[allow(dead_code)]
 pub struct RVersion {
     // Major version of the R installation
-    major: u32,
+    pub major: u32,
 
     // Minor version of the R installation
-    minor: u32,
+    pub minor: u32,
 
     // Patch version of the R installation
-    patch: u32,
+    pub patch: u32,
 
     // The full path on disk to the R installation -- that is, the value R_HOME
     // would have inside an R session: > R.home()
@@ -27,7 +26,6 @@ pub struct RVersion {
 }
 
 pub fn detect_r() -> anyhow::Result<RVersion> {
-
     let output = Command::new("R")
         .arg("RHOME")
         .output()
@@ -52,26 +50,16 @@ pub fn detect_r() -> anyhow::Result<RVersion> {
         .trim()
         .to_string();
 
-    let version = version.split(".")
-        .map(|x| {
-            x.parse::<u32>()
-        });
+    let version = version.split(".").map(|x| x.parse::<u32>());
 
     if let Some((Ok(major), Ok(minor), Ok(patch))) = version.collect_tuple() {
-        Ok(RVersion{
+        Ok(RVersion {
             major,
             minor,
             patch,
-            r_home
+            r_home,
         })
     } else {
         anyhow::bail!("Failed to extract R version");
     }
-
-}
-
-#[test]
-fn test_detect_r() {
-    let version = detect_r().unwrap();
-    println!("{}.{}.{}", version.major, version.minor, version.patch);
 }
