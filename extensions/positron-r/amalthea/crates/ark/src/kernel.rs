@@ -17,6 +17,8 @@ use amalthea::wire::execute_result::ExecuteResult;
 use amalthea::wire::input_request::InputRequest;
 use amalthea::wire::input_request::ShellInputRequest;
 use amalthea::wire::jupyter_message::Status;
+use amalthea::wire::stream::Stream;
+use amalthea::wire::stream::StreamOutput;
 use anyhow::*;
 use bus::Bus;
 use crossbeam::channel::Sender;
@@ -41,8 +43,6 @@ pub struct Kernel {
     kernel_init_tx: Bus<KernelInfo>,
     execute_response_tx: Option<Sender<ExecuteResponse>>,
     input_request_tx: Option<Sender<ShellInputRequest>>,
-    output: String,
-    error: String,
     banner: String,
     initializing: bool,
 }
@@ -65,8 +65,6 @@ impl Kernel {
             iopub_tx,
             execution_count: 0,
             console_tx,
-            output: String::new(),
-            error: String::new(),
             banner: String::new(),
             initializing: true,
             kernel_init_tx,
@@ -127,8 +125,6 @@ impl Kernel {
         execute_response_tx: Sender<ExecuteResponse>,
     ) {
         // Clear output and error accumulators from previous execution
-        self.output = String::new();
-        self.error = String::new();
         self.execute_response_tx = Some(execute_response_tx);
 
         // Increment counter if we are storing this execution in history
@@ -189,7 +185,8 @@ impl Kernel {
 
     /// Finishes the active execution request
     pub fn finish_request(&self) {
-        if self.error.is_empty() {
+        // TODO: detect if an error stopped code execution.
+        if true {
             self.emit_output();
         } else {
             self.emit_error();
@@ -226,7 +223,6 @@ impl Kernel {
     }
 
     fn emit_error(&self) {
-        let error = self.error.clone();
         // Send the reply to the front end
         if let Some(sender) = &self.execute_response_tx {
             sender
@@ -235,7 +231,7 @@ impl Kernel {
                     execution_count: self.execution_count,
                     exception: Exception {
                         ename: "CodeExecution".to_string(),
-                        evalue: error,
+                        evalue: "An unknown error!".to_string(),
                         traceback: vec![],
                     },
                 }))
@@ -244,14 +240,11 @@ impl Kernel {
     }
 
     fn emit_output(&self) {
-        let output = self.output.clone();
 
-        // Look up computation result
         let mut data = serde_json::Map::new();
-        data.insert("text/plain".to_string(), json!(output));
-        trace!("Formatting value");
+        data.insert("text/plain".to_string(), json!(""));
 
-        // Handle data.frame specially.
+        // Include HTML representation of data.frame
         let value = unsafe { Rf_findVarInFrame(R_GlobalEnv, r_symbol!(".Last.value")) };
         let is_data_frame = unsafe { r_inherits(value, "data.frame") };
         if is_data_frame {
@@ -264,7 +257,6 @@ impl Kernel {
             };
         }
 
-        trace!("Sending kernel output: {}", self.output);
         if let Err(err) = self.iopub_tx.send(IOPubMessage::ExecuteResult(ExecuteResult {
             execution_count: self.execution_count,
             data: serde_json::Value::Object(data),
@@ -289,25 +281,23 @@ impl Kernel {
     }
 
     /// Called from R when console data is written.
-    ///
-    /// TODO: This accumulates rather than streams the output; we should provide
-    /// output streams so users can observe output as it is generated.
     pub fn write_console(&mut self, content: &str, otype: i32) {
         debug!("Write console {} from R: {}", otype, content);
         if self.initializing {
             // During init, consider all output to be part of the startup banner
             self.banner.push_str(content);
-        } else {
-            // Afterwards (during normal REPL), accumulate output internally
-            // until R is finished executing
-            if otype == 1 {
-                // For now, treat error output as though it's an error.
-                //
-                // TODO: We should install an error handler instead so we can
-                self.error.push_str(content);
-            } else {
-                self.output.push_str(content);
-            }
+            return;
+        }
+
+        // Otherwise, emit output.
+        log::info!("Got R console output: {}", content);
+        let result = self.iopub_tx.send(IOPubMessage::Stream(StreamOutput {
+            stream: if otype == 1 { Stream::Stdout } else { Stream::Stderr },
+            text: content.to_string(),
+        }));
+
+        if let Err(error) = result {
+            log::error!("{}", error);
         }
     }
 
