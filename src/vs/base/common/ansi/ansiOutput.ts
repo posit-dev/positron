@@ -381,9 +381,14 @@ export class ANSIOutput {
 	private _outputLines: ANSIOutputLine[] = [];
 
 	/**
-	 * Gets the current output line.
+	 * Gets the output line.
 	 */
-	private _currentOutputLine = 0;
+	private _outputLine = 0;
+
+	/**
+	 * Gets the output column.
+	 */
+	private _outputColumn = 0;
 
 	/**
 	 * Gets or sets a value which indicates whether there is a pending newline.
@@ -439,9 +444,12 @@ export class ANSIOutput {
 
 			// Parse the character.
 			if (this._parserState === ParserState.BufferingOutput) {
-				// Check for the start of an control sequence.
+				// Check for the start of an control sequence. This can be
+				// \x1b[ or \x9b.
 				if (char === '\x1b') {
 					this._parserState = ParserState.ControlSequenceStarted;
+				} else if (char === '\x9b') {
+					this._parserState = ParserState.ParsingControlSequence;
 				} else {
 					this.processCharacter(char);
 				}
@@ -475,12 +483,14 @@ export class ANSIOutput {
 	private processCharacter(char: string) {
 		if (this._pendingNewline) {
 			this._pendingNewline = false;
-			this._currentOutputLine++;
+			this._outputLine++;
 		}
 
 		// Handle special characters.
-		if (char === '\n') {
-			// Flush the buffer to the current output line.
+		if (char === '\r') {
+			this._outputColumn = 0;
+			this.flushBuffer();
+		} else if (char === '\n') {
 			this.flushBuffer();
 			this._pendingNewline = true;
 		} else {
@@ -494,10 +504,15 @@ export class ANSIOutput {
 	 */
 	private processControlSequence() {
 		// Process SGR control sequence.
-		if (this._controlSequence.endsWith('m')) {
-			this.processSGRControlSequence();
-		} else {
-			console.log(`Ignoring control sequence: CSI${this._controlSequence}`);
+		switch (this._controlSequence.charAt(this._controlSequence.length - 1)) {
+			// SGR.
+			case 'm':
+				this.processSGRControlSequence();
+				break;
+
+			default:
+				console.log(`Ignoring control sequence: CSI${this._controlSequence}`);
+				break;
 		}
 
 		// Clear the control sequence and go back to the buffering output state.
@@ -961,7 +976,7 @@ export class ANSIOutput {
 	 */
 	private flushBuffer() {
 		// Ensure that we have sufficient output lines.
-		for (let i = this._outputLines.length; i < this._currentOutputLine + 1; i++) {
+		for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
 			this._outputLines.push({
 				id: crypto.randomUUID(),
 				outputRuns: []
@@ -974,7 +989,7 @@ export class ANSIOutput {
 		}
 
 		// Append the run to the current output line.
-		this._outputLines[this._currentOutputLine].outputRuns.push(
+		this._outputLines[this._outputLine].outputRuns.push(
 			this._sgrState.createOutputRun(this._buffer)
 		);
 
