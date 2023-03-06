@@ -426,11 +426,6 @@ export class ANSIOutput {
 	private _outputLine = 0;
 
 	/**
-	 * Gets the output column.
-	 */
-	private _outputColumn = 0;
-
-	/**
 	 * Gets or sets a value which indicates whether there is a pending newline.
 	 */
 	private _pendingNewline = false;
@@ -528,7 +523,6 @@ export class ANSIOutput {
 
 		// Handle special characters.
 		if (char === '\r') {
-			this._outputColumn = 0;
 			this.flushBuffer();
 		} else if (char === '\n') {
 			this.flushBuffer();
