@@ -10,4 +10,7 @@
 export interface JupyterCommClose {
 	/** The ID of the comm to tear down (as a GUID) */
 	comm_id: string;  // eslint-disable-line
+
+	/** The message payload */
+	data: object;
 }

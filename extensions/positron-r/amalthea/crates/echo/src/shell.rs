@@ -6,7 +6,7 @@
  */
 
 use amalthea::comm::comm_channel::Comm;
-use amalthea::comm::comm_channel::CommChannel;
+use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::complete_reply::CompleteReply;
@@ -33,6 +33,7 @@ use async_trait::async_trait;
 use crossbeam::channel::Sender;
 use log::warn;
 use serde_json::json;
+use serde_json::Value;
 
 pub struct Shell {
     iopub: Sender<IOPubMessage>,
@@ -88,7 +89,6 @@ impl ShellHandler for Shell {
             metadata: json!({}),
         })
     }
-
 
     /// Handle a request to test code for completion.
     async fn handle_is_complete_request(
@@ -185,10 +185,10 @@ impl ShellHandler for Shell {
         let data = match req.code.as_str() {
             "err" => {
                 json!({"text/plain": "This generates an error!"})
-            }
+            },
             "teapot" => {
                 json!({"text/plain": "This is clearly a teapot."})
-            }
+            },
             _ => serde_json::Value::Null,
         };
         Ok(InspectReply {
@@ -199,7 +199,11 @@ impl ShellHandler for Shell {
         })
     }
 
-    async fn handle_comm_open(&self, _comm: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception> {
+    async fn handle_comm_open(
+        &self,
+        _comm: Comm,
+        _msg_tx: Sender<Value>,
+    ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         // No comms in this toy implementation.
         Ok(None)
     }

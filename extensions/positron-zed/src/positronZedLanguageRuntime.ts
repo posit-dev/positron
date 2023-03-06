@@ -311,8 +311,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Create a new instance of a client.
 	 * @param type The runtime client type.
 	 */
-	createClient(type: positron.RuntimeClientType): string {
-		throw new Error('Method not implemented.');
+	createClient(type: positron.RuntimeClientType): Promise<string> {
+		return Promise.reject('Method not implemented.');
 	}
 
 	/**
