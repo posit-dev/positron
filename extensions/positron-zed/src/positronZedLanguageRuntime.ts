@@ -29,6 +29,7 @@ const HelpLines = [
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
+	'ansi blink  - Displays blinking output',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
@@ -296,6 +297,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'ansi blink': {
+				this.simulateSuccessfulCodeExecution(id, code,
+					`${MakeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.SlowBlink)}  This is blinking text  ${MakeSGR()} Slowly Blinking\n` +
+					`${MakeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.RapidBlink)}  This is blinking text  ${MakeSGR()} Rapidly Blinking\n`
+				);
+				break;
+			}
 			case 'help':
 				this.simulateSuccessfulCodeExecution(id, code, HelpLines);
 				break;
