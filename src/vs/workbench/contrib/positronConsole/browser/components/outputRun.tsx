@@ -56,9 +56,20 @@ export const OutputRun = ({ outputRun }: OutputRunProps) => {
 					cssProperties = { ...cssProperties, ...{ textDecorationLine: 'underline', textDecorationStyle: 'solid' } };
 					break;
 
-				// TODO SlowBlink
-				// TODO RepidBlink
-				// TODO Hidden
+				// Slow blink.
+				case ANSIStyle.SlowBlink:
+					cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 1s linear infinite' } };
+					break;
+
+				// Rapid blink.
+				case ANSIStyle.RapidBlink:
+					cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 0.5s linear infinite' } };
+					break;
+
+				// Hidden.
+				case ANSIStyle.Hidden:
+					cssProperties = { ...cssProperties, ...{ visibility: 'hidden' } };
+					break;
 
 				// CrossedOut.
 				case ANSIStyle.CrossedOut:

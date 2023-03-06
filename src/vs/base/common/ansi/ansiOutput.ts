@@ -204,7 +204,7 @@ class SGRState {
 		return {
 			id: crypto.randomUUID(),
 			styles: [...this._styles],
-			foregroundColor: this._foregroundColor,
+			foregroundColor: this.automaticallyContrastingForegroundColorForBackgroundColor(),
 			backgroundColor: this._backgroundColor,
 			underlinedColor: this._underlinedColor,
 			font: this._font,
@@ -346,6 +346,46 @@ class SGRState {
 		this._backgroundColor = foregroundColor;
 	}
 
+	/**
+	 * Returns a contrasting foreground color when a background color is set
+	 * and a foreground color is not set. At the moment, this only affects the
+	 * the standard background colors, with the presumption being that when the
+	 * 256-color or RGB color options are used, a foreground color is probably
+	 * explicitly set.
+	 * @returns The foreground color to use.
+	 */
+	private automaticallyContrastingForegroundColorForBackgroundColor(): ANSIColor | string | undefined {
+		// When a background color is set and a foreground color is not set,
+		// and the background color is one of the standard colors, return a
+		// contrasting foreground color.
+		if (this._backgroundColor && !this._foregroundColor) {
+			switch (this._backgroundColor) {
+				case ANSIColor.Black:
+				case ANSIColor.BrightBlack:
+				case ANSIColor.Red:
+				case ANSIColor.BrightRed:
+					return ANSIColor.White;
+
+				case ANSIColor.Green:
+				case ANSIColor.BrightGreen:
+				case ANSIColor.Yellow:
+				case ANSIColor.BrightYellow:
+				case ANSIColor.Blue:
+				case ANSIColor.BrightBlue:
+				case ANSIColor.Magenta:
+				case ANSIColor.BrightMagenta:
+				case ANSIColor.Cyan:
+				case ANSIColor.BrightCyan:
+				case ANSIColor.White:
+				case ANSIColor.BrightWhite:
+					return ANSIColor.Black;
+			}
+		}
+
+		// Do nothing.
+		return this._foregroundColor;
+	}
+
 	//#endregion Private Methods
 }
 
@@ -381,9 +421,9 @@ export class ANSIOutput {
 	private _outputLines: ANSIOutputLine[] = [];
 
 	/**
-	 * Gets the current output line.
+	 * Gets the output line.
 	 */
-	private _currentOutputLine = 0;
+	private _outputLine = 0;
 
 	/**
 	 * Gets or sets a value which indicates whether there is a pending newline.
@@ -439,9 +479,12 @@ export class ANSIOutput {
 
 			// Parse the character.
 			if (this._parserState === ParserState.BufferingOutput) {
-				// Check for the start of an control sequence.
+				// Check for the start of an control sequence. This can be
+				// \x1b[ or \x9b.
 				if (char === '\x1b') {
 					this._parserState = ParserState.ControlSequenceStarted;
+				} else if (char === '\x9b') {
+					this._parserState = ParserState.ParsingControlSequence;
 				} else {
 					this.processCharacter(char);
 				}
@@ -475,12 +518,13 @@ export class ANSIOutput {
 	private processCharacter(char: string) {
 		if (this._pendingNewline) {
 			this._pendingNewline = false;
-			this._currentOutputLine++;
+			this._outputLine++;
 		}
 
 		// Handle special characters.
-		if (char === '\n') {
-			// Flush the buffer to the current output line.
+		if (char === '\r') {
+			this.flushBuffer();
+		} else if (char === '\n') {
 			this.flushBuffer();
 			this._pendingNewline = true;
 		} else {
@@ -494,10 +538,15 @@ export class ANSIOutput {
 	 */
 	private processControlSequence() {
 		// Process SGR control sequence.
-		if (this._controlSequence.endsWith('m')) {
-			this.processSGRControlSequence();
-		} else {
-			console.log(`Ignoring control sequence: CSI${this._controlSequence}`);
+		switch (this._controlSequence.charAt(this._controlSequence.length - 1)) {
+			// SGR.
+			case 'm':
+				this.processSGRControlSequence();
+				break;
+
+			default:
+				console.log(`Ignoring control sequence: CSI${this._controlSequence}`);
+				break;
 		}
 
 		// Clear the control sequence and go back to the buffering output state.
@@ -878,6 +927,10 @@ export class ANSIOutput {
 					break;
 				}
 
+				case SGRParam.DefaultBackground:
+					sgrState.setBackgroundColor();
+					break;
+
 				case SGRParam.ForegroundBrightBlack:
 					sgrState.setForegroundColor(ANSIColor.BrightBlack);
 					break;
@@ -961,7 +1014,7 @@ export class ANSIOutput {
 	 */
 	private flushBuffer() {
 		// Ensure that we have sufficient output lines.
-		for (let i = this._outputLines.length; i < this._currentOutputLine + 1; i++) {
+		for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
 			this._outputLines.push({
 				id: crypto.randomUUID(),
 				outputRuns: []
@@ -974,7 +1027,7 @@ export class ANSIOutput {
 		}
 
 		// Append the run to the current output line.
-		this._outputLines[this._currentOutputLine].outputRuns.push(
+		this._outputLines[this._outputLine].outputRuns.push(
 			this._sgrState.createOutputRun(this._buffer)
 		);
 
