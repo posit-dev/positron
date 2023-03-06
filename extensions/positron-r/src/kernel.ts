@@ -115,12 +115,12 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			'display_name': `R: ${rHome.rHome}`, // eslint-disable-line
 			'language': 'R',
 			'env': {
-				'R_CLI_NUM_COLORS': '256',
 				'RUST_LOG': 'trace', // eslint-disable-line
 				'R_HOME': rHome.rHome, // eslint-disable-line
 				'DYLD_INSERT_LIBRARIES': `${rHome.rHome}/lib/libR.dylib`, // eslint-disable-line
 				'DYLD_FALLBACK_LIBRARY_PATH': `${rHome.rHome}/lib:${dyldFallbackLibraryPath}`, // eslint-disable-line
-				'RUST_BACKTRACE': '1' // eslint-disable-line
+				'RUST_BACKTRACE': '1', // eslint-disable-line
+				'R_CLI_NUM_COLORS': '256' // eslint-disable-line
 			}
 		};
 
