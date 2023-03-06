@@ -549,5 +549,21 @@ mod tests {
 
     }}
 
+    #[test]
+    fn test_dirty_image() { r_test! {
+        libR_sys::R_DirtyImage = 2;
+        let sym = r_symbol!("aaa");
+        Rf_defineVar(sym, Rf_ScalarInteger(42), R_GlobalEnv);
+        assert_eq!(libR_sys::R_DirtyImage, 1);
+
+        libR_sys::R_DirtyImage = 2;
+        Rf_setVar(sym, Rf_ScalarInteger(43), R_GlobalEnv);
+        assert_eq!(libR_sys::R_DirtyImage, 1);
+
+        libR_sys::R_DirtyImage = 2;
+        R_removeVarFromFrame(sym, R_GlobalEnv);
+        assert_eq!(libR_sys::R_DirtyImage, 1);
+    }}
+
 }
 
