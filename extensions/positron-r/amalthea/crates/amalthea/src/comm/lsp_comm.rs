@@ -50,7 +50,12 @@ impl LspComm {
         Ok(())
     }
 
-    pub fn msg_rx(&self) -> Sender<CommChannelMsg> {
+    /**
+     * Returns a Sender that can accept comm channel messages (required as part of the
+     * `CommChannel` contract). Because the LSP communicates over its own TCP connection, it does
+     * not process messages from the comm, and they are discarded here.
+     */
+    pub fn msg_sender(&self) -> Sender<CommChannelMsg> {
         let (msg_tx, _msg_rx) = crossbeam::channel::unbounded();
         msg_tx
     }

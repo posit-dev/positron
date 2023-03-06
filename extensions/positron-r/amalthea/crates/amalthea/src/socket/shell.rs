@@ -451,7 +451,7 @@ impl Shell {
                     // the LSP server in a separate thread
                     let lsp_comm = LspComm::new(handler, comm_socket.comm_msg_tx.clone());
                     lsp_comm.start(&start_lsp)?;
-                    lsp_comm.msg_rx()
+                    lsp_comm.msg_sender()
                 } else {
                     // If we don't have an LSP handler, return an error
                     warn!(
