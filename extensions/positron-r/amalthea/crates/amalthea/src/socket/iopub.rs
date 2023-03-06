@@ -9,6 +9,7 @@ use crate::error::Error;
 use crate::events::PositronEvent;
 use crate::socket::socket::Socket;
 use crate::wire::client_event::ClientEvent;
+use crate::wire::comm_msg::CommMsg;
 use crate::wire::execute_error::ExecuteError;
 use crate::wire::execute_input::ExecuteInput;
 use crate::wire::execute_result::ExecuteResult;
@@ -42,7 +43,8 @@ pub enum IOPubMessage {
     ExecuteError(ExecuteError),
     ExecuteInput(ExecuteInput),
     Stream(StreamOutput),
-    Event(PositronEvent)
+    Event(PositronEvent),
+    CommMsg(CommMsg)
 }
 
 impl IOPub {
@@ -97,6 +99,7 @@ impl IOPub {
             IOPubMessage::ExecuteError(msg) => self.send_message(msg),
             IOPubMessage::ExecuteInput(msg) => self.send_message(msg),
             IOPubMessage::Stream(msg) => self.send_message(msg),
+            IOPubMessage::CommMsg(msg) => self.send_message(msg),
             IOPubMessage::Event(msg) => self.send_event(msg),
         }
     }

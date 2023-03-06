@@ -19,7 +19,7 @@ export class JupyterSocket implements vscode.Disposable {
 	 * @param _channel The output channel to use for debugging
 	 */
 	constructor(title: string, socket: zmq.Socket,
-		private readonly _channel: vscode.OutputChannel) {
+		private readonly _logger: (msg: string) => void) {
 		this._socket = socket;
 		this._title = title;
 
@@ -48,7 +48,7 @@ export class JupyterSocket implements vscode.Disposable {
 		const maxTries = 10;
 		this._port = port;
 		this._addr = 'tcp://127.0.0.1:' + port.toString();
-		this._channel.appendLine(`${this._title} socket connecting to ${this._addr}...`);
+		this._logger(`${this._title} socket connecting to ${this._addr}...`);
 
 		// Monitor the socket for events; this is necessary to get events like
 		// `connect` to fire (otherwise we just get `message` events from the
@@ -68,14 +68,14 @@ export class JupyterSocket implements vscode.Disposable {
 		// Resolve the promise when the socket connects
 		return new Promise<void>((resolve, reject) => {
 			this._socket.on('connect', (_evt, addr) => {
-				this._channel.appendLine(`${this._title} socket connected to ${addr}`);
+				this._logger(`${this._title} socket connected to ${addr}`);
 				resolve();
 			});
 
 			// If the socket fails to connect, reject the promise
 			this._socket.on('connect_delay', (_evt, addr) => {
 				if (triesLeft-- === 0) {
-					this._channel.appendLine(`${this._title} socket failed to connect to ${addr} after ${maxTries} attempts`);
+					this._logger(`${this._title} socket failed to connect to ${addr} after ${maxTries} attempts`);
 					reject();
 				}
 			});
