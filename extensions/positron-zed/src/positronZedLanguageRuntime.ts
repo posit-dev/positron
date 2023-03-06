@@ -11,8 +11,9 @@ import * as ansi from 'ansi-escape-sequences';
 /**
  * Constants.
  */
-export const ESC = '\x1b';
-export const CSI = ESC + '[';
+const ESC = '\x1b';
+const CSI = ESC + '[';
+//const CSI = '\x9B';
 
 const TEN_SPACES = '          ';
 const TEN_BLOCKS = '\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588';
