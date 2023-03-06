@@ -24,6 +24,9 @@ import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { JupyterHistoryReply } from './JupyterHistoryReply';
 import { JupyterHistoryRequest } from './JupyterHistoryRequest';
+import { findAvailablePort } from './PortFinder';
+import { JupyterCommMsg } from './JupyterCommMsg';
+import { JupyterCommClose } from './JupyterCommClose';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -75,7 +78,7 @@ export class LanguageRuntimeAdapter
 		// Extract the first 32 characters of the hash as the runtime ID
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
-		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel, this._lsp);
+		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel);
 
 		// Generate kernel metadata and ID
 		this.metadata = {
@@ -121,7 +124,7 @@ export class LanguageRuntimeAdapter
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior): void {
 
-		this._channel.appendLine(`Sending code to ${this.metadata.languageName}: ${code}`);
+		this._kernel.log(`Sending code to ${this.metadata.languageName}: ${code}`);
 
 		// Forward execution request to the kernel
 		this._kernel.execute(code, id, mode, errorBehavior);
@@ -155,7 +158,7 @@ export class LanguageRuntimeAdapter
 	 * @param reply The user's response
 	 */
 	public replyToPrompt(id: string, reply: string): void {
-		this._channel.appendLine(`Sending reply to prompt ${id}: ${reply}`);
+		this._kernel.log(`Sending reply to prompt ${id}: ${reply}`);
 		this._kernel.replyToPrompt(id, reply);
 	}
 
@@ -174,7 +177,7 @@ export class LanguageRuntimeAdapter
 			throw new Error('Cannot interrupt kernel; it has already exited.');
 		}
 
-		this._channel.appendLine(`Interrupting ${this.metadata.languageName}`);
+		this._kernel.log(`Interrupting ${this.metadata.languageName}`);
 
 		// We are interrupting the kernel, so it's possible that message IDs
 		// that are currently being processed will never be completed. Clear the
@@ -248,24 +251,30 @@ export class LanguageRuntimeAdapter
 	 * Creates a new client instance.
 	 *
 	 * @param type The type of client to create
+	 * @param params The parameters for the client; the format of this object is
+	 *   specific to the client type
 	 * @returns A new client instance, or empty string if the type is not supported
 	 */
-	public createClient(type: positron.RuntimeClientType): string {
-		if (type === positron.RuntimeClientType.Environment) {
+	public async createClient(type: positron.RuntimeClientType, params: object): Promise<string> {
+		if (type === positron.RuntimeClientType.Environment ||
+			type === positron.RuntimeClientType.Lsp) {
 			// Currently the only supported client type
-			this._channel.appendLine(`Creating ${type} client for ${this.metadata.languageName}`);
+			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
 			// Create a new client adapter to wrap the comm channel
-			const adapter = new RuntimeClientAdapter(type, this._kernel);
+			const adapter = new RuntimeClientAdapter(type, params, this._kernel);
 
 			// Ensure we clean up the client from our internal state when it disconnects
 			adapter.onDidChangeClientState((e) => {
 				if (e === positron.RuntimeClientState.Closed) {
 					if (!this._comms.delete(adapter.getId())) {
-						this._channel.appendLine(`Warn: Runtime client adapater ${adapter.getId()} (${adapter.getClientType()}) not found`);
+						this._kernel.log(`Warn: Runtime client adapater ${adapter.getId()} (${adapter.getClientType()}) not found`);
 					}
 				}
 			});
+
+			// Open the client (this will send the comm_open message; wait for it to complete)
+			await adapter.open();
 
 			// Add the client to the map
 			this._comms.set(adapter.getId(), adapter);
@@ -273,7 +282,7 @@ export class LanguageRuntimeAdapter
 			// Return the ID of the new client
 			return adapter.getId();
 		} else {
-			this._channel.appendLine(`Info: can't create ${type} client for ${this.metadata.languageName} (not supported)`);
+			this._kernel.log(`Info: can't create ${type} client for ${this.metadata.languageName} (not supported)`);
 		}
 		return '';
 	}
@@ -286,10 +295,10 @@ export class LanguageRuntimeAdapter
 	removeClient(id: string): void {
 		const comm = this._comms.get(id);
 		if (comm) {
-			this._channel.appendLine(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.languageName}`);
+			this._kernel.log(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.languageName}`);
 			comm.dispose();
 		} else {
-			this._channel.appendLine(`Error: can't remove client ${id} (not found)`);
+			this._kernel.log(`Error: can't remove client ${id} (not found)`);
 		}
 	}
 
@@ -386,6 +395,10 @@ export class LanguageRuntimeAdapter
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
+			case 'comm_msg':
+				this.onCommMessage(msg, message as JupyterCommMsg);
+			case 'comm_close':
+				this.onCommClose(msg, message as JupyterCommClose);
 		}
 	}
 
@@ -407,6 +420,37 @@ export class LanguageRuntimeAdapter
 		} as positron.LanguageRuntimePrompt);
 	}
 
+	/**
+	 * Delivers a comm_msg message from the kernel to the appropriate client instance.
+	 *
+	 * @param message The outer message packet
+	 * @param msg The inner comm_msg message
+	 */
+	private onCommMessage(message: JupyterMessagePacket, msg: JupyterCommMsg): void {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			when: message.when,
+			type: positron.LanguageRuntimeMessageType.CommData,
+			data: msg.data,
+		} as positron.LanguageRuntimeCommMessage);
+	}
+
+	/**
+	 * Notifies the client that a comm has been closed from the kernel side.
+	 *
+	 * @param message The outer message packet
+	 * @param close The inner comm_msg message
+	 */
+	private onCommClose(message: JupyterMessagePacket, msg: JupyterCommMsg): void {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			when: message.when,
+			type: positron.LanguageRuntimeMessageType.CommClosed,
+			data: msg.data,
+		} as positron.LanguageRuntimeCommClosed);
+	}
 	/**
 	 * Converts a Positron event into a language runtime event and emits it.
 	 *
@@ -580,9 +624,40 @@ export class LanguageRuntimeAdapter
 	 * @param status The new status of the kernel
 	 */
 	onStatus(status: positron.RuntimeState) {
-		this._channel.appendLine(`Kernel status changed to ${status}`);
+		this._kernel.log(`${this._spec.language} kernel status changed to ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
+
+		// When the kernel becomes ready, start the LSP server if it's configured
+		if (status === positron.RuntimeState.Ready && this._lsp) {
+			findAvailablePort([], 25).then(port => {
+				this._kernel.log(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
+				this.startLsp(`127.0.0.1:${port}`);
+				this._lsp!(port).then(() => {
+					this._kernel.log(`${this._spec.display_name} LSP server connected`);
+				});
+			});
+		}
+	}
+
+	/**
+	 * Requests that the kernel start a Language Server Protocol server, and
+	 * connect it to the client with the given TCP address.
+	 *
+	 * Note: This is only useful if the kernel hasn't already started an LSP
+	 * server.
+	 *
+	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
+	 */
+	public startLsp(clientAddress: string) {
+		// TODO: Should we query the kernel to see if it can create an LSP
+		// (QueryInterface style) instead of just demanding it?
+		//
+		// The Jupyter kernel spec does not provide a way to query for
+		// supported comms; the only way to know is to try to create one.
+
+		this._kernel.log(`Starting LSP server for ${clientAddress}`);
+		this.createClient(positron.RuntimeClientType.Lsp, { client_address: clientAddress });
 	}
 
 	/**

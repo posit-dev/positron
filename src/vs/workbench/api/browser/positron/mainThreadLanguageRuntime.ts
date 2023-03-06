@@ -9,10 +9,11 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { ILogService } from 'vs/platform/log/common/log';
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
@@ -33,6 +34,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	constructor(readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
+		private readonly _logService: ILogService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
 		// Bind events to emitters
@@ -84,6 +86,30 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._stateEmitter.fire(state);
 	}
 
+	/**
+	 * Relays a message from the server side of a comm to the client side.
+	 */
+	emitDidReceiveClientMessage(message: ILanguageRuntimeMessageCommData): void {
+		const client = this._clients.get(message.comm_id);
+		if (client) {
+			client.emitMessage(message);
+		} else {
+			this._logService.warn(`Client instance '${message.comm_id}' not found; dropping message: ${JSON.stringify(message)}`);
+		}
+	}
+
+	/**
+	 * Updates the state of a client from the server side of a comm.
+	 */
+	emitClientState(id: string, state: RuntimeClientState): void {
+		const client = this._clients.get(id);
+		if (client) {
+			client.setClientState(state);
+		} else {
+			this._logService.warn(`Client instance '${id}' not found; dropping state change: ${state}`);
+		}
+	}
+
 	/** Gets the current state of the notebook runtime */
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
@@ -98,9 +124,9 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/** Create a new client inside the runtime */
-	createClient(type: RuntimeClientType): Thenable<IRuntimeClientInstance> {
+	createClient(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance> {
 		return new Promise((resolve, reject) => {
-			this._proxy.$createClient(this.handle, type).then((clientId) => {
+			this._proxy.$createClient(this.handle, type, params).then((clientId) => {
 				const client = new ExtHostRuntimeClientInstance(clientId, type, this.handle, this._proxy);
 				this._clients.set(clientId, client);
 				resolve(client);
@@ -155,6 +181,8 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 
 	private readonly _stateEmitter = new Emitter<RuntimeClientState>();
 
+	private readonly _messageEmitter = new Emitter<ILanguageRuntimeMessage>();
+
 	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
 
 	constructor(
@@ -166,6 +194,9 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 
 		this.onDidChangeClientState = this._stateEmitter.event;
 		this._register(this._stateEmitter);
+
+		this.onDidReceiveMessage = this._messageEmitter.event;
+		this._register(this._messageEmitter);
 
 		this._stateEmitter.event((state) => {
 			this._state = state;
@@ -181,7 +212,27 @@ class ExtHostRuntimeClientInstance extends Disposable implements IRuntimeClientI
 		this._proxy.$sendClientMessage(this._handle, this._id, message);
 	}
 
+	/**
+	 * Emits a message (of any type) to the client side of the comm.
+	 *
+	 * @param message The message to emit to the client
+	 */
+	emitMessage(message: ILanguageRuntimeMessage): void {
+		this._messageEmitter.fire(message);
+	}
+
+	/**
+	 * Sets the state of the client by firing an event bearing the new state.
+	 *
+	 * @param state The new state of the client
+	 */
+	setClientState(state: RuntimeClientState): void {
+		this._stateEmitter.fire(state);
+	}
+
 	onDidChangeClientState: Event<RuntimeClientState>;
+
+	onDidReceiveMessage: Event<ILanguageRuntimeMessage>;
 
 	getClientState(): RuntimeClientState {
 		return this._state;
@@ -214,7 +265,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
+		@ILogService private readonly _logService: ILogService
 	) {
 		// TODO@softwarenerd - I needed to find a central place where I could
 		// ensure that the PositronConsoleService was alive early. For now,
@@ -223,12 +275,12 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 	}
 
-	$emitRuntimeClientMessage(handle: number, id: string, message: ILanguageRuntimeMessage): void {
-		throw new Error('Method not implemented.');
+	$emitRuntimeClientMessage(handle: number, message: ILanguageRuntimeMessageCommData): void {
+		this.findRuntime(handle).emitDidReceiveClientMessage(message);
 	}
 
-	$emitRuntimeClientState(handle: number, id: string, state: RuntimeClientState): void {
-		throw new Error('Method not implemented.');
+	$emitRuntimeClientClosed(handle: number, message: ILanguageRuntimeMessageCommClosed): void {
+		this.findRuntime(handle).emitClientState(message.comm_id, RuntimeClientState.Closed);
 	}
 
 	$emitLanguageRuntimeMessageOutput(handle: number, message: ILanguageRuntimeMessageOutput): void {
@@ -261,7 +313,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
-		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, this._proxy);
+		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, this._logService, this._proxy);
 		this._runtimes.set(handle, adapter);
 
 		// Consider - do we need a flag (on the API side) to indicate whether

@@ -57,6 +57,27 @@ export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 	password: boolean;
 }
 
+/** ILanguageRuntimeMessageCommData is a LanguageRuntimeMessage representing data received from a comm */
+export interface ILanguageRuntimeMessageCommData extends ILanguageRuntimeMessage {
+	/** The comm ID */
+	comm_id: string;
+
+	/** The data received from the comm */
+	data: object;
+}
+
+/**
+ * ILanguageRuntimeMessageCommClosed is a LanguageRuntimeMessage indicating the
+ * closure of a comm from the server side
+ */
+export interface ILanguageRuntimeMessageCommClosed extends ILanguageRuntimeMessage {
+	/** The comm ID */
+	comm_id: string;
+
+	/** The shutdown data received from the comm, if any */
+	data: object;
+}
+
 /**
  * The set of possible statuses for a language runtime
  */
@@ -176,6 +197,12 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a runtime event */
 	Event = 'event',
+
+	/** A message representing data received via a comm */
+	CommData = 'comm_data',
+
+	/** A message indicating that a comm (client instance) was closed from the server side */
+	CommClosed = 'comm_closed',
 }
 
 export enum LanguageRuntimeStartupBehavior {
@@ -300,6 +327,7 @@ export enum RuntimeClientType {
  */
 export interface IRuntimeClientInstance extends Disposable {
 	onDidChangeClientState: Event<RuntimeClientState>;
+	onDidReceiveMessage: Event<ILanguageRuntimeMessage>;
 	getClientState(): RuntimeClientState;
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
@@ -339,7 +367,7 @@ export interface ILanguageRuntime {
 	 * Create a new instance of a client; return null if the client type
 	 * is not supported by this runtime.
 	 */
-	createClient(type: RuntimeClientType): Thenable<IRuntimeClientInstance>;
+	createClient(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance>;
 
 	/** Get a list of all known clients */
 	listClients(): Thenable<Array<IRuntimeClientInstance>>;

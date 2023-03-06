@@ -1358,132 +1358,148 @@ export const MODAL_DIALOG_CHECKBOX_BORDER = registerColor('modalDialog.checkboxB
 
 // < --- Positron Console --- >
 
+// Positron Console background color.
+export const POSITRON_CONSOLE_BACKGROUND_COLOR = registerColor('positronConsole.background', {
+	dark: 'terminal.background',
+	light: 'terminal.background',
+	hcDark: 'terminal.background',
+	hcLight: 'terminal.background'
+}, localize('positronConsole.background', "Positron Console background color."));
+
+// Positron Console foreground color.
+export const POSITRON_CONSOLE_FOREGROUND_COLOR = registerColor('positronConsole.foreground', {
+	dark: 'terminal.foreground',
+	light: 'terminal.foreground',
+	hcDark: 'terminal.foreground',
+	hcLight: 'terminal.foreground'
+}, localize('positronConsole.foreground', "Positron Console foreground."));
+
 // Positron Console ANSI black color.
-export const CONSOLE_ANSI_BLACK = registerColor('positronConsole.ansiBlack', {
+export const POSITRON_CONSOLE_ANSI_BLACK = registerColor('positronConsole.ansiBlack', {
 	dark: 'terminal.ansiBlack',
 	light: 'terminal.ansiBlack',
 	hcDark: 'terminal.ansiBlack',
 	hcLight: 'terminal.ansiBlack'
-}, localize('positronConsole.ansiBlack', "Positron Console ANSI black."));
+}, localize('positronConsole.ansiBlack', "Positron Console ANSI black color."));
 
 // Positron Console ANSI red color.
-export const CONSOLE_ANSI_RED = registerColor('positronConsole.ansiRed', {
+export const POSITRON_CONSOLE_ANSI_RED = registerColor('positronConsole.ansiRed', {
 	dark: 'terminal.ansiRed',
 	light: 'terminal.ansiRed',
 	hcDark: 'terminal.ansiRed',
 	hcLight: 'terminal.ansiRed'
-}, localize('positronConsole.ansiRed', "Positron Console ANSI red."));
+}, localize('positronConsole.ansiRed', "Positron Console ANSI red color."));
 
 // Positron Console ANSI green color.
-export const CONSOLE_ANSI_GREEN = registerColor('positronConsole.ansiGreen', {
+export const POSITRON_CONSOLE_ANSI_GREEN = registerColor('positronConsole.ansiGreen', {
 	dark: 'terminal.ansiGreen',
 	light: 'terminal.ansiGreen',
 	hcDark: 'terminal.ansiGreen',
 	hcLight: 'terminal.ansiGreen'
-}, localize('positronConsole.ansiGreen', "Positron Console ANSI green."));
+}, localize('positronConsole.ansiGreen', "Positron Console ANSI green color."));
 
 // Positron Console ANSI yellow color.
-export const CONSOLE_ANSI_YELLOW = registerColor('positronConsole.ansiYellow', {
+export const POSITRON_CONSOLE_ANSI_YELLOW = registerColor('positronConsole.ansiYellow', {
 	dark: 'terminal.ansiYellow',
 	light: 'terminal.ansiYellow',
 	hcDark: 'terminal.ansiYellow',
 	hcLight: 'terminal.ansiYellow'
-}, localize('positronConsole.ansiYellow', "Positron Console ANSI yellow."));
+}, localize('positronConsole.ansiYellow', "Positron Console ANSI yellow color."));
 
 // Positron Console ANSI blue color.
-export const CONSOLE_ANSI_BLUE = registerColor('positronConsole.ansiBlue', {
+export const POSITRON_CONSOLE_ANSI_BLUE = registerColor('positronConsole.ansiBlue', {
 	dark: 'terminal.ansiBlue',
 	light: 'terminal.ansiBlue',
 	hcDark: 'terminal.ansiBlue',
 	hcLight: 'terminal.ansiBlue'
-}, localize('positronConsole.ansiBlue', "Positron Console ANSI blue."));
+}, localize('positronConsole.ansiBlue', "Positron Console ANSI blue color."));
 
 // Positron Console ANSI magenta color.
-export const CONSOLE_ANSI_MAGENTA = registerColor('positronConsole.ansiMagenta', {
+export const POSITRON_CONSOLE_ANSI_MAGENTA = registerColor('positronConsole.ansiMagenta', {
 	dark: 'terminal.ansiMagenta',
 	light: 'terminal.ansiMagenta',
 	hcDark: 'terminal.ansiMagenta',
 	hcLight: 'terminal.ansiMagenta'
-}, localize('positronConsole.ansiMagenta', "Positron Console ANSI magenta."));
+}, localize('positronConsole.ansiMagenta', "Positron Console ANSI magenta color."));
 
 // Positron Console ANSI cyan color.
-export const CONSOLE_ANSI_CYAN = registerColor('positronConsole.ansiCyan', {
+export const POSITRON_CONSOLE_ANSI_CYAN = registerColor('positronConsole.ansiCyan', {
 	dark: 'terminal.ansiCyan',
 	light: 'terminal.ansiCyan',
 	hcDark: 'terminal.ansiCyan',
 	hcLight: 'terminal.ansiCyan'
-}, localize('positronConsole.ansiCyan', "Positron Console ANSI cyan."));
+}, localize('positronConsole.ansiCyan', "Positron Console ANSI cyan color."));
 
 // Positron Console ANSI white color.
-export const CONSOLE_ANSI_WHITE = registerColor('positronConsole.ansiWhite', {
+export const POSITRON_CONSOLE_ANSI_WHITE = registerColor('positronConsole.ansiWhite', {
 	dark: 'terminal.ansiWhite',
 	light: 'terminal.ansiWhite',
 	hcDark: 'terminal.ansiWhite',
 	hcLight: 'terminal.ansiWhite'
-}, localize('positronConsole.ansiWhite', "Positron Console ANSI white."));
+}, localize('positronConsole.ansiWhite', "Positron Console ANSI white color."));
 
 // Positron Console ANSI bright black color.
-export const CONSOLE_ANSI_BRIGHT_BLACK = registerColor('positronConsole.ansiBrightBlack', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_BLACK = registerColor('positronConsole.ansiBrightBlack', {
 	dark: 'terminal.ansiBrightBlack',
 	light: 'terminal.ansiBrightBlack',
 	hcDark: 'terminal.ansiBrightBlack',
 	hcLight: 'terminal.ansiBrightBlack'
-}, localize('positronConsole.ansiBrightBlack', "Positron Console ANSI bright black."));
+}, localize('positronConsole.ansiBrightBlack', "Positron Console ANSI bright black color."));
 
 // Positron Console ANSI bright red color.
-export const CONSOLE_ANSI_BRIGHT_RED = registerColor('positronConsole.ansiBrightRed', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_RED = registerColor('positronConsole.ansiBrightRed', {
 	dark: 'terminal.ansiBrightRed',
 	light: 'terminal.ansiBrightRed',
 	hcDark: 'terminal.ansiBrightRed',
 	hcLight: 'terminal.ansiBrightRed'
-}, localize('positronConsole.ansiBrightRed', "Positron Console ANSI bright red."));
+}, localize('positronConsole.ansiBrightRed', "Positron Console ANSI bright red color."));
 
 // Positron Console ANSI bright green color.
-export const CONSOLE_ANSI_BRIGHT_GREEN = registerColor('positronConsole.ansiBrightGreen', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_GREEN = registerColor('positronConsole.ansiBrightGreen', {
 	dark: 'terminal.ansiBrightGreen',
 	light: 'terminal.ansiBrightGreen',
 	hcDark: 'terminal.ansiBrightGreen',
 	hcLight: 'terminal.ansiBrightGreen'
-}, localize('positronConsole.ansiBrightGreen', "Positron Console ANSI bright green."));
+}, localize('positronConsole.ansiBrightGreen', "Positron Console ANSI bright green color."));
 
 // Positron Console ANSI bright yellow color.
-export const CONSOLE_ANSI_BRIGHT_YELLOW = registerColor('positronConsole.ansiBrightYellow', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_YELLOW = registerColor('positronConsole.ansiBrightYellow', {
 	dark: 'terminal.ansiBrightYellow',
 	light: 'terminal.ansiBrightYellow',
 	hcDark: 'terminal.ansiBrightYellow',
 	hcLight: 'terminal.ansiBrightYellow'
-}, localize('positronConsole.ansiBrightYellow', "Positron Console ANSI bright yellow."));
+}, localize('positronConsole.ansiBrightYellow', "Positron Console ANSI bright yellow color."));
 
 // Positron Console ANSI bright blue color.
-export const CONSOLE_ANSI_BRIGHT_BLUE = registerColor('positronConsole.ansiBrightBlue', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_BLUE = registerColor('positronConsole.ansiBrightBlue', {
 	dark: 'terminal.ansiBrightBlue',
 	light: 'terminal.ansiBrightBlue',
 	hcDark: 'terminal.ansiBrightBlue',
 	hcLight: 'terminal.ansiBrightBlue'
-}, localize('positronConsole.ansiBrightBlue', "Positron Console ANSI bright blue."));
+}, localize('positronConsole.ansiBrightBlue', "Positron Console ANSI bright blue color."));
 
 // Positron Console ANSI bright magenta color.
-export const CONSOLE_ANSI_BRIGHT_MAGENTA = registerColor('positronConsole.ansiBrightMagenta', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_MAGENTA = registerColor('positronConsole.ansiBrightMagenta', {
 	dark: 'terminal.ansiBrightMagenta',
 	light: 'terminal.ansiBrightMagenta',
 	hcDark: 'terminal.ansiBrightMagenta',
 	hcLight: 'terminal.ansiBrightMagenta'
-}, localize('positronConsole.ansiBrightMagenta', "Positron Console ANSI bright magenta."));
+}, localize('positronConsole.ansiBrightMagenta', "Positron Console ANSI bright magenta color."));
 
 // Positron Console ANSI bright cyan color.
-export const CONSOLE_ANSI_BRIGHT_CYAN = registerColor('positronConsole.ansiBrightCyan', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_CYAN = registerColor('positronConsole.ansiBrightCyan', {
 	dark: 'terminal.ansiBrightCyan',
 	light: 'terminal.ansiBrightCyan',
 	hcDark: 'terminal.ansiBrightCyan',
 	hcLight: 'terminal.ansiBrightCyan'
-}, localize('positronConsole.ansiBrightCyan', "Positron Console ANSI bright cyan."));
+}, localize('positronConsole.ansiBrightCyan', "Positron Console ANSI bright cyan color."));
 
 // Positron Console ANSI bright white color.
-export const CONSOLE_ANSI_BRIGHT_WHITE = registerColor('positronConsole.ansiBrightWhite', {
+export const POSITRON_CONSOLE_ANSI_BRIGHT_WHITE = registerColor('positronConsole.ansiBrightWhite', {
 	dark: 'terminal.ansiBrightWhite',
 	light: 'terminal.ansiBrightWhite',
 	hcDark: 'terminal.ansiBrightWhite',
 	hcLight: 'terminal.ansiBrightWhite'
-}, localize('positronConsole.ansiBrightWhite', "Positron Console ANSI bright white."));
+}, localize('positronConsole.ansiBrightWhite', "Positron Console ANSI bright white color."));
 
 // --- End Positron ---

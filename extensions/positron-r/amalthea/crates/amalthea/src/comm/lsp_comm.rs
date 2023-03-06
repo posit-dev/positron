@@ -8,9 +8,11 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crossbeam::channel::Sender;
+use serde_json::json;
 use serde_json::Value;
 
-use crate::comm::comm_channel::CommChannel;
+use crate::comm::comm_channel::CommChannelMsg;
 use crate::error::Error;
 use crate::language::lsp_handler::LspHandler;
 
@@ -23,7 +25,8 @@ pub struct StartLsp {
 }
 
 pub struct LspComm {
-    handler: Arc<Mutex<dyn LspHandler>>
+    handler: Arc<Mutex<dyn LspHandler>>,
+    msg_tx: Sender<Value>,
 }
 
 /**
@@ -31,31 +34,29 @@ pub struct LspComm {
  * track the server thread.
  */
 impl LspComm {
-    pub fn new(handler: Arc<Mutex<dyn LspHandler>>) -> LspComm {
-        LspComm {
-            handler
-        }
+    pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_tx: Sender<Value>) -> LspComm {
+        LspComm { handler, msg_tx }
     }
 
-    pub fn start(&self, data: &StartLsp) ->  Result<(), Error> {
+    pub fn start(&self, data: &StartLsp) -> Result<(), Error> {
         let mut handler = self.handler.lock().unwrap();
         handler.start(data.client_address.clone()).unwrap();
+        self.msg_tx
+            .send(json!({
+                "msg_type": "lsp_started",
+                "content": {}
+            }))
+            .unwrap();
         Ok(())
     }
-}
 
-impl CommChannel for LspComm {
-    fn send_request(&self, _data: &Value) {
-        // Not implemented; LSP messages are delivered directly to the LSP
-        // handler via TCP, not proxied here.
-    }
-
-    fn target_name(&self) -> String {
-        "lsp".to_string()
-    }
-
-    fn close(&self) {
-        // Not implemented; the LSP is closed automatically when the TCP
-        // connection is closed.
+    /**
+     * Returns a Sender that can accept comm channel messages (required as part of the
+     * `CommChannel` contract). Because the LSP communicates over its own TCP connection, it does
+     * not process messages from the comm, and they are discarded here.
+     */
+    pub fn msg_sender(&self) -> Sender<CommChannelMsg> {
+        let (msg_tx, _msg_rx) = crossbeam::channel::unbounded();
+        msg_tx
     }
 }

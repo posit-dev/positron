@@ -19,7 +19,7 @@ const TEN_SPACES = '          ';
 const TEN_BLOCKS = '\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588';
 const FIVE_SPACES = '     ';
 const FIVE_BLOCKS = '\u2588\u2588\u2588\u2588\u2588';
-
+const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 /**
  * The help lines.
  */
@@ -181,7 +181,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			case 'ansi 16':
 				this.simulateSuccessfulCodeExecution(id, code,
-					`Standard ANSI colors:\n` +
+					`Standard ANSI foreground colors:\n` +
 					`${MakeSGR(SGR.ForegroundBlack)}${TEN_BLOCKS}${MakeSGR()} Black foreground\n` +
 					`${MakeSGR(SGR.ForegroundRed)}${TEN_BLOCKS}${MakeSGR()} Red foreground\n` +
 					`${MakeSGR(SGR.ForegroundGreen)}${TEN_BLOCKS}${MakeSGR()} Green foreground\n` +
@@ -190,6 +190,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.ForegroundMagenta)}${TEN_BLOCKS}${MakeSGR()} Magenta foreground\n` +
 					`${MakeSGR(SGR.ForegroundCyan)}${TEN_BLOCKS}${MakeSGR()} Cyan foreground\n` +
 					`${MakeSGR(SGR.ForegroundWhite)}${TEN_BLOCKS}${MakeSGR()} White foreground\n` +
+
+					`\nBright ANSI foreground colors:\n` +
 					`${MakeSGR(SGR.ForegroundBrightBlack)}${TEN_BLOCKS}${MakeSGR()} Bright black foreground\n` +
 					`${MakeSGR(SGR.ForegroundBrightRed)}${TEN_BLOCKS}${MakeSGR()} Bright red foreground\n` +
 					`${MakeSGR(SGR.ForegroundBrightGreen)}${TEN_BLOCKS}${MakeSGR()} Bright green foreground\n` +
@@ -198,6 +200,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.ForegroundBrightMagenta)}${TEN_BLOCKS}${MakeSGR()} Bright magenta foreground\n` +
 					`${MakeSGR(SGR.ForegroundBrightCyan)}${TEN_BLOCKS}${MakeSGR()} Bright cyan foreground\n` +
 					`${MakeSGR(SGR.ForegroundBrightWhite)}${TEN_BLOCKS}${MakeSGR()} Bright white foreground\n` +
+
+					`\nStandard ANSI background colors:\n` +
 					`${MakeSGR(SGR.BackgroundBlack)}${TEN_SPACES}${MakeSGR()} Black background\n` +
 					`${MakeSGR(SGR.BackgroundRed)}${TEN_SPACES}${MakeSGR()} Red background\n` +
 					`${MakeSGR(SGR.BackgroundGreen)}${TEN_SPACES}${MakeSGR()} Green background\n` +
@@ -206,6 +210,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.BackgroundMagenta)}${TEN_SPACES}${MakeSGR()} Magenta background\n` +
 					`${MakeSGR(SGR.BackgroundCyan)}${TEN_SPACES}${MakeSGR()} Cyan background\n` +
 					`${MakeSGR(SGR.BackgroundWhite)}${TEN_SPACES}${MakeSGR()} White background\n` +
+
+					`\nBright ANSI background colors:\n` +
 					`${MakeSGR(SGR.BackgroundBrightBlack)}${TEN_SPACES}${MakeSGR()} Bright black background\n` +
 					`${MakeSGR(SGR.BackgroundBrightRed)}${TEN_SPACES}${MakeSGR()} Bright red background\n` +
 					`${MakeSGR(SGR.BackgroundBrightGreen)}${TEN_SPACES}${MakeSGR()} Bright green background\n` +
@@ -213,12 +219,32 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${MakeSGR(SGR.BackgroundBrightBlue)}${TEN_SPACES}${MakeSGR()} Bright blue background\n` +
 					`${MakeSGR(SGR.BackgroundBrightMagenta)}${TEN_SPACES}${MakeSGR()} Bright magenta background\n` +
 					`${MakeSGR(SGR.BackgroundBrightCyan)}${TEN_SPACES}${MakeSGR()} Bright cyan background\n` +
-					`${MakeSGR(SGR.BackgroundBrightWhite)}${TEN_SPACES}${MakeSGR()} Bright white background${MakeSGR()}`
+					`${MakeSGR(SGR.BackgroundBrightWhite)}${TEN_SPACES}${MakeSGR()} Bright white background\n` +
+
+					`\nStandard ANSI background colors with automatically contrasting foreground colors:\n` +
+					`${MakeSGR(SGR.BackgroundBlack)}${CONTRAST_FOREGROUND}${MakeSGR()} Black background\n` +
+					`${MakeSGR(SGR.BackgroundRed)}${CONTRAST_FOREGROUND}${MakeSGR()} Red background\n` +
+					`${MakeSGR(SGR.BackgroundGreen)}${CONTRAST_FOREGROUND}${MakeSGR()} Green background\n` +
+					`${MakeSGR(SGR.BackgroundYellow)}${CONTRAST_FOREGROUND}${MakeSGR()} Yellow background\n` +
+					`${MakeSGR(SGR.BackgroundBlue)}${CONTRAST_FOREGROUND}${MakeSGR()} Blue background\n` +
+					`${MakeSGR(SGR.BackgroundMagenta)}${CONTRAST_FOREGROUND}${MakeSGR()} Magenta background\n` +
+					`${MakeSGR(SGR.BackgroundCyan)}${CONTRAST_FOREGROUND}${MakeSGR()} Cyan background\n` +
+					`${MakeSGR(SGR.BackgroundWhite)}${CONTRAST_FOREGROUND}${MakeSGR()} White background\n` +
+
+					`\nBright ANSI background colors with automatically contrasting foreground colors:\n` +
+					`${MakeSGR(SGR.BackgroundBrightBlack)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright black background\n` +
+					`${MakeSGR(SGR.BackgroundBrightRed)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright red background\n` +
+					`${MakeSGR(SGR.BackgroundBrightGreen)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright green background\n` +
+					`${MakeSGR(SGR.BackgroundBrightYellow)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright yellow background\n` +
+					`${MakeSGR(SGR.BackgroundBrightBlue)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright blue background\n` +
+					`${MakeSGR(SGR.BackgroundBrightMagenta)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright magenta background\n` +
+					`${MakeSGR(SGR.BackgroundBrightCyan)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright cyan background\n` +
+					`${MakeSGR(SGR.BackgroundBrightWhite)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright white background\n`
 				);
 				break;
 
 			case 'ansi 256': {
-				let output = '';
+				let output = 'Foreground colors:\n';
 				for (let i = 0; i < 16; i++) {
 					for (let j = 0; j < 16; j++) {
 						const colorIndex = i * 16 + j;
@@ -232,7 +258,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					output += '\n';
 				}
 
-				output += '\n';
+				output += '\nBackground colors:\n';
 
 				for (let i = 0; i < 16; i++) {
 					for (let j = 0; j < 16; j++) {
@@ -312,8 +338,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Create a new instance of a client.
 	 * @param type The runtime client type.
 	 */
-	createClient(type: positron.RuntimeClientType): string {
-		throw new Error('Method not implemented.');
+	createClient(type: positron.RuntimeClientType): Promise<string> {
+		return Promise.reject('Method not implemented.');
 	}
 
 	/**

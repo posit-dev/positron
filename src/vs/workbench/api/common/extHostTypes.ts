@@ -4026,6 +4026,12 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a runtime event */
 	Event = 'event',
+
+	/** A message representing data received via a comm */
+	CommData = 'comm_data',
+
+	/** A message indicating that a comm (client instance) was closed from the server side */
+	CommClosed = 'comm_closed',
 }
 
 /**

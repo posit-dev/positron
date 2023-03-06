@@ -6,12 +6,12 @@
  */
 
 use crate::comm::comm_channel::Comm;
-use crate::comm::comm_channel::CommChannel;
+use crate::comm::lsp_comm::LspComm;
 use crate::comm::lsp_comm::StartLsp;
 use crate::error::Error;
 use crate::language::lsp_handler::LspHandler;
 use crate::language::shell_handler::ShellHandler;
-use crate::comm::lsp_comm::LspComm;
+use crate::socket::comm::CommSocket;
 use crate::socket::iopub::IOPubMessage;
 use crate::socket::socket::Socket;
 use crate::wire::comm_close::CommClose;
@@ -34,13 +34,23 @@ use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
+use crossbeam::channel::bounded;
+use crossbeam::channel::Receiver;
+use crossbeam::channel::Select;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
+use log::info;
 use log::{debug, trace, warn};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
+
+enum CommChanged {
+    Opened(CommSocket),
+    Closed(String),
+}
 
 /// Wrapper for the Shell socket; receives requests for execution, etc. from the
 /// front end and handles them or dispatches them to the execution thread.
@@ -57,8 +67,16 @@ pub struct Shell {
     /// Language-provided LSP handler object
     lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
 
-    /// Map of open comm channels (UUID to CommChannel)
-    open_comms: HashMap<String, Box<dyn CommChannel>>,
+    /// Map of open comm channels (UUID to CommSocket)
+    open_comms: HashMap<String, CommSocket>,
+
+    /// Sender side of channel used to notify the listener thread that a comm
+    /// channel has been opened or closed
+    comm_changed_tx: Sender<CommChanged>,
+
+    /// Receiver side of channel used to notify the listener thread that a comm
+    /// channel has been opened or closed
+    comm_changed_rx: Receiver<CommChanged>,
 }
 
 impl Shell {
@@ -74,17 +92,116 @@ impl Shell {
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Self {
+        // Create the pair of channels that will be used to relay messages from
+        // the open comms
+        let (comm_changed_tx, comm_changed_rx) = bounded(10);
+
         Self {
             socket,
             iopub_tx,
             shell_handler,
             lsp_handler,
             open_comms: HashMap::new(),
+            comm_changed_tx,
+            comm_changed_rx,
         }
     }
 
     /// Main loop for the Shell thread; to be invoked by the kernel.
     pub fn listen(&mut self) {
+        // Start a thread to listen for messages from the comm implementations.
+        // We'll amend these messages with the comm's metadata and then relay
+        // them to the front end via IOPub.
+        //
+        // This is done in a separate thread so that the main thread can
+        // continue to receive messages from the front end.
+        let iopub_tx = self.iopub_tx.clone();
+        let comm_changed_rx = self.comm_changed_rx.clone();
+        thread::spawn(move || {
+            // Create a vector of the open comms
+            let mut open_comms = Vec::<CommSocket>::new();
+            loop {
+                let mut sel = Select::new();
+
+                // Listen for messages from each of the open comms
+                for comm_socket in &open_comms {
+                    sel.recv(&comm_socket.comm_msg_rx);
+                }
+
+                // Add a receiver for the comm_changed channel; this is used to
+                // unblock the select when a comm is added or remove so we can
+                // start a new `Select` with the updated set of open comms.
+                sel.recv(&comm_changed_rx);
+
+                // Wait until a message is received (blocking call)
+                let oper = sel.select();
+
+                // Look up the index in the set of open comms
+                let index = oper.index();
+                if index >= open_comms.len() {
+                    // If the index is greater than the number of open comms,
+                    // then the message was received on the comm_changed channel.
+                    let comm_changed = oper.recv(&comm_changed_rx);
+                    if let Err(err) = comm_changed {
+                        warn!("Error receiving comm_changed message: {}", err);
+                        continue;
+                    }
+                    match comm_changed.unwrap() {
+                        // A Comm was opened; add it to the list of open comms
+                        CommChanged::Opened(comm_socket) => {
+                            open_comms.push(comm_socket);
+                            info!(
+                                "Comm channel opened; there are now {} open comms",
+                                open_comms.len()
+                            );
+                        },
+
+                        // A Comm was closed; attempt to remove it from the set of open comms
+                        CommChanged::Closed(comm_id) => {
+                            // Find the index of the comm in the vector
+                            let index = open_comms
+                                .iter()
+                                .position(|comm_socket| comm_socket.comm_id == comm_id);
+
+                            // If we found it, remove it.
+                            if let Some(index) = index {
+                                open_comms.remove(index);
+                                info!(
+                                    "Comm channel closed; there are now {} open comms",
+                                    open_comms.len()
+                                );
+                            } else {
+                                warn!(
+                                    "Received close message for unknown comm channel {}",
+                                    comm_id
+                                );
+                            }
+                        },
+                    }
+                } else {
+                    // Otherwise, the message was received on one of the open comms.
+                    let comm_socket = &open_comms[index];
+                    let data = match oper.recv(&comm_socket.comm_msg_rx) {
+                        Ok(data) => data,
+                        Err(err) => {
+                            warn!("Error receiving comm message: {}", err);
+                            continue;
+                        },
+                    };
+
+                    // Amend the message with the comm's ID
+                    let msg = CommMsg {
+                        comm_id: comm_socket.comm_id.clone(),
+                        data,
+                    };
+
+                    // Deliver the message to the front end
+                    iopub_tx.send(IOPubMessage::CommMsg(msg)).unwrap();
+                }
+            }
+        });
+
+        // Begin listening for shell messages
         loop {
             trace!("Waiting for shell messages");
             // Attempt to read the next message from the ZeroMQ socket
@@ -93,7 +210,7 @@ impl Shell {
                 Err(err) => {
                     warn!("Could not read message from shell socket: {}", err);
                     continue;
-                }
+                },
             };
 
             // Handle the message; any failures while handling the messages are
@@ -111,25 +228,25 @@ impl Shell {
         match msg {
             Message::KernelInfoRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_info_request(h, r))
-            }
+            },
             Message::IsCompleteRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_is_complete_request(h, r))
-            }
+            },
             Message::ExecuteRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_execute_request(h, r))
-            }
+            },
             Message::CompleteRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_complete_request(h, r))
-            }
+            },
             Message::CommInfoRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_comm_info_request(h, r))
-            }
+            },
             Message::CommOpen(req) => self.handle_comm_open(req),
             Message::CommMsg(req) => self.handle_request(req, |h, r| self.handle_comm_msg(h, r)),
             Message::CommClose(req) => self.handle_comm_close(req),
             Message::InspectRequest(req) => {
                 self.handle_request(req, |h, r| self.handle_inspect_request(h, r))
-            }
+            },
             _ => Err(Error::UnsupportedMessage(msg, String::from("shell"))),
         }
     }
@@ -205,7 +322,7 @@ impl Shell {
                 trace!("Got execution reply, delivering to front end: {:?}", reply);
                 let r = req.send_reply(reply, &self.socket);
                 r
-            }
+            },
             Err(err) => req.send_reply(err, &self.socket),
         }
     }
@@ -262,7 +379,7 @@ impl Shell {
         for (comm_id, comm) in &self.open_comms {
             info.insert(
                 comm_id.clone(),
-                serde_json::Value::String(comm.as_ref().target_name()),
+                serde_json::Value::String(comm.comm_name.clone()),
             );
         }
 
@@ -275,10 +392,7 @@ impl Shell {
     }
 
     /// Handle a request to open a comm
-    fn handle_comm_open(
-        &mut self,
-        req: JupyterMessage<CommOpen>,
-    ) -> Result<(), Error> {
+    fn handle_comm_open(&mut self, req: JupyterMessage<CommOpen>) -> Result<(), Error> {
         debug!("Received request to open comm: {:?}", req);
 
         // Look up the comm ID from the request
@@ -289,15 +403,31 @@ impl Shell {
                 // Consider: should we pass unrecognized target names
                 // through to the handler to extend support to comm types
                 // that we don't know about?
-                warn!("Failed to open comm; target name '{}' is unrecognized: {}",
-                    &req.content.target_name, err);
+                warn!(
+                    "Failed to open comm; target name '{}' is unrecognized: {}",
+                    &req.content.target_name, err
+                );
                 return Err(Error::UnknownCommName(req.content.target_name));
-            }
+            },
         };
 
         // Get the data parameter as a string (for error reporting)
-        let data_str = serde_json::to_string(&req.content.data)
-            .map_err(|err| Error::InvalidCommMessage(req.content.target_name.clone(), "unparseable".to_string(), err.to_string()))?;
+        let data_str = serde_json::to_string(&req.content.data).map_err(|err| {
+            Error::InvalidCommMessage(
+                req.content.target_name.clone(),
+                "unparseable".to_string(),
+                err.to_string(),
+            )
+        })?;
+
+        let comm_id = req.content.comm_id.clone();
+        let comm_name = req.content.target_name.clone();
+        let mut comm_socket = CommSocket::new(comm_id, comm_name);
+
+        // Create a routine to send messages to the front end over the IOPub
+        // channel. This routine will be passed to the comm channel so it can
+        // deliver messages to the front end without having to store its own
+        // internal ID or a reference to the IOPub channel.
 
         let comm_channel = match comm {
             // If this is the special LSP comm, start the LSP server and create
@@ -308,20 +438,26 @@ impl Shell {
                     // message from the front end that contains the information
                     // about the client side of the LSP; specifically, the
                     // address to bind to.
-                    let start_lsp: StartLsp = serde_json::from_value(req.content.data)
-                        .map_err(|err| Error::InvalidCommMessage(req.content.target_name, data_str, err.to_string()))?;
+                    let start_lsp: StartLsp =
+                        serde_json::from_value(req.content.data).map_err(|err| {
+                            Error::InvalidCommMessage(
+                                req.content.target_name,
+                                data_str,
+                                err.to_string(),
+                            )
+                        })?;
 
                     // Create the new comm wrapper channel for the LSP and start
                     // the LSP server in a separate thread
-                    let lsp_comm = LspComm::new(handler);
+                    let lsp_comm = LspComm::new(handler, comm_socket.comm_msg_tx.clone());
                     lsp_comm.start(&start_lsp)?;
-
-                    // Return the new comm channel
-                    Box::new(lsp_comm) as Box<dyn CommChannel>
+                    lsp_comm.msg_sender()
                 } else {
                     // If we don't have an LSP handler, return an error
-                    warn!("Client attempted to start LSP, but no LSP handler was provided by kernel.");
-                    return Err(Error::UnknownCommName(req.content.target_name.clone()))
+                    warn!(
+                        "Client attempted to start LSP, but no LSP handler was provided by kernel."
+                    );
+                    return Err(Error::UnknownCommName(req.content.target_name.clone()));
                 }
             },
             _ => {
@@ -333,7 +469,7 @@ impl Shell {
                 let handler = self.shell_handler.lock().unwrap();
 
                 // Call the shell handler to open the comm
-                match block_on(handler.handle_comm_open(comm)) {
+                match block_on(handler.handle_comm_open(comm, comm_socket.comm_msg_tx.clone())) {
                     Err(err) => {
                         // If the shell handler returns an error, send it back.
                         // This is a language evaluation error, so we can send
@@ -344,7 +480,11 @@ impl Shell {
                         // Return an error to the caller indicating that the
                         // comm could not be opened due to the invalid open
                         // call.
-                        return Err(Error::InvalidCommMessage(req.content.target_name.clone(), data_str, errname))
+                        return Err(Error::InvalidCommMessage(
+                            req.content.target_name.clone(),
+                            data_str,
+                            errname,
+                        ));
                     },
                     Ok(comm) => match comm {
                         // If the shell handler returns a comm channel, we're in good shape.
@@ -354,27 +494,44 @@ impl Shell {
                         // comm type was unknown to the shell handler.
                         None => {
                             return Err(Error::UnknownCommName(req.content.target_name.clone()))
-                        }
-                    }
+                        },
+                    },
                 }
-            }
+            },
         };
+
+        comm_socket.set_msg_handler(comm_channel);
+
+        // Send a notification to the comm message listener thread that a new
+        // comm has been opened
+        if let Err(err) = self
+            .comm_changed_tx
+            .send(CommChanged::Opened(comm_socket.clone()))
+        {
+            warn!(
+                "Failed to send '{}' comm open notification to listener thread: {}",
+                comm_socket.comm_name, err
+            );
+        }
 
         // If we got this far, we have just opened a comm channel. Add it to our
         // open comms.
-        match self.open_comms.insert(req.content.comm_id.clone(), comm_channel) {
+        match self
+            .open_comms
+            .insert(req.content.comm_id.clone(), comm_socket)
+        {
             Some(_) => {
                 // We already knew about this comm; warn and discard
                 warn!("Comm {} was already open", req.content.comm_id);
                 Ok(())
             },
-            None => {
-                Ok(())
-            }
+            None => Ok(()),
         }
     }
 
-    /// Handle a request to send a comm message
+    /// Deliver a request from the front end to a comm. Specifically, this is a
+    /// request from the front end to deliver a message to a backend, often as
+    /// the request side of a request/response pair.
     fn handle_comm_msg(
         &self,
         _handler: &dyn ShellHandler,
@@ -385,27 +542,30 @@ impl Shell {
         let comm = match self.open_comms.get(&req.content.comm_id) {
             Some(comm) => comm,
             None => {
-                warn!("Received a message on an unknown comm: {}", req.content.comm_id);
+                warn!(
+                    "Received a message on an unknown comm: {}",
+                    req.content.comm_id
+                );
                 return Err(Error::UnknownCommId(req.content.comm_id));
-            }
+            },
         };
-        comm.send_request(&req.content.data);
+        comm.handle_msg(req.content.data);
         Ok(())
     }
 
     /// Handle a request to close a comm
-    fn handle_comm_close(
-        &mut self,
-        req: JupyterMessage<CommClose>,
-    ) -> Result<(), Error> {
+    fn handle_comm_close(&mut self, req: JupyterMessage<CommClose>) -> Result<(), Error> {
         // Look for the comm in our open comms
         debug!("Received request to close comm: {:?}", req);
         let comm = match self.open_comms.get(&req.content.comm_id) {
             Some(comm) => comm,
             None => {
-                warn!("Received a request to close unknown or already closed comm: {}", req.content.comm_id);
+                warn!(
+                    "Received a request to close unknown or already closed comm: {}",
+                    req.content.comm_id
+                );
                 return Err(Error::UnknownCommId(req.content.comm_id));
-            }
+            },
         };
 
         // Close the comm
@@ -413,6 +573,12 @@ impl Shell {
 
         // Remove the comm from the set of open comms
         self.open_comms.remove(&req.content.comm_id);
+
+        // Send a notification to the comm message listener thread notifying it that
+        // the comm has been closed
+        self.comm_changed_tx
+            .send(CommChanged::Closed(req.content.comm_id))
+            .unwrap();
 
         Ok(())
     }

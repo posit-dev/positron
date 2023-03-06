@@ -5,7 +5,8 @@
  *
  */
 
-use crate::comm::comm_channel::{Comm, CommChannel};
+use crate::comm::comm_channel::Comm;
+use crate::comm::comm_channel::CommChannelMsg;
 use crate::wire::complete_reply::CompleteReply;
 use crate::wire::complete_request::CompleteRequest;
 use crate::wire::exception::Exception;
@@ -23,6 +24,7 @@ use crate::wire::kernel_info_request::KernelInfoRequest;
 
 use async_trait::async_trait;
 use crossbeam::channel::Sender;
+use serde_json::Value;
 
 #[async_trait]
 pub trait ShellHandler: Send {
@@ -71,11 +73,19 @@ pub trait ShellHandler: Send {
 
     /// Handles a request to open a comm.
     ///
-    /// Returns a `CommChannel` that will be used to handle messages on the
-    /// comm, or `None` if the kernel does not support the named comm.
+    /// Returns a `Sender` that can be used to send messages to the back end of
+    /// the comm, or `None` if the kernel does not support the named comm.
     ///
     /// https://jupyter-client.readthedocs.io/en/stable/messaging.html#opening-a-comm
-    async fn handle_comm_open(&self, comm: Comm) -> Result<Option<Box<dyn CommChannel>>, Exception>;
+    ///
+    /// * `comm` - The comm to open (from the comm_open message)
+    /// * `msg_tx` - A channel that can be used to send messages to front end
+    /// side of the comm
+    async fn handle_comm_open(
+        &self,
+        comm: Comm,
+        msg_tx: Sender<Value>,
+    ) -> Result<Option<Sender<CommChannelMsg>>, Exception>;
 
     /// Handles a reply to a request for input from the front end (from stdin socket)
     ///
