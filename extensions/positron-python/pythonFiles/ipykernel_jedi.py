@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import sys
+import traceback
 
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,7 +75,7 @@ def start_jedi():
     SERVER.start_tcp(host=args.host, port=args.port)
 
 def ipk_error_handler(error):
-    logging.error('Error in Positron IPyKernel Jedi: %s', error)
+    logging.error('Error in Positron IPyKernel: %s', error)
 
 if __name__ == "__main__":
 
@@ -83,6 +84,16 @@ if __name__ == "__main__":
     result = pool.apply_async(start_ipykernel, error_callback=ipk_error_handler)
 
     # Start Jedi language server using TCP
-    exitStatus = start_jedi()
-    pool.terminate()
+    try:
+        exitStatus = start_jedi()
+        pool.terminate()
+    except SystemExit as error:
+        # TODO: Remove this workaround once we can improve Jedi disconnection logic
+        tb = ''.join(traceback.format_tb(error.__traceback__))
+        if tb.index('connection_lost') > 0:
+            logging.warning('Positron LSP client disconnected, exiting.')
+            exitStatus = 0
+        else:
+             logging.error('Error in Positron Jedi LSP: %s', error)
+
     sys.exit(exitStatus)
