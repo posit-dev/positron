@@ -156,10 +156,21 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         };
         traceVerbose(`Configuring Jedi LSP with IPyKernel using args '${args}'`);
 
+        // Create a language client to connect to the LSP via TCP
+        const client = await this.createLanguageClientTCP(lspPort, options);
+
         // Create an adapter for the kernel as our language runtime
-        const runtime = ext.exports.adaptKernel(kernelSpec, 'Python', pythonVersion, this.extensionVersion, startupBehavior, () => {
-            // The adapter will create a language client to connect to the LSP via TCP
-            this.activateClientTCP(lspPort, options);
+        const runtime: positron.LanguageRuntime = ext.exports.adaptKernel(kernelSpec, 'Python', pythonVersion, this.extensionVersion, startupBehavior, () => {
+            this.startClient(client);
+        });
+
+        // Also stop the language client when the runtime is exiting
+        runtime.onDidChangeRuntimeState(state => {
+            if (client.isRunning() && (
+                state === positron.RuntimeState.Exiting ||
+                state === positron.RuntimeState.Exited)) {
+                client.stop();
+            }
         });
 
         // Register our language runtime provider
@@ -216,10 +227,9 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     }
 
     /**
-     * Creates and starts a language client to connect to our LSP via TCP
+     * Start the language client
      */
-    private async activateClientTCP(port: number, options: LanguageClientOptions): Promise<void> {
-        const client = await this.createLanguageClientTCP(port, options);
+    private async startClient(client: LanguageClient): Promise<void> {
         this.registerHandlers(client);
         await client.start();
         this.languageClients.push(client);
