@@ -214,6 +214,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const connectionSpec: JupyterConnectionSpec =
 			JSON.parse(fs.readFileSync(connectionJsonPath, 'utf8'));
 
+		// Use the control channel to detect if the kernel unexpectedly disconnects
+		this._control.socket().on('disconnect', () => {
+			if (this._status !== positron.RuntimeState.Exiting &&
+				this._status !== positron.RuntimeState.Exited) {
+				this._channel.appendLine(`Kernel '${this._spec.display_name}' unexpectedly disconnected while in status '${this._status}', will exit`);
+				this.setStatus(positron.RuntimeState.Exited);
+			}
+		});
+
 		// Bind the sockets to the ports specified in the connection file;
 		// returns a promise that resovles when all the sockets are connected
 		return Promise.all([
