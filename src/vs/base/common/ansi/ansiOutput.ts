@@ -654,8 +654,19 @@ export class ANSIOutput {
 					}
 
 					// SGRParamColor.ColorRGB is an r;g;b color.
-					case SGRParamColor.ColorRGB:
-						break;
+					case SGRParamColor.ColorRGB: {
+						// The r;g;b components are optional.
+						const rgb = [0, 0, 0];
+						for (let i = 0; i < 3 && index + 1 < sgrParams.length; i++) {
+							rgb[i] = sgrParams[++index];
+						}
+
+						// Return the RGB color.
+						return '#' +
+							twoDigitHex(rgb[0]) +
+							twoDigitHex(rgb[1]) +
+							twoDigitHex(rgb[2]);
+					}
 				}
 
 				// The set color was not regognized.
