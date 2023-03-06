@@ -12,5 +12,5 @@ export interface JupyterCommClose {
 	comm_id: string;  // eslint-disable-line
 
 	/** The message payload */
-	data: any;
+	data: object;
 }

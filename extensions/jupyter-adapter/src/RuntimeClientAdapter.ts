@@ -25,7 +25,7 @@ export class RuntimeClientAdapter {
 
 	constructor(
 		private readonly _type: positron.RuntimeClientType,
-		private readonly _params: any,
+		private readonly _params: object,
 		private readonly _kernel: JupyterKernel) {
 
 		this.id = uuidv4();

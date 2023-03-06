@@ -226,7 +226,7 @@ declare module 'positron' {
 		comm_id: string;
 
 		/** The data from the back-end */
-		data: any;
+		data: object;
 	}
 
 	/**
@@ -238,7 +238,7 @@ declare module 'positron' {
 		comm_id: string;
 
 		/** The data from the back-end */
-		data: any;
+		data: object;
 	}
 
 	/** LanguageRuntimeMetadata contains information about a language runtime that is known

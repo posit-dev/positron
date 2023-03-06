@@ -478,7 +478,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param id The ID of the comm to create.
 	 * @param data Data to send to the comm.
 	 */
-	public openComm(targetName: string, id: string, data: any): Promise<void> {
+	public openComm(targetName: string, id: string, data: object): Promise<void> {
 		// Create the message to send to the kernel
 		const msg: JupyterCommOpen = {
 			target_name: targetName,  // eslint-disable-line
@@ -497,7 +497,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Create the message to send to the kernel
 		const msg: JupyterCommClose = {
 			comm_id: id,  // eslint-disable-line
-			data: null
+			data: {}
 		};
 
 		// Dispatch it
@@ -507,7 +507,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Sends a message to a communications channel (comm) with the kernel.
 	 */
-	public sendCommMessage(id: string, data: any) {
+	public sendCommMessage(id: string, data: object) {
 		// Create the message to send to the kernel
 		const msg: JupyterCommMsg = {
 			comm_id: id,  // eslint-disable-line

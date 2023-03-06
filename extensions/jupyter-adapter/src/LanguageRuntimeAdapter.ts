@@ -255,7 +255,7 @@ export class LanguageRuntimeAdapter
 	 *   specific to the client type
 	 * @returns A new client instance, or empty string if the type is not supported
 	 */
-	public async createClient(type: positron.RuntimeClientType, params: any): Promise<string> {
+	public async createClient(type: positron.RuntimeClientType, params: object): Promise<string> {
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp) {
 			// Currently the only supported client type

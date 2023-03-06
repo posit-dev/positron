@@ -63,7 +63,7 @@ export interface ILanguageRuntimeMessageCommData extends ILanguageRuntimeMessage
 	comm_id: string;
 
 	/** The data received from the comm */
-	data: any;
+	data: object;
 }
 
 /**
@@ -75,7 +75,7 @@ export interface ILanguageRuntimeMessageCommClosed extends ILanguageRuntimeMessa
 	comm_id: string;
 
 	/** The shutdown data received from the comm, if any */
-	data: any;
+	data: object;
 }
 
 /**
