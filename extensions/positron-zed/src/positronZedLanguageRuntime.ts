@@ -20,8 +20,9 @@ export const CSI = ESC + '[';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'ansi 16     - Displays the standard ANSI colors as foreground and background colors',
-	'ansi 256    - Displays the indexed ANSI colors as foreground and background colors',
+	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
+	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
+	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
@@ -173,7 +174,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 
 			case 'ansi 16':
-				console.log(`Red is ${ansi.style.red}`);
 				this.simulateSuccessfulCodeExecution(id, code,
 					`Standard ANSI colors:\n` +
 					`${MakeSGR(SGR.ForegroundBlack)}This is foreground black\n` +
@@ -231,6 +231,26 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					output += `${MakeSGR()}\n`;
 				}
 				this.simulateSuccessfulCodeExecution(id, code, output);
+				break;
+			}
+
+			case 'ansi rgb': {
+				this.simulateSuccessfulCodeExecution(id, code,
+					`${MakeSGR(SGR.SetForeground, 2, 0xdd, 0x00, 0x00)}\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588${MakeSGR()} Red Foreground\n` +
+					`${MakeSGR(SGR.SetForeground, 2, 0xfe, 0x62, 0x30)}\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588${MakeSGR()} Orange Foreground\n` +
+					`${MakeSGR(SGR.SetForeground, 2, 0xfe, 0xf6, 0x00)}\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588${MakeSGR()} Yellow Foreground\n` +
+					`${MakeSGR(SGR.SetForeground, 2, 0x00, 0xbb, 0x00)}\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588${MakeSGR()} Green Foreground\n` +
+					`${MakeSGR(SGR.SetForeground, 2, 0x00, 0x9b, 0xfe)}\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588${MakeSGR()} Blue Foreground\n` +
+					`${MakeSGR(SGR.SetForeground, 2, 0x00, 0x00, 0x83)}\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588${MakeSGR()} Indigo Foreground\n` +
+					`${MakeSGR(SGR.SetForeground, 2, 0x30, 0x00, 0x9b)}\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588${MakeSGR()} Violet Foreground\n` +
+					`${MakeSGR(SGR.SetBackground, 2, 0xdd, 0x00, 0x00)}            ${MakeSGR()} Red Background\n` +
+					`${MakeSGR(SGR.SetBackground, 2, 0xfe, 0x62, 0x30)}            ${MakeSGR()} Orange Background\n` +
+					`${MakeSGR(SGR.SetBackground, 2, 0xfe, 0xf6, 0x00)}            ${MakeSGR()} Yellow Background\n` +
+					`${MakeSGR(SGR.SetBackground, 2, 0x00, 0xbb, 0x00)}            ${MakeSGR()} Green Background\n` +
+					`${MakeSGR(SGR.SetBackground, 2, 0x00, 0x9b, 0xfe)}            ${MakeSGR()} Blue Background\n` +
+					`${MakeSGR(SGR.SetBackground, 2, 0x00, 0x00, 0x83)}            ${MakeSGR()} Indigo Background\n` +
+					`${MakeSGR(SGR.SetBackground, 2, 0x30, 0x00, 0x9b)}            ${MakeSGR()} Violet Background\n`
+				);
 				break;
 			}
 
