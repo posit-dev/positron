@@ -1151,6 +1151,11 @@ export interface ANSIOutputRun {
 	readonly text: string;
 }
 
+/**
+ * Converts a number to a two-digit hex string representing the value.
+ * @param value The value.
+ * @returns A two digit hex string representing the value.
+ */
 const twoDigitHex = (value: number) => {
 	// Sanity check the value.
 	if (value < 0) {
