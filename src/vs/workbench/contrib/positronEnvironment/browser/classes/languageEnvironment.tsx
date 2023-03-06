@@ -7,7 +7,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
 
@@ -196,6 +196,11 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	constructor(private readonly _runtime: ILanguageRuntime) {
 		// Initialize Disposable base class.
 		super();
+
+		this._runtime.createClient(RuntimeClientType.Environment, {}).then(client => {
+			console.log(`********************* created client ${client.getClientId()}`);
+			this._register(client);
+		});
 
 		// Add the did change runtime state event handler.
 		this._register(this._runtime.onDidChangeRuntimeState(runtimeState => {
