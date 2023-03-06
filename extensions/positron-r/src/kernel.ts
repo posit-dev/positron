@@ -7,9 +7,7 @@ import * as positron from 'positron';
 import * as fs from 'fs';
 
 import { withActiveExtension } from './util';
-
-import { activateLsp } from './lsp';
-import { Disposable } from 'vscode-languageclient';
+import { ArkLsp } from './lsp';
 
 // A global instance of the language runtime (and LSP language server) provided
 // by this language pack
@@ -105,8 +103,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	const dyldFallbackLibraryPath = process.env['DYLD_FALLBACK_LIBRARY_PATH'];
 
 	// Loop over the R installations and create a language runtime for each one.
-	const disposables: vscode.Disposable[] = rInstallations.map(rHome => {
-
+	for (const rHome of rInstallations) {
 		// Create a kernel spec for this R installation
 		const kernelSpec = {
 			'argv': [kernelPath,
@@ -129,6 +126,9 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		const packageJson = require('../package.json');
 		const version = packageJson.version;
 
+		// Create an LSP language server for this R installation
+		const lsp = new ArkLsp(rHome.rVersion);
+
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		runtime = ext.exports.adaptKernel(kernelSpec,
 			'r',      // Language ID
@@ -137,15 +137,18 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			positron.LanguageRuntimeStartupBehavior.Implicit, // OK to start the kernel automatically
 			(port: number) => {
 				// Activate the LSP language server when the adapter is ready.
-				return activateLsp(port, context);
+				return lsp.activate(port, context);
 			});
 
-		// Register a language runtime provider for the ARK kernel.
-		return positron.runtime.registerLanguageRuntime(runtime);
-	});
+		// Associate the LSP client instance with the kernel adapter.
+		lsp.attachRuntime(runtime);
+		context.subscriptions.push(lsp);
 
-	// Ensure that the language runtime registrations are torn down when the
-	// extension is deactivated.
-	context.subscriptions.push(...disposables);
+		// Register a language runtime provider for the ARK kernel.
+		const disposable = positron.runtime.registerLanguageRuntime(runtime);
+
+		// Ensure that the kernel is disposed when the extension is deactivated.
+		context.subscriptions.push(disposable);
+	}
 }
 
