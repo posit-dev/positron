@@ -115,6 +115,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			'display_name': `R: ${rHome.rHome}`, // eslint-disable-line
 			'language': 'R',
 			'env': {
+				'R_CLI_NUM_COLORS': '256',
 				'RUST_LOG': 'trace', // eslint-disable-line
 				'R_HOME': rHome.rHome, // eslint-disable-line
 				'DYLD_INSERT_LIBRARIES': `${rHome.rHome}/lib/libR.dylib`, // eslint-disable-line
