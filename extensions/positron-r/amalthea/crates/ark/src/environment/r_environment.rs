@@ -42,6 +42,8 @@ impl REnvironment {
             .send(CommChannelMsg::Data(env_list))
             .unwrap();
 
+        let mut user_initated_close = false;
+
         loop {
             // Wait for requests from the front end
             let msg = match channel_message_rx.recv() {
@@ -65,6 +67,10 @@ impl REnvironment {
             // Break out of the loop if the front end has closed the channel
             if msg == CommChannelMsg::Close {
                 debug!("Environment: Closing down after receiving comm_close from front end.");
+
+                // Remember that the user initiated the close so that we can
+                // avoid sending a duplicate close message from the back end
+                user_initated_close = true;
                 break;
             }
 
@@ -102,9 +108,11 @@ impl REnvironment {
             }
         }
 
-        // TODO(jmcphers): If we got this far, we broke out of the message loop
-        // and can no longer process messages. Notify the front end that the
-        // channel is closed, unless the front end initiated the closure itself.
+        if !user_initated_close {
+            // Send a close message to the front end if the front end didn't
+            // initiate the close
+            frontend_msg_sender.send(CommChannelMsg::Close).unwrap();
+        }
     }
 }
 
