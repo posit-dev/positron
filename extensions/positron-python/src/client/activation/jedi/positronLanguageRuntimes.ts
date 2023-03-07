@@ -151,7 +151,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const kernelSpec = {
             argv: args,
             display_name: `${displayName}`,
-            language: 'Python',
+            language: PYTHON_LANGUAGE,
             metadata: { debugger: false }
         };
         traceVerbose(`Configuring Jedi LSP with IPyKernel using args '${args}'`);
@@ -160,7 +160,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const client = await this.createLanguageClientTCP(lspPort, options);
 
         // Create an adapter for the kernel as our language runtime
-        const runtime: positron.LanguageRuntime = ext.exports.adaptKernel(kernelSpec, 'Python', pythonVersion, this.extensionVersion, startupBehavior, () => {
+        const runtime: positron.LanguageRuntime = ext.exports.adaptKernel(kernelSpec, PYTHON_LANGUAGE, pythonVersion, this.extensionVersion, startupBehavior, () => {
             this.startClient(client);
         });
 
