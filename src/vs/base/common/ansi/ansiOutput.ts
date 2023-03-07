@@ -416,12 +416,12 @@ export class ANSIOutput {
 	private _sgrState = new SGRState();
 
 	/**
-	 * The current set of output lines.
+	 * Gets or sets the current set of output lines.
 	 */
 	private _outputLines: ANSIOutputLine[] = [];
 
 	/**
-	 * Gets the output line.
+	 * Gets or sets the output line.
 	 */
 	private _outputLine = 0;
 
@@ -539,7 +539,36 @@ export class ANSIOutput {
 	private processControlSequence() {
 		// Process SGR control sequence.
 		switch (this._controlSequence.charAt(this._controlSequence.length - 1)) {
-			// SGR.
+			// CUU (Cursor Up).
+			case 'A':
+				break;
+
+			// CUD (Cursor Down).
+			case 'B':
+				break;
+
+			// CUF (Cursor Forward).
+			case 'C':
+				break;
+
+			// CUB (Cursor Back).
+			case 'D':
+				break;
+
+			// CUP (Cursor Position).
+			case 'H':
+				this.processCUPControlSequence();
+				break;
+
+			// ED (Erase in Display).
+			case 'J':
+				break;
+
+			// EL (Erase in Line).
+			case 'K':
+				break;
+
+			// SGR (Select Graphic Rendition).
 			case 'm':
 				this.processSGRControlSequence();
 				break;
@@ -555,6 +584,30 @@ export class ANSIOutput {
 	}
 
 	/**
+	 * Processes an CUP control sequence.
+	 */
+	private processCUPControlSequence() {
+		// Log.
+		console.log(`Processing control sequence CUP: CSI${this._controlSequence}`);
+
+		// Match the control sequence.
+		const match = this._controlSequence.match(/^([0-9]*)(?:;?([0-9]*))H$/);
+		if (!match) {
+			return;
+		}
+
+		// Get the line and column.
+		const line = match[1] ? parseInt(match[1]) : 1;
+		if (Number.isNaN(line)) {
+			return;
+		}
+		const column = match[2] ? parseInt(match[2]) : 1;
+		if (Number.isNaN(column)) {
+			return;
+		}
+	}
+
+	/**
 	 * Processes an SGR control sequence.
 	 */
 	private processSGRControlSequence() {
@@ -566,12 +619,12 @@ export class ANSIOutput {
 
 		// Parse the SGR parameters.
 		const sgrParams = this._controlSequence
-			// Remove ending m.
+			// Remove ending character.
 			.slice(0, -1)
 			// Split the SGR parameters.
 			.split(';')
-			// Parse the parameter. An empty parameter is a reset. For example,
-			// ESC[31;m does not produce read output.
+			// Parse the parameters. An empty parameter is a reset. (As an
+			// exampple, CSI31;m does not produce red output.)
 			.map(sgrParam => sgrParam === '' ? SGRParam.Reset : parseInt(sgrParam, 10));
 
 		// Process the SGR parameters.
@@ -1025,6 +1078,8 @@ export class ANSIOutput {
 		if (!this._buffer) {
 			return;
 		}
+
+
 
 		// Append the run to the current output line.
 		this._outputLines[this._outputLine].outputRuns.push(
