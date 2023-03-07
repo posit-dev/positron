@@ -24,7 +24,7 @@ pub struct REnvironment {
 }
 
 impl REnvironment {
-    pub fn new(frontend_msg_sender: Sender<Value>) -> Self {
+    pub fn new(frontend_msg_sender: Sender<CommChannelMsg>) -> Self {
         let (channel_msg_tx, channel_msg_rx) = unbounded::<CommChannelMsg>();
 
         // Start the execution thread and wait for requests from the front end
@@ -34,11 +34,13 @@ impl REnvironment {
 
     pub fn execution_thread(
         channel_message_rx: Receiver<CommChannelMsg>,
-        frontend_msg_sender: Sender<Value>,
+        frontend_msg_sender: Sender<CommChannelMsg>,
     ) {
         // Perform the initial environment scan and deliver to the front end
         let env_list = unsafe { list_environment() };
-        frontend_msg_sender.send(env_list).unwrap();
+        frontend_msg_sender
+            .send(CommChannelMsg::Data(env_list))
+            .unwrap();
 
         loop {
             // Wait for requests from the front end
@@ -86,7 +88,9 @@ impl REnvironment {
                         // front end
                         "refresh" => {
                             let env_list = unsafe { list_environment() };
-                            frontend_msg_sender.send(env_list).unwrap();
+                            frontend_msg_sender
+                                .send(CommChannelMsg::Data(env_list))
+                                .unwrap();
                         },
                         _ => {
                             error!("Environment: Received message from front end with unknown 'type' field; ignoring.");

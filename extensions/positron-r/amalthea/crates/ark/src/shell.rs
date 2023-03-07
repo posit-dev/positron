@@ -37,7 +37,6 @@ use harp::exec::r_parse_vector;
 use harp::exec::ParseResult;
 use log::*;
 use serde_json::json;
-use serde_json::Value;
 
 use crate::environment::r_environment::REnvironment;
 use crate::kernel::KernelInfo;
@@ -218,7 +217,7 @@ impl ShellHandler for Shell {
     async fn handle_comm_open(
         &self,
         comm: Comm,
-        msg_tx: Sender<Value>,
+        msg_tx: Sender<CommChannelMsg>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         match comm {
             Comm::Environment => {
