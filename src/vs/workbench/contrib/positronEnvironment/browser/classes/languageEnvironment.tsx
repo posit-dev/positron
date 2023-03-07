@@ -198,7 +198,21 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		super();
 
 		this._runtime.createClient(RuntimeClientType.Environment, {}).then(client => {
-			console.log(`********************* created client ${client.getClientId()}`);
+			client.onDidChangeClientState(clientState => {
+				// TODO: Handle client state changes here.
+			});
+			client.onDidReceiveMessage((msg: any) => {
+				if (msg.type === 'list') {
+					this.environmentValueEntries.clear();
+					for (let i = 0; i < msg.variables.length; i++) {
+						const variable = msg.variables[i];
+						this.setEnvironmentDataEntry(new EnvironmentValueEntry(
+							variable, new StringEnvironmentValue(`value "${variable}"`)));
+					}
+				} else if (msg.type === 'error') {
+					console.error(msg.message);
+				}
+			});
 			this._register(client);
 		});
 
@@ -240,10 +254,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		this._register(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			// console.log(`********************* onDidCompleteStartup ${this._runtime.metadata.language}`);
 		}));
-
-		for (let i = 0; i < 5000; i++) {
-			this.setEnvironmentDataEntry(new EnvironmentValueEntry(`var${i}`, new StringEnvironmentValue(`value ${i}`)));
-		}
 	}
 
 	/**
