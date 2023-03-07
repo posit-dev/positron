@@ -7,7 +7,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
-import { ILanguageRuntime, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
 
@@ -138,6 +138,12 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 */
 	private readonly onDidChangeListItemsEmitter = new Emitter<void>();
 
+	/**
+	 * The client side of the of the environment instance; used to communicate
+	 * with the language runtime.
+	 */
+	private _client?: IRuntimeClientInstance;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -198,6 +204,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		super();
 
 		this._runtime.createClient(RuntimeClientType.Environment, {}).then(client => {
+			this._client = client;
 			client.onDidChangeClientState(clientState => {
 				// TODO: Handle client state changes here.
 			});
@@ -284,6 +291,13 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		this.environmentDataEntries.clear();
 		this.environmentValueEntries.clear();
 		this.onDidChangeListItemsEmitter.fire();
+	}
+
+	/**
+	 * Refreshes the environment.
+	 */
+	refreshEnvironment() {
+		this._client?.sendMessage({ type: 'refresh' });
 	}
 
 	//#endregion Public Methods

@@ -89,7 +89,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Refresh workspace objects handler.
 	const refreshWorkspaceObjectsHandler = () => {
-		props.commandService.executeCommand(EnvironmentRefreshAction.ID);
+		positronEnvironmentContext.currentLanguageEnvironment?.refreshEnvironment();
 	};
 
 	// If there are no language environment, return null.

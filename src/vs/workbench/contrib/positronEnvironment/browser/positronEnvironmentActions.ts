@@ -38,5 +38,8 @@ export class EnvironmentRefreshAction extends Action2 {
 	 * @param accessor The service accessor.
 	 */
 	async run(accessor: ServicesAccessor) {
+		// TODO(jmcphers): This should ask the Positron environment service to
+		// refresh the environment, but that service doesn't yet own the set of
+		// active environments.
 	}
 }

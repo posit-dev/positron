@@ -331,7 +331,7 @@ export interface IRuntimeClientInstance extends Disposable {
 	getClientState(): RuntimeClientState;
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
-	sendMessage(message: any): void;
+	sendMessage(message: object): void;
 }
 
 export interface ILanguageRuntime {
