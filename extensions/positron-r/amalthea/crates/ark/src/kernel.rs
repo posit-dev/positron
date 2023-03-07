@@ -24,6 +24,7 @@ use bus::Bus;
 use crossbeam::channel::Sender;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::exec::geterrmessage;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::utils::r_inherits;
@@ -34,6 +35,9 @@ use std::result::Result::Err;
 use std::result::Result::Ok;
 
 use crate::request::Request;
+
+/// Represents whether an error occurred during R code execution.
+pub static mut R_ERROR_OCCURRED : bool = false;
 
 /// Represents the Rust state of the R kernel
 pub struct Kernel {
@@ -124,7 +128,10 @@ impl Kernel {
         req: &ExecuteRequest,
         execute_response_tx: Sender<ExecuteResponse>,
     ) {
-        // Clear output and error accumulators from previous execution
+        // Clear error occurred flag
+        unsafe { R_ERROR_OCCURRED = false };
+
+        // Save copy of our response channel
         self.execute_response_tx = Some(execute_response_tx);
 
         // Increment counter if we are storing this execution in history
@@ -185,62 +192,22 @@ impl Kernel {
 
     /// Finishes the active execution request
     pub fn finish_request(&self) {
-        // TODO: detect if an error stopped code execution.
-        if true {
-            self.emit_output();
-        } else {
-            self.emit_error();
-        }
-    }
 
-    /// Requests input from the front end
-    pub fn request_input(&self, originator: &Vec<u8>, prompt: &str) {
-        if let Some(requestor) = &self.input_request_tx {
-            trace!("Requesting input from front-end for prompt: {}", prompt);
-            requestor
-                .send(ShellInputRequest {
-                    originator: originator.clone(),
-                    request: InputRequest {
-                        prompt: prompt.to_string(),
-                        password: false,
-                    },
-                })
-                .unwrap();
-        } else {
-            warn!("Unable to request input: no input requestor set!");
+        // Save and reset error occurred flag
+        let error_occurred = unsafe { R_ERROR_OCCURRED };
+        unsafe { R_ERROR_OCCURRED = false };
+
+        // TODO: Include a traceback if an error occurs.
+        if error_occurred {
+            let message = unsafe { geterrmessage() };
+            log::info!("An R error occurred: {}", message);
         }
 
-        // Send an execute reply to the front end
-        if let Some(sender) = &self.execute_response_tx {
-            sender
-                .send(ExecuteResponse::Reply(ExecuteReply {
-                    status: Status::Ok,
-                    execution_count: self.execution_count,
-                    user_expressions: json!({}),
-                }))
-                .unwrap();
-        }
-    }
-
-    fn emit_error(&self) {
-        // Send the reply to the front end
-        if let Some(sender) = &self.execute_response_tx {
-            sender
-                .send(ExecuteResponse::ReplyException(ExecuteReplyException {
-                    status: Status::Error,
-                    execution_count: self.execution_count,
-                    exception: Exception {
-                        ename: "CodeExecution".to_string(),
-                        evalue: "An unknown error!".to_string(),
-                        traceback: vec![],
-                    },
-                }))
-                .unwrap();
-        }
-    }
-
-    fn emit_output(&self) {
-
+        // TODO: Implement rich printing of certain outputs.
+        // Will we need something similar to the RStudio model,
+        // where we implement custom print() methods? Or can
+        // we make the stub below behave sensibly even when
+        // streaming R output?
         let mut data = serde_json::Map::new();
         data.insert("text/plain".to_string(), json!(""));
 
@@ -269,6 +236,36 @@ impl Kernel {
         }
 
         // Send the reply to the front end
+        if let Some(sender) = &self.execute_response_tx {
+            sender
+                .send(ExecuteResponse::Reply(ExecuteReply {
+                    status: Status::Ok,
+                    execution_count: self.execution_count,
+                    user_expressions: json!({}),
+                }))
+                .unwrap();
+        }
+
+    }
+
+    /// Requests input from the front end
+    pub fn request_input(&self, originator: &Vec<u8>, prompt: &str) {
+        if let Some(requestor) = &self.input_request_tx {
+            trace!("Requesting input from front-end for prompt: {}", prompt);
+            requestor
+                .send(ShellInputRequest {
+                    originator: originator.clone(),
+                    request: InputRequest {
+                        prompt: prompt.to_string(),
+                        password: false,
+                    },
+                })
+                .unwrap();
+        } else {
+            warn!("Unable to request input: no input requestor set!");
+        }
+
+        // Send an execute reply to the front end
         if let Some(sender) = &self.execute_response_tx {
             sender
                 .send(ExecuteResponse::Reply(ExecuteReply {

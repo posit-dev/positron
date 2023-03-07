@@ -13,6 +13,12 @@ options(browser = function(url) {
     .Call("ps_browse_url", as.character(url), PACKAGE = "(embedding)")
 })
 
+# Set up error handlers
+options(error = function() {
+    .Call("ps_error_handler", PACKAGE = "(embedding)")
+})
+
+# Set up graphics device
 options(device = function() {
     .Call("ps_graphics_device", PACKAGE = "(embedding)")
 })
