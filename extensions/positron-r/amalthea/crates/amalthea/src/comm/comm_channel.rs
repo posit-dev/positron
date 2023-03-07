@@ -15,7 +15,7 @@ pub enum Comm {
     Lsp,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CommChannelMsg {
     Data(Value),
     Close,
