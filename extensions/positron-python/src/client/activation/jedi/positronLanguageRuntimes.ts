@@ -151,7 +151,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const kernelSpec = {
             argv: args,
             display_name: `${displayName}`,
-            language: PYTHON_LANGUAGE,
+            language: 'Python', // Used as metadata.languageName
             metadata: { debugger: false }
         };
         traceVerbose(`Configuring Jedi LSP with IPyKernel using args '${args}'`);
