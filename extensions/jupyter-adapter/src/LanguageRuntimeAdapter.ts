@@ -432,6 +432,7 @@ export class LanguageRuntimeAdapter
 			parent_id: message.originId,
 			when: message.when,
 			type: positron.LanguageRuntimeMessageType.CommData,
+			comm_id: msg.comm_id,
 			data: msg.data,
 		} as positron.LanguageRuntimeCommMessage);
 	}
@@ -448,6 +449,7 @@ export class LanguageRuntimeAdapter
 			parent_id: message.originId,
 			when: message.when,
 			type: positron.LanguageRuntimeMessageType.CommClosed,
+			comm_id: msg.comm_id,
 			data: msg.data,
 		} as positron.LanguageRuntimeCommClosed);
 	}
