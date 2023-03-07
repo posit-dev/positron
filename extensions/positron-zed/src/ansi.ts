@@ -124,6 +124,32 @@ export enum SGR {
  * @param parameters The SGR parameters.
  * @returns The SGR escape sequence.
  */
-export const MakeSGR = (...parameters: number[]): string => {
+export const makeSGR = (...parameters: number[]): string => {
 	return CSI + parameters.map(parameter => `${parameter}`).join(';') + 'm';
+};
+
+/**
+ * Makes a CUP (Cursor Position) escape sequence.
+ * @param line The line.
+ * @param column The column.
+ * @returns The CUP escape sequence.
+ */
+export const makeCUP = (line: number | undefined = undefined, column: number | undefined = undefined): string => {
+	if (line && line % 1 !== 0) {
+		throw new Error('Line must be an integer.');
+	}
+
+	if (column && column % 1 !== 0) {
+		throw new Error('Column must be an integer.');
+	}
+
+	if (!line && !column) {
+		return `${CSI}H`;
+	} else if (line && !column) {
+		return `${CSI}${line}H`;
+	} else if (!line && column) {
+		return `${CSI};${column}H`;
+	} else {
+		return `${CSI}${line};${column}H`;
+	}
 };
