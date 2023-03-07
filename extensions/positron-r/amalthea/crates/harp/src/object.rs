@@ -357,7 +357,7 @@ impl TryFrom<RObject> for Option<String> {
             };
 
             if charsexp == R_NaString {
-                return Err(Error::MissingValueError);
+                return Ok(None);
             }
 
             let utf8text = Rf_translateCharUTF8(charsexp);
@@ -492,6 +492,46 @@ mod tests {
     use crate::{r_test, r_string, r_char, protect, utils::{CharSxpEq, r_typeof}};
 
     use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_tryfrom_RObject_Option_String() { r_test! {
+        let s = RObject::from("abc");
+
+        assert_match!(
+            Option::<String>::try_from(s),
+            Ok(Some(x)) => {
+                assert_eq!(x, "abc");
+            }
+        );
+
+        let s = RObject::from("abc");
+        SET_STRING_ELT(*s, 0, R_NaString);
+        assert_match!(
+            Option::<String>::try_from(s),
+            Ok(None) => {}
+        );
+    }}
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_tryfrom_RObject_String() { r_test! {
+        let s = RObject::from("abc");
+
+        assert_match!(
+            String::try_from(s),
+            Ok(x) => {
+                assert_eq!(x, "abc");
+            }
+        );
+
+        let s = RObject::from("abc");
+        SET_STRING_ELT(*s, 0, R_NaString);
+        assert_match!(
+            String::try_from(s),
+            Err(Error::MissingValueError) => {}
+        );
+    }}
 
     #[test]
     #[allow(non_snake_case)]
