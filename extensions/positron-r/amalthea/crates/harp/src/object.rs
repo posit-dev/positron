@@ -331,14 +331,27 @@ impl TryFrom<RObject> for CharacterVector {
     }
 }
 
-// TODO: Need to handle NA elements as well.
-impl TryFrom<RObject> for bool {
+impl TryFrom<RObject> for Option<bool> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
             r_assert_type(*value, &[LGLSXP])?;
             r_assert_length(*value, 1)?;
-            return Ok(*LOGICAL(*value) != 0);
+            let x = *LOGICAL(*value);
+            if x == R_NaInt {
+                return Ok(None);
+            }
+            Ok(Some(x != 0))
+        }
+    }
+}
+
+impl TryFrom<RObject> for bool {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        match Option::<bool>::try_from(value)? {
+            Some(x) => Ok(x),
+            None => Err(Error::MissingValueError)
         }
     }
 }
