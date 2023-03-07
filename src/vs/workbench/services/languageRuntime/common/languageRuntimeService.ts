@@ -327,7 +327,7 @@ export enum RuntimeClientType {
  */
 export interface IRuntimeClientInstance extends Disposable {
 	onDidChangeClientState: Event<RuntimeClientState>;
-	onDidReceiveMessage: Event<ILanguageRuntimeMessage>;
+	onDidReceiveData: Event<object>;
 	getClientState(): RuntimeClientState;
 	getClientId(): string;
 	getClientType(): RuntimeClientType;

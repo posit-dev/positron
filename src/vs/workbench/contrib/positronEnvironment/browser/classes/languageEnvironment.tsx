@@ -201,7 +201,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			client.onDidChangeClientState(clientState => {
 				// TODO: Handle client state changes here.
 			});
-			client.onDidReceiveMessage((msg: any) => {
+			client.onDidReceiveData((msg: any) => {
 				if (msg.type === 'list') {
 					this.environmentValueEntries.clear();
 					for (let i = 0; i < msg.variables.length; i++) {
