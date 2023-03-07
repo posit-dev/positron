@@ -343,7 +343,7 @@ impl TryFrom<RObject> for bool {
     }
 }
 
-impl TryFrom<RObject> for String {
+impl TryFrom<RObject> for Option<String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         unsafe {
@@ -356,8 +356,22 @@ impl TryFrom<RObject> for String {
                 _ => return Err(Error::UnexpectedType(r_typeof(*value), types.to_vec())),
             };
 
+            if charsexp == R_NaString {
+                return Err(Error::MissingValueError);
+            }
+
             let utf8text = Rf_translateCharUTF8(charsexp);
-            Ok(CStr::from_ptr(utf8text).to_str()?.to_string())
+            Ok(Some(CStr::from_ptr(utf8text).to_str()?.to_string()))
+        }
+    }
+}
+
+impl TryFrom<RObject> for String {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        match Option::<String>::try_from(value)? {
+            Some(x) => Ok(x),
+            None => Err(Error::MissingValueError)
         }
     }
 }
@@ -505,9 +519,7 @@ mod tests {
 
         assert_match!(
             Vec::<String>::try_from(s),
-            Err(Error::MissingValueError { index }) => {
-                assert_eq!(index, 1);
-            }
+            Err(Error::MissingValueError) => {}
         );
     }}
 
