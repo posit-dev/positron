@@ -369,14 +369,42 @@ impl TryFrom<RObject> for Vec<String> {
             r_assert_type(*value, &[STRSXP, NILSXP])?;
 
             let mut result : Vec<String> = Vec::new();
-            let n = Rf_length(*value);
+            let n = Rf_length(*value) as isize ;
             for i in 0..n {
-                let charsexp = STRING_ELT(*value, i as isize);
+                let charsexp = STRING_ELT(*value, i);
+                if charsexp == R_NaString {
+                    return Err(Error::MissingValueError {
+                        index: i
+                    })
+                }
                 let cstr = Rf_translateCharUTF8(charsexp);
                 let string = CStr::from_ptr(cstr);
                 result.push(string.to_str().unwrap().to_string());
             }
 
+            return Ok(result);
+        }
+    }
+}
+
+impl TryFrom<RObject> for Vec<Option<String>> {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_assert_type(*value, &[STRSXP, NILSXP])?;
+
+            let mut result : Vec<Option<String>> = Vec::new();
+            let n = Rf_length(*value);
+            for i in 0..n {
+                let charsexp = STRING_ELT(*value, i as isize);
+                if charsexp == R_NaString {
+                    result.push(None);
+                } else {
+                    let cstr = Rf_translateCharUTF8(charsexp);
+                    let string = CStr::from_ptr(cstr);
+                    result.push(Some(string.to_str().unwrap().to_string()));
+                }
+            }
             return Ok(result);
         }
     }
@@ -448,9 +476,42 @@ impl TryFrom<RObject> for HashMap<String, String> {
 mod tests {
     use libR_sys::*;
 
-    use crate::{r_test, r_string, protect, utils::{CharSxpEq, r_typeof}};
+    use crate::assert_match;
+    use crate::{r_test, r_string, r_char, protect, utils::{CharSxpEq, r_typeof}};
 
     use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_tryfrom_RObject_Vec_Option_String() { r_test! {
+        let s = RObject::from(Rf_allocVector(STRSXP, 2));
+        SET_STRING_ELT(*s, 0, r_char!("abc"));
+        SET_STRING_ELT(*s, 1, R_NaString);
+
+        assert_match!(
+            Vec::<Option<String>>::try_from(s),
+            Ok(mut x) => {
+                assert_eq!(x.pop(), Some(None));
+                assert_eq!(x.pop(), Some(Some(String::from("abc"))));
+                assert_eq!(x.pop(), None);
+            }
+        );
+    }}
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_tryfrom_RObject_Vec_String() { r_test! {
+        let s = RObject::from(Rf_allocVector(STRSXP, 2));
+        SET_STRING_ELT(*s, 0, r_char!("abc"));
+        SET_STRING_ELT(*s, 1, R_NaString);
+
+        assert_match!(
+            Vec::<String>::try_from(s),
+            Err(Error::MissingValueError { index }) => {
+                assert_eq!(index, 1);
+            }
+        );
+    }}
 
     #[test]
     #[allow(non_snake_case)]
