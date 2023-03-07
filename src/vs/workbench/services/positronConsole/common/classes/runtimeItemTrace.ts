@@ -32,6 +32,8 @@ export class RuntimeItemTrace extends RuntimeItem {
 	 */
 	constructor(id: string, text: string) {
 		super(id);
+		text = text.replace('\x1b', 'ESC');
+		text = text.replace('\x9B', 'CSI');
 		this.outputLines = ANSIOutput.processOutput(text);
 	}
 

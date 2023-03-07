@@ -11,14 +11,16 @@ import { ActivityItem } from 'vs/workbench/services/positronConsole/common/class
 export class RuntimeItemActivity extends RuntimeItem {
 	//#region Private Properties
 
+	//#endregion Private Properties
+
+	//#region Public Properties
+
 	/**
 	 * The activity items.
 	 */
 	public readonly activityItems: ActivityItem[] = [];
 
-	// public readonly activityRuns:
-
-	//#endregion Private Properties
+	//#endregion Public Properties
 
 	//#region Constructor
 

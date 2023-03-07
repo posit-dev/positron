@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { MakeSGR, SGR } from './ansi';
+import { makeCUP, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 
 /**
@@ -29,7 +29,9 @@ const HelpLines = [
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
+	'',
 	'ansi blink  - Displays blinking output',
+	'ansi cup    - CUP',
 	'ansi hidden - Displays hidden text',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
@@ -182,66 +184,68 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 
 			case 'ansi 16':
-				this.simulateSuccessfulCodeExecution(id, code,
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
 					`Standard ANSI foreground colors:\n` +
-					`${MakeSGR(SGR.ForegroundBlack)}${TEN_BLOCKS}${MakeSGR()} Black foreground\n` +
-					`${MakeSGR(SGR.ForegroundRed)}${TEN_BLOCKS}${MakeSGR()} Red foreground\n` +
-					`${MakeSGR(SGR.ForegroundGreen)}${TEN_BLOCKS}${MakeSGR()} Green foreground\n` +
-					`${MakeSGR(SGR.ForegroundYellow)}${TEN_BLOCKS}${MakeSGR()} Yellow foreground\n` +
-					`${MakeSGR(SGR.ForegroundBlue)}${TEN_BLOCKS}${MakeSGR()} Blue foreground\n` +
-					`${MakeSGR(SGR.ForegroundMagenta)}${TEN_BLOCKS}${MakeSGR()} Magenta foreground\n` +
-					`${MakeSGR(SGR.ForegroundCyan)}${TEN_BLOCKS}${MakeSGR()} Cyan foreground\n` +
-					`${MakeSGR(SGR.ForegroundWhite)}${TEN_BLOCKS}${MakeSGR()} White foreground\n` +
+					`${makeSGR(SGR.ForegroundBlack)}${TEN_BLOCKS}${makeSGR()} Black foreground\n` +
+					`${makeSGR(SGR.ForegroundRed)}${TEN_BLOCKS}${makeSGR()} Red foreground\n` +
+					`${makeSGR(SGR.ForegroundGreen)}${TEN_BLOCKS}${makeSGR()} Green foreground\n` +
+					`${makeSGR(SGR.ForegroundYellow)}${TEN_BLOCKS}${makeSGR()} Yellow foreground\n` +
+					`${makeSGR(SGR.ForegroundBlue)}${TEN_BLOCKS}${makeSGR()} Blue foreground\n` +
+					`${makeSGR(SGR.ForegroundMagenta)}${TEN_BLOCKS}${makeSGR()} Magenta foreground\n` +
+					`${makeSGR(SGR.ForegroundCyan)}${TEN_BLOCKS}${makeSGR()} Cyan foreground\n` +
+					`${makeSGR(SGR.ForegroundWhite)}${TEN_BLOCKS}${makeSGR()} White foreground\n` +
 
 					`\nBright ANSI foreground colors:\n` +
-					`${MakeSGR(SGR.ForegroundBrightBlack)}${TEN_BLOCKS}${MakeSGR()} Bright black foreground\n` +
-					`${MakeSGR(SGR.ForegroundBrightRed)}${TEN_BLOCKS}${MakeSGR()} Bright red foreground\n` +
-					`${MakeSGR(SGR.ForegroundBrightGreen)}${TEN_BLOCKS}${MakeSGR()} Bright green foreground\n` +
-					`${MakeSGR(SGR.ForegroundBrightYellow)}${TEN_BLOCKS}${MakeSGR()} Bright yellow foreground \n` +
-					`${MakeSGR(SGR.ForegroundBrightBlue)}${TEN_BLOCKS}${MakeSGR()} Bright blue foreground\n` +
-					`${MakeSGR(SGR.ForegroundBrightMagenta)}${TEN_BLOCKS}${MakeSGR()} Bright magenta foreground\n` +
-					`${MakeSGR(SGR.ForegroundBrightCyan)}${TEN_BLOCKS}${MakeSGR()} Bright cyan foreground\n` +
-					`${MakeSGR(SGR.ForegroundBrightWhite)}${TEN_BLOCKS}${MakeSGR()} Bright white foreground\n` +
+					`${makeSGR(SGR.ForegroundBrightBlack)}${TEN_BLOCKS}${makeSGR()} Bright black foreground\n` +
+					`${makeSGR(SGR.ForegroundBrightRed)}${TEN_BLOCKS}${makeSGR()} Bright red foreground\n` +
+					`${makeSGR(SGR.ForegroundBrightGreen)}${TEN_BLOCKS}${makeSGR()} Bright green foreground\n` +
+					`${makeSGR(SGR.ForegroundBrightYellow)}${TEN_BLOCKS}${makeSGR()} Bright yellow foreground \n` +
+					`${makeSGR(SGR.ForegroundBrightBlue)}${TEN_BLOCKS}${makeSGR()} Bright blue foreground\n` +
+					`${makeSGR(SGR.ForegroundBrightMagenta)}${TEN_BLOCKS}${makeSGR()} Bright magenta foreground\n` +
+					`${makeSGR(SGR.ForegroundBrightCyan)}${TEN_BLOCKS}${makeSGR()} Bright cyan foreground\n` +
+					`${makeSGR(SGR.ForegroundBrightWhite)}${TEN_BLOCKS}${makeSGR()} Bright white foreground\n` +
 
 					`\nStandard ANSI background colors:\n` +
-					`${MakeSGR(SGR.BackgroundBlack)}${TEN_SPACES}${MakeSGR()} Black background\n` +
-					`${MakeSGR(SGR.BackgroundRed)}${TEN_SPACES}${MakeSGR()} Red background\n` +
-					`${MakeSGR(SGR.BackgroundGreen)}${TEN_SPACES}${MakeSGR()} Green background\n` +
-					`${MakeSGR(SGR.BackgroundYellow)}${TEN_SPACES}${MakeSGR()} Yellow background\n` +
-					`${MakeSGR(SGR.BackgroundBlue)}${TEN_SPACES}${MakeSGR()} Blue background\n` +
-					`${MakeSGR(SGR.BackgroundMagenta)}${TEN_SPACES}${MakeSGR()} Magenta background\n` +
-					`${MakeSGR(SGR.BackgroundCyan)}${TEN_SPACES}${MakeSGR()} Cyan background\n` +
-					`${MakeSGR(SGR.BackgroundWhite)}${TEN_SPACES}${MakeSGR()} White background\n` +
+					`${makeSGR(SGR.BackgroundBlack)}${TEN_SPACES}${makeSGR()} Black background\n` +
+					`${makeSGR(SGR.BackgroundRed)}${TEN_SPACES}${makeSGR()} Red background\n` +
+					`${makeSGR(SGR.BackgroundGreen)}${TEN_SPACES}${makeSGR()} Green background\n` +
+					`${makeSGR(SGR.BackgroundYellow)}${TEN_SPACES}${makeSGR()} Yellow background\n` +
+					`${makeSGR(SGR.BackgroundBlue)}${TEN_SPACES}${makeSGR()} Blue background\n` +
+					`${makeSGR(SGR.BackgroundMagenta)}${TEN_SPACES}${makeSGR()} Magenta background\n` +
+					`${makeSGR(SGR.BackgroundCyan)}${TEN_SPACES}${makeSGR()} Cyan background\n` +
+					`${makeSGR(SGR.BackgroundWhite)}${TEN_SPACES}${makeSGR()} White background\n` +
 
 					`\nBright ANSI background colors:\n` +
-					`${MakeSGR(SGR.BackgroundBrightBlack)}${TEN_SPACES}${MakeSGR()} Bright black background\n` +
-					`${MakeSGR(SGR.BackgroundBrightRed)}${TEN_SPACES}${MakeSGR()} Bright red background\n` +
-					`${MakeSGR(SGR.BackgroundBrightGreen)}${TEN_SPACES}${MakeSGR()} Bright green background\n` +
-					`${MakeSGR(SGR.BackgroundBrightYellow)}${TEN_SPACES}${MakeSGR()} Bright yellow background\n` +
-					`${MakeSGR(SGR.BackgroundBrightBlue)}${TEN_SPACES}${MakeSGR()} Bright blue background\n` +
-					`${MakeSGR(SGR.BackgroundBrightMagenta)}${TEN_SPACES}${MakeSGR()} Bright magenta background\n` +
-					`${MakeSGR(SGR.BackgroundBrightCyan)}${TEN_SPACES}${MakeSGR()} Bright cyan background\n` +
-					`${MakeSGR(SGR.BackgroundBrightWhite)}${TEN_SPACES}${MakeSGR()} Bright white background\n` +
+					`${makeSGR(SGR.BackgroundBrightBlack)}${TEN_SPACES}${makeSGR()} Bright black background\n` +
+					`${makeSGR(SGR.BackgroundBrightRed)}${TEN_SPACES}${makeSGR()} Bright red background\n` +
+					`${makeSGR(SGR.BackgroundBrightGreen)}${TEN_SPACES}${makeSGR()} Bright green background\n` +
+					`${makeSGR(SGR.BackgroundBrightYellow)}${TEN_SPACES}${makeSGR()} Bright yellow background\n` +
+					`${makeSGR(SGR.BackgroundBrightBlue)}${TEN_SPACES}${makeSGR()} Bright blue background\n` +
+					`${makeSGR(SGR.BackgroundBrightMagenta)}${TEN_SPACES}${makeSGR()} Bright magenta background\n` +
+					`${makeSGR(SGR.BackgroundBrightCyan)}${TEN_SPACES}${makeSGR()} Bright cyan background\n` +
+					`${makeSGR(SGR.BackgroundBrightWhite)}${TEN_SPACES}${makeSGR()} Bright white background\n` +
 
 					`\nStandard ANSI background colors with automatically contrasting foreground colors:\n` +
-					`${MakeSGR(SGR.BackgroundBlack)}${CONTRAST_FOREGROUND}${MakeSGR()} Black background\n` +
-					`${MakeSGR(SGR.BackgroundRed)}${CONTRAST_FOREGROUND}${MakeSGR()} Red background\n` +
-					`${MakeSGR(SGR.BackgroundGreen)}${CONTRAST_FOREGROUND}${MakeSGR()} Green background\n` +
-					`${MakeSGR(SGR.BackgroundYellow)}${CONTRAST_FOREGROUND}${MakeSGR()} Yellow background\n` +
-					`${MakeSGR(SGR.BackgroundBlue)}${CONTRAST_FOREGROUND}${MakeSGR()} Blue background\n` +
-					`${MakeSGR(SGR.BackgroundMagenta)}${CONTRAST_FOREGROUND}${MakeSGR()} Magenta background\n` +
-					`${MakeSGR(SGR.BackgroundCyan)}${CONTRAST_FOREGROUND}${MakeSGR()} Cyan background\n` +
-					`${MakeSGR(SGR.BackgroundWhite)}${CONTRAST_FOREGROUND}${MakeSGR()} White background\n` +
+					`${makeSGR(SGR.BackgroundBlack)}${CONTRAST_FOREGROUND}${makeSGR()} Black background\n` +
+					`${makeSGR(SGR.BackgroundRed)}${CONTRAST_FOREGROUND}${makeSGR()} Red background\n` +
+					`${makeSGR(SGR.BackgroundGreen)}${CONTRAST_FOREGROUND}${makeSGR()} Green background\n` +
+					`${makeSGR(SGR.BackgroundYellow)}${CONTRAST_FOREGROUND}${makeSGR()} Yellow background\n` +
+					`${makeSGR(SGR.BackgroundBlue)}${CONTRAST_FOREGROUND}${makeSGR()} Blue background\n` +
+					`${makeSGR(SGR.BackgroundMagenta)}${CONTRAST_FOREGROUND}${makeSGR()} Magenta background\n` +
+					`${makeSGR(SGR.BackgroundCyan)}${CONTRAST_FOREGROUND}${makeSGR()} Cyan background\n` +
+					`${makeSGR(SGR.BackgroundWhite)}${CONTRAST_FOREGROUND}${makeSGR()} White background\n` +
 
 					`\nBright ANSI background colors with automatically contrasting foreground colors:\n` +
-					`${MakeSGR(SGR.BackgroundBrightBlack)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright black background\n` +
-					`${MakeSGR(SGR.BackgroundBrightRed)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright red background\n` +
-					`${MakeSGR(SGR.BackgroundBrightGreen)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright green background\n` +
-					`${MakeSGR(SGR.BackgroundBrightYellow)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright yellow background\n` +
-					`${MakeSGR(SGR.BackgroundBrightBlue)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright blue background\n` +
-					`${MakeSGR(SGR.BackgroundBrightMagenta)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright magenta background\n` +
-					`${MakeSGR(SGR.BackgroundBrightCyan)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright cyan background\n` +
-					`${MakeSGR(SGR.BackgroundBrightWhite)}${CONTRAST_FOREGROUND}${MakeSGR()} Bright white background\n`
+					`${makeSGR(SGR.BackgroundBrightBlack)}${CONTRAST_FOREGROUND}${makeSGR()} Bright black background\n` +
+					`${makeSGR(SGR.BackgroundBrightRed)}${CONTRAST_FOREGROUND}${makeSGR()} Bright red background\n` +
+					`${makeSGR(SGR.BackgroundBrightGreen)}${CONTRAST_FOREGROUND}${makeSGR()} Bright green background\n` +
+					`${makeSGR(SGR.BackgroundBrightYellow)}${CONTRAST_FOREGROUND}${makeSGR()} Bright yellow background\n` +
+					`${makeSGR(SGR.BackgroundBrightBlue)}${CONTRAST_FOREGROUND}${makeSGR()} Bright blue background\n` +
+					`${makeSGR(SGR.BackgroundBrightMagenta)}${CONTRAST_FOREGROUND}${makeSGR()} Bright magenta background\n` +
+					`${makeSGR(SGR.BackgroundBrightCyan)}${CONTRAST_FOREGROUND}${makeSGR()} Bright cyan background\n` +
+					`${makeSGR(SGR.BackgroundBrightWhite)}${CONTRAST_FOREGROUND}${makeSGR()} Bright white background\n`
 				);
 				break;
 
@@ -255,7 +259,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					output += '\n';
 					for (let j = 0; j < 16; j++) {
 						const colorIndex = i * 16 + j;
-						output += `${MakeSGR(SGR.SetForeground, 5, colorIndex)}${FIVE_BLOCKS}${MakeSGR()} `;
+						output += `${makeSGR(SGR.SetForeground, 5, colorIndex)}${FIVE_BLOCKS}${makeSGR()} `;
 					}
 					output += '\n';
 				}
@@ -270,7 +274,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					output += '\n';
 					for (let j = 0; j < 16; j++) {
 						const colorIndex = i * 16 + j;
-						output += `${MakeSGR(SGR.SetBackground, 5, colorIndex)}${FIVE_SPACES}${MakeSGR()} `;
+						output += `${makeSGR(SGR.SetBackground, 5, colorIndex)}${FIVE_SPACES}${makeSGR()} `;
 					}
 					output += '\n';
 				}
@@ -279,35 +283,52 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			}
 
 			case 'ansi rgb': {
-				this.simulateSuccessfulCodeExecution(id, code,
-					`${MakeSGR(SGR.SetForeground, 2, 0xdd, 0x00, 0x00)}${TEN_BLOCKS}${MakeSGR()} Red Foreground\n` +
-					`${MakeSGR(SGR.SetForeground, 2, 0xfe, 0x62, 0x30)}${TEN_BLOCKS}${MakeSGR()} Orange Foreground\n` +
-					`${MakeSGR(SGR.SetForeground, 2, 0xfe, 0xf6, 0x00)}${TEN_BLOCKS}${MakeSGR()} Yellow Foreground\n` +
-					`${MakeSGR(SGR.SetForeground, 2, 0x00, 0xbb, 0x00)}${TEN_BLOCKS}${MakeSGR()} Green Foreground\n` +
-					`${MakeSGR(SGR.SetForeground, 2, 0x00, 0x9b, 0xfe)}${TEN_BLOCKS}${MakeSGR()} Blue Foreground\n` +
-					`${MakeSGR(SGR.SetForeground, 2, 0x00, 0x00, 0x83)}${TEN_BLOCKS}${MakeSGR()} Indigo Foreground\n` +
-					`${MakeSGR(SGR.SetForeground, 2, 0x30, 0x00, 0x9b)}${TEN_BLOCKS}${MakeSGR()} Violet Foreground\n` +
-					`${MakeSGR(SGR.SetBackground, 2, 0xdd, 0x00, 0x00)}${TEN_SPACES}${MakeSGR()} Red Background\n` +
-					`${MakeSGR(SGR.SetBackground, 2, 0xfe, 0x62, 0x30)}${TEN_SPACES}${MakeSGR()} Orange Background\n` +
-					`${MakeSGR(SGR.SetBackground, 2, 0xfe, 0xf6, 0x00)}${TEN_SPACES}${MakeSGR()} Yellow Background\n` +
-					`${MakeSGR(SGR.SetBackground, 2, 0x00, 0xbb, 0x00)}${TEN_SPACES}${MakeSGR()} Green Background\n` +
-					`${MakeSGR(SGR.SetBackground, 2, 0x00, 0x9b, 0xfe)}${TEN_SPACES}${MakeSGR()} Blue Background\n` +
-					`${MakeSGR(SGR.SetBackground, 2, 0x00, 0x00, 0x83)}${TEN_SPACES}${MakeSGR()} Indigo Background\n` +
-					`${MakeSGR(SGR.SetBackground, 2, 0x30, 0x00, 0x9b)}${TEN_SPACES}${MakeSGR()} Violet Background\n`
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					`${makeSGR(SGR.SetForeground, 2, 0xdd, 0x00, 0x00)}${TEN_BLOCKS}${makeSGR()} Red Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0xfe, 0x62, 0x30)}${TEN_BLOCKS}${makeSGR()} Orange Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0xfe, 0xf6, 0x00)}${TEN_BLOCKS}${makeSGR()} Yellow Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x00, 0xbb, 0x00)}${TEN_BLOCKS}${makeSGR()} Green Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x00, 0x9b, 0xfe)}${TEN_BLOCKS}${makeSGR()} Blue Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x00, 0x00, 0x83)}${TEN_BLOCKS}${makeSGR()} Indigo Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x30, 0x00, 0x9b)}${TEN_BLOCKS}${makeSGR()} Violet Foreground\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0xdd, 0x00, 0x00)}${TEN_SPACES}${makeSGR()} Red Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0xfe, 0x62, 0x30)}${TEN_SPACES}${makeSGR()} Orange Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0xfe, 0xf6, 0x00)}${TEN_SPACES}${makeSGR()} Yellow Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x00, 0xbb, 0x00)}${TEN_SPACES}${makeSGR()} Green Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x9b, 0xfe)}${TEN_SPACES}${makeSGR()} Blue Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x00, 0x83)}${TEN_SPACES}${makeSGR()} Indigo Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x30, 0x00, 0x9b)}${TEN_SPACES}${makeSGR()} Violet Background\n`
 				);
 				break;
 			}
 
 			case 'ansi blink':
-				this.simulateSuccessfulCodeExecution(id, code,
-					`${MakeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.SlowBlink)}  This is blinking text  ${MakeSGR()} Slowly Blinking\n` +
-					`${MakeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.RapidBlink)}  This is blinking text  ${MakeSGR()} Rapidly Blinking\n`
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.SlowBlink)}  This is blinking text  ${makeSGR()} Slowly Blinking\n` +
+					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.RapidBlink)}  This is blinking text  ${makeSGR()} Rapidly Blinking\n`
+				);
+				break;
+
+			case 'ansi cup':
+				console.log('Processing user input ansi cup');
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					`${TEN_BLOCKS}\n` +
+					`${TEN_BLOCKS}\n` +
+					`${makeCUP()}`
 				);
 				break;
 
 			case 'ansi hidden':
-				this.simulateSuccessfulCodeExecution(id, code,
-					`There is ${MakeSGR(SGR.Italic)}hidden text${MakeSGR(SGR.NotItalicNotFraktur)} between the square brackets -> [${MakeSGR(SGR.Hidden)}THIS SHOULD BE HIDDEN!${MakeSGR(SGR.Reveal)}]`
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					`There is ${makeSGR(SGR.Italic)}hidden text${makeSGR(SGR.NotItalicNotFraktur)} between the square brackets -> [${makeSGR(SGR.Hidden)}THIS SHOULD BE HIDDEN!${makeSGR(SGR.Reveal)}]`
 				);
 				break;
 
@@ -413,7 +434,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Done.
 		return Promise.resolve({
-			banner: `${MakeSGR(SGR.ForegroundBlue)}Zed ${this.metadata.languageVersion}${MakeSGR(SGR.Reset)}\nThis is the ${MakeSGR(SGR.ForegroundGreen)}Zed${MakeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
+			banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.metadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
 			implementation_version: this.metadata.runtimeVersion,
 			language_version: this.metadata.languageVersion,
 		} as positron.LanguageRuntimeInfo);
