@@ -373,9 +373,7 @@ impl TryFrom<RObject> for Vec<String> {
             for i in 0..n {
                 let charsexp = STRING_ELT(*value, i);
                 if charsexp == R_NaString {
-                    return Err(Error::MissingValueError {
-                        index: i
-                    })
+                    return Err(Error::MissingValueError);
                 }
                 let cstr = Rf_translateCharUTF8(charsexp);
                 let string = CStr::from_ptr(cstr);
