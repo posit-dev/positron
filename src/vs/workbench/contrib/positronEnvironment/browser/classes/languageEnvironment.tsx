@@ -7,9 +7,11 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
-import { ILanguageRuntime, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
+import { EnvironmentClientMessageType, IEnvironmentClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
  * EnvironmentValue interface.
@@ -142,7 +144,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * The client side of the of the environment instance; used to communicate
 	 * with the language runtime.
 	 */
-	private _client?: IRuntimeClientInstance;
+	private _client?: IEnvironmentClientInstance;
 
 	//#endregion Private Properties
 
@@ -204,7 +206,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		super();
 
 		this._runtime.createClient(RuntimeClientType.Environment, {}).then(client => {
-			this._client = client;
+			this._client = client as IEnvironmentClientInstance;
 			client.onDidChangeClientState(clientState => {
 				// TODO: Handle client state changes here.
 			});
@@ -297,7 +299,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * Refreshes the environment.
 	 */
 	refreshEnvironment() {
-		this._client?.sendMessage({ type: 'refresh' });
+		this._client?.sendMessage({ type: EnvironmentClientMessageType.Refresh });
 	}
 
 	//#endregion Public Methods
