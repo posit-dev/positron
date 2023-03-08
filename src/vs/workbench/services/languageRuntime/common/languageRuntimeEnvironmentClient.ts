@@ -12,6 +12,9 @@ export enum EnvironmentClientMessageType {
 	/** A request to send another List event */
 	Refresh = 'refresh',
 
+	/** A processing error */
+	Error = 'error',
+
 	// TODO: Add message types for other actions, such as adding a single
 	// variable or updating a variable's value.
 }
@@ -23,6 +26,11 @@ export interface IEnvironmentClientMessage {
 export interface IEnvironmentClientMessageList {
 	type: EnvironmentClientMessageType.List;
 	variables: Array<string>;
+}
+
+export interface IEnvironmentClientMessageError {
+	type: EnvironmentClientMessageType.Error;
+	message: string;
 }
 
 export type IEnvironmentClientInstance = IRuntimeClientInstance<IEnvironmentClientMessage>;
