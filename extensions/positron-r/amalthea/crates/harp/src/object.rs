@@ -346,16 +346,6 @@ impl TryFrom<RObject> for Option<bool> {
     }
 }
 
-impl TryFrom<RObject> for bool {
-    type Error = crate::error::Error;
-    fn try_from(value: RObject) -> Result<Self, Self::Error> {
-        match Option::<bool>::try_from(value)? {
-            Some(x) => Ok(x),
-            None => Err(Error::MissingValueError)
-        }
-    }
-}
-
 impl TryFrom<RObject> for Option<String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
@@ -379,10 +369,96 @@ impl TryFrom<RObject> for Option<String> {
     }
 }
 
+impl TryFrom<RObject> for Option<i32> {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_assert_length(*value, 1)?;
+            match r_typeof(*value) {
+                INTSXP => {
+                    let x = INTEGER_ELT(*value, 0);
+                    if x == R_NaInt {
+                        Ok(None)
+                    } else {
+                        Ok(Some(x))
+                    }
+                }
+                REALSXP => {
+                    let x = REAL_ELT(*value, 0);
+                    if R_IsNA(x) != 0 {
+                        Ok(None)
+                    } else {
+                        Ok(Some(x as i32))
+                    }
+                }
+                _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![INTSXP])) }
+            }
+        }
+    }
+}
+
+impl TryFrom<RObject> for Option<f64> {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_assert_length(*value, 1)?;
+            match r_typeof(*value) {
+                INTSXP => {
+                    let x = INTEGER_ELT(*value, 0);
+                    if x == R_NaInt {
+                        Ok(None)
+                    } else {
+                        Ok(Some(x as f64))
+                    }
+                }
+                REALSXP => {
+                    let x = REAL_ELT(*value, 0);
+                    if R_IsNA(x) != 0 {
+                        Ok(None)
+                    } else {
+                        Ok(Some(x))
+                    }
+                }
+                _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![REALSXP])) }
+            }
+        }
+    }
+}
+
 impl TryFrom<RObject> for String {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
         match Option::<String>::try_from(value)? {
+            Some(x) => Ok(x),
+            None => Err(Error::MissingValueError)
+        }
+    }
+}
+
+impl TryFrom<RObject> for bool {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        match Option::<bool>::try_from(value)? {
+            Some(x) => Ok(x),
+            None => Err(Error::MissingValueError)
+        }
+    }
+}
+
+impl TryFrom<RObject> for i32 {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        match Option::<i32>::try_from(value)? {
+            Some(x) => Ok(x),
+            None => Err(Error::MissingValueError)
+        }
+    }
+}
+
+impl TryFrom<RObject> for f64 {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        match Option::<f64>::try_from(value)? {
             Some(x) => Ok(x),
             None => Err(Error::MissingValueError)
         }
@@ -435,35 +511,6 @@ impl TryFrom<RObject> for Vec<Option<String>> {
     }
 }
 
-impl TryFrom<RObject> for i32 {
-    type Error = crate::error::Error;
-    fn try_from(value: RObject) -> Result<Self, Self::Error> {
-        unsafe {
-            r_assert_length(*value, 1)?;
-            match r_typeof(*value) {
-                INTSXP => { Ok((*INTEGER(*value)) as i32) }
-                REALSXP => { Ok((*REAL(*value)) as i32) }
-                _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![INTSXP])) }
-            }
-        }
-    }
-}
-
-impl TryFrom<RObject> for f64 {
-    type Error = crate::error::Error;
-    fn try_from(value: RObject) -> Result<Self, Self::Error> {
-        unsafe {
-            r_assert_length(*value, 1)?;
-            match r_typeof(*value) {
-                INTSXP => { Ok((*INTEGER(*value)) as f64) }
-                REALSXP => { Ok((*REAL(*value)) as f64) }
-                _ => { Err(Error::UnexpectedType(r_typeof(*value), vec![REALSXP])) }
-            }
-        }
-    }
-}
-
-
 impl TryFrom<RObject> for HashMap<String, String> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
@@ -505,6 +552,123 @@ mod tests {
     use crate::{r_test, r_string, r_char, protect, utils::{CharSxpEq, r_typeof}};
 
     use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_tryfrom_RObject_bool() { r_test! {
+        assert_match!(
+            Option::<bool>::try_from(RObject::from(Rf_ScalarLogical(R_NaInt))),
+            Ok(None) => {}
+        );
+        assert_eq!(
+            Option::<bool>::try_from(RObject::from(true)).unwrap(),
+            Some(true)
+        );
+        assert_eq!(
+            Option::<bool>::try_from(RObject::from(false)).unwrap(),
+            Some(false)
+        );
+        assert_match!(
+            bool::try_from(RObject::from(Rf_ScalarLogical(R_NaInt))),
+            Err(Error::MissingValueError) => {}
+        );
+        assert!(bool::try_from(RObject::from(true)).unwrap());
+        assert!(!bool::try_from(RObject::from(false)).unwrap());
+    }}
+
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_tryfrom_RObject_i32() { r_test! {
+        assert_match!(
+            Option::<i32>::try_from(RObject::from(R_NaInt)),
+            Ok(None) => {}
+        );
+        assert_match!(
+            Option::<i32>::try_from(RObject::from(R_NaReal)),
+            Ok(None) => {}
+        );
+        assert_match!(
+            Option::<i32>::try_from(RObject::from(42)),
+            Ok(Some(x)) => {
+                assert_eq!(x, 42)
+            }
+        );
+        assert_match!(
+            Option::<i32>::try_from(RObject::from(42.0)),
+            Ok(Some(x)) => {
+                assert_eq!(x, 42)
+            }
+        );
+
+        assert_match!(
+            i32::try_from(RObject::from(R_NaInt)),
+            Err(Error::MissingValueError) => {}
+        );
+        assert_match!(
+            i32::try_from(RObject::from(R_NaReal)),
+            Err(Error::MissingValueError) => {}
+        );
+        assert_match!(
+            i32::try_from(RObject::from(42)),
+            Ok(x) => {
+                assert_eq!(x, 42)
+            }
+        );
+        assert_match!(
+            i32::try_from(RObject::from(42.0)),
+            Ok(x) => {
+                assert_eq!(x, 42)
+            }
+        );
+    }}
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_tryfrom_RObject_f64() { r_test! {
+        assert_match!(
+            Option::<f64>::try_from(RObject::from(R_NaInt)),
+            Ok(None) => {}
+        );
+        assert_match!(
+            Option::<f64>::try_from(RObject::from(R_NaReal)),
+            Ok(None) => {}
+        );
+        assert_match!(
+            Option::<f64>::try_from(RObject::from(42)),
+            Ok(Some(x)) => {
+                assert_eq!(x, 42.0)
+            }
+        );
+        assert_match!(
+            Option::<f64>::try_from(RObject::from(42.0)),
+            Ok(Some(x)) => {
+                assert_eq!(x, 42.0)
+            }
+        );
+
+        assert_match!(
+            f64::try_from(RObject::from(R_NaInt)),
+            Err(Error::MissingValueError) => {}
+        );
+        assert_match!(
+            f64::try_from(RObject::from(R_NaReal)),
+            Err(Error::MissingValueError) => {}
+        );
+        assert_match!(
+            f64::try_from(RObject::from(42)),
+            Ok(x) => {
+                assert_eq!(x, 42.0)
+            }
+        );
+        assert_match!(
+            f64::try_from(RObject::from(42.0)),
+            Ok(x) => {
+                assert_eq!(x, 42.0)
+            }
+        );
+    }}
+
 
     #[test]
     #[allow(non_snake_case)]
