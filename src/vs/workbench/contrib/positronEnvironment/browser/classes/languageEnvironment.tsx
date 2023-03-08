@@ -324,8 +324,10 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 				// Add the new environment entries.
 				for (let i = 0; i < list.variables.length; i++) {
 					const variable = list.variables[i];
+					// TODO: Handle the case where the variable is something
+					// other than a String.
 					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
-						variable, new StringEnvironmentValue(`value "${variable}"`)));
+						variable.name, new StringEnvironmentValue(variable.value)));
 				}
 			} else if (msg.type === EnvironmentClientMessageType.Error) {
 				// Error message; log to console. Consider: should we show this

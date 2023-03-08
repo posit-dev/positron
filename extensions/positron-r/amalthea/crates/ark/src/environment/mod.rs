@@ -6,3 +6,4 @@
 //
 
 pub mod r_environment;
+pub mod variable;

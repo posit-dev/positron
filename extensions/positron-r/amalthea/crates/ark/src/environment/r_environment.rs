@@ -12,14 +12,26 @@ use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use harp::object::RObject;
+use harp::r_symbol;
 use libR_sys::R_GlobalEnv;
 use libR_sys::R_lsInternal;
+use libR_sys::Rf_findVarInFrame;
 use log::debug;
 use log::error;
 use serde_json::json;
 use serde_json::Value;
 
+use crate::environment::variable::EnvironmentVariable;
+
+/**
+ * The R Environment handler provides the server side of Positron's Environment
+ * panel, and is responsible for creating and updating the list of variables in
+ * the R environment.
+ */
 pub struct REnvironment {
+    /**
+     * The channel used to send comm messages (data and state changes) to the front end.
+     */
     pub channel_msg_tx: Sender<CommChannelMsg>,
 }
 
@@ -42,10 +54,13 @@ impl REnvironment {
             .send(CommChannelMsg::Data(env_list))
             .unwrap();
 
+        // Flag initially set to false, but set to true if the user closes the
+        // channel (i.e. the front end is closed)
         let mut user_initated_close = false;
 
+        // Main message processing loop; we wait here for messages from the
+        // front end and loop as long as the channel is open
         loop {
-            // Wait for requests from the front end
             let msg = match channel_message_rx.recv() {
                 Ok(msg) => msg,
                 Err(e) => {
@@ -130,5 +145,14 @@ unsafe fn list_environment() -> Value {
         },
     };
 
-    return json!({ "type": "list", "variables": strings });
+    let variables: Vec<EnvironmentVariable> = strings
+        .iter()
+        .map(|s| {
+            let symbol = r_symbol!(s);
+            let obj = RObject::view(Rf_findVarInFrame(R_GlobalEnv, symbol));
+            EnvironmentVariable::new(s, obj)
+        })
+        .collect();
+
+    return json!({ "type": "list", "variables": variables });
 }

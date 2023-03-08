@@ -19,13 +19,26 @@ export enum EnvironmentClientMessageType {
 	// variable or updating a variable's value.
 }
 
+/**
+ * Represents a variable in a language runtime environment -- a value with a
+ * named identifier, not a system environment variable.
+ */
+export interface IEnvironmentVariable {
+	name: string;
+	kind: string;
+	value: string;
+}
+
+/**
+ * A message used to communicate with the language runtime environment client.
+ */
 export interface IEnvironmentClientMessage {
 	type: EnvironmentClientMessageType;
 }
 
 export interface IEnvironmentClientMessageList {
 	type: EnvironmentClientMessageType.List;
-	variables: Array<string>;
+	variables: Array<IEnvironmentVariable>;
 }
 
 export interface IEnvironmentClientMessageError {
