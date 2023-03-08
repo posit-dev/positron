@@ -20,12 +20,24 @@ export enum EnvironmentClientMessageType {
 }
 
 /**
+ * Represents the possible kinds of values in an environment.
+ */
+export enum EnvironmentVariableValueKind {
+	String = 'string',
+	Number = 'number',
+	Vector = 'vector',
+	List = 'list',
+	Function = 'function',
+	Dataframe = 'dataframe',
+}
+
+/**
  * Represents a variable in a language runtime environment -- a value with a
  * named identifier, not a system environment variable.
  */
 export interface IEnvironmentVariable {
 	name: string;
-	kind: string;
+	kind: EnvironmentVariableValueKind;
 	value: string;
 }
 
