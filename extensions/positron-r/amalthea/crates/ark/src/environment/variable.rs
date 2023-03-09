@@ -40,13 +40,13 @@ pub enum ValueKind {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvironmentVariable {
     /** The environment variable's name */
-    name: String,
+    pub name: String,
 
     /** The environment variable's value kind (string, number, etc.) */
-    kind: ValueKind,
+    pub kind: ValueKind,
 
     /** A formatted representation of the variable's value */
-    value: String,
+    pub value: String,
 }
 
 impl EnvironmentVariable {
