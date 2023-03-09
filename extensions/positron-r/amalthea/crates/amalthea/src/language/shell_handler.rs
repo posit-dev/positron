@@ -24,7 +24,6 @@ use crate::wire::kernel_info_request::KernelInfoRequest;
 
 use async_trait::async_trait;
 use crossbeam::channel::Sender;
-use serde_json::Value;
 
 #[async_trait]
 pub trait ShellHandler: Send {
@@ -84,7 +83,7 @@ pub trait ShellHandler: Send {
     async fn handle_comm_open(
         &self,
         comm: Comm,
-        msg_tx: Sender<Value>,
+        msg_tx: Sender<CommChannelMsg>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception>;
 
     /// Handles a reply to a request for input from the front end (from stdin socket)

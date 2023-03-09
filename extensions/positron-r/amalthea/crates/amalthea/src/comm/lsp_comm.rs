@@ -10,7 +10,6 @@ use std::sync::Mutex;
 
 use crossbeam::channel::Sender;
 use serde_json::json;
-use serde_json::Value;
 
 use crate::comm::comm_channel::CommChannelMsg;
 use crate::error::Error;
@@ -26,7 +25,7 @@ pub struct StartLsp {
 
 pub struct LspComm {
     handler: Arc<Mutex<dyn LspHandler>>,
-    msg_tx: Sender<Value>,
+    msg_tx: Sender<CommChannelMsg>,
 }
 
 /**
@@ -34,7 +33,7 @@ pub struct LspComm {
  * track the server thread.
  */
 impl LspComm {
-    pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_tx: Sender<Value>) -> LspComm {
+    pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_tx: Sender<CommChannelMsg>) -> LspComm {
         LspComm { handler, msg_tx }
     }
 
@@ -42,10 +41,10 @@ impl LspComm {
         let mut handler = self.handler.lock().unwrap();
         handler.start(data.client_address.clone()).unwrap();
         self.msg_tx
-            .send(json!({
+            .send(CommChannelMsg::Data(json!({
                 "msg_type": "lsp_started",
                 "content": {}
-            }))
+            })))
             .unwrap();
         Ok(())
     }

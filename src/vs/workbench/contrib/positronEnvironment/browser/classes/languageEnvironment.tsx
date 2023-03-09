@@ -10,6 +10,8 @@ import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
+import { EnvironmentClientMessageType, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
  * EnvironmentValue interface.
@@ -138,6 +140,12 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 */
 	private readonly onDidChangeListItemsEmitter = new Emitter<void>();
 
+	/**
+	 * The client side of the of the environment instance; used to communicate
+	 * with the language runtime.
+	 */
+	private _client?: IEnvironmentClientInstance;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -197,6 +205,11 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		// Initialize Disposable base class.
 		super();
 
+		this._runtime.createClient<IEnvironmentClientMessage>(
+			RuntimeClientType.Environment, {}).then(client => {
+				this.connectClient(client as IEnvironmentClientInstance);
+			});
+
 		// Add the did change runtime state event handler.
 		this._register(this._runtime.onDidChangeRuntimeState(runtimeState => {
 			// console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
@@ -235,10 +248,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		this._register(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			// console.log(`********************* onDidCompleteStartup ${this._runtime.metadata.language}`);
 		}));
-
-		for (let i = 0; i < 5000; i++) {
-			this.setEnvironmentDataEntry(new EnvironmentValueEntry(`var${i}`, new StringEnvironmentValue(`value ${i}`)));
-		}
 	}
 
 	/**
@@ -271,6 +280,13 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		this.onDidChangeListItemsEmitter.fire();
 	}
 
+	/**
+	 * Refreshes the environment.
+	 */
+	refreshEnvironment() {
+		this._client?.sendMessage({ msg_type: EnvironmentClientMessageType.Refresh });
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods
@@ -282,6 +298,44 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
 		this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
 		this.onDidChangeListItemsEmitter.fire();
+	}
+
+	/**
+	 * Connects the environment listing view to a client instance, which is used
+	 * to send and receive messages from the language runtime.
+	 *
+	 *  @param client The client instance.
+	 */
+	private connectClient(client: IEnvironmentClientInstance) {
+		this._client = client;
+		this._register(client);
+		client.onDidChangeClientState(_clientState => {
+			// TODO: Handle client state changes here.
+		});
+		client.onDidReceiveData((msg: IEnvironmentClientMessage) => {
+			if (msg.msg_type === EnvironmentClientMessageType.List) {
+				// This message contains a full list of environment variables.
+				const list = msg as IEnvironmentClientMessageList;
+
+				// Clear out the existing environment entries since this list
+				// completely replaces them.
+				this.clearEnvironment(true);
+
+				// Add the new environment entries.
+				for (let i = 0; i < list.variables.length; i++) {
+					const variable = list.variables[i];
+					// TODO: Handle the case where the variable is something
+					// other than a String.
+					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
+						variable.name, new StringEnvironmentValue(variable.value)));
+				}
+			} else if (msg.msg_type === EnvironmentClientMessageType.Error) {
+				// Error message; log to console. Consider: should we show this
+				// to the user, too?
+				const err = msg as IEnvironmentClientMessageError;
+				console.error(err.message);
+			}
+		});
 	}
 
 	// /**
