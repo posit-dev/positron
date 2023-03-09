@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { makeCUF, makeCUP, makeSGR, SGR } from './ansi';
+import { makeCUB, makeCUF, makeCUP, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 
 /**
@@ -29,7 +29,8 @@ const HelpLines = [
 	'1k          - Inserts 10,000 lines of output',
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
-	'ansi cuf    - Output ',
+	'ansi cub    - Output text using CUB',
+	'ansi cuf    - Output text using CUF',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'',
 	'ansi blink  - Displays blinking output',
@@ -315,15 +316,93 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'ansi cub': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					'Ten \u2588 characters separated by one space using CUB (Cursor Backward):\n' +
+					'0 1 2 3 4 5 6 7 8 9\n' +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588 ` +
+					`\u2588${makeCUB()}\u2588\n` +
+					'\nTen \u2588 characters separated by two space using CUB (Cursor Backward):\n' +
+					'0  1  2  3  4  5  6  7  8  9\n' +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588  ` +
+					`\u2588  ${makeCUB(3)}\u2588\n`
+
+				);
+				break;
+			}
+
 			case 'ansi cuf':
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
-					'Ten \u2588 characters separated by one space:\n' +
-					`\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}` +
-					`\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588\n`
+					'Ten \u2588 characters separated by one space using CUF (Cursor Forward):\n' +
+					'0 1 2 3 4 5 6 7 8 9\n' +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}\n` +
+					'\nTen \u2588 characters separated by two spaces using CUF (Cursor Forward):\n' +
+					'0  1  2  3  4  5  6  7  8  9\n' +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}` +
+					`\u2588${makeCUF(2)}\n` +
+					'\nTen \u2588 characters separated by four spaces using CUF (Cursor Forward):\n' +
+					'0    1    2    3    4    5    6    7    8    9\n' +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}` +
+					`\u2588${makeCUF(4)}\n`
+
 				);
 				break;
+
+			// case 'ansi cup':
+			// 	console.log('Processing user input ansi cup');
+			// 	this.simulateSuccessfulCodeExecution(
+			// 		id,
+			// 		code,
+			// 		`${TEN_BLOCKS}\n` +
+			// 		`${TEN_BLOCKS}\n` +
+			// 		`${makeCUP()}`
+			// 	);
+			// 	break;
 
 			case 'ansi blink':
 				this.simulateSuccessfulCodeExecution(
@@ -331,17 +410,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					code,
 					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.SlowBlink)}  This is blinking text  ${makeSGR()} Slowly Blinking\n` +
 					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.RapidBlink)}  This is blinking text  ${makeSGR()} Rapidly Blinking\n`
-				);
-				break;
-
-			case 'ansi cup':
-				console.log('Processing user input ansi cup');
-				this.simulateSuccessfulCodeExecution(
-					id,
-					code,
-					`${TEN_BLOCKS}\n` +
-					`${TEN_BLOCKS}\n` +
-					`${makeCUP()}`
 				);
 				break;
 
