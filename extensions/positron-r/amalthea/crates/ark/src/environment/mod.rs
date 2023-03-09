@@ -5,5 +5,6 @@
 //
 //
 
+pub mod message;
 pub mod r_environment;
 pub mod variable;

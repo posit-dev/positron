@@ -18,9 +18,10 @@ use libR_sys::R_lsInternal;
 use libR_sys::Rf_findVarInFrame;
 use log::debug;
 use log::error;
-use serde_json::json;
-use serde_json::Value;
 
+use crate::environment::message::EnvironmentMessage;
+use crate::environment::message::EnvironmentMessageError;
+use crate::environment::message::EnvironmentMessageList;
 use crate::environment::variable::EnvironmentVariable;
 
 /**
@@ -49,10 +50,7 @@ impl REnvironment {
         frontend_msg_sender: Sender<CommChannelMsg>,
     ) {
         // Perform the initial environment scan and deliver to the front end
-        let env_list = unsafe { list_environment() };
-        frontend_msg_sender
-            .send(CommChannelMsg::Data(env_list))
-            .unwrap();
+        Self::refresh(frontend_msg_sender.clone());
 
         // Flag initially set to false, but set to true if the user closes the
         // channel (i.e. the front end is closed)
@@ -91,34 +89,31 @@ impl REnvironment {
 
             // Process ordinary data messages
             if let CommChannelMsg::Data(data) = msg {
-                // The 'type' field is required for all messages and indicates
-                // the type of data being sent.
-                let msg_type = match data.get("type") {
-                    Some(t) => t,
-                    None => {
-                        error!("Environment: Received message from front end with no 'type' field; ignoring.");
+                let message = match serde_json::from_value::<EnvironmentMessage>(data) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        error!(
+                            "Environment: Received invalid message from front end. {}",
+                            err
+                        );
                         continue;
                     },
                 };
 
-                if let Some(msg_type) = msg_type.as_str() {
-                    // Match on the type of data received.
-                    match msg_type {
-                        // This is a request to refresh the environment list, so
-                        // perform a full environment scan and deliver to the
-                        // front end
-                        "refresh" => {
-                            let env_list = unsafe { list_environment() };
-                            frontend_msg_sender
-                                .send(CommChannelMsg::Data(env_list))
-                                .unwrap();
-                        },
-                        _ => {
-                            error!("Environment: Received message from front end with unknown 'type' field; ignoring.");
-                        },
-                    }
-                } else {
-                    error!("Environment: Received message from front end with non-string 'type' field {:?}; ignoring.", msg_type);
+                // Match on the type of data received.
+                match message {
+                    // This is a request to refresh the environment list, so
+                    // perform a full environment scan and deliver to the
+                    // front end
+                    EnvironmentMessage::Refresh => {
+                        Self::refresh(frontend_msg_sender.clone());
+                    },
+                    _ => {
+                        error!(
+                            "Environment: Don't know how to handle message type '{:?}'",
+                            message
+                        );
+                    },
                 }
             }
         }
@@ -129,9 +124,25 @@ impl REnvironment {
             frontend_msg_sender.send(CommChannelMsg::Close).unwrap();
         }
     }
+
+    /**
+     * Perform a full environment scan and deliver the results to the front end.
+     */
+    fn refresh(frontend_msg_sender: Sender<CommChannelMsg>) {
+        let env_list = unsafe { list_environment() };
+        let data = serde_json::to_value(env_list);
+        match data {
+            Ok(data) => frontend_msg_sender
+                .send(CommChannelMsg::Data(data))
+                .unwrap(),
+            Err(err) => {
+                error!("Environment: Failed to serialize environment data: {}", err);
+            },
+        }
+    }
 }
 
-unsafe fn list_environment() -> Value {
+unsafe fn list_environment() -> EnvironmentMessage {
     // TODO(jmcphers): Do we need to acquire the R lock here?
 
     // List symbols in the environment.
@@ -141,10 +152,15 @@ unsafe fn list_environment() -> Value {
     let strings = match RObject::new(symbols).to::<Vec<String>>() {
         Ok(v) => v,
         Err(e) => {
-            return json!({ "type": "error", "message": e.to_string() });
+            return EnvironmentMessage::Error(EnvironmentMessageError {
+                message: format!("Error listing environment: {}", e),
+            });
         },
     };
 
+    // Convert each string to an EnvironmentVariable by looking up the value in
+    // the global environment. (It would be more efficient, of course, to use
+    // symbol vector directly, but this code is a placeholder.)
     let variables: Vec<EnvironmentVariable> = strings
         .iter()
         .map(|s| {
@@ -154,5 +170,6 @@ unsafe fn list_environment() -> Value {
         })
         .collect();
 
-    return json!({ "type": "list", "variables": variables });
+    // Form the response message.
+    EnvironmentMessage::List(EnvironmentMessageList { variables })
 }

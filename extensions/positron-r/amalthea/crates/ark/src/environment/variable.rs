@@ -29,7 +29,7 @@ pub enum ValueKind {
     Function,
 
     /// Data frame (data.frame, tibble, etc.)
-    DataFrame,
+    Dataframe,
     // TODO: Add other types of values. These don't have to map 1-1 to R object
     // types; they represent the kinds of values that have unique UI
     // representations. Note that these value kinds are shared across all

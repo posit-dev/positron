@@ -45,16 +45,14 @@ export interface IEnvironmentVariable {
  * A message used to communicate with the language runtime environment client.
  */
 export interface IEnvironmentClientMessage {
-	type: EnvironmentClientMessageType;
+	msg_type: EnvironmentClientMessageType;
 }
 
-export interface IEnvironmentClientMessageList {
-	type: EnvironmentClientMessageType.List;
+export interface IEnvironmentClientMessageList extends IEnvironmentClientMessage {
 	variables: Array<IEnvironmentVariable>;
 }
 
-export interface IEnvironmentClientMessageError {
-	type: EnvironmentClientMessageType.Error;
+export interface IEnvironmentClientMessageError extends IEnvironmentClientMessage {
 	message: string;
 }
 

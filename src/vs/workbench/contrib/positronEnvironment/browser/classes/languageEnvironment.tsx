@@ -284,7 +284,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * Refreshes the environment.
 	 */
 	refreshEnvironment() {
-		this._client?.sendMessage({ type: EnvironmentClientMessageType.Refresh });
+		this._client?.sendMessage({ msg_type: EnvironmentClientMessageType.Refresh });
 	}
 
 	//#endregion Public Methods
@@ -313,7 +313,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			// TODO: Handle client state changes here.
 		});
 		client.onDidReceiveData((msg: IEnvironmentClientMessage) => {
-			if (msg.type === EnvironmentClientMessageType.List) {
+			if (msg.msg_type === EnvironmentClientMessageType.List) {
 				// This message contains a full list of environment variables.
 				const list = msg as IEnvironmentClientMessageList;
 
@@ -329,7 +329,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
 						variable.name, new StringEnvironmentValue(variable.value)));
 				}
-			} else if (msg.type === EnvironmentClientMessageType.Error) {
+			} else if (msg.msg_type === EnvironmentClientMessageType.Error) {
 				// Error message; log to console. Consider: should we show this
 				// to the user, too?
 				const err = msg as IEnvironmentClientMessageError;
