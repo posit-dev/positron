@@ -319,7 +319,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 
 				// Clear out the existing environment entries since this list
 				// completely replaces them.
-				this.environmentValueEntries.clear();
+				this.clearEnvironment(true);
 
 				// Add the new environment entries.
 				for (let i = 0; i < list.variables.length; i++) {
