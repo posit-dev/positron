@@ -12,6 +12,7 @@ use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use harp::object::RObject;
+use harp::r_lock;
 use harp::r_symbol;
 use libR_sys::R_GlobalEnv;
 use libR_sys::R_lsInternal;
@@ -142,34 +143,42 @@ impl REnvironment {
     }
 }
 
-unsafe fn list_environment() -> EnvironmentMessage {
-    // TODO(jmcphers): Do we need to acquire the R lock here?
+/**
+ * List the variables in the R global environment; returns a message that can be
+ * sent to the front end, either containing the list of variables or an error
+ * message.
+ */
+fn list_environment() -> EnvironmentMessage {
+    // Acquire the R lock to ensure we have exclusive access to the R global
+    // environment while we're scanning it below.
+    r_lock! {
 
-    // List symbols in the environment.
-    let symbols = R_lsInternal(R_GlobalEnv, 1);
+        // List symbols in the environment.
+        let symbols = R_lsInternal(R_GlobalEnv, 1);
 
-    // Convert to a vector of strings.
-    let strings = match RObject::new(symbols).to::<Vec<String>>() {
-        Ok(v) => v,
-        Err(e) => {
-            return EnvironmentMessage::Error(EnvironmentMessageError {
-                message: format!("Error listing environment: {}", e),
-            });
-        },
-    };
+        // Convert to a vector of strings.
+        let strings = match RObject::new(symbols).to::<Vec<String>>() {
+            Ok(v) => v,
+            Err(e) => {
+                return EnvironmentMessage::Error(EnvironmentMessageError {
+                    message: format!("Error listing environment: {}", e),
+                });
+            },
+        };
 
-    // Convert each string to an EnvironmentVariable by looking up the value in
-    // the global environment. (It would be more efficient, of course, to use
-    // symbol vector directly, but this code is a placeholder.)
-    let variables: Vec<EnvironmentVariable> = strings
-        .iter()
-        .map(|s| {
-            let symbol = r_symbol!(s);
-            let obj = RObject::view(Rf_findVarInFrame(R_GlobalEnv, symbol));
-            EnvironmentVariable::new(s, obj)
-        })
-        .collect();
+        // Convert each string to an EnvironmentVariable by looking up the value in
+        // the global environment. (It would be more efficient, of course, to use
+        // symbol vector directly, but this code is a placeholder.)
+        let variables: Vec<EnvironmentVariable> = strings
+            .iter()
+            .map(|s| {
+                let symbol = r_symbol!(s);
+                let obj = RObject::view(Rf_findVarInFrame(R_GlobalEnv, symbol));
+                EnvironmentVariable::new(s, obj)
+            })
+            .collect();
 
-    // Form the response message.
-    EnvironmentMessage::List(EnvironmentMessageList { variables })
+        // Form the response message.
+        EnvironmentMessage::List(EnvironmentMessageList { variables })
+    }
 }
