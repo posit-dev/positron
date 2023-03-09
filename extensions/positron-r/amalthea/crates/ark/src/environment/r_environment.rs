@@ -130,7 +130,7 @@ impl REnvironment {
      * Perform a full environment scan and deliver the results to the front end.
      */
     fn refresh(frontend_msg_sender: Sender<CommChannelMsg>) {
-        let env_list = unsafe { list_environment() };
+        let env_list = list_environment();
         let data = serde_json::to_value(env_list);
         match data {
             Ok(data) => frontend_msg_sender
