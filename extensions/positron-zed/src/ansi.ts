@@ -128,13 +128,17 @@ export const makeSGR = (...parameters: number[]): string => {
 	return CSI + parameters.map(parameter => `${parameter}`).join(';') + 'm';
 };
 
+export const makeCUF = () => {
+	return `${CSI}C`;
+};
+
 /**
  * Makes a CUP (Cursor Position) escape sequence.
  * @param line The line.
  * @param column The column.
  * @returns The CUP escape sequence.
  */
-export const makeCUP = (line: number | undefined = undefined, column: number | undefined = undefined): string => {
+export const makeCUP = (line: number | undefined = undefined, column: number | undefined = undefined) => {
 	if (line && line % 1 !== 0) {
 		throw new Error('Line must be an integer.');
 	}

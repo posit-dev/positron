@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { makeCUP, makeSGR, SGR } from './ansi';
+import { makeCUF, makeCUP, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 
 /**
@@ -26,8 +26,10 @@ const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 const HelpLines = [
 	'Zed help:',
 	'',
+	'1k          - Inserts 10,000 lines of output',
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
+	'ansi cuf    - Output ',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'',
 	'ansi blink  - Displays blinking output',
@@ -183,6 +185,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.simulateSuccessfulCodeExecution(id, code);
 				break;
 
+			case '1k':
+				this.simulateBusyState(id);
+				this.simulateInputMessage(id, code);
+				for (let i = 1; i <= 1000; i++) {
+					this.simulateOutputMessage(id, `${makeSGR(SGR.ForegroundRed)}This is line${makeSGR()} ${makeSGR(SGR.ForegroundGreen)}${i}${makeSGR()}`);
+				}
+				this.simulateIdleState(id);
+				break;
+
 			case 'ansi 16':
 				this.simulateSuccessfulCodeExecution(
 					id,
@@ -303,6 +314,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				);
 				break;
 			}
+
+			case 'ansi cuf':
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					'Ten \u2588 characters separated by one space:\n' +
+					`\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}` +
+					`\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588${makeCUF()}\u2588\n`
+				);
+				break;
 
 			case 'ansi blink':
 				this.simulateSuccessfulCodeExecution(
