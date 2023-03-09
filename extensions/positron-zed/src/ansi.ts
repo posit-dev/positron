@@ -128,8 +128,20 @@ export const makeSGR = (...parameters: number[]): string => {
 	return CSI + parameters.map(parameter => `${parameter}`).join(';') + 'm';
 };
 
-export const makeCUF = () => {
-	return `${CSI}C`;
+export const makeCUF = (count: number = 1) => {
+	if (count === 1) {
+		return `${CSI}C`;
+	} else {
+		return `${CSI}${count}C`;
+	}
+};
+
+export const makeCUB = (count: number = 1) => {
+	if (count === 1) {
+		return `${CSI}D`;
+	} else {
+		return `${CSI}${count}D`;
+	}
 };
 
 /**

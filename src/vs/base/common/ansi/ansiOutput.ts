@@ -289,19 +289,17 @@ export class ANSIOutput {
 
 			// CUF (Cursor Forward).
 			case 'C':
-				this._outputColumn++;
+				this.processCUF();
 				break;
 
 			// CUB (Cursor Back).
 			case 'D':
-				// if (this._outputColumn > 0) {
-				// 	this._outputColumn--;
-				// }
+				this.processCUB();
 				break;
 
 			// CUP (Cursor Position).
 			case 'H':
-				this.processCUPControlSequence();
+				this.processCUP();
 				break;
 
 			// ED (Erase in Display).
@@ -329,9 +327,43 @@ export class ANSIOutput {
 	}
 
 	/**
+	 * Processes an CUF control sequence.
+	 */
+	private processCUF() {
+		// Match the control sequence.
+		const match = this._controlSequence.match(/^([0-9]*)C$/);
+		if (!match) {
+			return;
+		}
+
+		// Get the count. Defaults to 1 when empty or 0.
+		const count = match[1] ? Math.max(parseInt(match[1]), 1) : 1;
+
+		// Adjust the output column.
+		this._outputColumn += count;
+	}
+
+	/**
+	 * Processes an CUB control sequence.
+	 */
+	private processCUB() {
+		// Match the control sequence.
+		const match = this._controlSequence.match(/^([0-9]*)D$/);
+		if (!match) {
+			return;
+		}
+
+		// Get the count. Defaults to 1 when empty or 0.
+		const count = match[1] ? Math.max(parseInt(match[1]), 1) : 1;
+
+		// Adjust the output column.
+		this._outputColumn = Math.max(this._outputColumn - count, 0);
+	}
+
+	/**
 	 * Processes an CUP control sequence.
 	 */
-	private processCUPControlSequence() {
+	private processCUP() {
 		// Match the control sequence.
 		const match = this._controlSequence.match(/^([0-9]*)(?:;?([0-9]*))H$/);
 		if (!match) {
@@ -1232,7 +1264,10 @@ class OutputLine implements ANSIOutputLine {
 	 */
 	private _outputRuns: OutputRun[] = [];
 
-	private _outputRunsLength = 0;
+	/**
+	 * Gets or sets the total length.
+	 */
+	private _totalLength = 0;
 
 	//#endregion Private Properties
 
@@ -1250,62 +1285,89 @@ class OutputLine implements ANSIOutputLine {
 	 * @param sgrState The SGR state.
 	 */
 	public insertText(text: string, column: number, sgrState?: SGRState) {
-		// Inserting text at the end of the output line with no gap. This is
-		// the most common scenario for continuous output, so handle it with as
-		// few lines of code as possible.
-		if (column === this._outputRunsLength) {
-			// Adjust the output runs length.
-			this._outputRunsLength += text.length;
+		// Inserting text at the end of the output line.
+		if (column === this._totalLength) {
+			// Adjust the total length.
+			this._totalLength += text.length;
 
-			// If we can, append the text to the last output run.
+			// When possible, append the text being inserted to the last output run.
 			if (this._outputRuns.length) {
-				// Get the last output run.
 				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
-
-				// If the SGR state of the of the last output run is equivalent
-				// to the SGR state of the text being inserted, append the text
-				// being inserted to the last output run and return.
 				if (SGRState.equivalent(lastOutputRun.sgrState, sgrState)) {
 					lastOutputRun.appendText(text);
 					return;
 				}
 			}
 
-			// Append a new output run for the text being inserted and return.
+			// Append an output run for the text being inserted.
 			this._outputRuns.push(new OutputRun(text, sgrState));
 			return;
 		}
 
-		// Inserting text at the end of the output line with a gap.
-		if (column > this._outputRunsLength) {
-			// Calculate the spacer length that will be required.
-			const spacerLength = column - this._outputRunsLength;
+		// Inserting text past the end of the output line.
+		if (column > this._totalLength) {
+			// Create the spacer we need to insert.
+			const spacer = ' '.repeat(column - this._totalLength);
 
-			// Adjust the output runs length.
-			this._outputRunsLength += spacerLength + text.length;
+			// Adjust the total length.
+			this._totalLength += spacer.length + text.length;
 
-			// If the text being inserted is neutral, and so is the last output
-			// run, we can simply append the spacer and the text being inserted
-			// to the last output run.
+			// When possible, append the spacer and the text being inserted to
+			// the last output run.
 			if (!sgrState && this._outputRuns.length) {
 				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
 				if (!lastOutputRun.sgrState) {
-					lastOutputRun.appendText(' '.repeat(spacerLength));
+					lastOutputRun.appendText(spacer);
 					lastOutputRun.appendText(text);
 					return;
 				}
 			}
 
-			// Append a neutral output run for the spacer and the output run
-			// for the text being inserted.
-			this._outputRuns.push(new OutputRun(' '.repeat(spacerLength)));
+			// Append a neutral output run for the spacer and an output run for
+			// the text being inserted. The spacer must be neutral because text
+			// for it has not been set using any SGR state.
+			this._outputRuns.push(new OutputRun(spacer));
 			this._outputRuns.push(new OutputRun(text, sgrState));
 			return;
 		}
 
-		// Inserting text over one or more output runs. First, make a hole for
-		// for the text being inserted.
-		console.log('NEED MORE CODE!!');
+		let offset = 0;
+		let leftOutputRun: OutputRun | undefined = undefined;
+		let rightOutputRun: OutputRun | undefined = undefined;
+		for (let index = 0; index < this._outputRuns.length; index++) {
+			if (column >= offset) {
+				leftOutputRun = this._outputRuns[index];
+				if (index === this._outputRuns.length - 1) {
+					rightOutputRun = leftOutputRun;
+				}
+				break;
+			}
+
+			// Adjust offset for the start of the next output run.
+			offset += this._outputRuns[index].text.length;
+		}
+
+		// The text is being inserted over the last output run.
+		if (leftOutputRun && rightOutputRun) {
+			if (SGRState.equivalent(leftOutputRun.sgrState, sgrState)) {
+				leftOutputRun.insert(text, column - offset);
+				return;
+			}
+
+			// this._outputRuns.pop();
+			// this.outputRuns.push(new OutputRun(leftOutputRun.text.slice(), leftOutputRun.sgrState));
+			// this._outputRuns.push(new OutputRun(text, sgrState));
+		}
+
+		// // Find the last intersecting output run index.
+		// let lastIntersectingOutputRunIndex: number | undefined = undefined;
+		// for (let i = this._outputRuns.length - 1, offset = this._totalLength; i >= 0; i--) {
+		// 	offset -= this._outputRuns[i].text.length;
+		// 	if (column >= offset) {
+		// 		lastIntersectingOutputRunIndex = i;
+		// 		break;
+		// 	}
+		// }
 	}
 
 	//#endregion Public Methods
@@ -1338,7 +1400,7 @@ class OutputRun implements ANSIOutputRun {
 	/**
 	 * Gets the identifier.
 	 */
-	private readonly _id = crypto.randomUUID();
+	private _id = crypto.randomUUID();
 
 	/**
 	 * Gets the SGR state.
@@ -1376,6 +1438,15 @@ class OutputRun implements ANSIOutputRun {
 
 	appendText(text: string) {
 		this._text += text;
+	}
+
+	/**
+	 * Inserts text into the output run.
+	 * @param text the text to insert.
+	 */
+	insert(text: string, offset: number) {
+		this._id = crypto.randomUUID();
+		this._text = this.text.slice(0, offset) + text + this.text.slice(offset + text.length);
 	}
 
 	//#region ANSIOutputRun Implementation
