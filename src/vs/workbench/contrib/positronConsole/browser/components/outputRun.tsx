@@ -31,65 +31,67 @@ export const OutputRun = ({ outputRun }: OutputRunProps) => {
 	 * @param styles The styles to compute.
 	 * @returns A CSSProperties that represents the styles.
 	 */
-	const computeStyles = (styles: ANSIStyle[]): CSSProperties => {
+	const computeStyles = (styles?: ANSIStyle[]): CSSProperties => {
 		// Compute CSS properties from the styles.
 		let cssProperties: CSSProperties = {};
-		styles.forEach(style => {
-			switch (style) {
-				// Bold.
-				case ANSIStyle.Bold:
-					cssProperties = { ...cssProperties, ...{ fontWeight: 'bold' } };
-					break;
+		if (styles) {
+			styles.forEach(style => {
+				switch (style) {
+					// Bold.
+					case ANSIStyle.Bold:
+						cssProperties = { ...cssProperties, ...{ fontWeight: 'bold' } };
+						break;
 
-				// Dim.
-				case ANSIStyle.Dim:
-					cssProperties = { ...cssProperties, ...{ fontWeight: 'lighter' } };
-					break;
+					// Dim.
+					case ANSIStyle.Dim:
+						cssProperties = { ...cssProperties, ...{ fontWeight: 'lighter' } };
+						break;
 
-				// Italic.
-				case ANSIStyle.Italic:
-					cssProperties = { ...cssProperties, ...{ fontStyle: 'italic' } };
-					break;
+					// Italic.
+					case ANSIStyle.Italic:
+						cssProperties = { ...cssProperties, ...{ fontStyle: 'italic' } };
+						break;
 
-				// Underlined.
-				case ANSIStyle.Underlined:
-					cssProperties = { ...cssProperties, ...{ textDecorationLine: 'underline', textDecorationStyle: 'solid' } };
-					break;
+					// Underlined.
+					case ANSIStyle.Underlined:
+						cssProperties = { ...cssProperties, ...{ textDecorationLine: 'underline', textDecorationStyle: 'solid' } };
+						break;
 
-				// Slow blink.
-				case ANSIStyle.SlowBlink:
-					cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 1s linear infinite' } };
-					break;
+					// Slow blink.
+					case ANSIStyle.SlowBlink:
+						cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 1s linear infinite' } };
+						break;
 
-				// Rapid blink.
-				case ANSIStyle.RapidBlink:
-					cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 0.5s linear infinite' } };
-					break;
+					// Rapid blink.
+					case ANSIStyle.RapidBlink:
+						cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 0.5s linear infinite' } };
+						break;
 
-				// Hidden.
-				case ANSIStyle.Hidden:
-					cssProperties = { ...cssProperties, ...{ visibility: 'hidden' } };
-					break;
+					// Hidden.
+					case ANSIStyle.Hidden:
+						cssProperties = { ...cssProperties, ...{ visibility: 'hidden' } };
+						break;
 
-				// CrossedOut.
-				case ANSIStyle.CrossedOut:
-					cssProperties = { ...cssProperties, ...{ textDecorationLine: 'line-through', textDecorationStyle: 'solid' } };
-					break;
+					// CrossedOut.
+					case ANSIStyle.CrossedOut:
+						cssProperties = { ...cssProperties, ...{ textDecorationLine: 'line-through', textDecorationStyle: 'solid' } };
+						break;
 
-				// TODO Fraktur
+					// TODO Fraktur
 
-				// DoubleUnderlined.
-				case ANSIStyle.DoubleUnderlined:
-					cssProperties = { ...cssProperties, ...{ textDecorationLine: 'underline', textDecorationStyle: 'double' } };
-					break;
+					// DoubleUnderlined.
+					case ANSIStyle.DoubleUnderlined:
+						cssProperties = { ...cssProperties, ...{ textDecorationLine: 'underline', textDecorationStyle: 'double' } };
+						break;
 
-				// TODO Framed
-				// TODO Encircled
-				// TODO Overlined
-				// TODO Superscript
-				// TODO Subscript
-			}
-		});
+					// TODO Framed
+					// TODO Encircled
+					// TODO Overlined
+					// TODO Superscript
+					// TODO Subscript
+				}
+			});
+		}
 
 		// Return the CSS properties.
 		return cssProperties;
@@ -144,11 +146,13 @@ export const OutputRun = ({ outputRun }: OutputRunProps) => {
 
 	// Computes the CSS properties for an output run.
 	const computeCSSProperties = (outputRun: ANSIOutputRun): CSSProperties => {
-		return {
-			...computeStyles(outputRun.styles),
-			...computeForegroundBackgroundColor(ColorType.Foreground, outputRun.foregroundColor),
-			...computeForegroundBackgroundColor(ColorType.Background, outputRun.backgroundColor),
-		};
+		return !outputRun.format ?
+			{} :
+			{
+				...computeStyles(outputRun.format.styles),
+				...computeForegroundBackgroundColor(ColorType.Foreground, outputRun.format.foregroundColor),
+				...computeForegroundBackgroundColor(ColorType.Background, outputRun.format.backgroundColor),
+			};
 	};
 
 	// Render.
