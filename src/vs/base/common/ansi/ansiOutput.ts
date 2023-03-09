@@ -1353,21 +1353,7 @@ class OutputLine implements ANSIOutputLine {
 				leftOutputRun.insert(text, column - offset);
 				return;
 			}
-
-			// this._outputRuns.pop();
-			// this.outputRuns.push(new OutputRun(leftOutputRun.text.slice(), leftOutputRun.sgrState));
-			// this._outputRuns.push(new OutputRun(text, sgrState));
 		}
-
-		// // Find the last intersecting output run index.
-		// let lastIntersectingOutputRunIndex: number | undefined = undefined;
-		// for (let i = this._outputRuns.length - 1, offset = this._totalLength; i >= 0; i--) {
-		// 	offset -= this._outputRuns[i].text.length;
-		// 	if (column >= offset) {
-		// 		lastIntersectingOutputRunIndex = i;
-		// 		break;
-		// 	}
-		// }
 	}
 
 	//#endregion Public Methods
