@@ -10,6 +10,8 @@
 use amalthea::connection_file::ConnectionFile;
 use amalthea::kernel::Kernel;
 use amalthea::kernel_spec::KernelSpec;
+use ark::logger;
+use ark::lsp;
 use bus::Bus;
 use crossbeam::channel::bounded;
 use log::*;
@@ -18,21 +20,10 @@ use std::io::stdin;
 use std::sync::{Arc, Mutex};
 use stdext::unwrap;
 
-mod control;
-mod environment;
-mod interface;
-mod kernel;
-mod logger;
-mod lsp;
-mod plots;
-mod request;
-mod shell;
-mod version;
-
-use crate::control::Control;
-use crate::request::Request;
-use crate::shell::Shell;
-use crate::version::detect_r;
+use ark::control::Control;
+use ark::request::Request;
+use ark::shell::Shell;
+use ark::version::detect_r;
 
 fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
     // Create a new kernel from the connection file
