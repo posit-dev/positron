@@ -2,391 +2,129 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+//#region Exports
+
 /**
- * SGRParam enumeration.
+ * ANSIStyle enumeration.
  */
-export enum SGRParam {
-	Reset = 0,
-	Bold = 1,
-	Dim = 2,
-	Italic = 3,
-	Underlined = 4,
-	SlowBlink = 5,
-	RapidBlink = 6,
-	Reversed = 7,
-	Hidden = 8,
-	CrossedOut = 9,
-	PrimaryFont = 10,
-	AlternativeFont1 = 11,
-	AlternativeFont2 = 12,
-	AlternativeFont3 = 13,
-	AlternativeFont4 = 14,
-	AlternativeFont5 = 15,
-	AlternativeFont6 = 16,
-	AlternativeFont7 = 17,
-	AlternativeFont8 = 18,
-	AlternativeFont9 = 19,
-	Fraktur = 20,
-	DoubleUnderlined = 21,
-	NormalIntensity = 22,
-	NotItalicNotFraktur = 23,
-	NotUnderlined = 24,
-	NotBlinking = 25,
-	ProportionalSpacing = 26,
-	NotReversed = 27,
-	Reveal = 28,
-	NotCrossedOut = 29,
-	ForegroundBlack = 30,
-	ForegroundRed = 31,
-	ForegroundGreen = 32,
-	ForegroundYellow = 33,
-	ForegroundBlue = 34,
-	ForegroundMagenta = 35,
-	ForegroundCyan = 36,
-	ForegroundWhite = 37,
-	SetForeground = 38,
-	DefaultForeground = 39,
-	BackgroundBlack = 40,
-	BackgroundRed = 41,
-	BackgroundGreen = 42,
-	BackgroundYellow = 43,
-	BackgroundBlue = 44,
-	BackgroundMagenta = 45,
-	BackgroundCyan = 46,
-	BackgroundWhite = 47,
-	SetBackground = 48,
-	DefaultBackground = 49,
-	DisableProportionalSpacing = 50,
-	Framed = 51,
-	Encircled = 52,
-	Overlined = 53,
-	NotFramedNotEncircled = 54,
-	NotOverlined = 55,
-	// 56 unsupported
-	// 57 unsupported
-	SetUnderline = 58,
-	DefaultUnderline = 59,
-	IdeogramUnderlineOrRightSideLine = 60,
-	IdeogramDoubleUnderlineOrDoubleRightSideLine = 61,
-	IdeogramOverlineOrLeftSideLine = 62,
-	IdeogramDoubleOverlineOrDoubleLeftSideLine = 63,
-	IdeogramStressMarking = 64,
-	NoIdeogramAttributes = 65,
-	// 66 unsupported
-	// 67 unsupported
-	// 68 unsupported
-	// 69 unsupported
-	// 70 unsupported
-	// 71 unsupported
-	// 72 unsupported
-	Superscript = 73,
-	Subscript = 74,
-	NotSuperscriptNotSubscript = 75,
-	// 76 unsupported
-	// 77 unsupported
-	// 78 unsupported
-	// 79 unsupported
-	// 80 unsupported
-	// 81 unsupported
-	// 82 unsupported
-	// 83 unsupported
-	// 84 unsupported
-	// 85 unsupported
-	// 86 unsupported
-	// 87 unsupported
-	// 88 unsupported
-	// 89 unsupported
-	ForegroundBrightBlack = 90,
-	ForegroundBrightRed = 91,
-	ForegroundBrightGreen = 92,
-	ForegroundBrightYellow = 93,
-	ForegroundBrightBlue = 94,
-	ForegroundBrightMagenta = 95,
-	ForegroundBrightCyan = 96,
-	ForegroundBrightWhite = 97,
-	// 98 unsupported
-	// 99 unsupported
-	BackgroundBrightBlack = 100,
-	BackgroundBrightRed = 101,
-	BackgroundBrightGreen = 102,
-	BackgroundBrightYellow = 103,
-	BackgroundBrightBlue = 104,
-	BackgroundBrightMagenta = 105,
-	BackgroundBrightCyan = 106,
-	BackgroundBrightWhite = 107
+export enum ANSIStyle {
+	Bold = 'ansiBold',
+	Dim = 'ansiDim',
+	Italic = 'ansiItalic',
+	Underlined = 'ansiUnderlined',
+	SlowBlink = 'ansiSlowBlink',
+	RapidBlink = 'ansiRapidBlink',
+	Hidden = 'ansiHidden',
+	CrossedOut = 'ansiCrossedOut',
+	Fraktur = 'ansiFraktur',
+	DoubleUnderlined = 'ansiDoubleUnderlined',
+	Framed = 'ansiFramed',
+	Encircled = 'ansiEncircled',
+	Overlined = 'ansiOverlined',
+	Superscript = 'ansiSuperscript',
+	Subscript = 'ansiSubscript'
 }
 
 /**
- * SGRParamColor enumeration.
+ * ANSIFont enumeration.
  */
-export enum SGRParamColor {
-	Color256 = 5,
-	ColorRGB = 2
+export enum ANSIFont {
+	AlternativeFont1 = 'ansiAlternativeFont1',
+	AlternativeFont2 = 'ansiAlternativeFont2',
+	AlternativeFont3 = 'ansiAlternativeFont3',
+	AlternativeFont4 = 'ansiAlternativeFont4',
+	AlternativeFont5 = 'ansiAlternativeFont5',
+	AlternativeFont6 = 'ansiAlternativeFont6',
+	AlternativeFont7 = 'ansiAlternativeFont7',
+	AlternativeFont8 = 'ansiAlternativeFont8',
+	AlternativeFont9 = 'ansiAlternativeFont9'
 }
 
 /**
- * SGRParamIndexedColor enumeration.
+ * SGRColor enumeration.
  */
-export enum SGRParamIndexedColor {
-	Black = 0,
-	Red = 1,
-	Green = 2,
-	Yellow = 3,
-	Blue = 4,
-	Magenta = 5,
-	Cyan = 6,
-	White = 7,
-	BrightBlack = 8,
-	BrightRed = 9,
-	BrightGreen = 10,
-	BrightYellow = 11,
-	BrightBlue = 12,
-	BrightMagenta = 13,
-	BrightCyan = 14,
-	BrightWhite = 15
+export enum ANSIColor {
+	Black = 'ansiBlack',
+	Red = 'ansiRed',
+	Green = 'ansiGreen',
+	Yellow = 'ansiYellow',
+	Blue = 'ansiBlue',
+	Magenta = 'ansiMagenta',
+	Cyan = 'ansiCyan',
+	White = 'ansiWhite',
+	BrightBlack = 'ansiBrightBlack',
+	BrightRed = 'ansiBrightRed',
+	BrightGreen = 'ansiBrightGreen',
+	BrightYellow = 'ansiBrightYellow',
+	BrightBlue = 'ansiBrightBlue',
+	BrightMagenta = 'ansiBrightMagenta',
+	BrightCyan = 'ansiBrightCyan',
+	BrightWhite = 'ansiBrightWhite'
 }
 
 /**
- * ParserState enumeration.
+ * ANSIOutputLine interface.
  */
-enum ParserState {
-	BufferingOutput,
-	ControlSequenceStarted,
-	ParsingControlSequence
+export interface ANSIOutputLine {
+	/**
+	 * Gets the identifier.
+	 */
+	readonly id: string;
+
+	/**
+	 * Gets the output runs.
+	 */
+	readonly outputRuns: ANSIOutputRun[];
 }
 
 /**
- * SGRState class.
+* ANSIOutputRun interface.
+*/
+export interface ANSIOutputRun {
+	/**
+	 * Gets the identifier.
+	 */
+	readonly id: string;
+
+	/**
+	 * Gets the format.
+	 */
+	readonly format?: ANSIFormat;
+
+	/**
+	 * Gets the text.
+	 */
+	readonly text: string;
+}
+
+/**
+ * ANSIFormat interface.
  */
-class SGRState {
-	//#region Private Properties.
+export interface ANSIFormat {
+	/**
+	 * Gets the styles.
+	 */
+	readonly styles?: ANSIStyle[];
 
 	/**
-	 * Gets or sets the styles.
+	 * Gets the foreground color.
 	 */
-	private _styles = new Set<ANSIStyle>();
+	readonly foregroundColor?: ANSIColor | string;
 
 	/**
-	 * Gets or sets the foreground color.
+	 * Gets the background color.
 	 */
-	private _foregroundColor?: ANSIColor | string = undefined;
+	readonly backgroundColor?: ANSIColor | string;
 
 	/**
-	 * Gets or sets the background color.
+	 * Gets the underlined color.
 	 */
-	private _backgroundColor?: ANSIColor | string = undefined;
+	readonly underlinedColor?: string;
 
 	/**
-	 * Gets or sets the underlined color.
+	 * Gets the font.
 	 */
-	private _underlinedColor?: string = undefined;
-
-	/**
-	 * Gets or sets a value which indicates whether the foreground and
-	 * background colors are reversed.
-	 */
-	private _reversed = false;
-
-	/**
-	 * Gets or sets the font.
-	 */
-	private _font?: ANSIFont = undefined;
-
-	//#endregion Private Properties.
-
-	//#region Public Methods
-
-	/**
-	 * Creates an output run.
-	 * @param text
-	 */
-	createOutputRun(text: string): ANSIOutputRun {
-		return {
-			id: crypto.randomUUID(),
-			styles: [...this._styles],
-			foregroundColor: this.automaticallyContrastingForegroundColorForBackgroundColor(),
-			backgroundColor: this._backgroundColor,
-			underlinedColor: this._underlinedColor,
-			font: this._font,
-			text,
-		};
-	}
-
-	/**
-	 * Resets the SGRState.
-	 */
-	reset() {
-		this._styles = new Set<ANSIStyle>();
-		this._foregroundColor = undefined;
-		this._backgroundColor = undefined;
-		this._underlinedColor = undefined;
-		this._reversed = false;
-		this._font = undefined;
-	}
-
-	/**
-	 * Sets a style.
-	 * @param style The style to set.
-	 * @param stylesToDelete The styles to delete.
-	 */
-	setStyle(style: ANSIStyle, ...stylesToDelete: ANSIStyle[]) {
-		// Delete styles.
-		this.deleteStyles(...stylesToDelete);
-
-		// Set the style.
-		this._styles.add(style);
-	}
-
-	/**
-	 * Deletes styles.
-	 * @param stylesToDelete The styles to delete.
-	 */
-	deleteStyles(...stylesToDelete: ANSIStyle[]) {
-		stylesToDelete.forEach(style => this._styles.delete(style));
-	}
-
-	/**
-	 * Sets the foreground color.
-	 * @param color The foreground color.
-	 */
-	setForegroundColor(color?: ANSIColor | string) {
-		if (!this._reversed) {
-			this._foregroundColor = color;
-		} else {
-			this._backgroundColor = color;
-		}
-	}
-
-	/**
-	 * Sets the background color.
-	 * @param color The background color.
-	 */
-	setBackgroundColor(color?: ANSIColor | string) {
-		if (!this._reversed) {
-			this._backgroundColor = color;
-		} else {
-			this._foregroundColor = color;
-		}
-	}
-
-	/**
-	 * Sets reversed.
-	 * @param reversed A value which indicates whether the foreground and
-	 * background colors are reversed.
-	 */
-	setReversed(reversed: boolean) {
-		if (this._reversed !== reversed) {
-			this._reversed = reversed;
-			this.reverseForegroundAndBackgroundColors();
-		}
-	}
-
-	/**
-	 * Sets the font.
-	 * @param font The font.
-	 */
-	setFont(font?: ANSIFont) {
-		this._font = font;
-	}
-
-	/**
-	 * Creates a copy of the SGRState.
-	 * @returns The copy of the SGRState.
-	 */
-	copy(): SGRState {
-		const copy = new SGRState();
-		this._styles.forEach(style => copy._styles.add(style));
-		copy._foregroundColor = this._foregroundColor;
-		copy._backgroundColor = this._backgroundColor;
-		copy._underlinedColor = this._underlinedColor;
-		copy._reversed = this._reversed;
-		copy._font = this._font;
-		return copy;
-	}
-
-	/**
-	 * Determines whether two SGRState objects are equal.
-	 * @param left The first SGRState.
-	 * @param right The second SGRState.
-	 * @returns true, if the SGRState objects are equal; otherwise, false.
-	 */
-	static equals(left: SGRState, right: SGRState): boolean {
-		// Compare styles size.
-		if (left._styles.size !== right._styles.size) {
-			return false;
-		}
-
-		// Compare styles.
-		const aStyles = [...left._styles];
-		const bStyles = [...right._styles];
-		for (let i = 0; i < aStyles.length; i++) {
-			if (aStyles[i] !== bStyles[i]) {
-				return false;
-			}
-		}
-
-		// Compare colors and font.
-		return left._foregroundColor === right._foregroundColor &&
-			left._backgroundColor === right._backgroundColor &&
-			left._underlinedColor === right._underlinedColor &&
-			left._reversed === right._reversed &&
-			left._font === right._font;
-	}
-
-	//#endregion Public Methods
-
-	//#region Private Methods
-
-	/**
-	 * Reverses the foreground and background colors.
-	 */
-	private reverseForegroundAndBackgroundColors() {
-		const foregroundColor = this._foregroundColor;
-		this._foregroundColor = this._backgroundColor;
-		this._backgroundColor = foregroundColor;
-	}
-
-	/**
-	 * Returns a contrasting foreground color when a background color is set
-	 * and a foreground color is not set. At the moment, this only affects the
-	 * the standard background colors, with the presumption being that when the
-	 * 256-color or RGB color options are used, a foreground color is probably
-	 * explicitly set.
-	 * @returns The foreground color to use.
-	 */
-	private automaticallyContrastingForegroundColorForBackgroundColor(): ANSIColor | string | undefined {
-		// When a background color is set and a foreground color is not set,
-		// and the background color is one of the standard colors, return a
-		// contrasting foreground color.
-		if (this._backgroundColor && !this._foregroundColor) {
-			switch (this._backgroundColor) {
-				case ANSIColor.Black:
-				case ANSIColor.BrightBlack:
-				case ANSIColor.Red:
-				case ANSIColor.BrightRed:
-					return ANSIColor.White;
-
-				case ANSIColor.Green:
-				case ANSIColor.BrightGreen:
-				case ANSIColor.Yellow:
-				case ANSIColor.BrightYellow:
-				case ANSIColor.Blue:
-				case ANSIColor.BrightBlue:
-				case ANSIColor.Magenta:
-				case ANSIColor.BrightMagenta:
-				case ANSIColor.Cyan:
-				case ANSIColor.BrightCyan:
-				case ANSIColor.White:
-				case ANSIColor.BrightWhite:
-					return ANSIColor.Black;
-			}
-		}
-
-		// Do nothing.
-		return this._foregroundColor;
-	}
-
-	//#endregion Private Methods
+	readonly font?: string;
 }
 
 /**
@@ -401,11 +139,6 @@ export class ANSIOutput {
 	private _parserState = ParserState.BufferingOutput;
 
 	/**
-	 * Gets or sets the buffer.
-	 */
-	private _buffer = '';
-
-	/**
 	 * Gets or sets the control sequence that's being parsed.
 	 */
 	private _controlSequence = '';
@@ -413,12 +146,12 @@ export class ANSIOutput {
 	/**
 	 * Gets or sets the SGR state.
 	 */
-	private _sgrState = new SGRState();
+	private _sgrState?: SGRState = undefined;
 
 	/**
 	 * Gets or sets the current set of output lines.
 	 */
-	private _outputLines: ANSIOutputLine[] = [];
+	private _outputLines: OutputLine[] = [];
 
 	/**
 	 * Gets or sets the output line.
@@ -426,11 +159,24 @@ export class ANSIOutput {
 	private _outputLine = 0;
 
 	/**
-	 * Gets or sets a value which indicates whether there is a pending newline.
+	 * Gets or sets the output column.
 	 */
-	private _pendingNewline = false;
+	private _outputColumn = 0;
 
 	//#endregion Private Properties
+
+	//#region Public Properties
+
+	/**
+	 * Gets the output lines.
+	 */
+	get outputLines() {
+		return this._outputLines;
+	}
+
+	//#endregion Public Properties
+
+	//#region Public Static Methods
 
 	/**
 	 * Processes output and returns the ANSIOutput lines of the output.
@@ -440,27 +186,19 @@ export class ANSIOutput {
 	static processOutput(output: string) {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(output);
-		return ansiOutput.flushOutput();
+		return ansiOutput.outputLines;
 	}
+
+	//#endregion Public Static Methods
 
 	//#region Public Methods
 
 	/**
 	 * Processes output.
 	 * @param output The output to process.
-	 * @returns The output lines.
 	 */
 	processOutput(output: string) {
 		this.parseOutput(output);
-	}
-
-	/**
-	 * Flushes the output and returns an array of output lines.
-	 * @returns An array of output lines.
-	 */
-	flushOutput(): ANSIOutputLine[] {
-		this.flushBuffer();
-		return this._outputLines;
 	}
 
 	//#endregion Public Methods
@@ -479,8 +217,8 @@ export class ANSIOutput {
 
 			// Parse the character.
 			if (this._parserState === ParserState.BufferingOutput) {
-				// Check for the start of an control sequence. This can be
-				// \x1b[ or \x9b.
+				// Check for the start of an control sequence (or CSI). This
+				// can be \x1b[ or \x9b.
 				if (char === '\x1b') {
 					this._parserState = ParserState.ControlSequenceStarted;
 				} else if (char === '\x9b') {
@@ -516,20 +254,18 @@ export class ANSIOutput {
 	 * @param char The character.
 	 */
 	private processCharacter(char: string) {
-		if (this._pendingNewline) {
-			this._pendingNewline = false;
-			this._outputLine++;
-		}
-
 		// Handle special characters.
-		if (char === '\r') {
-			this.flushBuffer();
-		} else if (char === '\n') {
-			this.flushBuffer();
-			this._pendingNewline = true;
+		if (char === '\n') {
+			this._outputLine++;
+			this._outputColumn = 0;
 		} else {
-			// Buffer the character.
-			this._buffer += char;
+			// Ensure that we have sufficient output lines.
+			for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
+				this._outputLines.push(new OutputLine());
+			}
+
+			// Insert the character.
+			this._outputLines[this._outputLine].insertText(char, this._outputColumn++, this._sgrState);
 		}
 	}
 
@@ -541,18 +277,26 @@ export class ANSIOutput {
 		switch (this._controlSequence.charAt(this._controlSequence.length - 1)) {
 			// CUU (Cursor Up).
 			case 'A':
+				// if (this._outputLine > 0) {
+				// 	this._outputLine--;
+				// }
 				break;
 
 			// CUD (Cursor Down).
 			case 'B':
+				// this._outputLine++;
 				break;
 
 			// CUF (Cursor Forward).
 			case 'C':
+				this._outputColumn++;
 				break;
 
 			// CUB (Cursor Back).
 			case 'D':
+				// if (this._outputColumn > 0) {
+				// 	this._outputColumn--;
+				// }
 				break;
 
 			// CUP (Cursor Position).
@@ -573,8 +317,9 @@ export class ANSIOutput {
 				this.processSGRControlSequence();
 				break;
 
+			// Unsupported control sequence.
 			default:
-				console.log(`Ignoring control sequence: CSI${this._controlSequence}`);
+				console.log(`Unsupported control sequence: CSI${this._controlSequence}`);
 				break;
 		}
 
@@ -587,35 +332,35 @@ export class ANSIOutput {
 	 * Processes an CUP control sequence.
 	 */
 	private processCUPControlSequence() {
-		// Log.
-		console.log(`Processing control sequence CUP: CSI${this._controlSequence}`);
-
 		// Match the control sequence.
 		const match = this._controlSequence.match(/^([0-9]*)(?:;?([0-9]*))H$/);
 		if (!match) {
 			return;
 		}
 
-		// Get the line and column.
+		// Get the line.
 		const line = match[1] ? parseInt(match[1]) : 1;
 		if (Number.isNaN(line)) {
 			return;
 		}
+
+		// Get the column.
 		const column = match[2] ? parseInt(match[2]) : 1;
 		if (Number.isNaN(column)) {
 			return;
 		}
+
+		// Set the output line and output column.
+		this._outputLine = line - 1;
+		this._outputColumn = column - 1;
 	}
 
 	/**
 	 * Processes an SGR control sequence.
 	 */
 	private processSGRControlSequence() {
-		// Log.
-		console.log(`Processing control sequence SGR: CSI${this._controlSequence}`);
-
-		// Make a copy of the SGR state.
-		const sgrState = this._sgrState.copy();
+		// Create the working SGR state.
+		const sgrState = this._sgrState ? this._sgrState.copy() : new SGRState();
 
 		// Parse the SGR parameters.
 		const sgrParams = this._controlSequence
@@ -1055,156 +800,613 @@ export class ANSIOutput {
 			}
 		}
 
-		// Detect changes.
-		if (!SGRState.equals(sgrState, this._sgrState)) {
-			this.flushBuffer();
+		// Detect changes in SGR state.
+		if (!SGRState.equivalent(sgrState, this._sgrState)) {
 			this._sgrState = sgrState;
 		}
 	}
 
+	//#endregion Private Methods
+}
+
+//#endregion Exports
+
+//#region Private Enumerations
+
+/**
+ * SGRParam enumeration.
+ */
+enum SGRParam {
+	Reset = 0,
+	Bold = 1,
+	Dim = 2,
+	Italic = 3,
+	Underlined = 4,
+	SlowBlink = 5,
+	RapidBlink = 6,
+	Reversed = 7,
+	Hidden = 8,
+	CrossedOut = 9,
+	PrimaryFont = 10,
+	AlternativeFont1 = 11,
+	AlternativeFont2 = 12,
+	AlternativeFont3 = 13,
+	AlternativeFont4 = 14,
+	AlternativeFont5 = 15,
+	AlternativeFont6 = 16,
+	AlternativeFont7 = 17,
+	AlternativeFont8 = 18,
+	AlternativeFont9 = 19,
+	Fraktur = 20,
+	DoubleUnderlined = 21,
+	NormalIntensity = 22,
+	NotItalicNotFraktur = 23,
+	NotUnderlined = 24,
+	NotBlinking = 25,
+	ProportionalSpacing = 26,
+	NotReversed = 27,
+	Reveal = 28,
+	NotCrossedOut = 29,
+	ForegroundBlack = 30,
+	ForegroundRed = 31,
+	ForegroundGreen = 32,
+	ForegroundYellow = 33,
+	ForegroundBlue = 34,
+	ForegroundMagenta = 35,
+	ForegroundCyan = 36,
+	ForegroundWhite = 37,
+	SetForeground = 38,
+	DefaultForeground = 39,
+	BackgroundBlack = 40,
+	BackgroundRed = 41,
+	BackgroundGreen = 42,
+	BackgroundYellow = 43,
+	BackgroundBlue = 44,
+	BackgroundMagenta = 45,
+	BackgroundCyan = 46,
+	BackgroundWhite = 47,
+	SetBackground = 48,
+	DefaultBackground = 49,
+	DisableProportionalSpacing = 50,
+	Framed = 51,
+	Encircled = 52,
+	Overlined = 53,
+	NotFramedNotEncircled = 54,
+	NotOverlined = 55,
+	// 56 unsupported
+	// 57 unsupported
+	SetUnderline = 58,
+	DefaultUnderline = 59,
+	IdeogramUnderlineOrRightSideLine = 60,
+	IdeogramDoubleUnderlineOrDoubleRightSideLine = 61,
+	IdeogramOverlineOrLeftSideLine = 62,
+	IdeogramDoubleOverlineOrDoubleLeftSideLine = 63,
+	IdeogramStressMarking = 64,
+	NoIdeogramAttributes = 65,
+	// 66 unsupported
+	// 67 unsupported
+	// 68 unsupported
+	// 69 unsupported
+	// 70 unsupported
+	// 71 unsupported
+	// 72 unsupported
+	Superscript = 73,
+	Subscript = 74,
+	NotSuperscriptNotSubscript = 75,
+	// 76 unsupported
+	// 77 unsupported
+	// 78 unsupported
+	// 79 unsupported
+	// 80 unsupported
+	// 81 unsupported
+	// 82 unsupported
+	// 83 unsupported
+	// 84 unsupported
+	// 85 unsupported
+	// 86 unsupported
+	// 87 unsupported
+	// 88 unsupported
+	// 89 unsupported
+	ForegroundBrightBlack = 90,
+	ForegroundBrightRed = 91,
+	ForegroundBrightGreen = 92,
+	ForegroundBrightYellow = 93,
+	ForegroundBrightBlue = 94,
+	ForegroundBrightMagenta = 95,
+	ForegroundBrightCyan = 96,
+	ForegroundBrightWhite = 97,
+	// 98 unsupported
+	// 99 unsupported
+	BackgroundBrightBlack = 100,
+	BackgroundBrightRed = 101,
+	BackgroundBrightGreen = 102,
+	BackgroundBrightYellow = 103,
+	BackgroundBrightBlue = 104,
+	BackgroundBrightMagenta = 105,
+	BackgroundBrightCyan = 106,
+	BackgroundBrightWhite = 107
+}
+
+/**
+ * SGRParamColor enumeration.
+ */
+enum SGRParamColor {
+	Color256 = 5,
+	ColorRGB = 2
+}
+
+/**
+ * SGRParamIndexedColor enumeration.
+ */
+enum SGRParamIndexedColor {
+	Black = 0,
+	Red = 1,
+	Green = 2,
+	Yellow = 3,
+	Blue = 4,
+	Magenta = 5,
+	Cyan = 6,
+	White = 7,
+	BrightBlack = 8,
+	BrightRed = 9,
+	BrightGreen = 10,
+	BrightYellow = 11,
+	BrightBlue = 12,
+	BrightMagenta = 13,
+	BrightCyan = 14,
+	BrightWhite = 15
+}
+
+/**
+ * ParserState enumeration.
+ */
+enum ParserState {
+	BufferingOutput,
+	ControlSequenceStarted,
+	ParsingControlSequence
+}
+
+//#endregion Private Enumerations
+
+//#region Private Classes
+
+/**
+ * SGRState class.
+ */
+class SGRState implements ANSIFormat {
+	//#region Private Properties.
+
 	/**
-	 * Flushes the buffer.
+	 * Gets or sets the styles.
 	 */
-	private flushBuffer() {
-		// Ensure that we have sufficient output lines.
-		for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
-			this._outputLines.push({
-				id: crypto.randomUUID(),
-				outputRuns: []
-			});
+	private _styles?: Set<ANSIStyle>;
+
+	/**
+	 * Gets or sets the foreground color.
+	 */
+	private _foregroundColor?: ANSIColor | string;
+
+	/**
+	 * Gets or sets the background color.
+	 */
+	private _backgroundColor?: ANSIColor | string;
+
+	/**
+	 * Gets or sets the underlined color.
+	 */
+	private _underlinedColor?: string;
+
+	/**
+	 * Gets or sets a value which indicates whether the foreground and
+	 * background colors are reversed.
+	 */
+	private _reversed?: boolean;
+
+	/**
+	 * Gets or sets the font.
+	 */
+	private _font?: ANSIFont;
+
+	//#endregion Private Properties.
+
+	//#region Public Methods
+
+	/**
+	 * Resets the SGRState.
+	 */
+	reset() {
+		this._styles = undefined;
+		this._foregroundColor = undefined;
+		this._backgroundColor = undefined;
+		this._underlinedColor = undefined;
+		this._reversed = undefined;
+		this._font = undefined;
+	}
+
+	/**
+	 * Creates a copy of the SGRState.
+	 * @returns The copy of the SGRState.
+	 */
+	copy(): SGRState {
+		const copy = new SGRState();
+		if (this._styles && this._styles.size) {
+			const styles = new Set<ANSIStyle>();
+			this._styles.forEach(style => styles.add(style));
+			copy._styles = styles;
+		}
+		copy._foregroundColor = this._foregroundColor;
+		copy._backgroundColor = this._backgroundColor;
+		copy._underlinedColor = this._underlinedColor;
+		copy._reversed = this._reversed;
+		copy._font = this._font;
+		return copy;
+	}
+
+	/**
+	 * Sets a style.
+	 * @param style The style to set.
+	 * @param stylesToDelete The styles to delete.
+	 */
+	setStyle(style: ANSIStyle, ...stylesToDelete: ANSIStyle[]) {
+		if (this._styles) {
+			for (const style of stylesToDelete) {
+				this._styles.delete(style);
+			}
+		} else {
+			this._styles = new Set<ANSIStyle>();
 		}
 
-		// If the buffer is empty, do nothing.
-		if (!this._buffer) {
-			return;
+		// Set the style.
+		this._styles.add(style);
+	}
+
+	/**
+	 * Deletes styles.
+	 * @param stylesToDelete The styles to delete.
+	 */
+	deleteStyles(...stylesToDelete: ANSIStyle[]) {
+		if (this._styles) {
+			for (const style of stylesToDelete) {
+				this._styles.delete(style);
+			}
+
+			if (!this._styles.size) {
+				this._styles = undefined;
+			}
+		}
+	}
+
+	/**
+	 * Sets the foreground color.
+	 * @param color The foreground color.
+	 */
+	setForegroundColor(color?: ANSIColor | string) {
+		if (!this._reversed) {
+			this._foregroundColor = color;
+		} else {
+			this._backgroundColor = color;
+		}
+	}
+
+	/**
+	 * Sets the background color.
+	 * @param color The background color.
+	 */
+	setBackgroundColor(color?: ANSIColor | string) {
+		if (!this._reversed) {
+			this._backgroundColor = color;
+		} else {
+			this._foregroundColor = color;
+		}
+	}
+
+	/**
+	 * Sets reversed.
+	 * @param reversed A value which indicates whether the foreground and
+	 * background colors are reversed.
+	 */
+	setReversed(reversed: boolean) {
+		if (reversed) {
+			if (!this._reversed) {
+				this._reversed = true;
+				this.reverseForegroundAndBackgroundColors();
+			}
+		} else {
+			if (this._reversed) {
+				this._reversed = undefined;
+				this.reverseForegroundAndBackgroundColors();
+			}
+		}
+	}
+
+	/**
+	 * Sets the font.
+	 * @param font The font.
+	 */
+	setFont(font?: ANSIFont) {
+		// Set the font.
+		this._font = font;
+	}
+
+	static equivalent(left?: SGRState, right?: SGRState) {
+		const setReplacer = (key: any, value: any) => value instanceof Set ? !value.size ? undefined : [...value] : value;
+		return left === right || JSON.stringify(left, setReplacer) === JSON.stringify(right, setReplacer);
+	}
+
+	//#endregion Public Methods
+
+	//#region ANSIFormat Implementation
+
+	/**
+	 * Gets the styles.
+	 */
+	public get styles() {
+		return !this._styles ? [] : [...this._styles];
+	}
+
+	/**
+	 * Gets the foreground color.
+	 */
+	public get foregroundColor() {
+		// When a background color is set and a foreground color is not set,
+		// and the background color is one of the standard colors, return a
+		// contrasting foreground color.
+		if (this._backgroundColor && !this._foregroundColor) {
+			switch (this._backgroundColor) {
+				case ANSIColor.Black:
+				case ANSIColor.BrightBlack:
+				case ANSIColor.Red:
+				case ANSIColor.BrightRed:
+					return ANSIColor.White;
+
+				case ANSIColor.Green:
+				case ANSIColor.BrightGreen:
+				case ANSIColor.Yellow:
+				case ANSIColor.BrightYellow:
+				case ANSIColor.Blue:
+				case ANSIColor.BrightBlue:
+				case ANSIColor.Magenta:
+				case ANSIColor.BrightMagenta:
+				case ANSIColor.Cyan:
+				case ANSIColor.BrightCyan:
+				case ANSIColor.White:
+				case ANSIColor.BrightWhite:
+					return ANSIColor.Black;
+			}
 		}
 
+		// Return the foreground color.
+		return this._foregroundColor;
+	}
 
+	/**
+	 * Gets the background color.
+	 */
+	public get backgroundColor() {
+		return this._backgroundColor;
+	}
 
-		// Append the run to the current output line.
-		this._outputLines[this._outputLine].outputRuns.push(
-			this._sgrState.createOutputRun(this._buffer)
-		);
+	/**
+	 * Gets the underlined color.
+	 */
+	public get underlinedColor() {
+		return this._underlinedColor;
+	}
 
-		// Clear the buffer.
-		this._buffer = '';
+	/**
+	 * Gets the font.
+	 */
+	public get font() {
+		return this._font;
+	}
+
+	//#endregion ANSIFormat Implementation
+
+	//#region Private Methods
+
+	/**
+	 * Reverses the foreground and background colors.
+	 */
+	private reverseForegroundAndBackgroundColors() {
+		const foregroundColor = this._foregroundColor;
+		this._foregroundColor = this._backgroundColor;
+		this._backgroundColor = foregroundColor;
 	}
 
 	//#endregion Private Methods
 }
 
 /**
- * ANSIStyle enumeration.
+ * OutputLine class.
  */
-export enum ANSIStyle {
-	Bold = 'ansiBold',
-	Dim = 'ansiDim',
-	Italic = 'ansiItalic',
-	Underlined = 'ansiUnderlined',
-	SlowBlink = 'ansiSlowBlink',
-	RapidBlink = 'ansiRapidBlink',
-	Hidden = 'ansiHidden',
-	CrossedOut = 'ansiCrossedOut',
-	Fraktur = 'ansiFraktur',
-	DoubleUnderlined = 'ansiDoubleUnderlined',
-	Framed = 'ansiFramed',
-	Encircled = 'ansiEncircled',
-	Overlined = 'ansiOverlined',
-	Superscript = 'ansiSuperscript',
-	Subscript = 'ansiSubscript'
-}
+class OutputLine implements ANSIOutputLine {
+	//#region Private Properties
 
-/**
- * ANSIFont enumeration.
- */
-export enum ANSIFont {
-	AlternativeFont1 = 'ansiAlternativeFont1',
-	AlternativeFont2 = 'ansiAlternativeFont2',
-	AlternativeFont3 = 'ansiAlternativeFont3',
-	AlternativeFont4 = 'ansiAlternativeFont4',
-	AlternativeFont5 = 'ansiAlternativeFont5',
-	AlternativeFont6 = 'ansiAlternativeFont6',
-	AlternativeFont7 = 'ansiAlternativeFont7',
-	AlternativeFont8 = 'ansiAlternativeFont8',
-	AlternativeFont9 = 'ansiAlternativeFont9'
-}
-
-/**
- * SGRColor enumeration.
- */
-export enum ANSIColor {
-	Black = 'ansiBlack',
-	Red = 'ansiRed',
-	Green = 'ansiGreen',
-	Yellow = 'ansiYellow',
-	Blue = 'ansiBlue',
-	Magenta = 'ansiMagenta',
-	Cyan = 'ansiCyan',
-	White = 'ansiWhite',
-	BrightBlack = 'ansiBrightBlack',
-	BrightRed = 'ansiBrightRed',
-	BrightGreen = 'ansiBrightGreen',
-	BrightYellow = 'ansiBrightYellow',
-	BrightBlue = 'ansiBrightBlue',
-	BrightMagenta = 'ansiBrightMagenta',
-	BrightCyan = 'ansiBrightCyan',
-	BrightWhite = 'ansiBrightWhite'
-}
-
-/**
- * ANSIOutputLine interface.
- */
-export interface ANSIOutputLine {
-	/**
-	 * The identifier of the line/
-	 */
-	id: string;
-
-	/**
-	 * The output runs that make up the output line.
-	 */
-	outputRuns: ANSIOutputRun[];
-}
-
-/**
-* ANSIOutputRun interface.
-*/
-export interface ANSIOutputRun {
 	/**
 	 * Gets the identifier.
 	 */
-	readonly id: string;
+	private _id = crypto.randomUUID();
 
 	/**
-	 * Gets the styles.
+	 * Gets or sets the output runs.
 	 */
-	readonly styles: ANSIStyle[];
+	private _outputRuns: OutputRun[] = [];
+
+	private _outputRunsLength = 0;
+
+	//#endregion Private Properties
+
+	//#region Public Methods
+
+	// Temporary.
+	public doIt(outputRun: OutputRun) {
+		this._outputRuns.push(outputRun);
+	}
 
 	/**
-	 * Gets the foreground color.
+	 * Inserts text into the output line.
+	 * @param text The text to insert.
+	 * @param column The column at which to insert the text.
+	 * @param sgrState The SGR state.
 	 */
-	readonly foregroundColor: ANSIColor | string | undefined;
+	public insertText(text: string, column: number, sgrState?: SGRState) {
+		// Inserting text at the end of the output line with no gap. This is
+		// the most common scenario for continuous output, so handle it with as
+		// few lines of code as possible.
+		if (column === this._outputRunsLength) {
+			// Adjust the output runs length.
+			this._outputRunsLength += text.length;
+
+			// If we can, append the text to the last output run.
+			if (this._outputRuns.length) {
+				// Get the last output run.
+				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
+
+				// If the SGR state of the of the last output run is equivalent
+				// to the SGR state of the text being inserted, append the text
+				// being inserted to the last output run and return.
+				if (SGRState.equivalent(lastOutputRun.sgrState, sgrState)) {
+					lastOutputRun.appendText(text);
+					return;
+				}
+			}
+
+			// Append a new output run for the text being inserted and return.
+			this._outputRuns.push(new OutputRun(text, sgrState));
+			return;
+		}
+
+		// Inserting text at the end of the output line with a gap.
+		if (column > this._outputRunsLength) {
+			// Calculate the spacer length that will be required.
+			const spacerLength = column - this._outputRunsLength;
+
+			// Adjust the output runs length.
+			this._outputRunsLength += spacerLength + text.length;
+
+			// If the text being inserted is neutral, and so is the last output
+			// run, we can simply append the spacer and the text being inserted
+			// to the last output run.
+			if (!sgrState && this._outputRuns.length) {
+				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
+				if (!lastOutputRun.sgrState) {
+					lastOutputRun.appendText(' '.repeat(spacerLength));
+					lastOutputRun.appendText(text);
+					return;
+				}
+			}
+
+			// Append a neutral output run for the spacer and the output run
+			// for the text being inserted.
+			this._outputRuns.push(new OutputRun(' '.repeat(spacerLength)));
+			this._outputRuns.push(new OutputRun(text, sgrState));
+			return;
+		}
+
+		// Inserting text over one or more output runs. First, make a hole for
+		// for the text being inserted.
+		console.log('NEED MORE CODE!!');
+	}
+
+	//#endregion Public Methods
+
+	//#region ANSIOutputLine Implementation
 
 	/**
-	 * Gets the background color.
+	 * Gets the identifier.
 	 */
-	readonly backgroundColor: ANSIColor | string | undefined;
+	public get id() {
+		return this._id;
+	}
 
 	/**
-	 * Gets the underlined color.
+	 * Gets the output runs.
 	 */
-	readonly underlinedColor: string | undefined;
+	public get outputRuns(): ANSIOutputRun[] {
+		return this._outputRuns;
+	}
+
+	//#endregion ANSIOutputLine Implementation
+}
+
+/**
+ * OutputRun class.
+ */
+class OutputRun implements ANSIOutputRun {
+	//#region Private Properties
 
 	/**
-	 * Gets the font.
+	 * Gets the identifier.
 	 */
-	readonly font: string | undefined;
+	private readonly _id = crypto.randomUUID();
+
+	/**
+	 * Gets the SGR state.
+	 */
+	private readonly _sgrState?: SGRState;
+
+	/**
+	 * Gets or sets the text.
+	 */
+	private _text: string;
+
+	//#endregion Private Properties
+
+	//#region Public Properties
+
+	get sgrState() {
+		return this._sgrState;
+	}
+
+	//#endregion Public Properties
+
+	//#region Constructor
+
+	/**
+	 * Constructor.
+	 * @param text The text.
+	 * @param sgrState The SGR state.
+	 */
+	constructor(text: string, sgrState?: SGRState) {
+		this._sgrState = sgrState;
+		this._text = text;
+	}
+
+	//#endregion Constructor
+
+	appendText(text: string) {
+		this._text += text;
+	}
+
+	//#region ANSIOutputRun Implementation
+
+	/**
+	 * Gets the identifier.
+	 */
+	public get id() {
+		return this._id;
+	}
+
+	/**
+	 * Gets the format.
+	 */
+	public get format() {
+		return this._sgrState;
+	}
 
 	/**
 	 * Gets the text.
 	 */
-	readonly text: string;
+	public get text() {
+		return this._text;
+	}
+
+	//#endregion ANSIOutputRun Implementation
 }
+
+//#endregion Private Classes
+
+//#region Helper Functions
 
 /**
  * Converts a number to a two-digit hex string representing the value.
@@ -1223,3 +1425,5 @@ const twoDigitHex = (value: number) => {
 	const hex = value.toString(16);
 	return hex.length === 2 ? hex : '0' + hex;
 };
+
+//#endregion Helper Functions
