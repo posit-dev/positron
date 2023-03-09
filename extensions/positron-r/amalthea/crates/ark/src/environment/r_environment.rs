@@ -54,7 +54,7 @@ impl REnvironment {
 
         // Flag initially set to false, but set to true if the user closes the
         // channel (i.e. the front end is closed)
-        let mut user_initated_close = false;
+        let mut user_initiated_close = false;
 
         // Main message processing loop; we wait here for messages from the
         // front end and loop as long as the channel is open
@@ -83,7 +83,7 @@ impl REnvironment {
 
                 // Remember that the user initiated the close so that we can
                 // avoid sending a duplicate close message from the back end
-                user_initated_close = true;
+                user_initiated_close = true;
                 break;
             }
 
@@ -118,7 +118,7 @@ impl REnvironment {
             }
         }
 
-        if !user_initated_close {
+        if !user_initiated_close {
             // Send a close message to the front end if the front end didn't
             // initiate the close
             frontend_msg_sender.send(CommChannelMsg::Close).unwrap();
