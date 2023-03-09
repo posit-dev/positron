@@ -14,6 +14,7 @@ use crossbeam::channel::Receiver;
 use crossbeam::channel::RecvTimeoutError;
 use crossbeam::channel::Sender;
 use harp::lock::R_RUNTIME_LOCK;
+use harp::lock::R_RUNTIME_LOCK_COUNT;
 use harp::routines::r_register_routines;
 use harp::utils::r_get_option;
 use libR_sys::*;
@@ -166,7 +167,7 @@ pub extern "C" fn r_read_console(
             Ok(response) => {
 
                 // Take back the lock after we've received some console input.
-                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.mutex.lock()) };
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
                 // Process events.
                 unsafe { process_events() };
@@ -181,7 +182,7 @@ pub extern "C" fn r_read_console(
 
             Err(error) => {
 
-                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.mutex.lock()) };
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
                 use RecvTimeoutError::*;
                 match error {
@@ -264,7 +265,7 @@ pub extern "C" fn r_busy(which: i32) {
 pub unsafe extern "C" fn r_polled_events() {
 
     // Check for pending tasks.
-    let count = R_RUNTIME_LOCK.count.load(std::sync::atomic::Ordering::Acquire);
+    let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
     if count == 0 {
         return;
     }
@@ -272,14 +273,11 @@ pub unsafe extern "C" fn r_polled_events() {
     info!("{} thread(s) are waiting; the main thread is releasing the R runtime lock.", count);
     let now = SystemTime::now();
 
-    // Give the other threads a chance to take the runtime lock.
-    R_RUNTIME_LOCK.condvar.notify_one();
-
     // Release the lock.
     unsafe { R_RUNTIME_LOCK_GUARD = None };
 
     // Take the lock back.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.mutex.lock()) };
+    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
     info!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
 
@@ -294,7 +292,7 @@ pub fn start_r(
 
     // The main thread owns the R runtime lock by default, but releases
     // it when appropriate to give other threads a chance to execute.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.mutex.lock()) };
+    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
     // Start building the channels + kernel objects
     let (console_tx, console_rx) = crossbeam::channel::unbounded();

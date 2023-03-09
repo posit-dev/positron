@@ -5,12 +5,9 @@
 //
 //
 
-use std::sync::Arc;
 use std::sync::atomic::AtomicI32;
 
 use log::info;
-use once_cell::sync::Lazy;
-use parking_lot::Condvar;
 use parking_lot::Mutex;
 
 // The R lock is to be used by threads which wish to access the R runtime. The
@@ -31,22 +28,8 @@ pub extern "C" fn r_polled_events_disabled() {
 }
 
 // The R runtime lock, used to synchronize access to R.
-//
-// The mutex guards access to the number of threads currently
-// waiting for the runtime lock.
-pub struct RRuntimeLock {
-    pub mutex: Mutex<()>,
-    pub condvar: Condvar,
-    pub count: AtomicI32,
-}
-
-pub static mut R_RUNTIME_LOCK : Lazy<Arc<RRuntimeLock>> = Lazy::new(|| {
-    Arc::new(RRuntimeLock {
-        mutex: Mutex::new(()),
-        condvar: Condvar::new(),
-        count: AtomicI32::new(0),
-    })
-});
+pub static mut R_RUNTIME_LOCK: Mutex<()> = Mutex::new(());
+pub static mut R_RUNTIME_LOCK_COUNT: AtomicI32 = AtomicI32::new(0);
 
 pub fn initialize() {
 }
@@ -66,17 +49,15 @@ pub unsafe fn with_r_lock_impl<T, F: FnMut() ->T>(mut callback: F) -> T {
     // Record how long it takes the acquire the lock.
     let now = std::time::SystemTime::now();
 
-    // Increment the count for number of waiting threads.
-    R_RUNTIME_LOCK.count.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-
     // Let the main thread know we're waiting for the lock.
-    let mut guard = R_RUNTIME_LOCK.mutex.lock();
+    // Do so by ncrementing the count for number of waiting threads.
+    R_RUNTIME_LOCK_COUNT.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
 
-    // Start waiting for a notification.
-    R_RUNTIME_LOCK.condvar.wait(&mut guard);
+    // Start waiting for the lock.
+    let guard = R_RUNTIME_LOCK.lock();
 
     // If we get here, we now have the lock, so decrement the count.
-    R_RUNTIME_LOCK.count.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
+    R_RUNTIME_LOCK_COUNT.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
 
     // Log how long we were stuck waiting.
     let elapsed = now.elapsed().unwrap().as_millis();
