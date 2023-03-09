@@ -9,10 +9,12 @@ use amalthea::comm::comm_channel::CommChannelMsg;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageList;
 use ark::environment::r_environment::REnvironment;
+use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
 use harp::test::start_r;
-use libR_sys::R_GlobalEnv;
+use libR_sys::R_EmptyEnv;
+use libR_sys::R_NewEnv;
 use libR_sys::Rf_ScalarInteger;
 use libR_sys::Rf_defineVar;
 
@@ -31,12 +33,21 @@ fn test_environment_list() {
     // against.
     start_r();
 
+    // Create a new environment for the test. We use a new, empty environment
+    // (with the empty environment as its parent) so that each test in this
+    // file can run independently.
+    let test_env = r_lock! {
+        RObject::new(R_NewEnv(R_EmptyEnv, 0, 5))
+    };
+
     // Create a sender/receiver pair for the comm channel.
     let (frontend_message_tx, frontend_message_rx) =
         crossbeam::channel::unbounded::<CommChannelMsg>();
 
-    // Create a new environment
-    let r_env = REnvironment::new(frontend_message_tx.clone());
+    // Create a new environment handler and give it a view of the test
+    // environment we created.
+    let test_env_view = unsafe { RObject::view(test_env.sexp) };
+    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone());
     let backend_msg_sender = r_env.channel_msg_tx.clone();
 
     // Ensure we get a list of variables after initialization
@@ -55,7 +66,7 @@ fn test_environment_list() {
     // variables with the new variable in it.
     r_lock! {
         let sym = r_symbol!("everything");
-        Rf_defineVar(sym, Rf_ScalarInteger(42), R_GlobalEnv);
+        Rf_defineVar(sym, Rf_ScalarInteger(42), test_env.sexp);
     }
 
     // Request that the environment be refreshed

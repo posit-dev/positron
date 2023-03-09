@@ -150,6 +150,11 @@ impl Drop for RObject {
     }
 }
 
+// RObjects are not inherently thread-safe since they wrap a raw pointer, but we
+// allow them to be sent across threads because we require the acquisition of a
+// lock on the outer R interpreter (see `r_lock!`) before using them.
+unsafe impl Send for RObject {}
+
 impl Deref for RObject {
     type Target = SEXP;
     fn deref(&self) -> &Self::Target {

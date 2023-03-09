@@ -35,6 +35,9 @@ use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use harp::exec::r_parse_vector;
 use harp::exec::ParseResult;
+use harp::object::RObject;
+use harp::r_lock;
+use libR_sys::R_GlobalEnv;
 use log::*;
 use serde_json::json;
 
@@ -221,8 +224,11 @@ impl ShellHandler for Shell {
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         match comm {
             Comm::Environment => {
-                let env: REnvironment = REnvironment::new(msg_tx);
-                Ok(Some(env.channel_msg_tx))
+                r_lock! {
+                    let global_env = RObject::view(R_GlobalEnv);
+                    let env: REnvironment = REnvironment::new(global_env, msg_tx.clone());
+                    Ok(Some(env.channel_msg_tx))
+                }
             },
             _ => Ok(None),
         }
