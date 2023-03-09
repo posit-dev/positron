@@ -9,6 +9,7 @@ use amalthea::comm::comm_channel::CommChannelMsg;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageList;
 use ark::environment::r_environment::REnvironment;
+use harp::r_lock;
 use harp::r_symbol;
 use harp::test::start_r;
 use libR_sys::R_GlobalEnv;
@@ -52,7 +53,7 @@ fn test_environment_list() {
 
     // Now create a variable in the R environment and ensure we get a list of
     // variables with the new variable in it.
-    unsafe {
+    r_lock! {
         let sym = r_symbol!("everything");
         Rf_defineVar(sym, Rf_ScalarInteger(42), R_GlobalEnv);
     }
