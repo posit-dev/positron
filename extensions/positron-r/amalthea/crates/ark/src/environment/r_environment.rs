@@ -14,11 +14,13 @@ use crossbeam::channel::Sender;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
-use libR_sys::R_GlobalEnv;
+use harp::utils::r_assert_type;
 use libR_sys::R_lsInternal;
 use libR_sys::Rf_findVarInFrame;
+use libR_sys::ENVSXP;
 use log::debug;
 use log::error;
+use log::warn;
 
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageError;
@@ -38,20 +40,37 @@ pub struct REnvironment {
 }
 
 impl REnvironment {
-    pub fn new(frontend_msg_sender: Sender<CommChannelMsg>) -> Self {
+    /**
+     * Creates a new REnvironment instance.
+     *
+     * - `env`: An R environment to scan for variables, typically R_GlobalEnv
+     * - `frontend_msg_sender`: A channel used to send messages to the front end
+     */
+    pub fn new(env: RObject, frontend_msg_sender: Sender<CommChannelMsg>) -> Self {
         let (channel_msg_tx, channel_msg_rx) = unbounded::<CommChannelMsg>();
 
+        // Validate that the RObject we were passed is actually an environment
+        unsafe {
+            if let Err(err) = r_assert_type(env.sexp, &[ENVSXP]) {
+                warn!(
+                    "Environment: Attempt to monitor or list non-environment object {:?} ({:?})",
+                    env, err
+                );
+            }
+        };
+
         // Start the execution thread and wait for requests from the front end
-        thread::spawn(move || Self::execution_thread(channel_msg_rx, frontend_msg_sender));
+        thread::spawn(move || Self::execution_thread(env, channel_msg_rx, frontend_msg_sender));
         Self { channel_msg_tx }
     }
 
     pub fn execution_thread(
+        env: RObject,
         channel_message_rx: Receiver<CommChannelMsg>,
         frontend_msg_sender: Sender<CommChannelMsg>,
     ) {
         // Perform the initial environment scan and deliver to the front end
-        Self::refresh(frontend_msg_sender.clone());
+        Self::refresh(&env, frontend_msg_sender.clone());
 
         // Flag initially set to false, but set to true if the user closes the
         // channel (i.e. the front end is closed)
@@ -107,7 +126,7 @@ impl REnvironment {
                     // perform a full environment scan and deliver to the
                     // front end
                     EnvironmentMessage::Refresh => {
-                        Self::refresh(frontend_msg_sender.clone());
+                        Self::refresh(&env, frontend_msg_sender.clone());
                     },
                     _ => {
                         error!(
@@ -129,8 +148,8 @@ impl REnvironment {
     /**
      * Perform a full environment scan and deliver the results to the front end.
      */
-    fn refresh(frontend_msg_sender: Sender<CommChannelMsg>) {
-        let env_list = list_environment();
+    fn refresh(env: &RObject, frontend_msg_sender: Sender<CommChannelMsg>) {
+        let env_list = list_environment(&env);
         let data = serde_json::to_value(env_list);
         match data {
             Ok(data) => frontend_msg_sender
@@ -144,17 +163,17 @@ impl REnvironment {
 }
 
 /**
- * List the variables in the R global environment; returns a message that can be
+ * List the variables in the given R environment; returns a message that can be
  * sent to the front end, either containing the list of variables or an error
  * message.
  */
-fn list_environment() -> EnvironmentMessage {
+fn list_environment(env: &RObject) -> EnvironmentMessage {
     // Acquire the R lock to ensure we have exclusive access to the R global
     // environment while we're scanning it below.
     r_lock! {
 
         // List symbols in the environment.
-        let symbols = R_lsInternal(R_GlobalEnv, 1);
+        let symbols = R_lsInternal(env.sexp, 1);
 
         // Convert to a vector of strings.
         let strings = match RObject::new(symbols).to::<Vec<String>>() {
@@ -173,7 +192,7 @@ fn list_environment() -> EnvironmentMessage {
             .iter()
             .map(|s| {
                 let symbol = r_symbol!(s);
-                let obj = RObject::view(Rf_findVarInFrame(R_GlobalEnv, symbol));
+                let obj = RObject::view(Rf_findVarInFrame(env.sexp, symbol));
                 EnvironmentVariable::new(s, obj)
             })
             .collect();
