@@ -33,11 +33,12 @@ use log::*;
 use serde_json::json;
 use std::result::Result::Err;
 use std::result::Result::Ok;
+use std::sync::atomic::AtomicBool;
 
 use crate::request::Request;
 
 /// Represents whether an error occurred during R code execution.
-pub static mut R_ERROR_OCCURRED : bool = false;
+pub static R_ERROR_OCCURRED : AtomicBool = AtomicBool::new(false);
 
 /// Represents the Rust state of the R kernel
 pub struct Kernel {
@@ -129,7 +130,7 @@ impl Kernel {
         execute_response_tx: Sender<ExecuteResponse>,
     ) {
         // Clear error occurred flag
-        unsafe { R_ERROR_OCCURRED = false };
+        R_ERROR_OCCURRED.store(true, std::sync::atomic::Ordering::Release);
 
         // Save copy of our response channel
         self.execute_response_tx = Some(execute_response_tx);
@@ -194,12 +195,11 @@ impl Kernel {
     pub fn finish_request(&self) {
 
         // Save and reset error occurred flag
-        let error_occurred = unsafe { R_ERROR_OCCURRED };
-        unsafe { R_ERROR_OCCURRED = false };
+        let error_occurred = R_ERROR_OCCURRED.swap(false, std::sync::atomic::Ordering::AcqRel);
 
         // TODO: Include a traceback if an error occurs.
         if error_occurred {
-            let message = unsafe { geterrmessage() };
+            let message = geterrmessage();
             log::info!("An R error occurred: {}", message);
         }
 

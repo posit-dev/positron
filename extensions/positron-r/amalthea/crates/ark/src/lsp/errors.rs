@@ -11,6 +11,6 @@ use crate::kernel::R_ERROR_OCCURRED;
 
 #[harp::register]
 unsafe extern "C" fn ps_error_handler() -> SEXP {
-    R_ERROR_OCCURRED = true;
+    R_ERROR_OCCURRED.store(true, std::sync::atomic::Ordering::Release);
     R_NilValue
 }
