@@ -305,27 +305,15 @@ impl Kernel {
         // Append content to buffer.
         buffer.push_str(content);
 
-        // Check for a newline. If we have one, emit that output.
-        // TODO: Remove newline buffering once this is implemented on the front-end.
-        let index = buffer.find('\n');
-        if index.is_some() {
+        // Stream output via the IOPub channel.
+        let message = IOPubMessage::Stream(StreamOutput {
+            stream: stream,
+            text: content.to_string(),
+        });
 
-            // Use swap to take ownership of the buffer, and replace
-            // it with an empty buffer in the process.
-            let mut text = String::new();
-            std::mem::swap(buffer, &mut text);
-
-            // Stream output via the IOPub channel.
-            let message = IOPubMessage::Stream(StreamOutput {
-                stream: stream,
-                text: text,
-            });
-
-            unwrap!(self.iopub_tx.send(message), Err(error) => {
-                log::error!("{}", error);
-            });
-
-        }
+        unwrap!(self.iopub_tx.send(message), Err(error) => {
+            log::error!("{}", error);
+        });
 
     }
 
