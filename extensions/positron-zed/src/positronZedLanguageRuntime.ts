@@ -26,7 +26,7 @@ const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'1k          - Inserts 10,000 lines of output',
+	'1k          - Inserts 1,000 lines of ANSI output',
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
 	'ansi blink  - Displays blinking output',
