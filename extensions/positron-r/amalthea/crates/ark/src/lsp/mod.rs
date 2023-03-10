@@ -11,6 +11,7 @@ pub mod comm;
 pub mod completions;
 pub mod definitions;
 pub mod documents;
+pub mod errors;
 pub mod handler;
 pub mod help;
 pub mod help_proxy;
