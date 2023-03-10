@@ -180,10 +180,13 @@ impl From<&str> for RFunction {
     }
 }
 
-pub unsafe fn geterrmessage() -> String {
+pub fn geterrmessage() -> String {
 
-    let buffer = R_curErrorBuf();
-    let cstr = CStr::from_ptr(buffer);
+    // SAFETY: Returns pointer to static memory buffer owned by R.
+    let buffer = unsafe { R_curErrorBuf() };
+
+    // SAFETY: The aforementioned buffer is never null.
+    let cstr = unsafe { CStr::from_ptr(buffer) };
 
     match cstr.to_str() {
         Ok(value) => return value.to_string(),

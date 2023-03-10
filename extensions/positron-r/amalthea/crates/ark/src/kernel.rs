@@ -17,21 +17,29 @@ use amalthea::wire::execute_result::ExecuteResult;
 use amalthea::wire::input_request::InputRequest;
 use amalthea::wire::input_request::ShellInputRequest;
 use amalthea::wire::jupyter_message::Status;
+use amalthea::wire::stream::Stream;
+use amalthea::wire::stream::StreamOutput;
 use anyhow::*;
 use bus::Bus;
 use crossbeam::channel::Sender;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::exec::geterrmessage;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::utils::r_inherits;
 use libR_sys::*;
 use log::*;
 use serde_json::json;
+use stdext::unwrap;
 use std::result::Result::Err;
 use std::result::Result::Ok;
+use std::sync::atomic::AtomicBool;
 
 use crate::request::Request;
+
+/// Represents whether an error occurred during R code execution.
+pub static R_ERROR_OCCURRED : AtomicBool = AtomicBool::new(false);
 
 /// Represents the Rust state of the R kernel
 pub struct Kernel {
@@ -41,9 +49,9 @@ pub struct Kernel {
     kernel_init_tx: Bus<KernelInfo>,
     execute_response_tx: Option<Sender<ExecuteResponse>>,
     input_request_tx: Option<Sender<ShellInputRequest>>,
-    output: String,
-    error: String,
     banner: String,
+    stdout: String,
+    stderr: String,
     initializing: bool,
 }
 
@@ -62,16 +70,16 @@ impl Kernel {
         kernel_init_tx: Bus<KernelInfo>,
     ) -> Self {
         Self {
-            iopub_tx,
             execution_count: 0,
+            iopub_tx,
             console_tx,
-            output: String::new(),
-            error: String::new(),
-            banner: String::new(),
-            initializing: true,
             kernel_init_tx,
             execute_response_tx: None,
             input_request_tx: None,
+            banner: String::new(),
+            stdout: String::new(),
+            stderr: String::new(),
+            initializing: true,
         }
     }
 
@@ -126,9 +134,14 @@ impl Kernel {
         req: &ExecuteRequest,
         execute_response_tx: Sender<ExecuteResponse>,
     ) {
-        // Clear output and error accumulators from previous execution
-        self.output = String::new();
-        self.error = String::new();
+        // Clear error occurred flag
+        R_ERROR_OCCURRED.store(true, std::sync::atomic::Ordering::Release);
+
+        // Initialize stdout, stderr
+        self.stdout = String::new();
+        self.stderr = String::new();
+
+        // Save copy of our response channel
         self.execute_response_tx = Some(execute_response_tx);
 
         // Increment counter if we are storing this execution in history
@@ -189,11 +202,60 @@ impl Kernel {
 
     /// Finishes the active execution request
     pub fn finish_request(&self) {
-        if self.error.is_empty() {
-            self.emit_output();
-        } else {
-            self.emit_error();
+
+        // Save and reset error occurred flag
+        let error_occurred = R_ERROR_OCCURRED.swap(false, std::sync::atomic::Ordering::AcqRel);
+
+        // TODO: Include a traceback if an error occurs.
+        if error_occurred {
+            let message = geterrmessage();
+            log::info!("An R error occurred: {}", message);
         }
+
+        // TODO: Implement rich printing of certain outputs.
+        // Will we need something similar to the RStudio model,
+        // where we implement custom print() methods? Or can
+        // we make the stub below behave sensibly even when
+        // streaming R output?
+        let mut data = serde_json::Map::new();
+        data.insert("text/plain".to_string(), json!(""));
+
+        // Include HTML representation of data.frame
+        // TODO: Do we need to hold the R lock here?
+        let value = unsafe { Rf_findVarInFrame(R_GlobalEnv, r_symbol!(".Last.value")) };
+        let is_data_frame = unsafe { r_inherits(value, "data.frame") };
+        if is_data_frame {
+            match Kernel::to_html(value) {
+                Ok(html) => data.insert("text/html".to_string(), json!(html)),
+                Err(error) => {
+                    error!("{:?}", error);
+                    None
+                }
+            };
+        }
+
+        if let Err(err) = self.iopub_tx.send(IOPubMessage::ExecuteResult(ExecuteResult {
+            execution_count: self.execution_count,
+            data: serde_json::Value::Object(data),
+            metadata: json!({}),
+        })) {
+            warn!(
+                "Could not publish result of statement {} on iopub: {}",
+                self.execution_count, err
+            );
+        }
+
+        // Send the reply to the front end
+        if let Some(sender) = &self.execute_response_tx {
+            sender
+                .send(ExecuteResponse::Reply(ExecuteReply {
+                    status: Status::Ok,
+                    execution_count: self.execution_count,
+                    user_expressions: json!({}),
+                }))
+                .unwrap();
+        }
+
     }
 
     /// Requests input from the front end
@@ -225,90 +287,34 @@ impl Kernel {
         }
     }
 
-    fn emit_error(&self) {
-        let error = self.error.clone();
-        // Send the reply to the front end
-        if let Some(sender) = &self.execute_response_tx {
-            sender
-                .send(ExecuteResponse::ReplyException(ExecuteReplyException {
-                    status: Status::Error,
-                    execution_count: self.execution_count,
-                    exception: Exception {
-                        ename: "CodeExecution".to_string(),
-                        evalue: error,
-                        traceback: vec![],
-                    },
-                }))
-                .unwrap();
-        }
-    }
-
-    fn emit_output(&self) {
-        let output = self.output.clone();
-
-        // Look up computation result
-        let mut data = serde_json::Map::new();
-        data.insert("text/plain".to_string(), json!(output));
-        trace!("Formatting value");
-
-        // Handle data.frame specially.
-        let value = unsafe { Rf_findVarInFrame(R_GlobalEnv, r_symbol!(".Last.value")) };
-        let is_data_frame = unsafe { r_inherits(value, "data.frame") };
-        if is_data_frame {
-            match Kernel::to_html(value) {
-                Ok(html) => data.insert("text/html".to_string(), json!(html)),
-                Err(error) => {
-                    error!("{:?}", error);
-                    None
-                }
-            };
-        }
-
-        trace!("Sending kernel output: {}", self.output);
-        if let Err(err) = self.iopub_tx.send(IOPubMessage::ExecuteResult(ExecuteResult {
-            execution_count: self.execution_count,
-            data: serde_json::Value::Object(data),
-            metadata: json!({}),
-        })) {
-            warn!(
-                "Could not publish result of statement {} on iopub: {}",
-                self.execution_count, err
-            );
-        }
-
-        // Send the reply to the front end
-        if let Some(sender) = &self.execute_response_tx {
-            sender
-                .send(ExecuteResponse::Reply(ExecuteReply {
-                    status: Status::Ok,
-                    execution_count: self.execution_count,
-                    user_expressions: json!({}),
-                }))
-                .unwrap();
-        }
-    }
-
     /// Called from R when console data is written.
-    ///
-    /// TODO: This accumulates rather than streams the output; we should provide
-    /// output streams so users can observe output as it is generated.
-    pub fn write_console(&mut self, content: &str, otype: i32) {
-        debug!("Write console {} from R: {}", otype, content);
+    pub fn write_console(&mut self, content: &str, stream: Stream) {
+
+        log::info!("R output on {:?}: {}", stream, content);
         if self.initializing {
             // During init, consider all output to be part of the startup banner
             self.banner.push_str(content);
-        } else {
-            // Afterwards (during normal REPL), accumulate output internally
-            // until R is finished executing
-            if otype == 1 {
-                // For now, treat error output as though it's an error.
-                //
-                // TODO: We should install an error handler instead so we can
-                self.error.push_str(content);
-            } else {
-                self.output.push_str(content);
-            }
+            return;
         }
+
+        let buffer = match stream {
+            Stream::Stdout => &mut self.stdout,
+            Stream::Stderr => &mut self.stderr,
+        };
+
+        // Append content to buffer.
+        buffer.push_str(content);
+
+        // Stream output via the IOPub channel.
+        let message = IOPubMessage::Stream(StreamOutput {
+            stream: stream,
+            text: content.to_string(),
+        });
+
+        unwrap!(self.iopub_tx.send(message), Err(error) => {
+            log::error!("{}", error);
+        });
+
     }
 
     /// Establishes the input handler for the kernel to request input from the
