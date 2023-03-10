@@ -212,6 +212,7 @@ impl Kernel {
         data.insert("text/plain".to_string(), json!(""));
 
         // Include HTML representation of data.frame
+        // TODO: Do we need to hold the R lock here?
         let value = unsafe { Rf_findVarInFrame(R_GlobalEnv, r_symbol!(".Last.value")) };
         let is_data_frame = unsafe { r_inherits(value, "data.frame") };
         if is_data_frame {
