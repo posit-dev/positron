@@ -9,3 +9,5 @@
 match_block_trailing_comma = true
 # normalize_comments = true
 # overflow_delimited_expr = true
+max_width = 100
+
