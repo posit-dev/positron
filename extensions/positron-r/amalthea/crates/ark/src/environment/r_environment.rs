@@ -15,7 +15,6 @@ use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
 use harp::utils::r_assert_type;
-use libR_sys::R_GlobalEnv;
 use libR_sys::R_lsInternal;
 use libR_sys::Rf_findVarInFrame;
 use libR_sys::ENVSXP;
