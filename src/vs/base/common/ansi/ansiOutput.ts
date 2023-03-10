@@ -366,11 +366,8 @@ export class ANSIOutput {
 			return;
 		}
 
-		// Get the count. Defaults to 1 when empty or 0.
-		const count = match[1] ? Math.max(parseInt(match[1]), 1) : 1;
-
 		// Adjust the output line.
-		this._outputLine = Math.max(this._outputLine - count, 0);
+		this._outputLine = Math.max(this._outputLine - rangeParam(match[1], 1, 1, 1024), 0);
 	}
 
 	/**
@@ -383,11 +380,8 @@ export class ANSIOutput {
 			return;
 		}
 
-		// Get the count. Defaults to 1 when empty or 0.
-		const count = match[1] ? Math.min(Math.max(parseInt(match[1]), 1024), 1) : 1;
-
 		// Adjust the output line.
-		this._outputLine = Math.max(this._outputLine - count, 0);
+		this._outputLine = Math.max(this._outputLine - rangeParam(match[1], 1, 1, 1024), 0);
 	}
 
 	/**
@@ -400,11 +394,8 @@ export class ANSIOutput {
 			return;
 		}
 
-		// Get the count. Defaults to 1 when empty or 0.
-		const count = match[1] ? Math.min(Math.max(parseInt(match[1]), 1), 1024) : 1;
-
 		// Adjust the output column.
-		this._outputColumn += count;
+		this._outputColumn += rangeParam(match[1], 1, 1, 1024);
 	}
 
 	/**
@@ -417,11 +408,8 @@ export class ANSIOutput {
 			return;
 		}
 
-		// Get the count. Defaults to 1 when empty or 0.
-		const count = match[1] ? Math.max(parseInt(match[1]), 1) : 1;
-
 		// Adjust the output column.
-		this._outputColumn = Math.max(this._outputColumn - count, 0);
+		this._outputColumn = Math.max(this._outputColumn - rangeParam(match[1], 1, 1, 1024), 0);
 	}
 
 	/**
@@ -434,21 +422,9 @@ export class ANSIOutput {
 			return;
 		}
 
-		// Get the line.
-		const line = match[1] ? parseInt(match[1]) : 1;
-		if (Number.isNaN(line)) {
-			return;
-		}
-
-		// Get the column.
-		const column = match[2] ? parseInt(match[2]) : 1;
-		if (Number.isNaN(column)) {
-			return;
-		}
-
 		// Set the output line and output column.
-		this._outputLine = line - 1;
-		this._outputColumn = column - 1;
+		this._outputLine = this.rangeParam(match[1], 1, 1, 1024) - 1;
+		this._outputColumn = this.rangeParam(match[2], 1, 1, 1024) - 1;
 	}
 
 	/**
@@ -900,6 +876,15 @@ export class ANSIOutput {
 		// Detect changes in SGR state.
 		if (!SGRState.equivalent(sgrState, this._sgrState)) {
 			this._sgrState = sgrState;
+		}
+	}
+
+	private rangeParam(value: string, defaultValue: number, minValue: number, maxValue: number) {
+		const param = parseInt(value);
+		if (Number.isNaN(param)) {
+			return defaultValue;
+		} else {
+			return Math.min(Math.max(param, minValue), maxValue);
 		}
 	}
 
@@ -1419,7 +1404,7 @@ class OutputLine implements ANSIOutputLine {
 
 		// If the left output run wasn't found, there's an egregious bug in this code. Append a new
 		// output run for the text so it's not lost and return.
-		if (!leftOutputRunIndex) {
+		if (leftOutputRunIndex === undefined) {
 			this._outputRuns.push(new OutputRun(text, sgrState));
 			return;
 		}
@@ -1476,7 +1461,7 @@ class OutputLine implements ANSIOutputLine {
 
 		// If the right output run wasn't found, there's an egregious bug in this code. Append a new
 		// output run for the text so it's not lost and return.
-		if (!rightOutputRunIndex) {
+		if (rightOutputRunIndex === undefined) {
 			this._outputRuns.push(new OutputRun(text, sgrState));
 			return;
 		}
@@ -1499,7 +1484,7 @@ class OutputLine implements ANSIOutputLine {
 		const rightOutputRunTextLength = rightOffset - (column + text.length);
 		if (rightOutputRunTextLength) {
 			const rightOutputRun = this._outputRuns[rightOutputRunIndex];
-			const rightOutputRunText = rightOutputRun.text.slice(0, rightOutputRunTextLength);
+			const rightOutputRunText = rightOutputRun.text.slice(-rightOutputRunTextLength);
 			outputRuns.push(new OutputRun(rightOutputRunText, rightOutputRun.sgrState));
 		}
 
@@ -1663,6 +1648,15 @@ class OutputRun implements ANSIOutputRun {
 //#endregion Private Classes
 
 //#region Helper Functions
+
+const rangeParam = (value: string, defaultValue: number, minValue: number, maxValue: number) => {
+	const param = parseInt(value);
+	if (Number.isNaN(param)) {
+		return defaultValue;
+	} else {
+		return Math.min(Math.max(param, minValue), maxValue);
+	}
+};
 
 const setReplacer = (key: any, value: any) =>
 	value instanceof Set ? !value.size ? undefined : [...value] : value;
