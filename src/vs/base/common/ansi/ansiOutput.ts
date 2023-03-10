@@ -263,13 +263,13 @@ export class ANSIOutput {
 	 * Flushes the buffer to the output line.
 	 */
 	private flushBuffer() {
+		// Ensure that we have sufficient output lines in the output lines array.
+		for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
+			this._outputLines.push(new OutputLine());
+		}
+
 		// If the buffer isn't empty, flush it.
 		if (this._buffer) {
-			// Ensure that we have sufficient output lines in the output lines array.
-			for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
-				this._outputLines.push(new OutputLine());
-			}
-
 			// Get the output line.
 			const outputLine = this._outputLines[this._outputLine];
 
@@ -338,11 +338,12 @@ export class ANSIOutput {
 
 			// EL (Erase in Line).
 			case 'K':
+				this.processEL();
 				break;
 
 			// SGR (Select Graphic Rendition).
 			case 'm':
-				this.processSGRControlSequence();
+				this.processSGR();
 				break;
 
 			// Unsupported control sequence.
@@ -428,9 +429,39 @@ export class ANSIOutput {
 	}
 
 	/**
+	 * Processes an EL control sequence.
+	 */
+	private processEL() {
+		// Match the control sequence.
+		const match = this._controlSequence.match(/^([0-9]*)K$/);
+		if (!match) {
+			return;
+		}
+
+		// Get the output line.
+		const outputLine = this._outputLines[this._outputLine];
+
+		// Process the parameter.
+		switch (this.getParam(match[1], 0)) {
+			// Clear from cursor to the end of the line.
+			case 0:
+				break;
+
+			// Clear from cursor to the beginning of the line.
+			case 1:
+				break;
+
+			// Clear the entire line.
+			case 2:
+				outputLine.clear();
+				break;
+		}
+	}
+
+	/**
 	 * Processes an SGR control sequence.
 	 */
-	private processSGRControlSequence() {
+	private processSGR() {
 		// Create the working SGR state.
 		const sgrState = this._sgrState ? this._sgrState.copy() : new SGRState();
 
@@ -881,12 +912,13 @@ export class ANSIOutput {
 	}
 
 	private rangeParam(value: string, defaultValue: number, minValue: number, maxValue: number) {
+		const param = this.getParam(value, defaultValue);
+		return Math.min(Math.max(param, minValue), maxValue);
+	}
+
+	private getParam(value: string, defaultValue: number) {
 		const param = parseInt(value);
-		if (Number.isNaN(param)) {
-			return defaultValue;
-		} else {
-			return Math.min(Math.max(param, minValue), maxValue);
-		}
+		return Number.isNaN(param) ? defaultValue : param;
 	}
 
 	//#endregion Private Methods
@@ -1329,6 +1361,16 @@ class OutputLine implements ANSIOutputLine {
 	//#endregion Private Properties
 
 	//#region Public Methods
+
+	/**
+	 * Clears the output line.
+	 */
+	public clear() {
+		// If there are output runs, replace them all with an empty output run.
+		if (this._totalLength) {
+			this._outputRuns = [new OutputRun(' '.repeat(this._totalLength))];
+		}
+	}
 
 	/**
 	 * Inserts text into the output line.

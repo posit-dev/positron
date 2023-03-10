@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { makeCUB, makeCUF, makeCUP, makeSGR, SGR } from './ansi';
+import { makeCUB, makeCUF, makeCUP, makeEL, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 
 /**
@@ -29,13 +29,14 @@ const HelpLines = [
 	'1k          - Inserts 10,000 lines of output',
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
+	'ansi blink  - Displays blinking output',
 	'ansi cub    - Output text using CUB',
 	'ansi cuf    - Output text using CUF',
+	'ansi el     - Clear an entire line using EL',
+	'ansi hidden - Displays hidden text',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'',
-	'ansi blink  - Displays blinking output',
 	'ansi cup    - CUP',
-	'ansi hidden - Displays hidden text',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
@@ -182,11 +183,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Process the "code".
 		switch (code) {
-			case '':
+			case '': {
 				this.simulateSuccessfulCodeExecution(id, code);
 				break;
+			}
 
-			case '1k':
+			case '1k': {
 				this.simulateBusyState(id);
 				this.simulateInputMessage(id, code);
 				for (let i = 1; i <= 1000; i++) {
@@ -194,8 +196,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				}
 				this.simulateIdleState(id);
 				break;
+			}
 
-			case 'ansi 16':
+			case 'ansi 16': {
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
@@ -260,6 +263,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${makeSGR(SGR.BackgroundBrightWhite)}${CONTRAST_FOREGROUND}${makeSGR()} Bright white background\n`
 				);
 				break;
+			}
 
 			case 'ansi 256': {
 				let output = 'Foreground colors:\n';
@@ -294,24 +298,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'ansi rgb': {
+			case 'ansi blink': {
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
-					`${makeSGR(SGR.SetForeground, 2, 0xdd, 0x00, 0x00)}${TEN_BLOCKS}${makeSGR()} Red Foreground\n` +
-					`${makeSGR(SGR.SetForeground, 2, 0xfe, 0x62, 0x30)}${TEN_BLOCKS}${makeSGR()} Orange Foreground\n` +
-					`${makeSGR(SGR.SetForeground, 2, 0xfe, 0xf6, 0x00)}${TEN_BLOCKS}${makeSGR()} Yellow Foreground\n` +
-					`${makeSGR(SGR.SetForeground, 2, 0x00, 0xbb, 0x00)}${TEN_BLOCKS}${makeSGR()} Green Foreground\n` +
-					`${makeSGR(SGR.SetForeground, 2, 0x00, 0x9b, 0xfe)}${TEN_BLOCKS}${makeSGR()} Blue Foreground\n` +
-					`${makeSGR(SGR.SetForeground, 2, 0x00, 0x00, 0x83)}${TEN_BLOCKS}${makeSGR()} Indigo Foreground\n` +
-					`${makeSGR(SGR.SetForeground, 2, 0x30, 0x00, 0x9b)}${TEN_BLOCKS}${makeSGR()} Violet Foreground\n` +
-					`${makeSGR(SGR.SetBackground, 2, 0xdd, 0x00, 0x00)}${TEN_SPACES}${makeSGR()} Red Background\n` +
-					`${makeSGR(SGR.SetBackground, 2, 0xfe, 0x62, 0x30)}${TEN_SPACES}${makeSGR()} Orange Background\n` +
-					`${makeSGR(SGR.SetBackground, 2, 0xfe, 0xf6, 0x00)}${TEN_SPACES}${makeSGR()} Yellow Background\n` +
-					`${makeSGR(SGR.SetBackground, 2, 0x00, 0xbb, 0x00)}${TEN_SPACES}${makeSGR()} Green Background\n` +
-					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x9b, 0xfe)}${TEN_SPACES}${makeSGR()} Blue Background\n` +
-					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x00, 0x83)}${TEN_SPACES}${makeSGR()} Indigo Background\n` +
-					`${makeSGR(SGR.SetBackground, 2, 0x30, 0x00, 0x9b)}${TEN_SPACES}${makeSGR()} Violet Background\n`
+					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.SlowBlink)}  This is blinking text  ${makeSGR()} Slowly Blinking\n` +
+					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.RapidBlink)}  This is blinking text  ${makeSGR()} Rapidly Blinking\n`
 				);
 				break;
 			}
@@ -345,7 +337,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`\u2588  ${makeCUB(3)}\u2588  ` +
 					`\u2588  ${makeCUB(3)}\u2588\n\n` +
 
-					'These shoud match:\n' +
+					'These should match:\n' +
 					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundBlue)}0123456789${makeSGR()}\n` +
@@ -356,7 +348,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${makeCUB(20)}` +
 					`${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}\n\n` +
 
-					'These shoud match:\n' +
+					'These should match:\n' +
 					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundWhite)}01234${makeSGR()}` +
@@ -368,7 +360,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${makeCUB(20)}` +
 					`${makeSGR(SGR.ForegroundWhite)}012345678901234${makeSGR()}\n\n` +
 
-					'These shoud match:\n' +
+					'These should match:\n' +
 					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundBlue)}0123456789${makeSGR()}` +
@@ -382,13 +374,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundBlue)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundGreen)}0123456789${makeSGR()}`
-
-
 				);
 				break;
 			}
 
-			case 'ansi cuf':
+			case 'ansi cuf': {
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
@@ -431,58 +421,79 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 				);
 				break;
+			}
 
-			// case 'ansi cup':
-			// 	console.log('Processing user input ansi cup');
-			// 	this.simulateSuccessfulCodeExecution(
-			// 		id,
-			// 		code,
-			// 		`${TEN_BLOCKS}\n` +
-			// 		`${TEN_BLOCKS}\n` +
-			// 		`${makeCUP()}`
-			// 	);
-			// 	break;
-
-			case 'ansi blink':
+			case 'ansi el': {
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
-					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.SlowBlink)}  This is blinking text  ${makeSGR()} Slowly Blinking\n` +
-					`${makeSGR(SGR.BackgroundRed, SGR.ForegroundWhite, SGR.RapidBlink)}  This is blinking text  ${makeSGR()} Rapidly Blinking\n`
+					'80 \u2588 characters using EL and CUB:\n' +
+					'0123456789'.repeat(8) + '\n' +
+					'X'.repeat(80) + makeEL('entire-line') + makeCUB(80) + '\u2588'.repeat(80)
 				);
 				break;
+			}
 
-			case 'ansi hidden':
+			case 'ansi hidden': {
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
 					`There is ${makeSGR(SGR.Italic)}hidden text${makeSGR(SGR.NotItalicNotFraktur)} between the square brackets -> [${makeSGR(SGR.Hidden)}THIS SHOULD BE HIDDEN!${makeSGR(SGR.Reveal)}]`
 				);
 				break;
+			}
 
-			case 'help':
+			case 'ansi rgb': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					`${makeSGR(SGR.SetForeground, 2, 0xdd, 0x00, 0x00)}${TEN_BLOCKS}${makeSGR()} Red Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0xfe, 0x62, 0x30)}${TEN_BLOCKS}${makeSGR()} Orange Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0xfe, 0xf6, 0x00)}${TEN_BLOCKS}${makeSGR()} Yellow Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x00, 0xbb, 0x00)}${TEN_BLOCKS}${makeSGR()} Green Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x00, 0x9b, 0xfe)}${TEN_BLOCKS}${makeSGR()} Blue Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x00, 0x00, 0x83)}${TEN_BLOCKS}${makeSGR()} Indigo Foreground\n` +
+					`${makeSGR(SGR.SetForeground, 2, 0x30, 0x00, 0x9b)}${TEN_BLOCKS}${makeSGR()} Violet Foreground\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0xdd, 0x00, 0x00)}${TEN_SPACES}${makeSGR()} Red Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0xfe, 0x62, 0x30)}${TEN_SPACES}${makeSGR()} Orange Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0xfe, 0xf6, 0x00)}${TEN_SPACES}${makeSGR()} Yellow Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x00, 0xbb, 0x00)}${TEN_SPACES}${makeSGR()} Green Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x9b, 0xfe)}${TEN_SPACES}${makeSGR()} Blue Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x00, 0x83)}${TEN_SPACES}${makeSGR()} Indigo Background\n` +
+					`${makeSGR(SGR.SetBackground, 2, 0x30, 0x00, 0x9b)}${TEN_SPACES}${makeSGR()} Violet Background\n`
+				);
+				break;
+			}
+
+			case 'help': {
 				this.simulateSuccessfulCodeExecution(id, code, HelpLines);
 				break;
+			}
 
-			case 'offline':
+			case 'offline': {
 				this.simulateOffline();
 				break;
+			}
 
-			case 'progress':
+			case 'progress': {
 				this.simulateProgressBar(id, code);
 				break;
+			}
 
-			case 'shutdown':
+			case 'shutdown': {
 				this.shutdown();
 				break;
+			}
 
-			case 'version':
+			case 'version': {
 				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`);
 				break;
+			}
 
-			default:
+			default: {
 				this.simulateUnsuccessfulCodeExecution(id, code, 'Unknown Command', `Error. '${code}' not recognized.\n`, []);
 				break;
+			}
 		}
 	}
 

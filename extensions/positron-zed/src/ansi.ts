@@ -120,14 +120,10 @@ export enum SGR {
 }
 
 /**
- * Makes an SGR (Select Graphic Rendition) escape sequence.
- * @param parameters The SGR parameters.
- * @returns The SGR escape sequence.
+ * Makes a CUF (Cursor Forward) escape sequence.
+ * @param count The count.
+ * @returns The CUF escape sequence.
  */
-export const makeSGR = (...parameters: number[]): string => {
-	return CSI + parameters.map(parameter => `${parameter}`).join(';') + 'm';
-};
-
 export const makeCUF = (count: number = 1) => {
 	if (count === 1) {
 		return `${CSI}C`;
@@ -136,6 +132,11 @@ export const makeCUF = (count: number = 1) => {
 	}
 };
 
+/**
+ * Makes a CUB (Cursor Backward) escape sequence.
+ * @param count The count.
+ * @returns The CUB escape sequence.
+ */
 export const makeCUB = (count: number = 1) => {
 	if (count === 1) {
 		return `${CSI}D`;
@@ -168,4 +169,31 @@ export const makeCUP = (line: number | undefined = undefined, column: number | u
 	} else {
 		return `${CSI}${line};${column}H`;
 	}
+};
+
+/**
+ * Makes an EL (Erase in Line) escape sequence.
+ * @param count The count.
+ * @returns The CUB escape sequence.
+ */
+export const makeEL = (direction: 'end-of-line' | 'beginning-of-line' | 'entire-line' = 'end-of-line') => {
+	switch (direction) {
+		case 'end-of-line':
+			return `${CSI}K`;
+
+		case 'beginning-of-line':
+			return `${CSI}1K`;
+
+		case 'entire-line':
+			return `${CSI}2K`;
+	}
+};
+
+/**
+ * Makes an SGR (Select Graphic Rendition) escape sequence.
+ * @param parameters The SGR parameters.
+ * @returns The SGR escape sequence.
+ */
+export const makeSGR = (...parameters: number[]): string => {
+	return CSI + parameters.map(parameter => `${parameter}`).join(';') + 'm';
 };
