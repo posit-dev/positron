@@ -193,7 +193,7 @@ fn list_environment(env: &RObject) -> EnvironmentMessage {
             .iter()
             .map(|s| {
                 let symbol = r_symbol!(s);
-                let obj = RObject::view(Rf_findVarInFrame(R_GlobalEnv, symbol));
+                let obj = RObject::view(Rf_findVarInFrame(env.sexp, symbol));
                 EnvironmentVariable::new(s, obj)
             })
             .collect();
