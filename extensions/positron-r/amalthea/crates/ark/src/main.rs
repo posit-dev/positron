@@ -10,6 +10,8 @@
 use amalthea::connection_file::ConnectionFile;
 use amalthea::kernel::Kernel;
 use amalthea::kernel_spec::KernelSpec;
+use ark::logger;
+use ark::lsp;
 use bus::Bus;
 use crossbeam::channel::bounded;
 use log::*;
@@ -18,20 +20,10 @@ use std::io::stdin;
 use std::sync::{Arc, Mutex};
 use stdext::unwrap;
 
-mod control;
-mod interface;
-mod kernel;
-mod logger;
-mod lsp;
-mod plots;
-mod request;
-mod shell;
-mod version;
-
-use crate::control::Control;
-use crate::request::Request;
-use crate::shell::Shell;
-use crate::version::detect_r;
+use ark::control::Control;
+use ark::request::Request;
+use ark::shell::Shell;
+use ark::version::detect_r;
 
 fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
     // Create a new kernel from the connection file
@@ -108,7 +100,7 @@ fn install_kernel_spec() {
 
     // Detect the active version of R and set the R_HOME environment variable
     // accordingly
-    let r_version = detect_r();
+    let r_version = detect_r().unwrap();
     env.insert(
         "R_HOME".to_string(),
         serde_json::Value::String(r_version.r_home.clone()),
@@ -139,9 +131,12 @@ fn install_kernel_spec() {
     println!(
         "Successfully installed Ark Jupyter kernelspec.
 
-    R:      {}
+    R ({}.{}.{}): {}
     Kernel: {}
     ",
+        r_version.major,
+        r_version.minor,
+        r_version.patch,
         r_version.r_home,
         dest.to_string_lossy()
     );

@@ -60,7 +60,7 @@ export function registerPositronConsoleActions() {
 				//icon: Codicon.?
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyMod.CtrlCmd | KeyCode.KeyL
+					primary: KeyMod.WinCtrl | KeyCode.KeyL
 				},
 				description: {
 					description: 'workbench.action.positronConsole.clearConsole',

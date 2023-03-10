@@ -545,15 +545,20 @@ impl LanguageServer for Backend {
 // is supplied. Instead of supplying "nothing", it supplies something
 // like `[null]` which tower_lsp seems to quietly reject when attempting
 // to invoke the registered method.
+// 
+// See also:
+//
+// https://github.com/Microsoft/vscode-languageserver-node/blob/18fad46b0e8085bb72e1b76f9ea23a379569231a/client/src/common/client.ts#L802-L838
+// https://github.com/Microsoft/vscode-languageserver-node/blob/18fad46b0e8085bb72e1b76f9ea23a379569231a/client/src/common/client.ts#L701-L752
 impl Backend {
 
     async fn request(&self, params: Option<Value>) -> Result<i32> {
-        error!("Request: {:?}", params);
+        info!("Received Positron request: {:?}", params);
         Ok(42)
     }
 
     async fn notification(&self, params: Option<Value>) {
-        error!("Notification: {:?}", params);
+        info!("Received Positron notification: {:?}", params);
     }
 
 }

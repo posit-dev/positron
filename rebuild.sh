@@ -40,6 +40,10 @@ git ls-files --directory -i -o -x node_modules | xargs rm -rf
 # Remove the build directory.
 rm -rf .build
 
+# Remove the amalthea builds.
+rm -rf extensions/positron-r/amalthea/target/debug
+rm -rf extensions/positron-r/amalthea/target/release
+
 # Run yarn to rebuild 'node_modules'.
 yarn
 

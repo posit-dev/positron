@@ -234,6 +234,7 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
     // TODO: Detect high DPI displays
     RFunction::new("grDevices", "png")
         .param("filename", filename.as_str())
+        .param("type", "cairo")
         .param("res", 144)
         .call()?;
 

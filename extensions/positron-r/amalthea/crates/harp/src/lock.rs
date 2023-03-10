@@ -5,10 +5,10 @@
 //
 //
 
-use std::sync::Mutex;
-use std::sync::Once;
+use std::sync::atomic::AtomicI32;
 
 use log::info;
+use parking_lot::Mutex;
 
 // The R lock is to be used by threads which wish to access the R runtime. The
 // main thread owns access to the R runtime by default, but it can yield access
@@ -27,70 +27,62 @@ pub extern "C" fn r_polled_events_disabled() {
 
 }
 
-// A lock, used to ensure only one thread can access the R runtime at a time.
-//
-// TODO: Stop using a Once when const Mutex::new() is in std.  Or just using
-// parking_lot::Mutex?
-pub static mut R_RUNTIME_LOCK_ONCE : Once = Once::new();
-pub static mut R_RUNTIME_LOCK : Option<Mutex<()>> = None;
-
-// Child threads can set this to notify the main thread that there is work to be
-// done that requires access to the R runtime. The main thread will check this
-// flag when R_ProcessEvents is called, and if set, the main thread will then
-// yield control to the child thread requesting access.
-pub static mut R_RUNTIME_TASKS_PENDING: bool = false;
+// The R runtime lock, used to synchronize access to R.
+pub static mut R_RUNTIME_LOCK: Mutex<()> = Mutex::new(());
+pub static mut R_RUNTIME_LOCK_COUNT: AtomicI32 = AtomicI32::new(0);
 
 pub fn initialize() {
+}
+
+pub fn with_r_lock<T, F: FnMut() -> T>(callback: F) -> T {
     unsafe {
-        R_RUNTIME_LOCK_ONCE.call_once(|| {
-            R_RUNTIME_LOCK = Some(Mutex::new(()));
-        });
+        with_r_lock_impl(callback)
     }
 }
 
-pub fn with_r_lock<T, F: FnMut() -> T>(mut callback: F) -> T {
+pub unsafe fn with_r_lock_impl<T, F: FnMut() ->T>(mut callback: F) -> T {
 
     // Let the logger know we're taking the lock.
     let id = std::thread::current().id();
-    info!("Thread {:?} is requesting R runtime lock.", id);
+    info!("{:?} is requesting R runtime lock.", id);
 
     // Record how long it takes the acquire the lock.
     let now = std::time::SystemTime::now();
 
-    // Let the main thread know tasks are pending.
-    unsafe { R_RUNTIME_TASKS_PENDING = true };
+    // Let the main thread know we're waiting for the lock.
+    // Do so by ncrementing the count for number of waiting threads.
+    R_RUNTIME_LOCK_COUNT.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
 
-    // Wait until we can get the runtime lock.
-    let guard = unsafe { R_RUNTIME_LOCK.as_ref().unwrap().lock().unwrap() };
+    // Start waiting for the lock.
+    let guard = R_RUNTIME_LOCK.lock();
+
+    // If we get here, we now have the lock, so decrement the count.
+    R_RUNTIME_LOCK_COUNT.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
 
     // Log how long we were stuck waiting.
     let elapsed = now.elapsed().unwrap().as_millis();
-    info!("Thread {:?} obtained lock after waiting for {} milliseconds.", id, elapsed);
+    info!("{:?} obtained lock after waiting for {} milliseconds.", id, elapsed);
 
     // Disable polled events in this scope.
     let polled_events = unsafe { R_PolledEvents };
-    unsafe { R_PolledEvents = Some(r_polled_events_disabled) };
+    R_PolledEvents = Some(r_polled_events_disabled);
 
     // Execute the callback.
     let now = std::time::SystemTime::now();
     let result = callback();
 
     // Restore the polled events handler.
-    unsafe { R_PolledEvents = polled_events };
+    R_PolledEvents = polled_events;
 
     // Release the runtime lock.
     drop(guard);
 
-    // Tasks are no longer pending.
-    unsafe { R_RUNTIME_TASKS_PENDING = false };
-
     // Let the logger know we've released the lock..
     let elapsed = now.elapsed().unwrap().as_millis();
-    info!("Thread {:?} has released the R runtime lock after {} milliseconds.", id, elapsed);
+    info!("{:?} has released the R runtime lock after {} milliseconds.", id, elapsed);
 
     // Return the resulting expression.
     result
-
 
 }
 

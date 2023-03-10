@@ -24,12 +24,12 @@ pub struct CommSocket {
     /// The channel receiving messages from the back end that are to be relayed
     /// to the front end (ultimately via IOPub). These messages are freeform
     /// JSON values.
-    pub comm_msg_rx: Receiver<Value>,
+    pub comm_msg_rx: Receiver<CommChannelMsg>,
 
     /// The other side of the channel receiving messages from the back end. This
     /// `Sender` is passed to the back end of the comm channel so that it can
     /// send messages to the front end.
-    pub comm_msg_tx: Sender<Value>,
+    pub comm_msg_tx: Sender<CommChannelMsg>,
 
     /// The channel supplied by the back-end to accept messages from the front
     /// end. This is an `Option` since it is not set until the back end has been

@@ -14,18 +14,18 @@ use crossbeam::channel::Receiver;
 use crossbeam::channel::RecvTimeoutError;
 use crossbeam::channel::Sender;
 use harp::lock::R_RUNTIME_LOCK;
-use harp::lock::R_RUNTIME_TASKS_PENDING;
+use harp::lock::R_RUNTIME_LOCK_COUNT;
 use harp::routines::r_register_routines;
 use harp::utils::r_get_option;
 use libR_sys::*;
 use libc::{c_char, c_int};
 use log::*;
+use parking_lot::MutexGuard;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
 use std::os::raw::c_void;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::MutexGuard;
 use std::sync::Once;
 use std::thread;
 use std::time::Duration;
@@ -47,6 +47,7 @@ extern "C" {
     fn R_ProcessEvents();
     fn run_Rmainloop();
 
+    pub static mut R_wait_usec: i32;
     pub static mut R_InputHandlers: *const c_void;
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
 }
@@ -166,7 +167,7 @@ pub extern "C" fn r_read_console(
             Ok(response) => {
 
                 // Take back the lock after we've received some console input.
-                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
                 // Process events.
                 unsafe { process_events() };
@@ -181,7 +182,7 @@ pub extern "C" fn r_read_console(
 
             Err(error) => {
 
-                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
+                unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
                 use RecvTimeoutError::*;
                 match error {
@@ -263,25 +264,22 @@ pub extern "C" fn r_busy(which: i32) {
 #[no_mangle]
 pub unsafe extern "C" fn r_polled_events() {
 
-    // NOTE: Routines here (currently) panic intentionally if we cannot
-    // unwrap or acquire the requisite locks, as these events basically
-    // should never happen and we don't have a way to recover if they do.
-    //
-    // This routine is called very frequently when the console is idle,
-    // to ensure that the LSP has an opportunity to respond to completion
-    // requests. It's important that calls be as cheap as possible when
-    // the LSP does not require access to the R main thread.
-    if !R_RUNTIME_TASKS_PENDING {
+    // Check for pending tasks.
+    let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
+    if count == 0 {
         return;
     }
 
-    // Release the runtime lock.
-    info!("Tasks are pending; the main thread is releasing the R runtime lock.");
+    info!("{} thread(s) are waiting; the main thread is releasing the R runtime lock.", count);
     let now = SystemTime::now();
-    unsafe { R_RUNTIME_LOCK_GUARD = None };
 
-    // Take back the runtime lock.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
+    // Release the lock. This drops the lock, and gives other threads
+    // waiting for the lock a chance to acquire it.
+    R_RUNTIME_LOCK_GUARD = None;
+
+    // Take the lock back.
+    R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock());
+
     info!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
 
 }
@@ -295,7 +293,7 @@ pub fn start_r(
 
     // The main thread owns the R runtime lock by default, but releases
     // it when appropriate to give other threads a chance to execute.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.as_ref().unwrap_unchecked().lock().unwrap()) };
+    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
     // Start building the channels + kernel objects
     let (console_tx, console_rx) = crossbeam::channel::unbounded();
@@ -347,6 +345,7 @@ pub fn start_r(
         ptr_R_Busy = Some(r_busy);
 
         // Listen for polled events
+        R_wait_usec = 10000;
         R_PolledEvents = Some(r_polled_events);
 
         // Set up main loop

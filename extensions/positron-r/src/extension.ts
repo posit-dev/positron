@@ -25,20 +25,26 @@ function activateKernel(context: vscode.ExtensionContext) {
 		return adaptJupyterKernel(context, embeddedKernel);
 	}
 
-	// Still no kernel? Try the locally built kernel (Debug).
-	let devKernel = path.join(context.extensionPath, 'amalthea', 'target', 'debug', 'ark');
-	if (fs.existsSync(devKernel)) {
-		return adaptJupyterKernel(context, devKernel);
+	// Still no kernel? Look for locally built Debug or Release kernels.
+	// If both exist, we'll use whichever is newest.
+	let devKernel = undefined;
+	const devDebugKernel = path.join(context.extensionPath, 'amalthea', 'target', 'debug', 'ark');
+	const devReleaseKernel = path.join(context.extensionPath, 'amalthea', 'target', 'release', 'ark');
+	const debugModified = fs.statSync(devDebugKernel, { throwIfNoEntry: false })?.mtime;
+	const releaseModified = fs.statSync(devReleaseKernel, { throwIfNoEntry: false })?.mtime;
+
+	if (debugModified) {
+		devKernel = (releaseModified && releaseModified > debugModified) ? devReleaseKernel : devDebugKernel;
+	} else if (releaseModified) {
+		devKernel = devReleaseKernel;
 	}
 
-	// Still no kernel? Try the locally built kernel (Release).
-	devKernel = path.join(context.extensionPath, 'amalthea', 'target', 'release', 'ark');
-	if (fs.existsSync(devKernel)) {
+	if (devKernel) {
 		return adaptJupyterKernel(context, devKernel);
 	}
 
 	// We couldn't find a kernel. Let the user know.
-	vscode.window.showErrorMessage(`ARK kernel path doesn't exist: ${devKernel}. Run 'cargo build' in the amalthea directory.`);
+	vscode.window.showErrorMessage(`ARK kernel path doesn't exist: ${devReleaseKernel}. Run 'cargo build' in the amalthea directory.`);
 
 }
 

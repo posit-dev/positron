@@ -6,6 +6,7 @@
  */
 
 use crate::comm::comm_channel::Comm;
+use crate::comm::comm_channel::CommChannelMsg;
 use crate::comm::lsp_comm::LspComm;
 use crate::comm::lsp_comm::StartLsp;
 use crate::error::Error;
@@ -181,22 +182,28 @@ impl Shell {
                 } else {
                     // Otherwise, the message was received on one of the open comms.
                     let comm_socket = &open_comms[index];
-                    let data = match oper.recv(&comm_socket.comm_msg_rx) {
-                        Ok(data) => data,
+                    let comm_msg = match oper.recv(&comm_socket.comm_msg_rx) {
+                        Ok(msg) => msg,
                         Err(err) => {
                             warn!("Error receiving comm message: {}", err);
                             continue;
                         },
                     };
 
-                    // Amend the message with the comm's ID
-                    let msg = CommMsg {
-                        comm_id: comm_socket.comm_id.clone(),
-                        data,
+                    // Amend the message with the comm's ID, convert it to an
+                    // IOPub message, and send it to the front end
+                    let msg = match comm_msg {
+                        CommChannelMsg::Data(data) => IOPubMessage::CommMsg(CommMsg {
+                            comm_id: comm_socket.comm_id.clone(),
+                            data,
+                        }),
+                        CommChannelMsg::Close => {
+                            IOPubMessage::CommClose(comm_socket.comm_id.clone())
+                        },
                     };
 
                     // Deliver the message to the front end
-                    iopub_tx.send(IOPubMessage::CommMsg(msg)).unwrap();
+                    iopub_tx.send(msg).unwrap();
                 }
             }
         });

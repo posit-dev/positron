@@ -20,7 +20,7 @@ chdir(`${__dirname}/../amalthea`);
 const cargoBuildArgs = ['build'];
 
 // Perform a release build if requested.
-const buildType = env['ARK_BUILD_TYPE'] ?? 'release';
+const buildType = env['ARK_BUILD_TYPE'] ?? 'debug';
 if (buildType === 'release') {
 	cargoBuildArgs.push('--release');
 }

@@ -18,6 +18,8 @@ import { PositronEnvironmentService } from 'vs/workbench/contrib/positronEnviron
 import { IPositronEnvironmentService, POSITRON_ENVIRONMENT_VIEW_ID } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
+import { registerAction2 } from 'vs/platform/actions/common/actions';
+import { EnvironmentRefreshAction } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActions';
 
 // Register the Positron environment service.
 registerSingleton(IPositronEnvironmentService, PositronEnvironmentService, InstantiationType.Delayed);
@@ -63,6 +65,7 @@ class PositronEnvironmentContribution extends Disposable implements IWorkbenchCo
 	}
 
 	private registerActions(): void {
+		registerAction2(EnvironmentRefreshAction);
 	}
 }
 

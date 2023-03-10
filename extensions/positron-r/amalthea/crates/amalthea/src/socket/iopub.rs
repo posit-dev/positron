@@ -9,6 +9,7 @@ use crate::error::Error;
 use crate::events::PositronEvent;
 use crate::socket::socket::Socket;
 use crate::wire::client_event::ClientEvent;
+use crate::wire::comm_close::CommClose;
 use crate::wire::comm_msg::CommMsg;
 use crate::wire::execute_error::ExecuteError;
 use crate::wire::execute_input::ExecuteInput;
@@ -44,7 +45,8 @@ pub enum IOPubMessage {
     ExecuteInput(ExecuteInput),
     Stream(StreamOutput),
     Event(PositronEvent),
-    CommMsg(CommMsg)
+    CommMsg(CommMsg),
+    CommClose(String),
 }
 
 impl IOPub {
@@ -72,7 +74,7 @@ impl IOPub {
                 Err(err) => {
                     warn!("Failed to receive iopub message: {}", err);
                     continue;
-                }
+                },
             };
             if let Err(err) = self.process_message(message) {
                 warn!("Error delivering iopub message: {}", err)
@@ -94,12 +96,13 @@ impl IOPub {
                     self.context = Some(context);
                 }
                 self.send_message(msg)
-            }
+            },
             IOPubMessage::ExecuteResult(msg) => self.send_message(msg),
             IOPubMessage::ExecuteError(msg) => self.send_message(msg),
             IOPubMessage::ExecuteInput(msg) => self.send_message(msg),
             IOPubMessage::Stream(msg) => self.send_message(msg),
             IOPubMessage::CommMsg(msg) => self.send_message(msg),
+            IOPubMessage::CommClose(comm_id) => self.send_message(CommClose { comm_id }),
             IOPubMessage::Event(msg) => self.send_event(msg),
         }
     }
@@ -112,7 +115,11 @@ impl IOPub {
 
     /// Send an event
     fn send_event(&self, event: PositronEvent) -> Result<(), Error> {
-        let msg = JupyterMessage::<ClientEvent>::create(ClientEvent::from(event), self.context.clone(), &self.socket.session);
+        let msg = JupyterMessage::<ClientEvent>::create(
+            ClientEvent::from(event),
+            self.context.clone(),
+            &self.socket.session,
+        );
         msg.send(&self.socket)
     }
 

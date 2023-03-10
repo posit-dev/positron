@@ -110,6 +110,7 @@ jobs:
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
+          ARK_BUILD_TYPE: release
           RUST_TARGET: ${{ matrix.rust_target_prefix }}-apple-darwin
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn --network-timeout 120000

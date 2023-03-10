@@ -22,7 +22,8 @@ pub enum Error {
     UnexpectedType(u32, Vec<u32>),
     InvalidUtf8(Utf8Error),
     TryCatchError { message: Vec<String>, classes : Vec<String> },
-    ParseSyntaxError { message: String, line: i32 }
+    ParseSyntaxError { message: String, line: i32 },
+    MissingValueError
 }
 
 // empty implementation required for 'anyhow'
@@ -82,6 +83,10 @@ impl fmt::Display for Error {
 
             Error::ParseSyntaxError { message, line } => {
                 write!(f, "Syntax error on line {} when parsing: {}", line, message)
+            }
+
+            Error::MissingValueError => {
+                write!(f, "Missing value" )
             }
 
         }

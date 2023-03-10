@@ -264,6 +264,11 @@ export class LanguageRuntimeAdapter
 			// Create a new client adapter to wrap the comm channel
 			const adapter = new RuntimeClientAdapter(type, params, this._kernel);
 
+			// Add the client to the map. Note that we have to do this before opening
+			// the instance, because we may need to process messages from the client
+			// before the open call completes due to message ordering.
+			this._comms.set(adapter.getId(), adapter);
+
 			// Ensure we clean up the client from our internal state when it disconnects
 			adapter.onDidChangeClientState((e) => {
 				if (e === positron.RuntimeClientState.Closed) {
@@ -275,9 +280,6 @@ export class LanguageRuntimeAdapter
 
 			// Open the client (this will send the comm_open message; wait for it to complete)
 			await adapter.open();
-
-			// Add the client to the map
-			this._comms.set(adapter.getId(), adapter);
 
 			// Return the ID of the new client
 			return adapter.getId();
@@ -432,6 +434,7 @@ export class LanguageRuntimeAdapter
 			parent_id: message.originId,
 			when: message.when,
 			type: positron.LanguageRuntimeMessageType.CommData,
+			comm_id: msg.comm_id,
 			data: msg.data,
 		} as positron.LanguageRuntimeCommMessage);
 	}
@@ -448,6 +451,7 @@ export class LanguageRuntimeAdapter
 			parent_id: message.originId,
 			when: message.when,
 			type: positron.LanguageRuntimeMessageType.CommClosed,
+			comm_id: msg.comm_id,
 			data: msg.data,
 		} as positron.LanguageRuntimeCommClosed);
 	}

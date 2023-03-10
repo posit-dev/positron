@@ -102,33 +102,6 @@ export class ArkLsp implements vscode.Disposable {
 
 		context.subscriptions.push(this._client.start());
 
-		return new Promise<void>((resolve, reject) => {
-			this._client?.onReady().then(() => {
-				trace(`Positron R (${this._version} language client is ready`);
-				resolve();
-
-				// Placeholder for custom notification.
-				setTimeout(async () => {
-
-					trace('Sending a "positron/request" request.');
-					try {
-						const response = await this._client?.sendRequest('positron/request', { value: 42 });
-						trace(`Got a response: ${response}`);
-					} catch (error) {
-						trace(`Error sending request: ${error}`);
-					}
-
-					trace('Sending a "positron/notification" notification.');
-					try {
-						this._client?.sendNotification('positron/notification');
-					} catch (error) {
-						trace(`Error sending notification: ${error}`);
-					}
-
-
-				}, 5000);
-			});
-		});
 	}
 
 	/**

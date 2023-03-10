@@ -24,7 +24,7 @@ execSync('yarn run compile-kernel', {
 if (process.platform === 'darwin') {
 
 	// Get the path to the ark executable.
-	const buildType = env['ARK_BUILD_TYPE'] ?? 'release';
+	const buildType = env['ARK_BUILD_TYPE'] ?? 'debug';
 	const arkPath = normalize(`${__dirname}/../amalthea/target/${buildType}/ark`);
 	if (!existsSync(arkPath)) {
 		exit(0);

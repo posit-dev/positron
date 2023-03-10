@@ -35,10 +35,13 @@ use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use harp::exec::r_parse_vector;
 use harp::exec::ParseResult;
+use harp::object::RObject;
+use harp::r_lock;
+use libR_sys::R_GlobalEnv;
 use log::*;
 use serde_json::json;
-use serde_json::Value;
 
+use crate::environment::r_environment::REnvironment;
 use crate::kernel::KernelInfo;
 use crate::request::Request;
 
@@ -217,12 +220,15 @@ impl ShellHandler for Shell {
     async fn handle_comm_open(
         &self,
         comm: Comm,
-        _msg_tx: Sender<Value>,
+        msg_tx: Sender<CommChannelMsg>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         match comm {
             Comm::Environment => {
-                let (sender, _receiver) = unbounded::<CommChannelMsg>();
-                Ok(Some(sender))
+                r_lock! {
+                    let global_env = RObject::view(R_GlobalEnv);
+                    let env: REnvironment = REnvironment::new(global_env, msg_tx.clone());
+                    Ok(Some(env.channel_msg_tx))
+                }
             },
             _ => Ok(None),
         }
