@@ -31,6 +31,7 @@ use harp::utils::r_inherits;
 use libR_sys::*;
 use log::*;
 use serde_json::json;
+use stdext::unwrap;
 use std::result::Result::Err;
 use std::result::Result::Ok;
 use std::sync::atomic::AtomicBool;
@@ -49,6 +50,8 @@ pub struct Kernel {
     execute_response_tx: Option<Sender<ExecuteResponse>>,
     input_request_tx: Option<Sender<ShellInputRequest>>,
     banner: String,
+    stdout: String,
+    stderr: String,
     initializing: bool,
 }
 
@@ -67,14 +70,16 @@ impl Kernel {
         kernel_init_tx: Bus<KernelInfo>,
     ) -> Self {
         Self {
-            iopub_tx,
             execution_count: 0,
+            iopub_tx,
             console_tx,
-            banner: String::new(),
-            initializing: true,
             kernel_init_tx,
             execute_response_tx: None,
             input_request_tx: None,
+            banner: String::new(),
+            stdout: String::new(),
+            stderr: String::new(),
+            initializing: true,
         }
     }
 
@@ -131,6 +136,10 @@ impl Kernel {
     ) {
         // Clear error occurred flag
         R_ERROR_OCCURRED.store(true, std::sync::atomic::Ordering::Release);
+
+        // Initialize stdout, stderr
+        self.stdout = String::new();
+        self.stderr = String::new();
 
         // Save copy of our response channel
         self.execute_response_tx = Some(execute_response_tx);
@@ -279,24 +288,45 @@ impl Kernel {
     }
 
     /// Called from R when console data is written.
-    pub fn write_console(&mut self, content: &str, otype: i32) {
-        debug!("Write console {} from R: {}", otype, content);
+    pub fn write_console(&mut self, content: &str, stream: Stream) {
+
+        log::info!("R output on {:?}: {}", stream, content);
         if self.initializing {
             // During init, consider all output to be part of the startup banner
             self.banner.push_str(content);
             return;
         }
 
-        // Otherwise, emit output.
-        log::info!("Got R console output: {}", content);
-        let result = self.iopub_tx.send(IOPubMessage::Stream(StreamOutput {
-            stream: if otype == 1 { Stream::Stdout } else { Stream::Stderr },
-            text: content.to_string(),
-        }));
+        let buffer = match stream {
+            Stream::Stdout => &mut self.stdout,
+            Stream::Stderr => &mut self.stderr,
+        };
 
-        if let Err(error) = result {
-            log::error!("{}", error);
+        // Append content to buffer.
+        buffer.push_str(content);
+
+        // Check for a newline. If we have one, emit that output.
+        // TODO: Remove newline buffering once this is implemented on the front-end.
+        let index = buffer.find('\n');
+        if index.is_some() {
+
+            // Use swap to take ownership of the buffer, and replace
+            // it with an empty buffer in the process.
+            let mut text = String::new();
+            std::mem::swap(buffer, &mut text);
+
+            // Stream output via the IOPub channel.
+            let message = IOPubMessage::Stream(StreamOutput {
+                stream: stream,
+                text: text,
+            });
+
+            unwrap!(self.iopub_tx.send(message), Err(error) => {
+                log::error!("{}", error);
+            });
+
         }
+
     }
 
     /// Establishes the input handler for the kernel to request input from the
