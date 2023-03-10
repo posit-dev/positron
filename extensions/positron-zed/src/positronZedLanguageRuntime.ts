@@ -186,35 +186,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.simulateSuccessfulCodeExecution(id, code);
 				break;
 
-			case 'foo':
-				this.simulateSuccessfulCodeExecution(
-					id,
-					code,
-					`XXXXXXXXXX${makeCUB(8)}YYYYYY\n`
-				);
-				break;
-
-			case 'bar1':
-				this.simulateSuccessfulCodeExecution(
-					id,
-					code,
-					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
-					`${makeSGR(SGR.ForegroundGreen)}0123456789${makeSGR()}` +
-					`${makeSGR(SGR.ForegroundBlue)}0123456789${makeSGR()}` +
-					`${makeCUB(20)}${makeSGR(SGR.ForegroundWhite)}01234567890123${makeSGR()}`
-				);
-				break;
-
-			case 'bar2':
-				this.simulateSuccessfulCodeExecution(
-					id,
-					code,
-					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
-					`${makeSGR(SGR.ForegroundGreen)}0123456789${makeSGR()}` +
-					`${makeCUB(9)}${makeSGR(SGR.ForegroundWhite)}123456789${makeSGR()}\n`
-				);
-				break;
-
 			case '1k':
 				this.simulateBusyState(id);
 				this.simulateInputMessage(id, code);
@@ -372,7 +343,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`\u2588  ${makeCUB(3)}\u2588  ` +
 					`\u2588  ${makeCUB(3)}\u2588  ` +
 					`\u2588  ${makeCUB(3)}\u2588  ` +
-					`\u2588 ${makeCUB(2)}\u2588\n`
+					`\u2588 ${makeCUB(2)}\u2588\n\n` +
+
+					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
+					`${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}` +
+					`${makeSGR(SGR.ForegroundBlue)}0123456789${makeSGR()}\n` +
+
+					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
+					`${makeSGR(SGR.ForegroundGreen)}0123456789${makeSGR()}` +
+					`${makeSGR(SGR.ForegroundBlue)}0123456789${makeSGR()}` +
+					`${makeCUB(20)}${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}`
+
 				);
 				break;
 			}

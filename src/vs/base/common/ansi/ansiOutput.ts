@@ -562,7 +562,8 @@ export class ANSIOutput {
 										twoDigitHex(blue);
 								} else if (colorIndex >= 232 && colorIndex <= 255) {
 									// Calculate the grayscale value.
-									const grayscale = twoDigitHex(Math.round((colorIndex - 232) / 23 * 255));
+									const rgb = Math.round((colorIndex - 232) / 23 * 255);
+									const grayscale = twoDigitHex(rgb);
 
 									// Return the RGB color.
 									return '#' + grayscale + grayscale + grayscale;
@@ -1489,13 +1490,20 @@ class OutputLine implements ANSIOutputLine {
 		}
 
 		// Splice the new output runs into the output runs,
-		this._outputRuns.splice(leftOutputRunIndex, (rightOutputRunIndex - leftOutputRunIndex) + 1, ...outputRuns);
+		this._outputRuns.splice(
+			leftOutputRunIndex,
+			(rightOutputRunIndex - leftOutputRunIndex) + 1,
+			...outputRuns
+		);
 
 		// Optimize the output runs.
 		this._outputRuns = OutputRun.optimizeOutputRuns(this._outputRuns);
 
 		// Recalculate the total length.
-		this._totalLength = this._outputRuns.reduce((totalLength, outputRun) => totalLength + outputRun.text.length, 0);
+		this._totalLength = this._outputRuns.reduce((totalLength, outputRun) =>
+			totalLength + outputRun.text.length,
+			0
+		);
 	}
 
 	//#endregion Public Methods
