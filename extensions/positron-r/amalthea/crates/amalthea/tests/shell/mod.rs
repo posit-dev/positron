@@ -37,7 +37,6 @@ use crossbeam::channel::unbounded;
 use crossbeam::channel::Sender;
 use log::warn;
 use serde_json::json;
-use serde_json::Value;
 
 pub struct Shell {
     iopub: Sender<IOPubMessage>,
@@ -233,7 +232,7 @@ impl ShellHandler for Shell {
     async fn handle_comm_open(
         &self,
         _req: Comm,
-        sender: Sender<Value>,
+        sender: Sender<CommChannelMsg>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         // Open a test comm channel; this test comm channel is used for every
         // comm open request (regardless of the target name). It just echoes back any
@@ -244,7 +243,7 @@ impl ShellHandler for Shell {
                 CommChannelMsg::Data(val) => {
                     // Echo back the data we received on the comm channel to the
                     // sender.
-                    sender.send(val).unwrap();
+                    sender.send(CommChannelMsg::Data(val)).unwrap();
                 },
                 CommChannelMsg::Close => {
                     // Close the channel and exit the thread.
