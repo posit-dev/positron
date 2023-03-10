@@ -833,6 +833,8 @@ dependencies = [
  "lazy_static",
  "libR-sys",
  "log",
+ "once_cell",
+ "parking_lot",
  "stdext",
 ]
 
