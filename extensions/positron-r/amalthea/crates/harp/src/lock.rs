@@ -29,7 +29,7 @@ pub extern "C" fn r_polled_events_disabled() {
 
 // The R runtime lock, used to synchronize access to R.
 pub static mut R_RUNTIME_LOCK: Mutex<()> = Mutex::new(());
-pub static mut R_RUNTIME_LOCK_COUNT: AtomicI32 = AtomicI32::new(0);
+pub static R_RUNTIME_LOCK_COUNT: AtomicI32 = AtomicI32::new(0);
 
 pub fn initialize() {
 }

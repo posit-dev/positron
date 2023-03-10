@@ -9,6 +9,7 @@ use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
+use amalthea::wire::stream::Stream;
 use bus::Bus;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::RecvTimeoutError;
@@ -217,8 +218,9 @@ pub extern "C" fn r_read_console(
 pub extern "C" fn r_write_console(buf: *const c_char, _buflen: i32, otype: i32) {
     let content = unsafe { CStr::from_ptr(buf) };
     let mutex = unsafe { KERNEL.as_ref().unwrap() };
+    let stream = if otype == 1 { Stream::Stdout } else { Stream::Stderr };
     let mut kernel = mutex.lock().unwrap();
-    kernel.write_console(content.to_str().unwrap(), otype);
+    kernel.write_console(content.to_str().unwrap(), stream);
 }
 
 /**
