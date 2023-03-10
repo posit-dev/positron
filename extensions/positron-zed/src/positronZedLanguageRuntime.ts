@@ -201,7 +201,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${makeSGR(SGR.ForegroundRed)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundGreen)}0123456789${makeSGR()}` +
 					`${makeSGR(SGR.ForegroundBlue)}0123456789${makeSGR()}` +
-					`${makeCUB(20)}${makeSGR(SGR.ForegroundWhite)}0123456789${makeSGR()}\n`
+					`${makeCUB(20)}${makeSGR(SGR.ForegroundWhite)}01234567890123${makeSGR()}`
 				);
 				break;
 
@@ -372,9 +372,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`\u2588  ${makeCUB(3)}\u2588  ` +
 					`\u2588  ${makeCUB(3)}\u2588  ` +
 					`\u2588  ${makeCUB(3)}\u2588  ` +
-					`\u2588  ${makeCUB(3)}\u2588\n` +
-					'\nTHIS IS A TEST OUTPUT LINE!":\n' +
-					`!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${makeCUB(41)}XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n`
+					`\u2588 ${makeCUB(2)}\u2588\n`
 				);
 				break;
 			}
