@@ -1402,14 +1402,14 @@ class OutputLine implements ANSIOutputLine {
 
 		// Find the left output run that is impacted by the insertion.
 		let leftOffset = 0;
-		let leftIndex: number | undefined = undefined;
+		let leftOutputRunIndex: number | undefined = undefined;
 		for (let index = 0; index < this._outputRuns.length; index++) {
 			// Get the output run.
 			const outputRun = this._outputRuns[index];
 
 			// If the column intersects with this output run, the left output run has been found.
 			if (column < leftOffset + outputRun.text.length) {
-				leftIndex = index;
+				leftOutputRunIndex = index;
 				break;
 			}
 
@@ -1419,7 +1419,7 @@ class OutputLine implements ANSIOutputLine {
 
 		// If the left output run wasn't found, there's an egregious bug in this code. Append a new
 		// output run for the text so it's not lost and return.
-		if (!leftIndex) {
+		if (!leftOutputRunIndex) {
 			this._outputRuns.push(new OutputRun(text, sgrState));
 			return;
 		}
@@ -1436,7 +1436,7 @@ class OutputLine implements ANSIOutputLine {
 				outputRuns.push(new OutputRun(text, sgrState));
 			} else {
 				// Some of the left output run was not overwritten.
-				const leftOutputRun = this._outputRuns[leftIndex];
+				const leftOutputRun = this._outputRuns[leftOutputRunIndex];
 				const leftText = leftOutputRun.text.slice(0, leftTextLength);
 				if (SGRState.equivalent(leftOutputRun.sgrState, sgrState)) {
 					// The left output run and the text being inserted have equivalent SGR states so
@@ -1451,7 +1451,7 @@ class OutputLine implements ANSIOutputLine {
 			}
 
 			// Splice the new output runs in, adjust the total length, and complete the insertion.
-			this.outputRuns.splice(leftIndex, 1, ...outputRuns);
+			this.outputRuns.splice(leftOutputRunIndex, 1, ...outputRuns);
 			this._totalLength = leftOffset + leftTextLength + text.length;
 			return;
 		}
@@ -1481,35 +1481,36 @@ class OutputLine implements ANSIOutputLine {
 			return;
 		}
 
-		// Get the left and right output runs.
-		const leftOutputRun = this._outputRuns[leftIndex];
-		const rightOutputRun = this._outputRuns[rightOutputRunIndex];
-
-		// Get the left text and right text.
-		const leftText = leftOutputRun.text.slice(0, column - leftOffset);
-		const rightText = rightOutputRun.text.slice(rightOutputRun.text.length - (rightOffset - (column + text.length)));
-
-		// Build the new output runs. THIS IS NOT OPTIMIZED YET.
+		// The output runs.
 		const outputRuns: OutputRun[] = [];
-		if (leftText.length) {
-			outputRuns.push(new OutputRun(leftText, leftOutputRun.sgrState));
+
+		// Add the left output run, if needed.
+		const leftOutputRunTextLength = column - leftOffset;
+		if (leftOutputRunTextLength) {
+			const leftOutputRun = this._outputRuns[leftOutputRunIndex];
+			const leftOutputRunText = leftOutputRun.text.slice(0, leftOutputRunTextLength);
+			outputRuns.push(new OutputRun(leftOutputRunText, leftOutputRun.sgrState));
 		}
+
+		// Add the new output run.
 		outputRuns.push(new OutputRun(text, sgrState));
-		if (rightText.length) {
-			outputRuns.push(new OutputRun(rightText, rightOutputRun.sgrState));
+
+		// Add the right output run, if needed.
+		const rightOutputRunTextLength = rightOffset - (column + text.length);
+		if (rightOutputRunTextLength) {
+			const rightOutputRun = this._outputRuns[rightOutputRunIndex];
+			const rightOutputRunText = rightOutputRun.text.slice(0, rightOutputRunTextLength);
+			outputRuns.push(new OutputRun(rightOutputRunText, rightOutputRun.sgrState));
 		}
 
-		// Brute force...
-		this._outputRuns.splice(
-			leftIndex,
-			(rightOutputRunIndex - leftIndex) + 1,
-			...outputRuns
-		);
+		// Splice the new output runs into the output runs,
+		this._outputRuns.splice(leftOutputRunIndex, (rightOutputRunIndex - leftOutputRunIndex) + 1, ...outputRuns);
 
-		this._totalLength = 0;
-		for (let i = 0; i < this.outputRuns.length; i++) {
-			this._totalLength += this.outputRuns[i].text.length;
-		}
+		// Optimize the output runs.
+		this._outputRuns = OutputRun.optimizeOutputRuns(this._outputRuns);
+
+		// Recalculate the total length.
+		this._totalLength = this._outputRuns.reduce((totalLength, outputRun) => totalLength + outputRun.text.length, 0);
 	}
 
 	//#endregion Public Methods
@@ -1578,6 +1579,35 @@ class OutputRun implements ANSIOutputRun {
 
 	//#endregion Constructor
 
+	//#region Public Methods
+
+	/**
+	 * Optimizes a an array of output runs by combining adjacent output runs with equivalent SGR
+	 * states.
+	 * @param outputRunsIn The output runs to optimize.
+	 * @returns The optimized output runs.
+	 */
+	public static optimizeOutputRuns(outputRunsIn: OutputRun[]) {
+		if (outputRunsIn.length < 2) {
+			return outputRunsIn;
+		} else {
+			// Build the optimized output runs by combining adjacent output runs with equivalent
+			// SGR states.
+			const outputRunsOut = [outputRunsIn[0]];
+			for (let i = 1, o = 0; i < outputRunsIn.length; i++) {
+				const outputRun = outputRunsIn[i];
+				if (SGRState.equivalent(outputRunsOut[o].sgrState, outputRun.sgrState)) {
+					outputRunsOut[o]._text += outputRun.text;
+				} else {
+					outputRunsOut[++o] = outputRun;
+				}
+			}
+
+			// Return the optimized output runs.
+			return outputRunsOut;
+		}
+	}
+
 	/**
 	 * Appends text to the end of the output run.
 	 * @param text The text to append.
@@ -1601,6 +1631,8 @@ class OutputRun implements ANSIOutputRun {
 		// Insert the text being inserted.
 		this._text = leftText + text + rightText;
 	}
+
+	//#endregion Public Methods
 
 	//#region ANSIOutputRun Implementation
 
