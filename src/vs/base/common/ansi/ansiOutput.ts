@@ -163,6 +163,11 @@ export class ANSIOutput {
 	 */
 	private _outputColumn = 0;
 
+	/**
+	 * Gets or sets the buffer.
+	 */
+	private _buffer = '';
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -198,18 +203,6 @@ export class ANSIOutput {
 	 * @param output The output to process.
 	 */
 	processOutput(output: string) {
-		this.parseOutput(output);
-	}
-
-	//#endregion Public Methods
-
-	//#region Private Methods
-
-	/**
-	 * Parses output.
-	 * @param output The output to parse.
-	 */
-	private parseOutput(output: string) {
 		// Enumerate the characters in the output.
 		for (let i = 0; i < output.length; i++) {
 			// Get the character.
@@ -217,24 +210,34 @@ export class ANSIOutput {
 
 			// Parse the character.
 			if (this._parserState === ParserState.BufferingOutput) {
-				// Check for the start of an control sequence (or CSI). This
-				// can be \x1b[ or \x9b.
+				// Check for the start of an control sequence (or CSI). This can be \x1b[ or \x9b.
 				if (char === '\x1b') {
+					// Flush the buffer.
+					this.flushBuffer();
+
+					// Enter the control sequence started state.
 					this._parserState = ParserState.ControlSequenceStarted;
 				} else if (char === '\x9b') {
+					// Flush the buffer.
+					this.flushBuffer();
+
+					// Enter the parsing control sequence state.
 					this._parserState = ParserState.ParsingControlSequence;
 				} else {
+					// Process the character.
 					this.processCharacter(char);
 				}
 			} else if (this._parserState === ParserState.ControlSequenceStarted) {
 				// Check for CSI.
 				if (char === '[') {
+					// Enter the parsing control sequence state.
 					this._parserState = ParserState.ParsingControlSequence;
 				} else {
-					// We encountered an ESC that is not part of a CSI. Ignore
-					// the ESC, go back to the buffering output state, and
-					// process the character.
+					// We encountered an ESC that is not part of a CSI. Ignore the ESC, go back to
+					// the buffering output state.
 					this._parserState = ParserState.BufferingOutput;
+
+					// Process the character.
 					this.processCharacter(char);
 				}
 			} else if (this._parserState === ParserState.ParsingControlSequence) {
@@ -247,6 +250,36 @@ export class ANSIOutput {
 				}
 			}
 		}
+
+		// Flush the buffer at the end of the output.
+		this.flushBuffer();
+	}
+
+	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Flushes the buffer to the output line.
+	 */
+	private flushBuffer() {
+		// If the buffer isn't empty, flush it.
+		if (this._buffer) {
+			// Ensure that we have sufficient output lines in the output lines array.
+			for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
+				this._outputLines.push(new OutputLine());
+			}
+
+			// Get the output line.
+			const outputLine = this._outputLines[this._outputLine];
+
+			// Insert the buffer into the output line.
+			outputLine.insert(this._buffer, this._outputColumn, this._sgrState);
+
+			// Adjust the output column and empty the buffer.
+			this._outputColumn += this._buffer.length;
+			this._buffer = '';
+		}
 	}
 
 	/**
@@ -256,16 +289,15 @@ export class ANSIOutput {
 	private processCharacter(char: string) {
 		// Handle special characters.
 		if (char === '\n') {
+			// Flush the buffer.
+			this.flushBuffer();
+
+			// Adjust the output line and output column.
 			this._outputLine++;
 			this._outputColumn = 0;
 		} else {
-			// Ensure that we have sufficient output lines.
-			for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
-				this._outputLines.push(new OutputLine());
-			}
-
-			// Insert the character.
-			this._outputLines[this._outputLine].insertText(char, this._outputColumn++, this._sgrState);
+			// Buffer the character.
+			this._buffer += char;
 		}
 	}
 
@@ -277,14 +309,12 @@ export class ANSIOutput {
 		switch (this._controlSequence.charAt(this._controlSequence.length - 1)) {
 			// CUU (Cursor Up).
 			case 'A':
-				// if (this._outputLine > 0) {
-				// 	this._outputLine--;
-				// }
+				this.processCUU();
 				break;
 
 			// CUD (Cursor Down).
 			case 'B':
-				// this._outputLine++;
+				this.processCUD();
 				break;
 
 			// CUF (Cursor Forward).
@@ -327,7 +357,41 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an CUF control sequence.
+	 * Processes an CUU (Cursor Up) control sequence.
+	 */
+	private processCUU() {
+		// Match the control sequence.
+		const match = this._controlSequence.match(/^([0-9]*)A$/);
+		if (!match) {
+			return;
+		}
+
+		// Get the count. Defaults to 1 when empty or 0.
+		const count = match[1] ? Math.max(parseInt(match[1]), 1) : 1;
+
+		// Adjust the output line.
+		this._outputLine = Math.max(this._outputLine - count, 0);
+	}
+
+	/**
+	 * Processes an CUD (Cursor Down) control sequence.
+	 */
+	private processCUD() {
+		// Match the control sequence.
+		const match = this._controlSequence.match(/^([0-9]*)B$/);
+		if (!match) {
+			return;
+		}
+
+		// Get the count. Defaults to 1 when empty or 0.
+		const count = match[1] ? Math.min(Math.max(parseInt(match[1]), 1024), 1) : 1;
+
+		// Adjust the output line.
+		this._outputLine = Math.max(this._outputLine - count, 0);
+	}
+
+	/**
+	 * Processes an CUF (Cursor Forward) control sequence.
 	 */
 	private processCUF() {
 		// Match the control sequence.
@@ -337,7 +401,7 @@ export class ANSIOutput {
 		}
 
 		// Get the count. Defaults to 1 when empty or 0.
-		const count = match[1] ? Math.max(parseInt(match[1]), 1) : 1;
+		const count = match[1] ? Math.min(Math.max(parseInt(match[1]), 1), 1024) : 1;
 
 		// Adjust the output column.
 		this._outputColumn += count;
@@ -410,9 +474,9 @@ export class ANSIOutput {
 			const sgrParam = sgrParams[index];
 
 			/**
-			 * Process SetForeground, SetBackground, or SetUnderline. Contrary
-			 * to information you will find on the web, these parameters can be
-			 * combined with other parameters. As an example:
+			 * Process SetForeground, SetBackground, or SetUnderline. Contrary to information you
+			 * will find on the web, these parameters can be combined with other parameters. As an
+			 * example:
 			 *
 			 * For the 256-color palette:
 			 * console.log('\x1b[31;38;5;196mThis will be red\x1b[m');
@@ -423,8 +487,8 @@ export class ANSIOutput {
 			 * console.log('\x1b[31;38;2;0;0;255mThis will be blue\x1b[m');
 			 */
 			const processSetColor = (): ANSIColor | string | undefined => {
-				// If there isn't an SGRColorParam in the parameters, return
-				// undefined to indicate that we did not process the set color.
+				// If there isn't an SGRColorParam in the parameters, return undefined to indicate
+				// that we did not process the set color.
 				if (index + 1 === sgrParams.length) {
 					return undefined;
 				}
@@ -434,9 +498,8 @@ export class ANSIOutput {
 				switch (sgrParams[++index]) {
 					// SGRColorParam.Color256 is an indexed color.
 					case SGRParamColor.Color256: {
-						// If there isn't an indexed color parameter, return
-						// undefined to indicate that we did not process the
-						// set color.
+						// If there isn't an indexed color parameter, return undefined to indicate
+						// that we did not process the set color.
 						if (index + 1 === sgrParams.length) {
 							return undefined;
 						}
@@ -444,8 +507,7 @@ export class ANSIOutput {
 						// Get the color index.
 						const colorIndex = sgrParams[++index];
 
-						// Process the color index. The first 16 indexes map to
-						// normal ANSIColors.
+						// Process the color index. The first 16 indexes map to normal ANSIColors.
 						switch (colorIndex) {
 							case SGRParamIndexedColor.Black:
 								return ANSIColor.Black;
@@ -518,7 +580,10 @@ export class ANSIOutput {
 									red = Math.round(red * 255 / 5);
 
 									// Return the RGB color.
-									return '#' + twoDigitHex(red) + twoDigitHex(green) + twoDigitHex(blue);
+									return '#' +
+										twoDigitHex(red) +
+										twoDigitHex(green) +
+										twoDigitHex(blue);
 								} else if (colorIndex >= 232 && colorIndex <= 255) {
 									// Calculate the grayscale value.
 									const grayscale = twoDigitHex(Math.round((colorIndex - 232) / 23 * 255));
@@ -1029,8 +1094,8 @@ class SGRState implements ANSIFormat {
 	private _underlinedColor?: string;
 
 	/**
-	 * Gets or sets a value which indicates whether the foreground and
-	 * background colors are reversed.
+	 * Gets or sets a value which indicates whether the foreground and background colors are
+	 * reversed.
 	 */
 	private _reversed?: boolean;
 
@@ -1134,8 +1199,8 @@ class SGRState implements ANSIFormat {
 
 	/**
 	 * Sets reversed.
-	 * @param reversed A value which indicates whether the foreground and
-	 * background colors are reversed.
+	 * @param reversed A value which indicates whether the foreground and background colors are
+	 * reversed.
 	 */
 	setReversed(reversed: boolean) {
 		if (reversed) {
@@ -1160,9 +1225,15 @@ class SGRState implements ANSIFormat {
 		this._font = font;
 	}
 
+	/**
+	 *
+	 * @param left
+	 * @param right
+	 * @returns
+	 */
 	static equivalent(left?: SGRState, right?: SGRState) {
-		const setReplacer = (key: any, value: any) => value instanceof Set ? !value.size ? undefined : [...value] : value;
-		return left === right || JSON.stringify(left, setReplacer) === JSON.stringify(right, setReplacer);
+		return left === right ||
+			JSON.stringify(left, setReplacer) === JSON.stringify(right, setReplacer);
 	}
 
 	//#endregion Public Methods
@@ -1273,18 +1344,17 @@ class OutputLine implements ANSIOutputLine {
 
 	//#region Public Methods
 
-	// Temporary.
-	public doIt(outputRun: OutputRun) {
-		this._outputRuns.push(outputRun);
-	}
-
 	/**
 	 * Inserts text into the output line.
 	 * @param text The text to insert.
 	 * @param column The column at which to insert the text.
 	 * @param sgrState The SGR state.
 	 */
-	public insertText(text: string, column: number, sgrState?: SGRState) {
+	public insert(text: string, column: number, sgrState?: SGRState) {
+		if (text === 'YYYYYYYY') {
+			console.log();
+		}
+
 		// Inserting text at the end of the output line.
 		if (column === this._totalLength) {
 			// Adjust the total length.
@@ -1312,8 +1382,7 @@ class OutputLine implements ANSIOutputLine {
 			// Adjust the total length.
 			this._totalLength += spacer.length + text.length;
 
-			// When possible, append the spacer and the text being inserted to
-			// the last output run.
+			// When possible, append the spacer and the text being inserted to the last output run.
 			if (!sgrState && this._outputRuns.length) {
 				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
 				if (!lastOutputRun.sgrState) {
@@ -1323,36 +1392,123 @@ class OutputLine implements ANSIOutputLine {
 				}
 			}
 
-			// Append a neutral output run for the spacer and an output run for
-			// the text being inserted. The spacer must be neutral because text
-			// for it has not been set using any SGR state.
+			// Append a neutral output run for the spacer and an output run for the text being
+			// inserted. The spacer must be neutral because text for it has not been set using any
+			// SGR state.
 			this._outputRuns.push(new OutputRun(spacer));
 			this._outputRuns.push(new OutputRun(text, sgrState));
 			return;
 		}
 
-		let offset = 0;
-		let leftOutputRun: OutputRun | undefined = undefined;
-		let rightOutputRun: OutputRun | undefined = undefined;
+		// Find the left output run that is impacted by the insertion.
+		let leftOffset = 0;
+		let leftIndex: number | undefined = undefined;
 		for (let index = 0; index < this._outputRuns.length; index++) {
-			if (column >= offset) {
-				leftOutputRun = this._outputRuns[index];
-				if (index === this._outputRuns.length - 1) {
-					rightOutputRun = leftOutputRun;
-				}
+			// Get the output run.
+			const outputRun = this._outputRuns[index];
+
+			// If the column intersects with this output run, the left output run has been found.
+			if (column < leftOffset + outputRun.text.length) {
+				leftIndex = index;
 				break;
 			}
 
-			// Adjust offset for the start of the next output run.
-			offset += this._outputRuns[index].text.length;
+			// Adjust the left output run offset.
+			leftOffset += outputRun.text.length;
 		}
 
-		// The text is being inserted over the last output run.
-		if (leftOutputRun && rightOutputRun) {
-			if (SGRState.equivalent(leftOutputRun.sgrState, sgrState)) {
-				leftOutputRun.insert(text, column - offset);
-				return;
+		// If the left output run wasn't found, there's an egregious bug in this code. Append a new
+		// output run for the text so it's not lost and return.
+		if (!leftIndex) {
+			this._outputRuns.push(new OutputRun(text, sgrState));
+			return;
+		}
+
+		// If a right output run is not impacted, perform the insertion over the left output run.
+		if (column + text.length >= this._totalLength) {
+			// Get the left text length.
+			const leftTextLength = column - leftOffset;
+
+			// Build the new output runs.
+			const outputRuns: OutputRun[] = [];
+			if (!leftTextLength) {
+				// The left output run was completely overwritten so just add a new output run.
+				outputRuns.push(new OutputRun(text, sgrState));
+			} else {
+				// Some of the left output run was not overwritten.
+				const leftOutputRun = this._outputRuns[leftIndex];
+				const leftText = leftOutputRun.text.slice(0, leftTextLength);
+				if (SGRState.equivalent(leftOutputRun.sgrState, sgrState)) {
+					// The left output run and the text being inserted have equivalent SGR states so
+					// they can be combined into one output run.
+					outputRuns.push(new OutputRun(leftText + text, sgrState));
+				} else {
+					// The left output run and the text being inserted do not have have equivalent
+					// SGR states so two output runs are required.
+					outputRuns.push(new OutputRun(leftText, leftOutputRun.sgrState));
+					outputRuns.push(new OutputRun(text, sgrState));
+				}
 			}
+
+			// Splice the new output runs in, adjust the total length, and complete the insertion.
+			this.outputRuns.splice(leftIndex, 1, ...outputRuns);
+			this._totalLength = leftOffset + leftTextLength + text.length;
+			return;
+		}
+
+		// Find the right output run that is impacted by the insertion.
+		let rightOffset = this._totalLength;
+		let rightOutputRunIndex: number | undefined = undefined;
+		for (let index = this._outputRuns.length - 1; index >= 0; index--) {
+			// Get the output run.
+			const outputRun = this._outputRuns[index];
+
+			// If the column plus the text width intersects with this output run, the right output
+			// run has been found.
+			if (column + text.length > rightOffset - outputRun.text.length) {
+				rightOutputRunIndex = index;
+				break;
+			}
+
+			// Adjust the right output run offset.
+			rightOffset -= outputRun.text.length;
+		}
+
+		// If the right output run wasn't found, there's an egregious bug in this code. Append a new
+		// output run for the text so it's not lost and return.
+		if (!rightOutputRunIndex) {
+			this._outputRuns.push(new OutputRun(text, sgrState));
+			return;
+		}
+
+		// Get the left and right output runs.
+		const leftOutputRun = this._outputRuns[leftIndex];
+		const rightOutputRun = this._outputRuns[rightOutputRunIndex];
+
+		// Get the left text and right text.
+		const leftText = leftOutputRun.text.slice(0, column - leftOffset);
+		const rightText = rightOutputRun.text.slice(rightOutputRun.text.length - (rightOffset - (column + text.length)));
+
+		// Build the new output runs. THIS IS NOT OPTIMIZED YET.
+		const outputRuns: OutputRun[] = [];
+		if (leftText.length) {
+			outputRuns.push(new OutputRun(leftText, leftOutputRun.sgrState));
+		}
+		outputRuns.push(new OutputRun(text, sgrState));
+		if (rightText.length) {
+			outputRuns.push(new OutputRun(rightText, rightOutputRun.sgrState));
+		}
+
+		// Brute force...
+		this._outputRuns.splice(
+			leftIndex,
+			(rightOutputRunIndex - leftIndex) + 1,
+			...outputRuns
+		);
+
+		this._totalLength = 0;
+		for (let i = 0; i < this.outputRuns.length; i++) {
+			this._totalLength += this.outputRuns[i].text.length;
 		}
 	}
 
@@ -1422,6 +1578,10 @@ class OutputRun implements ANSIOutputRun {
 
 	//#endregion Constructor
 
+	/**
+	 * Appends text to the end of the output run.
+	 * @param text The text to append.
+	 */
 	appendText(text: string) {
 		this._text += text;
 	}
@@ -1431,8 +1591,15 @@ class OutputRun implements ANSIOutputRun {
 	 * @param text the text to insert.
 	 */
 	insert(text: string, offset: number) {
+		// Churn the identifier.
 		this._id = crypto.randomUUID();
-		this._text = this.text.slice(0, offset) + text + this.text.slice(offset + text.length);
+
+		// Make a hole for the text being inserted.
+		const leftText = this.text.slice(0, offset);
+		const rightText = this.text.slice(offset + text.length);
+
+		// Insert the text being inserted.
+		this._text = leftText + text + rightText;
 	}
 
 	//#region ANSIOutputRun Implementation
@@ -1464,6 +1631,9 @@ class OutputRun implements ANSIOutputRun {
 //#endregion Private Classes
 
 //#region Helper Functions
+
+const setReplacer = (key: any, value: any) =>
+	value instanceof Set ? !value.size ? undefined : [...value] : value;
 
 /**
  * Converts a number to a two-digit hex string representing the value.
