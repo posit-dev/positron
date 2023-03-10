@@ -273,11 +273,12 @@ pub unsafe extern "C" fn r_polled_events() {
     info!("{} thread(s) are waiting; the main thread is releasing the R runtime lock.", count);
     let now = SystemTime::now();
 
-    // Release the lock.
-    unsafe { R_RUNTIME_LOCK_GUARD = None };
+    // Release the lock. This drops the lock, and gives other threads
+    // waiting for the lock a chance to acquire it.
+    R_RUNTIME_LOCK_GUARD = None;
 
     // Take the lock back.
-    unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+    R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock());
 
     info!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
 
