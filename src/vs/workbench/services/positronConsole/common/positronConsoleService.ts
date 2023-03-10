@@ -726,7 +726,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param trace The text.
 	 */
 	private addRuntimeItemTrace(trace: string) {
-		this.addRuntimeItem(new RuntimeItemTrace(generateUuid(), trace));
+		return;
+		//this.addRuntimeItem(new RuntimeItemTrace(generateUuid(), trace));
 	}
 
 	/**
