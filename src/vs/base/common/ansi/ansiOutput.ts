@@ -1337,10 +1337,6 @@ class OutputLine implements ANSIOutputLine {
 	 * @param sgrState The SGR state.
 	 */
 	public insert(text: string, column: number, sgrState?: SGRState) {
-		if (text === 'YYYYYYYY') {
-			console.log();
-		}
-
 		// Inserting text at the end of the output line.
 		if (column === this._totalLength) {
 			// Adjust the total length.
