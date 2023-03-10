@@ -17,7 +17,7 @@
 	"contributes": {
 		"languages": [
 			{
-				"id": "Zed",
+				"id": "zed",
 				"extensions": [
 					".zed"
 				],

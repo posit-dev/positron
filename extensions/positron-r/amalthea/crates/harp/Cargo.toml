@@ -10,10 +10,12 @@ Tools for integrating R and Rust.
 ctor = "0.1.26"
 harp-macros = { path = "./harp-macros" }
 lazy_static = "1.4.0"
-libR-sys = "0.3.0"
+libR-sys = "0.4.0"
 log = "0.4.17"
+once_cell = "1.17.1"
+parking_lot = "0.12.1"
 stdext = { path = "../stdext" }
 
 [target.'cfg(all(target_os="linux", target_arch="aarch64"))'.dependencies]
-libR-sys = { version = "0.3.0", features = ["use-bindgen"] }
+libR-sys = { version = "0.4.0", features = ["use-bindgen"] }
 

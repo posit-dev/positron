@@ -33,7 +33,6 @@ use async_trait::async_trait;
 use crossbeam::channel::Sender;
 use log::warn;
 use serde_json::json;
-use serde_json::Value;
 
 pub struct Shell {
     iopub: Sender<IOPubMessage>,
@@ -202,7 +201,7 @@ impl ShellHandler for Shell {
     async fn handle_comm_open(
         &self,
         _comm: Comm,
-        _msg_tx: Sender<Value>,
+        _msg_tx: Sender<CommChannelMsg>,
     ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
         // No comms in this toy implementation.
         Ok(None)

@@ -45,7 +45,7 @@ export class JupyterSocket implements vscode.Disposable {
 	 * @param port The port to connect to.
 	 */
 	public async connect(port: number) {
-		const maxTries = 10;
+		const maxWaitSeconds = 30;
 		this._port = port;
 		this._addr = 'tcp://127.0.0.1:' + port.toString();
 		this._logger(`${this._title} socket connecting to ${this._addr}...`);
@@ -62,8 +62,8 @@ export class JupyterSocket implements vscode.Disposable {
 		// @ts-ignore
 		this._socket.monitor();
 
-		// Number of times we'll try to connect before giving up
-		let triesLeft = maxTries;
+		// Track how long we have been waiting to connect
+		const startTime = Date.now();
 
 		// Resolve the promise when the socket connects
 		return new Promise<void>((resolve, reject) => {
@@ -74,8 +74,10 @@ export class JupyterSocket implements vscode.Disposable {
 
 			// If the socket fails to connect, reject the promise
 			this._socket.on('connect_delay', (_evt, addr) => {
-				if (triesLeft-- === 0) {
-					this._logger(`${this._title} socket failed to connect to ${addr} after ${maxTries} attempts`);
+				// We give up if we've exceeded our max wait time
+				const elapsed = (Date.now() - startTime) / 1000;
+				if (elapsed > maxWaitSeconds) {
+					this._logger(`${this._title} socket failed to connect to ${addr} after ${elapsed} seconds`);
 					reject();
 				}
 			});

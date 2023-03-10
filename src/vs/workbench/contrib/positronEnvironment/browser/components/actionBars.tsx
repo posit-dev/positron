@@ -86,6 +86,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	};
 
+	// Refresh workspace objects handler.
+	const refreshWorkspaceObjectsHandler = () => {
+		positronEnvironmentContext.currentLanguageEnvironment?.refreshEnvironment();
+	};
+
 	// If there are no language environment, return null.
 	// TODO@softwarenerd - Render something specific for this case. TBD.
 	if (positronEnvironmentContext.languageEnvironments.length === 0) {
@@ -108,7 +113,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-test' tooltip={localize('positronTestMode', "Enter test mode")} />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} />
+						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} onClick={refreshWorkspaceObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
