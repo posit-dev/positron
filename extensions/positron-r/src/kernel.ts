@@ -130,7 +130,8 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		const lsp = new ArkLsp(rHome.rVersion);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(kernelSpec,
+		runtime = ext.exports.adaptKernel(
+			kernelSpec,
 			'r',      // Language ID
 			rHome.rVersion ?? '0.0.1',   // Version of R, if we know it
 			version,  // Version of this extension

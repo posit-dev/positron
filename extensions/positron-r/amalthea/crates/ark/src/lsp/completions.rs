@@ -6,7 +6,10 @@
 //
 
 use std::collections::HashSet;
+use std::env::current_dir;
+use std::fs::DirEntry;
 use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use anyhow::bail;
@@ -17,6 +20,7 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
+use harp::string::r_string_decode;
 use harp::utils::r_envir_name;
 use harp::utils::r_formals;
 use lazy_static::lazy_static;
@@ -63,6 +67,8 @@ lazy_static! {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum CompletionData {
     DataVariable { name: String, owner: String },
+    Directory { path: PathBuf },
+    File { path: PathBuf },
     Function { name: String, package: Option<String> },
     Object { name: String },
     Package { name: String },
@@ -73,6 +79,7 @@ pub enum CompletionData {
     Snippet { text: String },
 }
 
+#[derive(Debug)]
 pub struct CompletionContext<'a> {
     pub document: &'a Document,
     pub node: Node<'a>,
@@ -178,6 +185,8 @@ pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &Completi
 
     match data {
         CompletionData::DataVariable { name, owner } => Ok(false),
+        CompletionData::Directory { path } => Ok(false),
+        CompletionData::File { path } => Ok(false),
         CompletionData::Function { name, package } => resolve_function_completion_item(item, name, package.as_deref()),
         CompletionData::Package { name } => resolve_package_completion_item(item, name),
         CompletionData::Parameter { name, function } => resolve_parameter_completion_item(item, name, function),
@@ -199,6 +208,52 @@ fn completion_item(label: impl AsRef<str>, data: CompletionData) -> Result<Compl
     })
 
 }
+
+fn completion_item_from_file(entry: DirEntry) -> Result<CompletionItem> {
+
+    let name = entry.file_name().to_string_lossy().to_string();
+    let mut item = completion_item(name, CompletionData::File {
+        path: entry.path(),
+    })?;
+
+    item.kind = Some(CompletionItemKind::FILE);
+    Ok(item)
+
+}
+
+fn completion_item_from_directory(entry: DirEntry) -> Result<CompletionItem> {
+
+    let mut name = entry.file_name().to_string_lossy().to_string();
+    name.push_str("/");
+
+    let mut item = completion_item(&name, CompletionData::Directory {
+        path: entry.path(),
+    })?;
+
+    item.kind = Some(CompletionItemKind::FOLDER);
+    item.command = Some(Command {
+        title: "Trigger Suggest".to_string(),
+        command: "editor.action.triggerSuggest".to_string(),
+        ..Default::default()
+    });
+
+    Ok(item)
+
+}
+
+
+fn completion_item_from_direntry(entry: DirEntry) -> Result<CompletionItem> {
+
+    let is_dir = entry.file_type().map(|value| value.is_dir()) .unwrap_or(false);
+    if is_dir {
+        return completion_item_from_directory(entry);
+    } else {
+        return completion_item_from_file(entry);
+    }
+
+}
+
+
 
 fn completion_item_from_assignment(node: &Node, context: &CompletionContext) -> Result<CompletionItem> {
 
@@ -1006,6 +1061,64 @@ pub fn can_provide_completions(document: &mut Document, params: &CompletionParam
 
 }
 
+unsafe fn append_file_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
+
+    // Get the contents of the string token.
+    //
+    // NOTE: This includes the quotation characters on the string, and so
+    // also includes any internal escapes! We need to decode the R string
+    // before searching the path entries.
+    let token = context.node.utf8_text(context.source.as_bytes())?;
+    let contents = r_string_decode(token).into_result()?;
+    log::info!("String value (decoded): {}", contents);
+
+    // Use R to normalize the path.
+    let path = RFunction::new("base", "normalizePath")
+        .param("path", contents)
+        .param("winslash", "/")
+        .param("mustWork", false)
+        .call()?
+        .to::<String>()?;
+
+    // parse the file path and get the directory component
+    let mut path = PathBuf::from(path.as_str());
+    log::info!("Normalized path: {}", path.display());
+
+    // if this path doesn't have a root, add it on
+    if !path.has_root() {
+        let root = current_dir()?;
+        path = root.join(path);
+    }
+
+    // if this isn't a directory, get the parent path
+    if !path.is_dir() {
+        if let Some(parent) = path.parent() {
+            path = parent.to_path_buf();
+        }
+    }
+
+    // look for files in this directory
+    log::info!("Reading directory: {}", path.display());
+    let entries = std::fs::read_dir(path)?;
+    for entry in entries.into_iter() {
+
+        let entry = unwrap!(entry, Err(error) => {
+            log::error!("{}", error);
+            continue;
+        });
+
+        let item = unwrap!(completion_item_from_direntry(entry), Err(error) => {
+            log::error!("{}", error);
+            continue;
+        });
+
+        completions.push(item);
+
+    }
+
+    Ok(())
+}
+
 pub unsafe fn append_session_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
 
     info!("append_session_completions()");
@@ -1014,6 +1127,11 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
     let ast = &context.document.ast;
     let cursor = ast.node_at_point(context.point)?;
     let mut node = cursor;
+
+    // check for strings; when encountered, provide file completions
+    if node.kind() == "string" {
+        return append_file_completions(context, completions);
+    }
 
     // check for completion within a comment -- in such a case, we usually
     // want to complete things like roxygen tags
