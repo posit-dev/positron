@@ -88,8 +88,12 @@ export class ArkLsp implements vscode.Disposable {
 		};
 
 		const clientOptions: LanguageClientOptions = {
-			documentSelector: [{ scheme: 'file', language: 'r' }],
-			synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R') },
+			documentSelector: [
+				{ language: 'r' },
+			],
+			synchronize: {
+				fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
+			},
 			traceOutputChannel: traceOutputChannel(),
 		};
 
