@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import { makeCUB, makeCUF, makeCUP, makeEL, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
+import { resolve } from 'path';
 
 /**
  * Constants.
@@ -558,25 +559,33 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			return Promise.reject('Failure');
 		}
 
-		// Fire state changes.
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
 
-		// A lot of the time, a real runtime goes busy and then idle after it starts.
-		setTimeout(() => {
-			const parentId = randomUUID();
-			this.simulateBusyState(parentId);
-			this.simulateIdleState(parentId);
-		}, 100);
+			// Fire state changes.
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
 
-		// Done.
-		return Promise.resolve({
-			banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.metadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
-			implementation_version: this.metadata.runtimeVersion,
-			language_version: this.metadata.languageVersion,
-		} as positron.LanguageRuntimeInfo);
+			// Zed takes 1 second to start. This allows UI to be seen.
+			setTimeout(() => {
+				// Zed is ready now.
+				this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+
+				// A lot of the time, a real runtime goes busy and then idle after it starts.
+				setTimeout(() => {
+					const parentId = randomUUID();
+					this.simulateBusyState(parentId);
+					this.simulateIdleState(parentId);
+				}, 100);
+
+				// Resolve.
+				resolve({
+					banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.metadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
+					implementation_version: this.metadata.runtimeVersion,
+					language_version: this.metadata.languageVersion,
+				} as positron.LanguageRuntimeInfo);
+			}, 1000);
+		});
 	}
 
 	/**
