@@ -23,11 +23,14 @@ export class RuntimeItemExited extends RuntimeItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param banner The banner.
+	 * @param message The banner.
 	 */
-	constructor(id: string, banner: string) {
+	constructor(id: string, message: string) {
+		// Call the base class's constructor.
 		super(id);
-		this.outputLines = ANSIOutput.processOutput(banner);
+
+		// Process the message directly into ANSI output lines suitable for rendering.
+		this.outputLines = ANSIOutput.processOutput(message);
 	}
 
 	//#endregion Constructor

@@ -31,9 +31,14 @@ export class RuntimeItemTrace extends RuntimeItem {
 	 * @param text The text.
 	 */
 	constructor(id: string, text: string) {
+		// Call the base class's constructor.
 		super(id);
+
+		// Replace ESC and CSI with text so ANSI escape sequences are not regognized.
 		text = text.replace('\x1b', 'ESC');
 		text = text.replace('\x9B', 'CSI');
+
+		// Process the text directly into ANSI output lines suitable for rendering.
 		this.outputLines = ANSIOutput.processOutput(text);
 	}
 
