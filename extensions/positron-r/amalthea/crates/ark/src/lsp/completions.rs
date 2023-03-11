@@ -7,7 +7,6 @@
 
 use std::collections::HashSet;
 use std::env::current_dir;
-use std::ffi::CStr;
 use std::fs::DirEntry;
 use std::path::Path;
 use std::path::PathBuf;
@@ -224,12 +223,20 @@ fn completion_item_from_file(entry: DirEntry) -> Result<CompletionItem> {
 
 fn completion_item_from_directory(entry: DirEntry) -> Result<CompletionItem> {
 
-    let name = entry.file_name().to_string_lossy().to_string();
-    let mut item = completion_item(name, CompletionData::Directory {
+    let mut name = entry.file_name().to_string_lossy().to_string();
+    name.push_str("/");
+
+    let mut item = completion_item(&name, CompletionData::Directory {
         path: entry.path(),
     })?;
 
-    item.kind = Some(CompletionItemKind::DIRECTORY);
+    item.kind = Some(CompletionItemKind::FOLDER);
+    item.command = Some(Command {
+        title: "Trigger Suggest".to_string(),
+        command: "editor.action.triggerSuggest".to_string(),
+        ..Default::default()
+    });
+
     Ok(item)
 
 }
