@@ -168,6 +168,11 @@ export class ANSIOutput {
 	 */
 	private _buffer = '';
 
+	/**
+	 * Gets or sets a value which indicates whether there is a pending newline.
+	 */
+	private _pendingNewline = false;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -205,6 +210,19 @@ export class ANSIOutput {
 	processOutput(output: string) {
 		// Enumerate the characters in the output.
 		for (let i = 0; i < output.length; i++) {
+			// If there is a pending newline, process it.
+			if (this._pendingNewline) {
+				// Flush the buffer.
+				this.flushBuffer();
+
+				// Adjust the output line and output column.
+				this._outputLine++;
+				this._outputColumn = 0;
+
+				// Clear the pending newline flag.
+				this._pendingNewline = false;
+			}
+
 			// Get the character.
 			const char = output.charAt(i);
 
@@ -289,12 +307,8 @@ export class ANSIOutput {
 	private processCharacter(char: string) {
 		// Handle special characters.
 		if (char === '\n') {
-			// Flush the buffer.
-			this.flushBuffer();
-
-			// Adjust the output line and output column.
-			this._outputLine++;
-			this._outputColumn = 0;
+			// Set the pending newline flag.
+			this._pendingNewline = true;
 		} else {
 			// Buffer the character.
 			this._buffer += char;
