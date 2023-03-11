@@ -30,7 +30,10 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The initial activity item.
 	 */
 	constructor(id: string, activityItem: ActivityItem) {
+		// Call the base class's constructor.
 		super(id);
+
+		// Push the initial activity item.
 		this.activityItems.push(activityItem);
 	}
 

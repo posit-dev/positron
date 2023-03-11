@@ -33,7 +33,10 @@ export class RuntimeItemStartup extends RuntimeItem {
 		public readonly implementationVersion: string,
 		public readonly languageVersion: string
 	) {
+		// Call the base class's constructor.
 		super(id);
+
+		// Process the banner directly into ANSI output lines suitable for rendering.
 		this.outputLines = ANSIOutput.processOutput(banner);
 	}
 

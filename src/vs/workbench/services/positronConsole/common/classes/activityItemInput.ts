@@ -33,7 +33,10 @@ export class ActivityItemInput extends ActivityItem {
 		when: Date,
 		public readonly code: string
 	) {
+		// Call the base class's constructor.
 		super(id, parentId, when);
+
+		// Process the code directly into ANSI output lines suitable for rendering.
 		this.outputLines = ANSIOutput.processOutput(code);
 	}
 

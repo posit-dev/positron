@@ -42,7 +42,10 @@ export class ActivityItemError extends ActivityItem {
 		public readonly message: string,
 		public readonly traceback: string[]
 	) {
+		// Call the base class's constructor.
 		super(id, parentId, when);
+
+		// Process the message and traceback directly into ANSI output lines suitable for rendering.
 		this.messageOutputLines = ANSIOutput.processOutput(message);
 		this.tracebackOutputLines = ANSIOutput.processOutput(traceback.join('\n'));
 	}
