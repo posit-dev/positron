@@ -14,12 +14,12 @@ export class RuntimeItemTrace extends RuntimeItem {
 	/**
 	 * Gets the timestamp.
 	 */
-	public readonly timestamp = new Date();
+	readonly timestamp = new Date();
 
 	/**
 	 * Gets the output lines.
 	 */
-	public readonly outputLines: readonly ANSIOutputLine[];
+	readonly outputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 

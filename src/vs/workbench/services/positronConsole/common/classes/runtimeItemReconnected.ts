@@ -14,7 +14,7 @@ export class RuntimeItemReconnected extends RuntimeItem {
 	/**
 	 * Gets the output lines.
 	 */
-	public readonly outputLines: readonly ANSIOutputLine[];
+	readonly outputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
