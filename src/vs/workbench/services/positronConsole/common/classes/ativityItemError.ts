@@ -14,12 +14,12 @@ export class ActivityItemError extends ActivityItem {
 	/**
 	 * Gets the message output lines.
 	 */
-	public readonly messageOutputLines: readonly ANSIOutputLine[];
+	readonly messageOutputLines: readonly ANSIOutputLine[];
 
 	/**
 	 * Gets the traceback output lines.
 	 */
-	public readonly tracebackOutputLines: readonly ANSIOutputLine[];
+	readonly tracebackOutputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -38,9 +38,9 @@ export class ActivityItemError extends ActivityItem {
 		id: string,
 		parentId: string,
 		when: Date,
-		public readonly name: string,
-		public readonly message: string,
-		public readonly traceback: string[]
+		readonly name: string,
+		readonly message: string,
+		readonly traceback: string[]
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

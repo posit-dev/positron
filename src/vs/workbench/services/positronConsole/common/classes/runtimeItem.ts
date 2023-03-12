@@ -12,7 +12,7 @@ export class RuntimeItem {
 	 * Constructor.
 	 * @param id The identifier.
 	 */
-	constructor(public readonly id: string) {
+	constructor(readonly id: string) {
 	}
 
 	//#endregion Constructor
