@@ -654,12 +654,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				// When the progress bar reaches 100%, clear the interval.
 				if (progress === 100) {
 					clearInterval(interval);
+
+					// End the progress bar.
+					this.simulateOutputMessage(parentId, 'Long running task is complete');
+					this.simulateIdleState(parentId);
 				}
 			}, 50);
 
-			// End the progress bar.
-			this.simulateOutputMessage(parentId, 'Long running task is complete');
-			this.simulateIdleState(parentId);
 		}, 500);
 	}
 
