@@ -18,7 +18,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 	/**
 	 * The activity items.
 	 */
-	public readonly activityItems: ActivityItem[] = [];
+	readonly activityItems: ActivityItem[] = [];
 
 	//#endregion Public Properties
 

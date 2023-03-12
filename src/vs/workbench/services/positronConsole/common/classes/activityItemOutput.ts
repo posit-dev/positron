@@ -21,7 +21,7 @@ export class ActivityItemOutput extends ActivityItem {
 		id: string,
 		parentId: string,
 		when: Date,
-		public readonly data: Record<string, string>
+		readonly data: Record<string, string>
 	) {
 		super(id, parentId, when);
 	}

@@ -14,7 +14,7 @@ export class ActivityItemInput extends ActivityItem {
 	/**
 	 * Gets the output lines.
 	 */
-	public readonly outputLines: readonly ANSIOutputLine[];
+	readonly outputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -31,7 +31,7 @@ export class ActivityItemInput extends ActivityItem {
 		id: string,
 		parentId: string,
 		when: Date,
-		public readonly code: string
+		readonly code: string
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

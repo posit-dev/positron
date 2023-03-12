@@ -15,9 +15,9 @@ export class ActivityItem {
 	 * @param when The date.
 	 */
 	constructor(
-		public readonly id: string,
-		public readonly parentId: string,
-		public readonly when: Date
+		readonly id: string,
+		readonly parentId: string,
+		readonly when: Date
 	) {
 	}
 

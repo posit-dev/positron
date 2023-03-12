@@ -14,7 +14,7 @@ export class RuntimeItemStartup extends RuntimeItem {
 	/**
 	 * Gets the output lines.
 	 */
-	public readonly outputLines: readonly ANSIOutputLine[];
+	readonly outputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -30,8 +30,8 @@ export class RuntimeItemStartup extends RuntimeItem {
 	constructor(
 		id: string,
 		banner: string,
-		public readonly implementationVersion: string,
-		public readonly languageVersion: string
+		readonly implementationVersion: string,
+		readonly languageVersion: string
 	) {
 		// Call the base class's constructor.
 		super(id);
