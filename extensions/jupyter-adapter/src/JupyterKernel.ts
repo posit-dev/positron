@@ -71,7 +71,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** An object that tracks the Jupyter session information, such as session ID and ZeroMQ ports */
 	private _session?: JupyterSession;
 
-	/** The terminal in which the kernel process is running */
+	/**
+	 * The terminal in which the kernel process is running. Note that we only have a terminal handle
+	 * when the kernel started in this session; if we reconnect to a running kernel, this will be
+	 * undefined.
+	 */
 	private _terminal?: vscode.Terminal;
 
 	/** The channel to which output for this specific terminal is logged, if any */
@@ -112,78 +116,93 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (state) {
 			// We found session state for this kernel. Connect to it.
 			const sessionState = state as JupyterSessionState;
-			this.reconnect(sessionState);
+
+			// Set the status to initializing so that we don't try to start a
+			// new kernel before we've tried to connect to the existing one.
+			this.setStatus(positron.RuntimeState.Initializing);
+
+			// Attempt to reconnect. If successful we'll set the new state during the reconnect
+			// process. If not, move the status back to Uninitialized.
+			this.reconnect(sessionState).catch((err) => {
+				this.setStatus(positron.RuntimeState.Uninitialized);
+				this.log(`Failed to reconnect to running kernel: ${err}`);
+			});
 		}
+
+		// Listen for terminals to close; if our own terminal closes, then we need
+		// to update our status
+		vscode.window.onDidCloseTerminal((closedTerminal) => {
+			if (closedTerminal === this._terminal) {
+				if (this._status === positron.RuntimeState.Starting) {
+					// If we were starting the kernel, then we failed to start
+					this.log(
+						`${this._spec.display_name} failed to start; exit code: ${closedTerminal.exitStatus?.code}`);
+				} else {
+					// Otherwise, we exited normally (but print the exit code anyway)
+					this.setStatus(positron.RuntimeState.Exited);
+					this.log(
+						`${this._spec.display_name} exited with code ${closedTerminal.exitStatus?.code}`);
+				}
+			}
+		});
 	}
 
 	/**
-	 * Attempts to discover and reconnect to a running kernel.
+	 * Attempts to discover and reconnect to a running kernel. Returns a promise
+	 * that resolves when the kernel is connected, or rejects if the kernel is
+	 * not running.
 	 *
 	 * @param sessionState The saved session state for the kernel
 	 */
-	private reconnect(sessionState: JupyterSessionState) {
+	private async reconnect(sessionState: JupyterSessionState) {
+		// Save the process ID
+		const pid = sessionState.processId;
 
-		// Set the status to initializing so that we don't try to start a
-		// new kernel before we've tried to connect to the existing one.
-		this.setStatus(positron.RuntimeState.Initializing);
+		// Check to see whether the process is still running
+		if (this.isRunning(pid)) {
 
-		// Get the list of all terminals in the current workspace. We'll
-		// look for a terminal with the same process ID as the one we saved
-		// in the session state.
-		const allTerminals = vscode.window.terminals;
-		this.log(
-			`Found record of existing kernel for '${this._spec.display_name} with PID ${sessionState.processId}; checking ${allTerminals.length} terminals...`);
-
-		// We can't fetch the process IDs synchronously, so we discover them
-		// asynchronously and then look for a match.
-		Promise.all(allTerminals.map((terminal) => {
-			// Note that the terminal name can't be used to match here
-			// because, empirically, it is not always set when we initially
-			// query the list of terminals.
-			return new Promise<vscode.Terminal | undefined>((resolve, _reject) => {
-				terminal.processId.then((pid) => {
-					// If the terminal looks like one of ours, but it has a
-					// different process ID than we saved, then it's a stale
-					// (orphaned) terminal that we need to dispose of.
-					if (terminal.name === this._spec.display_name && pid !== sessionState.processId) {
-						terminal.dispose();
-					}
-					resolve(pid === sessionState.processId ? terminal : undefined);
-				});
-			});
-		})).then((results) => {
-			// Filter out any undefined results; they are terminals that
-			// don't have a process ID matching the one we saved.
-			const terminals = results.filter((terminal) => terminal !== undefined);
-			if (terminals.length === 0) {
-				// We didn't find a terminal; remove the session state from the
-				// workspace state since we no longer have a terminal we can
-				// connect to.
-				this.log(
-					`No terminal found; removing stale session state '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
-				this._context.workspaceState.update(this._runtimeId, undefined);
-
-				// Return to the uninitialized state
-				this.setStatus(positron.RuntimeState.Uninitialized);
-				return;
-			}
-
-			const terminal = terminals[0] as vscode.Terminal;
-			this.log(
-				`Connecting ${this._spec.language} to terminal '${terminal.name}' (PID ${sessionState.processId}))`);
+			// It's running! Try to connect.
+			this.log(`Detected running ${this._spec.language} kernel with PID ${pid}, attempting to reconnect...`);
 
 			// Defer the connection until the next tick, so that the
 			// caller has a chance to register for the 'status' event we emit
 			// below.
-			setTimeout(() => {
-				// We are now "starting" the kernel. (Consider: should we
-				// have a "connecting" state?)
-				this.setStatus(positron.RuntimeState.Starting);
+			return new Promise<void>((resolve, reject) => {
+				setTimeout(() => {
+					// We are now "starting" the kernel. (Consider: should we
+					// have a "connecting" state?)
+					this.setStatus(positron.RuntimeState.Starting);
 
-				// Connect to the running kernel in the terminal
-				this.connectToTerminal(terminal, new JupyterSession(sessionState));
+					// Connect to the running kernel in the terminal
+					this.connectToSession(new JupyterSession(sessionState)).then(
+						() => {
+							this.log(`Connected to ${this._spec.language} kernel with PID ${pid}.`);
+
+							// We're connected! Resolve the promise.
+							resolve();
+						}
+					).catch((err) => {
+						// If we failed to connect, then we need to remove the stale session state
+						this.log(
+							`Failed to connect to kernel with PID ${pid}. ` +
+							`Error: ${err} ` +
+							`Removing stale session state.`);
+						this._context.workspaceState.update(this._runtimeId, undefined);
+
+						// Reject the promise
+						reject(err);
+					});
+				});
 			});
-		});
+		} else {
+			// The kernel process is no longer running, so we need to remove the stale session state
+			this.log(
+				`Kernel process ${pid} no longer running. ` +
+				`Removing stale session state '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
+			this._context.workspaceState.update(this._runtimeId, undefined);
+
+			throw new Error(`Kernel process ${pid} no longer running`);
+		}
 	}
 
 	/**
@@ -234,48 +253,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Connects to a kernel running in a terminal, asynchronously. The returned promise
+	 * Connects to running kernel process, asynchronously. The returned promise
 	 * resolves when the kernel is ready to receive messages.
 	 *
-	 * @param terminal The terminal to connect to
 	 * @param session The Jupyter session information for the kernel running in
 	 *   the terminal
 	 */
-	private async connectToTerminal(terminal: vscode.Terminal, session: JupyterSession) {
+	private async connectToSession(session: JupyterSession) {
 
 		// Establish a log channel for the kernel we're connecting to
 		this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
 
-		// Bind to the Jupyter session and terminal
+		// Bind to the Jupyter session
 		this._session = session;
-		this._terminal = terminal;
-
-		// When the terminal closes, mark the kernel as exited
-		const disposable = vscode.window.onDidCloseTerminal((closedTerminal) => {
-			// Ignore close events from other terminals
-			if (closedTerminal.name !== this._spec.display_name) {
-				return;
-			}
-
-			// Ignore close events if the underlying process hasn't actually exited
-			if (terminal.exitStatus?.code === undefined) {
-				return;
-			}
-
-			if (this._status === positron.RuntimeState.Starting) {
-				// If we were starting the kernel, then we failed to start
-				this.log(
-					`${this._spec.display_name} failed to start; exit code: ${terminal.exitStatus?.code}`);
-			} else {
-				// Otherwise, we exited normally (but print the exit code anyway)
-				this.setStatus(positron.RuntimeState.Exited);
-				this.log(
-					`${this._spec.display_name} exited with code ${terminal.exitStatus?.code}`);
-			}
-
-			// Clean up listener
-			disposable.dispose();
-		});
 
 		this.log(
 			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
@@ -431,6 +421,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.log('Environment: ' + JSON.stringify(this._spec.env));
 		}
 
+		// Look up the configuration to see if we should show terminal we're
+		// about to start. It can be useful to see the terminal as a debugging
+		// aid, but end users shouldn't see it in most cases.
+		const showTerminal = vscode.workspace.getConfiguration('positron.jupyterAdapter')
+			.get('showTerminal', false);
+
 		// Use the VS Code terminal API to create a terminal for the kernel
 		vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
@@ -438,12 +434,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			shellArgs: args.slice(1),
 			env,
 			message: `** ${this._spec.display_name} **`,
-			// TODO (jmcphers): We don't want to show the terminal to the user,
-			// but setting `hideFromUser` to `true` causes the terminal to be
-			// destroyed when the window is reloaded, which is opposite of what
-			// we want. We need a way to create a terminal that is not visible
-			// to the user, but that persists across window reloads.
-			hideFromUser: false,
+			hideFromUser: !showTerminal,
 			isTransient: false
 		});
 
@@ -466,8 +457,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 							// correct terminal
 							disposable.dispose();
 
+							// Save a reference to the terminal so we can close it later if needed
+							this._terminal = openedTerminal;
+
 							// Connect to the kernel running in the terminal
-							this.connectToTerminal(openedTerminal, session).then(() => {
+							this.connectToSession(session).then(() => {
 								resolve();
 							}).catch((err) => {
 								reject(err);
@@ -823,7 +817,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Emits a heartbeat message and waits for the kernel to respond.
 	 */
 	private heartbeat() {
-		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+		const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this.log(`SEND heartbeat`);
 		this._heartbeat?.socket().send(['hello']);
@@ -917,6 +911,23 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Start watching the log file. This streams output until the kernel is
 		// disposed.
 		this._logTail.watch();
+	}
+
+	/**
+	 * Checks whether a kernel process is still running using the operating
+	 * system's process list.
+	 *
+	 * @param kernelPid The PID of the kernel process
+	 */
+	private isRunning(kernelPid: number): boolean {
+		try {
+			// Send a signal to the kernel process to see if it's still running.
+			// This will throw an exception if the process is no longer running.
+			process.kill(kernelPid, 0);
+			return true;
+		} catch (e) {
+			return false;
+		}
 	}
 
 	/**

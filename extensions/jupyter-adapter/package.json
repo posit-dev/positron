@@ -17,13 +17,19 @@
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "Jupyter Heartbeat Interval",
+      "title": "Jupyter Adapter",
       "properties": {
-        "positron.jupyter.heartbeat": {
+        "positron.jupyterAdapter.heartbeat": {
           "scope": "window",
           "type": "number",
-          "default": 10,
+          "default": 30,
           "description": "The interval between kernel heartbeat requests (0 to disable heartbeat checks)"
+        },
+        "positron.jupyterAdapter.showTerminal": {
+          "scope": "window",
+          "type": "boolean",
+          "default": false,
+          "description": "Show the terminal window when running a Jupyter kernel"
         }
       }
     }
