@@ -641,25 +641,29 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Start the progress bar simulation.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
-		this.simulateOutputMessage(parentId, 'Starting long running task');
+		this.simulateOutputMessage(parentId, 'Long running task:\n');
 
 		// After a tingle of delay, output the progress bar.
 		setTimeout(() => {
 			// Simulate the progress bar in 100 50ms intervals.
 			let progress = 0;
 			const interval = setInterval(() => {
-				// Simulate progress - (need to add ANSI escapes)
-				this.simulateOutputMessage(parentId, `${makeCUB(100)}${makeEL('entire-line')}Progress ${++progress}%`);
+
+				// Simulate progress.
+				progress++;
+				const bars = '\u2588'.repeat(progress);
+				const dashes = '-'.repeat(100 - progress);
+				this.simulateOutputMessage(parentId, `${makeCUB(200)}${makeEL('entire-line')}[${bars}${dashes}] ${progress}%`);
 
 				// When the progress bar reaches 100%, clear the interval.
 				if (progress === 100) {
 					clearInterval(interval);
 
 					// End the progress bar.
-					this.simulateOutputMessage(parentId, '\nLong running task is complete');
+					this.simulateOutputMessage(parentId, '\nLong running task is completed.');
 					this.simulateIdleState(parentId);
 				}
-			}, 50);
+			}, 25);
 
 		}, 500);
 	}
