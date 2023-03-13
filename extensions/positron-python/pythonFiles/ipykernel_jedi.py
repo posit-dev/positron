@@ -10,12 +10,13 @@ import traceback
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
+from positron_ipkernel import PositronIPyKernel
 from ipykernel import kernelapp
 from jedi_language_server.server import SERVER
 from multiprocessing import Pool
 
 def start_ipykernel():
-    app = kernelapp.IPKernelApp.instance()
+    app = kernelapp.IPKernelApp.instance(kernel_class=PositronIPyKernel)
     app.initialize()
     app.start()
 
@@ -77,6 +78,7 @@ def start_jedi():
 def ipk_error_handler(error):
     logging.error('Error in Positron IPyKernel: %s', error)
 
+
 if __name__ == "__main__":
 
     # Start ipykernel as an async process
@@ -94,6 +96,6 @@ if __name__ == "__main__":
             logging.warning('Positron LSP client disconnected, exiting.')
             exitStatus = 0
         else:
-             logging.error('Error in Positron Jedi LSP: %s', error)
+            logging.error('Error in Positron Jedi LSP: %s', error)
 
     sys.exit(exitStatus)
