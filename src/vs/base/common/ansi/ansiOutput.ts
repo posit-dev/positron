@@ -349,6 +349,7 @@ export class ANSIOutput {
 
 			// ED (Erase in Display).
 			case 'J':
+				this.processED();
 				break;
 
 			// EL (Erase in Line).
@@ -441,6 +442,43 @@ export class ANSIOutput {
 		// Set the output line and output column.
 		this._outputLine = this.rangeParam(match[1], 1, 1, 1024) - 1;
 		this._outputColumn = this.rangeParam(match[2], 1, 1, 1024) - 1;
+	}
+
+	/**
+	 * Processes an ED control sequence.
+	 */
+	private processED() {
+		// Match the control sequence.
+		const match = this._controlSequence.match(/^([0-9]*)J$/);
+		if (!match) {
+			return;
+		}
+
+		// Process the parameter.
+		switch (this.getParam(match[1], 0)) {
+			// Clear from cursor to the end of the screen.
+			case 0:
+				this._outputLines[this._outputLine].clearToEndOfLine(this._outputColumn);
+				for (let i = this._outputLine + 1; i < this._outputLines.length; i++) {
+					this._outputLines[i].clearEntireLine();
+				}
+				break;
+
+			// Clear from cursor to the beginning of the screen.
+			case 1:
+				this._outputLines[this._outputLine].clearToBeginningOfLine(this._outputColumn);
+				for (let i = 0; i < this._outputLine; i++) {
+					this._outputLines[i].clearEntireLine();
+				}
+				break;
+
+			// Clear the entire screen.
+			case 2:
+				for (let i = 0; i < this._outputLines.length; i++) {
+					this._outputLines[i].clearEntireLine();
+				}
+				break;
+		}
 	}
 
 	/**
