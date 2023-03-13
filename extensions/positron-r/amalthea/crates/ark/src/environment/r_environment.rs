@@ -8,6 +8,7 @@
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
+use crossbeam::channel::Select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
@@ -76,12 +77,28 @@ impl REnvironment {
         // channel (i.e. the front end is closed)
         let mut user_initiated_close = false;
 
-        // Main message processing loop; we wait here for messages from the
-        // front end and loop as long as the channel is open
+        // Main message processing loop; we wait here for messages from:
+        // - the front end and loop as long as the channel is open
+        // - R events (the environment has changed etc ...)
         loop {
-            let msg = match channel_message_rx.recv() {
+            let mut sel = Select::new();
+
+            sel.recv(&channel_message_rx);
+            // TODO: add receiver for R events ? from r_polled_events() ?
+
+            let oper = sel.select();
+            let index = oper.index();
+
+            // R event
+            if index == 1 {
+                // TODO: implement
+                continue;
+            }
+
+            // otherwise this is a comm message from the front end
+            let msg = match oper.recv(&channel_message_rx) {
                 Ok(msg) => msg,
-                Err(e) => {
+                Err(err) => {
                     // We failed to receive a message from the front end. This
                     // is usually not a transient issue and indicates that the
                     // channel is closed, so allowing the thread to exit is
@@ -89,7 +106,7 @@ impl REnvironment {
                     // loop.
                     error!(
                         "Environment: Error receiving message from front end: {:?}",
-                        e
+                        err
                     );
                     break;
                 },
