@@ -4,14 +4,13 @@
 
 import 'vs/css!./runtimeActivity';
 import * as React from 'react';
-import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
 import { ActivityError } from 'vs/workbench/contrib/positronConsole/browser/components/activityError';
-import { ActivityOutput } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutput';
 import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
-import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { ActivityOutputGroup } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputGroup';
+import { ActivityItemOutputGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputGroup';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
@@ -24,15 +23,14 @@ export interface RuntimeActivityProps {
  * @returns The rendered component.
  */
 export const RuntimeActivity = ({ runtimeItemActivity }: RuntimeActivityProps) => {
-
 	/**
 	 * Renders am activity item.
 	 * @param activityItem The activity item.
 	 * @returns The rendered activity item.
 	 */
-	const renderActivityItem = (activityItem: ActivityItem) => {
-		if (activityItem instanceof ActivityItemOutput) {
-			return <ActivityOutput key={activityItem.id} activityItemOutput={activityItem} />;
+	const renderActivityItem = (activityItem: ActivityItemOutputGroup | ActivityItemInput | ActivityItemError) => {
+		if (activityItem instanceof ActivityItemOutputGroup) {
+			return <ActivityOutputGroup key={activityItem.id} activityItemOutputGroup={activityItem} />;
 		} else if (activityItem instanceof ActivityItemInput) {
 			return <ActivityInput key={activityItem.id} activityItemInput={activityItem} />;
 		} else if (activityItem instanceof ActivityItemError) {

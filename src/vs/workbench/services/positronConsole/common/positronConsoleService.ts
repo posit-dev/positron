@@ -8,7 +8,6 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
@@ -734,7 +733,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param parentId The parent identifier.
 	 * @param activityItem The activity item.
 	 */
-	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItem) {
+	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItemInput | ActivityItemOutput | ActivityItemError) {
 		const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
 		if (runtimeItemActivity) {
 			runtimeItemActivity.addActivityItem(activityItem);
