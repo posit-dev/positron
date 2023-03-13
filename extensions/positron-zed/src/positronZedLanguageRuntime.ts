@@ -428,10 +428,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					id,
 					code,
 					`THIS IS LINE 1\n` +
-					`THIS IS LINE 1\n` +
-					`THIS IS LINE 1\n` +
-					`THIS IS LINE 1\n` +
-					''
+					`THIS IS LINE 2\n` +
+					`THIS IS LINE 3\n` +
+					`THIS IS LINE 4` +
+					`${makeCUP()}` +
+					`This is line 1\n` +
+					`This is line 2\n` +
+					`This is line 3\n` +
+					`This is line 4`
 				);
 				break;
 			}
