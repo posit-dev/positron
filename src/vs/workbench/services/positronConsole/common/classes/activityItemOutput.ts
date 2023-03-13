@@ -2,12 +2,10 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
-
 /**
  * ActivityItemOutput class.
  */
-export class ActivityItemOutput extends ActivityItem {
+export class ActivityItemOutput {
 	//#region Constructor
 
 	/**
@@ -18,12 +16,11 @@ export class ActivityItemOutput extends ActivityItem {
 	 * @param data The data.
 	 */
 	constructor(
-		id: string,
-		parentId: string,
-		when: Date,
+		readonly id: string,
+		readonly parentId: string,
+		readonly when: Date,
 		readonly data: Record<string, string>
 	) {
-		super(id, parentId, when);
 	}
 
 	//#endregion Constructor

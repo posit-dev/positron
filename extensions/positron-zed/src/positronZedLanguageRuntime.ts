@@ -193,7 +193,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.simulateBusyState(id);
 				this.simulateInputMessage(id, code);
 				for (let i = 1; i <= 1000; i++) {
-					this.simulateOutputMessage(id, `${makeSGR(SGR.ForegroundRed)}This is line${makeSGR()} ${makeSGR(SGR.ForegroundGreen)}${i}${makeSGR()}`);
+					this.simulateOutputMessage(id, `${makeSGR(SGR.ForegroundRed)}This is line${makeSGR()} ${makeSGR(SGR.ForegroundGreen)}${i}${makeSGR()}\n`);
 				}
 				this.simulateIdleState(id);
 				break;
@@ -649,14 +649,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			let progress = 0;
 			const interval = setInterval(() => {
 				// Simulate progress - (need to add ANSI escapes)
-				this.simulateOutputMessage(parentId, `Progress ${++progress}%`);
+				this.simulateOutputMessage(parentId, `${makeCUB(100)}${makeEL('entire-line')}Progress ${++progress}%`);
 
 				// When the progress bar reaches 100%, clear the interval.
 				if (progress === 100) {
 					clearInterval(interval);
 
 					// End the progress bar.
-					this.simulateOutputMessage(parentId, 'Long running task is complete');
+					this.simulateOutputMessage(parentId, '\nLong running task is complete');
 					this.simulateIdleState(parentId);
 				}
 			}, 50);
