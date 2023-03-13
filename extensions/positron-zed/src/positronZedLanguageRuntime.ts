@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { makeCUB, makeCUF, makeCUP, makeEL, makeSGR, SGR } from './ansi';
+import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 import { resolve } from 'path';
 
@@ -34,6 +34,9 @@ const HelpLines = [
 	'ansi cub    - Outputs text using CUB',
 	'ansi cuf    - Outputs text using CUF',
 	'ansi cup    - Outputs text using CUP',
+	'ansi ed 0   - Clears to the end of the screen using ED',
+	'ansi ed 1   - Clears to the beginning of the screen using ED',
+	'ansi ed 2   - Clears an entire screen using ED',
 	'ansi el 0   - Clears to the end of the line using EL',
 	'ansi el 1   - Clears to the beginning of the line using EL',
 	'ansi el 2   - Clears an entire line using EL',
@@ -438,6 +441,63 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`This is line 2\n` +
 					`This is line 3\n` +
 					`This is line 4`
+				);
+				break;
+			}
+
+			case 'ansi ed 0': {
+				const line = '0123456789'.repeat(8);
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line +
+					makeCUP(5, 1) +
+					makeED('beginning-of-screen')
+				);
+				break;
+			}
+
+			case 'ansi ed 1': {
+				const line = '0123456789'.repeat(8);
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line +
+					makeCUP(5, 1) +
+					makeED('end-of-screen')
+				);
+				break;
+			}
+
+			case 'ansi ed 2': {
+				const line = '0123456789'.repeat(8);
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line +
+					makeCUP() +
+					makeED('end-of-screen')
 				);
 				break;
 			}
