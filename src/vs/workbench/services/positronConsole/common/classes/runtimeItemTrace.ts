@@ -35,8 +35,8 @@ export class RuntimeItemTrace extends RuntimeItem {
 		super(id);
 
 		// Replace ESC and CSI with text so ANSI escape sequences are not regognized.
-		text = text.replace('\x1b', 'ESC');
-		text = text.replace('\x9B', 'CSI');
+		text = text.replaceAll('\x1b', 'ESC');
+		text = text.replaceAll('\x9B', 'CSI');
 
 		// Process the text directly into ANSI output lines suitable for rendering.
 		this.outputLines = ANSIOutput.processOutput(text);
