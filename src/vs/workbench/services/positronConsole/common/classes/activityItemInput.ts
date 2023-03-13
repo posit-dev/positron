@@ -3,18 +3,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
-import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 
 /**
  * ActivityItemInput class.
  */
-export class ActivityItemInput extends ActivityItem {
+export class ActivityItemInput {
 	//#region Public Properties
 
 	/**
-	 * Gets the output lines.
+	 * Gets the code output lines.
 	 */
-	readonly outputLines: readonly ANSIOutputLine[];
+	readonly codeOutputLines: readonly ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -28,16 +27,13 @@ export class ActivityItemInput extends ActivityItem {
 	 * @param code The code.
 	 */
 	constructor(
-		id: string,
-		parentId: string,
-		when: Date,
+		readonly id: string,
+		readonly parentId: string,
+		readonly when: Date,
 		readonly code: string
 	) {
-		// Call the base class's constructor.
-		super(id, parentId, when);
-
 		// Process the code directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(code);
+		this.codeOutputLines = ANSIOutput.processOutput(code);
 	}
 
 	//#endregion Constructor

@@ -17,13 +17,13 @@ export interface ActivityInputProps {
  * @param props An ActivityInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActivityInput = ({ activityItemInput }: ActivityInputProps) => {
+export const ActivityInput = (props: ActivityInputProps) => {
 	// Render.
 	return (
 		<div className='activity-input'>
 			<div className='prompt'>&gt;</div>
 			<div className='code'>
-				<OutputLines outputLines={activityItemInput.outputLines} />
+				<OutputLines outputLines={props.activityItemInput.codeOutputLines} />
 			</div>
 		</div>
 	);

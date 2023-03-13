@@ -181,6 +181,7 @@ export class ANSIOutput {
 	 * Gets the output lines.
 	 */
 	get outputLines() {
+		this.flushBuffer();
 		return this._outputLines;
 	}
 
