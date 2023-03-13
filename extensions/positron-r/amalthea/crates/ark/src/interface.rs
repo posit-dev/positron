@@ -72,6 +72,9 @@ static mut RPROMPT_SEND: Option<Mutex<Sender<String>>> = None;
 /// sending empty input (None) tells R to shut down
 static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 
+pub static mut R_EVENTS_SEND: Option<Sender<()>> = None;
+pub static mut R_EVENTS_RECV: Option<Receiver<()>> = None;
+
 /// Ensures that the kernel is only ever initialized once
 static INIT: Once = Once::new();
 
@@ -265,6 +268,9 @@ pub extern "C" fn r_busy(which: i32) {
 
 #[no_mangle]
 pub unsafe extern "C" fn r_polled_events() {
+    unsafe {
+        R_EVENTS_SEND.as_ref().unwrap().send(()).unwrap();
+    }
 
     // Check for pending tasks.
     let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
@@ -300,12 +306,15 @@ pub fn start_r(
     // Start building the channels + kernel objects
     let (console_tx, console_rx) = crossbeam::channel::unbounded();
     let (rprompt_tx, rprompt_rx) = crossbeam::channel::unbounded();
+    let (events_tx, events_rx) = crossbeam::channel::unbounded::<()>();
     let kernel = Kernel::new(iopub_tx, console_tx.clone(), kernel_init_tx);
 
     // Initialize kernel (ensure we only do this once!)
     INIT.call_once(|| unsafe {
         *CONSOLE_RECV.borrow_mut() = Some(Mutex::new(console_rx));
         *RPROMPT_SEND.borrow_mut() = Some(Mutex::new(rprompt_tx));
+        *R_EVENTS_SEND.borrow_mut() = Some(events_tx);
+        *R_EVENTS_RECV.borrow_mut() = Some(events_rx);
         *KERNEL.borrow_mut() = Some(Arc::new(Mutex::new(kernel)));
     });
 
