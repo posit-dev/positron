@@ -155,13 +155,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param sessionState The saved session state for the kernel
 	 */
 	private async reconnect(sessionState: JupyterSessionState) {
+		// Save the process ID
+		const pid = sessionState.processId;
 
 		// Check to see whether the process is still running
-		if (this.isRunning(sessionState.processId)) {
+		if (this.isRunning(pid)) {
 
 			// It's running! Try to connect.
-			this.log(
-				`Connecting ${this._spec.language} to kernel with PID ${sessionState.processId})...`);
+			this.log(`Detected running ${this._spec.language} kernel with PID ${pid}, attempting to reconnect...`);
 
 			// Defer the connection until the next tick, so that the
 			// caller has a chance to register for the 'status' event we emit
@@ -175,19 +176,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					// Connect to the running kernel in the terminal
 					this.connectToSession(new JupyterSession(sessionState)).then(
 						() => {
+							this.log(`Connected to ${this._spec.language} kernel with PID ${pid}.`);
+
 							// We're connected! Resolve the promise.
 							resolve();
 						}
 					).catch((err) => {
 						// If we failed to connect, then we need to remove the stale session state
 						this.log(
-							`Failed to connect to kernel with PID ${sessionState.processId}. ` +
+							`Failed to connect to kernel with PID ${pid}. ` +
 							`Error: ${err} ` +
 							`Removing stale session state.`);
 						this._context.workspaceState.update(this._runtimeId, undefined);
-
-						// Return to the uninitialized state
-						this.setStatus(positron.RuntimeState.Uninitialized);
 
 						// Reject the promise
 						reject(err);
@@ -197,11 +197,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		} else {
 			// The kernel process is no longer running, so we need to remove the stale session state
 			this.log(
-				`Kernel process ${sessionState.processId} no longer running. ` +
+				`Kernel process ${pid} no longer running. ` +
 				`Removing stale session state '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
 			this._context.workspaceState.update(this._runtimeId, undefined);
 
-			throw new Error(`Kernel process ${sessionState.processId} no longer running`);
+			throw new Error(`Kernel process ${pid} no longer running`);
 		}
 	}
 
