@@ -152,14 +152,6 @@ export const makeCUB = (count: number = 1) => {
  * @returns The CUP escape sequence.
  */
 export const makeCUP = (line: number | undefined = undefined, column: number | undefined = undefined) => {
-	if (line && line % 1 !== 0) {
-		throw new Error('Line must be an integer.');
-	}
-
-	if (column && column % 1 !== 0) {
-		throw new Error('Column must be an integer.');
-	}
-
 	if (!line && !column) {
 		return `${CSI}H`;
 	} else if (line && !column) {
