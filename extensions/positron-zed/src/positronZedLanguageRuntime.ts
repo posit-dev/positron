@@ -31,13 +31,12 @@ const HelpLines = [
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
 	'ansi blink  - Displays blinking output',
-	'ansi cub    - Output text using CUB',
-	'ansi cuf    - Output text using CUF',
+	'ansi cub    - Outputs text using CUB',
+	'ansi cuf    - Outputs text using CUF',
+	'ansi cup    - Outputs text using CUP',
 	'ansi el     - Clear an entire line using EL',
 	'ansi hidden - Displays hidden text',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
-	'',
-	'ansi cup    - CUP',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
@@ -420,6 +419,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`\u2588${makeCUF(4)}` +
 					`\u2588${makeCUF(4)}\n`
 
+				);
+				break;
+			}
+
+			case 'ansi cup': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					`THIS IS LINE 1\n` +
+					`THIS IS LINE 1\n` +
+					`THIS IS LINE 1\n` +
+					`THIS IS LINE 1\n` +
+					''
 				);
 				break;
 			}
