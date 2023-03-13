@@ -424,8 +424,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Look up the configuration to see if we should show terminal we're
 		// about to start. It can be useful to see the terminal as a debugging
 		// aid, but end users shouldn't see it in most cases.
-		const showTerminal = vscode.workspace.getConfiguration('positron.jupyter-adapter')
-			.get('show.terminal', false);
+		const showTerminal = vscode.workspace.getConfiguration('positron.jupyterAdapter')
+			.get('showTerminal', false);
 
 		// Use the VS Code terminal API to create a terminal for the kernel
 		vscode.window.createTerminal(<vscode.TerminalOptions>{
@@ -817,7 +817,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Emits a heartbeat message and waits for the kernel to respond.
 	 */
 	private heartbeat() {
-		const seconds = vscode.workspace.getConfiguration('positron.jupyter-adapter').get('heartbeat', 30) as number;
+		const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this.log(`SEND heartbeat`);
 		this._heartbeat?.socket().send(['hello']);

@@ -19,13 +19,13 @@
       "type": "object",
       "title": "Jupyter Adapter",
       "properties": {
-        "positron.jupyter-adapter.heartbeat": {
+        "positron.jupyterAdapter.heartbeat": {
           "scope": "window",
           "type": "number",
           "default": 30,
           "description": "The interval between kernel heartbeat requests (0 to disable heartbeat checks)"
         },
-        "positron.jupyter-adapter.show.terminal": {
+        "positron.jupyterAdapter.showTerminal": {
           "scope": "window",
           "type": "boolean",
           "default": false,
