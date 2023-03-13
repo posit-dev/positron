@@ -460,15 +460,17 @@ export class ANSIOutput {
 		switch (this.getParam(match[1], 0)) {
 			// Clear from cursor to the end of the line.
 			case 0:
+				outputLine.clearToEndOfLine(this._outputColumn);
 				break;
 
 			// Clear from cursor to the beginning of the line.
 			case 1:
+				outputLine.clearToBeginningOfLine(this._outputColumn);
 				break;
 
 			// Clear the entire line.
 			case 2:
-				outputLine.clear();
+				outputLine.clearEntireLine();
 				break;
 		}
 	}
@@ -926,11 +928,25 @@ export class ANSIOutput {
 		}
 	}
 
+	/**
+	 * Gets and ranges a parameter value.
+	 * @param value The value.
+	 * @param defaultValue The default value.
+	 * @param minValue The minimum value.
+	 * @param maxValue The maximum value.
+	 * @returns The ranged parameter value.
+	 */
 	private rangeParam(value: string, defaultValue: number, minValue: number, maxValue: number) {
 		const param = this.getParam(value, defaultValue);
 		return Math.min(Math.max(param, minValue), maxValue);
 	}
 
+	/**
+	 * Gets a parameter value.
+	 * @param value The value.
+	 * @param defaultValue The default value.
+	 * @returns The parameter value.
+	 */
 	private getParam(value: string, defaultValue: number) {
 		const param = parseInt(value);
 		return Number.isNaN(param) ? defaultValue : param;
@@ -1378,13 +1394,143 @@ class OutputLine implements ANSIOutputLine {
 	//#region Public Methods
 
 	/**
-	 * Clears the output line.
+	 * Clears the entire output line.
 	 */
-	public clear() {
+	public clearEntireLine() {
 		// If there are output runs, replace them all with an empty output run.
 		if (this._totalLength) {
 			this._outputRuns = [new OutputRun(' '.repeat(this._totalLength))];
 		}
+	}
+
+	/**
+	 * Clears to the end of the output line.
+	 * @param column The column at which to clear from.
+	 */
+	public clearToEndOfLine(column: number) {
+		// Sanity check the column.
+		column = Math.max(column, 0);
+
+		// If there's nothing to clear, return.
+		if (column >= this._totalLength) {
+			return;
+		}
+
+		// If the column is 0, clear the entire line and return.
+		if (column === 0) {
+			this.clearEntireLine();
+			return;
+		}
+
+		// Find the left output run that is impacted.
+		let leftOffset = 0;
+		let leftOutputRun: OutputRun | undefined;
+		let leftOutputRunIndex: number | undefined = undefined;
+		for (let index = 0; index < this._outputRuns.length; index++) {
+			// Get the output run.
+			const outputRun = this._outputRuns[index];
+
+			// If the column intersects with this output run, the left output run has been found.
+			if (column < leftOffset + outputRun.text.length) {
+				leftOutputRun = outputRun;
+				leftOutputRunIndex = index;
+				break;
+			}
+
+			// Adjust the left output run offset.
+			leftOffset += outputRun.text.length;
+		}
+
+		// If the left output run wasn't found, there's an egregious bug in this code. Just return
+		// in this case. (There's a bit of a TypeScript failure here. It doesn't detect that both
+		// leftOutputRun and leftOutputRunIndex will undefined if one of them is undefined.)
+		if (leftOutputRun === undefined || leftOutputRunIndex === undefined) {
+			return;
+		}
+
+		// Get the left text length.
+		const leftTextLength = column - leftOffset;
+
+		// Build the new output runs.
+		const erasureText = ' '.repeat(this._totalLength - column);
+		const outputRuns: OutputRun[] = [];
+		if (!leftTextLength) {
+			// The left output run and all subsequent output runs are being erased.
+			outputRuns.push(new OutputRun(erasureText));
+		} else {
+			// Some of the left output run is not being erased.
+			const leftText = leftOutputRun.text.slice(0, leftTextLength);
+			outputRuns.push(new OutputRun(leftText, leftOutputRun.sgrState));
+			outputRuns.push(new OutputRun(erasureText));
+		}
+
+		// Splice the new output runs in.
+		this.outputRuns.splice(
+			leftOutputRunIndex,
+			this._outputRuns.length - leftOutputRunIndex,
+			...outputRuns);
+	}
+
+	/**
+	 * Clears to the beginning of the output line.
+	 * @param column The column at which to clear from.
+	 */
+	public clearToBeginningOfLine(column: number) {
+		// Sanity check the column.
+		column = Math.max(column, 0);
+
+		// If there's nothing to clear, return.
+		if (column === 0) {
+			return;
+		}
+
+		// If the column is beyond the output runs, clear the entire line and return.
+		if (column >= this._totalLength) {
+			this.clearEntireLine();
+			return;
+		}
+
+		// Find the right output run that is impacted.
+		let rightOffset = 0;
+		let rightOutputRun: OutputRun | undefined;
+		let rightOutputRunIndex: number | undefined = undefined;
+		for (let index = this._outputRuns.length - 1; index >= 0; index--) {
+			// Get the output run.
+			const outputRun = this._outputRuns[index];
+
+			// If the column intersects with this output run, the right output run has been found.
+			if (column >= rightOffset - outputRun.text.length) {
+				rightOutputRun = outputRun;
+				rightOutputRunIndex = index;
+				break;
+			}
+
+			// Adjust the right output run offset.
+			rightOffset -= outputRun.text.length;
+		}
+
+		// If the right output run wasn't found, there's an egregious bug in this code. Just return
+		// in this case.
+		if (rightOutputRun === undefined || rightOutputRunIndex === undefined) {
+			return;
+		}
+
+		// Get the right text length.
+		const rightTextLength = rightOffset - column;
+
+		// Build the new output runs.
+		const erasureText = ' '.repeat(column);
+		const outputRuns = [new OutputRun(erasureText)];
+		if (rightTextLength) {
+			const rightOutputRunText = rightOutputRun.text.slice(-rightTextLength);
+			outputRuns.push(new OutputRun(rightOutputRunText, rightOutputRun.sgrState));
+		}
+
+		// Splice the new output runs in.
+		this.outputRuns.splice(
+			0,
+			this._outputRuns.length - rightOutputRunIndex,
+			...outputRuns);
 	}
 
 	/**
@@ -1394,6 +1540,11 @@ class OutputLine implements ANSIOutputLine {
 	 * @param sgrState The SGR state.
 	 */
 	public insert(text: string, column: number, sgrState?: SGRState) {
+		// Sanity check the text length.
+		if (!text.length) {
+			return;
+		}
+
 		// Inserting text at the end of the output line.
 		if (column === this._totalLength) {
 			// Adjust the total length.
@@ -1471,10 +1622,10 @@ class OutputLine implements ANSIOutputLine {
 			// Build the new output runs.
 			const outputRuns: OutputRun[] = [];
 			if (!leftTextLength) {
-				// The left output run was completely overwritten so just add a new output run.
+				// The left output run is being completely overwritten so just add a new output run.
 				outputRuns.push(new OutputRun(text, sgrState));
 			} else {
-				// Some of the left output run was not overwritten.
+				// Some of the left output run is not being overwritten.
 				const leftOutputRun = this._outputRuns[leftOutputRunIndex];
 				const leftText = leftOutputRun.text.slice(0, leftTextLength);
 				if (SGRState.equivalent(leftOutputRun.sgrState, sgrState)) {

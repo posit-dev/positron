@@ -34,7 +34,9 @@ const HelpLines = [
 	'ansi cub    - Outputs text using CUB',
 	'ansi cuf    - Outputs text using CUF',
 	'ansi cup    - Outputs text using CUP',
-	'ansi el     - Clear an entire line using EL',
+	'ansi el 0   - Clears to the end of the line using EL',
+	'ansi el 1   - Clears to the beginning of the line using EL',
+	'ansi el 2   - Clears an entire line using EL',
 	'ansi hidden - Displays hidden text',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
@@ -440,13 +442,35 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'ansi el': {
+			case 'ansi el 0': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					'40 spaces at the end of the line using CUP and EL:\n' +
+					'0123456789'.repeat(8) + '\n' +
+					'0123456789'.repeat(8) + makeCUP(3, 41) + makeEL('end-of-line')
+				);
+				break;
+			}
+
+			case 'ansi el 1': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					'40 spaces at the end of the line using CUP and EL:\n' +
+					'0123456789'.repeat(8) + '\n' +
+					'0123456789'.repeat(8) + makeCUP(3, 41) + makeEL('beginning-of-line')
+				);
+				break;
+			}
+
+			case 'ansi el 2': {
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
 					'80 \u2588 characters using EL and CUB:\n' +
 					'0123456789'.repeat(8) + '\n' +
-					'X'.repeat(80) + makeEL('entire-line') + makeCUB(80) + '\u2588'.repeat(80)
+					'0123456789'.repeat(8) + makeEL('entire-line') + makeCUP(3) + '\u2588'.repeat(80)
 				);
 				break;
 			}
