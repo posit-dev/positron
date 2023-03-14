@@ -81,6 +81,14 @@ export enum LanguageRuntimeMessageType {
 }
 
 /**
+ * The set of stand stream names supported for streaming textual output.
+ */
+export enum LanguageRuntimeStreamName {
+	Stdout = 'stdout',
+	Stderr = 'stderr'
+}
+
+/**
  * Results of analyzing code fragment for completeness
  */
 export enum RuntimeCodeFragmentStatus {
