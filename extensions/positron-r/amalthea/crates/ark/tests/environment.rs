@@ -9,12 +9,14 @@ use amalthea::comm::comm_channel::CommChannelMsg;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageList;
 use ark::environment::r_environment::REnvironment;
+use ark::shell::REvent;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
 use harp::test::start_r;
 use libR_sys::R_EmptyEnv;
 use libR_sys::R_NewEnv;
+use libR_sys::R_removeVarFromFrame;
 use libR_sys::Rf_ScalarInteger;
 use libR_sys::Rf_defineVar;
 
@@ -44,10 +46,13 @@ fn test_environment_list() {
     let (frontend_message_tx, frontend_message_rx) =
         crossbeam::channel::unbounded::<CommChannelMsg>();
 
+    // Create a sender/receiver pair for R events
+    let (r_events_tx, r_events_rx) = crossbeam::channel::unbounded::<REvent>();
+
     // Create a new environment handler and give it a view of the test
     // environment we created.
     let test_env_view = unsafe { RObject::view(test_env.sexp) };
-    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone());
+    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone(), r_events_rx);
     let backend_msg_sender = r_env.channel_msg_tx.clone();
 
     // Ensure we get a list of variables after initialization
@@ -86,4 +91,29 @@ fn test_environment_list() {
     assert!(list.variables.len() == 1);
     let var = &list.variables[0];
     assert_eq!(var.name, "everything");
+
+    // create another variable
+    r_lock! {
+        R_removeVarFromFrame(r_symbol!("everything"), test_env.sexp);
+
+        let sym = r_symbol!("nothing");
+        Rf_defineVar(sym, Rf_ScalarInteger(43), test_env.sexp);
+    }
+
+    // Simulate a prompt event
+    r_events_tx.send(REvent::Prompt).unwrap();
+
+    // Wait for the new list of variables to be delivered
+    let msg = frontend_message_rx.recv().unwrap();
+    let data = match msg {
+        CommChannelMsg::Data(data) => data,
+        _ => panic!("Expected data message, got {:?}", msg),
+    };
+
+    // Unmarshal the list and check for the variable we created
+    let list: EnvironmentMessageList = serde_json::from_value(data).unwrap();
+    assert!(list.variables.len() == 1);
+    let var = &list.variables[0];
+    assert_eq!(var.name, "nothing");
+
 }
