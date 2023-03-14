@@ -3,10 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
-import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
-import { ActivityItemOutputGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputGroup';
+import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
+import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
+import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
+import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
+import { ActivityItemErrorStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStreamGroup';
+import { ActivityItemOutputStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStreamGroup';
 
 /**
  * RuntimeItemActivity class.
@@ -21,7 +24,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 	/**
 	 * The activity items.
 	 */
-	readonly activityItems: (ActivityItemOutputGroup | ActivityItemInput | ActivityItemError)[] = [];
+	readonly activityItems: (ActivityItemInput | ActivityItemOutputStreamGroup | ActivityItemErrorStreamGroup | ActivityItemOutputMessage | ActivityItemErrorMessage)[] = [];
 
 	//#endregion Public Properties
 
@@ -32,7 +35,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param id The identifier.
 	 * @param activityItem The initial activity item.
 	 */
-	constructor(id: string, activityItem: ActivityItemOutput | ActivityItemInput | ActivityItemError) {
+	constructor(id: string, activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemErrorMessage) {
 		// Call the base class's constructor.
 		super(id);
 
@@ -46,43 +49,45 @@ export class RuntimeItemActivity extends RuntimeItem {
 
 	/**
 	 * Adds an activity item.
-	 * @param activityItem The activity item.
+	 * @param activityItem The activity item to add.
 	 */
-	addActivityItem(activityItem: ActivityItemOutput | ActivityItemInput | ActivityItemError) {
-		if (activityItem instanceof ActivityItemOutput) {
+	addActivityItem(activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemErrorMessage) {
+		if (activityItem instanceof ActivityItemOutputStream) {
 			if (this.activityItems.length) {
 				const lastActivityItem = this.activityItems[this.activityItems.length - 1];
-				if (lastActivityItem instanceof ActivityItemOutputGroup &&
+				if (lastActivityItem instanceof ActivityItemOutputStreamGroup &&
 					activityItem.parentId === lastActivityItem.parentId) {
-					lastActivityItem.addActivityItemOutput(activityItem);
+					lastActivityItem.addActivityItemOutputStream(activityItem);
 					return;
 				}
 			}
 
-			// Push a new output group activity item.
-			this.activityItems.push(new ActivityItemOutputGroup(activityItem));
+			this.activityItems.push(new ActivityItemOutputStreamGroup(activityItem));
+			return;
+		}
+
+		if (activityItem instanceof ActivityItemErrorStream) {
+			if (this.activityItems.length) {
+				const lastActivityItem = this.activityItems[this.activityItems.length - 1];
+				if (lastActivityItem instanceof ActivityItemErrorStreamGroup &&
+					activityItem.parentId === lastActivityItem.parentId
+				) {
+					lastActivityItem.addActivityItemErrorStream(activityItem);
+					return;
+				} else {
+				}
+			}
+
+			this.activityItems.push(new ActivityItemErrorStreamGroup(activityItem));
 			return;
 		}
 
 		this.activityItems.push(activityItem);
-		this.verifyActivityItemsOrder();
 	}
 
 	//#endregion Public Methods
 
 	//#region Private Methods
-
-	/**
-	 * Verifies the activity items order and resorts the activities, if one is out of order.
-	 */
-	private verifyActivityItemsOrder() {
-		// for (let i = 1; i < this.activityItems.length; i++) {
-		// 	if (this.activityItems[i].when < this.activityItems[i - 1].when) {
-		// 		this.activityItems.sort((x, y) => y.when.getTime() - x.when.getTime());
-		// 		return;
-		// 	}
-		// }
-	}
 
 	//#endregion Private Methods
 }

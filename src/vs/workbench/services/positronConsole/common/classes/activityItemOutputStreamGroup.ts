@@ -4,18 +4,18 @@
 
 import { generateUuid } from 'vs/base/common/uuid';
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
-import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
+import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
 
 /**
- * ActivityItemOutputGroup class.
+ * ActivityItemOutputStreamGroup class.
  */
-export class ActivityItemOutputGroup {
+export class ActivityItemOutputStreamGroup {
 	//#region Private Properties
 
 	/**
 	 * Gets the ActivityItemOutput array.
 	 */
-	private readonly _activityItemOutputs: ActivityItemOutput[] = [];
+	private readonly _activityItemOutputStreams: ActivityItemOutputStream[] = [];
 
 	/**
 	 * Gets the ANSIOutput that is handling the ActivityItemOutputGroup array.
@@ -40,11 +40,11 @@ export class ActivityItemOutputGroup {
 
 	/**
 	 * Constructor.
-	 * @param activityItemOutput The initial output activity item.
+	 * @param activityItemOutputStream The initial item.
 	 */
-	constructor(activityItemOutput: ActivityItemOutput) {
-		this.parentId = activityItemOutput.parentId;
-		this.addActivityItemOutput(activityItemOutput);
+	constructor(activityItemOutputStream: ActivityItemOutputStream) {
+		this.parentId = activityItemOutputStream.parentId;
+		this.addActivityItemOutputStream(activityItemOutputStream);
 	}
 
 	//#endregion Constructor
@@ -52,14 +52,13 @@ export class ActivityItemOutputGroup {
 	//#region Public Methods
 
 	/**
-	 * Adds an ActivityItemOutput.
-	 * @param activityItemOutput The ActivityItemOutput to add.
+	 * Adds an ActivityItemOutputStream.
+	 * @param activityItemOutputStream The ActivityItemOutputStream to add.
 	 */
-	addActivityItemOutput(activityItemOutput: ActivityItemOutput) {
-		this._activityItemOutputs.push(activityItemOutput);
-		const output = activityItemOutput.data['text/plain'];
-		if (output.length > 0) {
-			this._ansiOutput.processOutput(output);
+	addActivityItemOutputStream(activityItemOutputStream: ActivityItemOutputStream) {
+		this._activityItemOutputStreams.push(activityItemOutputStream);
+		if (activityItemOutputStream.text) {
+			this._ansiOutput.processOutput(activityItemOutputStream.text);
 		}
 	}
 

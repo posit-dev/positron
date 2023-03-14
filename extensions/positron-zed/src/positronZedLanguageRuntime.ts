@@ -742,8 +742,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Start the progress bar simulation.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
-		this.simulateOutputMessage(parentId, 'Long running task:\n');
-		this.simulateOutputMessage(parentId, 'This will be the progress bar');
+		this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stdout, 'Long running task:');
+		this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stderr, 'Initializing task...');
 
 		// After a tingle of delay, output the progress bar.
 		setTimeout(() => {
@@ -755,19 +755,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				progress++;
 				const bars = '#'.repeat(progress);
 				const dashes = '-'.repeat(100 - progress);
-				this.simulateOutputMessage(parentId, `${makeCUP(2, 1)}${makeEL('entire-line')}[${bars}${dashes}] ${progress}%`);
+				this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stderr, `${makeCUP(1, 1)}${makeEL('entire-line')}[${bars}${dashes}] ${progress}%`);
 
 				// When the progress bar reaches 100%, clear the interval.
 				if (progress === 100) {
 					clearInterval(interval);
 
 					// End the progress bar.
-					this.simulateOutputMessage(parentId, '\nLong running task is completed.');
+					this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stdout, 'Long running task is completed.');
 					this.simulateIdleState(parentId);
 				}
 			}, 25);
 
-		}, 500);
+		}, 1000);
 	}
 
 	/**
@@ -863,6 +863,22 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				'text/plain': output
 			} as Record<string, string>,
 		} as positron.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Simulates sending a stream message.
+	 * @param parentId The parent identifier.
+	 * @param text The output.
+	 */
+	private simulateStreamMessage(parentId: string, name: positron.LanguageRuntimeStreamName, text: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Stream,
+			name,
+			text
+		} as positron.LanguageRuntimeStream);
 	}
 
 	/**
