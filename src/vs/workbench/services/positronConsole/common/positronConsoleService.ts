@@ -61,6 +61,17 @@ const formatOutputData = (data: Record<string, string>) => {
 };
 
 /**
+ * Formats stdout/stder output.
+ *
+ * @param stream The standard stream, either 'stdout' or 'stderr'.
+ * @param text The text that arrived on the stream.
+ * @returns The formatted text.
+ */
+const formatOutputStream = (stream: 'stdout' | 'stderr', text: string) => {
+	return `\nStream ${stream}: ${text}`;
+};
+
+/**
  * Formats a traceback.
  * @param traceback The traceback.
  * @returns The formatted traceback.
@@ -627,6 +638,29 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				languageRuntimeMessageOutput.parent_id,
 				new Date(languageRuntimeMessageOutput.when),
 				languageRuntimeMessageOutput.data
+			));
+		}));
+
+		// Add the onDidReceiveRuntimeMessageStream event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
+			// Add trace item.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
+				formatOutputStream(languageRuntimeMessageStream.name, languageRuntimeMessageStream.text)
+			);
+
+			// Add or update the activity event.
+			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageStream.parent_id, new ActivityItemOutput(
+				languageRuntimeMessageStream.id,
+				languageRuntimeMessageStream.parent_id,
+				new Date(languageRuntimeMessageStream.when),
+
+				// TODO: This renders standard error and standard output as
+				// plain text; we should render them in a differentiated style
+				// (e.g. stderr in red), either by attaching metadata to
+				// `ActivityItemOutput` or by creating a new type of activity
+				// item.
+				{ 'text/plain': languageRuntimeMessageStream.text }
 			));
 		}));
 

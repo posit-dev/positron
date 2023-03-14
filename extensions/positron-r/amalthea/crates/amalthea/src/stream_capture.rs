@@ -1,4 +1,3 @@
-
 /*
  * stream_capture.rs
  *
@@ -32,7 +31,10 @@ impl StreamCapture {
     /// Does not return.
     pub fn listen(&self) {
         if let Err(err) = Self::output_capture(self.iopub_tx.clone()) {
-            warn!("Error capturing output; stdout/stderr won't be forwarded: {}", err);
+            warn!(
+                "Error capturing output; stdout/stderr won't be forwarded: {}",
+                err
+            );
         };
     }
 
@@ -62,7 +64,7 @@ impl StreamCapture {
                     }
                     warn!("Error polling for stream data: {}", e);
                     continue;
-                }
+                },
             };
 
             // No data available; likely timed out waiting for data. Try again.
@@ -72,7 +74,6 @@ impl StreamCapture {
 
             // See which stream has data available.
             for poll_fd in poll_fds.iter() {
-
                 // Skip this fd if it doesn't have any new events.
                 let revents = match poll_fd.revents() {
                     Some(r) => r,
@@ -97,7 +98,7 @@ impl StreamCapture {
                     Self::fd_to_iopub(fd, stream, iopub_tx.clone());
                 }
             }
-        };
+        }
         warn!("Stream capture thread exiting after interrupt");
         Ok(())
     }
@@ -111,7 +112,7 @@ impl StreamCapture {
             Err(e) => {
                 warn!("Error reading stream data: {}", e);
                 return;
-            }
+            },
         };
 
         // No bytes read? Nothing to send.
@@ -121,7 +122,10 @@ impl StreamCapture {
 
         // Convert the UTF-8 bytes to a string.
         let data = String::from_utf8_lossy(&buf[..count]).to_string();
-        let output = StreamOutput{stream, text: data };
+        let output = StreamOutput {
+            name: stream,
+            text: data,
+        };
 
         // Create and send the IOPub
         let message = IOPubMessage::Stream(output);
@@ -138,7 +142,7 @@ impl StreamCapture {
             Ok((read, write)) => (read, write),
             Err(e) => {
                 return Err(Error::SysError(format!("create socket for {}", fd), e));
-            }
+            },
         };
 
         // Redirect the stream into the write end of the pipe
@@ -149,7 +153,8 @@ impl StreamCapture {
         // Make reads non-blocking on the read end of the pipe
         if let Err(e) = nix::fcntl::fcntl(
             read,
-            nix::fcntl::FcntlArg::F_SETFL(nix::fcntl::OFlag::O_NONBLOCK)) {
+            nix::fcntl::FcntlArg::F_SETFL(nix::fcntl::OFlag::O_NONBLOCK),
+        ) {
             return Err(Error::SysError(format!("set non-blocking for {}", fd), e));
         }
 

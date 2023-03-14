@@ -40,6 +40,18 @@ export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 	readonly data: Record<string, string>;
 }
 
+/**
+ * ILanguageRuntimeMessageStream is a LanguageRuntimeMessage representing text
+ * emitted on one of the standard streams (stdout or stderr)
+ */
+export interface ILanguageRuntimeMessageStream extends ILanguageRuntimeMessage {
+	/** The stream name */
+	name: 'stdout' | 'stderr';
+
+	/** The text emitted from the stream */
+	text: string;
+}
+
 /** ILanguageRuntimeInput is a ILanguageRuntimeMessage representing echoed user input */
 export interface ILanguageRuntimeMessageInput extends ILanguageRuntimeMessage {
 	/** The code that was input */
@@ -184,6 +196,9 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing output (text, plots, etc.) */
 	Output = 'output',
 
+	/** A message representing output from one of the standard streams (stdout or stderr) */
+	Stream = 'stream',
+
 	/** A message representing echoed user input */
 	Input = 'input',
 
@@ -294,6 +309,7 @@ export interface ILanguageRuntime {
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
 
 	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
+	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;
 	onDidReceiveRuntimeMessageInput: Event<ILanguageRuntimeMessageInput>;
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
