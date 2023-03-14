@@ -16,6 +16,9 @@ declare module 'positron' {
 		/** A message representing output (text, plots, etc.) */
 		Output = 'output',
 
+		/** A message representing output from one of the standard streams (stdout or stderr) */
+		Stream = 'stream',
+
 		/** A message representing echoed user input */
 		Input = 'input',
 
@@ -170,6 +173,27 @@ declare module 'positron' {
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, string>;
+	}
+
+
+	/**
+	 * The set of standard stream names supported for streaming textual output.
+	 */
+	export enum LanguageRuntimeStreamName {
+		Stdout = 'stdout',
+		Stderr = 'stderr'
+	}
+
+	/**
+	 * LanguageRuntimeStream is a LanguageRuntimeMessage representing output from a standard stream
+	 * (stdout or stderr).
+	 */
+	export interface LanguageRuntimeStream extends LanguageRuntimeMessage {
+		/** The stream name */
+		name: LanguageRuntimeStreamName;
+
+		/** The stream's text */
+		text: string;
 	}
 
 	/** LanguageRuntimeInput is a LanguageRuntimeMessage representing echoed user input */

@@ -55,6 +55,9 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing output (text, plots, etc.) */
 	Output = 'output',
 
+	/** A message representing output from one of the standard streams (stdout or stderr) */
+	Stream = 'stream',
+
 	/** A message representing echoed user input */
 	Input = 'input',
 
@@ -75,6 +78,14 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
+}
+
+/**
+ * The set of stand stream names supported for streaming textual output.
+ */
+export enum LanguageRuntimeStreamName {
+	Stdout = 'stdout',
+	Stderr = 'stderr'
 }
 
 /**
