@@ -539,6 +539,7 @@ export class LanguageRuntimeAdapter
 			id: message.msgId,
 			parent_id: message.originId,
 			when: message.when,
+			type: positron.LanguageRuntimeMessageType.Stream,
 			name: data.name,
 			text: data.text
 		} as positron.LanguageRuntimeStream);
