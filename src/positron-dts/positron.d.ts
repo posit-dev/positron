@@ -16,6 +16,9 @@ declare module 'positron' {
 		/** A message representing output (text, plots, etc.) */
 		Output = 'output',
 
+		/** A message representing output from one of the standard streams (stdout or stderr) */
+		Stream = 'stream',
+
 		/** A message representing echoed user input */
 		Input = 'input',
 
