@@ -96,6 +96,8 @@ impl REnvironment {
             if oper.index() == 1 {
                 match oper.recv(&r_events_rx) {
                     Ok(REvent::Prompt) => {
+                        // TODO: should not be a full refresh, but
+                        //       instead some sort of update/new/removed message
                         Self::refresh(&env, frontend_msg_sender.clone());
                     },
                     Err(_) => {
