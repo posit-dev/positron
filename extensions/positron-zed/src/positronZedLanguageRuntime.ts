@@ -21,6 +21,7 @@ const TEN_BLOCKS = '\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588
 const FIVE_SPACES = '     ';
 const FIVE_BLOCKS = '\u2588\u2588\u2588\u2588\u2588';
 const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
+
 /**
  * The help lines.
  */
