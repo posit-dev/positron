@@ -9,6 +9,7 @@ use amalthea::comm::comm_channel::CommChannelMsg;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageList;
 use ark::environment::r_environment::REnvironment;
+use ark::shell::REvent;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
@@ -44,10 +45,13 @@ fn test_environment_list() {
     let (frontend_message_tx, frontend_message_rx) =
         crossbeam::channel::unbounded::<CommChannelMsg>();
 
+    // Create a sender/receiver pair for R events
+    let (_r_events_tx, r_events_rx) = crossbeam::channel::unbounded::<REvent>();
+
     // Create a new environment handler and give it a view of the test
     // environment we created.
     let test_env_view = unsafe { RObject::view(test_env.sexp) };
-    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone());
+    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone(), r_events_rx);
     let backend_msg_sender = r_env.channel_msg_tx.clone();
 
     // Ensure we get a list of variables after initialization
