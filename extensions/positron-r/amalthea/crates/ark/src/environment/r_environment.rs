@@ -4,10 +4,10 @@
 // Copyright (C) 2023 by Posit Software, PBC
 //
 //
-
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
+use crossbeam::channel::Select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
@@ -26,6 +26,7 @@ use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageError;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::variable::EnvironmentVariable;
+use crate::shell::REvent;
 
 /**
  * The R Environment handler provides the server side of Positron's Environment
@@ -46,7 +47,7 @@ impl REnvironment {
      * - `env`: An R environment to scan for variables, typically R_GlobalEnv
      * - `frontend_msg_sender`: A channel used to send messages to the front end
      */
-    pub fn new(env: RObject, frontend_msg_sender: Sender<CommChannelMsg>) -> Self {
+    pub fn new(env: RObject, frontend_msg_sender: Sender<CommChannelMsg>, r_events_rx: Receiver<REvent>) -> Self {
         let (channel_msg_tx, channel_msg_rx) = unbounded::<CommChannelMsg>();
 
         // Validate that the RObject we were passed is actually an environment
@@ -60,7 +61,8 @@ impl REnvironment {
         };
 
         // Start the execution thread and wait for requests from the front end
-        thread::spawn(move || Self::execution_thread(env, channel_msg_rx, frontend_msg_sender));
+        thread::spawn(move || Self::execution_thread(env, channel_msg_rx, frontend_msg_sender, r_events_rx));
+
         Self { channel_msg_tx }
     }
 
@@ -68,6 +70,7 @@ impl REnvironment {
         env: RObject,
         channel_message_rx: Receiver<CommChannelMsg>,
         frontend_msg_sender: Sender<CommChannelMsg>,
+        r_events_rx: Receiver<REvent>
     ) {
         // Perform the initial environment scan and deliver to the front end
         Self::refresh(&env, frontend_msg_sender.clone());
@@ -79,7 +82,33 @@ impl REnvironment {
         // Main message processing loop; we wait here for messages from the
         // front end and loop as long as the channel is open
         loop {
-            let msg = match channel_message_rx.recv() {
+            let mut sel = Select::new();
+
+            // Listen to the comm
+            sel.recv(&channel_message_rx);
+
+            // Listen to R events
+            sel.recv(&r_events_rx);
+
+            // Wait until a message is received (blocking call)
+            let oper = sel.select();
+
+            if oper.index() == 1 {
+                match oper.recv(&r_events_rx) {
+                    Ok(REvent::Prompt) => {
+                        // TODO: should not be a full refresh, but
+                        //       instead some sort of update/new/removed message
+                        Self::refresh(&env, frontend_msg_sender.clone());
+                    },
+                    Err(_) => {
+                        // TODO: not sure what a failure here means
+                    }
+                };
+
+                continue;
+            }
+
+            let msg = match oper.recv(&channel_message_rx) {
                 Ok(msg) => msg,
                 Err(e) => {
                     // We failed to receive a message from the front end. This
@@ -94,7 +123,6 @@ impl REnvironment {
                     break;
                 },
             };
-
             debug!("Environment: Received message from front end: {:?}", msg);
 
             // Break out of the loop if the front end has closed the channel
@@ -128,6 +156,7 @@ impl REnvironment {
                     EnvironmentMessage::Refresh => {
                         Self::refresh(&env, frontend_msg_sender.clone());
                     },
+
                     _ => {
                         error!(
                             "Environment: Don't know how to handle message type '{:?}'",
