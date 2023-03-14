@@ -539,13 +539,9 @@ export class LanguageRuntimeAdapter
 			id: message.msgId,
 			parent_id: message.originId,
 			when: message.when,
-			type: data.name === 'stderr' ?
-				positron.LanguageRuntimeMessageType.Error :
-				positron.LanguageRuntimeMessageType.Output,
-			data: {
-				'text/plain': data.text
-			} as any
-		} as positron.LanguageRuntimeOutput);
+			name: data.name,
+			text: data.text
+		} as positron.LanguageRuntimeStream);
 	}
 
 	/**
