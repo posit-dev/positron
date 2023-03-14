@@ -164,6 +164,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// It's running! Try to connect.
 			this.log(`Detected running ${this._spec.language} kernel with PID ${pid}, attempting to reconnect...`);
 
+			// Create the new session wrapper; this will throw if the session state is invalid
+			// or can't be loaded from disk.
+			const session = new JupyterSession(sessionState);
+
 			// Defer the connection until the next tick, so that the
 			// caller has a chance to register for the 'status' event we emit
 			// below.
@@ -174,7 +178,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					this.setStatus(positron.RuntimeState.Starting);
 
 					// Connect to the running kernel in the terminal
-					this.connectToSession(new JupyterSession(sessionState)).then(
+					this.connectToSession(session).then(
 						() => {
 							this.log(`Connected to ${this._spec.language} kernel with PID ${pid}.`);
 
