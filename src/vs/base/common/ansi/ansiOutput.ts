@@ -209,6 +209,16 @@ export class ANSIOutput {
 	 * @param output The output to process.
 	 */
 	processOutput(output: string) {
+		// For now, dump output to the console for tracing.
+		// TODO@softwarenerd - Use DI to get logging into ANSIOutput.
+		let loggingOutput = output;
+		loggingOutput = loggingOutput.replaceAll('\n', '[LF]');
+		loggingOutput = loggingOutput.replaceAll('\r', '[CR]');
+		loggingOutput = loggingOutput.replaceAll('\x9B', 'CSI');
+		loggingOutput = loggingOutput.replaceAll('\x1b', 'ESC');
+		loggingOutput = loggingOutput.replaceAll('\x9B', 'CSI');
+		console.log(`ANSIOutput: Processing Output: "${loggingOutput}"`);
+
 		// Enumerate the characters in the output.
 		for (let i = 0; i < output.length; i++) {
 			// If there is a pending newline, process it.
@@ -306,6 +316,7 @@ export class ANSIOutput {
 	 * @param char The character.
 	 */
 	private processCharacter(char: string) {
+		// Handle special characters. Otherwise, buffer the character.
 		switch (char) {
 			// Set the pending newline flag.
 			case '\n':
