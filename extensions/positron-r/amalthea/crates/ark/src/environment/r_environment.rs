@@ -94,8 +94,14 @@ impl REnvironment {
             let oper = sel.select();
 
             if oper.index() == 1 {
-                // TODO: this is only a full refresh for now
-                Self::refresh(&env, frontend_msg_sender.clone());
+                match oper.recv(&r_events_rx) {
+                    Ok(REvent::Prompt) => {
+                        Self::refresh(&env, frontend_msg_sender.clone());
+                    },
+                    Err(_) => {
+                        // TODO: not sure what a failure here means
+                    }
+                };
 
                 continue;
             }

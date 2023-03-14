@@ -54,7 +54,7 @@ pub struct Shell {
 
 #[derive(Debug)]
 pub enum REvent {
-    Poll
+    Prompt
 }
 
 impl Shell {

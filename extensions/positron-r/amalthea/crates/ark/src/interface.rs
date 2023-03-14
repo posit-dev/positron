@@ -264,17 +264,8 @@ pub extern "C" fn r_busy(which: i32) {
     kernel.send_event(event);
 }
 
-fn send_poll_event() {
-    let mutex = unsafe { KERNEL.as_ref().unwrap() };
-    let kernel = mutex.lock().unwrap();
-
-    kernel.send_r_event(REvent::Poll);
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn r_polled_events() {
-    send_poll_event();
-
     // Check for pending tasks.
     let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
     if count == 0 {
@@ -393,6 +384,8 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     trace!("Waiting for R prompt signaling completion of execution...");
     let prompt = prompt_recv.recv().unwrap();
     let kernel = mutex.lock().unwrap();
+
+    kernel.send_r_event(REvent::Prompt);
 
     // The request is incomplete if we see the continue prompt
     let continue_prompt = unsafe { r_get_option::<String>("continue") };

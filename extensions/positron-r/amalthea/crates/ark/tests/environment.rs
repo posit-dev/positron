@@ -100,8 +100,8 @@ fn test_environment_list() {
         Rf_defineVar(sym, Rf_ScalarInteger(43), test_env.sexp);
     }
 
-    // Simulate a poll event
-    r_events_tx.send(REvent::Poll).unwrap();
+    // Simulate a prompt event
+    r_events_tx.send(REvent::Prompt).unwrap();
 
     // Wait for the new list of variables to be delivered
     let msg = frontend_message_rx.recv().unwrap();
