@@ -137,7 +137,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 		// Listen for focus events from ViewPane
 		this.onDidFocus(() => {
-			console.log('----------> PositronConsoleViewPane was focused');
+			//console.log('----------> PositronConsoleViewPane was focused');
 		});
 	}
 
