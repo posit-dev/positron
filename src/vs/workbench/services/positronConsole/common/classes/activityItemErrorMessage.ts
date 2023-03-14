@@ -5,9 +5,9 @@
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
 
 /**
- * ActivityItemError class.
+ * ActivityItemErrorMessage class.
  */
-export class ActivityItemError {
+export class ActivityItemErrorMessage {
 	//#region Public Properties
 
 	/**

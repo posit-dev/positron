@@ -3,9 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * ActivityItemOutput class.
+ * ActivityItemOutputStream class.
  */
-export class ActivityItemOutput {
+export class ActivityItemOutputStream {
 	//#region Constructor
 
 	/**
@@ -13,13 +13,13 @@ export class ActivityItemOutput {
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
-	 * @param data The data.
+	 * @param text The text.
 	 */
 	constructor(
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
-		readonly data: Record<string, string>
+		readonly text: string
 	) {
 	}
 

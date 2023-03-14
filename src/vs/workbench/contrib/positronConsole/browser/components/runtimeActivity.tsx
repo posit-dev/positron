@@ -5,12 +5,16 @@
 import 'vs/css!./runtimeActivity';
 import * as React from 'react';
 import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
-import { ActivityError } from 'vs/workbench/contrib/positronConsole/browser/components/activityError';
-import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
-import { ActivityOutputGroup } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputGroup';
-import { ActivityItemOutputGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputGroup';
+import { ActivityErrorMessage } from 'vs/workbench/contrib/positronConsole/browser/components/activityErrorMessage';
+import { ActivityOutputMessage } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputMessage';
+import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
+import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
+import { ActivityErrorStreamGroup } from 'vs/workbench/contrib/positronConsole/browser/components/activityErrorStreamGroup';
+import { ActivityOutputStreamGroup } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputStreamGroup';
+import { ActivityItemErrorStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStreamGroup';
+import { ActivityItemOutputStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStreamGroup';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
@@ -28,13 +32,17 @@ export const RuntimeActivity = ({ runtimeItemActivity }: RuntimeActivityProps) =
 	 * @param activityItem The activity item.
 	 * @returns The rendered activity item.
 	 */
-	const renderActivityItem = (activityItem: ActivityItemOutputGroup | ActivityItemInput | ActivityItemError) => {
-		if (activityItem instanceof ActivityItemOutputGroup) {
-			return <ActivityOutputGroup key={activityItem.id} activityItemOutputGroup={activityItem} />;
-		} else if (activityItem instanceof ActivityItemInput) {
+	const renderActivityItem = (activityItem: ActivityItemInput | ActivityItemOutputStreamGroup | ActivityItemErrorStreamGroup | ActivityItemOutputMessage | ActivityItemErrorMessage) => {
+		if (activityItem instanceof ActivityItemInput) {
 			return <ActivityInput key={activityItem.id} activityItemInput={activityItem} />;
-		} else if (activityItem instanceof ActivityItemError) {
-			return <ActivityError key={activityItem.id} activityItemError={activityItem} />;
+		} else if (activityItem instanceof ActivityItemOutputStreamGroup) {
+			return <ActivityOutputStreamGroup key={activityItem.id} activityItemOutputStreamGroup={activityItem} />;
+		} else if (activityItem instanceof ActivityItemErrorStreamGroup) {
+			return <ActivityErrorStreamGroup key={activityItem.id} activityItemErrorStreamGroup={activityItem} />;
+		} else if (activityItem instanceof ActivityItemOutputMessage) {
+			return <ActivityOutputMessage key={activityItem.id} activityItemOutputMessage={activityItem} />;
+		} else if (activityItem instanceof ActivityItemErrorMessage) {
+			return <ActivityErrorMessage key={activityItem.id} activityItemErrorMessage={activityItem} />;
 		} else {
 			// This indicates a bug.
 			return null;
