@@ -94,7 +94,9 @@ impl REnvironment {
             let oper = sel.select();
 
             if oper.index() == 1 {
-                // R event
+                // TODO: this is only a full refresh for now
+                Self::refresh(&env, frontend_msg_sender.clone());
+
                 continue;
             }
 
@@ -144,12 +146,6 @@ impl REnvironment {
                     // perform a full environment scan and deliver to the
                     // front end
                     EnvironmentMessage::Refresh => {
-                        Self::refresh(&env, frontend_msg_sender.clone());
-                    },
-
-                    // detect changes
-                    EnvironmentMessage::Poll => {
-                        // TODO: detect if anything has changed
                         Self::refresh(&env, frontend_msg_sender.clone());
                     },
 

@@ -20,7 +20,6 @@ use crate::environment::variable::EnvironmentVariable;
 #[serde(tag = "msg_type", rename_all = "snake_case")]
 pub enum EnvironmentMessage {
     List(EnvironmentMessageList),
-    Poll,
     Refresh,
     Error(EnvironmentMessageError),
 }

@@ -16,6 +16,7 @@ use harp::r_symbol;
 use harp::test::start_r;
 use libR_sys::R_EmptyEnv;
 use libR_sys::R_NewEnv;
+use libR_sys::R_removeVarFromFrame;
 use libR_sys::Rf_ScalarInteger;
 use libR_sys::Rf_defineVar;
 
@@ -46,7 +47,7 @@ fn test_environment_list() {
         crossbeam::channel::unbounded::<CommChannelMsg>();
 
     // Create a sender/receiver pair for R events
-    let (_r_events_tx, r_events_rx) = crossbeam::channel::unbounded::<REvent>();
+    let (r_events_tx, r_events_rx) = crossbeam::channel::unbounded::<REvent>();
 
     // Create a new environment handler and give it a view of the test
     // environment we created.
@@ -90,4 +91,29 @@ fn test_environment_list() {
     assert!(list.variables.len() == 1);
     let var = &list.variables[0];
     assert_eq!(var.name, "everything");
+
+    // create another variable
+    r_lock! {
+        R_removeVarFromFrame(r_symbol!("everything"), test_env.sexp);
+
+        let sym = r_symbol!("nothing");
+        Rf_defineVar(sym, Rf_ScalarInteger(43), test_env.sexp);
+    }
+
+    // Simulate a poll event
+    r_events_tx.send(REvent::Poll).unwrap();
+
+    // Wait for the new list of variables to be delivered
+    let msg = frontend_message_rx.recv().unwrap();
+    let data = match msg {
+        CommChannelMsg::Data(data) => data,
+        _ => panic!("Expected data message, got {:?}", msg),
+    };
+
+    // Unmarshal the list and check for the variable we created
+    let list: EnvironmentMessageList = serde_json::from_value(data).unwrap();
+    assert!(list.variables.len() == 1);
+    let var = &list.variables[0];
+    assert_eq!(var.name, "nothing");
+
 }
