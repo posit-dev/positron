@@ -6,36 +6,32 @@
 //
 
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::sync::atomic::AtomicI32;
 
 static ID: AtomicI32 = AtomicI32::new(0);
 
 #[derive(Default)]
 pub struct Signal<T> {
-    listeners: Mutex<HashMap<i32, Box<dyn Fn(&T)>>>,
+    listeners: HashMap<i32, Box<dyn Fn(&T) + Send + Sync>>,
 }
 
 impl<T> Signal<T> {
 
     pub fn emit(&mut self, data: impl Into<T>) {
         let data = data.into();
-        let mut listeners = self.listeners.lock().unwrap();
-        for listener in listeners.iter_mut() {
+        for listener in self.listeners.iter_mut() {
             listener.1(&data);
         }
     }
 
-    pub fn listen(&mut self, callback: impl Fn(&T) + 'static) -> i32 {
-        let mut listeners = self.listeners.lock().unwrap();
+    pub fn listen(&mut self, callback: impl Fn(&T) + Send + Sync + 'static) -> i32 {
         let id = ID.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-        listeners.insert(id, Box::new(callback));
+        self.listeners.insert(id, Box::new(callback));
         return id;
     }
 
     pub fn remove(&mut self, id: i32) {
-        let mut listeners = self.listeners.lock().unwrap();
-        listeners.remove(&id);
+        self.listeners.remove(&id);
     }
 
 }

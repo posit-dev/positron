@@ -46,13 +46,10 @@ fn test_environment_list() {
     let (frontend_message_tx, frontend_message_rx) =
         crossbeam::channel::unbounded::<CommChannelMsg>();
 
-    // Create a sender/receiver pair for R events
-    let (r_events_tx, r_events_rx) = crossbeam::channel::unbounded::<REvent>();
-
     // Create a new environment handler and give it a view of the test
     // environment we created.
     let test_env_view = unsafe { RObject::view(test_env.sexp) };
-    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone(), r_events_rx);
+    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone());
     let backend_msg_sender = r_env.channel_msg_tx.clone();
 
     // Ensure we get a list of variables after initialization
@@ -99,9 +96,6 @@ fn test_environment_list() {
         let sym = r_symbol!("nothing");
         Rf_defineVar(sym, Rf_ScalarInteger(43), test_env.sexp);
     }
-
-    // Simulate a prompt event
-    r_events_tx.send(REvent::Prompt).unwrap();
 
     // Wait for the new list of variables to be delivered
     let msg = frontend_message_rx.recv().unwrap();

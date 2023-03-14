@@ -12,10 +12,8 @@ use amalthea::kernel::Kernel;
 use amalthea::kernel_spec::KernelSpec;
 use ark::logger;
 use ark::lsp;
-use ark::shell::REvent;
 use bus::Bus;
 use crossbeam::channel::bounded;
-use crossbeam::channel::unbounded;
 use log::*;
 use std::env;
 use std::io::stdin;
@@ -58,9 +56,6 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
         kernel_init_tx.add_rx(),
     )));
 
-    // A channel pair for R events
-    let (r_events_tx, r_events_rx) = unbounded::<REvent>();
-
     // Create the shell.
     let kernel_init_rx = kernel_init_tx.add_rx();
     let shell = Shell::new(
@@ -69,8 +64,6 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
         shell_request_rx,
         kernel_init_tx,
         kernel_init_rx,
-        r_events_tx,
-        r_events_rx
     );
 
     // Create the control handler; this is used to handle shutdown/interrupt and
