@@ -306,13 +306,21 @@ export class ANSIOutput {
 	 * @param char The character.
 	 */
 	private processCharacter(char: string) {
-		// Handle special characters.
-		if (char === '\n') {
+		switch (char) {
 			// Set the pending newline flag.
-			this._pendingNewline = true;
-		} else {
+			case '\n':
+				this._pendingNewline = true;
+				break;
+
+			// CR sets the output column to 0.
+			case '\r':
+				this._outputColumn = 0;
+				break;
+
 			// Buffer the character.
-			this._buffer += char;
+			default:
+				this._buffer += char;
+				break;
 		}
 	}
 

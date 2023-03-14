@@ -121,7 +121,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		}
 	};
 
-	console.log(`Rendering console repl in state ${props.positronConsoleInstance.state}`);
+	// console.log(`Rendering console repl in state ${props.positronConsoleInstance.state}`);
 
 	// Render.
 	return (
