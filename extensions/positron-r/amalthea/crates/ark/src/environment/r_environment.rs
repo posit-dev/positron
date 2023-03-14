@@ -4,11 +4,11 @@
 // Copyright (C) 2023 by Posit Software, PBC
 //
 //
-
+use std::borrow::BorrowMut;
+use std::sync::Mutex;
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
-use crossbeam::channel::Select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
@@ -27,6 +27,7 @@ use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageError;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::variable::EnvironmentVariable;
+use crate::interface::ENVIRONMENT_SEND;
 
 /**
  * The R Environment handler provides the server side of Positron's Environment
@@ -62,6 +63,11 @@ impl REnvironment {
 
         // Start the execution thread and wait for requests from the front end
         thread::spawn(move || Self::execution_thread(env, channel_msg_rx, frontend_msg_sender));
+
+        unsafe {
+            *ENVIRONMENT_SEND.borrow_mut() = Some(Mutex::new(channel_msg_tx.clone()));
+        }
+
         Self { channel_msg_tx }
     }
 
@@ -77,28 +83,12 @@ impl REnvironment {
         // channel (i.e. the front end is closed)
         let mut user_initiated_close = false;
 
-        // Main message processing loop; we wait here for messages from:
-        // - the front end and loop as long as the channel is open
-        // - R events (the environment has changed etc ...)
+        // Main message processing loop; we wait here for messages from the
+        // front end and loop as long as the channel is open
         loop {
-            let mut sel = Select::new();
-
-            sel.recv(&channel_message_rx);
-            // TODO: add receiver for R events ? from r_polled_events() ?
-
-            let oper = sel.select();
-            let index = oper.index();
-
-            // R event
-            if index == 1 {
-                // TODO: implement
-                continue;
-            }
-
-            // otherwise this is a comm message from the front end
-            let msg = match oper.recv(&channel_message_rx) {
+            let msg = match channel_message_rx.recv() {
                 Ok(msg) => msg,
-                Err(err) => {
+                Err(e) => {
                     // We failed to receive a message from the front end. This
                     // is usually not a transient issue and indicates that the
                     // channel is closed, so allowing the thread to exit is
@@ -106,12 +96,11 @@ impl REnvironment {
                     // loop.
                     error!(
                         "Environment: Error receiving message from front end: {:?}",
-                        err
+                        e
                     );
                     break;
                 },
             };
-
             debug!("Environment: Received message from front end: {:?}", msg);
 
             // Break out of the loop if the front end has closed the channel
@@ -145,6 +134,13 @@ impl REnvironment {
                     EnvironmentMessage::Refresh => {
                         Self::refresh(&env, frontend_msg_sender.clone());
                     },
+
+                    // detect changes
+                    EnvironmentMessage::Poll => {
+                        // TODO: detect if anything has changed
+                        Self::refresh(&env, frontend_msg_sender.clone());
+                    },
+
                     _ => {
                         error!(
                             "Environment: Don't know how to handle message type '{:?}'",

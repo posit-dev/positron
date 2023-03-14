@@ -5,6 +5,7 @@
 //
 //
 
+use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::ShowMessageEvent;
@@ -22,6 +23,7 @@ use libR_sys::*;
 use libc::{c_char, c_int};
 use log::*;
 use parking_lot::MutexGuard;
+use serde_json::json;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_uchar;
 use std::os::raw::c_void;
@@ -72,8 +74,7 @@ static mut RPROMPT_SEND: Option<Mutex<Sender<String>>> = None;
 /// sending empty input (None) tells R to shut down
 static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 
-pub static mut R_EVENTS_SEND: Option<Sender<()>> = None;
-pub static mut R_EVENTS_RECV: Option<Receiver<()>> = None;
+pub static mut ENVIRONMENT_SEND: Option<Mutex<Sender<CommChannelMsg>>> = None;
 
 /// Ensures that the kernel is only ever initialized once
 static INIT: Once = Once::new();
@@ -266,11 +267,19 @@ pub extern "C" fn r_busy(which: i32) {
     kernel.send_event(event);
 }
 
+fn send_poll_event() {
+    let mutex = unsafe { ENVIRONMENT_SEND.as_ref().unwrap() };
+    let r_environment_tx = mutex.lock().unwrap();
+    r_environment_tx
+        .send(CommChannelMsg::Data(json!({
+            "msg_type": "poll"
+        })))
+        .unwrap();
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn r_polled_events() {
-    unsafe {
-        R_EVENTS_SEND.as_ref().unwrap().send(()).unwrap();
-    }
+    send_poll_event();
 
     // Check for pending tasks.
     let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
@@ -289,7 +298,6 @@ pub unsafe extern "C" fn r_polled_events() {
     R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock());
 
     info!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
-
 }
 
 pub fn start_r(
@@ -306,15 +314,12 @@ pub fn start_r(
     // Start building the channels + kernel objects
     let (console_tx, console_rx) = crossbeam::channel::unbounded();
     let (rprompt_tx, rprompt_rx) = crossbeam::channel::unbounded();
-    let (events_tx, events_rx) = crossbeam::channel::unbounded::<()>();
     let kernel = Kernel::new(iopub_tx, console_tx.clone(), kernel_init_tx);
 
     // Initialize kernel (ensure we only do this once!)
     INIT.call_once(|| unsafe {
         *CONSOLE_RECV.borrow_mut() = Some(Mutex::new(console_rx));
         *RPROMPT_SEND.borrow_mut() = Some(Mutex::new(rprompt_tx));
-        *R_EVENTS_SEND.borrow_mut() = Some(events_tx);
-        *R_EVENTS_RECV.borrow_mut() = Some(events_rx);
         *KERNEL.borrow_mut() = Some(Arc::new(Mutex::new(kernel)));
     });
 
