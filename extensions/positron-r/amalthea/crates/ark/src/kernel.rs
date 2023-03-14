@@ -22,24 +22,24 @@ use amalthea::wire::stream::StreamOutput;
 use anyhow::*;
 use bus::Bus;
 use crossbeam::channel::Sender;
+use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
-use harp::exec::geterrmessage;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::utils::r_inherits;
 use libR_sys::*;
 use log::*;
 use serde_json::json;
-use stdext::unwrap;
 use std::result::Result::Err;
 use std::result::Result::Ok;
 use std::sync::atomic::AtomicBool;
+use stdext::unwrap;
 
 use crate::request::Request;
 
 /// Represents whether an error occurred during R code execution.
-pub static R_ERROR_OCCURRED : AtomicBool = AtomicBool::new(false);
+pub static R_ERROR_OCCURRED: AtomicBool = AtomicBool::new(false);
 
 /// Represents the Rust state of the R kernel
 pub struct Kernel {
@@ -110,19 +110,19 @@ impl Kernel {
             Request::ExecuteCode(req, _, sender) => {
                 let sender = sender.clone();
                 self.handle_execute_request(req, sender);
-            }
+            },
             Request::Shutdown(_) => {
                 if let Err(err) = self.console_tx.send(None) {
                     warn!("Error sending shutdown message to console: {}", err);
                 }
-            }
+            },
             Request::EstablishInputChannel(sender) => self.establish_input_handler(sender.clone()),
-            Request::DeliverEvent(event) =>  self.handle_event(event)
+            Request::DeliverEvent(event) => self.handle_event(event),
         }
     }
 
     /// Handle an event from the back end to the front end
-    pub fn handle_event(&mut self, event: &PositronEvent){
+    pub fn handle_event(&mut self, event: &PositronEvent) {
         if let Err(err) = self.iopub_tx.send(IOPubMessage::Event(event.clone())) {
             warn!("Error attempting to deliver client event: {}", err);
         }
@@ -202,7 +202,6 @@ impl Kernel {
 
     /// Finishes the active execution request
     pub fn finish_request(&self) {
-
         // Save and reset error occurred flag
         let error_occurred = R_ERROR_OCCURRED.swap(false, std::sync::atomic::Ordering::AcqRel);
 
@@ -230,15 +229,18 @@ impl Kernel {
                 Err(error) => {
                     error!("{:?}", error);
                     None
-                }
+                },
             };
         }
 
-        if let Err(err) = self.iopub_tx.send(IOPubMessage::ExecuteResult(ExecuteResult {
-            execution_count: self.execution_count,
-            data: serde_json::Value::Object(data),
-            metadata: json!({}),
-        })) {
+        if let Err(err) = self
+            .iopub_tx
+            .send(IOPubMessage::ExecuteResult(ExecuteResult {
+                execution_count: self.execution_count,
+                data: serde_json::Value::Object(data),
+                metadata: json!({}),
+            }))
+        {
             warn!(
                 "Could not publish result of statement {} on iopub: {}",
                 self.execution_count, err
@@ -255,7 +257,6 @@ impl Kernel {
                 }))
                 .unwrap();
         }
-
     }
 
     /// Requests input from the front end
@@ -289,7 +290,6 @@ impl Kernel {
 
     /// Called from R when console data is written.
     pub fn write_console(&mut self, content: &str, stream: Stream) {
-
         log::info!("R output on {:?}: {}", stream, content);
         if self.initializing {
             // During init, consider all output to be part of the startup banner
@@ -307,14 +307,13 @@ impl Kernel {
 
         // Stream output via the IOPub channel.
         let message = IOPubMessage::Stream(StreamOutput {
-            stream: stream,
+            name: stream,
             text: content.to_string(),
         });
 
         unwrap!(self.iopub_tx.send(message), Err(error) => {
             log::error!("{}", error);
         });
-
     }
 
     /// Establishes the input handler for the kernel to request input from the

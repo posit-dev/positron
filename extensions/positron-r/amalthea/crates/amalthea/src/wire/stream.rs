@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 /// Represents a message from the front end to indicate stream output
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StreamOutput {
-    /// The stream for which output is being emitted
-    pub stream: Stream,
+    /// The name of the stream for which output is being emitted
+    pub name: Stream,
 
     /// The output emitted on the stream
     pub text: String,

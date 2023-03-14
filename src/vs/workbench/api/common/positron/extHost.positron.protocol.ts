@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommClosed } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageStream } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 // This is the interface that the main process exposes to the extension host
@@ -15,6 +15,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitRuntimeClientClosed(handle: number, message: ILanguageRuntimeMessageCommClosed): void;
 
 	$emitLanguageRuntimeMessageOutput(handle: number, message: ILanguageRuntimeMessageOutput): void;
+	$emitLanguageRuntimeMessageStream(handle: number, message: ILanguageRuntimeMessageStream): void;
 	$emitLanguageRuntimeMessageInput(handle: number, message: ILanguageRuntimeMessageInput): void;
 	$emitLanguageRuntimeMessageError(handle: number, message: ILanguageRuntimeMessageError): void;
 	$emitLanguageRuntimeMessagePrompt(handle: number, message: ILanguageRuntimeMessagePrompt): void;
