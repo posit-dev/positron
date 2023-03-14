@@ -152,14 +152,6 @@ export const makeCUB = (count: number = 1) => {
  * @returns The CUP escape sequence.
  */
 export const makeCUP = (line: number | undefined = undefined, column: number | undefined = undefined) => {
-	if (line && line % 1 !== 0) {
-		throw new Error('Line must be an integer.');
-	}
-
-	if (column && column % 1 !== 0) {
-		throw new Error('Column must be an integer.');
-	}
-
 	if (!line && !column) {
 		return `${CSI}H`;
 	} else if (line && !column) {
@@ -172,9 +164,27 @@ export const makeCUP = (line: number | undefined = undefined, column: number | u
 };
 
 /**
- * Makes an EL (Erase in Line) escape sequence.
+ * Makes an ED (Erase in Display) escape sequence.
  * @param count The count.
  * @returns The CUB escape sequence.
+ */
+export const makeED = (direction: 'end-of-screen' | 'beginning-of-screen' | 'entire-screen' = 'end-of-screen') => {
+	switch (direction) {
+		case 'end-of-screen':
+			return `${CSI}J`;
+
+		case 'beginning-of-screen':
+			return `${CSI}1J`;
+
+		case 'entire-screen':
+			return `${CSI}2J`;
+	}
+};
+
+/**
+ * Makes an EL (Erase in Line) escape sequence.
+ * @param count The count.
+ * @returns The EL escape sequence.
  */
 export const makeEL = (direction: 'end-of-line' | 'beginning-of-line' | 'entire-line' = 'end-of-line') => {
 	switch (direction) {

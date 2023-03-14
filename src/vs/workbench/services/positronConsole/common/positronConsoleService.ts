@@ -8,7 +8,6 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { ActivityItem } from 'vs/workbench/services/positronConsole/common/classes/activityItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
@@ -59,6 +58,17 @@ const formatOutputData = (data: Record<string, string>) => {
 		result += '\n' + data['text/plain'];
 	}
 	return result;
+};
+
+/**
+ * Formats stdout/stder output.
+ *
+ * @param stream The standard stream, either 'stdout' or 'stderr'.
+ * @param text The text that arrived on the stream.
+ * @returns The formatted text.
+ */
+const formatOutputStream = (stream: 'stdout' | 'stderr', text: string) => {
+	return `\nStream ${stream}: ${text}`;
 };
 
 /**
@@ -631,6 +641,29 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			));
 		}));
 
+		// Add the onDidReceiveRuntimeMessageStream event handler.
+		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
+			// Add trace item.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
+				formatOutputStream(languageRuntimeMessageStream.name, languageRuntimeMessageStream.text)
+			);
+
+			// Add or update the activity event.
+			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageStream.parent_id, new ActivityItemOutput(
+				languageRuntimeMessageStream.id,
+				languageRuntimeMessageStream.parent_id,
+				new Date(languageRuntimeMessageStream.when),
+
+				// TODO: This renders standard error and standard output as
+				// plain text; we should render them in a differentiated style
+				// (e.g. stderr in red), either by attaching metadata to
+				// `ActivityItemOutput` or by creating a new type of activity
+				// item.
+				{ 'text/plain': languageRuntimeMessageStream.text }
+			));
+		}));
+
 		// Add the onDidReceiveRuntimeMessageInput event handler.
 		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Add trace item.
@@ -734,7 +767,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param parentId The parent identifier.
 	 * @param activityItem The activity item.
 	 */
-	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItem) {
+	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItemInput | ActivityItemOutput | ActivityItemError) {
 		const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
 		if (runtimeItemActivity) {
 			runtimeItemActivity.addActivityItem(activityItem);

@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { makeCUB, makeCUF, makeCUP, makeEL, makeSGR, SGR } from './ansi';
+import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 import { resolve } from 'path';
 
@@ -21,6 +21,7 @@ const TEN_BLOCKS = '\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588
 const FIVE_SPACES = '     ';
 const FIVE_BLOCKS = '\u2588\u2588\u2588\u2588\u2588';
 const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
+
 /**
  * The help lines.
  */
@@ -31,13 +32,17 @@ const HelpLines = [
 	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
 	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
 	'ansi blink  - Displays blinking output',
-	'ansi cub    - Output text using CUB',
-	'ansi cuf    - Output text using CUF',
-	'ansi el     - Clear an entire line using EL',
+	'ansi cub    - Outputs text using CUB',
+	'ansi cuf    - Outputs text using CUF',
+	'ansi cup    - Outputs text using CUP',
+	'ansi ed 0   - Clears to the end of the screen using ED',
+	'ansi ed 1   - Clears to the beginning of the screen using ED',
+	'ansi ed 2   - Clears an entire screen using ED',
+	'ansi el 0   - Clears to the end of the line using EL',
+	'ansi el 1   - Clears to the beginning of the line using EL',
+	'ansi el 2   - Clears an entire line using EL',
 	'ansi hidden - Displays hidden text',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
-	'',
-	'ansi cup    - CUP',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
@@ -193,7 +198,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.simulateBusyState(id);
 				this.simulateInputMessage(id, code);
 				for (let i = 1; i <= 1000; i++) {
-					this.simulateOutputMessage(id, `${makeSGR(SGR.ForegroundRed)}This is line${makeSGR()} ${makeSGR(SGR.ForegroundGreen)}${i}${makeSGR()}`);
+					this.simulateOutputMessage(id, `${makeSGR(SGR.ForegroundRed)}This is line${makeSGR()} ${makeSGR(SGR.ForegroundGreen)}${i}${makeSGR()}\n`);
 				}
 				this.simulateIdleState(id);
 				break;
@@ -424,13 +429,109 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'ansi el': {
+			case 'ansi cup': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					`THIS IS LINE 1\n` +
+					`THIS IS LINE 2\n` +
+					`THIS IS LINE 3\n` +
+					`THIS IS LINE 4` +
+					`${makeCUP()}` +
+					`This is line 1\n` +
+					`This is line 2\n` +
+					`This is line 3\n` +
+					`This is line 4`
+				);
+				break;
+			}
+
+			case 'ansi ed 0': {
+				const line = '0123456789'.repeat(8);
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line +
+					makeCUP(5, 1) +
+					makeED('beginning-of-screen')
+				);
+				break;
+			}
+
+			case 'ansi ed 1': {
+				const line = '0123456789'.repeat(8);
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line +
+					makeCUP(5, 1) +
+					makeED('end-of-screen')
+				);
+				break;
+			}
+
+			case 'ansi ed 2': {
+				const line = '0123456789'.repeat(8);
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line + '\n' +
+					line +
+					makeCUP() +
+					makeED('end-of-screen')
+				);
+				break;
+			}
+
+			case 'ansi el 0': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					'40 spaces at the end of the line using CUP and EL:\n' +
+					'0123456789'.repeat(8) + '\n' +
+					'0123456789'.repeat(8) + makeCUP(3, 41) + makeEL('end-of-line')
+				);
+				break;
+			}
+
+			case 'ansi el 1': {
+				this.simulateSuccessfulCodeExecution(
+					id,
+					code,
+					'40 spaces at the end of the line using CUP and EL:\n' +
+					'0123456789'.repeat(8) + '\n' +
+					'0123456789'.repeat(8) + makeCUP(3, 41) + makeEL('beginning-of-line')
+				);
+				break;
+			}
+
+			case 'ansi el 2': {
 				this.simulateSuccessfulCodeExecution(
 					id,
 					code,
 					'80 \u2588 characters using EL and CUB:\n' +
 					'0123456789'.repeat(8) + '\n' +
-					'X'.repeat(80) + makeEL('entire-line') + makeCUB(80) + '\u2588'.repeat(80)
+					'0123456789'.repeat(8) + makeEL('entire-line') + makeCUP(3) + '\u2588'.repeat(80)
 				);
 				break;
 			}
@@ -641,25 +742,31 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Start the progress bar simulation.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
-		this.simulateOutputMessage(parentId, 'Starting long running task');
+		this.simulateOutputMessage(parentId, 'Long running task:\n');
+		this.simulateOutputMessage(parentId, 'This will be the progress bar');
 
 		// After a tingle of delay, output the progress bar.
 		setTimeout(() => {
 			// Simulate the progress bar in 100 50ms intervals.
 			let progress = 0;
 			const interval = setInterval(() => {
-				// Simulate progress - (need to add ANSI escapes)
-				this.simulateOutputMessage(parentId, `Progress ${++progress}%`);
+
+				// Simulate progress.
+				progress++;
+				const bars = '#'.repeat(progress);
+				const dashes = '-'.repeat(100 - progress);
+				this.simulateOutputMessage(parentId, `${makeCUP(2, 1)}${makeEL('entire-line')}[${bars}${dashes}] ${progress}%`);
 
 				// When the progress bar reaches 100%, clear the interval.
 				if (progress === 100) {
 					clearInterval(interval);
-				}
-			}, 50);
 
-			// End the progress bar.
-			this.simulateOutputMessage(parentId, 'Long running task is complete');
-			this.simulateIdleState(parentId);
+					// End the progress bar.
+					this.simulateOutputMessage(parentId, '\nLong running task is completed.');
+					this.simulateIdleState(parentId);
+				}
+			}, 25);
+
 		}, 500);
 	}
 

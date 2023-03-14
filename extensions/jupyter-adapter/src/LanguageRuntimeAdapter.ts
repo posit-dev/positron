@@ -399,8 +399,10 @@ export class LanguageRuntimeAdapter
 				break;
 			case 'comm_msg':
 				this.onCommMessage(msg, message as JupyterCommMsg);
+				break;
 			case 'comm_close':
 				this.onCommClose(msg, message as JupyterCommClose);
+				break;
 		}
 	}
 
@@ -537,13 +539,10 @@ export class LanguageRuntimeAdapter
 			id: message.msgId,
 			parent_id: message.originId,
 			when: message.when,
-			type: data.name === 'stderr' ?
-				positron.LanguageRuntimeMessageType.Error :
-				positron.LanguageRuntimeMessageType.Output,
-			data: {
-				'text/plain': data.text
-			} as any
-		} as positron.LanguageRuntimeOutput);
+			type: positron.LanguageRuntimeMessageType.Stream,
+			name: data.name,
+			text: data.text
+		} as positron.LanguageRuntimeStream);
 	}
 
 	/**

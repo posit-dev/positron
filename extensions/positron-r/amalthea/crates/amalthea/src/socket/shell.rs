@@ -402,20 +402,29 @@ impl Shell {
     fn handle_comm_open(&mut self, req: JupyterMessage<CommOpen>) -> Result<(), Error> {
         debug!("Received request to open comm: {:?}", req);
 
-        // Look up the comm ID from the request
-        let comm = match Comm::from_str(&req.content.target_name) {
-            Ok(comm) => comm,
-            Err(err) => {
-                // If the target name is not recognized, emit a warning.
-                // Consider: should we pass unrecognized target names
-                // through to the handler to extend support to comm types
-                // that we don't know about?
-                warn!(
-                    "Failed to open comm; target name '{}' is unrecognized: {}",
-                    &req.content.target_name, err
-                );
-                return Err(Error::UnknownCommName(req.content.target_name));
+        // Check to see whether the target name begins with "positron." This
+        // prefix designates comm IDs that are known to the Positron IDE.
+        let comm = match req.content.target_name.starts_with("positron.") {
+            // This is a known comm ID; parse it by stripping the prefix and
+            // matching against the known comm types
+            true => match Comm::from_str(&req.content.target_name[9..]) {
+                Ok(comm) => comm,
+                Err(err) => {
+                    // If the target name starts with "positron." but we don't
+                    // recognize the remainder of the string, consider that name
+                    // to be invalid and return an error.
+                    warn!(
+                        "Failed to open comm; target name '{}' is unrecognized: {}",
+                        &req.content.target_name, err
+                    );
+                    return Err(Error::UnknownCommName(req.content.target_name));
+                },
             },
+
+            // Non-Positron comm IDs (i.e. those that don't start with
+            // "positron.") are passed through to the kernel without judgment.
+            // These include Jupyter comm IDs, etc.
+            false => Comm::Other(req.content.target_name.clone()),
         };
 
         // Get the data parameter as a string (for error reporting)
