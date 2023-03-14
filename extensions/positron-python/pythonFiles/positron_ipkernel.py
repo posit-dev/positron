@@ -21,7 +21,7 @@ class PositronIPyKernel(IPythonKernel):
         """Initialize the kernel."""
         super().__init__(**kwargs)
 
-        _get_comm_manager().register_target('environment', self.environment_comm)
+        _get_comm_manager().register_target('positron.environment', self.environment_comm)
 
     def environment_comm(self, comm, open_msg):
 
