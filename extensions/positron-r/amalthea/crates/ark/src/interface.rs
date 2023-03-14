@@ -76,7 +76,6 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 static INIT: Once = Once::new();
 
 pub unsafe fn process_events() {
-
     // Process regular R events.
     R_ProcessEvents();
 
@@ -97,11 +96,9 @@ pub unsafe fn process_events() {
 
     // Render pending plots.
     graphics_device::on_process_events();
-
 }
 
 fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {
-
     // TODO: What if the input is too large for the buffer?
     input.push_str("\n");
     if input.len() > buflen as usize {
@@ -113,7 +110,6 @@ fn on_console_input(buf: *mut c_uchar, buflen: c_int, mut input: String) {
     unsafe {
         libc::strcpy(buf as *mut c_char, src.as_ptr());
     }
-
 }
 
 /// Invoked by R to read console input from the user.
@@ -159,14 +155,11 @@ pub extern "C" fn r_read_console(
     // descriptors that R has open and select() on those for
     // available data?
     loop {
-
         // Release the R runtime lock while we're waiting for input.
         unsafe { R_RUNTIME_LOCK_GUARD = None };
 
         match receiver.recv_timeout(Duration::from_millis(200)) {
-
             Ok(response) => {
-
                 // Take back the lock after we've received some console input.
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
@@ -178,37 +171,28 @@ pub extern "C" fn r_read_console(
                 }
 
                 return 1;
-
-            }
+            },
 
             Err(error) => {
-
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
                 use RecvTimeoutError::*;
                 match error {
-
                     Timeout => {
-
                         // Process events.
                         unsafe { process_events() };
 
                         // Keep waiting for console input.
                         continue;
-
-                    }
+                    },
 
                     Disconnected => {
-
                         return 1;
-
-                    }
+                    },
                 }
-            }
+            },
         }
-
     }
-
 }
 
 /**
@@ -218,7 +202,11 @@ pub extern "C" fn r_read_console(
 pub extern "C" fn r_write_console(buf: *const c_char, _buflen: i32, otype: i32) {
     let content = unsafe { CStr::from_ptr(buf) };
     let mutex = unsafe { KERNEL.as_ref().unwrap() };
-    let stream = if otype == 1 { Stream::Stdout } else { Stream::Stderr };
+    let stream = if otype == 0 {
+        Stream::Stdout
+    } else {
+        Stream::Stderr
+    };
     let mut kernel = mutex.lock().unwrap();
     kernel.write_console(content.to_str().unwrap(), stream);
 }
@@ -236,7 +224,7 @@ pub extern "C" fn r_show_message(buf: *const c_char) {
     let kernel = mutex.lock().unwrap();
 
     // Create an event representing the message
-    let event = PositronEvent::ShowMessage(ShowMessageEvent{
+    let event = PositronEvent::ShowMessage(ShowMessageEvent {
         message: message.to_str().unwrap().to_string(),
     });
 
@@ -255,9 +243,7 @@ pub extern "C" fn r_busy(which: i32) {
     let kernel = mutex.lock().unwrap();
 
     // Create an event representing the new busy state
-    let event = PositronEvent::Busy(BusyEvent{
-        busy: which != 0,
-    });
+    let event = PositronEvent::Busy(BusyEvent { busy: which != 0 });
 
     // Have the kernel deliver the event to the front end
     kernel.send_event(event);
@@ -265,14 +251,16 @@ pub extern "C" fn r_busy(which: i32) {
 
 #[no_mangle]
 pub unsafe extern "C" fn r_polled_events() {
-
     // Check for pending tasks.
     let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
     if count == 0 {
         return;
     }
 
-    info!("{} thread(s) are waiting; the main thread is releasing the R runtime lock.", count);
+    info!(
+        "{} thread(s) are waiting; the main thread is releasing the R runtime lock.",
+        count
+    );
     let now = SystemTime::now();
 
     // Release the lock. This drops the lock, and gives other threads
@@ -282,8 +270,10 @@ pub unsafe extern "C" fn r_polled_events() {
     // Take the lock back.
     R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock());
 
-    info!("The main thread re-acquired the R runtime lock after {} milliseconds.", now.elapsed().unwrap().as_millis());
-
+    info!(
+        "The main thread re-acquired the R runtime lock after {} milliseconds.",
+        now.elapsed().unwrap().as_millis()
+    );
 }
 
 pub fn start_r(
@@ -313,7 +303,6 @@ pub fn start_r(
     thread::spawn(move || listen(shell_request_rx, rprompt_rx));
 
     unsafe {
-
         let mut args = cargs!["ark", "--interactive"];
         R_running_as_main_program = 1;
         R_SignalHandlers = 0;
@@ -407,7 +396,6 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     // If the current prompt doesn't match the default prompt, assume that
     // we're reading use input, e.g. via 'readline()'.
     if prompt != default_prompt {
-
         trace!("Got R prompt '{}', asking user for input", prompt);
         if let Request::ExecuteCode(_, originator, _) = req {
             kernel.request_input(originator, &prompt);
@@ -424,7 +412,6 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     // Default prompt, finishing request
     trace!("Got R prompt '{}', completing execution", prompt);
     return kernel.finish_request();
-
 }
 
 pub fn listen(exec_recv: Receiver<Request>, prompt_recv: Receiver<String>) {
