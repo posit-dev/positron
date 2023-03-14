@@ -1,0 +1,11 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.activity-error-message {
+	padding-left: 14px;
+}
+
+.activity-error-message .traceback-lines {
+	border-top: 1px solid red;
+}

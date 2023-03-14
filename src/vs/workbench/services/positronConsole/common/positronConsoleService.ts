@@ -10,16 +10,18 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
-import { ActivityItemError } from 'vs/workbench/services/positronConsole/common/classes/ativityItemError';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
-import { ActivityItemOutput } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutput';
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
+import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
+import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
+import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
+import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -633,7 +635,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			);
 
 			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutput(
+			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutputMessage(
 				languageRuntimeMessageOutput.id,
 				languageRuntimeMessageOutput.parent_id,
 				new Date(languageRuntimeMessageOutput.when),
@@ -649,19 +651,21 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				formatOutputStream(languageRuntimeMessageStream.name, languageRuntimeMessageStream.text)
 			);
 
-			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageStream.parent_id, new ActivityItemOutput(
-				languageRuntimeMessageStream.id,
-				languageRuntimeMessageStream.parent_id,
-				new Date(languageRuntimeMessageStream.when),
-
-				// TODO: This renders standard error and standard output as
-				// plain text; we should render them in a differentiated style
-				// (e.g. stderr in red), either by attaching metadata to
-				// `ActivityItemOutput` or by creating a new type of activity
-				// item.
-				{ 'text/plain': languageRuntimeMessageStream.text }
-			));
+			if (languageRuntimeMessageStream.name === 'stdout') {
+				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageStream.parent_id, new ActivityItemOutputStream(
+					languageRuntimeMessageStream.id,
+					languageRuntimeMessageStream.parent_id,
+					new Date(languageRuntimeMessageStream.when),
+					languageRuntimeMessageStream.text
+				));
+			} else if (languageRuntimeMessageStream.name === 'stderr') {
+				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageStream.parent_id, new ActivityItemErrorStream(
+					languageRuntimeMessageStream.id,
+					languageRuntimeMessageStream.parent_id,
+					new Date(languageRuntimeMessageStream.when),
+					languageRuntimeMessageStream.text
+				));
+			}
 		}));
 
 		// Add the onDidReceiveRuntimeMessageInput event handler.
@@ -694,7 +698,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			);
 
 			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageError.parent_id, new ActivityItemError(
+			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageError.parent_id, new ActivityItemErrorMessage(
 				languageRuntimeMessageError.id,
 				languageRuntimeMessageError.parent_id,
 				new Date(languageRuntimeMessageError.when),
@@ -767,7 +771,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param parentId The parent identifier.
 	 * @param activityItem The activity item.
 	 */
-	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItemInput | ActivityItemOutput | ActivityItemError) {
+	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemErrorMessage) {
 		const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
 		if (runtimeItemActivity) {
 			runtimeItemActivity.addActivityItem(activityItem);
