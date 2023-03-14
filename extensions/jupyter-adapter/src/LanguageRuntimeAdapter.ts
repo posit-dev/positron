@@ -399,8 +399,10 @@ export class LanguageRuntimeAdapter
 				break;
 			case 'comm_msg':
 				this.onCommMessage(msg, message as JupyterCommMsg);
+				break;
 			case 'comm_close':
 				this.onCommClose(msg, message as JupyterCommClose);
+				break;
 		}
 	}
 
