@@ -27,6 +27,7 @@ import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
 
 // ConsoleReplProps interface.
 interface ConsoleReplProps {
@@ -123,19 +124,41 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 	// console.log(`Rendering console repl in state ${props.positronConsoleInstance.state}`);
 
+	/**
+	 * Renders the input.
+	 * @returns The input that was rendered.
+	 */
+	const renderInput = () => {
+		// Based on state, render the input.
+		switch (props.positronConsoleInstance.state) {
+			// Ready.
+			case PositronConsoleState.Ready:
+				return <LiveInput
+					ref={liveInputRef}
+					width={props.width}
+					executeCode={executeCode}
+					positronConsoleInstance={props.positronConsoleInstance} />;
+
+			// Busy.
+			case PositronConsoleState.Busy:
+				return <BusyInput
+					ref={liveInputRef}
+					width={props.width}
+					positronConsoleInstance={props.positronConsoleInstance} />;
+
+			// Render nothing.
+			default:
+				return null;
+		}
+	};
+
 	// Render.
 	return (
 		<div className='console-repl' hidden={props.hidden}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}
-			{props.positronConsoleInstance.state === PositronConsoleState.Ready &&
-				<LiveInput
-					ref={liveInputRef}
-					width={props.width}
-					executeCode={executeCode}
-					positronConsoleInstance={props.positronConsoleInstance} />
-			}
+			{renderInput()}
 		</div>
 	);
 };
