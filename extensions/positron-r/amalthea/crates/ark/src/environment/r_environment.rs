@@ -257,10 +257,10 @@ impl REnvironment {
     }
 
     fn has_changed(&mut self) -> bool {
-        let new_bindings = self.bindings();
-        let old_bindings = &self.current_bindings;
+        let _new_bindings = self.bindings();
+        let _old_bindings = &self.current_bindings;
 
-
+        false
     }
 
 }
