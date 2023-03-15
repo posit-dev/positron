@@ -132,7 +132,6 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			{props.positronConsoleInstance.state === PositronConsoleState.Ready &&
 				<LiveInput
 					ref={liveInputRef}
-					hidden={props.positronConsoleInstance.state !== PositronConsoleState.Ready}
 					width={props.width}
 					executeCode={executeCode}
 					positronConsoleInstance={props.positronConsoleInstance} />

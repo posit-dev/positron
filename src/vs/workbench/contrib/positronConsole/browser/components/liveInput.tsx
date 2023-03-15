@@ -30,7 +30,6 @@ import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/
 
 // LiveInputProps interface.
 export interface LiveInputProps {
-	hidden: boolean;
 	width: number;
 	executeCode: (codeFragment: string) => void;
 	positronConsoleInstance: IPositronConsoleInstance;
