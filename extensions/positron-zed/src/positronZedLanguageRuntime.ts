@@ -45,6 +45,8 @@ const HelpLines = [
 	'ansi hidden - Displays hidden text',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'def X       - Defines X variables',
+	'def X Y     - Defines X variables of type Y',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
 	'offline     - Simulates going offline for two seconds',
@@ -191,6 +193,31 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			// Simulate unsuccessful code execution.
 			return this.simulateUnsuccessfulCodeExecution(id, code, 'Simulated Error', message, traceback);
+		} else if (match = code.match(/^def ([1-9]{1}[\d]*) ?(.*)/)) {
+			// Define the value in each environment; there's probably only one, but one can't be
+			// too careful about these things. In the future, we'll probably want to be able to
+			// define variables in specific environments or nest environments.
+			const count = +match[1];
+			const kind = match[2];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					environment.defineVars(count, kind);
+				}
+				if (kind) {
+					return this.simulateSuccessfulCodeExecution(id, code,
+						`Defined ${count} '${kind}' variables.`);
+				} else {
+					return this.simulateSuccessfulCodeExecution(id, code,
+						`Defined ${count} variables.`);
+				}
+
+			} else {
+				// This could happen if we try to define variables but there's no backend in which
+				// to define them.
+				return this.simulateUnsuccessfulCodeExecution(id, code,
+					'No Environments',
+					'No environments are available to define variables in.', []);
+			}
 		}
 
 		// Process the "code".

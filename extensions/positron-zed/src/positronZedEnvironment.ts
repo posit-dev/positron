@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { randomUUID } from 'crypto';
 
 /**
  * ZedVar is a simple Zed variable.
@@ -39,9 +40,9 @@ export class ZedEnvironment {
 	 */
 	constructor(readonly id: string) {
 		// Create a few variables to start with
-		this._vars.set('z', new ZedVariable('Z', 'zed1', 'string'));
-		this._vars.set('e', new ZedVariable('Z', 'zed2', 'string'));
-		this._vars.set('d', new ZedVariable('Z', 'zed3', 'string'));
+		this._vars.set('z', new ZedVariable('z', 'zed1', 'string'));
+		this._vars.set('e', new ZedVariable('e', 'zed2', 'string'));
+		this._vars.set('d', new ZedVariable('d', 'zed3', 'string'));
 
 		setTimeout(() => {
 			// List the environment on the first tick after startup. There's no
@@ -68,6 +69,42 @@ export class ZedEnvironment {
 	}
 
 	/**
+	 * Defines a number of variables at once.
+	 *
+	 * @param count The number of variables to define
+	 * @param kind The kind of variable to define; defaults to 'string'
+	 */
+	public defineVars(count: number, kind: string) {
+		// Select the kind of variable to define
+		const kindToUse = kind || 'string';
+
+		// Get the starting index for the new variables
+		const start = this._vars.size;
+
+		// Ensure we don't collide with existing variables
+		for (let i = 0; i < count; i++) {
+			const name = `zed${start + i}`;
+			let value = '';
+
+			// Create a random value for the variable
+			if (kindToUse === 'string') {
+				// Strings: use a random UUID
+				value = randomUUID();
+			} else if (kindToUse === 'number') {
+				// Numbers: use a random number
+				value = Math.random().toString();
+			} else {
+				// Everything else: use the counter
+				value = `value{start + i}`;
+			}
+			this._vars.set(name, new ZedVariable(name, value, kindToUse));
+		}
+
+		// Emit the new variables to the front end
+		this.emitFullList();
+	}
+
+	/**
 	 * Emits a full list of variables to the front end
 	 */
 	private emitFullList() {
@@ -77,7 +114,7 @@ export class ZedEnvironment {
 		// Emit the data to the front end
 		this._onDidEmitData.fire({
 			msg_type: 'list',
-			vars: vars
+			variables: vars
 		});
 	}
 }
