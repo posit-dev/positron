@@ -6,7 +6,6 @@
 //
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicI32;
 
@@ -14,7 +13,7 @@ static ID: AtomicI32 = AtomicI32::new(0);
 
 #[derive(Default)]
 pub struct Signal<T> {
-    listeners: Arc<Mutex<HashMap<i32, Box<dyn Fn(&T) + Send>>>>
+    listeners: Mutex<HashMap<i32, Box<dyn Fn(&T) + Send>>>
 }
 
 impl<T> Signal<T> {
