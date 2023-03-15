@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 import { resolve } from 'path';
+import { ZedEnvironment } from './positronZedEnvironment';
 
 /**
  * Constants.
@@ -622,10 +623,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	createClient(type: positron.RuntimeClientType): Promise<string> {
 		if (type === positron.RuntimeClientType.Environment) {
-			const id = randomUUID();
-			this._environments.set(id, new ZedEnvironment());
-			return Promise.resolve(id);
+			// Allocate a new ID and ZedEnvironment object for this environment backend
+			const env = new ZedEnvironment(randomUUID());
+
+			// Connect it and save the instance to coordinate future communication
+			this.connectEnvironmentEmitter(env);
+			this._environments.set(env.id, env);
+
+			// Return the ID of the newly created environment backend
+			return Promise.resolve(env.id);
 		}
+
+		// All other types are unknown to Zed
 		return Promise.reject(`Unknown client type ${type}`);
 	}
 
@@ -642,6 +651,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param message The message.
 	 */
 	sendClientMessage(id: string, message: object): void {
+		// Right now, the only client instances are environments.
 		const client = this._environments.get(id);
 		if (client) {
 			client.handleMessage(message);
@@ -919,8 +929,27 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} as positron.LanguageRuntimeError);
 	}
 
+	/**
+	 * Proxies messages from an environment instance to Positron, by amending the appropriate
+	 * metadata.
+	 *
+	 * @param env The environment to connect
+	 */
 	private connectEnvironmentEmitter(env: ZedEnvironment) {
 
+		// Listen for data emitted from the environment instance
+		env.onDidEmitData(data => {
+
+			// When received, wrap it up in a runtime message and emit it
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: '',
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommData,
+				comm_id: env.id,
+				data: data
+			} as positron.LanguageRuntimeCommMessage);
+		});
 	}
 
 	//#endregion Private Methods
