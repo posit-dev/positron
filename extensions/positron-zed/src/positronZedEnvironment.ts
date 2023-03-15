@@ -38,11 +38,15 @@ export class ZedEnvironment {
 	 *
 	 * @param id The ID of the environment client instance
 	 */
-	constructor(readonly id: string) {
+	constructor(readonly id: string,
+		private readonly zedVersion: string) {
 		// Create a few variables to start with
 		this._vars.set('z', new ZedVariable('z', 'zed1', 'string'));
 		this._vars.set('e', new ZedVariable('e', 'zed2', 'string'));
 		this._vars.set('d', new ZedVariable('d', 'zed3', 'string'));
+
+		// Create a Zed Version variable
+		this._vars.set('ZED_VERSION', new ZedVariable('ZED_VERSION', this.zedVersion, 'string'));
 
 		setTimeout(() => {
 			// List the environment on the first tick after startup. There's no
