@@ -14,11 +14,7 @@ use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
 use harp::test::start_r;
-use libR_sys::R_EmptyEnv;
-use libR_sys::R_NewEnv;
-use libR_sys::R_removeVarFromFrame;
-use libR_sys::Rf_ScalarInteger;
-use libR_sys::Rf_defineVar;
+use libR_sys::*;
 
 /**
  * Basic test for the R environment list. This test:
