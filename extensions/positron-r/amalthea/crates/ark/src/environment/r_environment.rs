@@ -71,7 +71,7 @@ impl REnvironment {
         frontend_msg_sender: Sender<CommChannelMsg>,
     ) {
         // Register a handler for console prompt events
-        SIGNALS.console_prompt.listen({
+        let listen_id = SIGNALS.console_prompt.listen({
             let frontend_msg_tx = frontend_msg_sender.clone();
             let env = RObject::view(env.sexp);
             move |_| {
@@ -102,6 +102,7 @@ impl REnvironment {
                         "Environment: Error receiving message from front end: {:?}",
                         e
                     );
+
                     break;
                 },
             };
@@ -148,6 +149,8 @@ impl REnvironment {
                 }
             }
         }
+
+        SIGNALS.console_prompt.remove(listen_id);
 
         if !user_initiated_close {
             // Send a close message to the front end if the front end didn't
