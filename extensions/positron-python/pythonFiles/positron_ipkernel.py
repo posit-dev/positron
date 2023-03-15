@@ -4,6 +4,7 @@
 
 from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
 import enum
+import logging
 import numbers
 import pprint
 import sys
@@ -20,23 +21,42 @@ class PositronIPyKernel(IPythonKernel):
     def __init__(self, **kwargs):
         """Initialize the kernel."""
         super().__init__(**kwargs)
-
+        self.env_comm = None
         _get_comm_manager().register_target('positron.environment', self.environment_comm)
+        self.shell.events.register('post_execute', self.handle_post_execute)
+
+    def handle_post_execute(self):
+        # TODO: Determine delta from previous listing and send update message
+        self.send_list(self.env_comm)
 
     def environment_comm(self, comm, open_msg):
+
+        self.env_comm = comm
 
         @comm.on_msg
         def _recv(msg):
             data = msg['content']['data']
             msgType = data['msg_type']
             if msgType == 'refresh':
-                list_environment()
+                self.send_list(comm)
             else:
-                send_error(f'Unknown message type \'{msgType}\'')
+                self.send_error(comm, f'Unknown message type \'{msgType}\'')
 
-        def list_environment():
+        # Send summary of user environment on comm initialization
+        self.send_list(comm)
 
-            variables = []
+    def send_error(self, comm, message):
+        msg = EnvironmentMessageError(message)
+        comm.send(msg)
+
+    def send_list(self, comm):
+
+        if comm is None:
+            logging.warning('Cannot send list without a positron.environment comm')
+            return
+
+        variables = []
+        if self.shell is not None:
             for key, value in self.shell.user_ns.items():
 
                 # Exclude hidden variables
@@ -44,58 +64,51 @@ class PositronIPyKernel(IPythonKernel):
                     continue
 
                 if isinstance(value, types.FunctionType):
-                    variables.append(summarize_function(key, value))
+                    variables.append(self.summarize_function(key, value))
                 else:
-                    variables.append(summarize_any(key, value))
+                    variables.append(self.summarize_any(key, value))
 
-            msg = EnvironmentMessageList(variables)
-            comm.send(msg)
+        msg = EnvironmentMessageList(variables)
+        comm.send(msg)
 
-        def summarize_any(key, value):
-            type_name = type(value).__name__
-            try:
-                kind = determine_kind(value)
-                summarized_value = format_value(value)
-                length = None
-                if hasattr(value, '__len__'):
-                    try:
-                        length = len(value)
-                    except:
-                        pass
-                size = sys.getsizeof(value)
-                return EnvironmentVariable(key, summarized_value, kind, type_name, length, size)
-            except:
-                return EnvironmentVariable(key, type_name, None)
-
-        def summarize_function(key, value):
-            qname = f'{type(value).__name__} {value.__qualname__}'
+    def summarize_any(self, key, value):
+        type_name = type(value).__name__
+        try:
+            kind = self.determine_kind(value)
+            summarized_value = self.format_value(value)
+            length = None
+            if hasattr(value, '__len__'):
+                try:
+                    length = len(value)
+                except:
+                    pass
             size = sys.getsizeof(value)
-            return EnvironmentVariable(key, qname, EnvironmentVariableKind.FUNCTION, qname, None, size)
+            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size)
+        except:
+            return EnvironmentVariable(key, type_name, None)
 
-        def format_value(value, max_width: int = 1024):
-            s = pprint.pformat(value, indent=1, width=max_width, compact=True)
-            # TODO: Add type aware truncation
-            s = (s[:max_width] + '...') if len(s) > max_width else s
-            return s
+    def summarize_function(self, key, value):
+        qname = f'{type(value).__name__} {value.__qualname__}'
+        size = sys.getsizeof(value)
+        return EnvironmentVariable(key, qname, EnvironmentVariableKind.FUNCTION, qname, None, size)
 
-        def determine_kind(value):
-            if isinstance(value, str):
-                return EnvironmentVariableKind.STRING
-            elif isinstance(value, numbers.Number):
-                return EnvironmentVariableKind.NUMBER
-            elif isinstance(value, (list, set, frozenset, tuple, range)):
-                return EnvironmentVariableKind.LIST
-            elif isinstance(value, types.FunctionType):
-                return EnvironmentVariableKind.FUNCTION
-            else:
-                return None
+    def format_value(self, value, max_width: int = 1024):
+        s = pprint.pformat(value, indent=1, width=max_width, compact=True)
+        # TODO: Add type aware truncation
+        s = (s[:max_width] + '...') if len(s) > max_width else s
+        return s
 
-        def send_error(message):
-            msg = EnvironmentMessageError(message)
-            comm.send(msg)
-
-        # Send summary of user environment on comm initialization
-        list_environment()
+    def determine_kind(self, value):
+        if isinstance(value, str):
+            return EnvironmentVariableKind.STRING
+        elif isinstance(value, numbers.Number):
+            return EnvironmentVariableKind.NUMBER
+        elif isinstance(value, (list, set, frozenset, tuple, range)):
+            return EnvironmentVariableKind.LIST
+        elif isinstance(value, types.FunctionType):
+            return EnvironmentVariableKind.FUNCTION
+        else:
+            return None
 
 
 @enum.unique
