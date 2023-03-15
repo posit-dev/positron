@@ -736,12 +736,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 				case RuntimeOnlineState.Busy: {
 					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
+						this.setState(PositronConsoleState.Busy);
 						break;
 					}
 				}
 
 				case RuntimeOnlineState.Idle: {
 					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
+						this.setState(PositronConsoleState.Ready);
 						break;
 					}
 				}

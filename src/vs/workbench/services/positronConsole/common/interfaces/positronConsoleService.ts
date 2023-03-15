@@ -17,6 +17,7 @@ export const enum PositronConsoleState {
 	Uninitialized = 'Uninitialized',
 	Starting = 'Starting',
 	Ready = 'Ready',
+	Busy = 'Busy',
 	Offline = 'Offline',
 	Exiting = 'Exiting',
 	Exited = 'Exited'
