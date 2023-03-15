@@ -376,7 +376,7 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     let kernel = mutex.lock().unwrap();
 
     // Signal prompt
-    SIGNALS.lock().console_prompt.emit(());
+    SIGNALS.console_prompt.emit(());
 
     // The request is incomplete if we see the continue prompt
     let continue_prompt = unsafe { r_get_option::<String>("continue") };

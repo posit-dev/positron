@@ -97,7 +97,7 @@ fn test_environment_list() {
     }
 
     // Simulate a prompt signal
-    SIGNALS.lock().console_prompt.emit(());
+    SIGNALS.console_prompt.emit(());
 
     // Wait for the new list of variables to be delivered
     let msg = frontend_message_rx.recv().unwrap();

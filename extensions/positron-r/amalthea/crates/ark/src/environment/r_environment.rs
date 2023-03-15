@@ -71,7 +71,7 @@ impl REnvironment {
         frontend_msg_sender: Sender<CommChannelMsg>,
     ) {
         // Register a handler for console prompt events
-        SIGNALS.lock().console_prompt.listen({
+        SIGNALS.console_prompt.listen({
             let frontend_msg_tx = frontend_msg_sender.clone();
             let env = RObject::view(env.sexp);
             move |_| {
