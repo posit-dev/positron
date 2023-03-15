@@ -1502,4 +1502,12 @@ export const POSITRON_CONSOLE_ANSI_BRIGHT_WHITE = registerColor('positronConsole
 	hcLight: 'terminal.ansiBrightWhite'
 }, localize('positronConsole.ansiBrightWhite', "Positron Console ANSI bright white color."));
 
+// Positron Console trace background color.
+export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronConsole.traceBackground', {
+	dark: '#262626',
+	light: '#e5e5e5',
+	hcDark: '#262626',
+	hcLight: '#e5e5e5'
+}, localize('positronConsole.traceBackground', "Positron Console trace background color."));
+
 // --- End Positron ---
