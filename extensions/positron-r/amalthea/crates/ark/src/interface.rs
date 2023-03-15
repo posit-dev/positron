@@ -35,9 +35,9 @@ use stdext::*;
 
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
+use crate::lsp::signals::SIGNALS;
 use crate::plots::graphics_device;
 use crate::request::Request;
-use crate::shell::REvent;
 
 extern "C" {
 
@@ -281,7 +281,6 @@ pub fn start_r(
     iopub_tx: Sender<IOPubMessage>,
     kernel_init_tx: Bus<KernelInfo>,
     shell_request_rx: Receiver<Request>,
-    r_events_tx: Sender<REvent>
 ) {
     use std::borrow::BorrowMut;
 
@@ -292,7 +291,7 @@ pub fn start_r(
     // Start building the channels + kernel objects
     let (console_tx, console_rx) = crossbeam::channel::unbounded();
     let (rprompt_tx, rprompt_rx) = crossbeam::channel::unbounded();
-    let kernel = Kernel::new(iopub_tx, console_tx.clone(), kernel_init_tx, r_events_tx);
+    let kernel = Kernel::new(iopub_tx, console_tx.clone(), kernel_init_tx);
 
     // Initialize kernel (ensure we only do this once!)
     INIT.call_once(|| unsafe {
@@ -376,7 +375,8 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     let prompt = prompt_recv.recv().unwrap();
     let kernel = mutex.lock().unwrap();
 
-    kernel.send_r_event(REvent::Prompt);
+    // Signal prompt
+    SIGNALS.console_prompt.emit(());
 
     // The request is incomplete if we see the continue prompt
     let continue_prompt = unsafe { r_get_option::<String>("continue") };

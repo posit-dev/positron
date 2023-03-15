@@ -13,12 +13,12 @@ static ID: AtomicI32 = AtomicI32::new(0);
 
 #[derive(Default)]
 pub struct Signal<T> {
-    listeners: Mutex<HashMap<i32, Box<dyn Fn(&T)>>>,
+    listeners: Mutex<HashMap<i32, Box<dyn Fn(&T) + Send>>>
 }
 
 impl<T> Signal<T> {
 
-    pub fn emit(&mut self, data: impl Into<T>) {
+    pub fn emit(&self, data: impl Into<T>) {
         let data = data.into();
         let mut listeners = self.listeners.lock().unwrap();
         for listener in listeners.iter_mut() {
@@ -26,14 +26,14 @@ impl<T> Signal<T> {
         }
     }
 
-    pub fn listen(&mut self, callback: impl Fn(&T) + 'static) -> i32 {
-        let mut listeners = self.listeners.lock().unwrap();
+    pub fn listen(&self, callback: impl Fn(&T) + Send + 'static) -> i32 {
         let id = ID.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        let mut listeners = self.listeners.lock().unwrap();
         listeners.insert(id, Box::new(callback));
         return id;
     }
 
-    pub fn remove(&mut self, id: i32) {
+    pub fn remove(&self, id: i32) {
         let mut listeners = self.listeners.lock().unwrap();
         listeners.remove(&id);
     }
@@ -53,7 +53,7 @@ mod tests {
             string: Signal<String>,
         }
 
-        let mut signals = Signals::default();
+        let signals = Signals::default();
 
         // call with a number
         signals.number.listen(|number| {

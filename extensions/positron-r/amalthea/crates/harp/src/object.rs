@@ -127,12 +127,15 @@ impl RObject {
         RObject { sexp: data, cell: protect(data) }
     }
 
-    pub unsafe fn view(data: SEXP) -> Self {
-        RObject { sexp: data, cell: R_NilValue }
+    pub fn view(data: SEXP) -> Self {
+        RObject { sexp: data, cell: unsafe { R_NilValue } }
     }
 
-    pub unsafe fn null() -> Self {
-        RObject { sexp: R_NilValue, cell: R_NilValue }
+    pub fn null() -> Self {
+        RObject {
+            sexp: unsafe { R_NilValue },
+            cell: unsafe { R_NilValue },
+        }
     }
 
     // A helper function that makes '.try_into()' more ergonomic to use.
