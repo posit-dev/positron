@@ -131,16 +131,27 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/** Create a new client inside the runtime */
-	createClient<T>(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance<T>> {
-		return new Promise((resolve, reject) => {
-			this._proxy.$createClient(this.handle, type, params).then((clientId) => {
-				const client = new ExtHostRuntimeClientInstance<T>(clientId, type, this.handle, this._proxy);
-				this._clients.set(clientId, client);
-				resolve(client);
-			}).catch((err) => {
-				reject(err);
-			});
+	createClient<T>(id: string, type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance<T>> {
+		// Create the new instance and add it to the map.
+		const client = new ExtHostRuntimeClientInstance<T>(id, type, this.handle, this._proxy);
+		this._clients.set(id, client);
+		this._logService.info(`Creating ${type} client '${id}'...`);
+
+		// Kick off the creation of the client on the server side. There's no
+		// reply defined to this call in the protocol, so this is almost
+		// fire-and-forget; we need to return the instance right away so that
+		// the client can start listening to events.
+		//
+		// If the creation fails on the server, we'll either get an error here
+		// or see the server end get closed immediately via a CommClose message.
+		// In either case we'll let the client know.
+		this._proxy.$createClient(this.handle, id, type, params).catch((err) => {
+			this._logService.error(`Failed to create client '${id}' in runtime '${this.handle}': ${err}`);
+			client.setClientState(RuntimeClientState.Closed);
+			this._clients.delete(id);
 		});
+
+		return Promise.resolve(client);
 	}
 
 	/** List active clients */
