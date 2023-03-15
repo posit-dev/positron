@@ -37,7 +37,6 @@ use std::sync::atomic::AtomicBool;
 use stdext::unwrap;
 
 use crate::request::Request;
-use crate::shell::REvent;
 
 /// Represents whether an error occurred during R code execution.
 pub static R_ERROR_OCCURRED: AtomicBool = AtomicBool::new(false);
@@ -54,7 +53,6 @@ pub struct Kernel {
     stdout: String,
     stderr: String,
     initializing: bool,
-    r_events_tx: Sender<REvent>,
 }
 
 /// Represents kernel metadata (available after the kernel has fully started)
@@ -70,7 +68,6 @@ impl Kernel {
         iopub_tx: Sender<IOPubMessage>,
         console_tx: Sender<Option<String>>,
         kernel_init_tx: Bus<KernelInfo>,
-        r_events_tx: Sender<REvent>,
     ) -> Self {
         Self {
             execution_count: 0,
@@ -83,7 +80,6 @@ impl Kernel {
             stdout: String::new(),
             stderr: String::new(),
             initializing: true,
-            r_events_tx
         }
     }
 
@@ -332,10 +328,5 @@ impl Kernel {
         if let Err(err) = self.iopub_tx.send(IOPubMessage::Event(event)) {
             warn!("Could not publish event on iopub: {}", err);
         }
-    }
-
-    pub fn send_r_event(&self, event: REvent) {
-        info!("Sending R event: {:?}", event);
-        self.r_events_tx.send(event).unwrap();
     }
 }
