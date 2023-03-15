@@ -38,7 +38,11 @@ pub struct REnvironment {
 
     pub frontend_msg_sender: Sender<CommChannelMsg>,
 
-    pub env: RObject
+    pub env: RObject,
+
+    // TODO:
+    // - a version count
+    // - some data to maintain state, e.g. a Map<string, SEXP>
 }
 
 impl REnvironment {
