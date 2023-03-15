@@ -45,10 +45,12 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const refContainer = useRef<HTMLDivElement>(undefined!);
-	const [, setHistoryNavigator, refHistoryNavigator] = useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCodeEditorWidget, refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
-	const [, setCurrentCodeFragment, refCurrentCodeFragment] = useStateRef<string | undefined>(undefined);
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
+	const [, setHistoryNavigator, refHistoryNavigator] =
+		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
+	const [, setCurrentCodeFragment, refCurrentCodeFragment] =
+		useStateRef<string | undefined>(undefined);
 
 	/**
 	 * Updates the code editor widget position such that the cursor appers on
@@ -72,116 +74,173 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 
 	// Memoize the key down event handler.
 	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
-		if (e.keyCode === KeyCode.UpArrow) {
-			// If there are history entries, process the event.
-			if (refHistoryNavigator.current) {
-				// When the user moves up from the end, and we don't have a current code editor fragment, set the current code fragment.
-				// Otherwise, move to the previous entry.
-				if (refHistoryNavigator.current.isAtEnd() && refCurrentCodeFragment.current === undefined) {
-					setCurrentCodeFragment(refCodeEditorWidget.current.getValue());
-				} else {
-					refHistoryNavigator.current.previous();
-				}
-
-				// Get the current history entry, set it as the value of the code editor widget.
-				const inputHistoryEntry = refHistoryNavigator.current.current();
-				refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
-
-				// Position the cursor to the end.
-				updateCodeEditorWidgetPositionToEnd();
-			}
-
-			// Eat the event.
+		/**
+		 * Eats the event.
+		 */
+		const eatEvent = () => {
 			e.preventDefault();
 			e.stopPropagation();
-		} else if (e.keyCode === KeyCode.DownArrow) {
-			// If there are history entries, process the event.
-			if (refHistoryNavigator.current) {
-				// When the user reaches the end of the history entries, restore the current code fragment.
-				if (refHistoryNavigator.current.isAtEnd()) {
-					if (refCurrentCodeFragment.current !== undefined) {
-						refCodeEditorWidget.current.setValue(refCurrentCodeFragment.current);
-						setCurrentCodeFragment(undefined);
-					}
-				} else {
-					// Move to the next history entry and set it as the value of the code editor widget.
-					const inputHistoryEntry = refHistoryNavigator.current.next();
-					refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
+		};
+
+		// Process the key code.
+		switch (e.keyCode) {
+			// Escape handling.
+			case KeyCode.Escape: {
+				// Interrupt the runtime.
+				props.positronConsoleInstance.runtime.interrupt();
+
+				// Eat the event.
+				eatEvent();
+				break;
+			}
+
+			// Ctrl-C handling.
+			case KeyCode.KeyC: {
+				// Check for the right modifiers and if this is a Ctrl-C, interrupt the runtime.
+				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+					// Interrupt the runtime.
+					props.positronConsoleInstance.runtime.interrupt();
+
+					// Eat the event.
+					eatEvent();
 				}
-
-				// Position the cursor to the end.
-				updateCodeEditorWidgetPositionToEnd();
+				break;
 			}
 
-			// Eat the event.
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.keyCode === KeyCode.Enter) {
-			// If the shift key is pressed, do not process the event because the user is entering multiple lines.
-			if (e.shiftKey) {
-				return;
-			}
-
-			// Get the code fragment from the editor.
-			const codeFragment = refCodeEditorWidget.current.getValue();
-
-			// Check on whether the code fragment is complete and can be executed.
-			let executeCode;
-			const runtimeCodeFragmentStatus = await props.positronConsoleInstance.runtime.isCodeFragmentComplete(codeFragment);
-			switch (runtimeCodeFragmentStatus) {
-				// If the code fragment is complete, execute it.
-				case RuntimeCodeFragmentStatus.Complete:
-					executeCode = true;
-					break;
-
-				// If the code fragment is incomplete, don't do anything. The user will just see a new line in the input area.
-				case RuntimeCodeFragmentStatus.Incomplete:
-					executeCode = false;
-					break;
-
-				// If the code is invalid (contains syntax errors), warn but execute it anyway (so the user can see a syntax error from
-				// the interpreter).
-				case RuntimeCodeFragmentStatus.Invalid:
-					positronConsoleContext.logService.warn(`Executing invalid code fragment: '${codeFragment}'`);
-					executeCode = true;
-					break;
-
-				// If the code is invalid (contains syntax errors), warn but execute it anyway (so the user can see a syntax error from
-				// the interpreter).
-				case RuntimeCodeFragmentStatus.Unknown:
-					positronConsoleContext.logService.warn(`Could not determine whether code fragment: '${codeFragment}' is complete.`);
-					executeCode = true;
-					break;
-			}
-
-			// If we're supposed to execute the code fragment, do it.
-			if (executeCode) {
-				// Execute the code fragment.
-				props.executeCode(codeFragment);
-
-				// If the code fragment contains more than whitespace characters, add it to the history navigator.
-				if (codeFragment.trim().length) {
-					// Create the input history entry.
-					const inputHistoryEntry = {
-						when: new Date().getTime(),
-						input: codeFragment,
-					} satisfies IInputHistoryEntry;
-
-					// Add the input history entry.
-					if (refHistoryNavigator.current) {
-						refHistoryNavigator.current.add(inputHistoryEntry);
+			// Up arrow processing.
+			case KeyCode.UpArrow: {
+				// If there are history entries, process the event.
+				if (refHistoryNavigator.current) {
+					// When the user moves up from the end, and we don't have a current code editor
+					// fragment, set the current code fragment. Otherwise, move to the previous
+					// entry.
+					if (refHistoryNavigator.current.isAtEnd() &&
+						refCurrentCodeFragment.current === undefined) {
+						setCurrentCodeFragment(refCodeEditorWidget.current.getValue());
 					} else {
-						setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>([inputHistoryEntry], 1000)); // TODO@softwarenerd - get 1000 from settings.
+						refHistoryNavigator.current.previous();
 					}
+
+					// Get the current history entry, set it as the value of the code editor widget.
+					const inputHistoryEntry = refHistoryNavigator.current.current();
+					refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
+
+					// Position the cursor to the end.
+					updateCodeEditorWidgetPositionToEnd();
 				}
 
-				// Reset the model for the next input.
-				refCodeEditorWidget.current.setValue('');
+				// Eat the event.
+				eatEvent();
+				break;
 			}
 
-			// Eat the event.
-			e.preventDefault();
-			e.stopPropagation();
+			// Down arrow processing.
+			case KeyCode.DownArrow: {
+				// If there are history entries, process the event.
+				if (refHistoryNavigator.current) {
+					// When the user reaches the end of the history entries, restore the current
+					// code fragment.
+					if (refHistoryNavigator.current.isAtEnd()) {
+						if (refCurrentCodeFragment.current !== undefined) {
+							refCodeEditorWidget.current.setValue(refCurrentCodeFragment.current);
+							setCurrentCodeFragment(undefined);
+						}
+					} else {
+						// Move to the next history entry and set it as the value of the code editor
+						// widget.
+						const inputHistoryEntry = refHistoryNavigator.current.next();
+						refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
+					}
+
+					// Position the cursor to the end.
+					updateCodeEditorWidgetPositionToEnd();
+				}
+
+				// Eat the event.
+				eatEvent();
+				break;
+			}
+
+			// Enter processing.
+			case KeyCode.Enter: {
+				// If the shift key is pressed, do not process the event because the user is
+				// entering multiple lines.
+				if (e.shiftKey) {
+					return;
+				}
+
+				// Get the code fragment from the editor.
+				const codeFragment = refCodeEditorWidget.current.getValue();
+
+				// Check on whether the code fragment is complete and can be executed.
+				let executeCode;
+				const runtimeCodeFragmentStatus = await props.
+					positronConsoleInstance.
+					runtime.
+					isCodeFragmentComplete(codeFragment);
+
+				// Handle the runtime code fragment status.
+				switch (runtimeCodeFragmentStatus) {
+					// If the code fragment is complete, execute it.
+					case RuntimeCodeFragmentStatus.Complete:
+						executeCode = true;
+						break;
+
+					// If the code fragment is incomplete, don't do anything. The user will just see
+					// a new line in the input area.
+					case RuntimeCodeFragmentStatus.Incomplete:
+						executeCode = false;
+						break;
+
+					// If the code is invalid (contains syntax errors), warn but execute it anyway
+					// (so the user can see a syntax error from the interpreter).
+					case RuntimeCodeFragmentStatus.Invalid:
+						positronConsoleContext.logService.warn(`Executing invalid code fragment: '${codeFragment}'`);
+						executeCode = true;
+						break;
+
+					// If the code is invalid (contains syntax errors), warn but execute it anyway
+					// (so the user can see a syntax error from the interpreter).
+					case RuntimeCodeFragmentStatus.Unknown:
+						positronConsoleContext.logService.warn(`Could not determine whether code fragment: '${codeFragment}' is complete.`);
+						executeCode = true;
+						break;
+				}
+
+				// If we're supposed to execute the code fragment, do it.
+				if (executeCode) {
+					// Execute the code fragment.
+					props.executeCode(codeFragment);
+
+					// If the code fragment contains more than whitespace characters, add it to the
+					// history navigator.
+					if (codeFragment.trim().length) {
+						// Create the input history entry.
+						const inputHistoryEntry = {
+							when: new Date().getTime(),
+							input: codeFragment,
+						} satisfies IInputHistoryEntry;
+
+						// Add the input history entry.
+						if (refHistoryNavigator.current) {
+							refHistoryNavigator.current.add(inputHistoryEntry);
+						} else {
+							// TODO@softwarenerd - Get 1000 from settings.
+							setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
+								[inputHistoryEntry], 1000
+							));
+						}
+					}
+
+					// Reset the model for the next input.
+					setCurrentCodeFragment(undefined);
+					refCodeEditorWidget.current.setValue('');
+				}
+
+				// Eat the event.
+				eatEvent();
+				break;
+			}
 		}
 	}, []);
 
@@ -191,13 +250,16 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 		const disposableStore = new DisposableStore();
 
 		// Build the history entries, if there is input history.
-		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
+		const inputHistoryEntries = positronConsoleContext.
+			executionHistoryService.
+			getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
 		if (inputHistoryEntries.length) {
 			console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
 			inputHistoryEntries.forEach((inputHistoryEntry, index) => {
 				console.log(`    Entry: ${index} Code: ${inputHistoryEntry.input}`);
 			});
-			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000)); // TODO@softwarenerd - get 1000 from settings.
+			// TODO@softwarenerd - Get 1000 from settings.
+			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000));
 		}
 
 		// Create the resource URI.
@@ -207,7 +269,9 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 		});
 
 		// Create language selection.
-		const languageSelection = positronConsoleContext.languageService.createById(props.positronConsoleInstance.runtime.metadata.languageId);
+		const languageSelection = positronConsoleContext.
+			languageService.
+			createById(props.positronConsoleInstance.runtime.metadata.languageId);
 
 		// Create text model; this is the backing store for the Monaco editor that receives
 		// the user's input.
@@ -264,19 +328,19 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 			},
 			glyphMargin: false,
 			lineDecorationsWidth: 0,
-			// overviewRuleBorder: false,		// Not part of IEditorOptions. Don't know what to do.
-			// enableDropIntoEditor: false,		// Not part of IEditorOptions. Don't know what to do.
+			// overviewRuleBorder: false,		// Not part of IEditorOptions.
+			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
 			renderLineHighlight: 'none',
 			wordWrap: 'bounded',
-			// renderOverviewRuler: false,		// Not part of IEditorOptions. Don't know what to do.
+			// renderOverviewRuler: false,		// Not part of IEditorOptions.
 			scrollbar: {
 				vertical: 'hidden',
 				useShadows: false
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			// handleMouseWheel: false,			// Not part of IEditorOptions. Don't know what to do.
-			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions. Don't know what to do.
+			// handleMouseWheel: false,			// Not part of IEditorOptions.
+			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
 			lineNumbersMinChars: 3,
 		};
 		codeEditorWidget.updateOptions(editorOptions);
@@ -284,7 +348,10 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 		// Auto-grow the editor as the internal content size changes (i.e. make
 		// it grow vertically as the user enters additional lines of input)
 		codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
-			codeEditorWidget.layout({ width: refCodeEditorWidth.current, height: codeEditorWidget.getContentHeight() });
+			codeEditorWidget.layout({
+				width: refCodeEditorWidth.current,
+				height: codeEditorWidget.getContentHeight()
+			});
 		});
 
 		// Forward mouse wheel events. We do this because it is not currently
@@ -325,7 +392,10 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 	useEffect(() => {
 		if (refCodeEditorWidget.current) {
 			setCodeEditorWidth(props.width);
-			refCodeEditorWidget.current.layout({ width: props.width, height: refCodeEditorWidget.current.getContentHeight() });
+			refCodeEditorWidget.current.layout({
+				width: props.width,
+				height: refCodeEditorWidget.current.getContentHeight()
+			});
 		}
 	}, [props.width]);
 
