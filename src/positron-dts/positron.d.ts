@@ -402,8 +402,13 @@ declare module 'positron' {
 		 * Create a new instance of a client; return null if the client type
 		 * is not supported by this runtime, or a string containing the ID of
 		 * the client if it is supported.
+		 *
+		 * @param id The unique, client-supplied ID of the client instance. Can be any
+		 *   unique string.
+		 * @param type The type of client to create
+		 * @param params A set of parameters to pass to the client; specific to the client type
 		 */
-		createClient(type: RuntimeClientType, params: any): Thenable<string>;
+		createClient(id: string, type: RuntimeClientType, params: any): Thenable<void>;
 
 		/** Remove an instance of a client (created with `createClient`) */
 		removeClient(id: string): void;
