@@ -32,8 +32,12 @@ export class ActivityItemOutputMessage {
 		readonly when: Date,
 		readonly data: Record<string, string>
 	) {
-		// Process the data directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(data['text/plain']);
+		// Get the output.
+		const output = data['text/plain'];
+
+		// If the output is empty, don't render any output lines; otherwise, process the output into
+		// output lines.
+		this.outputLines = !output ? [] : ANSIOutput.processOutput(output);
 	}
 
 	//#endregion Constructor
