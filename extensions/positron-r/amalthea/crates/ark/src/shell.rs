@@ -49,7 +49,6 @@ pub struct Shell {
     shell_request_tx: Sender<Request>,
     kernel_init_rx: BusReader<KernelInfo>,
     kernel_info: Option<KernelInfo>,
-    r_events_rx: Receiver<REvent>
 }
 
 #[derive(Debug)]
@@ -65,19 +64,16 @@ impl Shell {
         shell_request_rx: Receiver<Request>,
         kernel_init_tx: Bus<KernelInfo>,
         kernel_init_rx: BusReader<KernelInfo>,
-        r_events_tx: Sender<REvent>,
-        r_events_rx: Receiver<REvent>
     ) -> Self {
         let iopub_tx = iopub_tx.clone();
         std::thread::spawn(move || {
-            Self::execution_thread(iopub_tx, kernel_init_tx, shell_request_rx, r_events_tx);
+            Self::execution_thread(iopub_tx, kernel_init_tx, shell_request_rx);
         });
 
         Self {
             shell_request_tx,
             kernel_init_rx,
             kernel_info: None,
-            r_events_rx
         }
     }
 
@@ -86,10 +82,9 @@ impl Shell {
         iopub_tx: Sender<IOPubMessage>,
         kernel_init_tx: Bus<KernelInfo>,
         shell_request_rx: Receiver<Request>,
-        r_events_tx: Sender<REvent>
     ) {
         // Start kernel (does not return)
-        crate::interface::start_r(iopub_tx, kernel_init_tx, shell_request_rx, r_events_tx);
+        crate::interface::start_r(iopub_tx, kernel_init_tx, shell_request_rx);
     }
 
     /// Returns a sender channel for the R execution thread; used outside the
@@ -236,7 +231,7 @@ impl ShellHandler for Shell {
             Comm::Environment => {
                 r_lock! {
                     let global_env = RObject::view(R_GlobalEnv);
-                    let env: REnvironment = REnvironment::new(global_env, msg_tx.clone(), self.r_events_rx.clone());
+                    let env: REnvironment = REnvironment::new(global_env, msg_tx.clone());
                     Ok(Some(env.channel_msg_tx))
                 }
             },
