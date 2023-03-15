@@ -47,6 +47,7 @@ const HelpLines = [
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'def X       - Defines X variables',
 	'def X Y     - Defines X variables of type Y',
+	'env clear   - Clears all variables from the environment',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
 	'offline     - Simulates going offline for two seconds',
@@ -597,6 +598,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x00, 0x83)}${TEN_SPACES}${makeSGR()} Indigo Background\n` +
 					`${makeSGR(SGR.SetBackground, 2, 0x30, 0x00, 0x9b)}${TEN_SPACES}${makeSGR()} Violet Background\n`
 				);
+				break;
+			}
+
+			case 'env clear': {
+				// Clear each environment in turn
+				for (const env of this._environments.values()) {
+					env.clearAllVars();
+				}
+				this.simulateSuccessfulCodeExecution(id, code, 'Environment cleared.');
 				break;
 			}
 

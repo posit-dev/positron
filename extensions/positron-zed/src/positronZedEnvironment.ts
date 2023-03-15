@@ -79,7 +79,7 @@ export class ZedEnvironment {
 		const kindToUse = kind || 'string';
 
 		// Get the starting index for the new variables
-		const start = this._vars.size;
+		const start = this._vars.size + 1;
 
 		// Ensure we don't collide with existing variables
 		for (let i = 0; i < count; i++) {
@@ -101,6 +101,17 @@ export class ZedEnvironment {
 		}
 
 		// Emit the new variables to the front end
+		this.emitFullList();
+	}
+
+	/**
+	 * Clears all variables from the environment
+	 */
+	public clearAllVars() {
+		// Clear the variables
+		this._vars.clear();
+
+		// Refresh the client view
 		this.emitFullList();
 	}
 
