@@ -356,7 +356,7 @@ export class ANSIOutput {
 				this.processCUF();
 				break;
 
-			// CUB (Cursor Back).
+			// CUB (Cursor Backward).
 			case 'D':
 				this.processCUB();
 				break;
@@ -393,7 +393,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an CUU (Cursor Up) control sequence.
+	 * Processes a CUU (Cursor Up) control sequence.
 	 */
 	private processCUU() {
 		// Match the control sequence.
@@ -407,7 +407,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an CUD (Cursor Down) control sequence.
+	 * Processes a CUD (Cursor Down) control sequence.
 	 */
 	private processCUD() {
 		// Match the control sequence.
@@ -421,7 +421,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an CUF (Cursor Forward) control sequence.
+	 * Processes a CUF (Cursor Forward) control sequence.
 	 */
 	private processCUF() {
 		// Match the control sequence.
@@ -435,7 +435,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an CUB control sequence.
+	 * Processes a CUB (Cursor Backward) control sequence.
 	 */
 	private processCUB() {
 		// Match the control sequence.
@@ -449,7 +449,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an CUP control sequence.
+	 * Processes a CUP (Cursor Position) control sequence.
 	 */
 	private processCUP() {
 		// Match the control sequence.
@@ -464,7 +464,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an ED control sequence.
+	 * Processes an ED (Erase in Display) control sequence.
 	 */
 	private processED() {
 		// Match the control sequence.
@@ -501,7 +501,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an EL control sequence.
+	 * Processes an EL (Erase in Line) control sequence.
 	 */
 	private processEL() {
 		// Match the control sequence.
@@ -533,7 +533,7 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Processes an SGR control sequence.
+	 * Processes an SGR (Select Graphic Rendition) control sequence.
 	 */
 	private processSGR() {
 		// Create the working SGR state.
