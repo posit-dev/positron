@@ -679,7 +679,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Removes an instance of a client.
 	 */
 	removeClient(id: string): void {
-		throw new Error('Method not implemented.');
+		// Right now, the only client instances are environments.
+		if (this._environments.has(id)) {
+			this._environments.delete(id);
+		} else {
+			throw new Error(`Can't remove client; unknown client id ${id}`);
+		}
 	}
 
 	/**
