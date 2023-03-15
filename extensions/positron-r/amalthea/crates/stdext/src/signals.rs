@@ -12,7 +12,7 @@ static ID: AtomicI32 = AtomicI32::new(0);
 
 #[derive(Default)]
 pub struct Signal<T> {
-    listeners: HashMap<i32, Box<dyn Fn(&T) + Send + Sync>>,
+    listeners: HashMap<i32, Box<dyn Fn(&T) + Send>>,
 }
 
 impl<T> Signal<T> {
@@ -24,7 +24,7 @@ impl<T> Signal<T> {
         }
     }
 
-    pub fn listen(&mut self, callback: impl Fn(&T) + Send + Sync + 'static) -> i32 {
+    pub fn listen(&mut self, callback: impl Fn(&T) + Send + 'static) -> i32 {
         let id = ID.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.listeners.insert(id, Box::new(callback));
         return id;

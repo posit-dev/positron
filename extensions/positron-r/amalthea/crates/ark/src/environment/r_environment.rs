@@ -7,7 +7,6 @@
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
-use crossbeam::channel::Select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
@@ -60,11 +59,6 @@ impl REnvironment {
             }
         };
 
-        // Register a handler for console prompt events
-        SIGNALS.lock().console_prompt.listen(|_| {
-            log::info!("Got console prompt signal.");
-        });
-
         // Start the execution thread and wait for requests from the front end
         thread::spawn(move || Self::execution_thread(env, channel_msg_rx, frontend_msg_sender));
 
@@ -76,6 +70,16 @@ impl REnvironment {
         channel_message_rx: Receiver<CommChannelMsg>,
         frontend_msg_sender: Sender<CommChannelMsg>,
     ) {
+        // Register a handler for console prompt events
+        SIGNALS.lock().console_prompt.listen({
+            let frontend_msg_tx = frontend_msg_sender.clone();
+            let env = RObject::view(env.sexp);
+            move |_| {
+                log::info!("Got console prompt signal.");
+                Self::refresh(&env, frontend_msg_tx.clone());
+            }
+        });
+
         // Perform the initial environment scan and deliver to the front end
         Self::refresh(&env, frontend_msg_sender.clone());
 
@@ -86,15 +90,7 @@ impl REnvironment {
         // Main message processing loop; we wait here for messages from the
         // front end and loop as long as the channel is open
         loop {
-            let mut sel = Select::new();
-
-            // Listen to the comm
-            sel.recv(&channel_message_rx);
-
-            // Wait until a message is received (blocking call)
-            let oper = sel.select();
-
-            let msg = match oper.recv(&channel_message_rx) {
+            let msg = match channel_message_rx.recv() {
                 Ok(msg) => msg,
                 Err(e) => {
                     // We failed to receive a message from the front end. This
