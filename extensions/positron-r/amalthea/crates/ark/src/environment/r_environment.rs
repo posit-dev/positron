@@ -15,9 +15,7 @@ use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
 use harp::utils::r_assert_type;
-use libR_sys::R_lsInternal;
-use libR_sys::Rf_findVarInFrame;
-use libR_sys::ENVSXP;
+use libR_sys::*;
 use log::debug;
 use log::error;
 use log::warn;
@@ -27,6 +25,13 @@ use crate::environment::message::EnvironmentMessageError;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::variable::EnvironmentVariable;
 use crate::lsp::signals::SIGNALS;
+
+struct Binding {
+    name: SEXP,
+    binding: SEXP
+}
+
+unsafe impl Send for Binding {}
 
 /**
  * The R Environment handler provides the server side of Positron's Environment
@@ -39,6 +44,8 @@ pub struct REnvironment {
     pub frontend_msg_sender: Sender<CommChannelMsg>,
 
     pub env: RObject,
+
+    current_bindings: Vec<Binding>
 
     // TODO:
     // - a version count
@@ -68,7 +75,8 @@ impl REnvironment {
         let environment = Self {
             channel_msg_rx,
             frontend_msg_sender,
-            env
+            env,
+            current_bindings: vec![]
         };
 
         // Start the execution thread and wait for requests from the front end
@@ -78,7 +86,7 @@ impl REnvironment {
     }
 
     pub fn execution_thread(
-        self
+        mut self
     ) {
         let (prompt_signal_tx, prompt_signal_rx) = unbounded::<()>();
 
@@ -191,7 +199,9 @@ impl REnvironment {
     /**
      * Perform a full environment scan and deliver the results to the front end.
      */
-    fn refresh(&self) {
+    fn refresh(&mut self) {
+        self.current_bindings = self.bindings();
+
         let env_list = list_environment(&self.env);
         let data = serde_json::to_value(env_list);
         match data {
@@ -204,8 +214,53 @@ impl REnvironment {
         }
     }
 
-    fn update(&self) {
+    fn update(&mut self) {
+
         self.refresh();
+    }
+
+    fn bindings(&self) -> Vec<Binding> {
+        unsafe {
+            let mut bindings : Vec<Binding> = vec![];
+
+            // 1: traverse the envinronment
+            let env = *self.env;
+            let hash  = HASHTAB(env);
+            if hash == R_NilValue {
+                Self::frame_bindings(FRAME(hash), &mut bindings);
+            } else {
+                let n = XLENGTH(hash);
+                for i in 0..n {
+                    Self::frame_bindings(VECTOR_ELT(hash, i), &mut bindings);
+                }
+            }
+
+            // 2: sort by .name
+
+            bindings.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
+            bindings
+        }
+    }
+
+    unsafe fn frame_bindings(mut frame: SEXP, bindings: &mut Vec<Binding> ) {
+        while frame != R_NilValue {
+
+            bindings.push(Binding{
+                name: TAG(frame),
+
+                // TODO: handle active bindings and promises ?
+                binding: CAR(frame)
+            });
+
+            frame = CDR(frame);
+        }
+    }
+
+    fn has_changed(&mut self) -> bool {
+        let new_bindings = self.bindings();
+        let old_bindings = &self.current_bindings;
+
+
     }
 
 }
