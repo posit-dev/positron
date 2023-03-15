@@ -757,6 +757,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				const dashes = '-'.repeat(100 - progress);
 				this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stderr, `${makeCUP(1, 1)}${makeEL('entire-line')}[${bars}${dashes}] ${progress}%`);
 
+				if (progress === 50) {
+					this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stdout, 'HALF WAY!!');
+				}
+
 				// When the progress bar reaches 100%, clear the interval.
 				if (progress === 100) {
 					clearInterval(interval);
