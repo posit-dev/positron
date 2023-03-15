@@ -124,8 +124,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Attempt to reconnect. If successful we'll set the new state during the reconnect
 			// process. If not, move the status back to Uninitialized.
 			this.reconnect(sessionState).catch((err) => {
-				this.setStatus(positron.RuntimeState.Uninitialized);
 				this.log(`Failed to reconnect to running kernel: ${err}`);
+
+				// Return to the Uninitialized state so that a fresh instance can be started
+				this.setStatus(positron.RuntimeState.Uninitialized);
+
+				// Since we could not connect to the preserved state, remove it.
+				this.log(`Removing stale session state for process ${sessionState.processId}`);
+				this._context.workspaceState.update(this._runtimeId, undefined);
 			});
 		}
 
@@ -187,11 +193,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						}
 					).catch((err) => {
 						// If we failed to connect, then we need to remove the stale session state
-						this.log(
-							`Failed to connect to kernel with PID ${pid}. ` +
-							`Error: ${err} ` +
-							`Removing stale session state.`);
-						this._context.workspaceState.update(this._runtimeId, undefined);
+						this.log(`Failed to connect to kernel with PID ${pid}.`);
 
 						// Reject the promise
 						reject(err);
@@ -200,11 +202,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			});
 		} else {
 			// The kernel process is no longer running, so we need to remove the stale session state
-			this.log(
-				`Kernel process ${pid} no longer running. ` +
-				`Removing stale session state '${this._runtimeId}' => ${JSON.stringify(sessionState)}`);
-			this._context.workspaceState.update(this._runtimeId, undefined);
-
 			throw new Error(`Kernel process ${pid} no longer running`);
 		}
 	}
