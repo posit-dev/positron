@@ -96,6 +96,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	private readonly _history: string[][] = [];
 
+	/*
+	 * A map of environment IDs to environment instances.
+	 */
+	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -616,7 +621,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param type The runtime client type.
 	 */
 	createClient(type: positron.RuntimeClientType): Promise<string> {
-		return Promise.reject('Method not implemented.');
+		if (type === positron.RuntimeClientType.Environment) {
+			const id = randomUUID();
+			this._environments.set(id, new ZedEnvironment());
+			return Promise.resolve(id);
+		}
+		return Promise.reject(`Unknown client type ${type}`);
 	}
 
 	/**
@@ -631,8 +641,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
-	sendClientMessage(id: string, message: any): void {
-		throw new Error('Method not implemented.');
+	sendClientMessage(id: string, message: object): void {
+		const client = this._environments.get(id);
+		if (client) {
+			client.handleMessage(message);
+		} else {
+			throw new Error(`Can't send message; unknown client id ${id}`);
+		}
 	}
 
 	/**
@@ -902,6 +917,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			message,
 			traceback
 		} as positron.LanguageRuntimeError);
+	}
+
+	private connectEnvironmentEmitter(env: ZedEnvironment) {
+
 	}
 
 	//#endregion Private Methods
