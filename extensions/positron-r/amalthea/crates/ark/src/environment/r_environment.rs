@@ -7,6 +7,7 @@
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
+use crossbeam::channel::Select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
@@ -33,10 +34,11 @@ use crate::lsp::signals::SIGNALS;
  * the R environment.
  */
 pub struct REnvironment {
-    /**
-     * The channel used to send comm messages (data and state changes) to the front end.
-     */
-    pub channel_msg_tx: Sender<CommChannelMsg>,
+    pub channel_msg_rx: Receiver<CommChannelMsg>,
+
+    pub frontend_msg_sender: Sender<CommChannelMsg>,
+
+    pub env: RObject
 }
 
 impl REnvironment {
@@ -46,7 +48,7 @@ impl REnvironment {
      * - `env`: An R environment to scan for variables, typically R_GlobalEnv
      * - `frontend_msg_sender`: A channel used to send messages to the front end
      */
-    pub fn new(env: RObject, frontend_msg_sender: Sender<CommChannelMsg>) -> Self {
+    pub fn new(env: RObject, frontend_msg_sender: Sender<CommChannelMsg>) -> Sender<CommChannelMsg> {
         let (channel_msg_tx, channel_msg_rx) = unbounded::<CommChannelMsg>();
 
         // Validate that the RObject we were passed is actually an environment
@@ -59,29 +61,33 @@ impl REnvironment {
             }
         };
 
-        // Start the execution thread and wait for requests from the front end
-        thread::spawn(move || Self::execution_thread(env, channel_msg_rx, frontend_msg_sender));
+        let environment = Self {
+            channel_msg_rx,
+            frontend_msg_sender,
+            env
+        };
 
-        Self { channel_msg_tx }
+        // Start the execution thread and wait for requests from the front end
+        thread::spawn(move || Self::execution_thread(environment));
+
+        channel_msg_tx
     }
 
     pub fn execution_thread(
-        env: RObject,
-        channel_message_rx: Receiver<CommChannelMsg>,
-        frontend_msg_sender: Sender<CommChannelMsg>,
+        self
     ) {
+        let (prompt_signal_tx, prompt_signal_rx) = unbounded::<()>();
+
         // Register a handler for console prompt events
         let listen_id = SIGNALS.console_prompt.listen({
-            let frontend_msg_tx = frontend_msg_sender.clone();
-            let env = RObject::view(env.sexp);
             move |_| {
                 log::info!("Got console prompt signal.");
-                Self::refresh(&env, frontend_msg_tx.clone());
+                prompt_signal_tx.send(()).unwrap();
             }
         });
 
         // Perform the initial environment scan and deliver to the front end
-        Self::refresh(&env, frontend_msg_sender.clone());
+        self.refresh();
 
         // Flag initially set to false, but set to true if the user closes the
         // channel (i.e. the front end is closed)
@@ -90,7 +96,26 @@ impl REnvironment {
         // Main message processing loop; we wait here for messages from the
         // front end and loop as long as the channel is open
         loop {
-            let msg = match channel_message_rx.recv() {
+            let mut sel = Select::new();
+
+            // Listen to the comm
+            sel.recv(&self.channel_msg_rx);
+
+            // Listen to R events
+            sel.recv(&prompt_signal_rx);
+
+            // Wait until a message is received (blocking call)
+            let oper = sel.select();
+
+            if oper.index() == 1 {
+                if let Ok(()) = oper.recv(&prompt_signal_rx) {
+                    self.update();
+                }
+
+                continue;
+            }
+
+            let msg = match oper.recv(&self.channel_msg_rx) {
                 Ok(msg) => msg,
                 Err(e) => {
                     // We failed to receive a message from the front end. This
@@ -137,7 +162,7 @@ impl REnvironment {
                     // perform a full environment scan and deliver to the
                     // front end
                     EnvironmentMessage::Refresh => {
-                        Self::refresh(&env, frontend_msg_sender.clone());
+                        self.refresh();
                     },
 
                     _ => {
@@ -155,18 +180,18 @@ impl REnvironment {
         if !user_initiated_close {
             // Send a close message to the front end if the front end didn't
             // initiate the close
-            frontend_msg_sender.send(CommChannelMsg::Close).unwrap();
+            self.frontend_msg_sender.send(CommChannelMsg::Close).unwrap();
         }
     }
 
     /**
      * Perform a full environment scan and deliver the results to the front end.
      */
-    fn refresh(env: &RObject, frontend_msg_sender: Sender<CommChannelMsg>) {
-        let env_list = list_environment(&env);
+    fn refresh(&self) {
+        let env_list = list_environment(&self.env);
         let data = serde_json::to_value(env_list);
         match data {
-            Ok(data) => frontend_msg_sender
+            Ok(data) => self.frontend_msg_sender
                 .send(CommChannelMsg::Data(data))
                 .unwrap(),
             Err(err) => {
@@ -174,6 +199,11 @@ impl REnvironment {
             },
         }
     }
+
+    fn update(&self) {
+        self.refresh();
+    }
+
 }
 
 /**

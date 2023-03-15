@@ -49,8 +49,7 @@ fn test_environment_list() {
     // Create a new environment handler and give it a view of the test
     // environment we created.
     let test_env_view = RObject::view(test_env.sexp);
-    let r_env = REnvironment::new(test_env_view, frontend_message_tx.clone());
-    let backend_msg_sender = r_env.channel_msg_tx.clone();
+    let backend_msg_sender = REnvironment::new(test_env_view, frontend_message_tx.clone());
 
     // Ensure we get a list of variables after initialization
     let msg = frontend_message_rx.recv().unwrap();
