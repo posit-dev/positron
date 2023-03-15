@@ -70,7 +70,7 @@ const formatOutputData = (data: Record<string, string>) => {
  * @returns The formatted text.
  */
 const formatOutputStream = (stream: 'stdout' | 'stderr', text: string) => {
-	return `\nStream ${stream}: ${text}`;
+	return `\nStream ${stream}: "${text}"`;
 };
 
 /**
@@ -645,10 +645,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
 		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
+			// Sanitize the trace output.
+			let traceOutput = languageRuntimeMessageStream.text;
+			traceOutput = traceOutput.replaceAll('\n', '[LF]');
+			traceOutput = traceOutput.replaceAll('\r', '[CR]');
+			traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
+			traceOutput = traceOutput.replaceAll('\x1b', 'ESC');
+			traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
+
 			// Add trace item.
 			this.addRuntimeItemTrace(
 				formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
-				formatOutputStream(languageRuntimeMessageStream.name, languageRuntimeMessageStream.text)
+				formatOutputStream(languageRuntimeMessageStream.name, traceOutput)
 			);
 
 			if (languageRuntimeMessageStream.name === 'stdout') {
