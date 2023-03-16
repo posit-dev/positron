@@ -231,7 +231,7 @@ impl ShellHandler for Shell {
             Comm::Environment => {
                 r_lock! {
                     let global_env = RObject::view(R_GlobalEnv);
-                    let channel_msg_tx = REnvironment::new(global_env, msg_tx.clone());
+                    let channel_msg_tx = REnvironment::start(global_env, msg_tx.clone());
                     Ok(Some(channel_msg_tx))
                 }
             },

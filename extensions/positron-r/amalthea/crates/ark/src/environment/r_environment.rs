@@ -63,7 +63,7 @@ impl REnvironment {
      * - `env`: An R environment to scan for variables, typically R_GlobalEnv
      * - `frontend_msg_sender`: A channel used to send messages to the front end
      */
-    pub fn new(env: RObject, frontend_msg_sender: Sender<CommChannelMsg>) -> Sender<CommChannelMsg> {
+    pub fn start(env: RObject, frontend_msg_sender: Sender<CommChannelMsg>) -> Sender<CommChannelMsg> {
         let (channel_msg_tx, channel_msg_rx) = unbounded::<CommChannelMsg>();
 
         // Validate that the RObject we were passed is actually an environment
