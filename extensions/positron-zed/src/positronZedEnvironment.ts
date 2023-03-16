@@ -90,7 +90,9 @@ export class ZedEnvironment {
 		// Get the starting index for the new variables
 		const start = this._vars.size + 1;
 
-		// Ensure we don't collide with existing variables
+		// Begin building the list of new variables to send
+		const added = [];
+
 		for (let i = 0; i < count; i++) {
 			const name = `zed${start + i}`;
 			let value = '';
@@ -104,13 +106,77 @@ export class ZedEnvironment {
 				value = Math.random().toString();
 			} else {
 				// Everything else: use the counter
-				value = `value{start + i}`;
+				value = `value${start + i}`;
 			}
-			this._vars.set(name, new ZedVariable(name, value, kindToUse));
+
+			const newZedVar = new ZedVariable(name, value, kindToUse);
+			added.push(newZedVar);
+
+			this._vars.set(name, newZedVar);
 		}
 
 		// Emit the new variables to the front end
-		this.emitFullList();
+		this.emitUpdate(added);
+	}
+
+	/**
+	 * Updates some number of variables in the environment
+	 *
+	 * @param count The number of variables to update
+	 * @returns The number of variables that were updated
+	 */
+	public updateVars(count: number): number {
+		// We can't update more variables than we have, so clamp the count to
+		// the number of variables in the environment.
+		if (count > this._vars.size) {
+			count = this._vars.size;
+		}
+
+		// Make a list of variables to update; we randomly select variables from
+		// the environment until we have the desired number of variables to
+		// update.
+		const keys = Array.from(this._vars.keys());
+		const randomKeys = [];
+		for (let i = 0; i < count; i++) {
+			const randomIndex = Math.floor(Math.random() * keys.length);
+			randomKeys.push(keys[randomIndex]);
+			keys.splice(randomIndex, 1);
+		}
+
+		// Update the variables
+		const updated = [];
+		for (const key of randomKeys) {
+			const oldVar = this._vars.get(key)!;
+			let value = '';
+			// Create a random value for the variable
+			if (oldVar.kind === 'string') {
+				// Strings: replace 5 random characters with a hexadecimal digit
+				const chars = oldVar.value.split('');
+				for (let i = 0; i < 5; i++) {
+					const randomIndex = Math.floor(Math.random() * chars.length);
+					chars[randomIndex] = Math.floor(Math.random() * 16).toString(16);
+				}
+				value = chars.join('');
+			} else if (oldVar.kind === 'number') {
+				// Numbers: just use a new random number
+				value = Math.random().toString();
+			} else {
+				// Everything else: reverse the value
+				value = oldVar.value.split('').reverse().join('');
+			}
+
+			// Save the new variable's value
+			const newVar = new ZedVariable(oldVar.name, value, oldVar.kind);
+			this._vars.set(key, newVar);
+
+			// Add the variable to the list of updated variables
+			updated.push(newVar);
+		}
+
+		// Emit the updated variables to the front end
+		this.emitUpdate(updated);
+
+		return count;
 	}
 
 	/**
@@ -135,6 +201,14 @@ export class ZedEnvironment {
 		this._onDidEmitData.fire({
 			msg_type: 'list',
 			variables: vars
+		});
+	}
+
+	private emitUpdate(assigned?: Array<ZedVariable>, removed?: Array<string>) {
+		this._onDidEmitData.fire({
+			msg_type: 'update',
+			assigned: assigned || [],
+			removed: removed || []
 		});
 	}
 }

@@ -53,6 +53,7 @@ const HelpLines = [
 	'offline     - Simulates going offline for two seconds',
 	'progress    - Renders a progress bar',
 	'shutdown    - Simulates orderly shutdown',
+	'update X    - Updates X variables',
 	'version     - Shows the Zed version'
 ].join('\n');
 
@@ -219,7 +220,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					'No Environments',
 					'No environments are available to define variables in.', []);
 			}
+		} else if (match = code.match(/^update ([1-9]{1}[\d]*)/)) {
+			let count = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					count = environment.updateVars(count);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Updated the values of ${count} variables.`);
 		}
+
 
 		// Process the "code".
 		switch (code) {
