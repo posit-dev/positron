@@ -17,6 +17,7 @@ import { ActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/com
 import { EnvironmentList } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentList';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
+import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 /**
  * PositronEnvironmentProps interface.
@@ -29,6 +30,7 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
+	readonly positronEnvironmentService: IPositronEnvironmentService;
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 

@@ -15,8 +15,8 @@ export const IPositronEnvironmentService = createDecorator<IPositronEnvironmentS
 export const enum PositronEnvironmentState {
 	Uninitialized = 'Uninitialized',
 	Starting = 'Starting',
-	Ready = 'Ready',
 	Busy = 'Busy',
+	Ready = 'Ready',
 	Offline = 'Offline',
 	Exiting = 'Exiting',
 	Exited = 'Exited'

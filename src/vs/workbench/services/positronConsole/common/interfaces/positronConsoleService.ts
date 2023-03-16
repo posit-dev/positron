@@ -16,8 +16,8 @@ export const IPositronConsoleService = createDecorator<IPositronConsoleService>(
 export const enum PositronConsoleState {
 	Uninitialized = 'Uninitialized',
 	Starting = 'Starting',
-	Ready = 'Ready',
 	Busy = 'Busy',
+	Ready = 'Ready',
 	Offline = 'Offline',
 	Exiting = 'Exiting',
 	Exited = 'Exited'
