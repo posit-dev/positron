@@ -69,6 +69,11 @@ export class ZedEnvironment {
 			case 'refresh':
 				this.emitFullList();
 				break;
+
+			// A request to clear the environment
+			case 'clear':
+				this.clearAllVars();
+				break;
 		}
 	}
 

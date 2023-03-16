@@ -274,10 +274,8 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	/**
 	 * Clears the environment.
 	 */
-	clearEnvironment(includeHiddenObjects: boolean) {
-		this.environmentDataEntries.clear();
-		this.environmentValueEntries.clear();
-		this.onDidChangeListItemsEmitter.fire();
+	clearEnvironment(_includeHiddenObjects: boolean) {
+		this._client?.sendMessage({ msg_type: EnvironmentClientMessageType.Clear });
 	}
 
 	/**
