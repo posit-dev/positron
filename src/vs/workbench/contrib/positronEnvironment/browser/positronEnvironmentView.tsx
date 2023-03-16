@@ -90,7 +90,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
-	 * @param commandService The ICommandService.
+	 * @param _commandService The ICommandService.
 	 * @param configurationService The IConfigurationService.
 	 * @param contextKeyService The IContextKeyService.
 	 * @param contextMenuService The IContextMenuService.
@@ -104,25 +104,39 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@ICommandService private readonly commandService: ICommandService,
+		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
-		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IOpenerService openerService: IOpenerService,
-		@IPositronEnvironmentService positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService
 	) {
 		// Call the base class's constructor.
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+		super(
+			options,
+			keybindingService,
+			contextMenuService,
+			configurationService,
+			contextKeyService,
+			viewDescriptorService,
+			instantiationService,
+			openerService,
+			themeService,
+			telemetryService);
 
 		// Register event handlers.
-		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChangedEmitter.fire(this.isBodyVisible())));
+		this._register(
+			this.onDidChangeBodyVisibility(() =>
+				this._onVisibilityChangedEmitter.fire(this.isBodyVisible())
+			)
+		);
 	}
 
 	/**
@@ -159,13 +173,14 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronReactRenderer = new PositronReactRenderer(this._positronEnvironmentContainer);
 		this._positronReactRenderer.render(
 			<PositronEnvironment
-				commandService={this.commandService}
+				commandService={this._commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
-				languageRuntimeService={this.languageRuntimeService}
-				layoutService={this.layoutService}
+				languageRuntimeService={this._languageRuntimeService}
+				layoutService={this._layoutService}
+				positronEnvironmentService={this._positronEnvironmentService}
 				reactComponentContainer={this}
 			/>
 		);

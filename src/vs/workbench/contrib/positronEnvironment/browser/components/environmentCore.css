@@ -1,0 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-environment .environment-core {
+	cursor: text;
+}
+
+.positron-environment .environment-core .environment-instances-container {
+	overflow-y: scroll;
+}
+
+.positron-environment .environment-core .environment-instances-container:focus {
+	outline: none !important;
+}
