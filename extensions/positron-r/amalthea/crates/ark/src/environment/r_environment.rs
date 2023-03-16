@@ -256,13 +256,6 @@ impl REnvironment {
         }
     }
 
-    fn has_changed(&mut self) -> bool {
-        let _new_bindings = self.bindings();
-        let _old_bindings = &self.current_bindings;
-
-        false
-    }
-
 }
 
 /**
