@@ -411,8 +411,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this.attachRuntime(starting);
 	}
 
+	/**
+	 * Disposes of the PositronConsoleInstance.
+	 */
 	override dispose(): void {
+		// Call Disposable's dispose.
 		super.dispose();
+
+		// Dispose of the runtime event handlers.
 		this._runtimeEventHandlersDisposableStore.dispose();
 	}
 
@@ -421,7 +427,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	//#region IPositronConsoleInstance Implementation
 
 	/**
-	 * Gets the state.
+	 * Gets the runtime.
 	 */
 	get runtime(): ILanguageRuntime {
 		return this._runtime;
@@ -737,15 +743,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				case RuntimeOnlineState.Busy: {
 					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
 						this.setState(PositronConsoleState.Busy);
-						break;
 					}
+					break;
 				}
 
 				case RuntimeOnlineState.Idle: {
 					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
 						this.setState(PositronConsoleState.Ready);
-						break;
 					}
+					break;
 				}
 			}
 		}));

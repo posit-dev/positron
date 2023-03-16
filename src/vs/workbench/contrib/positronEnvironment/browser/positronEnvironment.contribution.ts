@@ -7,22 +7,18 @@ import { Codicon } from 'vs/base/common/codicons';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
 import { Registry } from 'vs/platform/registry/common/platform';
+import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { EnvironmentRefreshAction } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActions';
 import { PositronEnvironmentViewPane } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentView';
-import { PositronEnvironmentService } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentService';
-import { IPositronEnvironmentService, POSITRON_ENVIRONMENT_VIEW_ID } from 'vs/workbench/services/positronEnvironment/common/positronEnvironment';
+import { POSITRON_ENVIRONMENT_VIEW_ID } from 'vs/workbench/services/positronEnvironment/common/positronEnvironmentService';
+import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
-import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { EnvironmentRefreshAction } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActions';
-
-// Register the Positron environment service.
-registerSingleton(IPositronEnvironmentService, PositronEnvironmentService, InstantiationType.Delayed);
 
 // The Positron environment view icon.
 const positronEnvironmentViewIcon = registerIcon('positron-environment-view-icon', Codicon.positronEnvironmentView, nls.localize('positronEnvironmentViewIcon', 'View icon of the Positron environment view.'));
