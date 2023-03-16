@@ -65,15 +65,6 @@ export const usePositronEnvironmentState = (services: PositronEnvironmentService
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Logging.
-	// console.log('------------------------------------------------');
-	// console.log('The current set of language runtime descriptors:');
-	// for (let i = 0; i < languageEnvironments.length; i++) {
-	// 	const languageEnvironment = languageEnvironments[i];
-	// 	console.log(`Language ${languageEnvironment.identifier} ${languageEnvironment.displayName}`);
-	// }
-	// console.log('------------------------------------------------');
-
 	// Return the Positron environment state.
 	return {
 		...services,
