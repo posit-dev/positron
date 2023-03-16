@@ -10,11 +10,22 @@ import { randomUUID } from 'crypto';
  * ZedVar is a simple Zed variable.
  */
 class ZedVariable {
+	// Zed variables do not currently support truncation.
+	public readonly truncated: boolean = false;
+	public readonly type_name;
+
 	constructor(
 		readonly name: string,
 		readonly value: string,
-		readonly kind: string
-	) { }
+		readonly kind: string,
+		readonly length: number,
+		readonly size: number,
+	) {
+		// The type name is the language-specific name for the variable's type.
+		// In Zed, the variable classes are named things like ZedNUMBER,
+		// ZedSTRING, etc.
+		this.type_name = `Zed${kind.toUpperCase()}}`;
+	}
 }
 
 /**
@@ -41,12 +52,16 @@ export class ZedEnvironment {
 	constructor(readonly id: string,
 		private readonly zedVersion: string) {
 		// Create a few variables to start with
-		this._vars.set('z', new ZedVariable('z', 'zed1', 'string'));
-		this._vars.set('e', new ZedVariable('e', 'zed2', 'string'));
-		this._vars.set('d', new ZedVariable('d', 'zed3', 'string'));
+		this._vars.set('z', new ZedVariable('z', 'zed1', 'string', 4, 4));
+		this._vars.set('e', new ZedVariable('e', 'zed2', 'string', 4, 4));
+		this._vars.set('d', new ZedVariable('d', 'zed3', 'string', 4, 4));
 
 		// Create a Zed Version variable
-		this._vars.set('ZED_VERSION', new ZedVariable('ZED_VERSION', this.zedVersion, 'string'));
+		this._vars.set('ZED_VERSION', new ZedVariable('ZED_VERSION',
+			this.zedVersion,
+			'string',
+			this.zedVersion.length,
+			this.zedVersion.length));
 
 		setTimeout(() => {
 			// List the environment on the first tick after startup. There's no
@@ -108,8 +123,7 @@ export class ZedEnvironment {
 				// Everything else: use the counter
 				value = `value${start + i}`;
 			}
-
-			const newZedVar = new ZedVariable(name, value, kindToUse);
+			const newZedVar = new ZedVariable(name, value, kindToUse, value.length, value.length * 2);
 			added.push(newZedVar);
 
 			this._vars.set(name, newZedVar);
@@ -155,8 +169,12 @@ export class ZedEnvironment {
 				value = oldVar.value.split('').reverse().join('');
 			}
 
+			// For some reason the size increases by 1 byte when we update the
+			// value. I don't make the rules.
+			const size = oldVar.size + 1;
+
 			// Save the new variable's value
-			const newVar = new ZedVariable(oldVar.name, value, oldVar.kind);
+			const newVar = new ZedVariable(oldVar.name, value, oldVar.kind, value.length, size);
 			this._vars.set(key, newVar);
 
 			// Add the variable to the list of updated variables
