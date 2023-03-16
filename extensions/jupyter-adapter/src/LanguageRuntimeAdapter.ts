@@ -39,6 +39,7 @@ export class LanguageRuntimeAdapter
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	readonly metadata: positron.LanguageRuntimeMetadata;
+	private static _clientCounter = 0;
 
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
 	private readonly _pendingRpcs: Map<string, JupyterRpc<any, any>> = new Map();
@@ -250,24 +251,27 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Creates a new client instance.
 	 *
+	 * @param id The client-supplied ID of the client to create
 	 * @param type The type of client to create
 	 * @param params The parameters for the client; the format of this object is
 	 *   specific to the client type
-	 * @returns A new client instance, or empty string if the type is not supported
 	 */
-	public async createClient(type: positron.RuntimeClientType, params: object): Promise<string> {
+	public async createClient(id: string,
+		type: positron.RuntimeClientType,
+		params: object) {
+
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp) {
 			// Currently the only supported client type
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
 			// Create a new client adapter to wrap the comm channel
-			const adapter = new RuntimeClientAdapter(type, params, this._kernel);
+			const adapter = new RuntimeClientAdapter(id, type, params, this._kernel);
 
 			// Add the client to the map. Note that we have to do this before opening
 			// the instance, because we may need to process messages from the client
 			// before the open call completes due to message ordering.
-			this._comms.set(adapter.getId(), adapter);
+			this._comms.set(id, adapter);
 
 			// Ensure we clean up the client from our internal state when it disconnects
 			adapter.onDidChangeClientState((e) => {
@@ -280,13 +284,9 @@ export class LanguageRuntimeAdapter
 
 			// Open the client (this will send the comm_open message; wait for it to complete)
 			await adapter.open();
-
-			// Return the ID of the new client
-			return adapter.getId();
 		} else {
 			this._kernel.log(`Info: can't create ${type} client for ${this.metadata.languageName} (not supported)`);
 		}
-		return '';
 	}
 
 	/**
@@ -652,15 +652,21 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
 	 */
-	public startLsp(clientAddress: string) {
+	private startLsp(clientAddress: string) {
 		// TODO: Should we query the kernel to see if it can create an LSP
 		// (QueryInterface style) instead of just demanding it?
 		//
 		// The Jupyter kernel spec does not provide a way to query for
 		// supported comms; the only way to know is to try to create one.
 
-		this._kernel.log(`Starting LSP server for ${clientAddress}`);
-		this.createClient(positron.RuntimeClientType.Lsp, { client_address: clientAddress });
+		// Create a unique client ID for this instance
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
+
+		this.createClient(clientId,
+			positron.RuntimeClientType.Lsp,
+			{ client_address: clientAddress });
 	}
 
 	/**
