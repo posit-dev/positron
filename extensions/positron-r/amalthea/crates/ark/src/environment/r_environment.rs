@@ -35,7 +35,7 @@ struct Binding {
     binding: SEXP
 }
 
-unsafe impl Send for Binding {}
+// unsafe impl Send for Binding {}
 
 /**
  * The R Environment handler provides the server side of Positron's Environment
@@ -53,7 +53,6 @@ pub struct REnvironment {
 
     // TODO:
     // - a version count
-    // - some data to maintain state, e.g. a Map<string, SEXP>
 }
 
 impl REnvironment {
@@ -76,15 +75,16 @@ impl REnvironment {
             }
         };
 
-        let environment = Self {
-            channel_msg_rx,
-            frontend_msg_sender,
-            env,
-            current_bindings: vec![]
-        };
-
         // Start the execution thread and wait for requests from the front end
-        thread::spawn(move || Self::execution_thread(environment));
+        thread::spawn(move || {
+            let environment = Self {
+                channel_msg_rx,
+                frontend_msg_sender,
+                env,
+                current_bindings: vec![]
+            };
+            environment.execution_thread();
+        });
 
         channel_msg_tx
     }
