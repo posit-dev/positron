@@ -63,4 +63,14 @@ export interface IPositronEnvironmentInstance {
 	 * Gets the runtime for the Positron environment instance.
 	 */
 	readonly runtime: ILanguageRuntime;
+
+	/**
+	 * Gets the state.
+	 */
+	readonly state: PositronEnvironmentState;
+
+	/**
+	 * The onDidChangeState event.
+	 */
+	readonly onDidChangeState: Event<PositronEnvironmentState>;
 }
