@@ -131,11 +131,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	private environmentDataEntries = new Map<string, EnvironmentValueEntry>();
 
 	/**
-	 * An instance counter; used to generate unique identifiers for the environment client
-	 */
-	private static instanceCounter = 0;
-
-	/**
 	 * The environment value entries in the environment store.
 	 */
 	private environmentValueEntries = new Map<string, EnvironmentValueEntry>();
@@ -211,8 +206,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		super();
 
 		this._runtime.createClient<IEnvironmentClientMessage>(
-			// Generate a unique ID for the client.
-			`env-${this._runtime.metadata.languageId}-${LanguageEnvironment.instanceCounter++}`,
 			RuntimeClientType.Environment, {}).then(client => {
 				this.connectClient(client as IEnvironmentClientInstance);
 			});

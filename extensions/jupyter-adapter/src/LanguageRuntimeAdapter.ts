@@ -660,7 +660,8 @@ export class LanguageRuntimeAdapter
 		// supported comms; the only way to know is to try to create one.
 
 		// Create a unique client ID for this instance
-		const clientId = `lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}`;
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
 		this.createClient(clientId,

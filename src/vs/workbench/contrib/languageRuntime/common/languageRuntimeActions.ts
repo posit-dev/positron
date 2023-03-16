@@ -208,7 +208,7 @@ export function registerLanguageRuntimeActions() {
 
 		// If the user selected a runtime client type, create the client for it.
 		if (selection) {
-			languageRuntime.createClient(generateUuid(), selection.runtimeClientType, null);
+			languageRuntime.createClient(selection.runtimeClientType, null);
 		}
 	});
 

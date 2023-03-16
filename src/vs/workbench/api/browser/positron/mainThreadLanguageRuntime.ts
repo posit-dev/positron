@@ -131,7 +131,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/** Create a new client inside the runtime */
-	createClient<T>(id: string, type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance<T>> {
+	createClient<T>(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance<T>> {
+		// Create an ID for the client.
+		const id = this.generateClientId(this.metadata.languageId, type);
+
 		// Create the new instance and add it to the map.
 		const client = new ExtHostRuntimeClientInstance<T>(id, type, this.handle, this._proxy);
 		this._clients.set(id, client);
@@ -185,6 +188,29 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			});
 		});
 	}
+
+	/**
+	 * Generates a client ID for a language runtime client instance.
+	 *
+	 * @param languageId The ID of the language that the client is associated with, such as "python"
+	 * @param clientType The type of client for which to generate an ID
+	 * @returns A unique ID for the client, such as "positron-environment-python-1-f2ef6a9a"
+	 */
+	private generateClientId(languageId: string, clientType: RuntimeClientType): string {
+		// Generate a random 8-character hexadecimal string to serve as this client's ID
+		const randomId = Math.floor(Math.random() * 0x100000000).toString(16);
+
+		// Generate a unique auto-incrementing ID for this client
+		const nextId = ExtHostLanguageRuntimeAdapter.clientCounter++;
+
+		// Replace periods in the language ID with hyphens, so that the generated ID contains only
+		// alphanumeric characters and hyphens
+		const client = clientType.replace(/\./g, '-');
+
+		// Return the generated client ID
+		return `${client}-${languageId}-${nextId}-${randomId}`;
+	}
+	static clientCounter = 0;
 }
 
 /**
