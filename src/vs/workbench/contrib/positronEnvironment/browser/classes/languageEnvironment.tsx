@@ -211,7 +211,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		this._register(this._client.onDidReceiveList(list => {
 			// Clear out the existing environment entries since this list
 			// completely replaces them.
-			this.clearEnvironment(true);
+			this.clearAllEnvironmentEntries();
 
 			// Add the new environment entries.
 			for (let i = 0; i < list.variables.length; i++) {
@@ -223,6 +223,30 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			}
 		}));
 
+		// Add a handler for environment pane updates
+		this._register(this._client.onDidReceiveUpdate(update => {
+			// Process each of the updated environment entries.
+			for (let i = 0; i < update.assigned.length; i++) {
+				const variable = update.assigned[i];
+
+				// Create the new environment entry.
+				const entry = new EnvironmentValueEntry(
+					variable.name,
+					new StringEnvironmentValue(variable.value));
+				this.environmentDataEntries.set(entry.name, entry);
+			}
+
+			// Process each of the removed environment entries.
+			for (let i = 0; i < update.removed.length; i++) {
+				const variableName = update.removed[i];
+				this.environmentDataEntries.delete(variableName);
+			}
+
+			// Fire the event indicating that the list of items has changed.
+			this.onDidChangeListItemsEmitter.fire();
+		}));
+
+		// Add a handler for errors received from the language runtime.
 		this._register(this._client.onDidReceiveError(error => {
 			// TODO: Do we want to show this error to the user? Perhaps in the pane or in a toast?
 			console.error(error);
@@ -314,6 +338,12 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 */
 	private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
 		this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
+		this.onDidChangeListItemsEmitter.fire();
+	}
+
+	private clearAllEnvironmentEntries() {
+		this.environmentDataEntries.clear();
+		this.environmentValueEntries.clear();
 		this.onDidChangeListItemsEmitter.fire();
 	}
 
