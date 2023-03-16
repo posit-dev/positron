@@ -8,6 +8,7 @@
 use amalthea::comm::comm_channel::CommChannelMsg;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageList;
+use ark::environment::message::EnvironmentMessageUpdate;
 use ark::environment::r_environment::REnvironment;
 use ark::lsp::signals::SIGNALS;
 use harp::object::RObject;
@@ -106,9 +107,13 @@ fn test_environment_list() {
     };
 
     // Unmarshal the list and check for the variable we created
-    let list: EnvironmentMessageList = serde_json::from_value(data).unwrap();
-    assert!(list.variables.len() == 1);
-    let var = &list.variables[0];
-    assert_eq!(var.name, "nothing");
+    let msg: EnvironmentMessageUpdate = serde_json::from_value(data).unwrap();
+    assert_eq!(msg.added.len(), 1);
+    assert_eq!(msg.removed.len(), 1);
+    assert_eq!(msg.added[0].name, "nothing");
+    assert_eq!(msg.removed[0], "everything");
+
+    // close the comm. Otherwise the thread panics
+    backend_msg_sender.send(CommChannelMsg::Close).unwrap();
 
 }

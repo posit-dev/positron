@@ -10,7 +10,7 @@ use std::ffi::CStr;
 
 use std::ops::Deref;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Symbol {
     pub sexp: SEXP
 }
@@ -31,7 +31,7 @@ impl Deref for Symbol {
 impl From<Symbol> for String {
     fn from(symbol: Symbol) -> Self {
         unsafe {
-            let utf8text = Rf_translateCharUTF8(*symbol);
+            let utf8text = Rf_translateCharUTF8(PRINTNAME(*symbol));
             CStr::from_ptr(utf8text).to_str().unwrap().to_string()
         }
     }

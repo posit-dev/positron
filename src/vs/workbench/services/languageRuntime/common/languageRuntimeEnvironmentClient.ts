@@ -15,6 +15,9 @@ export enum EnvironmentClientMessageType {
 	/** A processing error */
 	Error = 'error',
 
+	/** Updates */
+	Update = 'update',
+
 	// TODO: Add message types for other actions, such as adding a single
 	// variable or updating a variable's value.
 }
@@ -54,6 +57,12 @@ export interface IEnvironmentClientMessageList extends IEnvironmentClientMessage
 
 export interface IEnvironmentClientMessageError extends IEnvironmentClientMessage {
 	message: string;
+}
+
+export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessage {
+	added: Array<IEnvironmentVariable>;
+	removed: Array<string>;
+	changed: Array<IEnvironmentVariable>;
 }
 
 export type IEnvironmentClientInstance = IRuntimeClientInstance<IEnvironmentClientMessage>;

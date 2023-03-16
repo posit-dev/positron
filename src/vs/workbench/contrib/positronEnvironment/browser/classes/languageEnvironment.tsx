@@ -10,7 +10,7 @@ import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
-import { EnvironmentClientMessageType, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentClientMessageType, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 import { RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -329,6 +329,27 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
 						variable.name, new StringEnvironmentValue(variable.value)));
 				}
+			} else if (msg.msg_type === EnvironmentClientMessageType.Update) {
+				const update = msg as IEnvironmentClientMessageUpdate;
+
+				for (const entry in update.removed) {
+					this.deleteEnvironmentEntry(entry);
+				}
+
+				for (let i = 0; i < update.added.length; i++) {
+					const variable = update.added[i];
+
+					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
+						variable.name, new StringEnvironmentValue(variable.value)));
+				}
+
+				for (let i = 0; i < update.changed.length; i++) {
+					const variable = update.changed[i];
+
+					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
+						variable.name, new StringEnvironmentValue(variable.value)));
+				}
+
 			} else if (msg.msg_type === EnvironmentClientMessageType.Error) {
 				// Error message; log to console. Consider: should we show this
 				// to the user, too?

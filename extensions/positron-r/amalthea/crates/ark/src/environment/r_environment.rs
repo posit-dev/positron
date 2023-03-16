@@ -14,6 +14,7 @@ use crossbeam::channel::Sender;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
+use harp::symbol::Symbol;
 use harp::utils::r_assert_type;
 use libR_sys::*;
 use log::debug;
@@ -23,11 +24,13 @@ use log::warn;
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageError;
 use crate::environment::message::EnvironmentMessageList;
+use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
 use crate::lsp::signals::SIGNALS;
 
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct Binding {
-    name: SEXP,
+    name: Symbol,
     binding: SEXP
 }
 
@@ -85,9 +88,7 @@ impl REnvironment {
         channel_msg_tx
     }
 
-    pub fn execution_thread(
-        mut self
-    ) {
+    pub fn execution_thread(mut self) {
         let (prompt_signal_tx, prompt_signal_rx) = unbounded::<()>();
 
         // Register a handler for console prompt events
@@ -215,8 +216,108 @@ impl REnvironment {
     }
 
     fn update(&mut self) {
+        let old_bindings = &self.current_bindings;
+        let new_bindings = self.bindings();
 
-        self.refresh();
+        let mut changed : Vec<EnvironmentVariable> = vec![];
+        let mut added : Vec<EnvironmentVariable> = vec![];
+        let mut removed : Vec<String> = vec![];
+
+        let mut old_iter = old_bindings.iter();
+        let mut old_next = old_iter.next();
+
+        let mut new_iter = new_bindings.iter();
+        let mut new_next = new_iter.next();
+
+        loop {
+
+            match (old_next, new_next) {
+                // nothing more to do
+                (None, None) => {
+                    break
+                },
+
+                // No more old, collect last new into added
+                (None, Some(mut new)) => {
+                    loop {
+                        added.push(
+                            EnvironmentVariable::new(
+                                &new.name.to_string(),
+                                RObject::view(new.binding)
+                            )
+                        );
+
+                        match new_iter.next() {
+                            Some(x) => {
+                                new = x;
+                            },
+                            None => break
+                        };
+                    }
+                    break;
+                },
+
+                // No more new, collect the last old into removed
+                (Some(mut old), None) => {
+                    loop {
+                        removed.push(old.name.to_string());
+
+                        match old_iter.next() {
+                            Some(x) => {
+                                old = x;
+                            },
+                            None => break
+                        };
+                    }
+
+                    break;
+                },
+
+                (Some(old), Some(new)) => {
+                    if old.name == new.name {
+                        if old.binding != new.binding {
+                            changed.push(
+                                EnvironmentVariable::new(
+                                    &old.name.to_string(),
+                                    RObject::view(new.binding)
+                                )
+                            );
+                        }
+
+                        old_next = old_iter.next();
+                        new_next = new_iter.next();
+                    } else if old.name < new.name {
+                        removed.push(old.name.to_string());
+                        old_next = old_iter.next();
+                    } else {
+                        added.push(
+                            EnvironmentVariable::new(
+                                &new.name.to_string(),
+                                RObject::view(new.binding)
+                            )
+                        );
+                        new_next = new_iter.next();
+                    }
+                }
+            }
+        }
+
+        if added.len() > 0 || removed.len() > 0 || changed.len() > 0 {
+            let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
+                added, removed, changed
+            });
+            match serde_json::to_value(message) {
+                Ok(data) => self.frontend_msg_sender
+                    .send(CommChannelMsg::Data(data))
+                    .unwrap(),
+                Err(err) => {
+                    error!("Environment: Failed to serialize update data: {}", err);
+                },
+            }
+
+            self.current_bindings = new_bindings;
+        }
+
     }
 
     fn bindings(&self) -> Vec<Binding> {
@@ -227,7 +328,7 @@ impl REnvironment {
             let env = *self.env;
             let hash  = HASHTAB(env);
             if hash == R_NilValue {
-                Self::frame_bindings(FRAME(hash), &mut bindings);
+                Self::frame_bindings(FRAME(env), &mut bindings);
             } else {
                 let n = XLENGTH(hash);
                 for i in 0..n {
@@ -235,18 +336,16 @@ impl REnvironment {
                 }
             }
 
-            // 2: sort by .name
-
-            bindings.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
+            // 2: sort by .name i.e. by pointer, not alphabetical order
+            bindings.sort();
             bindings
         }
     }
 
     unsafe fn frame_bindings(mut frame: SEXP, bindings: &mut Vec<Binding> ) {
         while frame != R_NilValue {
-
             bindings.push(Binding{
-                name: TAG(frame),
+                name: Symbol::new(TAG(frame)),
 
                 // TODO: handle active bindings and promises ?
                 binding: CAR(frame)
