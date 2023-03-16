@@ -34,7 +34,7 @@ export const EnvironmentCore = (props: EnvironmentCoreProps) => {
 	return (
 		<div className='environment-core'>
 			<ActionBars {...props} />
-			<div className='environment-instances-container' style={{ width: props.width, height: props.height - 32 }}>
+			<div className='environment-instances-container' style={{ width: props.width, height: props.height - 64 }}>
 				{positronEnvironmentContext.positronEnvironmentInstances.map(positronEnvironmentInstance =>
 					<EnvironmentInstance
 						width={props.width}
