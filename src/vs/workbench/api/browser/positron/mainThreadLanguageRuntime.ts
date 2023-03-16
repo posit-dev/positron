@@ -133,15 +133,29 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	/** Create a new client inside the runtime */
 	createClient<T>(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance<T>> {
-		return new Promise((resolve, reject) => {
-			this._proxy.$createClient(this.handle, type, params).then((clientId) => {
-				const client = new ExtHostRuntimeClientInstance<T>(clientId, type, this.handle, this._proxy);
-				this._clients.set(clientId, client);
-				resolve(client);
-			}).catch((err) => {
-				reject(err);
-			});
+		// Create an ID for the client.
+		const id = this.generateClientId(this.metadata.languageId, type);
+
+		// Create the new instance and add it to the map.
+		const client = new ExtHostRuntimeClientInstance<T>(id, type, this.handle, this._proxy);
+		this._clients.set(id, client);
+		this._logService.info(`Creating ${type} client '${id}'...`);
+
+		// Kick off the creation of the client on the server side. There's no
+		// reply defined to this call in the protocol, so this is almost
+		// fire-and-forget; we need to return the instance right away so that
+		// the client can start listening to events.
+		//
+		// If the creation fails on the server, we'll either get an error here
+		// or see the server end get closed immediately via a CommClose message.
+		// In either case we'll let the client know.
+		this._proxy.$createClient(this.handle, id, type, params).catch((err) => {
+			this._logService.error(`Failed to create client '${id}' in runtime '${this.handle}': ${err}`);
+			client.setClientState(RuntimeClientState.Closed);
+			this._clients.delete(id);
 		});
+
+		return Promise.resolve(client);
 	}
 
 	/** List active clients */
@@ -175,6 +189,29 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			});
 		});
 	}
+
+	/**
+	 * Generates a client ID for a language runtime client instance.
+	 *
+	 * @param languageId The ID of the language that the client is associated with, such as "python"
+	 * @param clientType The type of client for which to generate an ID
+	 * @returns A unique ID for the client, such as "positron-environment-python-1-f2ef6a9a"
+	 */
+	private generateClientId(languageId: string, clientType: RuntimeClientType): string {
+		// Generate a random 8-character hexadecimal string to serve as this client's ID
+		const randomId = Math.floor(Math.random() * 0x100000000).toString(16);
+
+		// Generate a unique auto-incrementing ID for this client
+		const nextId = ExtHostLanguageRuntimeAdapter.clientCounter++;
+
+		// Replace periods in the language ID with hyphens, so that the generated ID contains only
+		// alphanumeric characters and hyphens
+		const client = clientType.replace(/\./g, '-');
+
+		// Return the generated client ID
+		return `${client}-${languageId}-${nextId}-${randomId}`;
+	}
+	static clientCounter = 0;
 }
 
 /**
