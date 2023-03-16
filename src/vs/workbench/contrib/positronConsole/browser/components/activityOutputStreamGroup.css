@@ -2,7 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.output-lines {
-	white-space: pre;
-	font-family: var(--console-monospace-font);
+.activity-output-stream-group {
+	padding-left: 14px;
 }

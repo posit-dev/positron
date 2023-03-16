@@ -7,7 +7,6 @@
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
-use crossbeam::channel::Select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
