@@ -315,6 +315,13 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 */
 	readonly onDidChangeState: Event<PositronEnvironmentState> = this._onDidChangeStateEmitter.event;
 
+	/**
+	 * Refreshes the environment.
+	 */
+	refresh() {
+		this._runtimeClient?.sendMessage({ msg_type: EnvironmentClientMessageType.Refresh });
+	}
+
 	//#endregion IPositronEnvironmentInstance Implementation
 
 	//#region Public Methods

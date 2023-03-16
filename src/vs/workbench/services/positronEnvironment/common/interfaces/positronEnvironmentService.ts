@@ -73,4 +73,9 @@ export interface IPositronEnvironmentInstance {
 	 * The onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronEnvironmentState>;
+
+	/**
+	 * Refreshes the environment.
+	 */
+	refresh(): void;
 }
