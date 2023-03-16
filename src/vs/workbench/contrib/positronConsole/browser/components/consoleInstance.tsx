@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleRepl';
+import 'vs/css!./consoleInstance';
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
@@ -29,8 +29,8 @@ import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/ser
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
 
-// ConsoleReplProps interface.
-interface ConsoleReplProps {
+// ConsoleInstanceProps interface.
+interface ConsoleInstanceProps {
 	hidden: boolean;
 	width: number;
 	height: number;
@@ -38,11 +38,11 @@ interface ConsoleReplProps {
 }
 
 /**
- * ConsoleRepl component.
- * @param props A ConsoleProps that contains the component properties.
+ * ConsoleInstance component.
+ * @param props A ConsoleInstanceProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleRepl = (props: ConsoleReplProps) => {
+export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Hooks.
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const liveInputRef = useRef<HTMLDivElement>(undefined!);
@@ -122,8 +122,6 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 		}
 	};
 
-	// console.log(`Rendering console repl in state ${props.positronConsoleInstance.state}`);
-
 	/**
 	 * Renders the input.
 	 * @returns The input that was rendered.
@@ -154,7 +152,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 	// Render.
 	return (
-		<div className='console-repl' hidden={props.hidden}>
+		<div className='console-instance' hidden={props.hidden}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}

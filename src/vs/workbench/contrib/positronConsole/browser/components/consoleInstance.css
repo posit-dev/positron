@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.console-core .console-repl {
+.console-core .console-instance {
 	overflow-x: visible;
 	-webkit-user-select: text;
 	-moz-user-select: text;
