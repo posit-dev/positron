@@ -10,6 +10,7 @@ use amalthea::comm::comm_channel::CommChannelMsg;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
+use crossbeam::channel::Select;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
