@@ -8,10 +8,10 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
 import { EnvironmentClientMessageType, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
-import { RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
  * EnvironmentValue interface.
@@ -35,7 +35,7 @@ export class StringEnvironmentValue implements EnvironmentValue {
 	//#region Public Properties
 
 	/**
-	 * Gets the display identifier.
+	 * Gets the identifier.
 	 */
 	readonly identifier: string;
 
@@ -199,7 +199,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 
 	/**
 	 * Constructor.
-	 * @param _runtime The ILanguageRuntime.
+	 * @param _runtime The language runtime.
 	 */
 	constructor(private readonly _runtime: ILanguageRuntime) {
 		// Initialize Disposable base class.

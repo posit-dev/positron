@@ -13,6 +13,7 @@ import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClos
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
@@ -274,12 +275,14 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
+		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
 		@ILogService private readonly _logService: ILogService
 	) {
-		// TODO@softwarenerd - I needed to find a central place where I could
-		// ensure that the PositronConsoleService was alive early. For now,
-		// this is what I've chosen.
+		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
+		// Positron services were up and running early in the application lifecycle. For now, this
+		// is where we're doing this.
 		this._positronConsoleService.initialize();
+		this._positronEnvironmentService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 	}
 
