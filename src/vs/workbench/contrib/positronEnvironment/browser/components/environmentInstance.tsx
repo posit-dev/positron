@@ -31,8 +31,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeState event handler.
-		// disposableStore.add(props.positronEnvironmentInstance.onDidChangeState(state => {
-		// }));
+		disposableStore.add(props.positronEnvironmentInstance.onDidChangeState(state => {
+		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
