@@ -232,8 +232,7 @@ impl REnvironment {
             let old_bindings = &self.current_bindings;
             let new_bindings = self.bindings();
 
-            let mut changed : Vec<EnvironmentVariable> = vec![];
-            let mut added : Vec<EnvironmentVariable> = vec![];
+            let mut set : Vec<EnvironmentVariable> = vec![];
             let mut removed : Vec<String> = vec![];
 
             let mut old_iter = old_bindings.iter();
@@ -253,7 +252,7 @@ impl REnvironment {
                     // No more old, collect last new into added
                     (None, Some(mut new)) => {
                         loop {
-                            added.push(
+                            set.push(
                                 EnvironmentVariable::new(
                                     &new.name.to_string(),
                                     RObject::view(new.binding)
@@ -289,7 +288,7 @@ impl REnvironment {
                     (Some(old), Some(new)) => {
                         if old.name == new.name {
                             if old.binding != new.binding {
-                                changed.push(
+                                set.push(
                                     EnvironmentVariable::new(
                                         &old.name.to_string(),
                                         RObject::view(new.binding)
@@ -303,7 +302,7 @@ impl REnvironment {
                             removed.push(old.name.to_string());
                             old_next = old_iter.next();
                         } else {
-                            added.push(
+                            set.push(
                                 EnvironmentVariable::new(
                                     &new.name.to_string(),
                                     RObject::view(new.binding)
@@ -315,9 +314,9 @@ impl REnvironment {
                 }
             }
 
-            if added.len() > 0 || removed.len() > 0 || changed.len() > 0 {
+            if set.len() > 0 || removed.len() > 0 {
                 let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
-                    added, removed, changed
+                    set, removed
                 });
                 match serde_json::to_value(message) {
                     Ok(data) => self.frontend_msg_sender

@@ -104,9 +104,9 @@ fn test_environment_list() {
 
     // Unmarshal the list and check for the variable we created
     let msg: EnvironmentMessageUpdate = serde_json::from_value(data).unwrap();
-    assert_eq!(msg.added.len(), 1);
+    assert_eq!(msg.set.len(), 1);
     assert_eq!(msg.removed.len(), 1);
-    assert_eq!(msg.added[0].name, "nothing");
+    assert_eq!(msg.set[0].name, "nothing");
     assert_eq!(msg.removed[0], "everything");
 
     // close the comm. Otherwise the thread panics

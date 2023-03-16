@@ -60,9 +60,8 @@ export interface IEnvironmentClientMessageError extends IEnvironmentClientMessag
 }
 
 export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessage {
-	added: Array<IEnvironmentVariable>;
+	set: Array<IEnvironmentVariable>;
 	removed: Array<string>;
-	changed: Array<IEnvironmentVariable>;
 }
 
 export type IEnvironmentClientInstance = IRuntimeClientInstance<IEnvironmentClientMessage>;

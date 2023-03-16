@@ -336,15 +336,8 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 					this.deleteEnvironmentEntry(entry);
 				}
 
-				for (let i = 0; i < update.added.length; i++) {
-					const variable = update.added[i];
-
-					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
-						variable.name, new StringEnvironmentValue(variable.value)));
-				}
-
-				for (let i = 0; i < update.changed.length; i++) {
-					const variable = update.changed[i];
+				for (let i = 0; i < update.set.length; i++) {
+					const variable = update.set[i];
 
 					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
 						variable.name, new StringEnvironmentValue(variable.value)));
