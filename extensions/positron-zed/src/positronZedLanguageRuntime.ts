@@ -52,6 +52,7 @@ const HelpLines = [
 	'help        - Shows this help',
 	'offline     - Simulates going offline for two seconds',
 	'progress    - Renders a progress bar',
+	'rm X        - Removes X variables',
 	'shutdown    - Simulates orderly shutdown',
 	'update X    - Updates X variables',
 	'version     - Shows the Zed version'
@@ -229,6 +230,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			}
 			return this.simulateSuccessfulCodeExecution(id, code,
 				`Updated the values of ${count} variables.`);
+		} else if (match = code.match(/^rm ([1-9]{1}[\d]*)/)) {
+			let count = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					count = environment.removeVars(count);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Removed ${count} variables.`);
 		}
 
 

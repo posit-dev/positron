@@ -132,19 +132,9 @@ export class ZedEnvironment {
 			count = this._vars.size;
 		}
 
-		// Make a list of variables to update; we randomly select variables from
-		// the environment until we have the desired number of variables to
-		// update.
-		const keys = Array.from(this._vars.keys());
-		const randomKeys = [];
-		for (let i = 0; i < count; i++) {
-			const randomIndex = Math.floor(Math.random() * keys.length);
-			randomKeys.push(keys[randomIndex]);
-			keys.splice(randomIndex, 1);
-		}
-
 		// Update the variables
 		const updated = [];
+		const randomKeys = this.selectRandomKeys(count);
 		for (const key of randomKeys) {
 			const oldVar = this._vars.get(key)!;
 			let value = '';
@@ -180,6 +170,30 @@ export class ZedEnvironment {
 	}
 
 	/**
+	 *
+	 * @param count The number of variables to remove
+	 * @returns The number of variables that were removed
+	 */
+	public removeVars(count: number): number {
+		// We can't remove more variables than we have, so clamp the count to
+		// the number of variables in the environment.
+		if (count > this._vars.size) {
+			count = this._vars.size;
+		}
+
+		// Remove the variables
+		const keys = this.selectRandomKeys(count);
+		for (const key of keys) {
+			this._vars.delete(key);
+		}
+
+		// Emit the removed variables to the front end
+		this.emitUpdate(undefined, keys);
+
+		return count;
+	}
+
+	/**
 	 * Clears all variables from the environment
 	 */
 	public clearAllVars() {
@@ -210,5 +224,24 @@ export class ZedEnvironment {
 			assigned: assigned || [],
 			removed: removed || []
 		});
+	}
+
+	/**
+	 * Selects random variable name keys on which to perform some action
+	 *
+	 * @param count The number of keys to select
+	 * @returns An array of keys representing the names of the selected variables
+	 */
+	private selectRandomKeys(count: number): Array<string> {
+		// Make a list of variables; we randomly select variables from the
+		// environment until we have the desired number.
+		const keys = Array.from(this._vars.keys());
+		const randomKeys = [];
+		for (let i = 0; i < count; i++) {
+			const randomIndex = Math.floor(Math.random() * keys.length);
+			randomKeys.push(keys[randomIndex]);
+			keys.splice(randomIndex, 1);
+		}
+		return randomKeys;
 	}
 }
