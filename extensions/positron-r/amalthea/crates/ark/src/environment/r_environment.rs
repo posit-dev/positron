@@ -35,8 +35,6 @@ struct Binding {
     binding: SEXP
 }
 
-// unsafe impl Send for Binding {}
-
 /**
  * The R Environment handler provides the server side of Positron's Environment
  * panel, and is responsible for creating and updating the list of variables in
