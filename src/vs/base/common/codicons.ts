@@ -595,7 +595,8 @@ export const Codicon = {
 	positronTest: register('positron-test', 0xf24d),
 	positronConsoleView: register('positron-console-view', 0xf24e),
 	positronWorkspace: register('positron-workspace', 0xf24f),
-
+	positronPlots: register('positron-plots', 0xf250),
+	positronPlotsView: register('positron-plots', 0xf251),
 	// --- End Positron ---
 
 	// derived icons, that could become separate icons
