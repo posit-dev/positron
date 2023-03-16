@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import * as ansi from 'ansi-escape-sequences';
 import { resolve } from 'path';
+import { ZedEnvironment } from './positronZedEnvironment';
 
 /**
  * Constants.
@@ -44,6 +45,9 @@ const HelpLines = [
 	'ansi hidden - Displays hidden text',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'def X       - Defines X variables',
+	'def X Y     - Defines X variables of type Y',
+	'env clear   - Clears all variables from the environment',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
 	'offline     - Simulates going offline for two seconds',
@@ -95,6 +99,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A history of executed commands
 	 */
 	private readonly _history: string[][] = [];
+
+	/*
+	 * A map of environment IDs to environment instances.
+	 */
+	private readonly _environments: Map<string, ZedEnvironment> = new Map();
 
 	//#endregion Private Properties
 
@@ -185,6 +194,31 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			// Simulate unsuccessful code execution.
 			return this.simulateUnsuccessfulCodeExecution(id, code, 'Simulated Error', message, traceback);
+		} else if (match = code.match(/^def ([1-9]{1}[\d]*) ?(.*)/)) {
+			// Define the value in each environment; there's probably only one, but one can't be
+			// too careful about these things. In the future, we'll probably want to be able to
+			// define variables in specific environments or nest environments.
+			const count = +match[1];
+			const kind = match[2];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					environment.defineVars(count, kind);
+				}
+				if (kind) {
+					return this.simulateSuccessfulCodeExecution(id, code,
+						`Defined ${count} '${kind}' variables.`);
+				} else {
+					return this.simulateSuccessfulCodeExecution(id, code,
+						`Defined ${count} variables.`);
+				}
+
+			} else {
+				// This could happen if we try to define variables but there's no backend in which
+				// to define them.
+				return this.simulateUnsuccessfulCodeExecution(id, code,
+					'No Environments',
+					'No environments are available to define variables in.', []);
+			}
 		}
 
 		// Process the "code".
@@ -567,6 +601,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'env clear': {
+				// Clear each environment in turn
+				for (const env of this._environments.values()) {
+					env.clearAllVars();
+				}
+				this.simulateSuccessfulCodeExecution(id, code, 'Environment cleared.');
+				break;
+			}
+
 			case 'help': {
 				this.simulateSuccessfulCodeExecution(id, code, HelpLines);
 				break;
@@ -616,14 +659,32 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param type The runtime client type.
 	 */
 	createClient(type: positron.RuntimeClientType): Promise<string> {
-		return Promise.reject('Method not implemented.');
+		if (type === positron.RuntimeClientType.Environment) {
+			// Allocate a new ID and ZedEnvironment object for this environment backend
+			const env = new ZedEnvironment(randomUUID(), this.metadata.languageVersion);
+
+			// Connect it and save the instance to coordinate future communication
+			this.connectEnvironmentEmitter(env);
+			this._environments.set(env.id, env);
+
+			// Return the ID of the newly created environment backend
+			return Promise.resolve(env.id);
+		}
+
+		// All other types are unknown to Zed
+		return Promise.reject(`Unknown client type ${type}`);
 	}
 
 	/**
 	 * Removes an instance of a client.
 	 */
 	removeClient(id: string): void {
-		throw new Error('Method not implemented.');
+		// Right now, the only client instances are environments.
+		if (this._environments.has(id)) {
+			this._environments.delete(id);
+		} else {
+			throw new Error(`Can't remove client; unknown client id ${id}`);
+		}
 	}
 
 	/**
@@ -631,8 +692,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
-	sendClientMessage(id: string, message: any): void {
-		throw new Error('Method not implemented.');
+	sendClientMessage(id: string, message: object): void {
+		// Right now, the only client instances are environments.
+		const client = this._environments.get(id);
+		if (client) {
+			client.handleMessage(message);
+		} else {
+			throw new Error(`Can't send message; unknown client id ${id}`);
+		}
 	}
 
 	/**
@@ -902,6 +969,29 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			message,
 			traceback
 		} as positron.LanguageRuntimeError);
+	}
+
+	/**
+	 * Proxies messages from an environment instance to Positron, by amending the appropriate
+	 * metadata.
+	 *
+	 * @param env The environment to connect
+	 */
+	private connectEnvironmentEmitter(env: ZedEnvironment) {
+
+		// Listen for data emitted from the environment instance
+		env.onDidEmitData(data => {
+
+			// When received, wrap it up in a runtime message and emit it
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: '',
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommData,
+				comm_id: env.id,
+				data: data
+			} as positron.LanguageRuntimeCommMessage);
+		});
 	}
 
 	//#endregion Private Methods
