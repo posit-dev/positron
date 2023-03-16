@@ -228,106 +228,108 @@ impl REnvironment {
     }
 
     fn update(&mut self) {
-        let old_bindings = &self.current_bindings;
-        let new_bindings = self.bindings();
+        r_lock! {
+            let old_bindings = &self.current_bindings;
+            let new_bindings = self.bindings();
 
-        let mut changed : Vec<EnvironmentVariable> = vec![];
-        let mut added : Vec<EnvironmentVariable> = vec![];
-        let mut removed : Vec<String> = vec![];
+            let mut changed : Vec<EnvironmentVariable> = vec![];
+            let mut added : Vec<EnvironmentVariable> = vec![];
+            let mut removed : Vec<String> = vec![];
 
-        let mut old_iter = old_bindings.iter();
-        let mut old_next = old_iter.next();
+            let mut old_iter = old_bindings.iter();
+            let mut old_next = old_iter.next();
 
-        let mut new_iter = new_bindings.iter();
-        let mut new_next = new_iter.next();
+            let mut new_iter = new_bindings.iter();
+            let mut new_next = new_iter.next();
 
-        loop {
+            loop {
 
-            match (old_next, new_next) {
-                // nothing more to do
-                (None, None) => {
-                    break
-                },
+                match (old_next, new_next) {
+                    // nothing more to do
+                    (None, None) => {
+                        break
+                    },
 
-                // No more old, collect last new into added
-                (None, Some(mut new)) => {
-                    loop {
-                        added.push(
-                            EnvironmentVariable::new(
-                                &new.name.to_string(),
-                                RObject::view(new.binding)
-                            )
-                        );
-
-                        match new_iter.next() {
-                            Some(x) => {
-                                new = x;
-                            },
-                            None => break
-                        };
-                    }
-                    break;
-                },
-
-                // No more new, collect the last old into removed
-                (Some(mut old), None) => {
-                    loop {
-                        removed.push(old.name.to_string());
-
-                        match old_iter.next() {
-                            Some(x) => {
-                                old = x;
-                            },
-                            None => break
-                        };
-                    }
-
-                    break;
-                },
-
-                (Some(old), Some(new)) => {
-                    if old.name == new.name {
-                        if old.binding != new.binding {
-                            changed.push(
+                    // No more old, collect last new into added
+                    (None, Some(mut new)) => {
+                        loop {
+                            added.push(
                                 EnvironmentVariable::new(
-                                    &old.name.to_string(),
+                                    &new.name.to_string(),
                                     RObject::view(new.binding)
                                 )
                             );
+
+                            match new_iter.next() {
+                                Some(x) => {
+                                    new = x;
+                                },
+                                None => break
+                            };
+                        }
+                        break;
+                    },
+
+                    // No more new, collect the last old into removed
+                    (Some(mut old), None) => {
+                        loop {
+                            removed.push(old.name.to_string());
+
+                            match old_iter.next() {
+                                Some(x) => {
+                                    old = x;
+                                },
+                                None => break
+                            };
                         }
 
-                        old_next = old_iter.next();
-                        new_next = new_iter.next();
-                    } else if old.name < new.name {
-                        removed.push(old.name.to_string());
-                        old_next = old_iter.next();
-                    } else {
-                        added.push(
-                            EnvironmentVariable::new(
-                                &new.name.to_string(),
-                                RObject::view(new.binding)
-                            )
-                        );
-                        new_next = new_iter.next();
+                        break;
+                    },
+
+                    (Some(old), Some(new)) => {
+                        if old.name == new.name {
+                            if old.binding != new.binding {
+                                changed.push(
+                                    EnvironmentVariable::new(
+                                        &old.name.to_string(),
+                                        RObject::view(new.binding)
+                                    )
+                                );
+                            }
+
+                            old_next = old_iter.next();
+                            new_next = new_iter.next();
+                        } else if old.name < new.name {
+                            removed.push(old.name.to_string());
+                            old_next = old_iter.next();
+                        } else {
+                            added.push(
+                                EnvironmentVariable::new(
+                                    &new.name.to_string(),
+                                    RObject::view(new.binding)
+                                )
+                            );
+                            new_next = new_iter.next();
+                        }
                     }
                 }
             }
-        }
 
-        if added.len() > 0 || removed.len() > 0 || changed.len() > 0 {
-            let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
-                added, removed, changed
-            });
-            match serde_json::to_value(message) {
-                Ok(data) => self.frontend_msg_sender
-                    .send(CommChannelMsg::Data(data))
-                    .unwrap(),
-                Err(err) => {
-                    error!("Environment: Failed to serialize update data: {}", err);
-                },
+            if added.len() > 0 || removed.len() > 0 || changed.len() > 0 {
+                let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
+                    added, removed, changed
+                });
+                match serde_json::to_value(message) {
+                    Ok(data) => self.frontend_msg_sender
+                        .send(CommChannelMsg::Data(data))
+                        .unwrap(),
+                    Err(err) => {
+                        error!("Environment: Failed to serialize update data: {}", err);
+                    },
+                }
+
+                self.current_bindings = new_bindings;
             }
-
-            self.current_bindings = new_bindings;
         }
 
     }
