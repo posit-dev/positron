@@ -89,6 +89,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Refresh workspace objects handler.
 	const refreshWorkspaceObjectsHandler = () => {
 		positronEnvironmentContext.currentLanguageEnvironment?.refreshEnvironment();
+
+		// TESTING@softwarenerd.
+		positronEnvironmentContext.positronEnvironmentInstances.forEach(x => x.refresh());
 	};
 
 	// If there are no language environment, return null.
