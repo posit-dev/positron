@@ -7,12 +7,9 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-
-export const POSITRON_ENVIRONMENT_VIEW_ID = 'workbench.panel.positronEnvironment';
-export const POSITRON_ENVIRONMENT_SERVICE_ID = 'positronEnvironmentService';
-// export const IPositronEnvironmentService = createDecorator<IPositronEnvironmentService>(POSITRON_ENVIRONMENT_SERVICE_ID);
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeClientType, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { EnvironmentClientMessageType, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * PositronEnvironmentService class.
@@ -244,14 +241,20 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _runtime: ILanguageRuntime;
 
 	/**
-	 * Gets or sets the runtime event handlers disposable store.
+	 * Gets or sets the runtime disposable store. This contains things that are disposed when a
+	 * runtime is detached.
 	 */
-	private _runtimeEventHandlersDisposableStore = new DisposableStore();
+	private _runtimeDisposableStore = new DisposableStore();
 
 	/**
 	 * Gets or sets the state.
 	 */
 	private _state = PositronEnvironmentState.Uninitialized;
+
+	/**
+	 * Gets or sets the environment client that is used to communicate with the language runtime.
+	 */
+	private _runtimeClient?: IEnvironmentClientInstance;
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -286,7 +289,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		super.dispose();
 
 		// Dispose of the runtime event handlers.
-		this._runtimeEventHandlersDisposableStore.dispose();
+		this._runtimeDisposableStore.dispose();
 	}
 
 	//#endregion Constructor & Dispose
@@ -359,7 +362,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Attaches to a runtime.
 	 * @param starting A value which indicates whether the runtime is starting.
 	 */
-	private attachRuntime(starting: boolean) {
+	private async attachRuntime(starting: boolean) {
 		// Add the appropriate runtime item to indicate whether the Positron console instance is
 		// is starting or is reconnected.
 		if (starting) {
@@ -369,66 +372,127 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		}
 
 		// Add the onDidChangeRuntimeState event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidChangeRuntimeState(runtimeState => {
-			if (runtimeState === RuntimeState.Exited) {
-				this.detachRuntime();
-			}
-		}));
+		this._runtimeDisposableStore.add(
+			this._runtime.onDidChangeRuntimeState(runtimeState => {
+				if (runtimeState === RuntimeState.Exited) {
+					this.detachRuntime();
+				}
+			})
+		);
 
 		// Add the onDidCompleteStartup event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
-		}));
-
-		// Add the onDidReceiveRuntimeMessageOutput event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-		}));
-
-		// Add the onDidReceiveRuntimeMessageStream event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
-		}));
-
-		// Add the onDidReceiveRuntimeMessageInput event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-		}));
-
-		// Add the onDidReceiveRuntimeMessageError event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-		}));
-
-		// Add the onDidReceiveRuntimeMessagePrompt event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
-		}));
+		this._runtimeDisposableStore.add(
+			this._runtime.onDidCompleteStartup(async languageRuntimeInfo => {
+				await this.createRuntimeClient();
+			})
+		);
 
 		// Add the onDidReceiveRuntimeMessageState event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
-			switch (languageRuntimeMessageState.state) {
-				case RuntimeOnlineState.Starting: {
-					break;
-				}
+		this._runtimeDisposableStore.add(
+			this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+				switch (languageRuntimeMessageState.state) {
+					case RuntimeOnlineState.Starting: {
+						break;
+					}
 
-				case RuntimeOnlineState.Busy: {
-					this.setState(PositronEnvironmentState.Busy);
-					break;
-				}
+					case RuntimeOnlineState.Busy: {
+						this.setState(PositronEnvironmentState.Busy);
+						break;
+					}
 
-				case RuntimeOnlineState.Idle: {
-					this.setState(PositronEnvironmentState.Ready);
-					break;
+					case RuntimeOnlineState.Idle: {
+						this.setState(PositronEnvironmentState.Ready);
+						break;
+					}
 				}
-			}
-		}));
+			})
+		);
 
 		// Add the onDidReceiveRuntimeMessageEvent event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-		}));
+		this._runtimeDisposableStore.add(
+			this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+			})
+		);
 	}
 
 	/**
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
-		this._runtimeEventHandlersDisposableStore.dispose();
-		this._runtimeEventHandlersDisposableStore = new DisposableStore();
+		this._runtimeClient = undefined;
+		this._runtimeDisposableStore.dispose();
+		this._runtimeDisposableStore = new DisposableStore();
+	}
+
+	/**
+	 * Creates the runtime client.
+	 */
+	private async createRuntimeClient() {
+		// Try to create the runtime client.
+		try {
+			// Create the runtime client.
+			this._runtimeClient = await this._runtime.createClient<IEnvironmentClientMessage>(
+				RuntimeClientType.Environment,
+				{}
+			);
+			if (!this._runtimeClient) {
+				console.log('FAILURE');
+				return;
+			}
+
+			// Add the onDidChangeClientState event handler.
+			this._runtimeDisposableStore.add(
+				this._runtimeClient.onDidChangeClientState(_clientState => {
+					// TODO: Handle client state changes here.
+				})
+			);
+
+			// Add the onDidReceiveData event handler.
+			this._runtimeDisposableStore.add(
+				this._runtimeClient.onDidReceiveData((msg: IEnvironmentClientMessage) => {
+					if (msg.msg_type === EnvironmentClientMessageType.List) {
+						this.processListMessage(msg as IEnvironmentClientMessageList);
+					} else if (msg.msg_type === EnvironmentClientMessageType.Error) {
+						this.processErrorMessage(msg as IEnvironmentClientMessageError);
+					}
+				})
+			);
+
+			// Add the runtime client to the runtime disposable store.
+			this._runtimeDisposableStore.add(this._runtimeClient);
+		} catch (error) {
+			console.log('FAILURE');
+			console.log(error);
+		}
+	}
+
+	/**
+	 * Processes an IEnvironmentClientMessageList.
+	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
+	 */
+	private processListMessage(environmentClientMessageList: IEnvironmentClientMessageList) {
+		// Clear out the existing environment entries since this list
+		// completely replaces them.
+		//this.clearEnvironment(true);
+
+		// Add the new environment entries.
+		for (let i = 0; i < environmentClientMessageList.variables.length; i++) {
+			const variable: IEnvironmentVariable = environmentClientMessageList.variables[i];
+			console.log(variable);
+
+			// TODO: Handle the case where the variable is something
+			// other than a String.
+			//this.setEnvironmentDataEntry(new EnvironmentValueEntry(variable.name, new StringEnvironmentValue(variable.value)));
+		}
+
+	}
+
+	/**
+	 * Processes an IEnvironmentClientMessageError.
+	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
+	 */
+	private processErrorMessage(environmentClientMessageError: IEnvironmentClientMessageError) {
+		console.error(environmentClientMessageError.message);
 	}
 
 	//#endregion Private Methods

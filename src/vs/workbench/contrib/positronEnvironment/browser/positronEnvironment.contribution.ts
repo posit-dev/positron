@@ -15,10 +15,12 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { EnvironmentRefreshAction } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActions';
 import { PositronEnvironmentViewPane } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentView';
-import { POSITRON_ENVIRONMENT_VIEW_ID } from 'vs/workbench/services/positronEnvironment/common/positronEnvironmentService';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
+
+// The Positron environment view identifier.
+export const POSITRON_ENVIRONMENT_VIEW_ID = 'workbench.panel.positronEnvironment';
 
 // The Positron environment view icon.
 const positronEnvironmentViewIcon = registerIcon('positron-environment-view-icon', Codicon.positronEnvironmentView, nls.localize('positronEnvironmentViewIcon', 'View icon of the Positron environment view.'));

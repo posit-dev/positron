@@ -337,9 +337,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtime: ILanguageRuntime;
 
 	/**
-	 * Gets or sets the runtime event handlers disposable store.
+	 * Gets or sets the runtime disposable store. This contains things that are disposed when a
+	 * runtime is detached.
 	 */
-	private _runtimeEventHandlersDisposableStore = new DisposableStore();
+	private _runtimeDisposableStore = new DisposableStore();
 
 	/**
 	 * Gets or sets the state.
@@ -419,7 +420,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		super.dispose();
 
 		// Dispose of the runtime event handlers.
-		this._runtimeEventHandlersDisposableStore.dispose();
+		this._runtimeDisposableStore.dispose();
 	}
 
 	//#endregion Constructor & Dispose
@@ -594,8 +595,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param starting A value which indicates whether the runtime is starting.
 	 */
 	private attachRuntime(starting: boolean) {
-		// Add the appropriate runtime item to indicate whether the Positron console instance is
-		// is starting or is reconnected.
+		// Set the state and add the appropriate runtime item to indicate whether the Positron
+		// console instance is is starting or is reconnected.
 		if (starting) {
 			this.setState(PositronConsoleState.Starting);
 			this.addRuntimeItem(new RuntimeItemStarting(
@@ -611,7 +612,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Add the onDidChangeRuntimeState event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidChangeRuntimeState(runtimeState => {
+		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(runtimeState => {
 			this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
 			if (runtimeState === RuntimeState.Exited) {
 				this.detachRuntime();
@@ -619,7 +620,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidCompleteStartup event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
+		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			// Add item trace.
 			this.addRuntimeItemTrace(`onDidCompleteStartup`);
 
@@ -633,7 +634,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
 			// Add trace item.
 			this.addRuntimeItemTrace(
 				formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
@@ -650,7 +651,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
 			// Sanitize the trace output.
 			let traceOutput = languageRuntimeMessageStream.text;
 			traceOutput = traceOutput.replaceAll('\n', '[LF]');
@@ -683,7 +684,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageInput event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Add trace item.
 			this.addRuntimeItemTrace(
 				formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
@@ -701,7 +702,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageError event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
 			// Add trace item.
 			this.addRuntimeItemTrace(
 				formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
@@ -723,13 +724,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePrompt event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
 			// Add trace event.
 			this.addRuntimeItemTrace(`onDidReceiveRuntimeMessagePrompt: ID: ${languageRuntimeMessagePrompt.id} Parent ID: ${languageRuntimeMessagePrompt.parent_id}\nPassword: ${languageRuntimeMessagePrompt.password}\Prompt: ${languageRuntimeMessagePrompt.prompt}`);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageState event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
 			// Add trace event.
 			this.addRuntimeItemTrace(
 				formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
@@ -757,7 +758,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageEvent event handler.
-		this._runtimeEventHandlersDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
 		}));
 	}
 
@@ -765,8 +766,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
-		this._runtimeEventHandlersDisposableStore.dispose();
-		this._runtimeEventHandlersDisposableStore = new DisposableStore();
+		this._runtimeDisposableStore.dispose();
+		this._runtimeDisposableStore = new DisposableStore();
 
 		this.addRuntimeItem(new RuntimeItemExited(
 			generateUuid(),

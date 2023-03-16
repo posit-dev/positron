@@ -128,17 +128,17 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	/**
 	 * The environment data entries in the environment store.
 	 */
-	private environmentDataEntries = new Map<string, EnvironmentValueEntry>();
+	private _environmentDataEntries = new Map<string, EnvironmentValueEntry>();
 
 	/**
 	 * The environment value entries in the environment store.
 	 */
-	private environmentValueEntries = new Map<string, EnvironmentValueEntry>();
+	private _environmentValueEntries = new Map<string, EnvironmentValueEntry>();
 
 	/**
 	 * Emitter for the onDidChangeListItems event.
 	 */
-	private readonly onDidChangeListItemsEmitter = new Emitter<void>();
+	private readonly _onDidChangeListItemsEmitter = new Emitter<void>();
 
 	/**
 	 * The client side of the of the environment instance; used to communicate
@@ -177,19 +177,19 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	/**
 	 *
 	 */
-	onDidChangeListItems: Event<void> = this.onDidChangeListItemsEmitter.event;
+	onDidChangeListItems: Event<void> = this._onDidChangeListItemsEmitter.event;
 
 	get listItems() {
 		const items: IListItem[] = [];
 
-		if (this.environmentDataEntries.size) {
+		if (this._environmentDataEntries.size) {
 			items.push(new HeaderDataListItem());
-			items.push(...this.environmentDataEntries.values());
+			items.push(...this._environmentDataEntries.values());
 		}
 
-		if (this.environmentValueEntries.size) {
+		if (this._environmentValueEntries.size) {
 			items.push(new HeaderValuesListItem());
-			items.push(...this.environmentValueEntries.values());
+			items.push(...this._environmentValueEntries.values());
 		}
 
 		return items;
@@ -209,45 +209,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			RuntimeClientType.Environment, {}).then(client => {
 				this.connectClient(client as IEnvironmentClientInstance);
 			});
-
-		// Add the did change runtime state event handler.
-		this._register(this._runtime.onDidChangeRuntimeState(runtimeState => {
-			// console.log(`********************* onDidChangeRuntimeState ${runtimeState}`);
-		}));
-
-		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-			// console.log('********************* onDidReceiveRuntimeMessageOutput');
-			// console.log(languageRuntimeMessageOutput);
-		}));
-
-		this._register(this._runtime.onDidReceiveRuntimeMessageInput(() => {
-			// console.log('********************* onDidReceiveRuntimeMessageInput');
-		}));
-
-		this._register(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-			// console.log('********************* languageRuntimeMessageError');
-			// console.log(languageRuntimeMessageError);
-		}));
-
-		this._register(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
-			// console.log('********************* onDidReceiveRuntimeMessagePrompt');
-			// console.log(languageRuntimeMessagePrompt);
-		}));
-
-		this._register(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
-			// console.log('********************* onDidReceiveRuntimeMessageState');
-			// console.log(languageRuntimeMessageState);
-		}));
-
-		this._register(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-			// console.log('********************* onDidReceiveRuntimeMessageEvent');
-			// console.log(languageRuntimeMessageEvent);
-		}));
-
-		// Add the did complete startup event handler.
-		this._register(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
-			// console.log(`********************* onDidCompleteStartup ${this._runtime.metadata.language}`);
-		}));
 	}
 
 	/**
@@ -267,17 +228,17 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * @param name The name of the environment entry.
 	 */
 	deleteEnvironmentEntry(name: string) {
-		this.environmentValueEntries.delete(name);
-		this.onDidChangeListItemsEmitter.fire();
+		this._environmentValueEntries.delete(name);
+		this._onDidChangeListItemsEmitter.fire();
 	}
 
 	/**
 	 * Clears the environment.
 	 */
 	clearEnvironment(includeHiddenObjects: boolean) {
-		this.environmentDataEntries.clear();
-		this.environmentValueEntries.clear();
-		this.onDidChangeListItemsEmitter.fire();
+		this._environmentDataEntries.clear();
+		this._environmentValueEntries.clear();
+		this._onDidChangeListItemsEmitter.fire();
 	}
 
 	/**
@@ -296,8 +257,8 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * @param environmenentEntry
 	 */
 	private setEnvironmentDataEntry(environmenentEntry: EnvironmentValueEntry) {
-		this.environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
-		this.onDidChangeListItemsEmitter.fire();
+		this._environmentDataEntries.set(environmenentEntry.name, environmenentEntry);
+		this._onDidChangeListItemsEmitter.fire();
 	}
 
 	/**
@@ -337,15 +298,6 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 			}
 		});
 	}
-
-	// /**
-	//  * Sets an environment value entry.
-	//  * @param environmenentEntry
-	//  */
-	// private setEnvironmentValueEntry(environmenentEntry: EnvironmentValueEntry) {
-	// 	this.environmentValueEntries.set(environmenentEntry.name, environmenentEntry);
-	// 	this.onDidChangeListItemsEmitter.fire();
-	// }
 
 	//#endregion Private Methods
 }
