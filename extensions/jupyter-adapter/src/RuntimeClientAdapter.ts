@@ -6,7 +6,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { JupyterKernel } from './JupyterKernel';
 
-import { v4 as uuidv4 } from 'uuid';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
@@ -15,7 +14,6 @@ import { JupyterCommClose } from './JupyterCommClose';
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
  */
 export class RuntimeClientAdapter {
-	readonly id: string;
 
 	// Event emitter for state changes
 	private readonly _state: vscode.EventEmitter<positron.RuntimeClientState>;
@@ -24,11 +22,10 @@ export class RuntimeClientAdapter {
 	onDidChangeClientState: vscode.Event<positron.RuntimeClientState>;
 
 	constructor(
+		private readonly _id: string,
 		private readonly _type: positron.RuntimeClientType,
 		private readonly _params: object,
 		private readonly _kernel: JupyterKernel) {
-
-		this.id = uuidv4();
 
 		// Wire event handlers for state changes
 		this._currentState = positron.RuntimeClientState.Uninitialized;
@@ -54,7 +51,7 @@ export class RuntimeClientAdapter {
 	public async open() {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
-		await this._kernel.openComm(this._type, this.id, this._params);
+		await this._kernel.openComm(this._type, this._id, this._params);
 		this._state.fire(positron.RuntimeClientState.Connected);
 	}
 
@@ -62,7 +59,7 @@ export class RuntimeClientAdapter {
 	 * Returns the unique ID of this runtime client.
 	 */
 	public getId(): string {
-		return this.id;
+		return this._id;
 	}
 
 	/**
@@ -76,7 +73,7 @@ export class RuntimeClientAdapter {
 	 * Returns the client ID
 	 */
 	public getClientId(): string {
-		return this.id;
+		return this._id;
 	}
 
 	/**
@@ -91,7 +88,7 @@ export class RuntimeClientAdapter {
 	 */
 	public close() {
 		this._state.fire(positron.RuntimeClientState.Closing);
-		this._kernel.closeComm(this.id);
+		this._kernel.closeComm(this._id);
 	}
 
 	/**
@@ -136,7 +133,7 @@ export class RuntimeClientAdapter {
 	 */
 	private onCommMsg(_msg: JupyterMessagePacket, message: JupyterCommMsg) {
 		// Ignore messages targeted at other comm channels
-		if (message.comm_id !== this.id) {
+		if (message.comm_id !== this._id) {
 			return;
 		}
 
@@ -158,7 +155,7 @@ export class RuntimeClientAdapter {
 	 */
 	private onCommClose(_msg: JupyterMessagePacket, message: JupyterCommClose) {
 		// Ignore messages targeted at other comm channels
-		if (message.comm_id !== this.id) {
+		if (message.comm_id !== this._id) {
 			return;
 		}
 		// Update the current state to closed
@@ -175,7 +172,7 @@ export class RuntimeClientAdapter {
 		// If the comm channel is still open, close it from our end.
 		if (this.getClientState() === positron.RuntimeClientState.Connected) {
 			this._state.fire(positron.RuntimeClientState.Closing);
-			this._kernel.closeComm(this.id);
+			this._kernel.closeComm(this._id);
 		}
 	}
 }

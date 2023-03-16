@@ -68,11 +68,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimes[handle].isCodeFragmentComplete(code));
 	}
 
-	$createClient(handle: number, type: RuntimeClientType, params: any): Promise<string> {
+	$createClient(handle: number, id: string, type: RuntimeClientType, params: any): Promise<void> {
 		if (handle >= this._runtimes.length) {
 			throw new Error(`Cannot create '${type}' client: language runtime handle '${handle}' not found or no longer valid.`);
 		}
-		return Promise.resolve(this._runtimes[handle].createClient(type, params));
+		return Promise.resolve(this._runtimes[handle].createClient(id, type, params));
 	}
 
 	$removeClient(handle: number, id: string): void {

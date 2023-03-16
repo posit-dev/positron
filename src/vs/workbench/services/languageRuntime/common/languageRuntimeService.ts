@@ -331,8 +331,12 @@ export interface ILanguageRuntime {
 	/**
 	 * Create a new instance of a client; return null if the client type
 	 * is not supported by this runtime.
+	 *
+	 * @param type The type of client to create
+	 * @param params The parameters to pass to the client constructor
 	 */
-	createClient<T>(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance<T>>;
+	createClient<T>(type: RuntimeClientType, params: any):
+		Thenable<IRuntimeClientInstance<T>>;
 
 	/** Get a list of all known clients */
 	listClients(): Thenable<Array<IRuntimeClientInstance<any>>>;
