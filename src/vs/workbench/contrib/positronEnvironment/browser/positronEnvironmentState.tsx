@@ -36,11 +36,11 @@ export interface PositronEnvironmentState extends PositronEnvironmentServices {
  */
 export const usePositronEnvironmentState = (services: PositronEnvironmentServices): PositronEnvironmentState => {
 	// Hooks.
-	const [positronEnvironmentInstances, _setPositronEnvironmentInstances] =
+	const [positronEnvironmentInstances, setPositronEnvironmentInstances] =
 		useState<IPositronEnvironmentInstance[]>(
 			services.positronEnvironmentService.positronEnvironmentInstances
 		);
-	const [activePositronEnvironmentInstance, _setActivePositronEnvironmentInstance] =
+	const [activePositronEnvironmentInstance, setActivePositronEnvironmentInstance] =
 		useState<IPositronEnvironmentInstance | undefined>(
 			services.positronEnvironmentService.activePositronEnvironmentInstance
 		);
@@ -54,14 +54,28 @@ export const usePositronEnvironmentState = (services: PositronEnvironmentService
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 
+		// Add the onDidStartPositronEnvironmentInstance event handler.
+		disposableStore.add(services.positronEnvironmentService.onDidStartPositronEnvironmentInstance(positronEnvironmentInstance => {
+			setPositronEnvironmentInstances(positronEnvironmentInstances => [...positronEnvironmentInstances, positronEnvironmentInstance]);
+		}));
+
+		// Add the onDidChangeActivePositronEnvironmentInstance event handler.
+		disposableStore.add(services.positronEnvironmentService.onDidChangeActivePositronEnvironmentInstance(positronEnvironmentInstance => {
+			setActivePositronEnvironmentInstance(positronEnvironmentInstance);
+		}));
+
+		// TO DIE
 		// Add the did start runtime event handler for the language runtime service.
 		disposableStore.add(services.languageRuntimeService.onDidStartRuntime(runtime => {
 			// Create and add the Positron language environment.
 			const languageEnvironment = new LanguageEnvironment(runtime);
 			setLanguageEnvironments(languageEnvironments => [...languageEnvironments, languageEnvironment]);
 			disposableStore.add(languageEnvironment);
+
+
 		}));
 
+		// TO DIE
 		// Add the did change active runtime event handler for the language runtime service.
 		disposableStore.add(services.languageRuntimeService.onDidChangeActiveRuntime(runtime => {
 			if (!runtime) {

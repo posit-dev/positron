@@ -5,6 +5,7 @@
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { EnvironmentVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariable';
 
 // Create the decorator for the Positron environment service (used in dependency injection).
 export const IPositronEnvironmentService = createDecorator<IPositronEnvironmentService>('positronEnvironmentService');
@@ -70,9 +71,19 @@ export interface IPositronEnvironmentInstance {
 	readonly state: PositronEnvironmentState;
 
 	/**
+	 * Gets the environment variables.
+	 */
+	readonly environmentVariables: EnvironmentVariable[];
+
+	/**
 	 * The onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronEnvironmentState>;
+
+	/**
+	 * The onDidChangeEnvironmentVariables event.
+	 */
+	readonly onDidChangeEnvironmentVariables: Event<EnvironmentVariable[]>;
 
 	/**
 	 * Refreshes the environment.

@@ -9,7 +9,10 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeClientType, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { EnvironmentClientMessageType, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentClientMessageType, EnvironmentVariableValueKind, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariable';
+import { EnvironmentVariableString } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableString';
+import { generateUuid } from 'vs/base/common/uuid';
 
 /**
  * PositronEnvironmentService class.
@@ -252,6 +255,11 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _state = PositronEnvironmentState.Uninitialized;
 
 	/**
+	 * Gets or sets the environment variables.
+	 */
+	private _environmentVariables: EnvironmentVariable[] = [];
+
+	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
 	 */
 	private _runtimeClient?: IEnvironmentClientInstance;
@@ -260,6 +268,11 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * The onDidChangeState event emitter.
 	 */
 	private readonly _onDidChangeStateEmitter = this._register(new Emitter<PositronEnvironmentState>);
+
+	/**
+	 * The onDidChangeEnvironmentVariables event emitter.
+	 */
+	private readonly _onDidChangeEnvironmentVariablesEmitter = this._register(new Emitter<EnvironmentVariable[]>);
 
 	//#endregion Private Properties
 
@@ -311,9 +324,21 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
+	 * Gets the environment variables.
+	 */
+	get environmentVariables(): EnvironmentVariable[] {
+		return this._environmentVariables;
+	}
+
+	/**
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronEnvironmentState> = this._onDidChangeStateEmitter.event;
+
+	/**
+	 * onDidChangeEnvironmentVariables event.
+	 */
+	readonly onDidChangeEnvironmentVariables: Event<EnvironmentVariable[]> = this._onDidChangeEnvironmentVariablesEmitter.event;
 
 	/**
 	 * Refreshes the environment.
@@ -478,20 +503,35 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
 	 */
 	private processListMessage(environmentClientMessageList: IEnvironmentClientMessageList) {
-		// Clear out the existing environment entries since this list
-		// completely replaces them.
-		//this.clearEnvironment(true);
-
-		// Add the new environment entries.
+		const environmentVariables: EnvironmentVariable[] = [];
 		for (let i = 0; i < environmentClientMessageList.variables.length; i++) {
-			const variable: IEnvironmentVariable = environmentClientMessageList.variables[i];
-			console.log(variable);
+			const variable = environmentClientMessageList.variables[i];
 
-			// TODO: Handle the case where the variable is something
-			// other than a String.
-			//this.setEnvironmentDataEntry(new EnvironmentValueEntry(variable.name, new StringEnvironmentValue(variable.value)));
+			switch (variable.kind) {
+				case EnvironmentVariableValueKind.String:
+					environmentVariables.push(
+						new EnvironmentVariableString(
+							generateUuid(),
+							variable.name,
+							variable.value
+						)
+					);
+					break;
+
+				// TODO: Handle the case where the variable is something other than a String.
+				case EnvironmentVariableValueKind.Number:
+				case EnvironmentVariableValueKind.Vector:
+				case EnvironmentVariableValueKind.List:
+				case EnvironmentVariableValueKind.Function:
+				case EnvironmentVariableValueKind.Dataframe:
+					console.log('OH SNAP! Not a string.');
+					break;
+			}
 		}
 
+		// Set the environment variables and fire the onDidChangeEnvironmentVariables event.
+		this._environmentVariables = environmentVariables;
+		this._onDidChangeEnvironmentVariablesEmitter.fire(this._environmentVariables);
 	}
 
 	/**
