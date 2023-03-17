@@ -14,7 +14,6 @@ use crossbeam::channel::Sender;
 use harp::environment::env_bindings;
 use harp::object::RObject;
 use harp::r_lock;
-use harp::r_symbol;
 use harp::environment::Binding;
 use harp::utils::r_assert_type;
 use libR_sys::*;
@@ -23,7 +22,6 @@ use log::error;
 use log::warn;
 
 use crate::environment::message::EnvironmentMessage;
-use crate::environment::message::EnvironmentMessageError;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
@@ -186,9 +184,19 @@ impl REnvironment {
      * Perform a full environment scan and deliver the results to the front end.
      */
     fn refresh(&mut self) {
-        self.current_bindings = self.bindings();
+        let mut variables : Vec<EnvironmentVariable> = vec![];
 
-        let env_list = list_environment(&self.env);
+        r_lock! {
+            self.current_bindings = self.bindings();
+
+            for binding in &self.current_bindings {
+                variables.push(EnvironmentVariable::new(binding));
+            }
+
+        }
+        let env_list = EnvironmentMessage::List(EnvironmentMessageList {
+            variables
+        });
         let data = serde_json::to_value(env_list);
         match data {
             Ok(data) => self.frontend_msg_sender
@@ -226,10 +234,7 @@ impl REnvironment {
                     (None, Some(mut new)) => {
                         loop {
                             assigned.push(
-                                EnvironmentVariable::new(
-                                    &new.name.to_string(),
-                                    RObject::view(new.binding)
-                                )
+                                EnvironmentVariable::new(&new)
                             );
 
                             match new_iter.next() {
@@ -260,12 +265,9 @@ impl REnvironment {
 
                     (Some(old), Some(new)) => {
                         if old.name == new.name {
-                            if old.binding != new.binding {
+                            if old.value != new.value {
                                 assigned.push(
-                                    EnvironmentVariable::new(
-                                        &old.name.to_string(),
-                                        RObject::view(new.binding)
-                                    )
+                                    EnvironmentVariable::new(&new)
                                 );
                             }
 
@@ -276,10 +278,7 @@ impl REnvironment {
                             old_next = old_iter.next();
                         } else {
                             assigned.push(
-                                EnvironmentVariable::new(
-                                    &new.name.to_string(),
-                                    RObject::view(new.binding)
-                                )
+                                EnvironmentVariable::new(&new)
                             );
                             new_next = new_iter.next();
                         }
@@ -312,44 +311,4 @@ impl REnvironment {
         bindings
     }
 
-}
-
-/**
- * List the variables in the given R environment; returns a message that can be
- * sent to the front end, either containing the list of variables or an error
- * message.
- */
-fn list_environment(env: &RObject) -> EnvironmentMessage {
-    // Acquire the R lock to ensure we have exclusive access to the R global
-    // environment while we're scanning it below.
-    r_lock! {
-
-        // List symbols in the environment.
-        let symbols = R_lsInternal(env.sexp, 1);
-
-        // Convert to a vector of strings.
-        let strings = match RObject::new(symbols).to::<Vec<String>>() {
-            Ok(v) => v,
-            Err(e) => {
-                return EnvironmentMessage::Error(EnvironmentMessageError {
-                    message: format!("Error listing environment: {}", e),
-                });
-            },
-        };
-
-        // Convert each string to an EnvironmentVariable by looking up the value in
-        // the global environment. (It would be more efficient, of course, to use
-        // symbol vector directly, but this code is a placeholder.)
-        let variables: Vec<EnvironmentVariable> = strings
-            .iter()
-            .map(|s| {
-                let symbol = r_symbol!(s);
-                let obj = RObject::view(Rf_findVarInFrame(env.sexp, symbol));
-                EnvironmentVariable::new(s, obj)
-            })
-            .collect();
-
-        // Form the response message.
-        EnvironmentMessage::List(EnvironmentMessageList { variables })
-    }
 }
