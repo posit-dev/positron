@@ -144,7 +144,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	 * The client side of the of the environment instance; used to communicate
 	 * with the language runtime.
 	 */
-	private _client?: IEnvironmentClientInstance;
+	private _client: EnvironmentClientInstance;
 
 	//#endregion Private Properties
 
@@ -205,10 +205,54 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		// Initialize Disposable base class.
 		super();
 
-		this._runtime.createClient<IEnvironmentClientMessage>(
-			RuntimeClientType.Environment, {}).then(client => {
-				this.connectClient(client as IEnvironmentClientInstance);
-			});
+		// Initialize the client instance; used to communicate with the language runtime.
+		this._client = new EnvironmentClientInstance(this._runtime);
+
+		// Add the handler for the event indicating a new list of environment data entries.
+		this._register(this._client.onDidReceiveList(list => {
+			// Clear out the existing environment entries since this list
+			// completely replaces them.
+			this.clearAllEnvironmentEntries();
+
+			// Add the new environment entries.
+			for (let i = 0; i < list.variables.length; i++) {
+				const variable = list.variables[i];
+				// TODO: Handle the case where the variable is something
+				// other than a String.
+				this.setEnvironmentDataEntry(new EnvironmentValueEntry(
+					variable.name, new StringEnvironmentValue(variable.value)));
+			}
+		}));
+
+		// Add a handler for environment pane updates
+		this._register(this._client.onDidReceiveUpdate(update => {
+			// Process each of the updated environment entries.
+			for (let i = 0; i < update.assigned.length; i++) {
+				const variable = update.assigned[i];
+
+				// Create the new environment entry.
+				const entry = new EnvironmentValueEntry(
+					variable.name,
+					new StringEnvironmentValue(variable.value));
+				this.environmentDataEntries.set(entry.name, entry);
+			}
+
+			// Process each of the removed environment entries.
+			for (let i = 0; i < update.removed.length; i++) {
+				const variableName = update.removed[i];
+				this.environmentDataEntries.delete(variableName);
+			}
+
+			// Fire the event indicating that the list of items has changed.
+			this.onDidChangeListItemsEmitter.fire();
+		}));
+
+		// Add a handler for errors received from the language runtime.
+		this._register(this._client.onDidReceiveError(error => {
+			// TODO: Do we want to show this error to the user? Perhaps in the pane or in a toast?
+			console.error(error);
+		}));
+
 
 		// Add the did change runtime state event handler.
 		this._register(this._runtime.onDidChangeRuntimeState(runtimeState => {
@@ -274,17 +318,15 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 	/**
 	 * Clears the environment.
 	 */
-	clearEnvironment(includeHiddenObjects: boolean) {
-		this.environmentDataEntries.clear();
-		this.environmentValueEntries.clear();
-		this.onDidChangeListItemsEmitter.fire();
+	clearEnvironment(_includeHiddenObjects: boolean) {
+		this._client.requestClear();
 	}
 
 	/**
 	 * Refreshes the environment.
 	 */
 	refreshEnvironment() {
-		this._client?.sendMessage({ msg_type: EnvironmentClientMessageType.Refresh });
+		this._client.requestRefresh();
 	}
 
 	//#endregion Public Methods
@@ -349,7 +391,13 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 				const err = msg as IEnvironmentClientMessageError;
 				console.error(err.message);
 			}
-		});
+		});  
+  }
+
+  private clearAllEnvironmentEntries() {
+		this.environmentDataEntries.clear();
+		this.environmentValueEntries.clear();
+		this.onDidChangeListItemsEmitter.fire();
 	}
 
 	// /**
