@@ -55,7 +55,10 @@ impl EnvironmentVariable {
      */
     pub fn new(binding: &Binding) -> Self {
         let name = binding.name.to_string();
-        let value = binding.describe();
+
+        // let value = binding.describe();
+        // until some more work is done
+        let value = name.clone();
         let kind = ValueKind::String;
 
         Self {
