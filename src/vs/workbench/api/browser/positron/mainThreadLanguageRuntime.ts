@@ -140,6 +140,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		const client = new ExtHostRuntimeClientInstance<T>(id, type, this.handle, this._proxy);
 		this._clients.set(id, client);
 		this._logService.info(`Creating ${type} client '${id}'...`);
+		client.setClientState(RuntimeClientState.Opening);
 
 		// Kick off the creation of the client on the server side. There's no
 		// reply defined to this call in the protocol, so this is almost
@@ -149,8 +150,20 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// If the creation fails on the server, we'll either get an error here
 		// or see the server end get closed immediately via a CommClose message.
 		// In either case we'll let the client know.
-		this._proxy.$createClient(this.handle, id, type, params).catch((err) => {
-			this._logService.error(`Failed to create client '${id}' in runtime '${this.handle}': ${err}`);
+		this._proxy.$createClient(this.handle, id, type, params).then(() => {
+			// There is no protocol message indicating that the client has been
+			// successfully created, so presume it's connected once the message
+			// has been safely delivered, and handle the close event if it
+			// happens.
+			if (client.getClientState() === RuntimeClientState.Opening) {
+				client.setClientState(RuntimeClientState.Connected);
+			} else {
+				this._logService.warn(`Client '${id}' in runtime '${this.metadata.runtimeName}' ` +
+					`was closed before it could be created`);
+			}
+		}).catch((err) => {
+			this._logService.error(`Failed to create client '${id}' ` +
+				`in runtime '${this.metadata.runtimeName}': ${err}`);
 			client.setClientState(RuntimeClientState.Closed);
 			this._clients.delete(id);
 		});
