@@ -45,14 +45,16 @@ const HelpLines = [
 	'ansi hidden - Displays hidden text',
 	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
 	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
-	'def X       - Defines X variables',
-	'def X Y     - Defines X variables of type Y',
+	'def X       - Defines X variables (randomly typed)',
+	'def X Y     - Defines X variables of type Y, where Y is one of: string, number, vector, or blob',
 	'env clear   - Clears all variables from the environment',
 	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help        - Shows this help',
 	'offline     - Simulates going offline for two seconds',
 	'progress    - Renders a progress bar',
+	'rm X        - Removes X variables',
 	'shutdown    - Simulates orderly shutdown',
+	'update X    - Updates X variables',
 	'version     - Shows the Zed version'
 ].join('\n');
 
@@ -219,7 +221,26 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					'No Environments',
 					'No environments are available to define variables in.', []);
 			}
+		} else if (match = code.match(/^update ([1-9]{1}[\d]*)/)) {
+			let count = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					count = environment.updateVars(count);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Updated the values of ${count} variables.`);
+		} else if (match = code.match(/^rm ([1-9]{1}[\d]*)/)) {
+			let count = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					count = environment.removeVars(count);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Removed ${count} variables.`);
 		}
+
 
 		// Process the "code".
 		switch (code) {
