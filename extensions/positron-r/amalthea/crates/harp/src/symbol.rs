@@ -11,7 +11,7 @@ use std::ffi::CStr;
 use std::ops::Deref;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Symbol {
+pub struct RSymbol {
     pub sexp: SEXP
 }
 
