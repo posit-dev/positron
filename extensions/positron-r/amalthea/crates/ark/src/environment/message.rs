@@ -39,7 +39,7 @@ pub struct EnvironmentMessageList {
  */
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvironmentMessageUpdate {
-    pub set: Vec<EnvironmentVariable>,
+    pub assigned: Vec<EnvironmentVariable>,
     pub removed: Vec<String>,
 }
 
