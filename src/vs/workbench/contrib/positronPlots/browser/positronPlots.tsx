@@ -39,6 +39,8 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	return (
 		<PositronPlotsContextProvider {...props}>
 			<div className='positron-plots'>
+				<p>There was a PLOT here.</p>
+				<p>It's gone now.</p>
 			</div>
 		</PositronPlotsContextProvider>
 	);
