@@ -10,8 +10,7 @@ import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
 import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
-import { EnvironmentClientMessageType, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
-import { RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { EnvironmentClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * EnvironmentValue interface.
@@ -342,59 +341,7 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		this.onDidChangeListItemsEmitter.fire();
 	}
 
-	/**
-	 * Connects the environment listing view to a client instance, which is used
-	 * to send and receive messages from the language runtime.
-	 *
-	 *  @param client The client instance.
-	 */
-	private connectClient(client: IEnvironmentClientInstance) {
-		this._client = client;
-		this._register(client);
-		client.onDidChangeClientState(_clientState => {
-			// TODO: Handle client state changes here.
-		});
-		client.onDidReceiveData((msg: IEnvironmentClientMessage) => {
-			if (msg.msg_type === EnvironmentClientMessageType.List) {
-				// This message contains a full list of environment variables.
-				const list = msg as IEnvironmentClientMessageList;
-
-				// Clear out the existing environment entries since this list
-				// completely replaces them.
-				this.clearEnvironment(true);
-
-				// Add the new environment entries.
-				for (let i = 0; i < list.variables.length; i++) {
-					const variable = list.variables[i];
-					// TODO: Handle the case where the variable is something
-					// other than a String.
-					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
-						variable.name, new StringEnvironmentValue(variable.value)));
-				}
-			} else if (msg.msg_type === EnvironmentClientMessageType.Update) {
-				const update = msg as IEnvironmentClientMessageUpdate;
-
-				for (const entry in update.removed) {
-					this.deleteEnvironmentEntry(entry);
-				}
-
-				for (let i = 0; i < update.assigned.length; i++) {
-					const variable = update.assigned[i];
-
-					this.setEnvironmentDataEntry(new EnvironmentValueEntry(
-						variable.name, new StringEnvironmentValue(variable.value)));
-				}
-
-			} else if (msg.msg_type === EnvironmentClientMessageType.Error) {
-				// Error message; log to console. Consider: should we show this
-				// to the user, too?
-				const err = msg as IEnvironmentClientMessageError;
-				console.error(err.message);
-			}
-		});  
-  }
-
-  private clearAllEnvironmentEntries() {
+	private clearAllEnvironmentEntries() {
 		this.environmentDataEntries.clear();
 		this.environmentValueEntries.clear();
 		this.onDidChangeListItemsEmitter.fire();

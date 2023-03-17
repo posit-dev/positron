@@ -95,11 +95,6 @@ export interface IEnvironmentClientMessageError extends IEnvironmentClientMessag
 	message: string;
 }
 
-export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessage {
-	assigned: Array<IEnvironmentVariable>;
-	removed: Array<string>;
-}
-
 export type IEnvironmentClientInstance = IRuntimeClientInstance<IEnvironmentClientMessage>;
 
 /**
