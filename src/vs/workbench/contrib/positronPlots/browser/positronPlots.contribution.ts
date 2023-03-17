@@ -5,7 +5,6 @@
 import * as nls from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
@@ -48,9 +47,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	openCommandActionDescriptor: {
 		id: 'workbench.action.positron.togglePlots',
 		mnemonicTitle: nls.localize({ key: 'miTogglePlots', comment: ['&& denotes a mnemonic'] }, "&&Plots"),
-		keybindings: {
-			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
-		},
+		keybindings: {},
 		order: 1,
 	}
 }], VIEW_CONTAINER);
