@@ -11,7 +11,6 @@ use crossbeam::channel::select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use crossbeam::channel::Select;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
@@ -177,27 +176,6 @@ impl REnvironment {
                     }
                 }
             }
-
-            let mut sel = Select::new();
-
-            // Listen to the comm
-            sel.recv(&self.channel_msg_rx);
-
-            // Listen to R events
-            sel.recv(&prompt_signal_rx);
-
-            // Wait until a message is received (blocking call)
-            let oper = sel.select();
-
-            if oper.index() == 1 {
-                if let Ok(()) = oper.recv(&prompt_signal_rx) {
-                    self.update();
-                }
-
-                continue;
-            }
-
-
         }
 
         SIGNALS.console_prompt.remove(listen_id);
