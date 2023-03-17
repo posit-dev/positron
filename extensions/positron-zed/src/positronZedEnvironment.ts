@@ -24,7 +24,13 @@ class ZedVariable {
 		// The type name is the language-specific name for the variable's type.
 		// In Zed, the variable classes are named things like ZedNUMBER,
 		// ZedSTRING, etc.
-		this.type_name = `Zed${kind.toUpperCase()}}`;
+		this.type_name = `Zed${kind.toUpperCase()}`;
+
+		// The Zed language has a sample type named 'blob' that has its own Zed
+		// type, ZedBLOB, but is represented as a 'vector' in the environment.
+		if (this.kind === 'blob') {
+			this.kind = 'vector';
+		}
 	}
 }
 
@@ -96,12 +102,9 @@ export class ZedEnvironment {
 	 * Defines a number of variables at once.
 	 *
 	 * @param count The number of variables to define
-	 * @param kind The kind of variable to define; defaults to 'string'
+	 * @param kind The kind of variable to define; if not specified, a random kind will be chosen
 	 */
 	public defineVars(count: number, kind: string) {
-		// Select the kind of variable to define
-		const kindToUse = kind || 'string';
-
 		// Get the starting index for the new variables
 		const start = this._vars.size + 1;
 
@@ -109,21 +112,42 @@ export class ZedEnvironment {
 		const added = [];
 
 		for (let i = 0; i < count; i++) {
-			const name = `zed${start + i}`;
+			let kindToUse = kind;
+			if (!kind || kind === 'random') {
+				// Random: pick a random kind
+				kindToUse = ['string', 'number', 'vector', 'blob'][Math.floor(Math.random() * 4)];
+			}
+
+			const name = `${kindToUse}${start + i}`;
 			let value = '';
 
 			// Create a random value for the variable
+			let size = 0;
 			if (kindToUse === 'string') {
 				// Strings: use a random UUID
 				value = randomUUID();
+				size = value.length;
 			} else if (kindToUse === 'number') {
 				// Numbers: use a random number
 				value = Math.random().toString();
+				size = 4;
+			} else if (kindToUse === 'vector') {
+				// Vectors: Generate 5 random bytes
+				const bytes = [];
+				for (let i = 0; i < 5; i++) {
+					bytes.push(Math.floor(Math.random() * 256));
+				}
+				value = bytes.join(', ');
+				size = 5;
+			} else if (kindToUse === 'blob') {
+				size = Math.floor(Math.random() * 1024 * 1024);
+				value = `blob(${size} bytes)`;
 			} else {
 				// Everything else: use the counter
 				value = `value${start + i}`;
+				size = value.length;
 			}
-			const newZedVar = new ZedVariable(name, value, kindToUse, value.length, value.length * 2);
+			const newZedVar = new ZedVariable(name, value, kindToUse, value.length, size);
 			added.push(newZedVar);
 
 			this._vars.set(name, newZedVar);
@@ -152,6 +176,7 @@ export class ZedEnvironment {
 		for (const key of randomKeys) {
 			const oldVar = this._vars.get(key)!;
 			let value = '';
+			let size = 0;
 			// Create a random value for the variable
 			if (oldVar.kind === 'string') {
 				// Strings: replace 5 random characters with a hexadecimal digit
@@ -161,19 +186,39 @@ export class ZedEnvironment {
 					chars[randomIndex] = Math.floor(Math.random() * 16).toString(16);
 				}
 				value = chars.join('');
+				size = value.length;
 			} else if (oldVar.kind === 'number') {
 				// Numbers: just use a new random number
 				value = Math.random().toString();
+				size = 4;
+			} else if (oldVar.kind === 'vector') {
+				if (oldVar.value.startsWith('blob')) {
+					// Blobs are basically huge vectors. Randomly double or halve the size.
+					if (Math.random() < 0.5) {
+						size = oldVar.size * 2;
+						value = `blob(${size} bytes)`;
+					} else {
+						size = Math.floor(oldVar.size / 2);
+						value = `blob(${size} bytes)`;
+					}
+				} else {
+					// Vectors: replace 2 random bytes with new random bytes and add an extra byte
+					// at the end
+					const bytes = oldVar.value.split(',').map((x) => parseInt(x, 10));
+					for (let i = 0; i < 2; i++) {
+						const randomIndex = Math.floor(Math.random() * bytes.length);
+						bytes[randomIndex] = Math.floor(Math.random() * 256);
+					}
+					bytes.push(Math.floor(Math.random() * 256));
+					value = bytes.join(', ');
+					size = bytes.length;
+				}
 			} else {
 				// Everything else: reverse the value
 				value = oldVar.value.split('').reverse().join('');
+				size = value.length;
 			}
 
-			// For some reason the size increases by 1 byte when we update the
-			// value. I don't make the rules.
-			const size = oldVar.size + 1;
-
-			// Save the new variable's value
 			const newVar = new ZedVariable(oldVar.name, value, oldVar.kind, value.length, size);
 			this._vars.set(key, newVar);
 
