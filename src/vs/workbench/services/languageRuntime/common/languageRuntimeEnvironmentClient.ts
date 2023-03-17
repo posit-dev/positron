@@ -60,7 +60,7 @@ export interface IEnvironmentClientMessageError extends IEnvironmentClientMessag
 }
 
 export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessage {
-	set: Array<IEnvironmentVariable>;
+	assigned: Array<IEnvironmentVariable>;
 	removed: Array<string>;
 }
 

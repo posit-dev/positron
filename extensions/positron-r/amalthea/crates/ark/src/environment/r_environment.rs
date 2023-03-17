@@ -232,7 +232,7 @@ impl REnvironment {
             let old_bindings = &self.current_bindings;
             let new_bindings = self.bindings();
 
-            let mut set : Vec<EnvironmentVariable> = vec![];
+            let mut assigned : Vec<EnvironmentVariable> = vec![];
             let mut removed : Vec<String> = vec![];
 
             let mut old_iter = old_bindings.iter();
@@ -252,7 +252,7 @@ impl REnvironment {
                     // No more old, collect last new into added
                     (None, Some(mut new)) => {
                         loop {
-                            set.push(
+                            assigned.push(
                                 EnvironmentVariable::new(
                                     &new.name.to_string(),
                                     RObject::view(new.binding)
@@ -288,7 +288,7 @@ impl REnvironment {
                     (Some(old), Some(new)) => {
                         if old.name == new.name {
                             if old.binding != new.binding {
-                                set.push(
+                                assigned.push(
                                     EnvironmentVariable::new(
                                         &old.name.to_string(),
                                         RObject::view(new.binding)
@@ -302,7 +302,7 @@ impl REnvironment {
                             removed.push(old.name.to_string());
                             old_next = old_iter.next();
                         } else {
-                            set.push(
+                            assigned.push(
                                 EnvironmentVariable::new(
                                     &new.name.to_string(),
                                     RObject::view(new.binding)
@@ -314,9 +314,9 @@ impl REnvironment {
                 }
             }
 
-            if set.len() > 0 || removed.len() > 0 {
+            if assigned.len() > 0 || removed.len() > 0 {
                 let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
-                    set, removed
+                    assigned, removed
                 });
                 match serde_json::to_value(message) {
                     Ok(data) => self.frontend_msg_sender
