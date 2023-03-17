@@ -75,6 +75,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			languageId: _kernel.supportedLanguages[0],
 			languageName: languageName,
 			languageVersion: '1.0',
+			inputPrompt: 'NB>',
 			runtimeName: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`,
 			runtimeVersion: '0.0.1',
 			startupBehavior: LanguageRuntimeStartupBehavior.Implicit

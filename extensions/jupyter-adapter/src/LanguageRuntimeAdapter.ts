@@ -60,11 +60,28 @@ export class LanguageRuntimeAdapter
 	 */
 	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
+	/**
+	 * Create a new LanguageRuntimeAdapter to wrap a Jupyter kernel instance in
+	 * a LanguageRuntime interface.
+	 *
+	 * @param _context The extension context for the extension that owns this adapter
+	 * @param _spec The Jupyter kernel spec for the kernel to wrap
+	 * @param languageId  The language ID for the language this adapter supports; must be one of
+	 *    VS Code's built-in language IDs or a language ID registered by another extension.
+	 * @param languageVersion The specific version of the interpreter bound to this adapter
+	 * @param runtimeVersion The version of the language runtime wrapper around
+	 *    the interpreter, often the extension version
+	 * @param inputPrompt The input prompt to use for the kernel, such as ">"
+	 * @param _channel The channel on which to emit logging messages
+	 * @param startupBehavior Whether the runtime should be started automatically
+	 * @param _lsp A callback to invoke to start the client side of the LSP
+	 */
 	constructor(private readonly _context: vscode.ExtensionContext,
 		private readonly _spec: JupyterKernelSpec,
 		languageId: string,
 		languageVersion: string,
 		runtimeVersion: string,
+		inputPrompt: string,
 		private readonly _channel: vscode.OutputChannel,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
 		private readonly _lsp?: (port: number) => Promise<void>) {
@@ -89,6 +106,7 @@ export class LanguageRuntimeAdapter
 			languageId,
 			languageName: this._spec.language,
 			languageVersion,
+			inputPrompt,
 			startupBehavior: startupBehavior
 		};
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
