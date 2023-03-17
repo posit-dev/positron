@@ -15,7 +15,7 @@ use crossbeam::channel::Select;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
-use harp::symbol::Symbol;
+use harp::symbol::RSymbol;
 use harp::utils::r_assert_type;
 use libR_sys::*;
 use log::debug;
@@ -31,7 +31,7 @@ use crate::lsp::signals::SIGNALS;
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct Binding {
-    name: Symbol,
+    name: RSymbol,
     binding: SEXP
 }
 
@@ -358,7 +358,7 @@ impl REnvironment {
     unsafe fn frame_bindings(mut frame: SEXP, bindings: &mut Vec<Binding> ) {
         while frame != R_NilValue {
             bindings.push(Binding{
-                name: Symbol::new(TAG(frame)),
+                name: RSymbol::new(TAG(frame)),
 
                 // TODO: handle active bindings and promises ?
                 binding: CAR(frame)
