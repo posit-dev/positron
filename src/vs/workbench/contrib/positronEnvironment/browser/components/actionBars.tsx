@@ -21,7 +21,8 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { showClearEnvironmentObjectsModalDialog } from 'vs/workbench/browser/positronModalDialogs/clearEnvironmentObjectsModalDialog';
-import { LanguageRuntimeSelectorMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/languageRuntimeSelectorMenuButton';
+import { EnvironmentInstanceMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentInstanceMenuButton';
+import { GroupingMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/groupingMenuButton';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -82,21 +83,20 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		// Show the clear environment objects modal dialog. If the user confirmed the operation, do it.
 		const result = await showClearEnvironmentObjectsModalDialog(props.layoutService);
 		if (result) {
-			positronEnvironmentContext.currentLanguageEnvironment?.clearEnvironment(result.includeHiddenObjects);
+			positronEnvironmentContext.activePositronEnvironmentInstance?.requestClear(
+				result.includeHiddenObjects
+			);
 		}
 	};
 
 	// Refresh workspace objects handler.
 	const refreshWorkspaceObjectsHandler = () => {
-		positronEnvironmentContext.currentLanguageEnvironment?.refreshEnvironment();
-
-		// TESTING@softwarenerd.
-		positronEnvironmentContext.positronEnvironmentInstances.forEach(x => x.requestRefresh());
+		positronEnvironmentContext.activePositronEnvironmentInstance?.requestRefresh();
 	};
 
 	// If there are no language environment, return null.
 	// TODO@softwarenerd - Render something specific for this case. TBD.
-	if (positronEnvironmentContext.languageEnvironments.length === 0) {
+	if (positronEnvironmentContext.positronEnvironmentInstances.length === 0) {
 		return null;
 	}
 
@@ -116,12 +116,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-test' tooltip={localize('positronTestMode', "Enter test mode")} />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
+						<GroupingMenuButton />
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} onClick={refreshWorkspaceObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<LanguageRuntimeSelectorMenuButton />
+						<EnvironmentInstanceMenuButton />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />
 					</ActionBarRegion>

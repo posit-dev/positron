@@ -13,8 +13,7 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { ActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/actionBars';
-import { EnvironmentList } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentList';
+import { EnvironmentCore } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentCore';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { PositronEnvironmentContextProvider } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
@@ -68,8 +67,7 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 	return (
 		<PositronEnvironmentContextProvider {...props}>
 			<div className='positron-environment'>
-				<ActionBars {...props} />
-				<EnvironmentList width={width} height={height - 64} />
+				<EnvironmentCore width={width} height={height} {...props} />
 			</div>
 		</PositronEnvironmentContextProvider>
 	);

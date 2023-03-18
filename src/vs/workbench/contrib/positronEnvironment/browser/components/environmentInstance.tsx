@@ -2,9 +2,10 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleRepl';
+import 'vs/css!./environmentInstance';
 import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
@@ -23,7 +24,7 @@ interface EnvironmentInstanceProps {
  */
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Hooks.
-	//const [marker, setMarker] = useState(generateUuid());
+	const [marker, setMarker] = useState(generateUuid());
 
 	// useEffect for appending items.
 	useEffect(() => {
@@ -31,20 +32,31 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeState event handler.
-		disposableStore.add(props.positronEnvironmentInstance.onDidChangeState(state => {
-		}));
+		disposableStore.add(
+			props.positronEnvironmentInstance.onDidChangeState(state => {
+			})
+		);
+
+		// Add the onDidChangeEnvironmentItems event handler.
+		disposableStore.add(
+			props.positronEnvironmentInstance.onDidChangeEnvironmentItems(environmentItems => {
+				setMarker(generateUuid());
+			})
+		);
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
+	// Temporary logging.
+	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
+
 	// Render.
 	return (
 		<div className='environment-instance' hidden={props.hidden}>
-			<div>Environment Instance</div>
-			{/* {props.positronEnvironmentInstance.runtimeItems.map(runtimeItem =>
-				renderRuntimeItem(runtimeItem)
-			)} */}
+			{props.positronEnvironmentInstance.environmentItems.map(environmentItem =>
+				<div key={environmentItem.id}>{environmentItem.environmentVariable.name}</div>
+			)}
 		</div>
 	);
 };

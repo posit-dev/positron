@@ -2,17 +2,17 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleReplMenuButton';
+import 'vs/css!./consoleInstanceMenuButton';
 import * as React from 'react';
 import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 /**
- * ConsoleReplMenuButton component.
+ * ConsoleInstanceMenuButton component.
  * @returns The rendered component.
  */
-export const ConsoleReplMenuButton = () => {
+export const ConsoleInstanceMenuButton = () => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -28,7 +28,8 @@ export const ConsoleReplMenuButton = () => {
 				class: undefined,
 				enabled: true,
 				run: () => {
-					positronConsoleContext.languageRuntimeService.activeRuntime = positronConsoleInstance.runtime;
+					positronConsoleContext.languageRuntimeService.activeRuntime =
+						positronConsoleInstance.runtime;
 				}
 			});
 		});
