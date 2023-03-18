@@ -8,8 +8,6 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IListItem, IListItemsProvider } from 'vs/base/common/positronStuff';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { HeaderDataListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerDataListItem';
-import { HeaderValuesListItem } from 'vs/workbench/contrib/positronEnvironment/browser/classes/headerValuesListItem';
 import { EnvironmentClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
@@ -182,12 +180,10 @@ export class LanguageEnvironment extends Disposable implements IListItemsProvide
 		const items: IListItem[] = [];
 
 		if (this._environmentDataEntries.size) {
-			items.push(new HeaderDataListItem());
 			items.push(...this._environmentDataEntries.values());
 		}
 
 		if (this._environmentValueEntries.size) {
-			items.push(new HeaderValuesListItem());
 			items.push(...this._environmentValueEntries.values());
 		}
 
