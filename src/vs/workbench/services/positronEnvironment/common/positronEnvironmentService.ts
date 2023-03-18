@@ -9,10 +9,10 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItem';
+import { EnvironmentItemVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItemVariable';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { EnvironmentClientInstance, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
-import { EnvironmentItemVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItemVariable';
 
 /**
  * PositronEnvironmentService class.
@@ -23,12 +23,14 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 	/**
 	 * A map of the Positron environment instances by language ID.
 	 */
-	private readonly _positronEnvironmentInstancesByLanguageId = new Map<string, PositronEnvironmentInstance>();
+	private readonly _positronEnvironmentInstancesByLanguageId =
+		new Map<string, PositronEnvironmentInstance>();
 
 	/**
 	 * A map of the Positron environment instances by runtime ID.
 	 */
-	private readonly _positronEnvironmentInstancesByRuntimeId = new Map<string, PositronEnvironmentInstance>();
+	private readonly _positronEnvironmentInstancesByRuntimeId =
+		new Map<string, PositronEnvironmentInstance>();
 
 	/**
 	 * The active Positron environment instance.
@@ -38,12 +40,14 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 	/**
 	 * The onDidStartPositronEnvironmentInstance event emitter.
 	 */
-	private readonly _onDidStartPositronEnvironmentInstanceEmitter = this._register(new Emitter<IPositronEnvironmentInstance>);
+	private readonly _onDidStartPositronEnvironmentInstanceEmitter =
+		this._register(new Emitter<IPositronEnvironmentInstance>);
 
 	/**
 	 * The onDidChangeActivePositronEnvironmentInstance event emitter.
 	 */
-	private readonly _onDidChangeActivePositronEnvironmentInstanceEmitter = this._register(new Emitter<IPositronEnvironmentInstance | undefined>);
+	private readonly _onDidChangeActivePositronEnvironmentInstanceEmitter =
+		this._register(new Emitter<IPositronEnvironmentInstance | undefined>);
 
 	//#endregion Private Properties
 
@@ -70,7 +74,9 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 
 		// Get the active runtime. If there is one, set the active Positron environment instance.
 		if (this._languageRuntimeService.activeRuntime) {
-			const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(this._languageRuntimeService.activeRuntime.metadata.runtimeId);
+			const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(
+				this._languageRuntimeService.activeRuntime.metadata.runtimeId
+			);
 			if (positronEnvironmentInstance) {
 				this.setActivePositronEnvironmentInstance(positronEnvironmentInstance);
 			}
@@ -78,78 +84,101 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 
 		// Register the onWillStartRuntime event handler so we start a new Positron environment instance before a runtime starts up.
 		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
-			const positronEnvironmentInstance = this._positronEnvironmentInstancesByLanguageId.get(runtime.metadata.languageId);
-			if (positronEnvironmentInstance && positronEnvironmentInstance.state === PositronEnvironmentState.Exited) {
+			const positronEnvironmentInstance = this._positronEnvironmentInstancesByLanguageId.get(
+				runtime.metadata.languageId
+			);
+			if (positronEnvironmentInstance &&
+				positronEnvironmentInstance.state === PositronEnvironmentState.Exited
+			) {
 				positronEnvironmentInstance.setRuntime(runtime, true);
-				this._positronEnvironmentInstancesByRuntimeId.delete(positronEnvironmentInstance.runtime.metadata.runtimeId);
-				this._positronEnvironmentInstancesByRuntimeId.set(positronEnvironmentInstance.runtime.metadata.runtimeId, positronEnvironmentInstance);
+				this._positronEnvironmentInstancesByRuntimeId.delete(
+					positronEnvironmentInstance.runtime.metadata.runtimeId
+				);
+				this._positronEnvironmentInstancesByRuntimeId.set(
+					positronEnvironmentInstance.runtime.metadata.runtimeId,
+					positronEnvironmentInstance
+				);
 			} else {
 				this.startPositronEnvironmentInstance(runtime, true);
 			}
 		}));
 
-		// Register the onDidStartRuntime event handler so we activate the new Positron environment instance when the runtime starts up.
+		// Register the onDidStartRuntime event handler so we activate the new Positron environment
+		// instance when the runtime starts up.
 		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
-			const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+			const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(
+				runtime.metadata.runtimeId
+			);
 			if (positronEnvironmentInstance) {
 				positronEnvironmentInstance.setState(PositronEnvironmentState.Ready);
 			}
 		}));
 
-		// Register the onDidFailStartRuntime event handler so we activate the new Positron environment instance when the runtime starts up.
+		// Register the onDidFailStartRuntime event handler so we activate the new Positron
+		// environment instance when the runtime starts up.
 		this._register(this._languageRuntimeService.onDidFailStartRuntime(runtime => {
-			const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+			const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(
+				runtime.metadata.runtimeId
+			);
 			if (positronEnvironmentInstance) {
 				positronEnvironmentInstance.setState(PositronEnvironmentState.Exited);
 			}
 		}));
 
-		// Register the onDidReconnectRuntime event handler so we start a new Positron environment instance when a runtime is reconnected.
+		// Register the onDidReconnectRuntime event handler so we start a new Positron environment
+		// instance when a runtime is reconnected.
 		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
 			this.startPositronEnvironmentInstance(runtime, false);
 		}));
 
-		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the active runtime.
-		this._register(this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
-			const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(languageRuntimeStateEvent.runtime_id);
-			if (!positronEnvironmentInstance) {
-				// TODO@softwarenerd... Handle this in some special way.
-				return;
-			}
+		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the
+		// active runtime.
+		this._register(
+			this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+				const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(
+					languageRuntimeStateEvent.runtime_id
+				);
+				if (!positronEnvironmentInstance) {
+					// TODO@softwarenerd... Handle this in some special way.
+					return;
+				}
 
-			switch (languageRuntimeStateEvent.new_state) {
-				case RuntimeState.Uninitialized:
-				case RuntimeState.Initializing:
-					break;
+				switch (languageRuntimeStateEvent.new_state) {
+					case RuntimeState.Uninitialized:
+					case RuntimeState.Initializing:
+						break;
 
-				case RuntimeState.Starting:
-					positronEnvironmentInstance.setState(PositronEnvironmentState.Starting);
-					break;
+					case RuntimeState.Starting:
+						positronEnvironmentInstance.setState(PositronEnvironmentState.Starting);
+						break;
 
-				case RuntimeState.Ready:
-					positronEnvironmentInstance.setState(PositronEnvironmentState.Ready);
-					break;
+					case RuntimeState.Ready:
+						positronEnvironmentInstance.setState(PositronEnvironmentState.Ready);
+						break;
 
-				case RuntimeState.Offline:
-					positronEnvironmentInstance.setState(PositronEnvironmentState.Offline);
-					break;
+					case RuntimeState.Offline:
+						positronEnvironmentInstance.setState(PositronEnvironmentState.Offline);
+						break;
 
-				case RuntimeState.Exiting:
-					positronEnvironmentInstance.setState(PositronEnvironmentState.Exiting);
-					break;
+					case RuntimeState.Exiting:
+						positronEnvironmentInstance.setState(PositronEnvironmentState.Exiting);
+						break;
 
-				case RuntimeState.Exited:
-					positronEnvironmentInstance.setState(PositronEnvironmentState.Exited);
-					break;
-			}
-		}));
+					case RuntimeState.Exited:
+						positronEnvironmentInstance.setState(PositronEnvironmentState.Exited);
+						break;
+				}
+			}));
 
-		// Register the onDidChangeActiveRuntime event handler so we can activate the REPL for the active runtime.
+		// Register the onDidChangeActiveRuntime event handler so we can activate the REPL for the
+		// active runtime.
 		this._register(this._languageRuntimeService.onDidChangeActiveRuntime(runtime => {
 			if (!runtime) {
 				this.setActivePositronEnvironmentInstance();
 			} else {
-				const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+				const positronEnvironmentInstance = this._positronEnvironmentInstancesByRuntimeId.get(
+					runtime.metadata.runtimeId
+				);
 				if (positronEnvironmentInstance) {
 					this.setActivePositronEnvironmentInstance(positronEnvironmentInstance);
 				} else {
@@ -167,10 +196,12 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 	declare readonly _serviceBrand: undefined;
 
 	// An event that is fired when a REPL instance is started.
-	readonly onDidStartPositronEnvironmentInstance = this._onDidStartPositronEnvironmentInstanceEmitter.event;
+	readonly onDidStartPositronEnvironmentInstance =
+		this._onDidStartPositronEnvironmentInstanceEmitter.event;
 
 	// An event that is fired when the active REPL instance changes.
-	readonly onDidChangeActivePositronEnvironmentInstance = this._onDidChangeActivePositronEnvironmentInstanceEmitter.event;
+	readonly onDidChangeActivePositronEnvironmentInstance =
+		this._onDidChangeActivePositronEnvironmentInstanceEmitter.event;
 
 	// Gets the repl instances.
 	get positronEnvironmentInstances(): IPositronEnvironmentInstance[] {
@@ -198,13 +229,22 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 	 * @param starting A value which indicates whether the runtime is starting.
 	 * @returns The new Positron environment instance.
 	 */
-	private startPositronEnvironmentInstance(runtime: ILanguageRuntime, starting: boolean): IPositronEnvironmentInstance {
+	private startPositronEnvironmentInstance(
+		runtime: ILanguageRuntime,
+		starting: boolean
+	): IPositronEnvironmentInstance {
 		// Create the new Positron environment instance.
 		const positronEnvironmentInstance = new PositronEnvironmentInstance(runtime, starting);
 
 		// Add the Positron environment instance.
-		this._positronEnvironmentInstancesByLanguageId.set(runtime.metadata.languageId, positronEnvironmentInstance);
-		this._positronEnvironmentInstancesByRuntimeId.set(runtime.metadata.runtimeId, positronEnvironmentInstance);
+		this._positronEnvironmentInstancesByLanguageId.set(
+			runtime.metadata.languageId,
+			positronEnvironmentInstance
+		);
+		this._positronEnvironmentInstancesByRuntimeId.set(
+			runtime.metadata.runtimeId,
+			positronEnvironmentInstance
+		);
 
 		// Fire the onDidStartPositronEnvironmentInstance event.
 		this._onDidStartPositronEnvironmentInstanceEmitter.fire(positronEnvironmentInstance);
@@ -223,7 +263,9 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 	 * Sets the active Positron environment instance.
 	 * @param positronEnvironmentInstance
 	 */
-	private setActivePositronEnvironmentInstance(positronEnvironmentInstance?: IPositronEnvironmentInstance) {
+	private setActivePositronEnvironmentInstance(
+		positronEnvironmentInstance?: IPositronEnvironmentInstance
+	) {
 		// Set the active instance and fire the onDidChangeActivePositronEnvironmentInstance event.
 		this._activePositronEnvironmentInstance = positronEnvironmentInstance;
 		this._onDidChangeActivePositronEnvironmentInstanceEmitter.fire(positronEnvironmentInstance);
