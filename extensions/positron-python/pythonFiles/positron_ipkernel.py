@@ -105,6 +105,7 @@ class EnvironmentVariableKind(str, enum.Enum):
     FUNCTION = 'function'
     LIST = 'list'
     NUMBER = 'number'
+    OBJECT = 'object'
     STRING = 'string'
     VECTOR = 'vector'
 
@@ -435,6 +436,8 @@ class PositronIPyKernel(IPythonKernel):
         s = (s[:max_width] + '...') if len(s) > max_width else s
         return s
 
+    DATAFRAME_MODULES = ['pandas.core.frame', 'polars.dataframe.frame']
+
     def determine_kind(self, value) -> str:
         if isinstance(value, str):
             return EnvironmentVariableKind.STRING
@@ -444,5 +447,10 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.LIST
         elif isinstance(value, types.FunctionType):
             return EnvironmentVariableKind.FUNCTION
+        elif value is not None:
+            clazz = value.__class__
+            if clazz.__name__ == 'DataFrame' and clazz.__module__ in self.DATAFRAME_MODULES:
+                return EnvironmentVariableKind.DATAFRAME
+            return EnvironmentVariableKind.OBJECT
         else:
             return None
