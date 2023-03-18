@@ -2,8 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { IEnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
-
 /**
  * EnvironmentItem class.
  */
@@ -13,9 +11,8 @@ export class EnvironmentItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param name The environment variable.
 	 */
-	constructor(readonly id: string, readonly environmentVariable: IEnvironmentVariable) {
+	constructor(readonly id: string) {
 	}
 
 	//#endregion Constructor

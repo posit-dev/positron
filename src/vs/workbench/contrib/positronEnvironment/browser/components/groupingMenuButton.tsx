@@ -19,15 +19,17 @@ export const GroupingMenuButton = () => {
 
 	// Builds the actions.
 	const actions = () => {
-		const actions: IAction[] = [];
-
+		// This can't happen.
 		if (positronEnvironmentContext.activePositronEnvironmentInstance === undefined) {
-			return actions;
+			return [];
 		}
 
+		// Get the current environment grouping.
 		const environmentGrouping = positronEnvironmentContext.activePositronEnvironmentInstance.
 			environmentGrouping;
 
+		// Build the actions.
+		const actions: IAction[] = [];
 		actions.push({
 			id: 'None',
 			label: 'None',
@@ -81,6 +83,7 @@ export const GroupingMenuButton = () => {
 		return actions;
 	};
 
+	// If there isn't an active environment instance, don't render.
 	if (!positronEnvironmentContext.activePositronEnvironmentInstance) {
 		return null;
 	}

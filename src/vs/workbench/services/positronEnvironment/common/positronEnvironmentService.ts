@@ -12,6 +12,7 @@ import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/commo
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { EnvironmentClientInstance, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentItemVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItemVariable';
 
 /**
  * PositronEnvironmentService class.
@@ -558,7 +559,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 			const environmentVariable = environmentClientMessageList.variables[i];
 
 			// Add the environment item.
-			environmentItems.push(new EnvironmentItem(generateUuid(), environmentVariable));
+			environmentItems.push(new EnvironmentItemVariable(generateUuid(), environmentVariable));
 		}
 
 		// Set the environment items and fire the onDidChangeEnvironmentItems event.
