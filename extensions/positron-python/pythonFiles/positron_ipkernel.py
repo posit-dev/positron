@@ -6,6 +6,7 @@ from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
 from collections.abc import Mapping
 from typing import Any, Optional
 import enum
+import inspect
 import logging
 import numbers
 import pprint
@@ -420,9 +421,13 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariable(key, type_name, None)
 
     def summarize_function(self, key, value) -> EnvironmentVariable:
-        qname = f'{type(value).__name__} {value.__qualname__}'
+        if callable(value):
+            sig = inspect.signature(value)
+        else:
+            sig = '()'
+        display_value = f'{value.__qualname__}{sig}'
         size = sys.getsizeof(value)
-        return EnvironmentVariable(key, qname, EnvironmentVariableKind.FUNCTION, qname, None, size)
+        return EnvironmentVariable(key, display_value, EnvironmentVariableKind.FUNCTION, value.__qualname__, None, size)
 
     def format_value(self, value, max_width: int = 1024) -> str:
         s = pprint.pformat(value, indent=1, width=max_width, compact=True)
