@@ -8,7 +8,10 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { EnvironmentVariable } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariable';
-import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
+import { EnvironmentVariableValueKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { HeaderRow } from 'vs/workbench/contrib/positronEnvironment/browser/components/headerRow';
 
 // EnvironmentInstanceProps interface.
 interface EnvironmentInstanceProps {
@@ -17,6 +20,49 @@ interface EnvironmentInstanceProps {
 	height: number;
 	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
+
+/**
+ * Sorts an array of environment variable items by name.
+ * @param items The array of environment variable items to sort.
+ */
+const sortEnvironmentVariableItemsByName = (items: EnvironmentVariableItem[]) => {
+	// Sort the environment variable items by name. Break ties by sorting by size.
+	// largest.
+	items.sort((a, b) => {
+		// Compare the name.
+		const result = a.environmentVariable.name.localeCompare(b.environmentVariable.name);
+		if (result !== 0) {
+			return result;
+		}
+
+		// Break ties by sorting by size;
+		if (a.environmentVariable.size < b.environmentVariable.size) {
+			return -1;
+		} else if (a.environmentVariable.size > b.environmentVariable.size) {
+			return 1;
+		} else {
+			return 0;
+		}
+	});
+};
+
+/**
+ * Sorts an array of environment variable items by size.
+ * @param items The array of environment variable items to sort.
+ */
+const sortEnvironmentVariableItemsBySize = (items: EnvironmentVariableItem[]) => {
+	// Sort the environment variable items by size. Break ties by sorting by name.
+	items.sort((a, b) => {
+		// Break ties by sorting by size;
+		if (a.environmentVariable.size < b.environmentVariable.size) {
+			return -1;
+		} else if (a.environmentVariable.size > b.environmentVariable.size) {
+			return 1;
+		} else {
+			return a.environmentVariable.name.localeCompare(b.environmentVariable.name);
+		}
+	});
+};
 
 /**
  * EnvironmentInstance component.
@@ -40,7 +86,14 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 		// Add the onDidChangeEnvironmentItems event handler.
 		disposableStore.add(
-			props.positronEnvironmentInstance.onDidChangeEnvironmentVariableItems(environmentItems => {
+			props.positronEnvironmentInstance.onDidChangeEnvironmentVariableItems(() => {
+				setMarker(generateUuid());
+			})
+		);
+
+		// Add the onDidChangeEnvironmentItems event handler.
+		disposableStore.add(
+			props.positronEnvironmentInstance.onDidChangeEnvironmentGrouping(() => {
 				setMarker(generateUuid());
 			})
 		);
@@ -52,12 +105,91 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Temporary logging.
 	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
 
+	/**
+	 * Renders environment.
+	 * @returns The rendered environment.
+	 */
+	const renderEnvironment = () => {
+		// Render based in grouping.
+		switch (props.positronEnvironmentInstance.environmentGrouping) {
+			case PositronEnvironmentGrouping.None:
+				return renderItems(
+					props.positronEnvironmentInstance.environmentVariableItems.concat(),
+					'name'
+				);
+
+			case PositronEnvironmentGrouping.Kind:
+				return renderEnvironmentVariableItemsGroupedByKind(
+					props.positronEnvironmentInstance.environmentVariableItems
+				);
+
+			case PositronEnvironmentGrouping.Size:
+				return renderItems(
+					props.positronEnvironmentInstance.environmentVariableItems.concat(),
+					'size'
+				);
+		}
+	};
+
+	/**
+	 * Renders environment variable items grouped by kind.
+	 * @returns The rendered environment variable items.
+	 */
+	const renderEnvironmentVariableItemsGroupedByKind = (items: EnvironmentVariableItem[]) => {
+		// Break the environment variable items into groups.
+		const dataItems: EnvironmentVariableItem[] = [];
+		const valueItems: EnvironmentVariableItem[] = [];
+		const functionItems: EnvironmentVariableItem[] = [];
+		props.positronEnvironmentInstance.environmentVariableItems.forEach(item => {
+			if (item.environmentVariable.kind === EnvironmentVariableValueKind.Dataframe) {
+				dataItems.push(item);
+			} else if (item.environmentVariable.kind === EnvironmentVariableValueKind.Function) {
+				functionItems.push(item);
+			} else {
+				valueItems.push(item);
+			}
+		});
+
+		// Render the groups.
+		return (<>
+			{dataItems.length !== 0 && <>
+				<HeaderRow title='Data' />
+				{renderItems(dataItems, 'name')}
+			</>}
+			{valueItems.length !== 0 && <>
+				<HeaderRow title='Values' />
+				{renderItems(valueItems, 'name')}
+			</>}
+			{functionItems.length !== 0 && <>
+				<HeaderRow title='Functions' />
+				{renderItems(functionItems, 'name')}
+			</>}
+		</>);
+	};
+
+	/**
+	 * Renders environment variable items.
+	 * @param items The environment variable items to render.
+	 * @returns The rendered environment variable items.
+	 */
+	const renderItems = (items: EnvironmentVariableItem[], sortBy: 'name' | 'size') => {
+		// Sort the environment variable items.
+		if (sortBy === 'name') {
+			sortEnvironmentVariableItemsByName(items);
+		} else {
+			sortEnvironmentVariableItemsBySize(items);
+		}
+
+		// Return the environment variable items.
+		return items.map(item =>
+			<EnvironmentVariable key={item.id} environmentVariableItem={item} />
+		);
+	};
+
 	// Render.
 	return (
 		<div className='environment-instance' hidden={props.hidden}>
-			{props.positronEnvironmentInstance.environmentVariableItems.map(environmentVariableItem =>
-				<EnvironmentVariable key={environmentVariableItem.id} environmentVariableItem={environmentVariableItem} />
-			)}
+			{renderEnvironment()}
 		</div>
 	);
 };
