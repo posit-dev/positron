@@ -2,17 +2,16 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from 'vs/base/common/uuid';
 import { Emitter, Event } from 'vs/base/common/event';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItem';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeClientType, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { EnvironmentClientMessageType, EnvironmentVariableValueKind, IEnvironmentClientInstance, IEnvironmentClientMessage, IEnvironmentClientMessageError, IEnvironmentClientMessageList } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
-import { EnvironmentVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariable';
-import { EnvironmentVariableString } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableString';
-import { generateUuid } from 'vs/base/common/uuid';
+import { EnvironmentClientInstance, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * PositronEnvironmentService class.
@@ -255,24 +254,26 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _state = PositronEnvironmentState.Uninitialized;
 
 	/**
-	 * Gets or sets the environment variables.
+	 * Gets or sets the environment items.
 	 */
-	private _environmentVariables: EnvironmentVariable[] = [];
+	private _environmentItems: EnvironmentItem[] = [];
 
 	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
 	 */
-	private _runtimeClient?: IEnvironmentClientInstance;
+	private _environmentClient?: EnvironmentClientInstance;
 
 	/**
 	 * The onDidChangeState event emitter.
 	 */
-	private readonly _onDidChangeStateEmitter = this._register(new Emitter<PositronEnvironmentState>);
+	private readonly _onDidChangeStateEmitter =
+		this._register(new Emitter<PositronEnvironmentState>);
 
 	/**
-	 * The onDidChangeEnvironmentVariables event emitter.
+	 * The onDidChangeEnvironmentItems event emitter.
 	 */
-	private readonly _onDidChangeEnvironmentVariablesEmitter = this._register(new Emitter<EnvironmentVariable[]>);
+	private readonly _onDidChangeEnvironmentItemsEmitter =
+		this._register(new Emitter<EnvironmentItem[]>);
 
 	//#endregion Private Properties
 
@@ -281,7 +282,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	/**
 	 * Constructor.
 	 * @param runtime The language runtime.
-	 * @param starting A value which indicates whether the Positron environment instance is starting.
+	 * @param starting A value which indicates whether the Positron environment instance is
+	 * starting.
 	 */
 	constructor(runtime: ILanguageRuntime, starting: boolean) {
 		// Call the base class's constructor.
@@ -324,27 +326,44 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
-	 * Gets the environment variables.
+	 * Gets the environment items.
 	 */
-	get environmentVariables(): EnvironmentVariable[] {
-		return this._environmentVariables;
+	get environmentItems(): EnvironmentItem[] {
+		return this._environmentItems;
 	}
 
 	/**
 	 * onDidChangeState event.
 	 */
-	readonly onDidChangeState: Event<PositronEnvironmentState> = this._onDidChangeStateEmitter.event;
+	readonly onDidChangeState: Event<PositronEnvironmentState> =
+		this._onDidChangeStateEmitter.event;
 
 	/**
-	 * onDidChangeEnvironmentVariables event.
+	 * onDidChangeEnvironmentItems event.
 	 */
-	readonly onDidChangeEnvironmentVariables: Event<EnvironmentVariable[]> = this._onDidChangeEnvironmentVariablesEmitter.event;
+	readonly onDidChangeEnvironmentItems: Event<EnvironmentItem[]> =
+		this._onDidChangeEnvironmentItemsEmitter.event;
 
 	/**
-	 * Refreshes the environment.
+	 * Requests a refresh of the environment.
 	 */
-	refresh() {
-		this._runtimeClient?.sendMessage({ msg_type: EnvironmentClientMessageType.Refresh });
+	requestRefresh() {
+		this._environmentClient?.requestRefresh();
+	}
+
+	/**
+	 * Requests a clear of the environment.
+	 */
+	requestClear() {
+		this._environmentClient?.requestClear();
+	}
+
+	/**
+	 * Requests the deletion of one or more environment variables.
+	 * @param names The names of the variables to delete
+	 */
+	requestDelete(names: string[]) {
+		this._environmentClient?.requestDelete(names);
 	}
 
 	//#endregion IPositronEnvironmentInstance Implementation
@@ -395,7 +414,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param starting A value which indicates whether the runtime is starting.
 	 */
 	private async attachRuntime(starting: boolean) {
-		// Add the appropriate runtime item to indicate whether the Positron console instance is
+		// Add the appropriate runtime item to indicate whether the Positron environment instance is
 		// is starting or is reconnected.
 		if (starting) {
 			this.setState(PositronEnvironmentState.Starting);
@@ -451,9 +470,9 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
-		this._runtimeClient = undefined;
 		this._runtimeDisposableStore.dispose();
 		this._runtimeDisposableStore = new DisposableStore();
+		this._environmentClient = undefined;
 	}
 
 	/**
@@ -463,35 +482,31 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		// Try to create the runtime client.
 		try {
 			// Create the runtime client.
-			this._runtimeClient = await this._runtime.createClient<IEnvironmentClientMessage>(
-				RuntimeClientType.Environment,
-				{}
-			);
-			if (!this._runtimeClient) {
-				console.log('FAILURE');
-				return;
-			}
+			this._environmentClient = new EnvironmentClientInstance(this._runtime);
 
-			// Add the onDidChangeClientState event handler.
+			// Add the onDidReceiveList event handler.
 			this._runtimeDisposableStore.add(
-				this._runtimeClient.onDidChangeClientState(_clientState => {
-					// TODO: Handle client state changes here.
+				this._environmentClient.onDidReceiveList(environmentClientMessageList => {
+					this.processList(environmentClientMessageList);
 				})
 			);
 
-			// Add the onDidReceiveData event handler.
+			// Add the onDidReceiveList event handler.
 			this._runtimeDisposableStore.add(
-				this._runtimeClient.onDidReceiveData((msg: IEnvironmentClientMessage) => {
-					if (msg.msg_type === EnvironmentClientMessageType.List) {
-						this.processListMessage(msg as IEnvironmentClientMessageList);
-					} else if (msg.msg_type === EnvironmentClientMessageType.Error) {
-						this.processErrorMessage(msg as IEnvironmentClientMessageError);
-					}
+				this._environmentClient.onDidReceiveUpdate(environmentClientMessageUpdate => {
+					this.processUpdate(environmentClientMessageUpdate);
+				})
+			);
+
+			// Add the onDidReceiveError event handler.
+			this._runtimeDisposableStore.add(
+				this._environmentClient.onDidReceiveError(environmentClientMessageError => {
+					this.processError(environmentClientMessageError);
 				})
 			);
 
 			// Add the runtime client to the runtime disposable store.
-			this._runtimeDisposableStore.add(this._runtimeClient);
+			this._runtimeDisposableStore.add(this._environmentClient);
 		} catch (error) {
 			console.log('FAILURE');
 			console.log(error);
@@ -502,48 +517,44 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Processes an IEnvironmentClientMessageList.
 	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
 	 */
-	private processListMessage(environmentClientMessageList: IEnvironmentClientMessageList) {
-		const environmentVariables: EnvironmentVariable[] = [];
+	private processList(environmentClientMessageList: IEnvironmentClientMessageList) {
+		// Build the new environment items.
+		const environmentItems: EnvironmentItem[] = [];
 		for (let i = 0; i < environmentClientMessageList.variables.length; i++) {
-			const variable = environmentClientMessageList.variables[i];
+			// Get the environment variable.
+			const environmentVariable = environmentClientMessageList.variables[i];
 
-			switch (variable.kind) {
-				case EnvironmentVariableValueKind.String:
-					environmentVariables.push(
-						new EnvironmentVariableString(
-							generateUuid(),
-							variable.name,
-							variable.value
-						)
-					);
-					break;
-
-				// TODO: Handle the case where the variable is something other than a String.
-				case EnvironmentVariableValueKind.Number:
-				case EnvironmentVariableValueKind.Vector:
-				case EnvironmentVariableValueKind.List:
-				case EnvironmentVariableValueKind.Function:
-				case EnvironmentVariableValueKind.Dataframe:
-					console.log('OH SNAP! Not a string.');
-					break;
-			}
+			// Add the environment item.
+			environmentItems.push(new EnvironmentItem(generateUuid(), environmentVariable));
 		}
 
-		// Set the environment variables and fire the onDidChangeEnvironmentVariables event.
-		this._environmentVariables = environmentVariables;
-		this._onDidChangeEnvironmentVariablesEmitter.fire(this._environmentVariables);
+		// Set the environment items and fire the onDidChangeEnvironmentItems event.
+		this._environmentItems = environmentItems;
+		this._onDidChangeEnvironmentItemsEmitter.fire(this._environmentItems);
 	}
 
 	/**
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private processErrorMessage(environmentClientMessageError: IEnvironmentClientMessageError) {
-		console.error(environmentClientMessageError.message);
+	private processUpdate(environmentClientMessageUpdate: IEnvironmentClientMessageUpdate) {
+		console.error(environmentClientMessageUpdate);
+	}
+
+	/**
+	 * Processes an IEnvironmentClientMessageError.
+	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
+	 */
+	private processError(environmentClientMessageError: IEnvironmentClientMessageError) {
+		console.error(environmentClientMessageError);
 	}
 
 	//#endregion Private Methods
 }
 
 // Register the Positron environment service.
-registerSingleton(IPositronEnvironmentService, PositronEnvironmentService, InstantiationType.Delayed);
+registerSingleton(
+	IPositronEnvironmentService,
+	PositronEnvironmentService,
+	InstantiationType.Delayed
+);
