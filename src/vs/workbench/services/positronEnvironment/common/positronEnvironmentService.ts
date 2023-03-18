@@ -82,7 +82,8 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 			}
 		}
 
-		// Register the onWillStartRuntime event handler so we start a new Positron environment instance before a runtime starts up.
+		// Register the onWillStartRuntime event handler so we start a new Positron environment
+		// instance before a runtime starts up.
 		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
 			const positronEnvironmentInstance = this._positronEnvironmentInstancesByLanguageId.get(
 				runtime.metadata.languageId
