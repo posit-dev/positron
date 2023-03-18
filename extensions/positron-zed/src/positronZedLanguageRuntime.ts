@@ -29,33 +29,33 @@ const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'1k          - Inserts 1,000 lines of ANSI output',
-	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
-	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
-	'ansi blink  - Displays blinking output',
-	'ansi cub    - Outputs text using CUB',
-	'ansi cuf    - Outputs text using CUF',
-	'ansi cup    - Outputs text using CUP',
-	'ansi ed 0   - Clears to the end of the screen using ED',
-	'ansi ed 1   - Clears to the beginning of the screen using ED',
-	'ansi ed 2   - Clears an entire screen using ED',
-	'ansi el 0   - Clears to the end of the line using EL',
-	'ansi el 1   - Clears to the beginning of the line using EL',
-	'ansi el 2   - Clears an entire line using EL',
-	'ansi hidden - Displays hidden text',
-	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
-	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
-	'def X       - Defines X variables (randomly typed)',
-	'def X Y     - Defines X variables of type Y, where Y is one of: string, number, vector, or blob',
-	'env clear   - Clears all variables from the environment',
-	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-	'help        - Shows this help',
-	'offline     - Simulates going offline for two seconds',
-	'progress    - Renders a progress bar',
-	'rm X        - Removes X variables',
-	'shutdown    - Simulates orderly shutdown',
-	'update X    - Updates X variables',
-	'version     - Shows the Zed version'
+	'1k           - Inserts 1,000 lines of ANSI output',
+	'ansi 16      - Displays standard ANSI colors as foreground and background colors',
+	'ansi 256     - Displays indexed ANSI colors as foreground and background colors',
+	'ansi blink   - Displays blinking output',
+	'ansi cub     - Outputs text using CUB',
+	'ansi cuf     - Outputs text using CUF',
+	'ansi cup     - Outputs text using CUP',
+	'ansi ed 0    - Clears to the end of the screen using ED',
+	'ansi ed 1    - Clears to the beginning of the screen using ED',
+	'ansi ed 2    - Clears an entire screen using ED',
+	'ansi el 0    - Clears to the end of the line using EL',
+	'ansi el 1    - Clears to the beginning of the line using EL',
+	'ansi el 2    - Clears an entire line using EL',
+	'ansi hidden  - Displays hidden text',
+	'ansi rgb     - Displays RGB ANSI colors as foreground and background colors',
+	'code X Y     - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'env clear    - Clears all variables from the environment',
+	'env def X    - Defines X variables (randomly typed)',
+	'env def X Y  - Defines X variables of type Y, where Y is one of: string, number, vector, or blob',
+	'env rm X     - Removes X variables',
+	'env update X - Updates X variables',
+	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'help         - Shows this help',
+	'offline      - Simulates going offline for two seconds',
+	'progress     - Renders a progress bar',
+	'shutdown     - Simulates orderly shutdown',
+	'version      - Shows the Zed version'
 ].join('\n');
 
 /**
@@ -196,7 +196,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			// Simulate unsuccessful code execution.
 			return this.simulateUnsuccessfulCodeExecution(id, code, 'Simulated Error', message, traceback);
-		} else if (match = code.match(/^def ([1-9]{1}[\d]*) ?(.*)/)) {
+		} else if (match = code.match(/^env def ([1-9]{1}[\d]*) ?(.*)/)) {
 			// Define the value in each environment; there's probably only one, but one can't be
 			// too careful about these things. In the future, we'll probably want to be able to
 			// define variables in specific environments or nest environments.
@@ -221,7 +221,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					'No Environments',
 					'No environments are available to define variables in.', []);
 			}
-		} else if (match = code.match(/^update ([1-9]{1}[\d]*)/)) {
+		} else if (match = code.match(/^env update ([1-9]{1}[\d]*)/)) {
 			let count = +match[1];
 			if (this._environments.size > 0) {
 				for (const environment of this._environments.values()) {
@@ -230,7 +230,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			}
 			return this.simulateSuccessfulCodeExecution(id, code,
 				`Updated the values of ${count} variables.`);
-		} else if (match = code.match(/^rm ([1-9]{1}[\d]*)/)) {
+		} else if (match = code.match(/^env rm ([1-9]{1}[\d]*)/)) {
 			let count = +match[1];
 			if (this._environments.size > 0) {
 				for (const environment of this._environments.values()) {
@@ -240,7 +240,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			return this.simulateSuccessfulCodeExecution(id, code,
 				`Removed ${count} variables.`);
 		}
-
 
 		// Process the "code".
 		switch (code) {
