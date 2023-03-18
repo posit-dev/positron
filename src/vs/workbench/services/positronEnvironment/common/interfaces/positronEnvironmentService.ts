@@ -5,7 +5,7 @@
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItem';
+import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 
 // Create the decorator for the Positron environment service (used in dependency injection).
 export const IPositronEnvironmentService = createDecorator<IPositronEnvironmentService>('positronEnvironmentService');
@@ -82,7 +82,7 @@ export interface IPositronEnvironmentInstance {
 	/**
 	 * Gets the environment items.
 	 */
-	readonly environmentItems: EnvironmentItem[];
+	readonly environmentVariableItems: EnvironmentVariableItem[];
 
 	/**
 	 * Gets or sets the grouping.
@@ -97,7 +97,7 @@ export interface IPositronEnvironmentInstance {
 	/**
 	 * The onDidChangeEnvironmentItems event.
 	 */
-	readonly onDidChangeEnvironmentItems: Event<EnvironmentItem[]>;
+	readonly onDidChangeEnvironmentVariableItems: Event<void>;
 
 	/**
 	 * The onDidChangeEnvironmentGrouping event.
