@@ -5,7 +5,7 @@
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { EnvironmentVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariable';
+import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItem';
 
 // Create the decorator for the Positron environment service (used in dependency injection).
 export const IPositronEnvironmentService = createDecorator<IPositronEnvironmentService>('positronEnvironmentService');
@@ -71,9 +71,9 @@ export interface IPositronEnvironmentInstance {
 	readonly state: PositronEnvironmentState;
 
 	/**
-	 * Gets the environment variables.
+	 * Gets the environment items.
 	 */
-	readonly environmentVariables: EnvironmentVariable[];
+	readonly environmentItems: EnvironmentItem[];
 
 	/**
 	 * The onDidChangeState event.
@@ -81,12 +81,23 @@ export interface IPositronEnvironmentInstance {
 	readonly onDidChangeState: Event<PositronEnvironmentState>;
 
 	/**
-	 * The onDidChangeEnvironmentVariables event.
+	 * The onDidChangeEnvironmentItems event.
 	 */
-	readonly onDidChangeEnvironmentVariables: Event<EnvironmentVariable[]>;
+	readonly onDidChangeEnvironmentItems: Event<EnvironmentItem[]>;
 
 	/**
-	 * Refreshes the environment.
+	 * Requests a refresh of the environment.
 	 */
-	refresh(): void;
+	requestRefresh(): void;
+
+	/**
+	 * Requests a clear of the environment.
+	 */
+	requestClear(): void;
+
+	/**
+	 * Requests the deletion of one or more environment variables.
+	 * @param names The names of the variables to delete
+	 */
+	requestDelete(names: string[]): void;
 }
