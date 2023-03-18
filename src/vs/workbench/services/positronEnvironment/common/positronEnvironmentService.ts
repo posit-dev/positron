@@ -2,14 +2,12 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
 import { Emitter, Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItem';
-import { EnvironmentItemVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItemVariable';
+import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { EnvironmentClientInstance, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
@@ -298,9 +296,9 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _state = PositronEnvironmentState.Uninitialized;
 
 	/**
-	 * Gets or sets the environment items.
+	 * Gets or sets the environment variable items.
 	 */
-	private _environmentItems: EnvironmentItem[] = [];
+	private _environmentVariableItems = new Map<string, EnvironmentVariableItem>();
 
 	/**
 	 * Gets or sets the grouping.
@@ -319,10 +317,10 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		this._register(new Emitter<PositronEnvironmentState>);
 
 	/**
-	 * The onDidChangeEnvironmentItems event emitter.
+	 * The onDidChangeEnvironmentVariableItems event emitter.
 	 */
-	private readonly _onDidChangeEnvironmentItemsEmitter =
-		this._register(new Emitter<EnvironmentItem[]>);
+	private readonly _onDidChangeEnvironmentVariableItemsEmitter =
+		this._register(new Emitter<void>);
 
 	/**
 	 * The onDidChangeEnvironmentGrouping event emitter.
@@ -383,8 +381,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	/**
 	 * Gets the environment items.
 	 */
-	get environmentItems(): EnvironmentItem[] {
-		return this._environmentItems;
+	get environmentVariableItems(): EnvironmentVariableItem[] {
+		return Array.from(this._environmentVariableItems.values());
 	}
 
 	/**
@@ -411,8 +409,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	/**
 	 * onDidChangeEnvironmentItems event.
 	 */
-	readonly onDidChangeEnvironmentItems: Event<EnvironmentItem[]> =
-		this._onDidChangeEnvironmentItemsEmitter.event;
+	readonly onDidChangeEnvironmentVariableItems: Event<void> =
+		this._onDidChangeEnvironmentVariableItemsEmitter.event;
 
 	/**
 	 * onDidChangeEnvironmentGrouping event.
@@ -568,7 +566,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 				})
 			);
 
-			// Add the onDidReceiveList event handler.
+			// Add the onDidReceiveUpdate event handler.
 			this._runtimeDisposableStore.add(
 				this._environmentClient.onDidReceiveUpdate(environmentClientMessageUpdate => {
 					this.processUpdate(environmentClientMessageUpdate);
@@ -595,19 +593,23 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
 	 */
 	private processList(environmentClientMessageList: IEnvironmentClientMessageList) {
-		// Build the new environment items.
-		const environmentItems: EnvironmentItem[] = [];
+		// Build the new environment variable items.
+		const environmentVariableItems = new Map<string, EnvironmentVariableItem>();
 		for (let i = 0; i < environmentClientMessageList.variables.length; i++) {
 			// Get the environment variable.
 			const environmentVariable = environmentClientMessageList.variables[i];
 
-			// Add the environment item.
-			environmentItems.push(new EnvironmentItemVariable(generateUuid(), environmentVariable));
+			// Add the environment variable item.
+			environmentVariableItems.set(
+				environmentVariable.name,
+				new EnvironmentVariableItem(environmentVariable)
+			);
 		}
 
-		// Set the environment items and fire the onDidChangeEnvironmentItems event.
-		this._environmentItems = environmentItems;
-		this._onDidChangeEnvironmentItemsEmitter.fire(this._environmentItems);
+		// Set the environment veriable items and fire the onDidChangeEnvironmentVariableItems
+		// event.
+		this._environmentVariableItems = environmentVariableItems;
+		this._onDidChangeEnvironmentVariableItemsEmitter.fire();
 	}
 
 	/**
@@ -615,7 +617,26 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
 	private processUpdate(environmentClientMessageUpdate: IEnvironmentClientMessageUpdate) {
-		console.error(environmentClientMessageUpdate);
+		// Add assigned environment variable items.
+		for (let i = 0; i < environmentClientMessageUpdate.assigned.length; i++) {
+			// Get the environment variable.
+			const environmentVariable = environmentClientMessageUpdate.assigned[i];
+
+			// Add the environment variable item.
+			this._environmentVariableItems.set(
+				environmentVariable.name,
+				new EnvironmentVariableItem(environmentVariable)
+			);
+		}
+
+		// Remove removed environment variable items.
+		for (let i = 0; i < environmentClientMessageUpdate.removed.length; i++) {
+			// Add the environment variable item.
+			this._environmentVariableItems.delete(environmentClientMessageUpdate.removed[i]);
+		}
+
+		// Fire the onDidChangeEnvironmentVariableItems event.
+		this._onDidChangeEnvironmentVariableItemsEmitter.fire();
 	}
 
 	/**
