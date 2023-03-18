@@ -4,14 +4,14 @@
 
 import 'vs/css!./environmentVariable';
 import * as React from 'react';
-import { EnvironmentItemVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItemVariable';
+import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 // import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
  * EnvironmentVariableProps interface.
  */
 export interface EnvironmentVariableProps {
-	environmentItemVariable: EnvironmentItemVariable;
+	environmentVariableItem: EnvironmentVariableItem;
 }
 
 /**
@@ -25,6 +25,6 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 
 	// Render.
 	return (
-		<div className='xxx-xxx'>{props.environmentItemVariable.environmentVariable.name} - {props.environmentItemVariable.environmentVariable.value}</div>
+		<div className='xxx-xxx'>{props.environmentVariableItem.environmentVariable.name} - {props.environmentVariableItem.environmentVariable.value}</div>
 	);
 };
