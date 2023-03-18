@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItem';
+import { EnvironmentItemVariable } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItemVariable';
+import { EnvironmentVariable } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariable';
 
 // EnvironmentInstanceProps interface.
 interface EnvironmentInstanceProps {
@@ -48,6 +51,19 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
+	/**
+	 * Renders an environment item.
+	 * @param environmentItem The runtime item.
+	 * @returns The rendered runtime item.
+	 */
+	const renderEnvironmentItem = (environmentItem: EnvironmentItem) => {
+		if (environmentItem instanceof EnvironmentItemVariable) {
+			return <EnvironmentVariable key={environmentItem.id} environmentItemVariable={environmentItem} />;
+		} else {
+			return null;
+		}
+	};
+
 	// Temporary logging.
 	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
 
@@ -55,7 +71,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	return (
 		<div className='environment-instance' hidden={props.hidden}>
 			{props.positronEnvironmentInstance.environmentItems.map(environmentItem =>
-				<div key={environmentItem.id}>{environmentItem.environmentVariable.name}</div>
+				renderEnvironmentItem(environmentItem)
 			)}
 		</div>
 	);

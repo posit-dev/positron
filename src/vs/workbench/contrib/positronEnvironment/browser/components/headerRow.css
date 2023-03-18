@@ -2,18 +2,10 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./headerValues';
-import * as React from 'react';
-
-/**
- * HeaderValues component.
- * @returns The rendered component.
- */
-export const HeaderValues = () => {
-	// Render.
-	return (
-		<div className='header-values'>
-			Values
-		</div>
-	);
-};
+.header-row {
+	padding-left: 6px;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	background: #cccccc;
+}

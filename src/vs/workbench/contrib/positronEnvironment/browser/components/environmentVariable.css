@@ -2,10 +2,6 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.header-values {
-	padding-left: 6px;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	background: #cccccc;
+.xxx-xxx {
+	font-family: var(--environment-monospace-font);
 }

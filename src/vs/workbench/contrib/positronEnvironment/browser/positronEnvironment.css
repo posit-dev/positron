@@ -6,6 +6,8 @@
 	height: 100%;
 	display: flex;
 	flex-direction: column;
+	color: var(--vscode-positronEnvironment-foreground);
+	background: var(--vscode-positronEnvironment-background);
 
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
