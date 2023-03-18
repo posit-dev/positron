@@ -2,17 +2,17 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./languageRuntimeSelectorMenuButton';
+import 'vs/css!./environmentInstanceMenuButton';
 import * as React from 'react';
 import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
- * LanguageRuntimeSelectorMenuButton component.
+ * EnvironmentInstanceMenuButton component.
  * @returns The rendered component.
  */
-export const LanguageRuntimeSelectorMenuButton = () => {
+export const EnvironmentInstanceMenuButton = () => {
 	// Hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
@@ -20,17 +20,16 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 	const actions = () => {
 		// Build the actions for the available language environments.
 		const actions: IAction[] = [];
-		positronEnvironmentContext.languageEnvironments.map(languageEnvironment => {
+		positronEnvironmentContext.positronEnvironmentInstances.map(positronEnvironmentInstance => {
 			actions.push({
-				id: languageEnvironment.identifier,
-				label: languageEnvironment.displayName,
+				id: positronEnvironmentInstance.runtime.metadata.runtimeId,
+				label: `${positronEnvironmentInstance.runtime.metadata.runtimeName} ${positronEnvironmentInstance.runtime.metadata.languageVersion}`,
 				tooltip: '',
 				class: undefined,
 				enabled: true,
 				run: () => {
-					// TODO@softwarenerd - For now, the environment is used to change the active runtime.
-					positronEnvironmentContext.languageRuntimeService.activeRuntime = languageEnvironment.runtime;
-					positronEnvironmentContext.setCurrentLanguageEnvironment(languageEnvironment);
+					positronEnvironmentContext.languageRuntimeService.activeRuntime =
+						positronEnvironmentInstance.runtime;
 				}
 			});
 		});
@@ -42,7 +41,7 @@ export const LanguageRuntimeSelectorMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			text={positronEnvironmentContext.currentLanguageEnvironment?.displayName ?? 'None'}
+			text={positronEnvironmentContext.activePositronEnvironmentInstance?.runtime.metadata.languageName ?? 'None'}
 			actions={actions}
 		/>
 	);

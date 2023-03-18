@@ -10,7 +10,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentItem';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { EnvironmentClientInstance, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
@@ -259,6 +259,11 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _environmentItems: EnvironmentItem[] = [];
 
 	/**
+	 * Gets or sets the grouping.
+	 */
+	private _environmentGrouping = PositronEnvironmentGrouping.Kind;
+
+	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
 	 */
 	private _environmentClient?: EnvironmentClientInstance;
@@ -274,6 +279,12 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 */
 	private readonly _onDidChangeEnvironmentItemsEmitter =
 		this._register(new Emitter<EnvironmentItem[]>);
+
+	/**
+	 * The onDidChangeEnvironmentGrouping event emitter.
+	 */
+	private readonly _onDidChangeEnvironmentGroupingEmitter =
+		this._register(new Emitter<PositronEnvironmentGrouping>);
 
 	//#endregion Private Properties
 
@@ -333,6 +344,21 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
+	 * Gets the environment grouping.
+	 */
+	get environmentGrouping(): PositronEnvironmentGrouping {
+		return this._environmentGrouping;
+	}
+
+	/**
+	 * Sets the environment grouping.
+	 */
+	set environmentGrouping(positronEnvironmentGrouping: PositronEnvironmentGrouping) {
+		this._environmentGrouping = positronEnvironmentGrouping;
+		this._onDidChangeEnvironmentGroupingEmitter.fire(this._environmentGrouping);
+	}
+
+	/**
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronEnvironmentState> =
@@ -345,16 +371,23 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		this._onDidChangeEnvironmentItemsEmitter.event;
 
 	/**
-	 * Requests a refresh of the environment.
+	 * onDidChangeEnvironmentGrouping event.
 	 */
+	readonly onDidChangeEnvironmentGrouping: Event<PositronEnvironmentGrouping> =
+		this._onDidChangeEnvironmentGroupingEmitter.event;
+
+	/**
+ * Requests a refresh of the environment.
+ */
 	requestRefresh() {
 		this._environmentClient?.requestRefresh();
 	}
 
 	/**
 	 * Requests a clear of the environment.
+	 * @param includeHiddenObjects A value which indicates whether to include hidden objects.
 	 */
-	requestClear() {
+	requestClear(includeHiddenObjects: boolean) {
 		this._environmentClient?.requestClear();
 	}
 

@@ -19,7 +19,7 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ConsoleReplMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplMenuButton';
+import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -63,7 +63,7 @@ export const ActionBar = (props: PropsWithChildren<ActionBarProps>) => {
 			<div className='action-bar'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<ConsoleReplMenuButton />
+						<ConsoleInstanceMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle Trace")} onClick={toggleTraceHandler} />
