@@ -11,7 +11,7 @@ import { EnvironmentItem } from 'vs/workbench/services/positronEnvironment/commo
 export const IPositronEnvironmentService = createDecorator<IPositronEnvironmentService>('positronEnvironmentService');
 
 /**
- * The PositronEnvironmentState
+ * PositronEnvironmentState enumeration.
  */
 export const enum PositronEnvironmentState {
 	Uninitialized = 'Uninitialized',
@@ -21,6 +21,15 @@ export const enum PositronEnvironmentState {
 	Offline = 'Offline',
 	Exiting = 'Exiting',
 	Exited = 'Exited'
+}
+
+/**
+ * PositronEnvironmentGrouping enumeration.
+ */
+export const enum PositronEnvironmentGrouping {
+	None,
+	Kind,
+	Size
 }
 
 /**
@@ -76,6 +85,11 @@ export interface IPositronEnvironmentInstance {
 	readonly environmentItems: EnvironmentItem[];
 
 	/**
+	 * Gets or sets the grouping.
+	 */
+	environmentGrouping: PositronEnvironmentGrouping;
+
+	/**
 	 * The onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronEnvironmentState>;
@@ -86,14 +100,20 @@ export interface IPositronEnvironmentInstance {
 	readonly onDidChangeEnvironmentItems: Event<EnvironmentItem[]>;
 
 	/**
+	 * The onDidChangeEnvironmentGrouping event.
+	 */
+	readonly onDidChangeEnvironmentGrouping: Event<PositronEnvironmentGrouping>;
+
+	/**
 	 * Requests a refresh of the environment.
 	 */
 	requestRefresh(): void;
 
 	/**
 	 * Requests a clear of the environment.
+	 * @param includeHiddenObjects A value which indicates whether to include hidden objects.
 	 */
-	requestClear(): void;
+	requestClear(includeHiddenObjects: boolean): void;
 
 	/**
 	 * Requests the deletion of one or more environment variables.
