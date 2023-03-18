@@ -91,7 +91,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		positronEnvironmentContext.currentLanguageEnvironment?.refreshEnvironment();
 
 		// TESTING@softwarenerd.
-		positronEnvironmentContext.positronEnvironmentInstances.forEach(x => x.refresh());
+		positronEnvironmentContext.positronEnvironmentInstances.forEach(x => x.requestRefresh());
 	};
 
 	// If there are no language environment, return null.
