@@ -7,11 +7,11 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { HeaderRow } from 'vs/workbench/contrib/positronEnvironment/browser/components/headerRow';
 import { EnvironmentVariable } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariable';
-import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { EnvironmentVariableValueKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
-import { HeaderRow } from 'vs/workbench/contrib/positronEnvironment/browser/components/headerRow';
+import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 // EnvironmentInstanceProps interface.
 interface EnvironmentInstanceProps {
