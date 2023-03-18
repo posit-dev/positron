@@ -3,9 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 .header-row {
-	padding-left: 6px;
 	height: 100%;
 	display: flex;
+	padding: 5px 8px;
 	align-items: center;
-	background: #cccccc;
+	font-family: var(--environment-monospace-font);
+	font-weight: bold;
+	border-bottom: 1px solid var(--vscode-positronSideActionBar-separator);
 }
