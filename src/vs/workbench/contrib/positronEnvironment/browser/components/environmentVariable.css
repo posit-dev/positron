@@ -2,6 +2,27 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.xxx-xxx {
+.environment-variable {
+	display: flex;
 	font-family: var(--environment-monospace-font);
+	padding: 0 8px;
+	border-bottom: 1px solid var(--vscode-positronSideActionBar-separator);
+}
+
+.environment-variable .name {
+	width: 35%;
+	padding: 2px 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	border-right: 1px solid var(--vscode-positronSideActionBar-separator);
+}
+
+.environment-variable .value {
+	width: 65%;
+	padding: 2px 0;
+	margin-left: 8px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }

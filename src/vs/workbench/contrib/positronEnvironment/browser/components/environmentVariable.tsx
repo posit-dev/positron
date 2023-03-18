@@ -25,6 +25,9 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 
 	// Render.
 	return (
-		<div className='xxx-xxx'>{props.environmentVariableItem.environmentVariable.name} - {props.environmentVariableItem.environmentVariable.value}</div>
+		<div className='environment-variable'>
+			<div className='name'>{props.environmentVariableItem.environmentVariable.name}</div>
+			<div className='value'>{props.environmentVariableItem.environmentVariable.value}</div>
+		</div>
 	);
 };
