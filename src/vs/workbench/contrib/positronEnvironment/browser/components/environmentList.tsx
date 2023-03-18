@@ -5,7 +5,6 @@
 import 'vs/css!./environmentList';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronList } from 'vs/base/browser/ui/positronList/positronList';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
@@ -26,7 +25,7 @@ export const EnvironmentList = (props: PropsWithChildren<EnvironmentListProps>) 
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	// If there isn't a current language environment, render the list accordingly.
-	if (!positronEnvironmentContext.currentLanguageEnvironment) {
+	if (!positronEnvironmentContext.activePositronEnvironmentInstance) {
 		return (
 			<div className='no-language-environment-message'>No Language Environment</div>
 		);
@@ -34,6 +33,6 @@ export const EnvironmentList = (props: PropsWithChildren<EnvironmentListProps>) 
 
 	// Render.
 	return (
-		<PositronList height={props.height} listItemsProvider={positronEnvironmentContext.currentLanguageEnvironment} />
+		<div>List</div>
 	);
 };
