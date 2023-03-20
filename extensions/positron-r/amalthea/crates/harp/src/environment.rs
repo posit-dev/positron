@@ -10,6 +10,7 @@ use std::cmp::Ordering;
 use c2rust_bitfields::BitfieldStruct;
 use libR_sys::*;
 
+use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_typeof;
 
@@ -139,7 +140,7 @@ fn describe_altrep(value: SEXP) -> String {
         _       => "???"
     };
 
-    format!("altrep {} [{}] ({})", rtype, vec_shape(value), altrep_class(value))
+    format!("{} [{}] (altrep {})", rtype, vec_shape(value), altrep_class(value))
 }
 
 fn describe_vec(rtype: &str, value: SEXP) -> String {
@@ -147,9 +148,16 @@ fn describe_vec(rtype: &str, value: SEXP) -> String {
 }
 
 fn vec_shape(value: SEXP) -> String {
-    // TODO: matrix, array
-    // TODO: TRUELENGTH, is the vector growable ...
-    format!("{}", unsafe{Rf_xlength(value)})
+    unsafe {
+        let dim = RObject::from(Rf_getAttrib(value, R_DimSymbol));
+
+        if *dim == R_NilValue {
+            format!("{}", Rf_xlength(value))
+        } else {
+            // TODO: improve this: we should not need to make a Vec<i32> then a Vec<String> ...
+            Vec::<i32>::try_from(dim).unwrap().iter().map(|x| x.to_string()).collect::<Vec<String>>().join(", ")
+        }
+    }
 }
 
 fn altrep_class(object: SEXP) -> String {

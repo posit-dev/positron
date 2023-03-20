@@ -496,6 +496,27 @@ impl TryFrom<RObject> for Vec<String> {
     }
 }
 
+// TODO: perhaps instead of this we should have something that can iterate
+//       over the values of an INTSXP vector
+impl TryFrom<RObject> for Vec<i32> {
+    type Error = crate::error::Error;
+    fn try_from(value: RObject) -> Result<Self, Self::Error> {
+        unsafe {
+            r_assert_type(*value, &[INTSXP])?;
+
+            // TODO: maybe we can use vec[0; n] instead
+            //       as we know the size
+            let mut result : Vec<i32> = Vec::new();
+            let n = Rf_length(*value) as usize ;
+            for i in 0..n {
+                result.push(INTEGER_ELT(*value, i as isize));
+            }
+
+            return Ok(result);
+        }
+    }
+}
+
 impl TryFrom<RObject> for Vec<Option<String>> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
