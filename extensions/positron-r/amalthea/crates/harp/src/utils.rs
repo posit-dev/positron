@@ -18,9 +18,9 @@ use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::r_symbol;
 use crate::vector::CharacterVector;
-use crate::vector::Vector;
+use crate::vector::VectorBase;
 
-pub unsafe fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
+pub fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
     let actual = r_typeof(object);
 
     if !expected.contains(&actual) {
@@ -120,8 +120,10 @@ pub fn r_is_null(object: SEXP) -> bool {
     }
 }
 
-pub unsafe fn r_typeof(object: SEXP) -> u32 {
-    TYPEOF(object) as u32
+pub fn r_typeof(object: SEXP) -> u32 {
+    // SAFETY: The type of an R object is typically considered constant,
+    // and TYPEOF merely queries the R type directly from the SEXPREC struct.
+    unsafe { TYPEOF(object) as u32 }
 }
 
 pub unsafe fn r_type2char<T: Into<u32>>(kind: T) -> String {
@@ -184,7 +186,7 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
 
     if R_IsNamespaceEnv(envir) != 0 {
         let spec = CharacterVector::try_from(R_NamespaceEnvSpec(envir))?;
-        let package = spec.elt(0)?;
+        let package = spec.element(0)?;
         return Ok(package);
     }
 

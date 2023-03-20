@@ -24,8 +24,6 @@ use crate::protect::RProtect;
 use crate::utils::r_assert_length;
 use crate::utils::r_assert_type;
 use crate::utils::r_typeof;
-use crate::vector::CharacterVector;
-use crate::vector::Vector;
 
 // Objects are protected using a doubly-linked list,
 // allowing for quick insertion and removal of objects.
@@ -325,17 +323,6 @@ pub fn r_strings<S: ToRStrings>(strings: S) -> RObject {
 impl From<RObject> for SEXP {
     fn from(object: RObject) -> Self {
         object.sexp
-    }
-}
-
-impl TryFrom<RObject> for CharacterVector {
-    type Error = crate::error::Error;
-
-    fn try_from(value: RObject) -> Result<Self, Self::Error> {
-        unsafe {
-            r_assert_type(*value, &[STRSXP])?;
-            Ok(CharacterVector::wrap(value))
-        }
     }
 }
 
