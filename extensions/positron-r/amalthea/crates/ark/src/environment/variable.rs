@@ -5,7 +5,7 @@
 //
 //
 
-use harp::object::RObject;
+use harp::environment::Binding;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -51,24 +51,18 @@ pub struct EnvironmentVariable {
 
 impl EnvironmentVariable {
     /**
-     * Create a new EnvironmentVariable from a name (environment binding) and a
-     * value (R object).
+     * Create a new EnvironmentVariable from a Binding
      */
-    pub fn new(name: &String, obj: RObject) -> Self {
-        // Attempt to convert the object to a string. This only works for string
-        // types, so if that fails, just use the name as the "value".
-        //
-        // TODO: detect the type of the object and support types other than
-        // strings; maybe implment a try_into() method on RObject that formats
-        // the object an EnvironmentVariable?
-        let value: String = match obj.try_into() {
-            Ok(v) => v,
-            Err(_) => name.clone(),
-        };
+    pub fn new(binding: &Binding) -> Self {
+        let name = binding.name.to_string();
+
+        // let value = binding.describe();
+        // until some more work is done
+        let value = name.clone();
+        let kind = ValueKind::String;
+
         Self {
-            name: name.clone(),
-            kind: ValueKind::String,
-            value,
+            name, kind, value
         }
     }
 }
