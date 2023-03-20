@@ -471,7 +471,15 @@ impl Shell {
                 return Err(Error::UnknownCommId(req.content.comm_id));
             },
         };
-        comm.handle_msg(req.content.data);
+
+        // Store this message as a pending RPC request so that when the comm
+        // responds, we can match it up
+        self.comm_changed_tx
+            .send(CommChanged::PendingRpc(req.header.clone()))
+            .unwrap();
+
+        // Send the message to the comm
+        comm.handle_msg(req.header.msg_id.clone(), req.content.data);
         Ok(())
     }
 
