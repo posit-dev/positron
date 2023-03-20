@@ -265,7 +265,8 @@ declare module 'positron' {
 		data: object;
 	}
 
-	/** LanguageRuntimeMetadata contains information about a language runtime that is known
+	/**
+	 * LanguageRuntimeMetadata contains information about a language runtime that is known
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
@@ -291,6 +292,9 @@ declare module 'positron' {
 
 		/** The version of the language; e.g. "4.2" */
 		languageVersion: string;
+
+		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" */
+		inputPrompt: string;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;

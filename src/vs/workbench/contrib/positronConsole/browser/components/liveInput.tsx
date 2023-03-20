@@ -315,10 +315,10 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 		// Turn off most editor chrome.
 		const editorOptions: IEditorOptions = {
 			lineNumbers: (n: number) => {
-				// Render the prompt as > for the first line; do not render
+				// Render the input prompt for the first line; do not render
 				// anything in the margin for following lines
 				if (n < 2) {
-					return '>';
+					return props.positronConsoleInstance.runtime.metadata.inputPrompt;
 				}
 				return '';
 			},
