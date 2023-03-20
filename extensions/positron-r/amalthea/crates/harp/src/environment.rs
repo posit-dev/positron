@@ -13,6 +13,7 @@ use libR_sys::*;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_typeof;
+use itertools::Itertools;
 
 #[derive(Copy, Clone, BitfieldStruct)]
 #[repr(C)]
@@ -154,8 +155,15 @@ fn vec_shape(value: SEXP) -> String {
         if *dim == R_NilValue {
             format!("{}", Rf_xlength(value))
         } else {
-            // TODO: improve this: we should not need to make a Vec<i32> then a Vec<String> ...
-            Vec::<i32>::try_from(dim).unwrap().iter().map(|x| x.to_string()).collect::<Vec<String>>().join(", ")
+            dim.i32_iter().unwrap()
+                .map(|x| {
+                    match x {
+                        Some(value) => value.to_string(),
+                        None => String::from("NA")
+                    }
+                })
+                .format(", ")
+                .to_string()
         }
     }
 }
