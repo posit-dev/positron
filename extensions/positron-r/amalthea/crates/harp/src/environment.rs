@@ -141,11 +141,11 @@ fn describe_altrep(value: SEXP) -> String {
         _       => "???"
     };
 
-    format!("{} [{}] (altrep {})", rtype, vec_shape(value), altrep_class(value))
+    format!("{} [{}] (altrep {}) {}", rtype, vec_shape(value), altrep_class(value), altrep_vec_glimpse(value))
 }
 
 fn describe_vec(rtype: &str, value: SEXP) -> String {
-    format!("{} [{}]", rtype, vec_shape(value))
+    format!("{} [{}] {}", rtype, vec_shape(value), vec_glimpse(value))
 }
 
 fn vec_shape(value: SEXP) -> String {
@@ -166,6 +166,47 @@ fn vec_shape(value: SEXP) -> String {
                 .to_string()
         }
     }
+}
+
+fn vec_glimpse(value: SEXP) -> String {
+    match unsafe{TYPEOF(value) as u32} {
+        INTSXP => {
+            let mut iter = RObject::from(value).i32_iter().unwrap();
+
+            let mut out = String::new();
+            loop {
+                match iter.next() {
+                    None => break,
+
+                    Some(x) => {
+                        if out.len() > 20 {
+                            out.push_str(" (...)");
+                            break;
+                        }
+                        out.push_str(" ");
+                        match x {
+                            None => {
+                                out.push_str("_");
+                            },
+                            Some(x) => {
+                                out.push_str(x.to_string().as_str())
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            out
+        },
+        _ => {
+            String::from("(...)")
+        }
+    }
+}
+
+fn altrep_vec_glimpse(value: SEXP) -> String {
+    vec_glimpse(value)
 }
 
 fn altrep_class(object: SEXP) -> String {
