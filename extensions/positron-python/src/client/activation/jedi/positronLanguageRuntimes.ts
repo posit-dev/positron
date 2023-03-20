@@ -160,9 +160,14 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const client = await this.createLanguageClientTCP(lspPort, options);
 
         // Create an adapter for the kernel as our language runtime
-        const runtime: positron.LanguageRuntime = ext.exports.adaptKernel(kernelSpec, PYTHON_LANGUAGE, pythonVersion, this.extensionVersion, startupBehavior, () => {
-            this.startClient(client);
-        });
+        const runtime: positron.LanguageRuntime = ext.exports.adaptKernel(kernelSpec,
+            PYTHON_LANGUAGE,
+            pythonVersion,
+            this.extensionVersion,
+            '>>>',
+            startupBehavior, () => {
+                this.startClient(client);
+            });
 
         // Also stop the language client when the runtime is exiting
         runtime.onDidChangeRuntimeState(state => {
