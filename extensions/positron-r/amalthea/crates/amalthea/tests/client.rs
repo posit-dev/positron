@@ -320,7 +320,7 @@ fn test_kernel() {
     }
 
     info!("Sending comm message to the test comm and waiting for a reply");
-    frontend.send_shell(CommMsg {
+    let comm_req_id = frontend.send_shell(CommMsg {
         comm_id: comm_id.to_string(),
         data: serde_json::Value::Null,
     });
@@ -331,7 +331,15 @@ fn test_kernel() {
                 // This is the message we were looking for; break out of the
                 // loop
                 info!("Got comm message: {:?}", msg);
+
+                // Ensure that the comm ID in the message matches the comm ID we
+                // sent
                 assert_eq!(msg.content.comm_id, comm_id);
+
+                // Ensure that the parent message ID in the message exists and
+                // matches the message ID of the comm message we sent; this is
+                // how RPC responses are aligned with requests
+                assert_eq!(msg.parent_header.unwrap().msg_id, comm_req_id);
                 break;
             },
             _ => {
