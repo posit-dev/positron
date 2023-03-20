@@ -712,7 +712,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
-	sendClientMessage(id: string, message: object): void {
+	sendClientMessage(id: string, message_id: string, message: object): void {
 		// Right now, the only client instances are environments.
 		const client = this._environments.get(id);
 		if (client) {

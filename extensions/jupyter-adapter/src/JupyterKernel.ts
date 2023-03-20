@@ -511,7 +511,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Sends a message to a communications channel (comm) with the kernel.
 	 */
-	public sendCommMessage(id: string, data: object) {
+	public sendCommMessage(id: string, message_id: string, data: object) {
 		// Create the message to send to the kernel
 		const msg: JupyterCommMsg = {
 			comm_id: id,  // eslint-disable-line
@@ -519,7 +519,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Dispatch it
-		this.send(uuidv4(), 'comm_msg', this._shell!, msg);
+		this.send(message_id, 'comm_msg', this._shell!, msg);
 	}
 
 	/**
