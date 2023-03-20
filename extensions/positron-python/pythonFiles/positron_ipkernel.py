@@ -3,7 +3,7 @@
 #
 
 from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, Optional
 import enum
 import inspect
@@ -172,6 +172,9 @@ class EnvironmentMessageError(EnvironmentMessage):
 POSITRON_ENVIRONMENT_COMM = 'positron.environment'
 """The comm channel target name for Positron's Environment View"""
 
+MAX_ITEMS = 2000
+MAX_ITEM_SUMMARY_LENGTH = 1024
+ITEM_SUMMARY_PRINT_WIDTH = 100
 
 class PositronIPyKernel(IPythonKernel):
     """
@@ -209,14 +212,23 @@ class PositronIPyKernel(IPythonKernel):
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user environment.
         """
+        try:
+            ns = self.shell.user_ns
 
-        ns = self.shell.user_ns
-        if hasattr(ns, '_positron_assigned'):
-            assigned, removed = ns._positron_get_changes()
-            ns._positron_reset_watch()
-            self.send_update(assigned, removed)
-        else:
+            # Try to detect the changes made since the last execution
+            if hasattr(ns, '_positron_assigned'):
+                assigned, removed = ns._positron_get_changes()
+                ns._positron_reset_watch()
+
+                # Ensure the number of changes does not exceed our maximum items
+                if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
+                    self.send_update(assigned, removed)
+                    return
+
+            # Otherwise, just refresh the client state
             self.send_list()
+        except BaseException as err:
+            logging.warning(err)
 
     def environment_comm(self, comm, open_msg) -> None:
 
@@ -272,10 +284,10 @@ class PositronIPyKernel(IPythonKernel):
                     logging.warning(f'Unable to delete variable \'{key}\'. Error: %s', err)
                 pass
 
-        # Refresh the client state to show
+        # Refresh the client state
         self.send_list()
 
-    def delete_vars(self, names) -> None:
+    def delete_vars(self, names: Iterable) -> None:
         """
         Deletes the requested variables by name from the current user session.
         """
@@ -300,7 +312,7 @@ class PositronIPyKernel(IPythonKernel):
         else:
             self.send_list()
 
-    def send_update(self, assigned, removed) -> None:
+    def send_update(self, assigned: Mapping, removed: Iterable) -> None:
         """
         Sends the list of variables in the current user session through the environment comm
         to the client.
@@ -369,7 +381,7 @@ class PositronIPyKernel(IPythonKernel):
         msg = EnvironmentMessageList(filtered_variables)
         self.env_comm.send(msg)
 
-    def send_error(self, message) -> None:
+    def send_error(self, message: str) -> None:
         """
         Send an error message through the envirvonment comm to the client.
 
@@ -389,56 +401,116 @@ class PositronIPyKernel(IPythonKernel):
         msg = EnvironmentMessageError(message)
         self.env_comm.send(msg)
 
-    def summarize_variables(self, items: Mapping, hidden: Mapping = None) -> list:
-        variables = []
+    def summarize_variables(self, variables: Mapping, hidden: Mapping = None, max_items: int = MAX_ITEMS) -> list:
+        summaries = []
+        i = 0
 
-        for key, value in items.items():
+        for key, value in variables.items():
 
             # Filter out hidden variables
             if hidden is not None and key in hidden:
                 continue
 
-            if isinstance(value, types.FunctionType):
-                variables.append(self.summarize_function(key, value))
+            # Ensure the number of items summarized is within our
+            # max limit
+            if i >= max_items:
+                break
+
+            kind = self.get_kind(value)
+
+            if kind == EnvironmentVariableKind.FUNCTION:
+                summaries.append(self.summarize_function(key, value))
+            elif kind == EnvironmentVariableKind.DATAFRAME:
+                summaries.append(self.summarize_dataframe(key, value))
             else:
-                variables.append(self.summarize_any(key, value))
+                summaries.append(self.summarize_any(key, value, kind))
 
-        return variables
+            i += 1
 
-    def summarize_any(self, key, value) -> EnvironmentVariable:
-        type_name = type(value).__name__
+        return summaries
+
+    def summarize_any(self, key, value, kind) -> EnvironmentVariable:
+        type_name = self.get_qualname(value)
         try:
-            kind = self.determine_kind(value)
-            summarized_value = self.format_value(value)
-            length = None
-            if hasattr(value, '__len__'):
-                try:
-                    length = len(value)
-                except:
-                    pass
+            # For summaries, suppress pprint wrapping strings into chunks
+            if kind == EnvironmentVariableKind.STRING:
+                summarized_value = repr(self.truncate_value(value))
+            else:
+                summarized_value = self.format_value(value)
+
+            length = self.get_length(value)
             size = sys.getsizeof(value)
             return EnvironmentVariable(key, summarized_value, kind, type_name, length, size)
-        except:
+        except BaseException as err:
+            logging.warning(err)
             return EnvironmentVariable(key, type_name, None)
 
+    def summarize_dataframe(self, key, value) -> EnvironmentVariable:
+        kind = EnvironmentVariableKind.DATAFRAME
+        type_name = self.get_qualname(value)
+
+        try:
+            # Calculate DataFrame dimentions in rows x cols
+            shape = getattr(value, 'shape', None)
+            if shape is None:
+                shape = (0, 0)
+
+            summarized_value = 'DataFrame: '
+            if self.get_length(shape) == 2:
+                summarized_value = summarized_value + f'[{shape[0]} rows x {shape[1]} columns]'
+
+            length = self.get_length(value)
+            size = sys.getsizeof(value)
+            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size)
+        except BaseException as err:
+            logging.warning(err)
+            return EnvironmentVariable(key, type_name, kind)
+
     def summarize_function(self, key, value) -> EnvironmentVariable:
+        kind = EnvironmentVariableKind.FUNCTION
         if callable(value):
             sig = inspect.signature(value)
         else:
             sig = '()'
         display_value = f'{value.__qualname__}{sig}'
         size = sys.getsizeof(value)
-        return EnvironmentVariable(key, display_value, EnvironmentVariableKind.FUNCTION, value.__qualname__, None, size)
+        return EnvironmentVariable(key, display_value, kind, value.__qualname__, None, size)
 
-    def format_value(self, value, max_width: int = 1024) -> str:
-        s = pprint.pformat(value, indent=1, width=max_width, compact=True)
+    def format_value(self, value, width: int = ITEM_SUMMARY_PRINT_WIDTH) -> str:
+        s = pprint.pformat(value, indent=1, width=width, compact=True)
+        return self.truncate_value(s)
+
+    def truncate_value(self, value, max_width: int = MAX_ITEM_SUMMARY_LENGTH) -> str:
         # TODO: Add type aware truncation
-        s = (s[:max_width] + '...') if len(s) > max_width else s
+        s = (value[:max_width] + '...') if len(value) > max_width else value
         return s
 
-    DATAFRAME_MODULES = ['pandas.core.frame', 'polars.dataframe.frame']
+    def get_length(self, value) -> int:
+        length = 0
+        if hasattr(value, '__len__'):
+            try:
+                length = len(value)
+            except:
+                pass
+        return length
 
-    def determine_kind(self, value) -> str:
+    def get_qualname(self, value) -> str:
+        """
+        Utility to manually construct a qualified type name as
+        __qualname__ does not work for all types
+        """
+        if value is not None:
+            t = type(value)
+            module = t.__module__
+            name = t.__name__
+            if module is not None and module != 'builtins':
+                return f'{module}.{name}'
+            else:
+                return name
+
+        return 'None'
+
+    def get_kind(self, value) -> str:
         if isinstance(value, str):
             return EnvironmentVariableKind.STRING
         elif isinstance(value, numbers.Number):
@@ -448,9 +520,16 @@ class PositronIPyKernel(IPythonKernel):
         elif isinstance(value, types.FunctionType):
             return EnvironmentVariableKind.FUNCTION
         elif value is not None:
-            clazz = value.__class__
-            if clazz.__name__ == 'DataFrame' and clazz.__module__ in self.DATAFRAME_MODULES:
+            if self.is_dataframe(value):
                 return EnvironmentVariableKind.DATAFRAME
             return EnvironmentVariableKind.OBJECT
         else:
             return None
+
+    DATAFRAME_TYPES = ['pandas.core.frame.DataFrame', 'polars.dataframe.frame.DataFrame']
+
+    def is_dataframe(self, value) -> bool:
+        qualname = self.get_qualname(value)
+        if qualname in self.DATAFRAME_TYPES:
+            return True
+        return False
