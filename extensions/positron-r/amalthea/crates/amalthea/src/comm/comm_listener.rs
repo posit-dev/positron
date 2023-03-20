@@ -5,6 +5,8 @@
  *
  */
 
+use std::collections::HashMap;
+
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Select;
 use crossbeam::channel::Sender;
@@ -15,15 +17,26 @@ use crate::comm::comm_channel::CommChannelMsg;
 use crate::socket::comm::CommSocket;
 use crate::socket::iopub::IOPubMessage;
 use crate::wire::comm_msg::CommMsg;
+use crate::wire::header::JupyterHeader;
 
 pub enum CommChanged {
+    /// A new Comm was opened
     Opened(CommSocket),
+
+    /// An RPC was received from the front end
+    PendingRpc(JupyterHeader),
+
+    /// A Comm was closed
     Closed(String),
 }
 
 pub fn comm_listener(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<CommChanged>) {
     // Create a vector of the open comms
     let mut open_comms = Vec::<CommSocket>::new();
+
+    // Create a map of the pending RPCs, by message ID
+    let mut pending_rpcs = HashMap::<String, JupyterHeader>::new();
+
     loop {
         let mut sel = Select::new();
 
@@ -58,6 +71,11 @@ pub fn comm_listener(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<C
                         "Comm channel opened; there are now {} open comms",
                         open_comms.len()
                     );
+                },
+
+                // An RPC was received; add it to the map of pending RPCs
+                CommChanged::PendingRpc(header) => {
+                    pending_rpcs.insert(header.msg_id.clone(), header);
                 },
 
                 // A Comm was closed; attempt to remove it from the set of open comms
@@ -96,10 +114,42 @@ pub fn comm_listener(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<C
             // Amend the message with the comm's ID, convert it to an
             // IOPub message, and send it to the front end
             let msg = match comm_msg {
-                CommChannelMsg::Data(data) => IOPubMessage::CommMsg(CommMsg {
+                // The comm is emitting data to the front end without being
+                // asked; this is treated like an event.
+                CommChannelMsg::Data(data) => IOPubMessage::CommMsgEvent(CommMsg {
                     comm_id: comm_socket.comm_id.clone(),
                     data,
                 }),
+
+                // The comm is replying to a message from the front end; the
+                // first parameter names the ID of the message to which this is
+                // a reply.
+                CommChannelMsg::Rpc(string, data) => {
+                    // Create the payload to send to the front end
+                    let payload = CommMsg {
+                        comm_id: comm_socket.comm_id.clone(),
+                        data,
+                    };
+
+                    // Try to find the message ID in the map of pending RPCs.
+                    match pending_rpcs.remove(&string) {
+                        Some(header) => {
+                            // Found it; consume the pending RPC and convert the
+                            // message to a reply.
+                            IOPubMessage::CommMsgReply(header, payload)
+                        },
+                        None => {
+                            // Didn't find it; log a warning and treat it like
+                            // an event so that the front end still gets the
+                            // data.
+                            warn!(
+                                "Received RPC response '{:?}' for unknown message ID {}",
+                                payload, string
+                            );
+                            IOPubMessage::CommMsgEvent(payload)
+                        },
+                    }
+                },
                 CommChannelMsg::Close => IOPubMessage::CommClose(comm_socket.comm_id.clone()),
             };
 

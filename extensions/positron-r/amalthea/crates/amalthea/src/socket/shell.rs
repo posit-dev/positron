@@ -6,7 +6,6 @@
  */
 
 use crate::comm::comm_channel::Comm;
-use crate::comm::comm_channel::CommChannelMsg;
 use crate::comm::comm_listener::comm_listener;
 use crate::comm::comm_listener::CommChanged;
 use crate::comm::lsp_comm::LspComm;

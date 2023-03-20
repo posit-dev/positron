@@ -45,7 +45,8 @@ pub enum IOPubMessage {
     ExecuteInput(ExecuteInput),
     Stream(StreamOutput),
     Event(PositronEvent),
-    CommMsg(CommMsg),
+    CommMsgReply(JupyterHeader, CommMsg),
+    CommMsgEvent(CommMsg),
     CommClose(String),
 }
 
@@ -101,7 +102,7 @@ impl IOPub {
             IOPubMessage::ExecuteError(msg) => self.send_message(msg),
             IOPubMessage::ExecuteInput(msg) => self.send_message(msg),
             IOPubMessage::Stream(msg) => self.send_message(msg),
-            IOPubMessage::CommMsg(msg) => self.send_message(msg),
+            IOPubMessage::CommMsgEvent(msg) => self.send_message(msg),
             IOPubMessage::CommClose(comm_id) => self.send_message(CommClose { comm_id }),
             IOPubMessage::Event(msg) => self.send_event(msg),
         }
