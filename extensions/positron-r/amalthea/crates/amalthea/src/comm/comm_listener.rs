@@ -30,6 +30,15 @@ pub enum CommChanged {
     Closed(String),
 }
 
+/**
+ * The comm listener is responsible for listening for messages on all of the
+ * open comms, attaching appropriate metadata, and relaying them to the front
+ * end. It is meant to be called on a dedicated thread, and it does not return.
+ *
+ * - `iopub_tx`: The channel to send messages to the front end.
+ * - `comm_changed_rx`: The channel to receive messages about changes to the set
+ *   (or state) of open comms.
+ */
 pub fn comm_listener(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<CommChanged>) {
     // Create a vector of the open comms
     let mut open_comms = Vec::<CommSocket>::new();
@@ -46,7 +55,7 @@ pub fn comm_listener(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<C
         }
 
         // Add a receiver for the comm_changed channel; this is used to
-        // unblock the select when a comm is added or remove so we can
+        // unblock the select when a comm is added or removed so we can
         // start a new `Select` with the updated set of open comms.
         sel.recv(&comm_changed_rx);
 
