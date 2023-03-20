@@ -20,6 +20,7 @@ use crate::environment::variable::EnvironmentVariable;
 #[serde(tag = "msg_type", rename_all = "snake_case")]
 pub enum EnvironmentMessage {
     List(EnvironmentMessageList),
+    Update(EnvironmentMessageUpdate),
     Refresh,
     Error(EnvironmentMessageError),
 }
@@ -31,6 +32,15 @@ pub enum EnvironmentMessage {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvironmentMessageList {
     pub variables: Vec<EnvironmentVariable>,
+}
+
+/**
+ * The data for the Update message.
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageUpdate {
+    pub assigned: Vec<EnvironmentVariable>,
+    pub removed: Vec<String>,
 }
 
 /**
