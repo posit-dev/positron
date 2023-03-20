@@ -186,7 +186,7 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
 
     if R_IsNamespaceEnv(envir) != 0 {
         let spec = CharacterVector::try_from(R_NamespaceEnvSpec(envir))?;
-        let package = spec.element(0)?;
+        let package = RObject::view(spec.get(0)?).to::<String>()?;
         return Ok(package);
     }
 

@@ -5,7 +5,7 @@
 //
 //
 
-use std::ffi::CStr;
+use std::marker::PhantomData;
 
 use libR_sys::*;
 
@@ -14,16 +14,35 @@ use crate::object::RObject;
 use crate::utils::r_assert_capacity;
 use crate::utils::r_assert_type;
 
-pub struct Vector<const RTYPE: u32> {
+// TODO: Is there a way to express that 'ElementType' should be derived from 'SEXPTYPE'?
+pub struct Vector<const SEXPTYPE: u32, ElementType> {
     pub object: RObject,
+    phantom: PhantomData<ElementType>,
 }
 
+// Useful type aliases for clients.
+pub type LogicalVector   = Vector<LGLSXP,  i32>;
+pub type IntegerVector   = Vector<INTSXP,  i32>;
+pub type NumericVector   = Vector<REALSXP, f64>;
+pub type CharacterVector = Vector<STRSXP,  SEXP>;
+pub type RawVector       = Vector<RAWSXP,  u8>;
+pub type List            = Vector<VECSXP,  SEXP>;
+
 // Methods common to all R vectors.
-impl<const RTYPE: u32> Vector<RTYPE> {
+impl<const SEXPTYPE: u32, ElementType> Vector<{ SEXPTYPE }, ElementType> {
 
     pub fn cast(object: RObject) -> Result<Self> {
-        r_assert_type(*object, &[RTYPE])?;
-        Ok(Vector::<RTYPE> { object })
+        r_assert_type(*object, &[SEXPTYPE])?;
+        Ok(Vector::<{ SEXPTYPE }, ElementType> { object, phantom: PhantomData })
+    }
+
+    pub fn length(&self) -> i32 {
+        unsafe { Rf_length(*self.object) }
+    }
+
+    fn dataptr(&self) -> *mut ElementType {
+        let pointer = unsafe { DATAPTR(*self.object) };
+        pointer as *mut ElementType
     }
 
 }
@@ -32,38 +51,40 @@ impl<const RTYPE: u32> Vector<RTYPE> {
 pub trait VectorBase {
     type ElementType;
 
-    unsafe fn element(&self, index: u32) -> Result<Self::ElementType>;
+    unsafe fn get(&self, index: u32) -> Result<Self::ElementType>;
 }
 
-impl<const RTYPE: u32> TryFrom<SEXP> for Vector<RTYPE> {
+impl<const SEXPTYPE: u32, ElementType> TryFrom<SEXP> for Vector<{ SEXPTYPE }, ElementType> {
     type Error = crate::error::Error;
 
     fn try_from(value: SEXP) -> std::result::Result<Self, Self::Error> {
         let object = unsafe { RObject::new(value) };
-        Vector::<RTYPE>::cast(object)
+        Vector::<{ SEXPTYPE }, ElementType>::cast(object)
+    }
+
+}
+
+impl<const SEXPTYPE: u32, ElementType> IntoIterator for Vector<{ SEXPTYPE }, ElementType> {
+    type Item = ElementType;
+    type IntoIter = std::vec::IntoIter<ElementType>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let ptr: *mut ElementType = self.dataptr();
+        let n = self.length() as usize;
+        let vector = unsafe { Vec::from_raw_parts(ptr, n, n) };
+        vector.into_iter()
     }
 
 }
 
 impl VectorBase for CharacterVector {
-    type ElementType = String;
+    type ElementType = SEXP;
 
-    unsafe fn element(&self, index: u32) -> Result<String> {
+    unsafe fn get(&self, index: u32) -> Result<SEXP> {
         unsafe {
             r_assert_capacity(*self.object, index + 1)?;
-            let charsexp = STRING_ELT(*self.object, index as isize);
-            let cstr = Rf_translateCharUTF8(charsexp);
-            let string = CStr::from_ptr(cstr).to_string_lossy().to_string();
-            Ok(string)
+            Ok(STRING_ELT(*self.object, index as isize))
         }
     }
+
 }
-
-// Useful type aliases for clients.
-pub type LogicalVector   = Vector<LGLSXP>;
-pub type IntegerVector   = Vector<INTSXP>;
-pub type NumericVector   = Vector<REALSXP>;
-pub type CharacterVector = Vector<STRSXP>;
-pub type RawVector       = Vector<RAWSXP>;
-pub type List            = Vector<VECSXP>;
-
