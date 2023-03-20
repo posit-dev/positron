@@ -38,6 +38,9 @@ export enum EnvironmentClientMessageTypeOutput {
 	 */
 	Update = 'update',
 
+	/** A successful result of an RPC that doesn't otherwise return data. */
+	Success = 'success',
+
 	/** A processing error */
 	Error = 'error',
 }
