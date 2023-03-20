@@ -419,10 +419,12 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		this._onDidChangeEnvironmentGroupingEmitter.event;
 
 	/**
- * Requests a refresh of the environment.
- */
+	 * Requests a refresh of the environment.
+	 */
 	requestRefresh() {
-		this._environmentClient?.requestRefresh();
+		this._environmentClient?.requestRefresh().then((environmentVariableItems) => {
+			this.processList(environmentVariableItems);
+		});
 	}
 
 	/**
