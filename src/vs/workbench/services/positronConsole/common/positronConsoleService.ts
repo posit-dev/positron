@@ -697,6 +697,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				languageRuntimeMessageInput.id,
 				languageRuntimeMessageInput.parent_id,
 				new Date(languageRuntimeMessageInput.when),
+				this._runtime.metadata.inputPrompt,
 				languageRuntimeMessageInput.code
 			));
 		}));
