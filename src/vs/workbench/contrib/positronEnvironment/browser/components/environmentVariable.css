@@ -5,13 +5,11 @@
 .environment-variable {
 	display: flex;
 	padding: 0 8px;
-	font-family: var(--environment-monospace-font);
 	border-bottom: 1px solid var(--vscode-positronSideActionBar-separator);
 }
 
 .environment-variable .name {
 	width: 35%;
-	padding: 2px 0;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
@@ -20,7 +18,6 @@
 
 .environment-variable .value {
 	width: 65%;
-	padding: 2px 0;
 	margin-left: 8px;
 	overflow: hidden;
 	white-space: nowrap;
