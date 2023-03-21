@@ -8,9 +8,11 @@ import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'v
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 
-export enum EnvironmentClientMessageType {
-	/// Requests: Client -> Server --------------------------------------
-
+/**
+ * The possible types of messages that can be sent to the language runtime as
+ * requests to the environment backend.
+ */
+export enum EnvironmentClientMessageTypeInput {
 	/** A request to send another List event */
 	Refresh = 'refresh',
 
@@ -19,8 +21,13 @@ export enum EnvironmentClientMessageType {
 
 	/** A request to delete a specific set of named variables */
 	Delete = 'delete',
+}
 
-	/// Responses/Events: Server -> Client ------------------------------
+/**
+ * The possible types of responses or results that can be sent from the language
+ * runtime
+ */
+export enum EnvironmentClientMessageTypeOutput {
 
 	/** A full list of all the variables and their values */
 	List = 'list',
@@ -30,6 +37,9 @@ export enum EnvironmentClientMessageType {
 	 * the last update or list event.
 	 */
 	Update = 'update',
+
+	/** A successful result of an RPC that doesn't otherwise return data. */
+	Success = 'success',
 
 	/** A processing error */
 	Error = 'error',
@@ -72,30 +82,45 @@ export interface IEnvironmentVariable {
 }
 
 /**
- * A message used to communicate with the language runtime environment client.
+ * A message used to send data to the language runtime environment client.
  */
-export interface IEnvironmentClientMessage {
-	msg_type: EnvironmentClientMessageType;
+export interface IEnvironmentClientMessageInput {
+	msg_type: EnvironmentClientMessageTypeInput;
 }
 
-export interface IEnvironmentClientMessageList extends IEnvironmentClientMessage {
+export interface IEnvironmentClientMessageDelete extends IEnvironmentClientMessageInput {
+	names: Array<string>;
+}
+
+/**
+ * A message used to receive data from the language runtime environment client.
+ */
+export interface IEnvironmentClientMessageOutput {
+	msg_type: EnvironmentClientMessageTypeOutput;
+}
+
+export interface IEnvironmentClientMessageList extends IEnvironmentClientMessageOutput {
 	variables: Array<IEnvironmentVariable>;
 }
 
-export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessage {
+export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessageOutput {
 	assigned: Array<IEnvironmentVariable>;
 	removed: Array<string>;
 }
 
-export interface IEnvironmentClientMessageDelete extends IEnvironmentClientMessage {
-	names: Array<string>;
-}
-
-export interface IEnvironmentClientMessageError extends IEnvironmentClientMessage {
+export interface IEnvironmentClientMessageError extends IEnvironmentClientMessageOutput {
 	message: string;
 }
 
-export type IEnvironmentClientInstance = IRuntimeClientInstance<IEnvironmentClientMessage>;
+/**
+ * A type that represents an environment client instance; it sends messages of
+ * type IEnvironmentClientMessageInput and receives messages of type
+ * IEnvironmentClientMessageOutput.
+ */
+export type IEnvironmentClientInstance =
+	IRuntimeClientInstance<
+		IEnvironmentClientMessageInput,
+		IEnvironmentClientMessageOutput>;
 
 /**
  * The client-side interface to an environment (a set of named variables) inside
@@ -121,7 +146,7 @@ export class EnvironmentClientInstance extends Disposable {
 	constructor(private readonly _runtime: ILanguageRuntime) {
 		super();
 
-		this._runtime.createClient<IEnvironmentClientMessage>(
+		this._runtime.createClient<IEnvironmentClientMessageInput, IEnvironmentClientMessageOutput>(
 			RuntimeClientType.Environment, {}).then(client => {
 				this.connectClient(client as IEnvironmentClientInstance);
 			});
@@ -132,54 +157,34 @@ export class EnvironmentClientInstance extends Disposable {
 	/**
 	 * Requests that the environment client send a new list of variables.
 	 */
-	public requestRefresh() {
-		this.withActiveClient('refresh', client => {
-			client.sendMessage({ msg_type: EnvironmentClientMessageType.Refresh });
-		});
+	public async requestRefresh(): Promise<IEnvironmentClientMessageList> {
+		return this.performRpc<IEnvironmentClientMessageList>('refresh',
+			{ msg_type: EnvironmentClientMessageTypeInput.Refresh });
 	}
-
 	/**
 	 * Requests that the environment client clear all variables.
 	 */
-	public requestClear() {
-		this.withActiveClient('clear', client => {
-			client.sendMessage({ msg_type: EnvironmentClientMessageType.Clear });
-		});
+	public async requestClear(): Promise<void> {
+		return this.performRpc<void>('clear all variables',
+			{ msg_type: EnvironmentClientMessageTypeInput.Clear });
 	}
 
 	/**
 	 * Requests that the environment client delete the specified variables.
 	 *
 	 * @param names The names of the variables to delete
+	 * @returns A promise that resolves to an update message with the variables that were deleted
 	 */
-	public requestDelete(names: Array<string>) {
-		this.withActiveClient('delete', client => {
-			client.sendMessage(
-				{
-					msg_type: EnvironmentClientMessageType.Delete,
-					names
-				} as IEnvironmentClientMessageDelete);
-		});
+	public async requestDelete(names: Array<string>): Promise<IEnvironmentClientMessageUpdate> {
+		return this.performRpc<IEnvironmentClientMessageUpdate>(
+			'delete named variables',
+			{
+				msg_type: EnvironmentClientMessageTypeInput.Delete,
+				names
+			} as IEnvironmentClientMessageDelete);
 	}
 
 	// Private methods -------------------------------------------------
-
-	private withActiveClient<T>(op: string, callback: (client: IEnvironmentClientInstance) => T): T | undefined {
-		if (!this._client) {
-			throw new Error(`Cannot perform '${op}' on environment client: no client is present`);
-		}
-
-		// Don't perform this request if the client isn't active. Consider: If
-		// the client is still in a starting state (such as 'opening'), we *could*
-		// queue up the request and send it when the client is ready.
-		const clientState = this._client.getClientState();
-		if (clientState !== RuntimeClientState.Connected) {
-			throw new Error(`Cannot perform '${op}' on environment client: ` +
-				`client instance is '${clientState}'`);
-		}
-
-		return callback(this._client);
-	}
 
 	/**
 	 * Connects this instance to its counterpart in the language runtime.
@@ -197,17 +202,17 @@ export class EnvironmentClientInstance extends Disposable {
 	 *
 	 * @param msg The message received from the back end
 	 */
-	private onDidReceiveData(msg: IEnvironmentClientMessage) {
+	private onDidReceiveData(msg: IEnvironmentClientMessageOutput) {
 		switch (msg.msg_type) {
-			case EnvironmentClientMessageType.List:
+			case EnvironmentClientMessageTypeOutput.List:
 				this._onDidReceiveListEmitter.fire(msg as IEnvironmentClientMessageList);
 				break;
 
-			case EnvironmentClientMessageType.Update:
+			case EnvironmentClientMessageTypeOutput.Update:
 				this._onDidReceiveUpdateEmitter.fire(msg as IEnvironmentClientMessageUpdate);
 				break;
 
-			case EnvironmentClientMessageType.Error:
+			case EnvironmentClientMessageTypeOutput.Error:
 				this._onDidReceiveErrorEmitter.fire(msg as IEnvironmentClientMessageError);
 				break;
 
@@ -215,5 +220,48 @@ export class EnvironmentClientInstance extends Disposable {
 				console.error(`Unknown environment client message type '${msg.msg_type}', ` +
 					`ignorning message: ${JSON.stringify(msg)}`);
 		}
+	}
+
+	/**
+	 * Performs an RPC operation on the environment client.
+	 *
+	 * @param op A debug-friendly name for the operation being performed
+	 * @param msg The message to deliver to the back end
+	 * @returns A promise that resolves to the message received from the back end
+	 */
+	private async performRpc<T>(op: string,
+		msg: IEnvironmentClientMessageInput): Promise<T> {
+		// Return a promise that performs the RPC and then resolves to the return type
+		return new Promise((resolve, reject) => {
+
+			if (!this._client) {
+				reject(new Error(`Cannot perform '${op}' on environment client: ` +
+					`no client is present`));
+				return;
+			}
+
+			// Don't perform this request if the client isn't active. Consider: If
+			// the client is still in a starting state (such as 'opening'), we *could*
+			// queue up the request and send it when the client is ready.
+			const clientState = this._client.getClientState();
+			if (clientState !== RuntimeClientState.Connected) {
+				throw new Error(`Cannot perform '${op}' on environment client: ` +
+					`client instance is '${clientState}'`);
+			}
+
+			// Perform the RPC and resolve/reject the promise based on the result
+			this._client.performRpc(msg).then(msg => {
+				// If the message is an error, reject the promise; otherwise, resolve it
+				if (msg.msg_type === EnvironmentClientMessageTypeOutput.Error) {
+					const err = msg as IEnvironmentClientMessageError;
+					reject(err.message);
+				} else {
+					resolve(msg as T);
+				}
+			}).catch(err => {
+				// If the RPC fails, reject the promise
+				reject(err);
+			});
+		});
 	}
 }
