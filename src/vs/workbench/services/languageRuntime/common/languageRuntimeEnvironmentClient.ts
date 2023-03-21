@@ -231,22 +231,26 @@ export class EnvironmentClientInstance extends Disposable {
 	 */
 	private async performRpc<T>(op: string,
 		msg: IEnvironmentClientMessageInput): Promise<T> {
-		if (!this._client) {
-			throw new Error(`Cannot perform '${op}' on environment client: no client is present`);
-		}
-
-		// Don't perform this request if the client isn't active. Consider: If
-		// the client is still in a starting state (such as 'opening'), we *could*
-		// queue up the request and send it when the client is ready.
-		const clientState = this._client.getClientState();
-		if (clientState !== RuntimeClientState.Connected) {
-			throw new Error(`Cannot perform '${op}' on environment client: ` +
-				`client instance is '${clientState}'`);
-		}
-
 		// Return a promise that performs the RPC and then resolves to the return type
 		return new Promise((resolve, reject) => {
-			this._client!.performRpc(msg).then(msg => {
+
+			if (!this._client) {
+				reject(new Error(`Cannot perform '${op}' on environment client: ` +
+					`no client is present`));
+				return;
+			}
+
+			// Don't perform this request if the client isn't active. Consider: If
+			// the client is still in a starting state (such as 'opening'), we *could*
+			// queue up the request and send it when the client is ready.
+			const clientState = this._client.getClientState();
+			if (clientState !== RuntimeClientState.Connected) {
+				throw new Error(`Cannot perform '${op}' on environment client: ` +
+					`client instance is '${clientState}'`);
+			}
+
+			// Perform the RPC and resolve/reject the promise based on the result
+			this._client.performRpc(msg).then(msg => {
 				// If the message is an error, reject the promise; otherwise, resolve it
 				if (msg.msg_type === EnvironmentClientMessageTypeOutput.Error) {
 					const err = msg as IEnvironmentClientMessageError;
