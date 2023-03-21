@@ -21,6 +21,9 @@ export enum EnvironmentClientMessageTypeInput {
 
 	/** A request to delete a specific set of named variables */
 	Delete = 'delete',
+
+	/** A request to inspect a specific variable */
+	Inspect = 'inspect',
 }
 
 /**
@@ -37,6 +40,9 @@ export enum EnvironmentClientMessageTypeOutput {
 	 * the last update or list event.
 	 */
 	Update = 'update',
+
+	/** The details (children) of a specific variable */
+	Details = 'details',
 
 	/** A successful result of an RPC that doesn't otherwise return data. */
 	Success = 'success',
@@ -95,6 +101,21 @@ export class EnvironmentVariable {
 		public readonly parentNames: Array<string> = [],
 		private readonly _envClient: EnvironmentClientInstance) {
 	}
+
+	/**
+	 * Gets the children of this variable, if any.
+	 *
+	 * @returns A promise that resolves to the list of children.
+	 */
+	async getChildren(): Promise<EnvironmentClientList> {
+		if (this.data.has_children) {
+			return this._envClient.requestInspect(this.parentNames.concat(this.data.name));
+		} else {
+			throw new Error(`Attempt to retrieve children of ` +
+				`${this.data.name} (${JSON.stringify(this.parentNames)}) ` +
+				`which has no children.`);
+		}
+	}
 }
 
 /**
@@ -102,6 +123,10 @@ export class EnvironmentVariable {
  */
 export interface IEnvironmentClientMessageInput {
 	msg_type: EnvironmentClientMessageTypeInput;
+}
+
+export interface IEnvironmentClientMessageInspect extends IEnvironmentClientMessageInput {
+	path: string[];
 }
 
 export interface IEnvironmentClientMessageDelete extends IEnvironmentClientMessageInput {
@@ -119,13 +144,17 @@ export interface IEnvironmentClientMessageList extends IEnvironmentClientMessage
 	variables: Array<IEnvironmentVariable>;
 }
 
+export interface IEnvironmentClientMessageDetails extends IEnvironmentClientMessageOutput {
+	children: Array<IEnvironmentVariable>;
+}
+
 export class EnvironmentClientList {
 	public readonly variables: Array<EnvironmentVariable>;
 	constructor(
-		public readonly data: IEnvironmentClientMessageList,
+		public readonly data: Array<IEnvironmentVariable>,
 		parentNames: Array<string> = [],
 		envClient: EnvironmentClientInstance) {
-		this.variables = data.variables.map(v => new EnvironmentVariable(v, parentNames, envClient));
+		this.variables = data.map(v => new EnvironmentVariable(v, parentNames, envClient));
 	}
 }
 
@@ -197,7 +226,7 @@ export class EnvironmentClientInstance extends Disposable {
 	public async requestRefresh(): Promise<EnvironmentClientList> {
 		const list = await this.performRpc<IEnvironmentClientMessageList>('refresh',
 			{ msg_type: EnvironmentClientMessageTypeInput.Refresh });
-		return new EnvironmentClientList(list, [], this);
+		return new EnvironmentClientList(list.variables, [], this);
 	}
 
 	/**
@@ -206,6 +235,21 @@ export class EnvironmentClientInstance extends Disposable {
 	public async requestClear(): Promise<void> {
 		return this.performRpc<void>('clear all variables',
 			{ msg_type: EnvironmentClientMessageTypeInput.Clear });
+	}
+
+	/**
+	 * Requests that the environment client inspect the specified variable.
+	 *
+	 * @param path The path to the variable to inspect
+	 * @returns The variable's children
+	 */
+	public async requestInspect(path: string[]): Promise<EnvironmentClientList> {
+		const list = await this.performRpc<IEnvironmentClientMessageDetails>('inspect',
+			{
+				msg_type: EnvironmentClientMessageTypeInput.Inspect,
+				path
+			} as IEnvironmentClientMessageInspect);
+		return new EnvironmentClientList(list.children, path, this);
 	}
 
 	/**
@@ -246,7 +290,7 @@ export class EnvironmentClientInstance extends Disposable {
 		switch (msg.msg_type) {
 			case EnvironmentClientMessageTypeOutput.List:
 				this._onDidReceiveListEmitter.fire(new EnvironmentClientList(
-					msg as IEnvironmentClientMessageList,
+					(msg as IEnvironmentClientMessageList).variables,
 					[], // No parent names; this is the top-level list
 					this));
 				break;
