@@ -7,7 +7,6 @@
 	display: flex;
 	padding: 5px 8px;
 	align-items: center;
-	font-family: var(--environment-monospace-font);
 	font-weight: bold;
 	border-bottom: 1px solid var(--vscode-positronSideActionBar-separator);
 }

@@ -9,9 +9,11 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
+// import { PixelRatio } from 'vs/base/browser/browser';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
+// import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
@@ -27,6 +29,8 @@ import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEdito
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+// import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+// import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 
 // LiveInputProps interface.
 export interface LiveInputProps {
@@ -281,13 +285,45 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 			false               // this widget is not simple
 		);
 
+		// The editor options we override.
+		const editorOptions = {
+			lineNumbers: (n: number) => {
+				// Render the input prompt for the first line; do not render
+				// anything in the margin for following lines
+				if (n < 2) {
+					return props.positronConsoleInstance.runtime.metadata.inputPrompt;
+				}
+				return '';
+			},
+			minimap: {
+				enabled: false
+			},
+			glyphMargin: false,
+			lineDecorationsWidth: 0,
+			// overviewRuleBorder: false,		// Not part of IEditorOptions.
+			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
+			renderLineHighlight: 'none',
+			wordWrap: 'bounded',
+			wordWrapColumn: 2048,
+			// renderOverviewRuler: false,		// Not part of IEditorOptions.
+			scrollbar: {
+				vertical: 'hidden',
+				useShadows: false
+			},
+			overviewRulerLanes: 0,
+			scrollBeyondLastLine: false,
+			// handleMouseWheel: false,			// Not part of IEditorOptions.
+			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
+			lineNumbersMinChars: 3,
+		} satisfies IEditorOptions;
+
 		// Create the code editor widget.
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
 			CodeEditorWidget,
 			refContainer.current,
 			{
-				wordWrap: 'on',
-				wordWrapColumn: 2048
+				...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
+				...editorOptions
 			},
 			{
 				isSimpleWidget: false,
@@ -312,38 +348,6 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 		// Set the key down handler.
 		codeEditorWidget.onKeyDown(keyDownHandler);
 
-		// Turn off most editor chrome.
-		const editorOptions: IEditorOptions = {
-			lineNumbers: (n: number) => {
-				// Render the input prompt for the first line; do not render
-				// anything in the margin for following lines
-				if (n < 2) {
-					return props.positronConsoleInstance.runtime.metadata.inputPrompt;
-				}
-				return '';
-			},
-			minimap: {
-				enabled: false
-			},
-			glyphMargin: false,
-			lineDecorationsWidth: 0,
-			// overviewRuleBorder: false,		// Not part of IEditorOptions.
-			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
-			renderLineHighlight: 'none',
-			wordWrap: 'bounded',
-			// renderOverviewRuler: false,		// Not part of IEditorOptions.
-			scrollbar: {
-				vertical: 'hidden',
-				useShadows: false
-			},
-			overviewRulerLanes: 0,
-			scrollBeyondLastLine: false,
-			// handleMouseWheel: false,			// Not part of IEditorOptions.
-			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
-			lineNumbersMinChars: 3,
-		};
-		codeEditorWidget.updateOptions(editorOptions);
-
 		// Auto-grow the editor as the internal content size changes (i.e. make
 		// it grow vertically as the user enters additional lines of input)
 		codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
@@ -361,6 +365,18 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 
 		// Perform the initial layout.
 		codeEditorWidget.layout();
+
+		// Add the onDidChangeConfiguration event handler.
+		disposableStore.add(
+			positronConsoleContext.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
+				if (configurationChangeEvent.affectsConfiguration('editor')) {
+					codeEditorWidget.updateOptions({
+						...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
+						...editorOptions
+					});
+				}
+			})
+		);
 
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
