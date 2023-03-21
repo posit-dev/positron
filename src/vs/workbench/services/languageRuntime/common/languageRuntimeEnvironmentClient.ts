@@ -93,9 +93,18 @@ export interface IEnvironmentVariable {
 }
 
 /**
- * Represents a variable in a language runtime environment.
+ * Represents a variable in a language runtime environment; wraps the raw data format with
+ * additional metadata and methods.
  */
 export class EnvironmentVariable {
+	/**
+	 * Creates a new EnvironmentVariable instance.
+	 *
+	 * @param data The raw data from the language runtime.
+	 * @param parentNames A list of the names of the parent variables, if any;
+	 *   used to construct the full path to this variable.
+	 * @param _envClient The environment client instance that owns this variable.
+	 */
 	constructor(
 		public readonly data: IEnvironmentVariable,
 		public readonly parentNames: Array<string> = [],
@@ -125,10 +134,16 @@ export interface IEnvironmentClientMessageInput {
 	msg_type: EnvironmentClientMessageTypeInput;
 }
 
+/**
+ * A request to inspect a specific variable, given a path of names.
+ */
 export interface IEnvironmentClientMessageInspect extends IEnvironmentClientMessageInput {
 	path: string[];
 }
 
+/**
+ * A request to delete a specific set of named variables.
+ */
 export interface IEnvironmentClientMessageDelete extends IEnvironmentClientMessageInput {
 	names: Array<string>;
 }
@@ -140,14 +155,23 @@ export interface IEnvironmentClientMessageOutput {
 	msg_type: EnvironmentClientMessageTypeOutput;
 }
 
+/**
+ * A list of all the variables and their values.
+ */
 export interface IEnvironmentClientMessageList extends IEnvironmentClientMessageOutput {
 	variables: Array<IEnvironmentVariable>;
 }
 
+/**
+ * The details (children) of a specific variable.
+ */
 export interface IEnvironmentClientMessageDetails extends IEnvironmentClientMessageOutput {
 	children: Array<IEnvironmentVariable>;
 }
 
+/**
+ * A list of variables and their values; wraps the raw data format.
+ */
 export class EnvironmentClientList {
 	public readonly variables: Array<EnvironmentVariable>;
 	constructor(
@@ -158,14 +182,26 @@ export class EnvironmentClientList {
 	}
 }
 
+/**
+ * A partial update indicating the set of changes that have occurred since the
+ * last update or list event.
+ */
 export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessageOutput {
 	assigned: Array<IEnvironmentVariable>;
 	removed: Array<string>;
 }
 
+
+/**
+ * Wraps the raw data format for an update message.
+ */
 export class EnvironmentClientUpdate {
+	/// The variables that have been added or changed
 	public readonly assigned: Array<EnvironmentVariable>;
+
+	/// The names of the variables that have been removed
 	public readonly removed: Array<string>;
+
 	constructor(
 		public readonly data: IEnvironmentClientMessageUpdate,
 		envClient: EnvironmentClientInstance) {
@@ -174,6 +210,9 @@ export class EnvironmentClientUpdate {
 	}
 }
 
+/**
+ * A processing error that occurred in the language runtime or backend of the environment client.
+ */
 export interface IEnvironmentClientMessageError extends IEnvironmentClientMessageOutput {
 	message: string;
 }

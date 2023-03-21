@@ -56,6 +56,11 @@ export class ZedEnvironment {
 	private readonly _vars = new Map<string, ZedVariable>();
 
 	/**
+	 * A counter used to generate unique variable names
+	 */
+	private _varCounter = 1;
+
+	/**
 	 * Creates a new ZedEnvironment backend
 	 *
 	 * @param id The ID of the environment client instance
@@ -146,6 +151,7 @@ export class ZedEnvironment {
 			const oldVar = this._vars.get(key)!;
 			let value = '';
 			let size = 0;
+			let children: ZedVariable[] = [];
 			// Create a random value for the variable
 			if (oldVar.kind === 'string') {
 				// Strings: replace 5 random characters with a hexadecimal digit
@@ -182,13 +188,19 @@ export class ZedEnvironment {
 					value = bytes.join(', ');
 					size = bytes.length;
 				}
+			} else if (oldVar.kind === 'list') {
+				// Lists: Add a new random element to the end
+				oldVar.children.push(this.generateVars(1, 'random')[0]);
+				children = oldVar.children;
+				value = `list(${children.length} elements)`;
+				size = children.length;
 			} else {
 				// Everything else: reverse the value
 				value = oldVar.value.split('').reverse().join('');
 				size = value.length;
 			}
 
-			const newVar = new ZedVariable(oldVar.name, value, oldVar.kind, value.length, size);
+			const newVar = new ZedVariable(oldVar.name, value, oldVar.kind, value.length, size, children);
 			this._vars.set(key, newVar);
 
 			// Add the variable to the list of updated variables
@@ -311,7 +323,7 @@ export class ZedEnvironment {
 	private generateVars(count: number, kind: string): Array<ZedVariable> {
 
 		// Get the starting index for the new variables
-		const start = this._vars.size + 1;
+		const start = this._varCounter++;
 
 		// Begin building the list of new variables to send
 		const added = [];
@@ -320,7 +332,7 @@ export class ZedEnvironment {
 			let kindToUse = kind;
 			if (!kind || kind === 'random') {
 				// Random: pick a random kind
-				kindToUse = ['string', 'number', 'vector', 'blob'][Math.floor(Math.random() * 4)];
+				kindToUse = ['string', 'number', 'vector', 'blob', 'list'][Math.floor(Math.random() * 5)];
 			}
 
 			const name = `${kindToUse}${start + i}`;
@@ -350,8 +362,8 @@ export class ZedEnvironment {
 				size = Math.floor(Math.random() * 1024 * 1024);
 				value = `blob(${size} bytes)`;
 			} else if (kindToUse === 'list') {
-				// Lists: Have 1 - 10 elements of random types, generated recursively
-				const numElements = Math.floor(Math.random() * 10) + 1;
+				// Lists: Have 1 - 3 elements of random types, generated recursively
+				const numElements = Math.floor(Math.random() * 3) + 1;
 				children = this.generateVars(numElements, 'random');
 				value = `list(${numElements} elements)`;
 				size = numElements;
