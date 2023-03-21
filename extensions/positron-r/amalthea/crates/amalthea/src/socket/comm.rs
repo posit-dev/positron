@@ -74,11 +74,12 @@ impl CommSocket {
     /**
      * Ask the back end to handle a message from the front end.
      *
+     * - `id`: The ID of the message from the front end.
      * - `msg`: The message to be handled.
      */
-    pub fn handle_msg(&self, msg: Value) {
+    pub fn handle_msg(&self, id: String, msg: Value) {
         if let Some(comm_msg_handler_tx) = &self.comm_msg_handler_tx {
-            if let Err(e) = comm_msg_handler_tx.send(CommChannelMsg::Data(msg)) {
+            if let Err(e) = comm_msg_handler_tx.send(CommChannelMsg::Rpc(id, msg)) {
                 warn!(
                     "Error sending close message for comm '{}' ({}): {}",
                     self.comm_name, self.comm_id, e

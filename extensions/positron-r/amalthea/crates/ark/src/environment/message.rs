@@ -19,9 +19,23 @@ use crate::environment::variable::EnvironmentVariable;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "msg_type", rename_all = "snake_case")]
 pub enum EnvironmentMessage {
+    /// A message containing a full listing of environment variables. Can be
+    /// triggered by the server or by the client via a 'refresh' message.
     List(EnvironmentMessageList),
+
+    /// A message containing a list of environment variables that have been
+    /// assigned and a list of environment variables that have been removed.
     Update(EnvironmentMessageUpdate),
+
+    /// A message requesting the server to deliver a full listing of environment
+    /// variables.
     Refresh,
+
+    /// A message indicating that the server has successfully processed a client
+    /// request. Used only for request messages that do not return data.
+    Success,
+
+    /// A message containing an error message.
     Error(EnvironmentMessageError),
 }
 

@@ -107,6 +107,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
 
+	/**
+	 * A stack of pending environment RPCs.
+	 */
+	private readonly _pendingRpcs: Array<string> = [];
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -712,13 +717,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
-	sendClientMessage(id: string, message: object): void {
+	sendClientMessage(client_id: string, message_id: string, message: object): void {
 		// Right now, the only client instances are environments.
-		const client = this._environments.get(id);
+		const client = this._environments.get(client_id);
 		if (client) {
+			this._pendingRpcs.push(message_id);
 			client.handleMessage(message);
 		} else {
-			throw new Error(`Can't send message; unknown client id ${id}`);
+			throw new Error(`Can't send message; unknown client id ${client_id}`);
 		}
 	}
 
@@ -1001,11 +1007,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Listen for data emitted from the environment instance
 		env.onDidEmitData(data => {
+			// If there's a pending RPC, then presume that this message is a
+			// reply to it; otherwise, just use an empty parent ID.
+			const parent_id = this._pendingRpcs.length > 0 ?
+				this._pendingRpcs.pop() : '';
 
 			// When received, wrap it up in a runtime message and emit it
 			this._onDidReceiveRuntimeMessage.fire({
 				id: randomUUID(),
-				parent_id: '',
+				parent_id,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.CommData,
 				comm_id: env.id,
