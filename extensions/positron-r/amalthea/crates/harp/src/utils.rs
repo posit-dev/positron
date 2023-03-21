@@ -7,6 +7,7 @@
 
 use std::ffi::CStr;
 use std::ffi::CString;
+use std::os::raw::c_void;
 
 use libR_sys::*;
 
@@ -18,7 +19,10 @@ use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::r_symbol;
 use crate::vector::CharacterVector;
-use crate::vector::VectorBase;
+
+extern "C" {
+    fn R_removeVarFromFrame(symbol: SEXP, envir: SEXP) -> c_void;
+}
 
 pub fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
     let actual = r_typeof(object);
@@ -46,72 +50,6 @@ pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
     }
 
     Ok(actual)
-}
-
-pub trait CharSxpEq {
-    fn eq_charsxp(&self, s: SEXP) -> bool;
-}
-
-impl CharSxpEq for &str {
-    fn eq_charsxp(&self, s: SEXP) -> bool {
-        unsafe {
-            s != R_NaString && (*self).eq(CStr::from_ptr(R_CHAR(s)).to_str().unwrap())
-        }
-    }
-}
-
-impl CharSxpEq for String {
-    fn eq_charsxp(&self, s: SEXP) -> bool {
-        (&self[..]).eq_charsxp(s)
-    }
-}
-
-impl<S: CharSxpEq> PartialEq<[S]> for RObject {
-    fn eq(&self, other: &[S]) -> bool {
-        unsafe {
-            let object = self.sexp;
-            if r_typeof(object) != STRSXP {
-                return false;
-            }
-
-            let n = Rf_xlength(object) as isize;
-            if n != other.len() as isize {
-                return false;
-            }
-            for i in 0..n {
-                if !other.get_unchecked(i as usize).eq_charsxp(STRING_ELT(object, i)) {
-                    return false;
-                }
-            }
-            true
-        }
-    }
-}
-
-impl<S: CharSxpEq, const N: usize> PartialEq<[S; N]> for RObject {
-    fn eq(&self, other: &[S; N]) -> bool {
-        self.eq(&other[..])
-    }
-}
-
-impl<S: CharSxpEq> PartialEq<Vec<S>> for RObject {
-    fn eq(&self, other: &Vec<S>) -> bool {
-        self.eq(&other[..])
-    }
-}
-
-impl <S: CharSxpEq> PartialEq<S> for RObject {
-    fn eq(&self, other: &S) -> bool {
-        unsafe {
-            let sexp = self.sexp;
-            if Rf_length(sexp) != 1 {
-                return false;
-            }
-
-            other.eq_charsxp(STRING_ELT(sexp, 0))
-        }
-
-    }
 }
 
 pub fn r_is_null(object: SEXP) -> bool {
@@ -185,9 +123,11 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
     }
 
     if R_IsNamespaceEnv(envir) != 0 {
-        let spec = CharacterVector::try_from(R_NamespaceEnvSpec(envir))?;
-        let package = RObject::view(spec.get(0)?).to::<String>()?;
-        return Ok(package);
+        let spec = R_NamespaceEnvSpec(envir);
+        if let Ok(vector) = CharacterVector::try_from(spec) {
+            let package = vector.get(0)?;
+            return Ok(package);
+        }
     }
 
     let name = Rf_getAttrib(envir, r_symbol!("name"));
@@ -198,6 +138,25 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
 
     Ok(format!("{:p}", envir))
 
+}
+
+pub unsafe fn r_envir_get(symbol: &str, envir: SEXP) -> Option<SEXP> {
+
+    let value = Rf_findVar(r_symbol!(symbol), envir);
+    if value == R_UnboundValue {
+        return None;
+    }
+
+    Some(value)
+
+}
+
+pub unsafe fn r_envir_set(symbol: &str, value: SEXP, envir: SEXP) {
+    Rf_defineVar(r_symbol!(symbol), value, envir);
+}
+
+pub unsafe fn r_envir_remove(symbol: &str, envir: SEXP) {
+    R_removeVarFromFrame(r_symbol!(symbol), envir);
 }
 
 pub unsafe fn r_stringify(object: SEXP, delimiter: &str) -> Result<String> {
