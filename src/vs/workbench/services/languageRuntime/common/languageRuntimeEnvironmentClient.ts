@@ -60,6 +60,8 @@ export enum EnvironmentVariableValueKind {
 /**
  * Represents a variable in a language runtime environment -- a value with a
  * named identifier, not a system environment variable.
+ *
+ * This is the raw data format used to communicate with the language runtime.
  */
 export interface IEnvironmentVariable {
 	/// The name of the variable
@@ -77,8 +79,22 @@ export interface IEnvironmentVariable {
 	/// The size of the variable's value, in bytes
 	size: number;
 
+	/// True if the variable contains other variables
+	has_children: boolean;
+
 	/// True if the 'value' field was truncated to fit in the message
 	truncated: boolean;
+}
+
+/**
+ * Represents a variable in a language runtime environment.
+ */
+export class EnvironmentVariable {
+	constructor(
+		public readonly data: IEnvironmentVariable,
+		public readonly parentNames: Array<string> = [],
+		private readonly _envClient: EnvironmentClientInstance) {
+	}
 }
 
 /**
@@ -103,9 +119,30 @@ export interface IEnvironmentClientMessageList extends IEnvironmentClientMessage
 	variables: Array<IEnvironmentVariable>;
 }
 
+export class EnvironmentClientList {
+	public readonly variables: Array<EnvironmentVariable>;
+	constructor(
+		public readonly data: IEnvironmentClientMessageList,
+		parentNames: Array<string> = [],
+		envClient: EnvironmentClientInstance) {
+		this.variables = data.variables.map(v => new EnvironmentVariable(v, parentNames, envClient));
+	}
+}
+
 export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessageOutput {
 	assigned: Array<IEnvironmentVariable>;
 	removed: Array<string>;
+}
+
+export class EnvironmentClientUpdate {
+	public readonly assigned: Array<EnvironmentVariable>;
+	public readonly removed: Array<string>;
+	constructor(
+		public readonly data: IEnvironmentClientMessageUpdate,
+		envClient: EnvironmentClientInstance) {
+		this.assigned = data.assigned.map(v => new EnvironmentVariable(v, [], envClient));
+		this.removed = data.removed;
+	}
 }
 
 export interface IEnvironmentClientMessageError extends IEnvironmentClientMessageOutput {
@@ -130,8 +167,8 @@ export class EnvironmentClientInstance extends Disposable {
 	/// The client instance; used to send messages to (and receive messages from) the back end
 	private _client?: IEnvironmentClientInstance;
 
-	private _onDidReceiveListEmitter = new Emitter<IEnvironmentClientMessageList>();
-	private _onDidReceiveUpdateEmitter = new Emitter<IEnvironmentClientMessageUpdate>();
+	private _onDidReceiveListEmitter = new Emitter<EnvironmentClientList>();
+	private _onDidReceiveUpdateEmitter = new Emitter<EnvironmentClientUpdate>();
 	private _onDidReceiveErrorEmitter = new Emitter<IEnvironmentClientMessageError>();
 
 	onDidReceiveList = this._onDidReceiveListEmitter.event;
@@ -157,10 +194,12 @@ export class EnvironmentClientInstance extends Disposable {
 	/**
 	 * Requests that the environment client send a new list of variables.
 	 */
-	public async requestRefresh(): Promise<IEnvironmentClientMessageList> {
-		return this.performRpc<IEnvironmentClientMessageList>('refresh',
+	public async requestRefresh(): Promise<EnvironmentClientList> {
+		const list = await this.performRpc<IEnvironmentClientMessageList>('refresh',
 			{ msg_type: EnvironmentClientMessageTypeInput.Refresh });
+		return new EnvironmentClientList(list, [], this);
 	}
+
 	/**
 	 * Requests that the environment client clear all variables.
 	 */
@@ -175,13 +214,14 @@ export class EnvironmentClientInstance extends Disposable {
 	 * @param names The names of the variables to delete
 	 * @returns A promise that resolves to an update message with the variables that were deleted
 	 */
-	public async requestDelete(names: Array<string>): Promise<IEnvironmentClientMessageUpdate> {
-		return this.performRpc<IEnvironmentClientMessageUpdate>(
+	public async requestDelete(names: Array<string>): Promise<EnvironmentClientUpdate> {
+		const update = await this.performRpc<IEnvironmentClientMessageUpdate>(
 			'delete named variables',
 			{
 				msg_type: EnvironmentClientMessageTypeInput.Delete,
 				names
 			} as IEnvironmentClientMessageDelete);
+		return new EnvironmentClientUpdate(update, this);
 	}
 
 	// Private methods -------------------------------------------------
@@ -205,11 +245,15 @@ export class EnvironmentClientInstance extends Disposable {
 	private onDidReceiveData(msg: IEnvironmentClientMessageOutput) {
 		switch (msg.msg_type) {
 			case EnvironmentClientMessageTypeOutput.List:
-				this._onDidReceiveListEmitter.fire(msg as IEnvironmentClientMessageList);
+				this._onDidReceiveListEmitter.fire(new EnvironmentClientList(
+					msg as IEnvironmentClientMessageList,
+					[], // No parent names; this is the top-level list
+					this));
 				break;
 
 			case EnvironmentClientMessageTypeOutput.Update:
-				this._onDidReceiveUpdateEmitter.fire(msg as IEnvironmentClientMessageUpdate);
+				this._onDidReceiveUpdateEmitter.fire(new EnvironmentClientUpdate(
+					msg as IEnvironmentClientMessageUpdate, this));
 				break;
 
 			case EnvironmentClientMessageTypeOutput.Error:

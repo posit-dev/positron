@@ -30,15 +30,15 @@ const sortEnvironmentVariableItemsByName = (items: EnvironmentVariableItem[]) =>
 	// largest.
 	items.sort((a, b) => {
 		// Compare the name.
-		const result = a.environmentVariable.name.localeCompare(b.environmentVariable.name);
+		const result = a.environmentVariable.data.name.localeCompare(b.environmentVariable.data.name);
 		if (result !== 0) {
 			return result;
 		}
 
 		// Break ties by sorting by size;
-		if (a.environmentVariable.size < b.environmentVariable.size) {
+		if (a.environmentVariable.data.size < b.environmentVariable.data.size) {
 			return -1;
-		} else if (a.environmentVariable.size > b.environmentVariable.size) {
+		} else if (a.environmentVariable.data.size > b.environmentVariable.data.size) {
 			return 1;
 		} else {
 			return 0;
@@ -54,12 +54,12 @@ const sortEnvironmentVariableItemsBySize = (items: EnvironmentVariableItem[]) =>
 	// Sort the environment variable items by size. Break ties by sorting by name.
 	items.sort((a, b) => {
 		// Break ties by sorting by size;
-		if (a.environmentVariable.size < b.environmentVariable.size) {
+		if (a.environmentVariable.data.size < b.environmentVariable.data.size) {
 			return -1;
-		} else if (a.environmentVariable.size > b.environmentVariable.size) {
+		} else if (a.environmentVariable.data.size > b.environmentVariable.data.size) {
 			return 1;
 		} else {
-			return a.environmentVariable.name.localeCompare(b.environmentVariable.name);
+			return a.environmentVariable.data.name.localeCompare(b.environmentVariable.data.name);
 		}
 	});
 };
@@ -141,9 +141,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		const valueItems: EnvironmentVariableItem[] = [];
 		const functionItems: EnvironmentVariableItem[] = [];
 		props.positronEnvironmentInstance.environmentVariableItems.forEach(item => {
-			if (item.environmentVariable.kind === EnvironmentVariableValueKind.Dataframe) {
+			if (item.environmentVariable.data.kind === EnvironmentVariableValueKind.Dataframe) {
 				dataItems.push(item);
-			} else if (item.environmentVariable.kind === EnvironmentVariableValueKind.Function) {
+			} else if (item.environmentVariable.data.kind === EnvironmentVariableValueKind.Function) {
 				functionItems.push(item);
 			} else {
 				valueItems.push(item);

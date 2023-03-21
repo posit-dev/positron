@@ -10,7 +10,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { EnvironmentClientInstance, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentClientInstance, EnvironmentClientList, EnvironmentClientUpdate, IEnvironmentClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * PositronEnvironmentService class.
@@ -607,7 +607,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Processes an IEnvironmentClientMessageList.
 	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
 	 */
-	private processList(environmentClientMessageList: IEnvironmentClientMessageList) {
+	private processList(environmentClientMessageList: EnvironmentClientList) {
 		// Build the new environment variable items.
 		const environmentVariableItems = new Map<string, EnvironmentVariableItem>();
 		for (let i = 0; i < environmentClientMessageList.variables.length; i++) {
@@ -616,7 +616,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the environment variable item.
 			environmentVariableItems.set(
-				environmentVariable.name,
+				environmentVariable.data.name,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		}
@@ -631,7 +631,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private processUpdate(environmentClientMessageUpdate: IEnvironmentClientMessageUpdate) {
+	private processUpdate(environmentClientMessageUpdate: EnvironmentClientUpdate) {
 		// Add assigned environment variable items.
 		for (let i = 0; i < environmentClientMessageUpdate.assigned.length; i++) {
 			// Get the environment variable.
@@ -639,7 +639,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the environment variable item.
 			this._environmentVariableItems.set(
-				environmentVariable.name,
+				environmentVariable.data.name,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		}
