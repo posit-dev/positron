@@ -30,7 +30,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus>;
 	$createClient(handle: number, id: string, type: RuntimeClientType, params: any): Promise<void>;
 	$removeClient(handle: number, id: string): void;
-	$sendClientMessage(handle: number, id: string, message: any): void;
+	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void;
 	$replyToPrompt(handle: number, id: string, response: string): void;
 	$interruptLanguageRuntime(handle: number): void;
 	$restartLanguageRuntime(handle: number): void;

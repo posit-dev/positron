@@ -279,12 +279,13 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		});
 	}
 
-	createClient<T>(type: RuntimeClientType): Thenable<IRuntimeClientInstance<T>> {
+	createClient<Input, Output>(type: RuntimeClientType):
+		Thenable<IRuntimeClientInstance<Input, Output>> {
 		// This notebook API doesn't support creating clients
 		throw new Error('Method not implemented.');
 	}
 
-	listClients(): Thenable<IRuntimeClientInstance<any>[]> {
+	listClients(): Thenable<IRuntimeClientInstance<any, any>[]> {
 		// It is not possible to create clients in this notebook API,
 		// so just return an empty list
 		return new Promise((resolve, _reject) => {

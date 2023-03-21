@@ -245,6 +245,11 @@ impl ShellHandler for Shell {
                     // sender.
                     sender.send(CommChannelMsg::Data(val)).unwrap();
                 },
+                CommChannelMsg::Rpc(id, val) => {
+                    // Echo back the data we received on the comm channel to the
+                    // sender as the response to the RPC, using the same ID.
+                    sender.send(CommChannelMsg::Rpc(id, val)).unwrap();
+                },
                 CommChannelMsg::Close => {
                     // Close the channel and exit the thread.
                     break;

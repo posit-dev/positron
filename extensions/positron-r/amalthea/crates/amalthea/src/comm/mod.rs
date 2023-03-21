@@ -6,4 +6,5 @@
  */
 
 pub mod comm_channel;
+pub mod comm_listener;
 pub mod lsp_comm;

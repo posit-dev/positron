@@ -419,26 +419,41 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		this._onDidChangeEnvironmentGroupingEmitter.event;
 
 	/**
- * Requests a refresh of the environment.
- */
-	requestRefresh() {
-		this._environmentClient?.requestRefresh();
+	 * Requests a refresh of the environment.
+	 */
+	async requestRefresh() {
+		if (this._environmentClient) {
+			const list = await this._environmentClient.requestRefresh();
+			this.processList(list);
+		} else {
+			console.error('Ignoring refresh request; environment client is not available.');
+		}
 	}
 
 	/**
 	 * Requests a clear of the environment.
 	 * @param includeHiddenObjects A value which indicates whether to include hidden objects.
 	 */
-	requestClear(includeHiddenObjects: boolean) {
-		this._environmentClient?.requestClear();
+	async requestClear(includeHiddenObjects: boolean) {
+		if (this._environmentClient) {
+			await this._environmentClient.requestClear();
+		} else {
+			console.error('Ignoring clear request; environment client is not available.');
+		}
 	}
 
 	/**
 	 * Requests the deletion of one or more environment variables.
 	 * @param names The names of the variables to delete
 	 */
-	requestDelete(names: string[]) {
-		this._environmentClient?.requestDelete(names);
+	async requestDelete(names: string[]) {
+		if (this._environmentClient) {
+			const update = await this._environmentClient.requestDelete(names);
+			this.processUpdate(update);
+		}
+		else {
+			console.error('Ignoring delete request; environment client is not available.');
+		}
 	}
 
 	//#endregion IPositronEnvironmentInstance Implementation

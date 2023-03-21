@@ -119,10 +119,13 @@ impl Frontend {
         self.iopub_socket.subscribe().unwrap();
     }
 
-    /// Sends a Jupyter message on the Shell socket
-    pub fn send_shell<T: ProtocolMessage>(&self, msg: T) {
+    /// Sends a Jupyter message on the Shell socket; returns the ID of the newly
+    /// created message
+    pub fn send_shell<T: ProtocolMessage>(&self, msg: T) -> String {
         let message = JupyterMessage::create(msg, None, &self.session);
+        let id = message.header.msg_id.clone();
         message.send(&self.shell_socket).unwrap();
+        id
     }
 
     /// Sends a Jupyter message on the Stdin socket

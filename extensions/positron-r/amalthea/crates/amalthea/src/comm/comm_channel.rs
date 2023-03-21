@@ -23,6 +23,16 @@ pub enum Comm {
 
 #[derive(Debug, PartialEq)]
 pub enum CommChannelMsg {
+    /// A message that is part of a Remote Procedure Call (RPC). The first value
+    /// is the unique ID of the RPC invocation (i.e. the Jupyter message ID),
+    /// and the second value is the data associated with the RPC (the request or
+    /// response).
+    Rpc(String, Value),
+
+    /// A message representing any other data sent on the comm channel; usually
+    /// used for events.
     Data(Value),
+
+    // A message indicating that the comm channel should be closed.
     Close,
 }
