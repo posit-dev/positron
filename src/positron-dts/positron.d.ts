@@ -417,8 +417,12 @@ declare module 'positron' {
 		/** Remove an instance of a client (created with `createClient`) */
 		removeClient(id: string): void;
 
-		/** Send a message to the server end of a client instance */
-		sendClientMessage(id: string, message: any): void;
+		/**
+		 * Send a message to the server end of a client instance. Any replies to the message
+		 * will be sent back to the client via the `onDidReceiveRuntimeMessage` event, with
+		 * the `parent_id` field set to the `message_id` given here.
+		 */
+		sendClientMessage(client_id: string, message_id: string, message: any): void;
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;

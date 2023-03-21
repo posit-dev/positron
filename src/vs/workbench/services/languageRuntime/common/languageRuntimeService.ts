@@ -338,11 +338,11 @@ export interface ILanguageRuntime {
 	 * @param type The type of client to create
 	 * @param params The parameters to pass to the client constructor
 	 */
-	createClient<T>(type: RuntimeClientType, params: any):
-		Thenable<IRuntimeClientInstance<T>>;
+	createClient<T, U>(type: RuntimeClientType, params: any):
+		Thenable<IRuntimeClientInstance<T, U>>;
 
 	/** Get a list of all known clients */
-	listClients(): Thenable<Array<IRuntimeClientInstance<any>>>;
+	listClients(): Thenable<Array<IRuntimeClientInstance<any, any>>>;
 
 	/** Reply to an input prompt that the runtime issued
 	 * (via a LanguageRuntimePrompt message)

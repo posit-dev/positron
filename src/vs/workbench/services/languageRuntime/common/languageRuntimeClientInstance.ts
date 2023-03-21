@@ -49,7 +49,12 @@ export enum RuntimeClientType {
  * RuntimeClientType for the set of possible client types.
  *
  * This is a base interface that is extended by specific client types, and is
- * parameterized by the type of message that the client can send to the runtime.
+ * parameterized by two types:
+ *
+ * - `Input`: The type of data that the client sends to the runtime, i.e. the
+ *    request type
+ * - `Output`: The type of data that the client receives from the runtime, i.e.
+ *    the response and event type
  *
  * The client is responsible for disposing itself when it is no longer
  * needed; this will trigger the closure of the communications channel
@@ -58,11 +63,11 @@ export enum RuntimeClientType {
  * It can also be disposed by the runtime, in which case the client will
  * be notified via the onDidChangeClientState event.
  */
-export interface IRuntimeClientInstance<T> extends Disposable {
+export interface IRuntimeClientInstance<Input, Output> extends Disposable {
 	onDidChangeClientState: Event<RuntimeClientState>;
-	onDidReceiveData: Event<T>;
+	onDidReceiveData: Event<Output>;
 	getClientState(): RuntimeClientState;
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
-	sendMessage(message: T): void;
+	performRpc(request: Input): Promise<Output>;
 }

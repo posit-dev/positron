@@ -70,12 +70,20 @@ fn test_environment_list() {
     // Request that the environment be refreshed
     let refresh = EnvironmentMessage::Refresh;
     let data = serde_json::to_value(refresh).unwrap();
-    backend_msg_sender.send(CommChannelMsg::Data(data)).unwrap();
+    let request_id = String::from("refresh-id-1234");
+    backend_msg_sender
+        .send(CommChannelMsg::Rpc(request_id.clone(), data))
+        .unwrap();
 
     // Wait for the new list of variables to be delivered
     let msg = frontend_message_rx.recv().unwrap();
     let data = match msg {
-        CommChannelMsg::Data(data) => data,
+        CommChannelMsg::Rpc(reply_id, data) => {
+            // Ensure that the reply ID we received from then environment pane
+            // matches the request ID we sent
+            assert_eq!(request_id, reply_id);
+            data
+        },
         _ => panic!("Expected data message, got {:?}", msg),
     };
 
@@ -111,5 +119,4 @@ fn test_environment_list() {
 
     // close the comm. Otherwise the thread panics
     backend_msg_sender.send(CommChannelMsg::Close).unwrap();
-
 }

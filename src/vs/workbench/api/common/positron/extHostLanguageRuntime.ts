@@ -82,11 +82,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimes[handle].removeClient(id);
 	}
 
-	$sendClientMessage(handle: number, id: string, message: any): void {
+	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void {
 		if (handle >= this._runtimes.length) {
 			throw new Error(`Cannot send message to client: language runtime handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimes[handle].sendClientMessage(id, message);
+		this._runtimes[handle].sendClientMessage(client_id, message_id, message);
 	}
 
 	$replyToPrompt(handle: number, id: string, response: string): void {
@@ -157,4 +157,3 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 }
-
