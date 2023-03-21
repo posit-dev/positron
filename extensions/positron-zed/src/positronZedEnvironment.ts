@@ -21,7 +21,7 @@ class ZedVariable {
 		readonly kind: string,
 		readonly length: number,
 		readonly size: number,
-		children: ZedVariable[] = []) {
+		readonly children: ZedVariable[] = []) {
 
 		// The type name is the language-specific name for the variable's type.
 		// In Zed, the variable classes are named things like ZedNUMBER,
@@ -99,6 +99,11 @@ export class ZedEnvironment {
 			// A request to clear the environment
 			case 'clear':
 				this.clearAllVars();
+				break;
+
+			// A request to inspect a variable
+			case 'inspect':
+				this.inspectVar(message.path, Array.from(this._vars.values()));
 				break;
 		}
 	}
@@ -251,6 +256,37 @@ export class ZedEnvironment {
 			assigned: assigned || [],
 			removed: removed || []
 		});
+	}
+
+	/**
+	 * Performs the inspection of a variable
+	 */
+	private inspectVar(path: string[], vars: Array<ZedVariable>) {
+		let found = false;
+		for (const v of vars) {
+			if (v.name === path[0]) {
+				if (path.length === 1) {
+					// We've reached the end of the path, so emit the variable
+					this._onDidEmitData.fire({
+						msg_type: 'details',
+						children: v.children
+					});
+				} else {
+					// This is not the end of the path, so consume this path element and
+					// continue the search in the children of this variable
+					this.inspectVar(path.slice(1), v.children);
+				}
+				found = true;
+			}
+		}
+
+		if (!found) {
+			// We didn't find the variable, so emit an error
+			this._onDidEmitData.fire({
+				msg_type: 'error',
+				error: `Variable '${path[0]}' not found in ${path.slice(1).join('.')}`
+			});
+		}
 	}
 
 	/**
