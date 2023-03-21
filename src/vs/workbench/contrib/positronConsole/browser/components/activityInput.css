@@ -10,8 +10,6 @@
 	display: flex;
 	width: 22px;
 	justify-content: right;
-	font-family: var(--console-monospace-font);
-
 	user-select: none;
 	-ms-user-select: none;
 	-moz-user-select: none;
