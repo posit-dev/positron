@@ -105,13 +105,45 @@ export const BusyInput = forwardRef<HTMLDivElement, BusyInputProps>((props: Busy
 			false               // this widget is not simple
 		);
 
+		// The editor options we override.
+		const editorOptions = {
+			lineNumbers: (n: number) => {
+				// Render the input prompt for the first line; do not render
+				// anything in the margin for following lines
+				if (n < 2) {
+					return props.positronConsoleInstance.runtime.metadata.inputPrompt;
+				}
+				return '';
+			},
+			minimap: {
+				enabled: false
+			},
+			glyphMargin: false,
+			lineDecorationsWidth: 0,
+			// overviewRuleBorder: false,		// Not part of IEditorOptions.
+			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
+			renderLineHighlight: 'none',
+			wordWrap: 'bounded',
+			wordWrapColumn: 2048,
+			// renderOverviewRuler: false,		// Not part of IEditorOptions.
+			scrollbar: {
+				vertical: 'hidden',
+				useShadows: false
+			},
+			overviewRulerLanes: 0,
+			scrollBeyondLastLine: false,
+			// handleMouseWheel: false,			// Not part of IEditorOptions.
+			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
+			lineNumbersMinChars: 3,
+		} satisfies IEditorOptions;
+
 		// Create the code editor widget.
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
 			CodeEditorWidget,
 			refContainer.current,
 			{
-				wordWrap: 'on',
-				wordWrapColumn: 2048
+				...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
+				...editorOptions
 			},
 			{
 				isSimpleWidget: false,
@@ -135,33 +167,6 @@ export const BusyInput = forwardRef<HTMLDivElement, BusyInputProps>((props: Busy
 
 		// Set the key down handler.
 		codeEditorWidget.onKeyDown(keyDownHandler);
-
-		// Turn off most editor chrome.
-		const editorOptions: IEditorOptions = {
-			lineNumbers: (n: number) => {
-				return '';
-			},
-			minimap: {
-				enabled: false
-			},
-			glyphMargin: false,
-			lineDecorationsWidth: 0,
-			// overviewRuleBorder: false,		// Not part of IEditorOptions.
-			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
-			renderLineHighlight: 'none',
-			wordWrap: 'bounded',
-			// renderOverviewRuler: false,		// Not part of IEditorOptions.
-			scrollbar: {
-				vertical: 'hidden',
-				useShadows: false
-			},
-			overviewRulerLanes: 0,
-			scrollBeyondLastLine: false,
-			// handleMouseWheel: false,			// Not part of IEditorOptions.
-			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
-			lineNumbersMinChars: 3,
-		};
-		codeEditorWidget.updateOptions(editorOptions);
 
 		// Auto-grow the editor as the internal content size changes (i.e. make
 		// it grow vertically as the user enters additional lines of input)
@@ -189,6 +194,18 @@ export const BusyInput = forwardRef<HTMLDivElement, BusyInputProps>((props: Busy
 			// Re-focus the console.
 			codeEditorWidget.focus();
 		}));
+
+		// Add the onDidChangeConfiguration event handler.
+		disposableStore.add(
+			positronConsoleContext.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
+				if (configurationChangeEvent.affectsConfiguration('editor')) {
+					codeEditorWidget.updateOptions({
+						...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
+						...editorOptions
+					});
+				}
+			})
+		);
 
 		// Focus the console.
 		codeEditorWidget.focus();
