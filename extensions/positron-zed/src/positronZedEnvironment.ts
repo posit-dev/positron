@@ -13,6 +13,7 @@ class ZedVariable {
 	// Zed variables do not currently support truncation.
 	public readonly truncated: boolean = false;
 	public readonly type_name;
+	public readonly has_children;
 
 	constructor(
 		readonly name: string,
@@ -20,7 +21,8 @@ class ZedVariable {
 		readonly kind: string,
 		readonly length: number,
 		readonly size: number,
-	) {
+		children: ZedVariable[] = []) {
+
 		// The type name is the language-specific name for the variable's type.
 		// In Zed, the variable classes are named things like ZedNUMBER,
 		// ZedSTRING, etc.
@@ -31,6 +33,9 @@ class ZedVariable {
 		if (this.kind === 'blob') {
 			this.kind = 'vector';
 		}
+
+		// The has_children property is true if the variable has children.
+		this.has_children = children.length > 0;
 	}
 }
 
@@ -105,56 +110,15 @@ export class ZedEnvironment {
 	 * @param kind The kind of variable to define; if not specified, a random kind will be chosen
 	 */
 	public defineVars(count: number, kind: string) {
-		// Get the starting index for the new variables
-		const start = this._vars.size + 1;
 
-		// Begin building the list of new variables to send
-		const added = [];
-
-		for (let i = 0; i < count; i++) {
-			let kindToUse = kind;
-			if (!kind || kind === 'random') {
-				// Random: pick a random kind
-				kindToUse = ['string', 'number', 'vector', 'blob'][Math.floor(Math.random() * 4)];
-			}
-
-			const name = `${kindToUse}${start + i}`;
-			let value = '';
-
-			// Create a random value for the variable
-			let size = 0;
-			if (kindToUse === 'string') {
-				// Strings: use a random UUID
-				value = randomUUID();
-				size = value.length;
-			} else if (kindToUse === 'number') {
-				// Numbers: use a random number
-				value = Math.random().toString();
-				size = 4;
-			} else if (kindToUse === 'vector') {
-				// Vectors: Generate 5 random bytes
-				const bytes = [];
-				for (let i = 0; i < 5; i++) {
-					bytes.push(Math.floor(Math.random() * 256));
-				}
-				value = bytes.join(', ');
-				size = 5;
-			} else if (kindToUse === 'blob') {
-				size = Math.floor(Math.random() * 1024 * 1024);
-				value = `blob(${size} bytes)`;
-			} else {
-				// Everything else: use the counter
-				value = `value${start + i}`;
-				size = value.length;
-			}
-			const newZedVar = new ZedVariable(name, value, kindToUse, value.length, size);
-			added.push(newZedVar);
-
-			this._vars.set(name, newZedVar);
+		// Generate a list of variables
+		const newVars = this.generateVars(count, kind);
+		for (const newVar of newVars) {
+			this._vars.set(newVar.name, newVar);
 		}
 
 		// Emit the new variables to the front end
-		this.emitUpdate(added);
+		this.emitUpdate(newVars);
 	}
 
 	/**
@@ -306,5 +270,63 @@ export class ZedEnvironment {
 			keys.splice(randomIndex, 1);
 		}
 		return randomKeys;
+	}
+
+	private generateVars(count: number, kind: string): Array<ZedVariable> {
+
+		// Get the starting index for the new variables
+		const start = this._vars.size + 1;
+
+		// Begin building the list of new variables to send
+		const added = [];
+
+		for (let i = 0; i < count; i++) {
+			let kindToUse = kind;
+			if (!kind || kind === 'random') {
+				// Random: pick a random kind
+				kindToUse = ['string', 'number', 'vector', 'blob'][Math.floor(Math.random() * 4)];
+			}
+
+			const name = `${kindToUse}${start + i}`;
+			let value = '';
+			let children: ZedVariable[] = [];
+
+			// Create a random value for the variable
+			let size = 0;
+			if (kindToUse === 'string') {
+				// Strings: use a random UUID
+				value = randomUUID();
+				size = value.length;
+			} else if (kindToUse === 'number') {
+				// Numbers: use a random number
+				value = Math.random().toString();
+				size = 4;
+			} else if (kindToUse === 'vector') {
+				// Vectors: Generate 5 random bytes
+				const bytes = [];
+				for (let i = 0; i < 5; i++) {
+					bytes.push(Math.floor(Math.random() * 256));
+				}
+				value = bytes.join(', ');
+				size = 5;
+			} else if (kindToUse === 'blob') {
+				// Blobs: Use a random size
+				size = Math.floor(Math.random() * 1024 * 1024);
+				value = `blob(${size} bytes)`;
+			} else if (kindToUse === 'list') {
+				// Lists: Have 1 - 10 elements of random types, generated recursively
+				const numElements = Math.floor(Math.random() * 10) + 1;
+				children = this.generateVars(numElements, 'random');
+				value = `list(${numElements} elements)`;
+				size = numElements;
+			} else {
+				// Everything else: use the counter
+				value = `value${start + i}`;
+				size = value.length;
+			}
+			const newZedVar = new ZedVariable(name, value, kindToUse, value.length, size, children);
+			added.push(newZedVar);
+		}
+		return added;
 	}
 }
