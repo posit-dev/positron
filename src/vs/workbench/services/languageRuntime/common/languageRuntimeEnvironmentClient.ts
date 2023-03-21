@@ -173,9 +173,10 @@ export class EnvironmentClientInstance extends Disposable {
 	 * Requests that the environment client delete the specified variables.
 	 *
 	 * @param names The names of the variables to delete
+	 * @returns A promise that resolves to an update message with the variables that were deleted
 	 */
-	public async requestDelete(names: Array<string>): Promise<void> {
-		return this.performRpc<void>(
+	public async requestDelete(names: Array<string>): Promise<IEnvironmentClientMessageUpdate> {
+		return this.performRpc<IEnvironmentClientMessageUpdate>(
 			'delete named variables',
 			{
 				msg_type: EnvironmentClientMessageTypeInput.Delete,
