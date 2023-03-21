@@ -286,6 +286,20 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, request);
 
+		// Start a timeout to reject the promise if the server doesn't respond.
+		//
+		// TODO(jmcphers): This timeout value should be configurable.
+		setTimeout(() => {
+			// If the promise has already been resolved, do nothing.
+			if (promise.isSettled) {
+				return;
+			}
+
+			// Otherwise, reject the promise and remove it from the list of pending RPCs.
+			promise.error(new Error(`RPC timed out after 5 seconds: ${JSON.stringify(request)}`));
+			this._pendingRpcs.delete(messageId);
+		}, 5000);
+
 		// Return a promise that will be resolved when the server responds.
 		return promise.p;
 	}
