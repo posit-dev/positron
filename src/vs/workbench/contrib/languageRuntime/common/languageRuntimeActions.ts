@@ -19,7 +19,7 @@ const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, or
 // Quick pick item interfaces.
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { languageRuntime: ILanguageRuntime }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
-interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any> }
+interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
 
 /**
  * Helper function that asks the user to select a language runtime from an array of language runtimes.

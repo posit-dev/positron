@@ -394,6 +394,44 @@ impl TryFrom<RObject> for Vec<String> {
     }
 }
 
+pub struct RObjectI32Iterator {
+    object: RObject,
+    current: isize,
+    size: isize
+}
+
+impl Iterator for RObjectI32Iterator {
+    type Item = Option<i32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            self.current += 1;
+
+            if self.current >= self.size {
+                None
+            } else {
+                // TODO: consider GET_REGION() instead of calling INTEGER_ELT() each time
+                let value = INTEGER_ELT(self.object.sexp, self.current);
+                if value == R_NaInt {
+                    Some(None)
+                } else {
+                    Some(Some(value))
+                }
+            }
+        }
+    }
+}
+
+impl RObject {
+    pub fn i32_iter(&self) -> Result<RObjectI32Iterator, crate::error::Error> {
+        Ok(RObjectI32Iterator {
+            object: RObject::from(self.sexp),
+            current: -1,
+            size: unsafe { Rf_xlength(self.sexp) } as isize
+        })
+    }
+}
+
 impl TryFrom<RObject> for Vec<Option<String>> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {

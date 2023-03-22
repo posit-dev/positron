@@ -47,7 +47,8 @@ const HelpLines = [
 	'code X Y     - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'env clear    - Clears all variables from the environment',
 	'env def X    - Defines X variables (randomly typed)',
-	'env def X Y  - Defines X variables of type Y, where Y is one of: string, number, vector, or blob',
+	'env def X Y  - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
+	'env max X    - Set the maximum number of displayed variables to X',
 	'env rm X     - Removes X variables',
 	'env update X - Updates X variables',
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
@@ -106,6 +107,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of environment IDs to environment instances.
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+
+	/**
+	 * A stack of pending environment RPCs.
+	 */
+	private readonly _pendingRpcs: Array<string> = [];
 
 	//#endregion Private Properties
 
@@ -240,6 +246,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			}
 			return this.simulateSuccessfulCodeExecution(id, code,
 				`Removed ${count} variables.`);
+		} else if (match = code.match(/^env max ([1-9]{1}[\d]*)/)) {
+			const max = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					environment.setMaxVarDisplay(max);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Now displaying a maximum of ${max} variables.`);
 		}
 
 		// Process the "code".
@@ -712,13 +727,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
-	sendClientMessage(id: string, message: object): void {
+	sendClientMessage(client_id: string, message_id: string, message: object): void {
 		// Right now, the only client instances are environments.
-		const client = this._environments.get(id);
+		const client = this._environments.get(client_id);
 		if (client) {
+			this._pendingRpcs.push(message_id);
 			client.handleMessage(message);
 		} else {
-			throw new Error(`Can't send message; unknown client id ${id}`);
+			throw new Error(`Can't send message; unknown client id ${client_id}`);
 		}
 	}
 
@@ -1001,11 +1017,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Listen for data emitted from the environment instance
 		env.onDidEmitData(data => {
+			// If there's a pending RPC, then presume that this message is a
+			// reply to it; otherwise, just use an empty parent ID.
+			const parent_id = this._pendingRpcs.length > 0 ?
+				this._pendingRpcs.pop() : '';
 
 			// When received, wrap it up in a runtime message and emit it
 			this._onDidReceiveRuntimeMessage.fire({
 				id: randomUUID(),
-				parent_id: '',
+				parent_id,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.CommData,
 				comm_id: env.id,

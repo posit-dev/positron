@@ -322,8 +322,15 @@ export class LanguageRuntimeAdapter
 		}
 	}
 
-	sendClientMessage(id: string, message: any): void {
-		this._kernel.sendCommMessage(id, message);
+	/**
+	 * Sends a message to the back end of a client instance.
+	 *
+	 * @param client_id The ID of the client to send the message to
+	 * @param message_id The ID of the message to send (unique per message)
+	 * @param message The message payload to send
+	 */
+	sendClientMessage(client_id: string, message_id: string, message: any): void {
+		this._kernel.sendCommMessage(client_id, message_id, message);
 	}
 
 	/**

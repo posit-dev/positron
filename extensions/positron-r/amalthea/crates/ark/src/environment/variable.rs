@@ -13,27 +13,35 @@ use serde::Serialize;
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ValueKind {
-    /// A character vector (string) or value that can be converted to a string
-    String,
+    /// A length-1 logical vector
+    Boolean,
 
-    /// A numeric value
-    Number,
+    /// A raw byte array
+    Bytes,
 
-    /// A vector (VECSXP)
-    Vector,
+    /// A collection of unnamed values; usually a vector
+    Collection,
 
-    /// A list (LISTSXP)
-    List,
+    /// Empty/missing values such as NULL, NA, or missing
+    Empty,
 
-    /// A function value
+    /// A function, method, closure, or other callable object
     Function,
 
-    /// Data frame (data.frame, tibble, etc.)
-    Dataframe,
-    // TODO: Add other types of values. These don't have to map 1-1 to R object
-    // types; they represent the kinds of values that have unique UI
-    // representations. Note that these value kinds are shared across all
-    // languages so they need to be somewhat generic.
+    /// Named lists of values, such as lists and (hashed) environments
+    Map,
+
+    /// A number, such as an integer or floating-point value
+    Number,
+
+    /// A value of an unknown or unspecified type
+    Other,
+
+    /// A character string
+    String,
+
+    /// A table, dataframe, 2D matrix, or other two-dimensional data structure
+    Table,
 }
 
 /// Represents the serialized form of an environment variable.
@@ -56,13 +64,9 @@ impl EnvironmentVariable {
     pub fn new(binding: &Binding) -> Self {
         let name = binding.name.to_string();
 
-        // let value = binding.describe();
-        // until some more work is done
-        let value = name.clone();
+        let value = binding.describe();
         let kind = ValueKind::String;
 
-        Self {
-            name, kind, value
-        }
+        Self { name, kind, value }
     }
 }

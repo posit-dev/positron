@@ -14,9 +14,19 @@ export interface ISize {
 }
 
 /**
+ * IFocusReceiver interface.
+ */
+export interface IFocusReceiver {
+	/**
+	 * onFocused event.
+	 */
+	readonly onFocused: Event<void>;
+}
+
+/**
  * IReactComponentContainer interface.
  */
-export interface IReactComponentContainer {
+export interface IReactComponentContainer extends IFocusReceiver {
 	/**
 	 * Gets the width.
 	 */
@@ -31,16 +41,6 @@ export interface IReactComponentContainer {
 	 * onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize>;
-
-	/**
-	 * onVisibilityChanged event.
-	 */
-	readonly onVisibilityChanged: Event<boolean>;
-
-	/**
-	 * onFocused event.
-	 */
-	readonly onFocused: Event<void>;
 }
 
 /**

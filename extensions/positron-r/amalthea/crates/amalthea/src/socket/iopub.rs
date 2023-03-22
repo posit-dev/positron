@@ -45,7 +45,8 @@ pub enum IOPubMessage {
     ExecuteInput(ExecuteInput),
     Stream(StreamOutput),
     Event(PositronEvent),
-    CommMsg(CommMsg),
+    CommMsgReply(JupyterHeader, CommMsg),
+    CommMsgEvent(CommMsg),
     CommClose(String),
 }
 
@@ -101,15 +102,29 @@ impl IOPub {
             IOPubMessage::ExecuteError(msg) => self.send_message(msg),
             IOPubMessage::ExecuteInput(msg) => self.send_message(msg),
             IOPubMessage::Stream(msg) => self.send_message(msg),
-            IOPubMessage::CommMsg(msg) => self.send_message(msg),
+            IOPubMessage::CommMsgEvent(msg) => self.send_message(msg),
+            IOPubMessage::CommMsgReply(header, msg) => self.send_message_with_header(header, msg),
             IOPubMessage::CommClose(comm_id) => self.send_message(CommClose { comm_id }),
             IOPubMessage::Event(msg) => self.send_event(msg),
         }
     }
 
-    /// Send a message using the underlying socket with the given content.
+    /// Send a message using the underlying socket with the given content. The
+    /// parent message is assumed to be the current context.
     fn send_message<T: ProtocolMessage>(&self, content: T) -> Result<(), Error> {
         let msg = JupyterMessage::<T>::create(content, self.context.clone(), &self.socket.session);
+        msg.send(&self.socket)
+    }
+
+    /// Send a message using the underlying socket with the given content and
+    /// specific header. Used when the parent message is known by the message
+    /// sender, typically in comm message replies.
+    fn send_message_with_header<T: ProtocolMessage>(
+        &self,
+        header: JupyterHeader,
+        content: T,
+    ) -> Result<(), Error> {
+        let msg = JupyterMessage::<T>::create(content, Some(header), &self.socket.session);
         msg.send(&self.socket)
     }
 

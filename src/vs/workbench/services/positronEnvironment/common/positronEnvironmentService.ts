@@ -10,7 +10,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { EnvironmentClientInstance, IEnvironmentClientMessageError, IEnvironmentClientMessageList, IEnvironmentClientMessageUpdate } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentClientInstance, EnvironmentClientList, EnvironmentClientUpdate, IEnvironmentClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * PositronEnvironmentService class.
@@ -419,26 +419,41 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		this._onDidChangeEnvironmentGroupingEmitter.event;
 
 	/**
- * Requests a refresh of the environment.
- */
-	requestRefresh() {
-		this._environmentClient?.requestRefresh();
+	 * Requests a refresh of the environment.
+	 */
+	async requestRefresh() {
+		if (this._environmentClient) {
+			const list = await this._environmentClient.requestRefresh();
+			this.processList(list);
+		} else {
+			console.error('Ignoring refresh request; environment client is not available.');
+		}
 	}
 
 	/**
 	 * Requests a clear of the environment.
 	 * @param includeHiddenObjects A value which indicates whether to include hidden objects.
 	 */
-	requestClear(includeHiddenObjects: boolean) {
-		this._environmentClient?.requestClear();
+	async requestClear(includeHiddenObjects: boolean) {
+		if (this._environmentClient) {
+			await this._environmentClient.requestClear();
+		} else {
+			console.error('Ignoring clear request; environment client is not available.');
+		}
 	}
 
 	/**
 	 * Requests the deletion of one or more environment variables.
 	 * @param names The names of the variables to delete
 	 */
-	requestDelete(names: string[]) {
-		this._environmentClient?.requestDelete(names);
+	async requestDelete(names: string[]) {
+		if (this._environmentClient) {
+			const update = await this._environmentClient.requestDelete(names);
+			this.processUpdate(update);
+		}
+		else {
+			console.error('Ignoring delete request; environment client is not available.');
+		}
 	}
 
 	//#endregion IPositronEnvironmentInstance Implementation
@@ -592,7 +607,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Processes an IEnvironmentClientMessageList.
 	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
 	 */
-	private processList(environmentClientMessageList: IEnvironmentClientMessageList) {
+	private processList(environmentClientMessageList: EnvironmentClientList) {
 		// Build the new environment variable items.
 		const environmentVariableItems = new Map<string, EnvironmentVariableItem>();
 		for (let i = 0; i < environmentClientMessageList.variables.length; i++) {
@@ -601,7 +616,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the environment variable item.
 			environmentVariableItems.set(
-				environmentVariable.name,
+				environmentVariable.data.name,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		}
@@ -616,7 +631,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private processUpdate(environmentClientMessageUpdate: IEnvironmentClientMessageUpdate) {
+	private processUpdate(environmentClientMessageUpdate: EnvironmentClientUpdate) {
 		// Add assigned environment variable items.
 		for (let i = 0; i < environmentClientMessageUpdate.assigned.length; i++) {
 			// Get the environment variable.
@@ -624,7 +639,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the environment variable item.
 			this._environmentVariableItems.set(
-				environmentVariable.name,
+				environmentVariable.data.name,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		}

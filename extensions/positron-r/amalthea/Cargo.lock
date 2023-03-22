@@ -851,6 +851,7 @@ dependencies = [
  "c2rust-bitfields",
  "ctor",
  "harp-macros",
+ "itertools",
  "lazy_static",
  "libR-sys",
  "libc",
