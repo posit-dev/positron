@@ -133,7 +133,7 @@ class EnvironmentVariable(dict):
     """
 
     def __init__(self, name: str, value: Any, kind: Optional[EnvironmentVariableKind],
-                 type_name: str, length: int, size: int):
+                 type_name: str, length: int, size: int, has_children: bool = False):
         self['name'] = name
         self['value'] = value
         if kind is not None:
@@ -141,6 +141,7 @@ class EnvironmentVariable(dict):
         self['type_name'] = type_name
         self['length'] = length
         self['size'] = size
+        self['has_children'] = has_children
 
 
 class EnvironmentMessage(dict):
@@ -617,15 +618,18 @@ class PositronIPyKernel(IPythonKernel):
     def summarize_any(self, key, value, kind) -> EnvironmentVariable:
         type_name = self.get_qualname(value)
         try:
+            has_children = False
+            length = self.get_length(value)
+            size = sys.getsizeof(value)
+
             # For summaries, suppress pprint wrapping strings into chunks
             if kind == EnvironmentVariableKind.STRING:
                 summarized_value = repr(self.truncate_value(value))
             else:
                 summarized_value = self.summarize_value(value)
+                has_children = length > 0
 
-            length = self.get_length(value)
-            size = sys.getsizeof(value)
-            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size)
+            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size, has_children)
         except BaseException as err:
             logging.warning(err)
             return EnvironmentVariable(key, type_name, None)
@@ -646,7 +650,9 @@ class PositronIPyKernel(IPythonKernel):
 
             length = self.get_length(value)
             size = sys.getsizeof(value)
-            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size)
+            has_children = length > 0
+
+            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size, has_children)
         except BaseException as err:
             logging.warning(err)
             return EnvironmentVariable(key, type_name, kind)
