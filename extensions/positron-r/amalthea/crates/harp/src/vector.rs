@@ -19,18 +19,17 @@ use crate::traits::AsSlice;
 use crate::utils::r_assert_capacity;
 use crate::utils::r_assert_type;
 
-// TODO: Is there a way to express that 'ElementType' should be derived from 'SEXPTYPE'?
-pub struct Vector<const SEXPTYPE: u32, ElementType, NativeType> {
+pub struct Vector<const SEXPTYPE: u32, NativeType> {
     object: RObject,
-    phantom: PhantomData<(ElementType, NativeType)>,
+    phantom: PhantomData<NativeType>,
 }
 
 // Useful type aliases for clients.
-pub type RawVector = Vector<RAWSXP, u8, u8>;
-pub type LogicalVector = Vector<LGLSXP, i32, i32>;
-pub type IntegerVector = Vector<INTSXP, i32, i32>;
-pub type NumericVector = Vector<REALSXP, f64, f64>;
-pub type CharacterVector = Vector<STRSXP, SEXP, &'static str>;
+pub type RawVector = Vector<RAWSXP, u8>;
+pub type LogicalVector = Vector<LGLSXP, i32>;
+pub type IntegerVector = Vector<INTSXP, i32>;
+pub type NumericVector = Vector<REALSXP, f64>;
+pub type CharacterVector = Vector<STRSXP, &'static str>;
 
 pub trait IsPrimitiveNativeType {}
 impl IsPrimitiveNativeType for u8 {}
@@ -45,7 +44,7 @@ impl IsPrimitiveNativeType for f32 {}
 impl IsPrimitiveNativeType for f64 {}
 
 // Methods common to all R vectors.
-impl<const SEXPTYPE: u32, ElementType, NativeType> Vector<{ SEXPTYPE }, ElementType, NativeType> {
+impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
     pub unsafe fn new(object: impl Into<SEXP>) -> Result<Self> {
         let object = object.into();
         r_assert_type(object, &[SEXPTYPE])?;
@@ -54,10 +53,7 @@ impl<const SEXPTYPE: u32, ElementType, NativeType> Vector<{ SEXPTYPE }, ElementT
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         let object = RObject::new(object.into());
-        Vector::<{ SEXPTYPE }, ElementType, NativeType> {
-            object,
-            phantom: PhantomData,
-        }
+        Self { object, phantom: PhantomData }
     }
 
     pub unsafe fn with_length(size: usize) -> Self {
@@ -82,7 +78,7 @@ impl<const SEXPTYPE: u32, ElementType, NativeType> Vector<{ SEXPTYPE }, ElementT
 }
 
 // Methods for vectors with primitive native types.
-impl<const SEXPTYPE: u32, ElementType, NativeType> Vector<{ SEXPTYPE }, ElementType, NativeType>
+impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType>
 where
     NativeType: IsPrimitiveNativeType + Copy,
 {
@@ -116,6 +112,10 @@ where
             let slice = std::slice::from_raw_parts(data, len);
             slice.iter()
         }
+    }
+
+    pub fn into_vec(self) -> Vec<NativeType> {
+        self.into_iter().map(|value| *value).collect::<Vec<_>>()
     }
 }
 
@@ -188,8 +188,8 @@ impl CharacterVector {
 }
 
 // Traits.
-impl<const SEXPTYPE: u32, ElementType, NativeType> Deref
-    for Vector<{ SEXPTYPE }, ElementType, NativeType>
+impl<const SEXPTYPE: u32, NativeType> Deref
+    for Vector<{ SEXPTYPE }, NativeType>
 {
     type Target = SEXP;
 
@@ -198,16 +198,16 @@ impl<const SEXPTYPE: u32, ElementType, NativeType> Deref
     }
 }
 
-impl<const SEXPTYPE: u32, ElementType, NativeType> DerefMut
-    for Vector<{ SEXPTYPE }, ElementType, NativeType>
+impl<const SEXPTYPE: u32, NativeType> DerefMut
+    for Vector<{ SEXPTYPE }, NativeType>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.object
     }
 }
 
-impl<'a, T, const SEXPTYPE: u32, ElementType, NativeType> PartialEq<T>
-    for Vector<{ SEXPTYPE }, ElementType, NativeType>
+impl<'a, T, const SEXPTYPE: u32, NativeType> PartialEq<T>
+    for Vector<{ SEXPTYPE }, NativeType>
     where
         T: AsSlice<NativeType>,
         NativeType: IsPrimitiveNativeType + PartialEq,
@@ -253,8 +253,8 @@ impl<'a, T> PartialEq<T> for CharacterVector
     }
 }
 
-impl<'a, const SEXPTYPE: u32, ElementType, NativeType> IntoIterator
-    for &'a Vector<{ SEXPTYPE }, ElementType, NativeType>
+impl<'a, const SEXPTYPE: u32, NativeType> IntoIterator
+    for &'a Vector<{ SEXPTYPE }, NativeType>
     where NativeType: IsPrimitiveNativeType
 {
     type Item = &'a NativeType;
@@ -279,8 +279,8 @@ impl<'a, const SEXPTYPE: u32, ElementType, NativeType> IntoIterator
 // For that reason, I avoid using 'from()' and instead have methods like 'create()'.
 // Leaving this code around for now, in case we decide to re-visit.
 //
-// impl<const SEXPTYPE: u32, ElementType, NativeType, T> From<T>
-//     for Vector<{ SEXPTYPE }, ElementType, NativeType>
+// impl<const SEXPTYPE: u32, NativeType, T> From<T>
+//     for Vector<{ SEXPTYPE }, NativeType>
 //     where
 //         T: AsSlice<NativeType> + Copy,
 //         NativeType: IsPrimitiveNativeType,
@@ -299,8 +299,8 @@ impl<'a, const SEXPTYPE: u32, ElementType, NativeType> IntoIterator
 //     }
 // }
 //
-// impl<const SEXPTYPE: u32, ElementType, NativeType> TryFrom<RObject>
-//     for Vector<{ SEXPTYPE }, ElementType, NativeType>
+// impl<const SEXPTYPE: u32, NativeType> TryFrom<RObject>
+//     for Vector<{ SEXPTYPE }, NativeType>
 // {
 //     type Error = crate::error::Error;
 //
@@ -310,8 +310,8 @@ impl<'a, const SEXPTYPE: u32, ElementType, NativeType> IntoIterator
 //
 // }
 //
-// impl<const SEXPTYPE: u32, ElementType, NativeType> Into<RObject>
-//     for Vector<{ SEXPTYPE }, ElementType, NativeType>
+// impl<const SEXPTYPE: u32, NativeType> Into<RObject>
+//     for Vector<{ SEXPTYPE }, NativeType>
 // {
 //     fn into(self) -> RObject {
 //         self.object
