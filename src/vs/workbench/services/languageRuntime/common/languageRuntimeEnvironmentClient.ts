@@ -118,7 +118,7 @@ export interface IEnvironmentVariable {
 	has_children: boolean;
 
 	/// True if the 'value' field was truncated to fit in the message
-	truncated: boolean;
+	is_truncated: boolean;
 }
 
 /**

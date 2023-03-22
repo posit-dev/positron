@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
  */
 class ZedVariable {
 	// Zed variables do not currently support truncation.
-	public readonly truncated: boolean = false;
+	public readonly is_truncated: boolean = false;
 	public readonly type_name;
 	public readonly has_children;
 
