@@ -78,7 +78,7 @@ impl Binding {
         let kind = if is_active_binding(frame) {
             BindingKind::Active
         } else {
-            match unsafe {r_typeof(value)} {
+            match r_typeof(value) {
                 PROMSXP => BindingKind::Promise(unsafe {PRVALUE(value) != R_UnboundValue}),
 
                 // TODO: Immediate
@@ -110,7 +110,7 @@ fn describe_regular_binding(value: SEXP) -> String {
 
     // TODO: some form of R based dispatch
 
-    match unsafe{r_typeof(value)} {
+    match r_typeof(value) {
         // standard vector
         LGLSXP   => describe_vec("lgl", value),
         INTSXP   => describe_vec("int", value),
