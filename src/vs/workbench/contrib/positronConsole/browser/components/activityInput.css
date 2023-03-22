@@ -10,10 +10,6 @@
 	display: flex;
 	width: 22px;
 	justify-content: right;
-	user-select: none;
-	-ms-user-select: none;
-	-moz-user-select: none;
-	-webkit-user-select: none;
 }
 
 .activity-input .code {
