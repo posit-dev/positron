@@ -258,7 +258,8 @@ export class ZedEnvironment {
 		// Emit the data to the front end
 		this._onDidEmitData.fire({
 			msg_type: 'list',
-			variables: vars
+			variables: vars,
+			length: vars.length
 		});
 	}
 
@@ -281,7 +282,8 @@ export class ZedEnvironment {
 					// We've reached the end of the path, so emit the variable
 					this._onDidEmitData.fire({
 						msg_type: 'details',
-						children: v.children
+						children: v.children,
+						length: v.children.length
 					});
 				} else {
 					// This is not the end of the path, so consume this path element and

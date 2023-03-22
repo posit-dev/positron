@@ -205,14 +205,24 @@ export interface IEnvironmentClientMessageOutput {
  * A list of all the variables and their values.
  */
 export interface IEnvironmentClientMessageList extends IEnvironmentClientMessageOutput {
+	/// The list of variables
 	variables: Array<IEnvironmentVariable>;
+
+	/// The total number of variables known to the runtime. This may be greater
+	/// than the number of variables in the list if the list was truncated.
+	length: number;
 }
 
 /**
  * The details (children) of a specific variable.
  */
 export interface IEnvironmentClientMessageDetails extends IEnvironmentClientMessageOutput {
+	/// The list of child variables
 	children: Array<IEnvironmentVariable>;
+
+	/// The total number of child variables. This may be greater than the number
+	/// of variables in the list if the list was truncated.
+	length: number;
 }
 
 /**

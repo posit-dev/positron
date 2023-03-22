@@ -198,7 +198,15 @@ impl REnvironment {
             }
 
         }
-        let env_list = EnvironmentMessage::List(EnvironmentMessageList { variables });
+
+        // TODO: Avoid serializing the full list of variables if it exceeds a
+        // certain threshold
+        let env_size = variables.len();
+        let env_list = EnvironmentMessage::List(EnvironmentMessageList {
+            variables,
+            length: env_size,
+        });
+
         let data = serde_json::to_value(env_list);
         match data {
             Ok(data) => {
