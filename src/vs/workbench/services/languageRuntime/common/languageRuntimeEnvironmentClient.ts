@@ -21,6 +21,12 @@ export enum EnvironmentClientMessageTypeInput {
 
 	/** A request to delete a specific set of named variables */
 	Delete = 'delete',
+
+	/** A request to inspect a specific variable */
+	Inspect = 'inspect',
+
+	/** A request to format the variable's content in a format suitable for the clipboard */
+	ClipboardFormat = 'clipboard_format',
 }
 
 /**
@@ -37,6 +43,12 @@ export enum EnvironmentClientMessageTypeOutput {
 	 * the last update or list event.
 	 */
 	Update = 'update',
+
+	/** The details (children) of a specific variable */
+	Details = 'details',
+
+	/** The formatted content of a variable, suitable for placing on the clipboard */
+	FormattedVariable = 'formatted_variable',
 
 	/** A successful result of an RPC that doesn't otherwise return data. */
 	Success = 'success',
@@ -60,6 +72,8 @@ export enum EnvironmentVariableValueKind {
 /**
  * Represents a variable in a language runtime environment -- a value with a
  * named identifier, not a system environment variable.
+ *
+ * This is the raw data format used to communicate with the language runtime.
  */
 export interface IEnvironmentVariable {
 	/// The name of the variable
@@ -77,8 +91,56 @@ export interface IEnvironmentVariable {
 	/// The size of the variable's value, in bytes
 	size: number;
 
+	/// True if the variable contains other variables
+	has_children: boolean;
+
 	/// True if the 'value' field was truncated to fit in the message
 	truncated: boolean;
+}
+
+/**
+ * Represents a variable in a language runtime environment; wraps the raw data format with
+ * additional metadata and methods.
+ */
+export class EnvironmentVariable {
+	/**
+	 * Creates a new EnvironmentVariable instance.
+	 *
+	 * @param data The raw data from the language runtime.
+	 * @param parentNames A list of the names of the parent variables, if any;
+	 *   used to construct the full path to this variable.
+	 * @param _envClient The environment client instance that owns this variable.
+	 */
+	constructor(
+		public readonly data: IEnvironmentVariable,
+		public readonly parentNames: Array<string> = [],
+		private readonly _envClient: EnvironmentClientInstance) {
+	}
+
+	/**
+	 * Gets the children of this variable, if any.
+	 *
+	 * @returns A promise that resolves to the list of children.
+	 */
+	async getChildren(): Promise<EnvironmentClientList> {
+		if (this.data.has_children) {
+			return this._envClient.requestInspect(this.parentNames.concat(this.data.name));
+		} else {
+			throw new Error(`Attempt to retrieve children of ` +
+				`${this.data.name} (${JSON.stringify(this.parentNames)}) ` +
+				`which has no children.`);
+		}
+	}
+
+	/**
+	 * Formats the value of this variable in a format suitable for placing on the clipboard.
+	 *
+	 * @param mime The desired MIME type of the format, such as 'text/plain' or 'text/html'.
+	 * @returns A promise that resolves to the formatted value of this variable.
+	 */
+	async formatForClipboard(mime: string): Promise<string> {
+		return this._envClient.requestClipboardFormat(mime, this.parentNames.concat(this.data.name));
+	}
 }
 
 /**
@@ -88,6 +150,23 @@ export interface IEnvironmentClientMessageInput {
 	msg_type: EnvironmentClientMessageTypeInput;
 }
 
+/**
+ * A request to inspect a specific variable, given a path of names.
+ */
+export interface IEnvironmentClientMessageInspect extends IEnvironmentClientMessageInput {
+	path: string[];
+}
+
+/**
+ * A request to get the formatted content of a variable, suitable for placing on the clipboard.
+ */
+export interface IEnvironmentClientMessageClipboardFormat extends IEnvironmentClientMessageInput {
+	path: string[];
+}
+
+/**
+ * A request to delete a specific set of named variables.
+ */
 export interface IEnvironmentClientMessageDelete extends IEnvironmentClientMessageInput {
 	names: Array<string>;
 }
@@ -99,15 +178,72 @@ export interface IEnvironmentClientMessageOutput {
 	msg_type: EnvironmentClientMessageTypeOutput;
 }
 
+/**
+ * A list of all the variables and their values.
+ */
 export interface IEnvironmentClientMessageList extends IEnvironmentClientMessageOutput {
 	variables: Array<IEnvironmentVariable>;
 }
 
+/**
+ * The details (children) of a specific variable.
+ */
+export interface IEnvironmentClientMessageDetails extends IEnvironmentClientMessageOutput {
+	children: Array<IEnvironmentVariable>;
+}
+
+/**
+ * The details (children) of a specific variable.
+ */
+export interface IEnvironmentClientMessageFormattedVariable extends IEnvironmentClientMessageOutput {
+	format: string;
+	content: string;
+}
+
+/**
+ * A list of variables and their values; wraps the raw data format.
+ */
+export class EnvironmentClientList {
+	public readonly variables: Array<EnvironmentVariable>;
+	constructor(
+		public readonly data: Array<IEnvironmentVariable>,
+		parentNames: Array<string> = [],
+		envClient: EnvironmentClientInstance) {
+		this.variables = data.map(v => new EnvironmentVariable(v, parentNames, envClient));
+	}
+}
+
+/**
+ * A partial update indicating the set of changes that have occurred since the
+ * last update or list event.
+ */
 export interface IEnvironmentClientMessageUpdate extends IEnvironmentClientMessageOutput {
 	assigned: Array<IEnvironmentVariable>;
 	removed: Array<string>;
 }
 
+
+/**
+ * Wraps the raw data format for an update message.
+ */
+export class EnvironmentClientUpdate {
+	/// The variables that have been added or changed
+	public readonly assigned: Array<EnvironmentVariable>;
+
+	/// The names of the variables that have been removed
+	public readonly removed: Array<string>;
+
+	constructor(
+		public readonly data: IEnvironmentClientMessageUpdate,
+		envClient: EnvironmentClientInstance) {
+		this.assigned = data.assigned.map(v => new EnvironmentVariable(v, [], envClient));
+		this.removed = data.removed;
+	}
+}
+
+/**
+ * A processing error that occurred in the language runtime or backend of the environment client.
+ */
 export interface IEnvironmentClientMessageError extends IEnvironmentClientMessageOutput {
 	message: string;
 }
@@ -130,8 +266,8 @@ export class EnvironmentClientInstance extends Disposable {
 	/// The client instance; used to send messages to (and receive messages from) the back end
 	private _client?: IEnvironmentClientInstance;
 
-	private _onDidReceiveListEmitter = new Emitter<IEnvironmentClientMessageList>();
-	private _onDidReceiveUpdateEmitter = new Emitter<IEnvironmentClientMessageUpdate>();
+	private _onDidReceiveListEmitter = new Emitter<EnvironmentClientList>();
+	private _onDidReceiveUpdateEmitter = new Emitter<EnvironmentClientUpdate>();
 	private _onDidReceiveErrorEmitter = new Emitter<IEnvironmentClientMessageError>();
 
 	onDidReceiveList = this._onDidReceiveListEmitter.event;
@@ -157,10 +293,12 @@ export class EnvironmentClientInstance extends Disposable {
 	/**
 	 * Requests that the environment client send a new list of variables.
 	 */
-	public async requestRefresh(): Promise<IEnvironmentClientMessageList> {
-		return this.performRpc<IEnvironmentClientMessageList>('refresh',
+	public async requestRefresh(): Promise<EnvironmentClientList> {
+		const list = await this.performRpc<IEnvironmentClientMessageList>('refresh',
 			{ msg_type: EnvironmentClientMessageTypeInput.Refresh });
+		return new EnvironmentClientList(list.variables, [], this);
 	}
+
 	/**
 	 * Requests that the environment client clear all variables.
 	 */
@@ -170,18 +308,52 @@ export class EnvironmentClientInstance extends Disposable {
 	}
 
 	/**
+	 * Requests that the environment client inspect the specified variable.
+	 *
+	 * @param path The path to the variable to inspect
+	 * @returns The variable's children
+	 */
+	public async requestInspect(path: string[]): Promise<EnvironmentClientList> {
+		const list = await this.performRpc<IEnvironmentClientMessageDetails>('inspect',
+			{
+				msg_type: EnvironmentClientMessageTypeInput.Inspect,
+				path
+			} as IEnvironmentClientMessageInspect);
+		return new EnvironmentClientList(list.children, path, this);
+	}
+
+	/**
 	 * Requests that the environment client delete the specified variables.
 	 *
 	 * @param names The names of the variables to delete
 	 * @returns A promise that resolves to an update message with the variables that were deleted
 	 */
-	public async requestDelete(names: Array<string>): Promise<IEnvironmentClientMessageUpdate> {
-		return this.performRpc<IEnvironmentClientMessageUpdate>(
+	public async requestDelete(names: Array<string>): Promise<EnvironmentClientUpdate> {
+		const update = await this.performRpc<IEnvironmentClientMessageUpdate>(
 			'delete named variables',
 			{
 				msg_type: EnvironmentClientMessageTypeInput.Delete,
 				names
 			} as IEnvironmentClientMessageDelete);
+		return new EnvironmentClientUpdate(update, this);
+	}
+
+	/**
+	 * Requests that the environment client format the specified variable.
+	 *
+	 * @param format The format to request, as a MIME type, e.g. text/plain or text/html
+	 * @param path The path to the variable to format
+	 * @returns A promise that resolves to the formatted content
+	 */
+	public async requestClipboardFormat(format: string, path: string[]): Promise<string> {
+		const formatted = await this.performRpc<IEnvironmentClientMessageFormattedVariable>(
+			'get clipboard format',
+			{
+				msg_type: EnvironmentClientMessageTypeInput.ClipboardFormat,
+				format,
+				path
+			} as IEnvironmentClientMessageClipboardFormat);
+		return formatted.content;
 	}
 
 	// Private methods -------------------------------------------------
@@ -205,11 +377,15 @@ export class EnvironmentClientInstance extends Disposable {
 	private onDidReceiveData(msg: IEnvironmentClientMessageOutput) {
 		switch (msg.msg_type) {
 			case EnvironmentClientMessageTypeOutput.List:
-				this._onDidReceiveListEmitter.fire(msg as IEnvironmentClientMessageList);
+				this._onDidReceiveListEmitter.fire(new EnvironmentClientList(
+					(msg as IEnvironmentClientMessageList).variables,
+					[], // No parent names; this is the top-level list
+					this));
 				break;
 
 			case EnvironmentClientMessageTypeOutput.Update:
-				this._onDidReceiveUpdateEmitter.fire(msg as IEnvironmentClientMessageUpdate);
+				this._onDidReceiveUpdateEmitter.fire(new EnvironmentClientUpdate(
+					msg as IEnvironmentClientMessageUpdate, this));
 				break;
 
 			case EnvironmentClientMessageTypeOutput.Error:
