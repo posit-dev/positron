@@ -647,20 +647,6 @@ mod tests {
         );
     }}
 
-    // #[test]
-    // #[allow(non_snake_case)]
-    // fn test_eq_charsxp() { r_test! {
-    //     let mut protect = protect::RProtect::new();
-    //     let r_string = protect.add(r_string!("Apple"));
-    //     let apple = STRING_ELT(r_string, 0);
-
-    //     assert!("Apple".eq_charsxp(apple));
-    //     assert!(String::from("Apple").eq_charsxp(apple));
-
-    //     assert!(!"Apple".eq_charsxp(R_NaString));
-    //     assert!(!String::from("Apple").eq_charsxp(R_NaString));
-    // }}
-
     #[test]
     #[allow(non_snake_case)]
     fn test_RObject_from_Vec_str() { r_test! {
@@ -673,45 +659,29 @@ mod tests {
 
     #[test]
     fn test_r_strings() { r_test! {
+
         let alphabet = ["a", "b", "c"];
 
         // &[&str]
         let s = CharacterVector::create(&alphabet);
         assert_eq!(r_typeof(*s), STRSXP);
-        // assert_eq!(s, alphabet);
+        assert_eq!(s, alphabet);
 
         // &[&str; N]
         let s = CharacterVector::create(&alphabet[..]);
         assert_eq!(r_typeof(*s), STRSXP);
-        // assert_eq!(s, alphabet);
+        assert_eq!(s, alphabet);
 
-        // // &[String]
-        // let alphabet = alphabet.map(|s| { String::from(s) });
-        // let s = r_strings(&alphabet);
-        // assert_eq!(r_typeof(s.sexp), STRSXP);
-        // assert_eq!(s, alphabet);
+        // Vec<String>
+        let s = CharacterVector::create(alphabet.to_vec());
+        assert_eq!(r_typeof(*s), STRSXP);
+        assert_eq!(s, alphabet);
 
-        // // &[String; N]
-        // let s = r_strings(&alphabet[..]);
-        // assert_eq!(r_typeof(s.sexp), STRSXP);
-        // assert_eq!(s, alphabet);
-
-        // // Vec<String>
-        // let s = r_strings(alphabet.to_vec());
-        // assert_eq!(r_typeof(s.sexp), STRSXP);
-        // assert_eq!(s, alphabet);
-
-        // // &str
-        // let string = "Banana";
-        // let s = r_strings(string);
-        // assert_eq!(r_typeof(s.sexp), STRSXP);
-        // assert_eq!(s, string);
-
-        // // String
-        // let string = String::from("Pineapple");
-        // let s = r_strings(string);
-        // assert_eq!(r_typeof(s.sexp), STRSXP);
-        // assert_eq!(s, "Pineapple"); // string was moved
+        // &str
+        let string = "Banana";
+        let s = CharacterVector::create(string);
+        assert_eq!(r_typeof(*s), STRSXP);
+        assert_eq!(s, string);
 
     }}
 

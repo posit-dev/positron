@@ -5,8 +5,25 @@
 //
 //
 
+use std::ops::Deref;
+
+pub trait TypeEquals<T> {}
+impl<T> TypeEquals<T> for T {}
+
 pub trait AsSlice<T> {
     fn as_slice(&self) -> &[T];
+}
+
+impl<T> AsSlice<T> for T {
+    fn as_slice(&self) -> &[T] {
+        std::slice::from_ref(self)
+    }
+}
+
+impl<T> AsSlice<T> for &T {
+    fn as_slice(&self) -> &[T] {
+        std::slice::from_ref(self)
+    }
 }
 
 impl<T> AsSlice<T> for [T] {
@@ -39,16 +56,8 @@ impl<T> AsSlice<T> for Vec<T> {
     }
 }
 
-impl<T> AsSlice<T> for T {
-    fn as_slice(&self) -> &[T] {
-        std::slice::from_ref(self)
-    }
-}
-
 #[cfg(test)]
 mod test {
-
-    use super::*;
 
     #[test]
     fn test_slice() {
