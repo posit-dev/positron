@@ -6,6 +6,7 @@ from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
 from collections.abc import Iterable, Mapping
 from typing import Any, Optional
 import enum
+import html
 import inspect
 import logging
 import numbers
@@ -89,8 +90,12 @@ class EnvironmentMessageType(str, enum.Enum):
     Message types used in the positron.environment comm.
     """
     CLEAR = 'clear'
+    CLIPBOARD_FORMAT = 'clipboard_format'
     DELETE = 'delete'
+    DETAILS = 'details'
     ERROR = 'error'
+    FORMATTED_VARIABLE = 'formatted_variable'
+    INSPECT = 'inspect'
     LIST = 'list'
     REFRESH = 'refresh'
     UPDATE = 'update'
@@ -108,6 +113,16 @@ class EnvironmentVariableKind(str, enum.Enum):
     OBJECT = 'object'
     STRING = 'string'
     VECTOR = 'vector'
+
+
+@enum.unique
+class ClipboardFormat(str, enum.Enum):
+    """
+    Format styles for clipboard copy
+    """
+    HTML = 'text/html'
+    PLAIN = 'text/plain'
+    TAB = 'text/tab-separated-values'
 
 
 # Note: classes below are derived from dict to satisfy ipykernel util method
@@ -145,6 +160,29 @@ class EnvironmentMessageList(EnvironmentMessage):
     def __init__(self, variables: list[EnvironmentVariable]):
         super().__init__(EnvironmentMessageType.LIST)
         self['variables'] = variables
+
+
+class EnvironmentMessageFormatted(EnvironmentMessage):
+    """
+    Message 'formatted_variable' type summarizes the variable
+    in a text format suitable for copy and paste operations in
+    the user's environment.
+    """
+
+    def __init__(self, clipboard_format: str, content: str):
+        super().__init__(EnvironmentMessageType.FORMATTED_VARIABLE)
+        self['format'] = clipboard_format
+        self['content'] = content
+
+class EnvironmentMessageDetails(EnvironmentMessage):
+    """
+    Message 'details' type summarizes the variables in the user's environment.
+    """
+
+    def __init__(self, path: str, children: list[EnvironmentVariable]):
+        super().__init__(EnvironmentMessageType.DETAILS)
+        self['path'] = path
+        self['children'] = children
 
 
 class EnvironmentMessageUpdate(EnvironmentMessage):
@@ -204,37 +242,35 @@ class PositronIPyKernel(IPythonKernel):
         """
 
         ns = self.shell.user_ns
-        if hasattr(ns, '_positron_reset_watch'):
-            ns._positron_reset_watch()
+        ns._positron_reset_watch()
 
     def handle_post_execute(self) -> None:
         """
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user environment.
         """
+
         try:
             ns = self.shell.user_ns
 
             # Try to detect the changes made since the last execution
-            if hasattr(ns, '_positron_assigned'):
-                assigned, removed = ns._positron_get_changes()
-                ns._positron_reset_watch()
+            assigned, removed = ns._positron_get_changes()
+            ns._positron_reset_watch()
 
-                # Ensure the number of changes does not exceed our maximum items
-                if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
-                    self.send_update(assigned, removed)
-                    return
-
-            # Otherwise, just refresh the client state
-            self.send_list()
+            # Ensure the number of changes does not exceed our maximum items
+            if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
+                self.send_update(assigned, removed)
+            else:
+                # Otherwise, just refresh the client state
+                self.send_list()
         except BaseException as err:
             logging.warning(err)
 
     def environment_comm(self, comm, open_msg) -> None:
-
         """
         Setup positron.environment comm to receive messages.
         """
+
         self.env_comm = comm
 
         @comm.on_msg
@@ -247,12 +283,26 @@ class PositronIPyKernel(IPythonKernel):
 
             msgType = data.get('msg_type', None)
             if msgType is not None:
-                if msgType == 'refresh':
+
+                if msgType == EnvironmentMessageType.REFRESH:
                     self.send_list()
-                elif msgType == 'clear':
+
+                elif msgType == EnvironmentMessageType.INSPECT:
+                    path = data.get('path', None)
+                    self.inspect_var(path)
+
+                elif msgType == EnvironmentMessageType.CLIPBOARD_FORMAT:
+                    path = data.get('path', None)
+                    clipboard_format = data.get('format', ClipboardFormat.PLAIN)
+                    self.send_formatted_var(path, clipboard_format)
+
+                elif msgType == EnvironmentMessageType.CLEAR:
                     self.delete_all_vars()
-                elif msgType == 'delete':
-                    self.delete_vars(data.get('name', None))
+
+                elif msgType == EnvironmentMessageType.DELETE:
+                    name = data.get('name', None)
+                    self.delete_vars(name)
+
                 else:
                     self.send_error(f'Unknown message type \'{msgType}\'')
             else:
@@ -271,9 +321,12 @@ class PositronIPyKernel(IPythonKernel):
 
         ns = self.shell.user_ns.copy()
         hidden = self.shell.user_ns_hidden.copy()
+
+        # Delete all non-hidden variables
         for key, value in ns.items():
             if key in hidden:
                 continue
+
             try:
                 # We check if value is None to avoid an issue in shell.del_var()
                 # cleaning up references
@@ -296,8 +349,7 @@ class PositronIPyKernel(IPythonKernel):
             return
 
         ns = self.shell.user_ns
-        if hasattr(ns, '_positron_reset_watch'):
-            ns._positron_reset_watch()
+        ns._positron_reset_watch()
 
         for name in names:
             try:
@@ -306,11 +358,138 @@ class PositronIPyKernel(IPythonKernel):
                 logging.warning(f'Unable to delete variable \'{name}\'')
                 pass
 
-        if hasattr(ns, '_positron_get_changes'):
-            assigned, removed = ns._positron_get_changes()
-            self.send_update(assigned, removed)
+        assigned, removed = ns._positron_get_changes()
+        self.send_update(assigned, removed)
+
+    def find_var(self, path: Iterable, context: Any) -> (bool, Any):
+        """
+        Finds the variable at the requested path in the current user session.
+        """
+
+        if path is None:
+            return False, None
+
+        is_known = False
+        value = None
+
+        # Walk the given path segment by segment
+        for segment in path:
+
+            # Check for membership as a property
+            is_known = hasattr(context, segment)
+            if is_known:
+                value = getattr(context, segment, None)
+
+            # Check for membership by dict key
+            elif isinstance(context, Mapping):
+                value = context.get(segment, _NoDefaultSpecified)
+                if value is _NoDefaultSpecified:
+                    is_known = False
+                else:
+                    is_known = True
+
+            # Check for membership by collection index
+            elif isinstance(context, (list, set, frozenset, tuple, range)):
+                try:
+                    value = context[int(segment)]
+                    is_known = True
+                except (IndexError, ValueError, TypeError):
+                    is_known = False
+
+            # Subsequent segment starts from the value
+            context = value
+
+            # But we stop if the path segment was unknown
+            if not is_known:
+                break
+
+        return is_known, value
+
+    def inspect_var(self, path: Iterable) -> None:
+        """
+        Describes the variable at the requested path in the current user session.
+        """
+
+        if self.shell is None or path is None:
+            return
+
+        context = self.shell.user_ns
+        is_known, value = self.find_var(path, context)
+
+        if is_known:
+            self.send_details(path, value)
         else:
-            self.send_list()
+            message = f'Cannot find variable at \'{path}\' to inspect'
+            self.send_error(message)
+
+    def send_formatted_var(self, path: Iterable,
+                           clipboard_format: ClipboardFormat = ClipboardFormat.PLAIN) -> None:
+        """
+        Formats the variable at the requested path in the current user session
+        using the requested clipboard format and sends the result through the
+        environment comm to the client.
+        """
+
+        if self.shell is None or path is None:
+            return
+
+        context = self.shell.user_ns
+        is_known, value = self.find_var(path, context)
+
+        if is_known:
+            content = self.format_value(value, clipboard_format)
+            msg = EnvironmentMessageFormatted(clipboard_format, content)
+            self.env_comm.send(msg)
+        else:
+            message = f'Cannot find variable at \'{path}\' to format'
+            self.send_error(message)
+
+    def send_details(self, path: Iterable, context: Any = None):
+        """
+        Sends the list of children (or the value itself if none) of the value
+        through the environment comm to the client.
+
+        For example:
+        {
+            "data": {
+                "msg_type": "details",
+                "path": ["myobject", "myproperty"],
+                "children": [{
+                    "name": "property1",
+                    "value": "Hello",
+                    "kind": "string"
+                },{
+                    "name": "property2",
+                    "value": 123,
+                    "kind": "number"
+                }]
+            }
+            ...
+        }
+        """
+
+        if self.env_comm is None or self.shell is None:
+            return
+
+        children = []
+        if isinstance(context, Mapping):
+            # Treat dictionary items as children
+            children.extend(self.summarize_variables(context))
+
+        elif isinstance(context, (list, set, frozenset, tuple, range)):
+            # Treat collection items as children, with the index as the name
+            for i, item in enumerate(context):
+                summary = self.summarize_variable(i, item)
+                children.append(summary)
+
+        else:
+            # Otherwise, treat as a simple value at given path
+            summary = self.summarize_variable('', context)
+            children.append(summary)
+            # TODO: Handle scalar objects with a specific message type
+
+        msg = EnvironmentMessageDetails(path, children)
+        self.env_comm.send(msg)
 
     def send_update(self, assigned: Mapping, removed: Iterable) -> None:
         """
@@ -347,10 +526,8 @@ class PositronIPyKernel(IPythonKernel):
                 continue
             filtered_removed.add(name)
 
-        # If there are changes to report, send an update message
-        if len(filtered_assigned) > 0 or len(filtered_removed) > 0:
-            msg = EnvironmentMessageUpdate(filtered_assigned, filtered_removed)
-            self.env_comm.send(msg)
+        msg = EnvironmentMessageUpdate(filtered_assigned, filtered_removed)
+        self.env_comm.send(msg)
 
     def send_list(self) -> None:
         """
@@ -416,18 +593,26 @@ class PositronIPyKernel(IPythonKernel):
             if i >= max_items:
                 break
 
-            kind = self.get_kind(value)
-
-            if kind == EnvironmentVariableKind.FUNCTION:
-                summaries.append(self.summarize_function(key, value))
-            elif kind == EnvironmentVariableKind.DATAFRAME:
-                summaries.append(self.summarize_dataframe(key, value))
-            else:
-                summaries.append(self.summarize_any(key, value, kind))
+            summary = self.summarize_variable(key, value)
+            summaries.append(summary)
 
             i += 1
 
         return summaries
+
+    def summarize_variable(self, key, value) -> EnvironmentVariable:
+        kind = self.get_kind(value)
+
+        if kind == EnvironmentVariableKind.FUNCTION:
+            summary = self.summarize_function(key, value)
+
+        elif kind == EnvironmentVariableKind.DATAFRAME:
+            summary = self.summarize_dataframe(key, value)
+
+        else:
+            summary = self.summarize_any(key, value, kind)
+
+        return summary
 
     def summarize_any(self, key, value, kind) -> EnvironmentVariable:
         type_name = self.get_qualname(value)
@@ -436,7 +621,7 @@ class PositronIPyKernel(IPythonKernel):
             if kind == EnvironmentVariableKind.STRING:
                 summarized_value = repr(self.truncate_value(value))
             else:
-                summarized_value = self.format_value(value)
+                summarized_value = self.summarize_value(value)
 
             length = self.get_length(value)
             size = sys.getsizeof(value)
@@ -476,7 +661,7 @@ class PositronIPyKernel(IPythonKernel):
         size = sys.getsizeof(value)
         return EnvironmentVariable(key, display_value, kind, value.__qualname__, None, size)
 
-    def format_value(self, value, width: int = ITEM_SUMMARY_PRINT_WIDTH) -> str:
+    def summarize_value(self, value, width: int = ITEM_SUMMARY_PRINT_WIDTH) -> str:
         s = pprint.pformat(value, indent=1, width=width, compact=True)
         return self.truncate_value(s)
 
@@ -484,6 +669,31 @@ class PositronIPyKernel(IPythonKernel):
         # TODO: Add type aware truncation
         s = (value[:max_width] + '...') if len(value) > max_width else value
         return s
+
+    def format_value(self, value, clipboard_format: ClipboardFormat) -> str:
+
+        if clipboard_format == ClipboardFormat.HTML:
+
+            if self.is_dataframe(value):
+                if hasattr(value, 'to_html'):
+                    return value.to_html()
+                elif hasattr(value, '_repr_html_'):
+                    return value._repr_html_()
+
+            return html.escape(str(value))
+
+        elif clipboard_format == ClipboardFormat.TAB:
+
+            if self.is_dataframe(value):
+                if hasattr(value, 'to_csv'):
+                    return value.to_csv(path_or_buf=None, sep='\t')
+                elif hasattr(value, 'write_csv'):
+                    return value.write_csv(file=None, separator='\t')
+
+            return str(value)
+
+        else:
+            return str(value)
 
     def get_length(self, value) -> int:
         length = 0
