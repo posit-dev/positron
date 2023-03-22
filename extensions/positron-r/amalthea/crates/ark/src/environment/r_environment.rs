@@ -19,6 +19,7 @@ use harp::lock::with_r_lock;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::utils::r_assert_type;
+use harp::vector::CharacterVector;
 use libR_sys::*;
 use log::debug;
 use log::error;
@@ -222,10 +223,17 @@ impl REnvironment {
     fn clear(&mut self, request_id: Option<String>) {
         unsafe {
             let result =  with_r_lock(|| -> Result<(), anyhow::Error> {
-                let list = RFunction::new("base", "ls")
+                let mut list = RFunction::new("base", "ls")
                     .param("envir", *self.env)
                     .param("all.names", Rf_ScalarLogical(1))
                     .call()?;
+
+                if *self.env == R_GlobalEnv {
+                    list = RFunction::new("base", "setdiff")
+                        .add(list)
+                        .add(RObject::from(".Random.seed"))
+                        .call()?;
+                }
 
                 RFunction::new("base", "rm")
                     .param("list", list)
