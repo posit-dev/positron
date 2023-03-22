@@ -81,6 +81,7 @@ impl<const SEXPTYPE: u32, ElementType, NativeType> Vector<{ SEXPTYPE }, ElementT
     }
 }
 
+// Methods for vectors with primitive native types.
 impl<const SEXPTYPE: u32, ElementType, NativeType> Vector<{ SEXPTYPE }, ElementType, NativeType>
 where
     NativeType: IsPrimitiveNativeType + Copy,
@@ -118,6 +119,7 @@ where
     }
 }
 
+// Character vectors.
 pub struct CharacterVectorIterator<'a> {
     data: &'a CharacterVector,
     index: usize,
@@ -126,7 +128,7 @@ pub struct CharacterVectorIterator<'a> {
 
 impl<'a> CharacterVectorIterator<'a> {
 
-    pub  fn new(data: &'a CharacterVector) -> Self {
+    pub fn new(data: &'a CharacterVector) -> Self {
         unsafe {
             Self { data, index: 0, size: data.len() }
         }
@@ -187,6 +189,7 @@ impl CharacterVector {
 
 }
 
+// Traits.
 impl<const SEXPTYPE: u32, ElementType, NativeType> Deref
     for Vector<{ SEXPTYPE }, ElementType, NativeType>
 {
@@ -202,6 +205,30 @@ impl<const SEXPTYPE: u32, ElementType, NativeType> DerefMut
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.object
+    }
+}
+
+impl<'a, T, const SEXPTYPE: u32, ElementType, NativeType> PartialEq<T>
+    for Vector<{ SEXPTYPE }, ElementType, NativeType>
+    where
+        T: AsSlice<NativeType>,
+        NativeType: IsPrimitiveNativeType + PartialEq,
+{
+    fn eq(&self, other: &T) -> bool {
+        unsafe {
+            let other = other.as_slice();
+            if self.len() != other.len() {
+                return false;
+            }
+            let pointer = DATAPTR(self.data()) as *mut NativeType;
+            for i in 0..self.len() {
+                let value = pointer.offset(i as isize);
+                if (*value) != (*other.get_unchecked(i)) {
+                    return false;
+                }
+            }
+            true
+        }
     }
 }
 
@@ -294,6 +321,15 @@ mod tests {
             assert!(vector.get_unchecked(0) == 1.0);
             assert!(vector.get_unchecked(1) == 2.0);
             assert!(vector.get_unchecked(2) == 3.0);
+
+            let data = [1.0, 2.0, 3.0];
+            assert!(vector == data);
+
+            let data = &[1.0, 2.0, 3.0];
+            assert!(vector == data);
+
+            let slice = &data[..];
+            assert!(vector == slice);
 
             let mut it = vector.iter();
             let value = it.next();
