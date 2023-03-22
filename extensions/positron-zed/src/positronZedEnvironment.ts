@@ -119,8 +119,14 @@ export class ZedEnvironment {
 
 			// A request to inspect a variable
 			case 'inspect':
-				this.inspectVar(message.path, Array.from(this._vars.values()));
+				this.inspectVar(message.path);
 				break;
+
+			// A request to format a variable as a string suitable for placing on the clipboard
+			case 'clipboard_format':
+				this.formatVariable(message.format, message.path);
+				break;
+
 		}
 	}
 
@@ -341,6 +347,36 @@ export class ZedEnvironment {
 		});
 	}
 
+	/**
+	 * Formats a variable for the clipboard and emits the result to the front end
+	 *
+	 * @param format The format to use for the variable, as a MIME type (e.g. "text/plain")
+	 * @param path The path to the variable to format
+	 */
+	private formatVariable(format: string, path: string[]) {
+		const v = this.findVar(path);
+		if (v) {
+			// Emit the data to the front end
+			this._onDidEmitData.fire({
+				msg_type: 'formatted_variable',
+				format,
+				content: `"${v.value}" (${format})`
+			});
+		} else {
+			// We didn't find the variable, so emit an error
+			this._onDidEmitData.fire({
+				msg_type: 'error',
+				error: `Can't format for clipboard; variable not found: ${path.join('.')}`
+			});
+		}
+	}
+
+	/**
+	 * Emits an update to the front end
+	 *
+	 * @param assigned The variables that were added or changed
+	 * @param removed The variables that were removed
+	 */
 	private emitUpdate(assigned?: Array<ZedVariable>, removed?: Array<string>) {
 		this._onDidEmitData.fire({
 			msg_type: 'update',
@@ -356,8 +392,10 @@ export class ZedEnvironment {
 		let v: ZedVariable | undefined = undefined;
 		for (const p of path) {
 			if (v === undefined) {
+				// We're at the root of the variable tree; get the named variable
 				v = this._vars.get(p);
 			} else {
+				// We're in the middle of the variable tree; get the named child
 				v = v.children.find(c => c.name === p);
 			}
 
@@ -372,7 +410,7 @@ export class ZedEnvironment {
 	/**
 	 * Performs the inspection of a variable
 	 */
-	private inspectVar(path: string[], vars: Array<ZedVariable>) {
+	private inspectVar(path: string[]) {
 		const v = this.findVar(path);
 		if (v) {
 			// Clamp the number of children to the maximum number of
@@ -390,7 +428,7 @@ export class ZedEnvironment {
 			// We didn't find the variable, so emit an error
 			this._onDidEmitData.fire({
 				msg_type: 'error',
-				error: `Can't inspect; variable '${path[0]}' not found in ${path.slice(1).join('.')}`
+				error: `Can't inspect; variable not found: ${path.join('.')}`
 			});
 		}
 	}
