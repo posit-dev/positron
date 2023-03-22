@@ -7,12 +7,16 @@
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
+use anyhow::Context;
 use crossbeam::channel::select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use harp::environment::env_bindings;
 use harp::environment::Binding;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
+use harp::lock::with_r_lock;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::utils::r_assert_type;
@@ -159,6 +163,10 @@ impl REnvironment {
                                 self.refresh(Some(id));
                             },
 
+                            EnvironmentMessage::Clear => {
+                                self.clear(id);
+                            },
+
                             _ => {
                                 error!(
                                     "Environment: Don't know how to handle message type '{:?}'",
@@ -214,6 +222,42 @@ impl REnvironment {
                 error!("Environment: Failed to serialize environment data: {}", err);
             },
         }
+    }
+
+    /**
+     * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
+     */
+    fn clear(&mut self, request_id: String) {
+        if let Err(err) = self.clear_impl(request_id) {
+            error!("Environment: Failed to clear environment: {}", err);
+        }
+    }
+
+    fn clear_impl(&mut self, request_id : String) -> anyhow::Result<()> {
+
+        unsafe {
+            with_r_lock(|| -> Result<(), anyhow::Error> {
+                let list = RFunction::new("base", "ls")
+                .param("all.names", Rf_ScalarLogical(1))
+                .call()
+                .context("Environment: Failed to list variables")?;
+
+                RFunction::new("base", "rm")
+                    .param("list", list)
+                    .param("envir", *self.env)
+                    .call()
+                    .context("Environment: Failed to clear")?;
+
+                Ok(())
+            })?;
+        }
+
+        let data = serde_json::to_value(EnvironmentMessage::Success)?;
+        self
+            .frontend_msg_sender
+            .send(CommChannelMsg::Rpc(request_id, data))
+            .context("Environment: Failed to send rpc message")
+
     }
 
     fn update(&mut self) {
