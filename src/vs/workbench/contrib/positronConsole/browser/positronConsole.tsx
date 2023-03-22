@@ -6,13 +6,7 @@ import 'vs/css!./positronConsole';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { ConsoleCore } from 'vs/workbench/contrib/positronConsole/browser/components/consoleCore';
 import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
 import { PositronConsoleContextProvider } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
@@ -21,14 +15,7 @@ import { PositronConsoleContextProvider } from 'vs/workbench/contrib/positronCon
  * PositronConsoleProps interface.
  */
 export interface PositronConsoleProps extends PositronConsoleServices {
-	// Services.
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly keybindingService: IKeybindingService;
 	readonly reactComponentContainer: IReactComponentContainer;
-	readonly workbenchLayoutService: IWorkbenchLayoutService;
 }
 
 /**
@@ -50,11 +37,6 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setWidth(size.width);
 			setHeight(size.height);
-		}));
-
-		// Add the onVisibilityChanged event handler.
-		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visibility => {
-			// TODO@softwarenerd - For the moment, doing nothing.
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
