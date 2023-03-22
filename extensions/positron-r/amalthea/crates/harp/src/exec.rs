@@ -490,19 +490,22 @@ mod tests {
         });
 
         // ok something else, Vec<&str>
-        let string_ok = r_try_catch_error(|| {
+        let value = r_try_catch_error(|| {
             CharacterVector::create(["hello", "world"]).cast()
         });
 
-        assert_match!(string_ok, Ok(value) => {
-            assert_eq!(r_typeof(value.sexp), STRSXP);
-            // assert_eq!(value, ["hello", "world"]);
+        assert_match!(value, Ok(value) => {
+            assert_eq!(r_typeof(*value), STRSXP);
+            let value = CharacterVector::new(value);
+            assert_match!(value, Ok(value) => {
+                assert_eq!(value, ["hello", "world"]);
+            })
         });
 
         // error
-        let out = r_try_catch_error(|| {
+        let out = r_try_catch_error(|| unsafe {
             let msg = CString::new("ouch").unwrap();
-            Rf_error(unsafe {msg.as_ptr()});
+            Rf_error(msg.as_ptr());
         });
 
         assert_match!(out, Err(Error::TryCatchError { message, classes }) => {

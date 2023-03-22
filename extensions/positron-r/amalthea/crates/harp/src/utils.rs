@@ -53,14 +53,13 @@ pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
 }
 
 pub fn r_is_null(object: SEXP) -> bool {
-    unsafe {
-        Rf_isNull(object) == 1
-    }
+    unsafe { object == R_NilValue }
 }
 
 pub fn r_typeof(object: SEXP) -> u32 {
     // SAFETY: The type of an R object is typically considered constant,
     // and TYPEOF merely queries the R type directly from the SEXPREC struct.
+    let object = object.into();
     unsafe { TYPEOF(object) as u32 }
 }
 

@@ -19,6 +19,7 @@ use crate::traits::AsSlice;
 use crate::utils::r_assert_capacity;
 use crate::utils::r_assert_type;
 
+#[derive(Debug)]
 pub struct Vector<const SEXPTYPE: u32, NativeType> {
     object: RObject,
     phantom: PhantomData<NativeType>,
