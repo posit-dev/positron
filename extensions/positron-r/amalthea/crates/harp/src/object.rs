@@ -665,7 +665,7 @@ mod tests {
     #[allow(non_snake_case)]
     fn test_RObject_from_Vec_str() { r_test! {
         let expected = ["Apple", "Orange", "한"];
-        let vector = CharacterVector::from(&expected);
+        let vector = CharacterVector::create(&expected);
         assert_eq!(vector.get(0).unwrap(), "Apple".to_string());
         assert_eq!(vector.get(1).unwrap(), "Orange".to_string());
         assert_eq!(vector.get(2).unwrap(), "한".to_string());
@@ -676,12 +676,12 @@ mod tests {
         let alphabet = ["a", "b", "c"];
 
         // &[&str]
-        let s = CharacterVector::from(&alphabet);
+        let s = CharacterVector::create(&alphabet);
         assert_eq!(r_typeof(*s), STRSXP);
         // assert_eq!(s, alphabet);
 
         // &[&str; N]
-        let s = CharacterVector::from(&alphabet[..]);
+        let s = CharacterVector::create(&alphabet[..]);
         assert_eq!(r_typeof(*s), STRSXP);
         // assert_eq!(s, alphabet);
 

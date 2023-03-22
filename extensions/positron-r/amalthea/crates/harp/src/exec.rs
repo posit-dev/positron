@@ -329,7 +329,7 @@ where
     F: FnMut() -> R,
     RObject: From<R>
 {
-    let vector = CharacterVector::from("error");
+    let vector = CharacterVector::create(["error"]);
     r_try_catch_finally(fun, vector, || {})
 }
 
@@ -491,7 +491,7 @@ mod tests {
 
         // ok something else, Vec<&str>
         let string_ok = r_try_catch_error(|| {
-            CharacterVector::from(&["hello", "world"]).cast()
+            CharacterVector::create(["hello", "world"]).cast()
         });
 
         assert_match!(string_ok, Ok(value) => {
