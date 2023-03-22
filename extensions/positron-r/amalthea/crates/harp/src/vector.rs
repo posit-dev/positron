@@ -30,7 +30,7 @@ pub type RawVector = Vector<RAWSXP, u8, u8>;
 pub type LogicalVector = Vector<LGLSXP, i32, i32>;
 pub type IntegerVector = Vector<INTSXP, i32, i32>;
 pub type NumericVector = Vector<REALSXP, f64, f64>;
-pub type CharacterVector = Vector<STRSXP, SEXP, String>;
+pub type CharacterVector = Vector<STRSXP, SEXP, &'static str>;
 
 pub trait IsPrimitiveNativeType {}
 impl IsPrimitiveNativeType for u8 {}
@@ -136,7 +136,7 @@ impl<'a> CharacterVectorIterator<'a> {
 }
 
 impl<'a> Iterator for CharacterVectorIterator<'a> {
-    type Item = String;
+    type Item = &'static str;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -169,18 +169,16 @@ impl CharacterVector {
         vector
     }
 
-    pub unsafe fn get(&self, index: usize) -> Result<String> {
+    pub unsafe fn get(&self, index: usize) -> Result<&'static str> {
         r_assert_capacity(self.data(), index as u32)?;
         Ok(self.get_unchecked(index))
     }
 
-    // TODO: We could try to let this return &str, but that requires
-    // threading lifetime parameters around our usages.
-    pub unsafe fn get_unchecked(&self, index: usize) -> String {
+    pub unsafe fn get_unchecked(&self, index: usize) -> &'static str {
         let data = *self.object;
         let cstr = Rf_translateCharUTF8(STRING_ELT(data, index as R_xlen_t));
         let bytes = CStr::from_ptr(cstr).to_bytes();
-        std::str::from_utf8_unchecked(bytes).to_string()
+        std::str::from_utf8_unchecked(bytes)
     }
 
     pub fn iter(&self) -> CharacterVectorIterator {
@@ -228,6 +226,29 @@ impl<'a, T, const SEXPTYPE: u32, ElementType, NativeType> PartialEq<T>
                 }
             }
             true
+        }
+    }
+}
+
+impl<'a, T> PartialEq<T> for CharacterVector
+    where T: AsSlice<&'a str>
+{
+    fn eq(&self, other: &T) -> bool {
+        unsafe {
+            let other = other.as_slice();
+            if self.len() != other.len() {
+                return false;
+            }
+
+            for i in 0..self.len() {
+                let value = self.get_unchecked(i);
+                if value != other[i] {
+                    return false;
+                }
+            }
+
+            true
+
         }
     }
 }
@@ -355,6 +376,8 @@ mod tests {
         r_test! {
 
             let vector = CharacterVector::create(&["hello", "world"]);
+            assert!(vector == ["hello", "world"]);
+            assert!(vector == &["hello", "world"]);
 
             let mut it = vector.iter();
 
