@@ -24,6 +24,9 @@ export enum EnvironmentClientMessageTypeInput {
 
 	/** A request to inspect a specific variable */
 	Inspect = 'inspect',
+
+	/** A request to format the variable's content in a format suitable for the clipboard */
+	ClipboardFormat = 'clipboard_format',
 }
 
 /**
@@ -43,6 +46,9 @@ export enum EnvironmentClientMessageTypeOutput {
 
 	/** The details (children) of a specific variable */
 	Details = 'details',
+
+	/** The formatted content of a variable, suitable for placing on the clipboard */
+	FormattedVariable = 'formatted_variable',
 
 	/** A successful result of an RPC that doesn't otherwise return data. */
 	Success = 'success',
@@ -142,6 +148,13 @@ export interface IEnvironmentClientMessageInspect extends IEnvironmentClientMess
 }
 
 /**
+ * A request to get the formatted content of a variable, suitable for placing on the clipboard.
+ */
+export interface IEnvironmentClientMessageClipboardFormat extends IEnvironmentClientMessageInput {
+	path: string[];
+}
+
+/**
  * A request to delete a specific set of named variables.
  */
 export interface IEnvironmentClientMessageDelete extends IEnvironmentClientMessageInput {
@@ -167,6 +180,14 @@ export interface IEnvironmentClientMessageList extends IEnvironmentClientMessage
  */
 export interface IEnvironmentClientMessageDetails extends IEnvironmentClientMessageOutput {
 	children: Array<IEnvironmentVariable>;
+}
+
+/**
+ * The details (children) of a specific variable.
+ */
+export interface IEnvironmentClientMessageFormattedVariable extends IEnvironmentClientMessageOutput {
+	format: string;
+	content: string;
 }
 
 /**
