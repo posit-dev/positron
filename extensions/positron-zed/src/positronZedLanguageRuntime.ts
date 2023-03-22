@@ -47,7 +47,7 @@ const HelpLines = [
 	'code X Y     - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'env clear    - Clears all variables from the environment',
 	'env def X    - Defines X variables (randomly typed)',
-	'env def X Y  - Defines X variables of type Y, where Y is one of: string, number, vector, or blob',
+	'env def X Y  - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
 	'env rm X     - Removes X variables',
 	'env update X - Updates X variables',
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',

@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
-import { IEnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * EnvironmentVariableItem class.
@@ -22,7 +22,7 @@ export class EnvironmentVariableItem {
 	 * Constructor.
 	 * @param name The environment variable.
 	 */
-	constructor(readonly environmentVariable: IEnvironmentVariable) {
+	constructor(readonly environmentVariable: EnvironmentVariable) {
 	}
 
 	//#endregion Constructor
