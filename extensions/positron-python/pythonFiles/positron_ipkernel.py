@@ -106,13 +106,16 @@ class EnvironmentVariableKind(str, enum.Enum):
     """
     Categories of variables in the user's environment.
     """
-    DATAFRAME = 'dataframe'
+    BOOLEAN = 'boolean'
+    BYTES = 'bytes'
+    COLLECTION = 'collection'
+    EMPTY = 'empty'
     FUNCTION = 'function'
-    LIST = 'list'
+    MAP = 'map'
     NUMBER = 'number'
-    OBJECT = 'object'
+    OTHER = 'other'
     STRING = 'string'
-    VECTOR = 'vector'
+    TABLE = 'table'
 
 
 @enum.unique
@@ -133,7 +136,8 @@ class EnvironmentVariable(dict):
     """
 
     def __init__(self, name: str, value: Any, kind: Optional[EnvironmentVariableKind],
-                 type_name: str, length: int, size: int, has_children: bool = False):
+                 type_name: str, length: int, size: int, has_children: bool = False,
+                 is_truncated: bool = False):
         self['name'] = name
         self['value'] = value
         if kind is not None:
@@ -142,6 +146,7 @@ class EnvironmentVariable(dict):
         self['length'] = length
         self['size'] = size
         self['has_children'] = has_children
+        self['is_truncated'] = is_truncated
 
 
 class EnvironmentMessage(dict):
@@ -158,9 +163,12 @@ class EnvironmentMessageList(EnvironmentMessage):
     Message 'list' type summarizes the variables in the user's environment.
     """
 
-    def __init__(self, variables: list[EnvironmentVariable]):
+    def __init__(self, variables: list[EnvironmentVariable], length: int = None):
         super().__init__(EnvironmentMessageType.LIST)
         self['variables'] = variables
+        if length is None:
+            length = len(variables)
+        self['length'] = length
 
 
 class EnvironmentMessageFormatted(EnvironmentMessage):
@@ -180,10 +188,13 @@ class EnvironmentMessageDetails(EnvironmentMessage):
     Message 'details' type summarizes the variables in the user's environment.
     """
 
-    def __init__(self, path: str, children: list[EnvironmentVariable]):
+    def __init__(self, path: str, children: list[EnvironmentVariable], length: int = None):
         super().__init__(EnvironmentMessageType.DETAILS)
         self['path'] = path
         self['children'] = children
+        if length is None:
+            length = len(children)
+        self['length'] = length
 
 
 class EnvironmentMessageUpdate(EnvironmentMessage):
@@ -264,7 +275,7 @@ class PositronIPyKernel(IPythonKernel):
             else:
                 # Otherwise, just refresh the client state
                 self.send_list()
-        except BaseException as err:
+        except Exception as err:
             logging.warning(err)
 
     def environment_comm(self, comm, open_msg) -> None:
@@ -301,8 +312,8 @@ class PositronIPyKernel(IPythonKernel):
                     self.delete_all_vars()
 
                 elif msgType == EnvironmentMessageType.DELETE:
-                    name = data.get('name', None)
-                    self.delete_vars(name)
+                    names = data.get('names', [])
+                    self.delete_vars(names)
 
                 else:
                     self.send_error(f'Unknown message type \'{msgType}\'')
@@ -332,7 +343,7 @@ class PositronIPyKernel(IPythonKernel):
                 # We check if value is None to avoid an issue in shell.del_var()
                 # cleaning up references
                 self.shell.del_var(key, value is None)
-            except BaseException as err:
+            except Exception as err:
                 # Warn if delete failed and key is still in scope
                 if key in self.shell.user_ns:
                     logging.warning(f'Unable to delete variable \'{key}\'. Error: %s', err)
@@ -394,7 +405,7 @@ class PositronIPyKernel(IPythonKernel):
                 try:
                     value = context[int(segment)]
                     is_known = True
-                except (IndexError, ValueError, TypeError):
+                except Exception:
                     is_known = False
 
             # Subsequent segment starts from the value
@@ -579,7 +590,8 @@ class PositronIPyKernel(IPythonKernel):
         msg = EnvironmentMessageError(message)
         self.env_comm.send(msg)
 
-    def summarize_variables(self, variables: Mapping, hidden: Mapping = None, max_items: int = MAX_ITEMS) -> list:
+    def summarize_variables(self, variables: Mapping, hidden: Mapping = None,
+                            max_items: int = MAX_ITEMS) -> list:
         summaries = []
         i = 0
 
@@ -607,8 +619,8 @@ class PositronIPyKernel(IPythonKernel):
         if kind == EnvironmentVariableKind.FUNCTION:
             summary = self.summarize_function(key, value)
 
-        elif kind == EnvironmentVariableKind.DATAFRAME:
-            summary = self.summarize_dataframe(key, value)
+        elif kind == EnvironmentVariableKind.TABLE:
+            summary = self.summarize_table(key, value)
 
         else:
             summary = self.summarize_any(key, value, kind)
@@ -618,24 +630,29 @@ class PositronIPyKernel(IPythonKernel):
     def summarize_any(self, key, value, kind) -> EnvironmentVariable:
         type_name = self.get_qualname(value)
         try:
-            has_children = False
             length = self.get_length(value)
             size = sys.getsizeof(value)
 
-            # For summaries, suppress pprint wrapping strings into chunks
+            # For summaries, avoid pprint as it wraps strings into line chunks
             if kind == EnvironmentVariableKind.STRING:
-                summarized_value = repr(self.truncate_value(value))
+                summarized_value, is_truncated = self.truncate_string(value)
+                summarized_value = repr(summarized_value)
+                has_children = False
+            elif kind == EnvironmentVariableKind.BYTES:
+                summarized_value, is_truncated = self.summarize_value(value)
+                has_children = False
             else:
-                summarized_value = self.summarize_value(value)
+                summarized_value, is_truncated = self.summarize_value(value)
                 has_children = length > 0
 
-            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size, has_children)
-        except BaseException as err:
+            return EnvironmentVariable(key, summarized_value, kind,
+                                       type_name, length, size, has_children, is_truncated)
+        except Exception as err:
             logging.warning(err)
             return EnvironmentVariable(key, type_name, None)
 
-    def summarize_dataframe(self, key, value) -> EnvironmentVariable:
-        kind = EnvironmentVariableKind.DATAFRAME
+    def summarize_table(self, key, value) -> EnvironmentVariable:
+        kind = EnvironmentVariableKind.TABLE
         type_name = self.get_qualname(value)
 
         try:
@@ -651,9 +668,11 @@ class PositronIPyKernel(IPythonKernel):
             length = self.get_length(value)
             size = sys.getsizeof(value)
             has_children = length > 0
+            is_truncated = True
 
-            return EnvironmentVariable(key, summarized_value, kind, type_name, length, size, has_children)
-        except BaseException as err:
+            return EnvironmentVariable(key, summarized_value, kind,
+                                       type_name, length, size, has_children, is_truncated)
+        except Exception as err:
             logging.warning(err)
             return EnvironmentVariable(key, type_name, kind)
 
@@ -667,20 +686,22 @@ class PositronIPyKernel(IPythonKernel):
         size = sys.getsizeof(value)
         return EnvironmentVariable(key, display_value, kind, value.__qualname__, None, size)
 
-    def summarize_value(self, value, width: int = ITEM_SUMMARY_PRINT_WIDTH) -> str:
+    def summarize_value(self, value, width: int = ITEM_SUMMARY_PRINT_WIDTH) -> (str, bool):
         s = pprint.pformat(value, indent=1, width=width, compact=True)
-        return self.truncate_value(s)
-
-    def truncate_value(self, value, max_width: int = MAX_ITEM_SUMMARY_LENGTH) -> str:
         # TODO: Add type aware truncation
-        s = (value[:max_width] + '...') if len(value) > max_width else value
-        return s
+        return self.truncate_string(s)
+
+    def truncate_string(self, value: str, max: int = MAX_ITEM_SUMMARY_LENGTH) -> (str, bool):
+        if len(value) > max:
+            return (value[:max], True)
+        else:
+            return (value, False)
 
     def format_value(self, value, clipboard_format: ClipboardFormat) -> str:
 
         if clipboard_format == ClipboardFormat.HTML:
 
-            if self.is_dataframe(value):
+            if self.is_table(value):
                 if hasattr(value, 'to_html'):
                     return value.to_html()
                 elif hasattr(value, '_repr_html_'):
@@ -690,7 +711,7 @@ class PositronIPyKernel(IPythonKernel):
 
         elif clipboard_format == ClipboardFormat.TAB:
 
-            if self.is_dataframe(value):
+            if self.is_table(value):
                 if hasattr(value, 'to_csv'):
                     return value.to_csv(path_or_buf=None, sep='\t')
                 elif hasattr(value, 'write_csv'):
@@ -731,21 +752,27 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.STRING
         elif isinstance(value, numbers.Number):
             return EnvironmentVariableKind.NUMBER
-        elif isinstance(value, (list, set, frozenset, tuple, range)):
-            return EnvironmentVariableKind.LIST
+        elif isinstance(value, bool):
+            return EnvironmentVariableKind.BOOLEAN
+        elif isinstance(value, Mapping):
+            return EnvironmentVariableKind.MAP
+        elif isinstance(value, (bytes, bytearray, memoryview)):
+            return EnvironmentVariableKind.BYTES
+        elif isinstance(value, (list, set, frozenset, tuple, range, Iterable)):
+            return EnvironmentVariableKind.COLLECTION
         elif isinstance(value, types.FunctionType):
             return EnvironmentVariableKind.FUNCTION
+        elif self.is_table(value):
+            return EnvironmentVariableKind.TABLE
         elif value is not None:
-            if self.is_dataframe(value):
-                return EnvironmentVariableKind.DATAFRAME
-            return EnvironmentVariableKind.OBJECT
+            return EnvironmentVariableKind.OTHER
         else:
-            return None
+            return EnvironmentVariableKind.EMPTY
 
-    DATAFRAME_TYPES = ['pandas.core.frame.DataFrame', 'polars.dataframe.frame.DataFrame']
+    TABLE_TYPES = ['pandas.core.frame.DataFrame', 'polars.dataframe.frame.DataFrame']
 
-    def is_dataframe(self, value) -> bool:
+    def is_table(self, value) -> bool:
         qualname = self.get_qualname(value)
-        if qualname in self.DATAFRAME_TYPES:
+        if qualname in self.TABLE_TYPES:
             return True
         return False
