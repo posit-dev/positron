@@ -7,7 +7,6 @@
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
-use anyhow::Context;
 use crossbeam::channel::select;
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
@@ -26,6 +25,7 @@ use log::error;
 use log::warn;
 
 use crate::environment::message::EnvironmentMessage;
+use crate::environment::message::EnvironmentMessageError;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
@@ -164,7 +164,7 @@ impl REnvironment {
                             },
 
                             EnvironmentMessage::Clear => {
-                                self.clear(id);
+                                self.clear(Some(id));
                             },
 
                             _ => {
@@ -207,16 +207,52 @@ impl REnvironment {
 
         }
         let env_list = EnvironmentMessage::List(EnvironmentMessageList { variables });
-        let data = serde_json::to_value(env_list);
+        self.send_message(env_list, request_id);
+    }
+
+    /**
+     * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
+     */
+    fn clear(&mut self, request_id: Option<String>) {
+        unsafe {
+            let result =  with_r_lock(|| -> Result<(), anyhow::Error> {
+                let list = RFunction::new("base", "ls")
+                    .param("envir", *self.env)
+                    .param("all.names", Rf_ScalarLogical(1))
+                    .call()?;
+
+                RFunction::new("base", "rm")
+                    .param("list", list)
+                    .param("envir", *self.env)
+                    .call()?;
+
+                Ok(())
+            });
+
+            if let Err(_) = result {
+                let error = EnvironmentMessage::Error(EnvironmentMessageError {
+                    message: String::from("Failed to clear the environment")
+                });
+                return self.send_message(error, request_id);
+            }
+        }
+
+        self.send_message(EnvironmentMessage::Success, request_id);
+    }
+
+    fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
+        let data = serde_json::to_value(message);
+
         match data {
             Ok(data) => {
                 // If we were given a request ID, send the response as an RPC;
                 // otherwise, send it as an event
-                let msg = match request_id {
+                let comm_msg = match request_id {
                     Some(id) => CommChannelMsg::Rpc(id, data),
-                    None => CommChannelMsg::Data(data),
+                    None => CommChannelMsg::Data(data)
                 };
-                self.frontend_msg_sender.send(msg).unwrap()
+
+                self.frontend_msg_sender.send(comm_msg).unwrap()
             },
             Err(err) => {
                 error!("Environment: Failed to serialize environment data: {}", err);
@@ -224,50 +260,13 @@ impl REnvironment {
         }
     }
 
-    /**
-     * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
-     */
-    fn clear(&mut self, request_id: String) {
-        if let Err(err) = self.clear_impl(request_id) {
-            error!("Environment: Failed to clear environment: {}", err);
-        }
-    }
-
-    fn clear_impl(&mut self, request_id : String) -> anyhow::Result<()> {
-
-        unsafe {
-            with_r_lock(|| -> Result<(), anyhow::Error> {
-                let list = RFunction::new("base", "ls")
-                    .param("envir", *self.env)
-                    .param("all.names", Rf_ScalarLogical(1))
-                    .call()
-                    .context("Environment: Failed to list variables")?;
-
-                RFunction::new("base", "rm")
-                    .param("list", list)
-                    .param("envir", *self.env)
-                    .call()
-                    .context("Environment: Failed to clear")?;
-
-                Ok(())
-            })?;
-        }
-
-        let data = serde_json::to_value(EnvironmentMessage::Success)?;
-        self
-            .frontend_msg_sender
-            .send(CommChannelMsg::Rpc(request_id, data))
-            .context("Environment: Failed to send rpc message")
-
-    }
-
     fn update(&mut self) {
         r_lock! {
-            let old_bindings = &self.current_bindings;
-            let new_bindings = self.bindings();
-
             let mut assigned : Vec<EnvironmentVariable> = vec![];
             let mut removed : Vec<String> = vec![];
+
+            let old_bindings = &self.current_bindings;
+            let new_bindings = self.bindings();
 
             let mut old_iter = old_bindings.iter();
             let mut old_next = old_iter.next();
@@ -343,15 +342,7 @@ impl REnvironment {
                 let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
                     assigned, removed
                 });
-                match serde_json::to_value(message) {
-                    Ok(data) => self.frontend_msg_sender
-                        .send(CommChannelMsg::Data(data))
-                        .unwrap(),
-                    Err(err) => {
-                        error!("Environment: Failed to serialize update data: {}", err);
-                    },
-                }
-
+                self.send_message(message, None);
                 self.current_bindings = new_bindings;
             }
         }
