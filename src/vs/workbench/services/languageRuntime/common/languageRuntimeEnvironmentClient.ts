@@ -131,6 +131,16 @@ export class EnvironmentVariable {
 				`which has no children.`);
 		}
 	}
+
+	/**
+	 * Formats the value of this variable in a format suitable for placing on the clipboard.
+	 *
+	 * @param mime The desired MIME type of the format, such as 'text/plain' or 'text/html'.
+	 * @returns A promise that resolves to the formatted value of this variable.
+	 */
+	async formatForClipboard(mime: string): Promise<string> {
+		return this._envClient.requestClipboardFormat(mime, this.parentNames.concat(this.data.name));
+	}
 }
 
 /**
@@ -326,6 +336,24 @@ export class EnvironmentClientInstance extends Disposable {
 				names
 			} as IEnvironmentClientMessageDelete);
 		return new EnvironmentClientUpdate(update, this);
+	}
+
+	/**
+	 * Requests that the environment client format the specified variable.
+	 *
+	 * @param format The format to request, as a MIME type, e.g. text/plain or text/html
+	 * @param path The path to the variable to format
+	 * @returns A promise that resolves to the formatted content
+	 */
+	public async requestClipboardFormat(format: string, path: string[]): Promise<string> {
+		const formatted = await this.performRpc<IEnvironmentClientMessageFormattedVariable>(
+			'get clipboard format',
+			{
+				msg_type: EnvironmentClientMessageTypeInput.ClipboardFormat,
+				format,
+				path
+			} as IEnvironmentClientMessageClipboardFormat);
+		return formatted.content;
 	}
 
 	// Private methods -------------------------------------------------
