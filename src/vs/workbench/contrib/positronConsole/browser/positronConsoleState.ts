@@ -7,8 +7,13 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IModelService } from 'vs/editor/common/services/model';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -17,14 +22,19 @@ import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.
  */
 export interface PositronConsoleServices {
+	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
+	readonly contextKeyService: IContextKeyService;
+	readonly contextMenuService: IContextMenuService;
 	readonly executionHistoryService: IExecutionHistoryService;
 	readonly instantiationService: IInstantiationService;
+	readonly keybindingService: IKeybindingService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly languageService: ILanguageService;
 	readonly logService: ILogService;
 	readonly modelService: IModelService;
 	readonly positronConsoleService: IPositronConsoleService;
+	readonly workbenchLayoutService: IWorkbenchLayoutService;
 }
 
 /**

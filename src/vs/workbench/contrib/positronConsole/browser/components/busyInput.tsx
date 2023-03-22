@@ -12,6 +12,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
@@ -27,8 +28,10 @@ import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/
 
 // BusyInputProps interface.
 export interface BusyInputProps {
-	width: number;
-	positronConsoleInstance: IPositronConsoleInstance;
+	readonly width: number;
+	readonly hidden: boolean;
+	readonly positronConsoleInstance: IPositronConsoleInstance;
+	readonly focusReceiver: IFocusReceiver;
 }
 
 /**
@@ -206,6 +209,13 @@ export const BusyInput = forwardRef<HTMLDivElement, BusyInputProps>((props: Busy
 				}
 			})
 		);
+
+		// Add the onFocused event handler.
+		disposableStore.add(props.focusReceiver.onFocused(() => {
+			if (!props.hidden) {
+				codeEditorWidget.focus();
+			}
+		}));
 
 		// Focus the console.
 		codeEditorWidget.focus();
