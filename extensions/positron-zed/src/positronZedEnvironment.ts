@@ -112,6 +112,11 @@ export class ZedEnvironment {
 				this.clearAllVars();
 				break;
 
+			// A request to delete a set of variables
+			case 'delete':
+				this.deleteVars(message.names);
+				break;
+
 			// A request to inspect a variable
 			case 'inspect':
 				this.inspectVar(message.path, Array.from(this._vars.values()));
@@ -252,6 +257,53 @@ export class ZedEnvironment {
 
 		// Refresh the client view
 		this.emitFullList();
+	}
+
+	/**
+	 * Deletes the variables with the given names from the environment
+	 */
+	public deleteVars(names: string[]) {
+		const removed = [];
+		const unknown = [];
+
+		// Ensure we got some variable names
+		if (names.length === 0) {
+			this._onDidEmitData.fire({
+				msg_type: 'error',
+				message: `No variable names selected for deletion`
+			});
+			return;
+		}
+
+		// Clear the variables one by one
+		for (const name of names) {
+			if (this._vars.has(name)) {
+				// Looks like we have this variable, so remove it
+				removed.push(name);
+				this._vars.delete(name);
+			} else {
+				// We don't have this variable, so add it to the list of unknown variables
+				unknown.push(name);
+			}
+		}
+
+		// If we failed to find any of the variables, emit an error to the client
+		if (unknown.length > 0) {
+			this._onDidEmitData.fire({
+				msg_type: 'error',
+				message: `Unknown variable${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}`
+			});
+		}
+
+		// Refresh the client view. We don't need to do this if we didn't remove
+		// any variables, but note that it's possible to have removed some
+		// variables and failed to find others; in this case the client will get
+		// an error "reply" to the delete request, but the variables that were
+		// successfully removed will still be removed from the client view using
+		// the "update" message.
+		if (removed.length > 0) {
+			this.emitUpdate([], removed);
+		}
 	}
 
 	/**
