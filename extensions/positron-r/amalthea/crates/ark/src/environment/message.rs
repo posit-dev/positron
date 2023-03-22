@@ -31,6 +31,9 @@ pub enum EnvironmentMessage {
     /// variables.
     Refresh,
 
+    /// A message requiesting to clear the environment
+    Clear,
+
     /// A message indicating that the server has successfully processed a client
     /// request. Used only for request messages that do not return data.
     Success,
