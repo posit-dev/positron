@@ -58,8 +58,7 @@ impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
 
     pub unsafe fn with_length(size: usize) -> Self {
         let data = Rf_allocVector(SEXPTYPE, size as isize);
-        let object = RObject::new(data);
-        Self::new_unchecked(object)
+        Self::new_unchecked(data)
     }
 
     // SAFETY: Rf_length() might allocate for ALTREP objects,
