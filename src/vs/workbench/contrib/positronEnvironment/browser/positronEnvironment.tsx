@@ -54,11 +54,6 @@ export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironment
 			setHeight(size.height);
 		}));
 
-		// Add the onVisibilityChanged event handler.
-		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visibility => {
-			// TODO@softwarenerd - For the moment, doing nothing.
-		}));
-
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);

@@ -7,6 +7,8 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
+import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
 import { LiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/liveInput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
@@ -27,14 +29,14 @@ import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
-	hidden: boolean;
-	width: number;
-	height: number;
-	positronConsoleInstance: IPositronConsoleInstance;
+	readonly hidden: boolean;
+	readonly width: number;
+	readonly height: number;
+	readonly positronConsoleInstance: IPositronConsoleInstance;
+	readonly focusReceiver: IFocusReceiver;
 }
 
 /**
@@ -45,7 +47,7 @@ interface ConsoleInstanceProps {
 export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Hooks.
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
-	const liveInputRef = useRef<HTMLDivElement>(undefined!);
+	const inputRef = useRef<HTMLDivElement>(undefined!);
 	const [marker, setMarker] = useState(generateUuid());
 
 	// Executes code.
@@ -86,13 +88,20 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			executeCode(codeFragment);
 		}));
 
+		// Add the onFocused event handler.
+		disposableStore.add(props.focusReceiver.onFocused(() => {
+			if (!props.hidden) {
+				inputRef.current?.scrollIntoView({ behavior: 'auto' });
+			}
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
 	// Experimental.
 	useEffect(() => {
-		liveInputRef.current?.scrollIntoView({ behavior: 'auto' });
+		inputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [marker]);
 
 	/**
@@ -132,17 +141,21 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			// Ready.
 			case PositronConsoleState.Ready:
 				return <LiveInput
-					ref={liveInputRef}
+					ref={inputRef}
 					width={props.width}
+					hidden={props.hidden}
 					executeCode={executeCode}
-					positronConsoleInstance={props.positronConsoleInstance} />;
+					positronConsoleInstance={props.positronConsoleInstance}
+					focusReceiver={props.focusReceiver} />;
 
 			// Busy.
 			case PositronConsoleState.Busy:
 				return <BusyInput
-					ref={liveInputRef}
+					ref={inputRef}
 					width={props.width}
-					positronConsoleInstance={props.positronConsoleInstance} />;
+					hidden={props.hidden}
+					positronConsoleInstance={props.positronConsoleInstance}
+					focusReceiver={props.focusReceiver} />;
 
 			// Render nothing.
 			default:
