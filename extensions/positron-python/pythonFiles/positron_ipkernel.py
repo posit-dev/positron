@@ -754,6 +754,8 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.NUMBER
         elif isinstance(value, bool):
             return EnvironmentVariableKind.BOOLEAN
+        elif self.is_table(value):
+            return EnvironmentVariableKind.TABLE
         elif isinstance(value, Mapping):
             return EnvironmentVariableKind.MAP
         elif isinstance(value, (bytes, bytearray, memoryview)):
@@ -762,8 +764,6 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.COLLECTION
         elif isinstance(value, types.FunctionType):
             return EnvironmentVariableKind.FUNCTION
-        elif self.is_table(value):
-            return EnvironmentVariableKind.TABLE
         elif value is not None:
             return EnvironmentVariableKind.OTHER
         else:
