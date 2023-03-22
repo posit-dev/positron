@@ -229,15 +229,20 @@ impl REnvironment {
                 Ok(())
             });
 
-            if let Err(_) = result {
-                let error = EnvironmentMessage::Error(EnvironmentMessageError {
-                    message: String::from("Failed to clear the environment")
-                });
-                return self.send_message(error, request_id);
-            }
+            let msg = match result {
+                Ok(_) => EnvironmentMessage::Success,
+                Err(_) => {
+                    EnvironmentMessage::Error(EnvironmentMessageError {
+                        message: String::from("Failed to clear the environment")
+                    })
+                }
+            };
+
+            self.send_message(msg, request_id);
+
         }
 
-        self.send_message(EnvironmentMessage::Success, request_id);
+
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
