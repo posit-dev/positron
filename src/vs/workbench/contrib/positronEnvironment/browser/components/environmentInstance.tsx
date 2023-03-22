@@ -141,7 +141,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		const valueItems: EnvironmentVariableItem[] = [];
 		const functionItems: EnvironmentVariableItem[] = [];
 		props.positronEnvironmentInstance.environmentVariableItems.forEach(item => {
-			if (item.environmentVariable.data.kind === EnvironmentVariableValueKind.Dataframe) {
+			if (item.environmentVariable.data.kind === EnvironmentVariableValueKind.Table) {
 				dataItems.push(item);
 			} else if (item.environmentVariable.data.kind === EnvironmentVariableValueKind.Function) {
 				functionItems.push(item);
