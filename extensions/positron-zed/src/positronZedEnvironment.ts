@@ -350,38 +350,47 @@ export class ZedEnvironment {
 	}
 
 	/**
-	 * Performs the inspection of a variable
+	 * Finds a variable at a given path
 	 */
-	private inspectVar(path: string[], vars: Array<ZedVariable>) {
-		let found = false;
-		for (const v of vars) {
-			if (v.name === path[0]) {
-				if (path.length === 1) {
-					// Clamp the number of children to the maximum number of
-					// children to display
-					const children = v.children.length > this._maxVarDisplay ?
-						v.children.slice(0, this._maxVarDisplay) : v.children;
+	private findVar(path: string[]): ZedVariable | undefined {
+		let v: ZedVariable | undefined = undefined;
+		for (const p of path) {
+			if (v === undefined) {
+				v = this._vars.get(p);
+			} else {
+				v = v.children.find(c => c.name === p);
+			}
 
-					// We've reached the end of the path, so emit the variable
-					this._onDidEmitData.fire({
-						msg_type: 'details',
-						children,
-						length: v.children.length
-					});
-				} else {
-					// This is not the end of the path, so consume this path element and
-					// continue the search in the children of this variable
-					this.inspectVar(path.slice(1), v.children);
-				}
-				found = true;
+			if (v === undefined) {
+				break;
 			}
 		}
 
-		if (!found) {
+		return v;
+	}
+
+	/**
+	 * Performs the inspection of a variable
+	 */
+	private inspectVar(path: string[], vars: Array<ZedVariable>) {
+		const v = this.findVar(path);
+		if (v) {
+			// Clamp the number of children to the maximum number of
+			// children to display
+			const children = v.children.length > this._maxVarDisplay ?
+				v.children.slice(0, this._maxVarDisplay) : v.children;
+
+			// Emit the data to the front end
+			this._onDidEmitData.fire({
+				msg_type: 'details',
+				children,
+				length: v.children.length
+			});
+		} else {
 			// We didn't find the variable, so emit an error
 			this._onDidEmitData.fire({
 				msg_type: 'error',
-				error: `Variable '${path[0]}' not found in ${path.slice(1).join('.')}`
+				error: `Can't inspect; variable '${path[0]}' not found in ${path.slice(1).join('.')}`
 			});
 		}
 	}
