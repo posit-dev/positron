@@ -16,6 +16,7 @@ use libR_sys::*;
 use crate::error::Result;
 use crate::object::RObject;
 use crate::traits::AsSlice;
+use crate::traits::Number;
 use crate::utils::r_assert_capacity;
 use crate::utils::r_assert_type;
 
@@ -31,18 +32,6 @@ pub type LogicalVector = Vector<LGLSXP, i32>;
 pub type IntegerVector = Vector<INTSXP, i32>;
 pub type NumericVector = Vector<REALSXP, f64>;
 pub type CharacterVector = Vector<STRSXP, &'static str>;
-
-pub trait IsPrimitiveNativeType {}
-impl IsPrimitiveNativeType for u8 {}
-impl IsPrimitiveNativeType for u16 {}
-impl IsPrimitiveNativeType for u32 {}
-impl IsPrimitiveNativeType for u64 {}
-impl IsPrimitiveNativeType for i8 {}
-impl IsPrimitiveNativeType for i16 {}
-impl IsPrimitiveNativeType for i32 {}
-impl IsPrimitiveNativeType for i64 {}
-impl IsPrimitiveNativeType for f32 {}
-impl IsPrimitiveNativeType for f64 {}
 
 // Methods common to all R vectors.
 impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
@@ -80,7 +69,7 @@ impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
 // Methods for vectors with primitive native types.
 impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType>
 where
-    NativeType: IsPrimitiveNativeType + Copy,
+    NativeType: Number + Copy,
 {
     pub unsafe fn create<T: AsSlice<NativeType>>(data: T) -> Self {
         let data = data.as_slice();
@@ -153,7 +142,10 @@ impl<'a> Iterator for CharacterVectorIterator<'a> {
 
 impl CharacterVector {
 
-    pub unsafe fn create<'a, T: AsSlice<&'a str>>(data: T) -> Self {
+    pub unsafe fn create<'a, T>(data: T) -> Self
+    where
+        T: AsSlice<&'a str>
+    {
         let data = data.as_slice();
         let n = data.len();
         let vector = CharacterVector::with_length(n);
@@ -210,7 +202,7 @@ impl<'a, T, const SEXPTYPE: u32, NativeType> PartialEq<T>
     for Vector<{ SEXPTYPE }, NativeType>
     where
         T: AsSlice<NativeType>,
-        NativeType: IsPrimitiveNativeType + PartialEq,
+        NativeType: Number + PartialEq,
 {
     fn eq(&self, other: &T) -> bool {
         unsafe {
@@ -255,7 +247,7 @@ impl<'a, T> PartialEq<T> for CharacterVector
 
 impl<'a, const SEXPTYPE: u32, NativeType> IntoIterator
     for &'a Vector<{ SEXPTYPE }, NativeType>
-    where NativeType: IsPrimitiveNativeType
+    where NativeType: Number
 {
     type Item = &'a NativeType;
     type IntoIter = std::slice::Iter<'a, NativeType>;
@@ -283,7 +275,7 @@ impl<'a, const SEXPTYPE: u32, NativeType> IntoIterator
 //     for Vector<{ SEXPTYPE }, NativeType>
 //     where
 //         T: AsSlice<NativeType> + Copy,
-//         NativeType: IsPrimitiveNativeType,
+//         NativeType: Number,
 // {
 //     fn from(array: T) -> Self {
 //         unsafe {

@@ -1,14 +1,9 @@
 //
-// traits.rs
+// slice.rs
 //
 // Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
-
-use std::ops::Deref;
-
-pub trait TypeEquals<T> {}
-impl<T> TypeEquals<T> for T {}
 
 pub trait AsSlice<T> {
     fn as_slice(&self) -> &[T];
@@ -68,4 +63,5 @@ mod test {
     }
 
 }
+
 
