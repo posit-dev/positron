@@ -23,11 +23,28 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 	// Hooks.
 	//const positronEnvironmentContext = usePositronEnvironmentContext();
 
+	// Get the name
+	const data = props.environmentVariableItem.environmentVariable.data;
+	let name = data.name;
+	if (data.has_children) {
+		name = '(+) ' + name;
+	}
+
+	// Handle click.
+	const handleClick = () => {
+		if (data.has_children) {
+			// Toggle the children. Just gets the children for now; TODO: render them.
+			props.environmentVariableItem.environmentVariable.getChildren().then(children => {
+				console.info(`children: ${JSON.stringify(children.data)}`);
+			});
+		}
+	};
+
 	// Render.
 	return (
-		<div className='environment-variable'>
-			<div className='name'>{props.environmentVariableItem.environmentVariable.name}</div>
-			<div className='value'>{props.environmentVariableItem.environmentVariable.value}</div>
+		<div className='environment-variable' onClick={handleClick}>
+			<div className='name'>{name}</div>
+			<div className='value'>{data.value}</div>
 		</div>
 	);
 };
