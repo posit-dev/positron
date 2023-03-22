@@ -61,12 +61,35 @@ export enum EnvironmentClientMessageTypeOutput {
  * Represents the possible kinds of values in an environment.
  */
 export enum EnvironmentVariableValueKind {
-	String = 'string',
-	Number = 'number',
-	Vector = 'vector',
-	List = 'list',
+	/// A boolean value
+	Boolean = 'boolean',
+
+	/// A sequence of bytes or raw binary data
+	Bytes = 'bytes',
+
+	/// A iterable collection of unnamed values, such as a list or array
+	Collection = 'collection',
+
+	/// An empty, missing, null, or invalid value
+	Empty = 'empty',
+
+	/// A function, method, closure, or other callable object
 	Function = 'function',
-	Dataframe = 'dataframe',
+
+	/// A map, dictionary, named list, or associative array
+	Map = 'map',
+
+	/// A number, such as an integer or floating-point value
+	Number = 'number',
+
+	/// A value of an unknown or unspecified type
+	Other = 'other',
+
+	/// A character string
+	String = 'string',
+
+	/// A table, dataframe, 2D matrix, or other two-dimensional data structure
+	Table = 'table',
 }
 
 /**
