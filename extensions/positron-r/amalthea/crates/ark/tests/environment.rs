@@ -117,6 +117,34 @@ fn test_environment_list() {
     assert_eq!(msg.assigned[0].name, "nothing");
     assert_eq!(msg.removed[0], "everything");
 
+    // Request that the environment be cleared
+    let clear = EnvironmentMessage::Clear;
+    let data = serde_json::to_value(clear).unwrap();
+    let request_id = String::from("clear-id-1235");
+    backend_msg_sender
+        .send(CommChannelMsg::Rpc(request_id.clone(), data))
+        .unwrap();
+
+    // Wait for the success message to be delivered
+    match frontend_message_rx.recv().unwrap() {
+        CommChannelMsg::Rpc(reply_id, data) => {
+            // Ensure that the reply ID we received from then environment pane
+            // matches the request ID we sent
+            assert_eq!(request_id, reply_id);
+
+            // TODO: check that this is a Success message
+            data
+        },
+        _ => panic!("Expected data message, got {:?}", msg),
+    };
+
+    // test the env is now empty
+    r_lock!{
+        let contents = RObject::new(R_lsInternal(*test_env, Rboolean_TRUE));
+        assert_eq!(Rf_length(*contents), 0);
+    }
+
     // close the comm. Otherwise the thread panics
     backend_msg_sender.send(CommChannelMsg::Close).unwrap();
+
 }

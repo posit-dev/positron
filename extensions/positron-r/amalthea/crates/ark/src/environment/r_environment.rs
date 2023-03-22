@@ -238,9 +238,10 @@ impl REnvironment {
         unsafe {
             with_r_lock(|| -> Result<(), anyhow::Error> {
                 let list = RFunction::new("base", "ls")
-                .param("all.names", Rf_ScalarLogical(1))
-                .call()
-                .context("Environment: Failed to list variables")?;
+                    .param("envir", *self.env)
+                    .param("all.names", Rf_ScalarLogical(1))
+                    .call()
+                    .context("Environment: Failed to list variables")?;
 
                 RFunction::new("base", "rm")
                     .param("list", list)
