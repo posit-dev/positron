@@ -61,6 +61,12 @@ export class ZedEnvironment {
 	private _varCounter = 1;
 
 	/**
+	 * The maximum number of variables to return when listing the environment. This is
+	 * configurable using the `env max` Zed command.
+	 */
+	private _maxVarDisplay = 1024;
+
+	/**
 	 * Creates a new ZedEnvironment backend
 	 *
 	 * @param id The ID of the environment client instance
@@ -249,17 +255,37 @@ export class ZedEnvironment {
 	}
 
 	/**
+	 * Sets the maximum number of variables to display in the client
+	 *
+	 * @param maxVarDisplay The maximum number of variables to display in the client
+	 */
+	public setMaxVarDisplay(maxVarDisplay: number) {
+		// Set the new maximum
+		this._maxVarDisplay = maxVarDisplay;
+
+		// Refresh the client view so the new maximum is applied
+		this.emitFullList();
+	}
+
+	/**
 	 * Emits a full list of variables to the front end
 	 */
 	private emitFullList() {
 		// Create a list of all the variables in the environment
 		const vars = Array.from(this._vars.values());
 
+		// Clamp the number of variables we are about to return to the maximum
+		// number of variables to display
+		const length = vars.length;
+		if (vars.length > this._maxVarDisplay) {
+			vars.length = this._maxVarDisplay;
+		}
+
 		// Emit the data to the front end
 		this._onDidEmitData.fire({
 			msg_type: 'list',
 			variables: vars,
-			length: vars.length
+			length
 		});
 	}
 
@@ -279,10 +305,15 @@ export class ZedEnvironment {
 		for (const v of vars) {
 			if (v.name === path[0]) {
 				if (path.length === 1) {
+					// Clamp the number of children to the maximum number of
+					// children to display
+					const children = v.children.length > this._maxVarDisplay ?
+						v.children.slice(0, this._maxVarDisplay) : v.children;
+
 					// We've reached the end of the path, so emit the variable
 					this._onDidEmitData.fire({
 						msg_type: 'details',
-						children: v.children,
+						children,
 						length: v.children.length
 					});
 				} else {
