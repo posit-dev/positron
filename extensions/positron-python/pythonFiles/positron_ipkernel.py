@@ -136,8 +136,8 @@ class EnvironmentVariable(dict):
     """
 
     def __init__(self, name: str, value: Any, kind: Optional[EnvironmentVariableKind],
-                 type_name: str, length: int, size: int, has_children: bool = False,
-                 is_truncated: bool = False):
+                 type_name: str = None, length: int = None, size: int = None,
+                 has_children: bool = False, is_truncated: bool = False):
         self['name'] = name
         self['value'] = value
         if kind is not None:
@@ -217,6 +217,74 @@ class EnvironmentMessageError(EnvironmentMessage):
     def __init__(self, message):
         super().__init__(EnvironmentMessageType.ERROR)
         self['message'] = message
+
+
+class TableInspector:
+
+    def get_columns(self, df) -> list[str]:
+        pass
+
+    def get_column_values(self, df, column_name) -> list[Any]:
+        pass
+
+    def shape(self, df) -> (int, int):
+        pass
+
+    def to_html(self, df) -> str:
+        pass
+
+    def to_tsv(self, df) -> str:
+        pass
+
+class PandasInspector(TableInspector):
+
+    TABLE_CLASS_NAME = 'pandas.core.frame.DataFrame'
+
+    def get_columns(self, df) -> list[str]:
+        try:
+            return df.columns.values.tolist()
+        except:
+            return []
+
+    def get_column_values(self, df, column_name) -> list[Any]:
+        try:
+            return df[column_name].values.tolist()
+        except:
+            return []
+
+    def shape(self, df) -> (int, int):
+        return df.shape
+
+    def to_html(self, df) -> str:
+        return df.to_html()
+
+    def to_tsv(self, df) -> str:
+        return df.to_csv(path_or_buf=None, sep='\t')
+
+class PolarsInspector(TableInspector):
+
+    TABLE_CLASS_NAME = 'polars.dataframe.frame.DataFrame'
+
+    def get_columns(self, df) -> list[str]:
+        try:
+            return df.columns
+        except:
+            return []
+
+    def get_column_values(self, df, column_name) -> list[Any]:
+        try:
+            return df.get_column(column_name).to_list()
+        except:
+            return []
+
+    def shape(self, df) -> (int, int):
+        return df.shape
+
+    def to_html(self, df) -> str:
+        return df._repr_html_()
+
+    def to_tsv(self, df) -> str:
+        return df.write_csv(file=None, separator='\t')
 
 
 POSITRON_ENVIRONMENT_COMM = 'positron.environment'
@@ -488,6 +556,14 @@ class PositronIPyKernel(IPythonKernel):
             # Treat dictionary items as children
             children.extend(self.summarize_variables(context))
 
+        elif self.is_table(context):
+            # Treat table column series as children
+            inspector = self.get_table_inspector(context)
+            for column_name in inspector.get_columns(context):
+                values = inspector.get_column_values(context, column_name)
+                summary = self.summarize_variable(column_name, values)
+                children.append(summary)
+
         elif isinstance(context, (list, set, frozenset, tuple, range)):
             # Treat collection items as children, with the index as the name
             for i, item in enumerate(context):
@@ -657,7 +733,8 @@ class PositronIPyKernel(IPythonKernel):
 
         try:
             # Calculate DataFrame dimentions in rows x cols
-            shape = getattr(value, 'shape', None)
+            inspector = self.get_table_inspector(value)
+            shape = inspector.shape(value)
             if shape is None:
                 shape = (0, 0)
 
@@ -702,25 +779,18 @@ class PositronIPyKernel(IPythonKernel):
         if clipboard_format == ClipboardFormat.HTML:
 
             if self.is_table(value):
-                if hasattr(value, 'to_html'):
-                    return value.to_html()
-                elif hasattr(value, '_repr_html_'):
-                    return value._repr_html_()
-
-            return html.escape(str(value))
+                inspector = self.get_table_inspector(value)
+                return inspector.to_html(value)
+            else:
+                return html.escape(str(value))
 
         elif clipboard_format == ClipboardFormat.TAB:
 
             if self.is_table(value):
-                if hasattr(value, 'to_csv'):
-                    return value.to_csv(path_or_buf=None, sep='\t')
-                elif hasattr(value, 'write_csv'):
-                    return value.write_csv(file=None, separator='\t')
+                inspector = self.get_table_inspector(value)
+                return inspector.to_tsv(value)
 
-            return str(value)
-
-        else:
-            return str(value)
+        return str(value)
 
     def get_length(self, value) -> int:
         length = 0
@@ -769,10 +839,15 @@ class PositronIPyKernel(IPythonKernel):
         else:
             return EnvironmentVariableKind.EMPTY
 
-    TABLE_TYPES = ['pandas.core.frame.DataFrame', 'polars.dataframe.frame.DataFrame']
+    TABLE_INSPECTORS = {PandasInspector.TABLE_CLASS_NAME: PandasInspector(),
+                        PolarsInspector.TABLE_CLASS_NAME: PolarsInspector()}
 
     def is_table(self, value) -> bool:
         qualname = self.get_qualname(value)
-        if qualname in self.TABLE_TYPES:
+        if qualname in self.TABLE_INSPECTORS.keys():
             return True
         return False
+
+    def get_table_inspector(self, value) -> TableInspector:
+        qualname = self.get_qualname(value)
+        return self.TABLE_INSPECTORS.get(qualname, None)
