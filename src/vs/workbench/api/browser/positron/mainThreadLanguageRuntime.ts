@@ -206,6 +206,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				this._startupEmitter.fire(info);
 				resolve(info);
 			}).catch((err) => {
+				this._startupFailureEmitter.fire(err);
 				reject(err);
 			});
 		});

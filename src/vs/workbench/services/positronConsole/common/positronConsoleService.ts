@@ -24,6 +24,7 @@ import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 
 //#region Helper Functions
 
@@ -630,6 +631,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				languageRuntimeInfo.banner,
 				languageRuntimeInfo.implementation_version,
 				languageRuntimeInfo.language_version
+			));
+		}));
+
+		// Add the onDidEncounterStartupFailure event handler.
+		this._runtimeDisposableStore.add(this._runtime.onDidEncounterStartupFailure(startupFailure => {
+			// Add item trace.
+			this.addRuntimeItemTrace(`onDidEncounterStartupFailure`);
+
+			// Add the item startup.
+			this.addRuntimeItem(new RuntimeItemStartupFailure(
+				generateUuid(),
+				startupFailure.message,
+				startupFailure.details,
 			));
 		}));
 
