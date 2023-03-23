@@ -11,10 +11,14 @@ use ark::environment::message::EnvironmentMessageList;
 use ark::environment::message::EnvironmentMessageUpdate;
 use ark::environment::r_environment::REnvironment;
 use ark::lsp::signals::SIGNALS;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::r_symbol;
 use harp::test::start_r;
+use harp::utils::r_envir_remove;
+use harp::utils::r_envir_set;
 use libR_sys::*;
 
 /**
@@ -36,7 +40,10 @@ fn test_environment_list() {
     // (with the empty environment as its parent) so that each test in this
     // file can run independently.
     let test_env = r_lock! {
-        RObject::new(R_NewEnv(R_EmptyEnv, 0, 5))
+        RFunction::new("base", "new.env")
+            .param("parent", R_EmptyEnv)
+            .call()
+            .unwrap()
     };
 
     // Create a sender/receiver pair for the comm channel.
@@ -95,9 +102,8 @@ fn test_environment_list() {
 
     // create another variable
     r_lock! {
-        let sym = r_symbol!("nothing");
-        Rf_defineVar(sym, Rf_ScalarInteger(43), test_env.sexp);
-        R_removeVarFromFrame(r_symbol!("everything"), test_env.sexp);
+        r_envir_set("nothing", Rf_ScalarInteger(43), test_env.sexp);
+        r_envir_remove("everything", test_env.sexp);
     }
 
     // Simulate a prompt signal
