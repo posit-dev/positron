@@ -6,7 +6,7 @@ import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 
 /**
- * RuntimeItemStartup class.
+ * RuntimeItemStartupFailure class.
  */
 export class RuntimeItemStartupFailure extends RuntimeItem {
 	//#region Public Properties
@@ -29,17 +29,14 @@ export class RuntimeItemStartupFailure extends RuntimeItem {
 	constructor(
 		id: string,
 		message: string,
-		details: string,
+		_details: string,
 	) {
 		// Call the base class's constructor.
 		super(id);
 
-		// Process the message and details directly into ANSI output lines. In the future, we
+		// Process the message directly into ANSI output lines. In the future, we
 		// may want to do something more sophisticated here.
-		this.outputLines = [
-			...ANSIOutput.processOutput(message),
-			...ANSIOutput.processOutput(details),
-		];
+		this.outputLines = ANSIOutput.processOutput(message);
 	}
 
 	//#endregion Constructor
