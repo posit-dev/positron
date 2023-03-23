@@ -112,10 +112,21 @@ export class ZedEnvironment {
 				this.clearAllVars();
 				break;
 
+			// A request to delete a set of variables
+			case 'delete':
+				this.deleteVars(message.names);
+				break;
+
 			// A request to inspect a variable
 			case 'inspect':
-				this.inspectVar(message.path, Array.from(this._vars.values()));
+				this.inspectVar(message.path);
 				break;
+
+			// A request to format a variable as a string suitable for placing on the clipboard
+			case 'clipboard_format':
+				this.formatVariable(message.format, message.path);
+				break;
+
 		}
 	}
 
@@ -255,6 +266,53 @@ export class ZedEnvironment {
 	}
 
 	/**
+	 * Deletes the variables with the given names from the environment
+	 */
+	public deleteVars(names: string[]) {
+		const removed = [];
+		const unknown = [];
+
+		// Ensure we got some variable names
+		if (names.length === 0) {
+			this._onDidEmitData.fire({
+				msg_type: 'error',
+				message: `No variable names selected for deletion`
+			});
+			return;
+		}
+
+		// Clear the variables one by one
+		for (const name of names) {
+			if (this._vars.has(name)) {
+				// Looks like we have this variable, so remove it
+				removed.push(name);
+				this._vars.delete(name);
+			} else {
+				// We don't have this variable, so add it to the list of unknown variables
+				unknown.push(name);
+			}
+		}
+
+		// If we failed to find any of the variables, emit an error to the client
+		if (unknown.length > 0) {
+			this._onDidEmitData.fire({
+				msg_type: 'error',
+				message: `Unknown variable${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}`
+			});
+		}
+
+		// Refresh the client view. We don't need to do this if we didn't remove
+		// any variables, but note that it's possible to have removed some
+		// variables and failed to find others; in this case the client will get
+		// an error "reply" to the delete request, but the variables that were
+		// successfully removed will still be removed from the client view using
+		// the "update" message.
+		if (removed.length > 0) {
+			this.emitUpdate([], removed);
+		}
+	}
+
+	/**
 	 * Sets the maximum number of variables to display in the client
 	 *
 	 * @param maxVarDisplay The maximum number of variables to display in the client
@@ -289,6 +347,36 @@ export class ZedEnvironment {
 		});
 	}
 
+	/**
+	 * Formats a variable for the clipboard and emits the result to the front end
+	 *
+	 * @param format The format to use for the variable, as a MIME type (e.g. "text/plain")
+	 * @param path The path to the variable to format
+	 */
+	private formatVariable(format: string, path: string[]) {
+		const v = this.findVar(path);
+		if (v) {
+			// Emit the data to the front end
+			this._onDidEmitData.fire({
+				msg_type: 'formatted_variable',
+				format,
+				content: `"${v.value}" (${format})`
+			});
+		} else {
+			// We didn't find the variable, so emit an error
+			this._onDidEmitData.fire({
+				msg_type: 'error',
+				error: `Can't format for clipboard; variable not found: ${path.join('.')}`
+			});
+		}
+	}
+
+	/**
+	 * Emits an update to the front end
+	 *
+	 * @param assigned The variables that were added or changed
+	 * @param removed The variables that were removed
+	 */
 	private emitUpdate(assigned?: Array<ZedVariable>, removed?: Array<string>) {
 		this._onDidEmitData.fire({
 			msg_type: 'update',
@@ -298,38 +386,49 @@ export class ZedEnvironment {
 	}
 
 	/**
-	 * Performs the inspection of a variable
+	 * Finds a variable at a given path
 	 */
-	private inspectVar(path: string[], vars: Array<ZedVariable>) {
-		let found = false;
-		for (const v of vars) {
-			if (v.name === path[0]) {
-				if (path.length === 1) {
-					// Clamp the number of children to the maximum number of
-					// children to display
-					const children = v.children.length > this._maxVarDisplay ?
-						v.children.slice(0, this._maxVarDisplay) : v.children;
+	private findVar(path: string[]): ZedVariable | undefined {
+		let v: ZedVariable | undefined = undefined;
+		for (const p of path) {
+			if (v === undefined) {
+				// We're at the root of the variable tree; get the named variable
+				v = this._vars.get(p);
+			} else {
+				// We're in the middle of the variable tree; get the named child
+				v = v.children.find(c => c.name === p);
+			}
 
-					// We've reached the end of the path, so emit the variable
-					this._onDidEmitData.fire({
-						msg_type: 'details',
-						children,
-						length: v.children.length
-					});
-				} else {
-					// This is not the end of the path, so consume this path element and
-					// continue the search in the children of this variable
-					this.inspectVar(path.slice(1), v.children);
-				}
-				found = true;
+			if (v === undefined) {
+				break;
 			}
 		}
 
-		if (!found) {
+		return v;
+	}
+
+	/**
+	 * Performs the inspection of a variable
+	 */
+	private inspectVar(path: string[]) {
+		const v = this.findVar(path);
+		if (v) {
+			// Clamp the number of children to the maximum number of
+			// children to display
+			const children = v.children.length > this._maxVarDisplay ?
+				v.children.slice(0, this._maxVarDisplay) : v.children;
+
+			// Emit the data to the front end
+			this._onDidEmitData.fire({
+				msg_type: 'details',
+				children,
+				length: v.children.length
+			});
+		} else {
 			// We didn't find the variable, so emit an error
 			this._onDidEmitData.fire({
 				msg_type: 'error',
-				error: `Variable '${path[0]}' not found in ${path.slice(1).join('.')}`
+				error: `Can't inspect; variable not found: ${path.join('.')}`
 			});
 		}
 	}
