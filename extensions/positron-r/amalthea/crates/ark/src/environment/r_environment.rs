@@ -57,14 +57,12 @@ impl REnvironment {
         let (channel_msg_tx, channel_msg_rx) = unbounded::<CommChannelMsg>();
 
         // Validate that the RObject we were passed is actually an environment
-        unsafe {
-            if let Err(err) = r_assert_type(env.sexp, &[ENVSXP]) {
-                warn!(
-                    "Environment: Attempt to monitor or list non-environment object {:?} ({:?})",
-                    env, err
-                );
-            }
-        };
+        if let Err(err) = r_assert_type(env.sexp, &[ENVSXP]) {
+            warn!(
+                "Environment: Attempt to monitor or list non-environment object {:?} ({:?})",
+                env, err
+            );
+        }
 
         // Start the execution thread and wait for requests from the front end
         thread::spawn(move || {
@@ -198,7 +196,15 @@ impl REnvironment {
             }
 
         }
-        let env_list = EnvironmentMessage::List(EnvironmentMessageList { variables });
+
+        // TODO: Avoid serializing the full list of variables if it exceeds a
+        // certain threshold
+        let env_size = variables.len();
+        let env_list = EnvironmentMessage::List(EnvironmentMessageList {
+            variables,
+            length: env_size,
+        });
+
         let data = serde_json::to_value(env_list);
         match data {
             Ok(data) => {

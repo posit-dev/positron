@@ -37,6 +37,12 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 			props.environmentVariableItem.environmentVariable.getChildren().then(children => {
 				console.info(`children: ${JSON.stringify(children.data)}`);
 			});
+		} else {
+			// For items without children, fetch the formatted clipboard value. Totally a
+			// placeholder; this just exists to exercise the API.
+			props.environmentVariableItem.environmentVariable.formatForClipboard('text/plain').then(val => {
+				console.info(`formatted value: ${val}`);
+			});
 		}
 	};
 
