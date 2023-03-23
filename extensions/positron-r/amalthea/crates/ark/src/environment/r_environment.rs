@@ -394,8 +394,16 @@ impl REnvironment {
             }
         }
 
-        self.update_bindings(new_bindings);
+
         if assigned.len() > 0 || removed.len() > 0 || request_id.is_some() {
+
+            // only update the bindings (and the version)
+            // if anything changed
+            if assigned.len() > 0 || removed.len() > 0 {
+                self.update_bindings(new_bindings);
+            }
+
+            // but the message might be sent anyway if this comes from a request
             let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
                 assigned, removed, version: self.version
             });
