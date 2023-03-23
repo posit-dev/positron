@@ -2,6 +2,10 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+.environment-variable-container {
+	background: transparent;
+}
+
 .environment-variable {
 	display: flex;
 	padding: 0 8px;
@@ -10,10 +14,41 @@
 
 .environment-variable .name {
 	width: 35%;
+	display: flex;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	border-right: 1px solid var(--vscode-positronSideActionBar-separator);
+}
+
+.environment-variable .name .gutter {
+	width: 20px;
+}
+
+.expand-collapse-button {
+	padding: 0;
+	border: none;
+	cursor: pointer;
+	overflow: visible;
+	background: transparent;
+	vertical-align: text-bottom;
+}
+
+.expand-collapse-button:focus {
+	outline: none !important;
+}
+
+.expand-collapse-button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.expand-collapse-button-face {
+	background: transparent;
+}
+
+.expand-collapse-button-icon {
+	display: flex !important;
 }
 
 .environment-variable .value {

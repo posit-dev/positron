@@ -11,6 +11,7 @@ import { HeaderRow } from 'vs/workbench/contrib/positronEnvironment/browser/comp
 import { EnvironmentVariable } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariable';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { EnvironmentVariableValueKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/contrib/positronEnvironment/common/utils';
 import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 // EnvironmentInstanceProps interface.
@@ -20,49 +21,6 @@ interface EnvironmentInstanceProps {
 	height: number;
 	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
-
-/**
- * Sorts an array of environment variable items by name.
- * @param items The array of environment variable items to sort.
- */
-const sortEnvironmentVariableItemsByName = (items: EnvironmentVariableItem[]) => {
-	// Sort the environment variable items by name. Break ties by sorting by size.
-	// largest.
-	items.sort((a, b) => {
-		// Compare the name.
-		const result = a.environmentVariable.data.name.localeCompare(b.environmentVariable.data.name);
-		if (result !== 0) {
-			return result;
-		}
-
-		// Break ties by sorting by size;
-		if (a.environmentVariable.data.size < b.environmentVariable.data.size) {
-			return -1;
-		} else if (a.environmentVariable.data.size > b.environmentVariable.data.size) {
-			return 1;
-		} else {
-			return 0;
-		}
-	});
-};
-
-/**
- * Sorts an array of environment variable items by size.
- * @param items The array of environment variable items to sort.
- */
-const sortEnvironmentVariableItemsBySize = (items: EnvironmentVariableItem[]) => {
-	// Sort the environment variable items by size. Break ties by sorting by name.
-	items.sort((a, b) => {
-		// Break ties by sorting by size;
-		if (a.environmentVariable.data.size < b.environmentVariable.data.size) {
-			return -1;
-		} else if (a.environmentVariable.data.size > b.environmentVariable.data.size) {
-			return 1;
-		} else {
-			return a.environmentVariable.data.name.localeCompare(b.environmentVariable.data.name);
-		}
-	});
-};
 
 /**
  * EnvironmentInstance component.
@@ -141,9 +99,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		const valueItems: EnvironmentVariableItem[] = [];
 		const functionItems: EnvironmentVariableItem[] = [];
 		props.positronEnvironmentInstance.environmentVariableItems.forEach(item => {
-			if (item.environmentVariable.data.kind === EnvironmentVariableValueKind.Table) {
+			if (item.kind === EnvironmentVariableValueKind.Table) {
 				dataItems.push(item);
-			} else if (item.environmentVariable.data.kind === EnvironmentVariableValueKind.Function) {
+			} else if (item.kind === EnvironmentVariableValueKind.Function) {
 				functionItems.push(item);
 			} else {
 				valueItems.push(item);
@@ -181,9 +139,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		}
 
 		// Return the environment variable items.
-		return items.map(item =>
-			<EnvironmentVariable key={item.id} environmentVariableItem={item} />
-		);
+		return items.map(item => {
+			return <EnvironmentVariable key={item.id} indentLevel={0} environmentVariableItem={item} />;
+		});
 	};
 
 	// Render.
