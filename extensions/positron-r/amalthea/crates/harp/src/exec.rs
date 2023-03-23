@@ -16,13 +16,12 @@ use libR_sys::*;
 use crate::error::Error;
 use crate::error::Result;
 use crate::object::RObject;
-use crate::object::ToRStrings;
-use crate::object::r_strings;
 use crate::protect::RProtect;
 use crate::r_symbol;
 use crate::utils::r_inherits;
 use crate::utils::r_stringify;
 use crate::utils::r_typeof;
+use crate::vector::CharacterVector;
 
 extern "C" {
     pub static R_ParseError: c_int;
@@ -221,7 +220,7 @@ where
     F: FnMut() -> R,
     R: Into<RObject>,
     Finally: FnMut(),
-    S: ToRStrings
+    S: Into<CharacterVector>,
 {
     // C function that is passed as `body`
     // the actual closure is passed as a void* through arg
@@ -262,8 +261,6 @@ where
         condition
     }
 
-    let classes = r_strings(classes);
-
     // C function that is passed as `finally`
     // the actual closure is passed as a void* through arg
     extern "C" fn finally_fn(arg: *mut c_void) {
@@ -276,6 +273,8 @@ where
     // The actual finally closure is passed as a void*
     let mut finally_data: &mut dyn FnMut() = &mut finally;
     let finally_data = &mut finally_data;
+
+    let classes = classes.into();
 
     let result = R_tryCatch(
         Some(body_fn::<R>),
@@ -320,7 +319,7 @@ pub unsafe fn r_try_catch<F, R, S>(fun: F, classes: S) -> Result<RObject>
 where
     F: FnMut() -> R,
     RObject: From<R>,
-    S : ToRStrings
+    S: Into<CharacterVector>,
 {
     r_try_catch_finally(fun, classes, || {})
 }
@@ -330,7 +329,8 @@ where
     F: FnMut() -> R,
     RObject: From<R>
 {
-    r_try_catch_finally(fun, "error", || {})
+    let vector = CharacterVector::create(["error"]);
+    r_try_catch_finally(fun, vector, || {})
 }
 
 pub enum ParseResult {
@@ -380,6 +380,7 @@ mod tests {
     use crate::r_lock;
     use crate::r_test;
     use crate::r_test_unlocked;
+    use crate::utils::r_envir_remove;
     use crate::utils::r_is_null;
 
     use super::*;
@@ -471,7 +472,7 @@ mod tests {
     }}
 
     #[test]
-    fn test_try_catch_error(){ r_test! {
+    fn test_try_catch_error() { r_test! {
 
         // ok SEXP
         let ok = r_try_catch_error(|| {
@@ -489,18 +490,22 @@ mod tests {
         });
 
         // ok something else, Vec<&str>
-        let string_ok = r_try_catch_error(|| {
-            vec!["hello", "world"]
+        let value = r_try_catch_error(|| {
+            CharacterVector::create(["hello", "world"]).cast()
         });
-        assert_match!(string_ok, Ok(value) => {
-            assert_eq!(r_typeof(value.sexp), STRSXP);
-            assert_eq!(value, ["hello", "world"]);
+
+        assert_match!(value, Ok(value) => {
+            assert_eq!(r_typeof(*value), STRSXP);
+            let value = CharacterVector::new(value);
+            assert_match!(value, Ok(value) => {
+                assert_eq!(value, ["hello", "world"]);
+            })
         });
 
         // error
-        let out = r_try_catch_error(|| {
+        let out = r_try_catch_error(|| unsafe {
             let msg = CString::new("ouch").unwrap();
-            Rf_error(unsafe {msg.as_ptr()});
+            Rf_error(msg.as_ptr());
         });
 
         assert_match!(out, Err(Error::TryCatchError { message, classes }) => {
@@ -564,7 +569,7 @@ mod tests {
         assert_eq!(libR_sys::R_DirtyImage, 1);
 
         libR_sys::R_DirtyImage = 2;
-        R_removeVarFromFrame(sym, R_GlobalEnv);
+        r_envir_remove("aaa", R_GlobalEnv);
         assert_eq!(libR_sys::R_DirtyImage, 1);
     }}
 

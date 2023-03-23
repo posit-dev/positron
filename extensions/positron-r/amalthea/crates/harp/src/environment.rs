@@ -10,8 +10,10 @@ use std::cmp::Ordering;
 use c2rust_bitfields::BitfieldStruct;
 use libR_sys::*;
 
+use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_typeof;
+use itertools::Itertools;
 
 #[derive(Copy, Clone, BitfieldStruct)]
 #[repr(C)]
@@ -76,7 +78,7 @@ impl Binding {
         let kind = if is_active_binding(frame) {
             BindingKind::Active
         } else {
-            match unsafe {r_typeof(value)} {
+            match r_typeof(value) {
                 PROMSXP => BindingKind::Promise(unsafe {PRVALUE(value) != R_UnboundValue}),
 
                 // TODO: Immediate
@@ -108,7 +110,7 @@ fn describe_regular_binding(value: SEXP) -> String {
 
     // TODO: some form of R based dispatch
 
-    match unsafe{r_typeof(value)} {
+    match r_typeof(value) {
         // standard vector
         LGLSXP   => describe_vec("lgl", value),
         INTSXP   => describe_vec("int", value),
@@ -139,17 +141,72 @@ fn describe_altrep(value: SEXP) -> String {
         _       => "???"
     };
 
-    format!("altrep {} [{}] ({})", rtype, vec_shape(value), altrep_class(value))
+    format!("{} [{}] (altrep {}) {}", rtype, vec_shape(value), altrep_class(value), altrep_vec_glimpse(value))
 }
 
 fn describe_vec(rtype: &str, value: SEXP) -> String {
-    format!("{} [{}]", rtype, vec_shape(value))
+    format!("{} [{}] {}", rtype, vec_shape(value), vec_glimpse(value))
 }
 
 fn vec_shape(value: SEXP) -> String {
-    // TODO: matrix, array
-    // TODO: TRUELENGTH, is the vector growable ...
-    format!("{}", unsafe{Rf_xlength(value)})
+    unsafe {
+        let dim = RObject::from(Rf_getAttrib(value, R_DimSymbol));
+
+        if *dim == R_NilValue {
+            format!("{}", Rf_xlength(value))
+        } else {
+            dim.i32_iter().unwrap()
+                .map(|x| {
+                    match x {
+                        Some(value) => value.to_string(),
+                        None => String::from("NA")
+                    }
+                })
+                .format(", ")
+                .to_string()
+        }
+    }
+}
+
+fn vec_glimpse(value: SEXP) -> String {
+    match unsafe{TYPEOF(value) as u32} {
+        INTSXP => {
+            let mut iter = RObject::from(value).i32_iter().unwrap();
+
+            let mut out = String::new();
+            loop {
+                match iter.next() {
+                    None => break,
+
+                    Some(x) => {
+                        if out.len() > 20 {
+                            out.push_str(" (...)");
+                            break;
+                        }
+                        out.push_str(" ");
+                        match x {
+                            None => {
+                                out.push_str("_");
+                            },
+                            Some(x) => {
+                                out.push_str(x.to_string().as_str())
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            out
+        },
+        _ => {
+            String::from("(...)")
+        }
+    }
+}
+
+fn altrep_vec_glimpse(value: SEXP) -> String {
+    vec_glimpse(value)
 }
 
 fn altrep_class(object: SEXP) -> String {

@@ -10,6 +10,7 @@ Tools for integrating R and Rust.
 c2rust-bitfields = "0.17.0"
 ctor = "0.1.26"
 harp-macros = { path = "./harp-macros" }
+itertools = "0.10.5"
 lazy_static = "1.4.0"
 libR-sys = "0.4.0"
 libc = "0.2.140"
