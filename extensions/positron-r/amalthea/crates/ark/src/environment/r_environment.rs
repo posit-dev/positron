@@ -39,13 +39,10 @@ use crate::lsp::signals::SIGNALS;
  */
 pub struct REnvironment {
     pub channel_msg_rx: Receiver<CommChannelMsg>,
-
     pub frontend_msg_sender: Sender<CommChannelMsg>,
-
     pub env: RObject,
-
-    current_bindings: Vec<Binding>, // TODO:
-                                    // - a version count
+    current_bindings: Vec<Binding>,
+    version: u64,
 }
 
 impl REnvironment {
@@ -76,6 +73,7 @@ impl REnvironment {
                 frontend_msg_sender,
                 env,
                 current_bindings: vec![],
+                version: 0
             };
             environment.execution_thread();
         });
@@ -193,6 +191,13 @@ impl REnvironment {
         }
     }
 
+    fn update_bindings(&mut self, new_bindings: Vec<Binding>) -> u64 {
+        self.current_bindings = new_bindings;
+        self.version = self.version + 1;
+
+        self.version
+    }
+
     /**
      * Perform a full environment scan and deliver the results to the front end.
      * When this message is being sent in reply to a request from the front end,
@@ -202,7 +207,7 @@ impl REnvironment {
         let mut variables: Vec<EnvironmentVariable> = vec![];
 
         r_lock! {
-            self.current_bindings = self.bindings();
+            self.update_bindings(self.bindings());
 
             for binding in &self.current_bindings {
                 variables.push(EnvironmentVariable::new(binding));
@@ -216,6 +221,7 @@ impl REnvironment {
         let env_list = EnvironmentMessage::List(EnvironmentMessageList {
             variables,
             length: env_size,
+            version: self.version
         });
 
         self.send_message(env_list, request_id);
@@ -388,10 +394,10 @@ impl REnvironment {
             }
         }
 
-        self.current_bindings = new_bindings;
+        self.update_bindings(new_bindings);
         if assigned.len() > 0 || removed.len() > 0 || request_id.is_some() {
             let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
-                assigned, removed
+                assigned, removed, version: self.version
             });
             self.send_message(message, request_id);
         }

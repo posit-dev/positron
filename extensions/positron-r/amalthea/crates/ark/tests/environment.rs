@@ -68,6 +68,7 @@ fn test_environment_list() {
     // should be empty since we don't have any variables in the R environment.
     let list: EnvironmentMessageList = serde_json::from_value(data).unwrap();
     assert!(list.variables.len() == 0);
+    assert_eq!(list.version, 1);
 
     // Now create a variable in the R environment and ensure we get a list of
     // variables with the new variable in it.
@@ -101,6 +102,7 @@ fn test_environment_list() {
     assert!(list.variables.len() == 1);
     let var = &list.variables[0];
     assert_eq!(var.name, "everything");
+    assert_eq!(list.version, 2);
 
     // create another variable
     r_lock! {
@@ -124,6 +126,7 @@ fn test_environment_list() {
     assert_eq!(msg.removed.len(), 1);
     assert_eq!(msg.assigned[0].name, "nothing");
     assert_eq!(msg.removed[0], "everything");
+    assert_eq!(msg.version, 3);
 
     // Request that the environment be cleared
     let clear = EnvironmentMessage::Clear(EnvironmentMessageClear{
@@ -150,6 +153,7 @@ fn test_environment_list() {
     // Unmarshal the list and check for the variable we created
     let list: EnvironmentMessageList = serde_json::from_value(data).unwrap();
     assert!(list.variables.len() == 0);
+    assert_eq!(list.version, 4);
 
     // test the env is now empty
     r_lock!{
@@ -178,6 +182,7 @@ fn test_environment_list() {
     let msg: EnvironmentMessageUpdate = serde_json::from_value(data).unwrap();
     assert_eq!(msg.assigned.len(), 2);
     assert_eq!(msg.removed.len(), 0);
+    assert_eq!(msg.version, 5);
 
     // Request that a environment be deleted
     let delete = EnvironmentMessage::Delete(EnvironmentMessageDelete {
@@ -200,6 +205,7 @@ fn test_environment_list() {
     let update: EnvironmentMessageUpdate = serde_json::from_value(data).unwrap();
     assert!(update.assigned.len() == 0);
     assert_eq!(update.removed, ["a"]);
+    assert_eq!(update.version, 6);
 
     // close the comm. Otherwise the thread panics
     backend_msg_sender.send(CommChannelMsg::Close).unwrap();

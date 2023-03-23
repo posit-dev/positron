@@ -53,6 +53,7 @@ pub enum EnvironmentMessage {
 pub struct EnvironmentMessageList {
     pub variables: Vec<EnvironmentVariable>,
     pub length: usize,
+    pub version: u64
 }
 
 /**
@@ -62,6 +63,7 @@ pub struct EnvironmentMessageList {
 pub struct EnvironmentMessageUpdate {
     pub assigned: Vec<EnvironmentVariable>,
     pub removed: Vec<String>,
+    pub version: u64
 }
 
 /**
