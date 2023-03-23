@@ -4,6 +4,7 @@
 
 import 'vs/css!./environmentVariable';
 import * as React from 'react';
+import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 // import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
@@ -11,6 +12,7 @@ import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironme
  * EnvironmentVariableProps interface.
  */
 export interface EnvironmentVariableProps {
+	indentLevel: number;
 	environmentVariableItem: EnvironmentVariableItem;
 }
 
@@ -22,35 +24,53 @@ export interface EnvironmentVariableProps {
 export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 	// Hooks.
 	//const positronEnvironmentContext = usePositronEnvironmentContext();
+	const [expanded, setExpanded] = useState(false);
+	const [children, setChildren] = useState<EnvironmentVariableItem[] | undefined>(undefined);
 
-	// Get the name
-	const data = props.environmentVariableItem.environmentVariable.data;
-	let name = data.name;
-	if (data.has_children) {
-		name = '(+) ' + name;
-	}
+	/**
+	 * Handles expand / collapse.
+	 */
+	const handleExpandCollapse = async () => {
 
-	// Handle click.
-	const handleClick = () => {
-		if (data.has_children) {
-			// Toggle the children. Just gets the children for now; TODO: render them.
-			props.environmentVariableItem.environmentVariable.getChildren().then(children => {
-				console.info(`children: ${JSON.stringify(children.data)}`);
-			});
+		if (expanded) {
+			setExpanded(false);
+			setChildren(undefined);
 		} else {
-			// For items without children, fetch the formatted clipboard value. Totally a
-			// placeholder; this just exists to exercise the API.
-			props.environmentVariableItem.environmentVariable.formatForClipboard('text/plain').then(val => {
-				console.info(`formatted value: ${val}`);
-			});
+			setExpanded(true);
+			setChildren(await props.environmentVariableItem.loadChildren());
 		}
 	};
 
 	// Render.
 	return (
-		<div className='environment-variable' onClick={handleClick}>
-			<div className='name'>{name}</div>
-			<div className='value'>{data.value}</div>
+		<div className='environment-variable-container'>
+			<div className='environment-variable'>
+				<div className='name'>
+					<div style={{ display: 'flex', marginLeft: props.indentLevel * 20 }}>
+						<div className='gutter'>
+							{props.environmentVariableItem.hasChildren && (
+								<button className='expand-collapse-button' onClick={handleExpandCollapse}>
+									<div className='expand-collapse-button-face'>
+										{!expanded ?
+											<div className={`expand-collapse-button-icon codicon codicon-positron-expand`}></div> :
+											<div className={`expand-collapse-button-icon codicon codicon-positron-collapse`}></div>
+										}
+									</div>
+								</button>
+							)}
+						</div>
+						<div className='name-value'>
+							{props.environmentVariableItem.name}
+						</div>
+
+					</div>
+
+				</div>
+				<div className='value'>{props.environmentVariableItem.value}</div>
+			</div>
+			{expanded && children && children.map(ss =>
+				<EnvironmentVariable key={ss.id} indentLevel={props.indentLevel + 1} environmentVariableItem={ss} />
+			)}
 		</div>
 	);
 };

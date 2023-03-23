@@ -4,7 +4,7 @@
 
 import 'vs/css!./groupingMenuButton';
 import * as React from 'react';
-import { IAction } from 'vs/base/common/actions';
+import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
@@ -46,6 +46,7 @@ export const GroupingMenuButton = () => {
 					PositronEnvironmentGrouping.None;
 			}
 		});
+		actions.push(new Separator());
 		actions.push({
 			id: 'Kind',
 			label: 'Kind',
@@ -91,7 +92,7 @@ export const GroupingMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			iconId='positron-test'
+			iconId='positron-environment-grouping'
 			actions={actions}
 		/>
 	);
