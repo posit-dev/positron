@@ -49,6 +49,7 @@ pub enum EnvironmentMessage {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvironmentMessageList {
     pub variables: Vec<EnvironmentVariable>,
+    pub length: usize,
 }
 
 /**

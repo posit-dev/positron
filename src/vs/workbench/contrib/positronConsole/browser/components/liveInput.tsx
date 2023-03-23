@@ -9,17 +9,16 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
-// import { PixelRatio } from 'vs/base/browser/browser';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
-// import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
+import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
 import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
 import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
@@ -29,14 +28,14 @@ import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEdito
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-// import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-// import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 
 // LiveInputProps interface.
 export interface LiveInputProps {
-	width: number;
-	executeCode: (codeFragment: string) => void;
-	positronConsoleInstance: IPositronConsoleInstance;
+	readonly width: number;
+	readonly hidden: boolean;
+	readonly executeCode: (codeFragment: string) => void;
+	readonly positronConsoleInstance: IPositronConsoleInstance;
+	readonly focusReceiver: IFocusReceiver;
 }
 
 /**
@@ -394,6 +393,13 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 
 			// Re-focus the console.
 			codeEditorWidget.focus();
+		}));
+
+		// Add the onFocused event handler.
+		disposableStore.add(props.focusReceiver.onFocused(() => {
+			if (!props.hidden) {
+				codeEditorWidget.focus();
+			}
 		}));
 
 		// Focus the console.
