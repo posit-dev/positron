@@ -81,6 +81,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** The channel to which output for this specific terminal is logged, if any */
 	private _logChannel?: vscode.OutputChannel;
 
+	/** The exit code, if any */
+	private _exitCode: number;
+
 	constructor(private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
@@ -97,6 +100,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeatTimer = null;
 		this._nextHeartbeat = null;
 		this._lastHeartbeat = 0;
+		this._exitCode = 0;
 
 		// Set the initial status to uninitialized (we'll change it later if we
 		// discover it's actually running)
@@ -148,6 +152,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					this.log(
 						`${this._spec.display_name} exited with code ${closedTerminal.exitStatus?.code}`);
 				}
+
+				// Save the exit code for error reporting if we know it
+				if (closedTerminal.exitStatus && closedTerminal.exitStatus.code) {
+					this._exitCode = closedTerminal.exitStatus.code;
+				}
+
+				// The kernel's status is now exited
 				this.setStatus(positron.RuntimeState.Exited);
 			}
 		});
@@ -271,6 +282,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.log(
 			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
 
+		// The kernel is currently starting. If it skips right to the "exited" status, then
+		// we'll throw an error so that this async function rejects.
+		this.once('status', (status) => {
+			if (status === positron.RuntimeState.Exited) {
+				throw new Error(`Failed to connect to ${this._spec.display_name} kernel; `
+					+ `kernel exited with status ${this._exitCode} during startup.`);
+			}
+		});
+
 		// Begin streaming the log file, if it exists. We create the log file
 		// when we start the kernel, if it has an argument that specifies a log
 		// file.
@@ -380,7 +400,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						}, 0);
 					} else {
 						// The kernel was initializing but has moved on to another
-						// state; resolve the promise and treat it als already
+						// state; resolve the promise and treat it as already
 						// started.
 						this.log(`Skipping deferred start for ${this._spec.display_name} kernel; already '${status}'`);
 						reject(new Error(`Kernel already '${status}'`));
