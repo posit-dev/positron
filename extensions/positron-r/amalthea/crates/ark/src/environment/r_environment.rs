@@ -18,6 +18,7 @@ use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::utils::r_assert_type;
+use harp::vector::CharacterVector;
 use libR_sys::*;
 use log::debug;
 use log::error;
@@ -25,6 +26,7 @@ use log::warn;
 
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
+use crate::environment::message::EnvironmentMessageDelete;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
@@ -105,7 +107,7 @@ impl REnvironment {
             select! {
                 recv(&prompt_signal_rx) -> msg => {
                     if let Ok(()) = msg {
-                        self.update();
+                        self.update(None);
                     }
                 },
 
@@ -162,6 +164,10 @@ impl REnvironment {
 
                             EnvironmentMessage::Clear(EnvironmentMessageClear{include_hidden_objects}) => {
                                 self.clear(include_hidden_objects, Some(id));
+                            },
+
+                            EnvironmentMessage::Delete(EnvironmentMessageDelete{variables}) => {
+                                self.delete(variables, Some(id));
                             },
 
                             _ => {
@@ -253,6 +259,34 @@ impl REnvironment {
         }
     }
 
+    /**
+     * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
+     */
+    fn delete(&mut self, variables: Vec<String>, request_id: Option<String>) {
+        // try to rm(list = variables, envir = <env>)
+        r_lock! {
+            if let Err(_) = self.delete_impl(&variables) {
+                error!("Failed to delete variables from the environment");
+            }
+        }
+
+        // and then update
+        self.update(request_id);
+    }
+
+    fn delete_impl(&mut self, variables: &Vec<String>) -> Result<(), harp::error::Error> {
+        unsafe {
+            let variables : Vec<&str> = variables.iter().map(|s| s as &str).collect();
+
+            RFunction::new("base", "rm")
+                .param("list", CharacterVector::create(variables).cast())
+                .param("envir", *self.env)
+                .call()?;
+
+            Ok(())
+        }
+    }
+
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
         let data = serde_json::to_value(message);
 
@@ -273,13 +307,15 @@ impl REnvironment {
         }
     }
 
-    fn update(&mut self) {
-        r_lock! {
-            let mut assigned : Vec<EnvironmentVariable> = vec![];
-            let mut removed : Vec<String> = vec![];
+    fn update(&mut self, request_id: Option<String>) {
+        let mut assigned : Vec<EnvironmentVariable> = vec![];
+        let mut removed : Vec<String> = vec![];
 
-            let old_bindings = &self.current_bindings;
-            let new_bindings = self.bindings();
+        let old_bindings = &self.current_bindings;
+        let mut new_bindings = vec![];
+
+        r_lock! {
+            new_bindings = self.bindings();
 
             let mut old_iter = old_bindings.iter();
             let mut old_next = old_iter.next();
@@ -350,14 +386,14 @@ impl REnvironment {
                     }
                 }
             }
+        }
 
-            if assigned.len() > 0 || removed.len() > 0 {
-                let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
-                    assigned, removed
-                });
-                self.send_message(message, None);
-                self.current_bindings = new_bindings;
-            }
+        if assigned.len() > 0 || removed.len() > 0 || request_id.is_some() {
+            let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
+                assigned, removed
+            });
+            self.send_message(message, request_id);
+            self.current_bindings = new_bindings;
         }
     }
 
