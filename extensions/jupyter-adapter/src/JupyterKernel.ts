@@ -145,10 +145,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						`${this._spec.display_name} failed to start; exit code: ${closedTerminal.exitStatus?.code}`);
 				} else {
 					// Otherwise, we exited normally (but print the exit code anyway)
-					this.setStatus(positron.RuntimeState.Exited);
 					this.log(
 						`${this._spec.display_name} exited with code ${closedTerminal.exitStatus?.code}`);
 				}
+				this.setStatus(positron.RuntimeState.Exited);
 			}
 		});
 	}
