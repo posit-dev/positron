@@ -273,94 +273,103 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private async connectToSession(session: JupyterSession) {
 
-		// Establish a log channel for the kernel we're connecting to
-		this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
-
-		// Bind to the Jupyter session
-		this._session = session;
-
-		this.log(
-			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
-
-		// The kernel is currently starting. If it skips right to the "exited" status, then
-		// we'll throw an error so that this async function rejects.
-		this.once('status', (status) => {
-			if (status === positron.RuntimeState.Exited) {
-				throw new Error(`Failed to connect to ${this._spec.display_name} kernel; `
-					+ `kernel exited with status ${this._exitCode} during startup.`);
-			}
-		});
-
-		// Begin streaming the log file, if it exists. We create the log file
-		// when we start the kernel, if it has an argument that specifies a log
-		// file.
-		const logFilePath = this._session!.state.logFile;
-		if (fs.existsSync(logFilePath)) {
-			this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
-		}
-
-		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
-		await this.connect(session.state.connectionFile);
-
-		// Subscribe to all topics and connect the IOPub socket
-		this._iopub?.socket().subscribe('');
-		this._iopub?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.iopub, msg);
-			}
-		});
-
-		// Connect the Shell socket
-		this._shell?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.shell, msg);
-			}
-		});
-
-		// Connect the Stdin socket
-		this._stdin?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-			if (msg !== null) {
-				// If this is an input request, save the header so we can
-				// can line it up with the client's response.
-				if (msg.header.msg_type === 'input_request') {
-					this._inputRequests.set(msg.header.msg_id, msg.header);
-				}
-				this.emitMessage(JupyterSockets.stdin, msg);
-			}
-		});
-
 		// Return a promise that resolves when we receive the initial heartbeat
 		return new Promise<void>((resolve, reject) => {
 
-			// Set a timer to reject the promise if we don't receive the initial
-			// heartbeat within 10 seconds
-			const timeout = setTimeout(() => {
-				reject(new Error('Timed out waiting 10 seconds for initial heartbeat'));
-			}, 10000);
+			// Establish a log channel for the kernel we're connecting to
+			this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
 
-			// Wait for the initial heartbeat
-			this._heartbeat?.socket().once('message', (msg: string) => {
+			// Bind to the Jupyter session
+			this._session = session;
 
-				// We got the heartbeat, so cancel the timeout
-				clearTimeout(timeout);
+			this.log(
+				`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
 
-				// Resolve the promise, mark the kernel as ready, and start the heartbeat
-				// check
-				this.log('Receieved initial heartbeat: ' + msg);
-				this.setStatus(positron.RuntimeState.Ready);
-				resolve();
-
-				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-				this.log(`Starting heartbeat check at ${seconds} second intervals...`);
-				this.heartbeat();
-				this._heartbeat?.socket().on('message', (msg: string) => {
-					this.onHeartbeat(msg);
-				});
+			// The kernel is currently starting. If it skips right to the "exited" status, then
+			// we'll throw an error so that this async function rejects.
+			this.once('status', (status) => {
+				this.log(`*** Got status event ${status}`);
+				if (status === positron.RuntimeState.Exited) {
+					this.log(`*** Throwing error`);
+					reject(`Failed to connect to ${this._spec.display_name} kernel; ` +
+						`kernel exited with status ${this._exitCode} during startup.`);
+				}
 			});
-			this._heartbeat?.socket().send(['hello']);
+
+			// Begin streaming the log file, if it exists. We create the log file
+			// when we start the kernel, if it has an argument that specifies a log
+			// file.
+			const logFilePath = this._session!.state.logFile;
+			if (fs.existsSync(logFilePath)) {
+				this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
+			}
+
+			// Connect to the kernel's sockets; wait for all sockets to connect before continuing
+			this.log('*** Connecting to kernel sockets');
+			this.connect(session.state.connectionFile).then(() => {
+
+				this.log('*** Connected to kernel sockets');
+
+				// Subscribe to all topics and connect the IOPub socket
+				this._iopub?.socket().subscribe('');
+				this._iopub?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+					if (msg !== null) {
+						this.emitMessage(JupyterSockets.iopub, msg);
+					}
+				});
+
+				// Connect the Shell socket
+				this._shell?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+					if (msg !== null) {
+						this.emitMessage(JupyterSockets.shell, msg);
+					}
+				});
+
+				// Connect the Stdin socket
+				this._stdin?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+					if (msg !== null) {
+						// If this is an input request, save the header so we can
+						// can line it up with the client's response.
+						if (msg.header.msg_type === 'input_request') {
+							this._inputRequests.set(msg.header.msg_id, msg.header);
+						}
+						this.emitMessage(JupyterSockets.stdin, msg);
+					}
+				});
+
+				// Set a timer to reject the promise if we don't receive the initial
+				// heartbeat within 10 seconds
+				const timeout = setTimeout(() => {
+					reject(new Error('Timed out waiting 10 seconds for initial heartbeat'));
+				}, 10000);
+
+				// Wait for the initial heartbeat
+				this._heartbeat?.socket().once('message', (msg: string) => {
+
+					// We got the heartbeat, so cancel the timeout
+					clearTimeout(timeout);
+
+					// Resolve the promise, mark the kernel as ready, and start the heartbeat
+					// check
+					this.log('Receieved initial heartbeat: ' + msg);
+					this.setStatus(positron.RuntimeState.Ready);
+					resolve();
+
+					const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
+					this.heartbeat();
+					this._heartbeat?.socket().on('message', (msg: string) => {
+						this.onHeartbeat(msg);
+					});
+				});
+				this._heartbeat?.socket().send(['hello']);
+
+			}).catch((err) => {
+				reject(err);
+			});
 		});
 	}
 
@@ -504,8 +513,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 							// Connect to the kernel running in the terminal
 							this.connectToSession(session).then(() => {
+								this.log(`*** RESOLVING session connection promise for ${this._spec.display_name} kernel`);
 								resolve();
 							}).catch((err) => {
+								this.log(`*** REJECTING session connection promise for ${this._spec.display_name} kernel: ${err}`);
 								reject(err);
 							});
 						}
