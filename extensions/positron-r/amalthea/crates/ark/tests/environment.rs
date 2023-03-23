@@ -7,6 +7,7 @@
 
 use amalthea::comm::comm_channel::CommChannelMsg;
 use ark::environment::message::EnvironmentMessage;
+use ark::environment::message::EnvironmentMessageClear;
 use ark::environment::message::EnvironmentMessageList;
 use ark::environment::message::EnvironmentMessageUpdate;
 use ark::environment::r_environment::REnvironment;
@@ -124,7 +125,9 @@ fn test_environment_list() {
     assert_eq!(msg.removed[0], "everything");
 
     // Request that the environment be cleared
-    let clear = EnvironmentMessage::Clear;
+    let clear = EnvironmentMessage::Clear(EnvironmentMessageClear{
+        include_hidden_objects: true
+    });
     let data = serde_json::to_value(clear).unwrap();
     let request_id = String::from("clear-id-1235");
     backend_msg_sender
@@ -132,7 +135,7 @@ fn test_environment_list() {
         .unwrap();
 
     // Wait for the success message to be delivered
-    match frontend_message_rx.recv().unwrap() {
+    let data = match frontend_message_rx.recv().unwrap() {
         CommChannelMsg::Rpc(reply_id, data) => {
             // Ensure that the reply ID we received from then environment pane
             // matches the request ID we sent
@@ -143,6 +146,10 @@ fn test_environment_list() {
         },
         _ => panic!("Expected data message, got {:?}", msg),
     };
+
+    // Unmarshal the list and check for the variable we created
+    let list: EnvironmentMessageList = serde_json::from_value(data).unwrap();
+    assert!(list.variables.len() == 0);
 
     // test the env is now empty
     r_lock!{

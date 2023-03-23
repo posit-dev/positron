@@ -32,7 +32,7 @@ pub enum EnvironmentMessage {
     Refresh,
 
     /// A message requiesting to clear the environment
-    Clear,
+    Clear(EnvironmentMessageClear),
 
     /// A message indicating that the server has successfully processed a client
     /// request. Used only for request messages that do not return data.
@@ -67,4 +67,12 @@ pub struct EnvironmentMessageUpdate {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvironmentMessageError {
     pub message: String,
+}
+
+/**
+ * The data for the Clear message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageClear {
+    pub include_hidden_objects: bool,
 }

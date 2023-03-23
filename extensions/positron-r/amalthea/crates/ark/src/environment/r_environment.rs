@@ -15,18 +15,16 @@ use harp::environment::env_bindings;
 use harp::environment::Binding;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
-use harp::lock::with_r_lock;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::utils::r_assert_type;
-use harp::vector::CharacterVector;
 use libR_sys::*;
 use log::debug;
 use log::error;
 use log::warn;
 
 use crate::environment::message::EnvironmentMessage;
-use crate::environment::message::EnvironmentMessageError;
+use crate::environment::message::EnvironmentMessageClear;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
@@ -162,8 +160,8 @@ impl REnvironment {
                                 self.refresh(Some(id));
                             },
 
-                            EnvironmentMessage::Clear => {
-                                self.clear(Some(id));
+                            EnvironmentMessage::Clear(EnvironmentMessageClear{include_hidden_objects}) => {
+                                self.clear(include_hidden_objects, Some(id));
                             },
 
                             _ => {
@@ -205,7 +203,7 @@ impl REnvironment {
             }
 
         }
-        
+
         // TODO: Avoid serializing the full list of variables if it exceeds a
         // certain threshold
         let env_size = variables.len();
@@ -220,39 +218,38 @@ impl REnvironment {
     /**
      * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
      */
-    fn clear(&mut self, request_id: Option<String>) {
+    fn clear(&mut self, include_hidden_objects: bool, request_id: Option<String>) {
+        // try to rm(<env>, list = ls(envir = <env>, all.names = TRUE)))
+        r_lock! {
+            if let Err(_) = self.clear_impl(include_hidden_objects) {
+                error!("Failed to clear the environment");
+            }
+        }
+
+        // and then refresh
+        self.refresh(request_id);
+    }
+
+    fn clear_impl(&mut self, include_hidden_objects: bool) -> Result<(), harp::error::Error> {
         unsafe {
-            let result =  with_r_lock(|| -> Result<(), anyhow::Error> {
-                let mut list = RFunction::new("base", "ls")
-                    .param("envir", *self.env)
-                    .param("all.names", Rf_ScalarLogical(1))
+            let mut list = RFunction::new("base", "ls")
+                .param("envir", *self.env)
+                .param("all.names", Rf_ScalarLogical(include_hidden_objects as i32))
+                .call()?;
+
+            if *self.env == R_GlobalEnv {
+                list = RFunction::new("base", "setdiff")
+                    .add(list)
+                    .add(RObject::from(".Random.seed"))
                     .call()?;
+            }
 
-                if *self.env == R_GlobalEnv {
-                    list = RFunction::new("base", "setdiff")
-                        .add(list)
-                        .add(RObject::from(".Random.seed"))
-                        .call()?;
-                }
+            RFunction::new("base", "rm")
+                .param("list", list)
+                .param("envir", *self.env)
+                .call()?;
 
-                RFunction::new("base", "rm")
-                    .param("list", list)
-                    .param("envir", *self.env)
-                    .call()?;
-
-                Ok(())
-            });
-
-            let msg = match result {
-                Ok(_) => EnvironmentMessage::Success,
-                Err(_) => {
-                    EnvironmentMessage::Error(EnvironmentMessageError {
-                        message: String::from("Failed to clear the environment")
-                    })
-                }
-            };
-
-            self.send_message(msg, request_id);
+            Ok(())
         }
     }
 

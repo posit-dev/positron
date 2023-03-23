@@ -436,7 +436,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 */
 	async requestClear(includeHiddenObjects: boolean) {
 		if (this._environmentClient) {
-			await this._environmentClient.requestClear();
+			const list = await this._environmentClient.requestClear(includeHiddenObjects);
+			this.processList(list);
 		} else {
 			console.error('Ignoring clear request; environment client is not available.');
 		}
