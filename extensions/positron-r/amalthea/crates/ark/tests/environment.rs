@@ -8,6 +8,7 @@
 use amalthea::comm::comm_channel::CommChannelMsg;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageClear;
+use ark::environment::message::EnvironmentMessageDelete;
 use ark::environment::message::EnvironmentMessageList;
 use ark::environment::message::EnvironmentMessageUpdate;
 use ark::environment::r_environment::REnvironment;
@@ -141,7 +142,6 @@ fn test_environment_list() {
             // matches the request ID we sent
             assert_eq!(request_id, reply_id);
 
-            // TODO: check that this is a Success message
             data
         },
         _ => panic!("Expected data message, got {:?}", msg),
@@ -156,6 +156,50 @@ fn test_environment_list() {
         let contents = RObject::new(R_lsInternal(*test_env, Rboolean_TRUE));
         assert_eq!(Rf_length(*contents), 0);
     }
+
+    // create some more variables
+    r_lock! {
+        let sym = r_symbol!("a");
+        Rf_defineVar(sym, Rf_ScalarInteger(42), test_env.sexp);
+
+        let sym = r_symbol!("b");
+        Rf_defineVar(sym, Rf_ScalarInteger(43), test_env.sexp);
+    }
+
+    // Simulate a prompt signal
+    SIGNALS.console_prompt.emit(());
+
+    let msg = frontend_message_rx.recv().unwrap();
+    let data = match msg {
+        CommChannelMsg::Data(data) => data,
+        _ => panic!("Expected data message, got {:?}", msg),
+    };
+
+    let msg: EnvironmentMessageUpdate = serde_json::from_value(data).unwrap();
+    assert_eq!(msg.assigned.len(), 2);
+    assert_eq!(msg.removed.len(), 0);
+
+    // Request that a environment be deleted
+    let delete = EnvironmentMessage::Delete(EnvironmentMessageDelete {
+        variables: vec![String::from("a")]
+    });
+    let data = serde_json::to_value(delete).unwrap();
+    let request_id = String::from("delete-id-1236");
+    backend_msg_sender
+        .send(CommChannelMsg::Rpc(request_id.clone(), data))
+        .unwrap();
+
+    let data = match frontend_message_rx.recv().unwrap() {
+        CommChannelMsg::Rpc(reply_id, data) => {
+            assert_eq!(request_id, reply_id);
+            data
+        },
+        _ => panic!("Expected data message, got {:?}", msg),
+    };
+
+    let update: EnvironmentMessageUpdate = serde_json::from_value(data).unwrap();
+    assert!(update.assigned.len() == 0);
+    assert_eq!(update.removed, ["a"]);
 
     // close the comm. Otherwise the thread panics
     backend_msg_sender.send(CommChannelMsg::Close).unwrap();

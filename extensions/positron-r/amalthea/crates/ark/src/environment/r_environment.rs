@@ -388,12 +388,12 @@ impl REnvironment {
             }
         }
 
+        self.current_bindings = new_bindings;
         if assigned.len() > 0 || removed.len() > 0 || request_id.is_some() {
             let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
                 assigned, removed
             });
             self.send_message(message, request_id);
-            self.current_bindings = new_bindings;
         }
     }
 
