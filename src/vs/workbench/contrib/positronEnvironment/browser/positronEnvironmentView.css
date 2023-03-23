@@ -15,3 +15,10 @@
 .positron-environment-container .environment-data-container {
 	flex-grow: 1;
 }
+
+.not-selectable {
+	user-select: none;
+	-ms-user-select: none;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
