@@ -282,21 +282,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
 		await this.connect(session.state.connectionFile);
 
-		this._heartbeat?.socket().once('message', (msg: string) => {
-
-			this.log('Receieved initial heartbeat: ' + msg);
-			this.setStatus(positron.RuntimeState.Ready);
-
-			const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-			this.log(`Starting heartbeat check at ${seconds} second intervals...`);
-			this.heartbeat();
-			this._heartbeat?.socket().on('message', (msg: string) => {
-				this.onHeartbeat(msg);
-			});
-		});
-		this._heartbeat?.socket().send(['hello']);
-
-		// Subscribe to all topics
+		// Subscribe to all topics and connect the IOPub socket
 		this._iopub?.socket().subscribe('');
 		this._iopub?.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
@@ -304,12 +290,16 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				this.emitMessage(JupyterSockets.iopub, msg);
 			}
 		});
+
+		// Connect the Shell socket
 		this._shell?.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 			if (msg !== null) {
 				this.emitMessage(JupyterSockets.shell, msg);
 			}
 		});
+
+		// Connect the Stdin socket
 		this._stdin?.socket().on('message', (...args: any[]) => {
 			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 			if (msg !== null) {
@@ -320,6 +310,37 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				}
 				this.emitMessage(JupyterSockets.stdin, msg);
 			}
+		});
+
+		// Return a promise that resolves when we receive the initial heartbeat
+		return new Promise<void>((resolve, reject) => {
+
+			// Set a timer to reject the promise if we don't receive the initial
+			// heartbeat within 10 seconds
+			const timeout = setTimeout(() => {
+				reject(new Error('Timed out waiting 10 seconds for initial heartbeat'));
+			}, 10000);
+
+			// Wait for the initial heartbeat
+			this._heartbeat?.socket().once('message', (msg: string) => {
+
+				// We got the heartbeat, so cancel the timeout
+				clearTimeout(timeout);
+
+				// Resolve the promise, mark the kernel as ready, and start the heartbeat
+				// check
+				this.log('Receieved initial heartbeat: ' + msg);
+				this.setStatus(positron.RuntimeState.Ready);
+				resolve();
+
+				const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+				this.log(`Starting heartbeat check at ${seconds} second intervals...`);
+				this.heartbeat();
+				this._heartbeat?.socket().on('message', (msg: string) => {
+					this.onHeartbeat(msg);
+				});
+			});
+			this._heartbeat?.socket().send(['hello']);
 		});
 	}
 
