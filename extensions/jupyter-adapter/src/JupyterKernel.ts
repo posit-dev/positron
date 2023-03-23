@@ -29,6 +29,7 @@ import { JupyterInputReply } from './JupyterInputReply';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
+import path = require('path');
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -478,13 +479,20 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const showTerminal = vscode.workspace.getConfiguration('positron.jupyterAdapter')
 			.get('showTerminal', false);
 
+		const kernelWrapperPath = path.join(this._context.extensionPath,
+			'resources',
+			process.platform === 'win32' ?
+				'kernel-wrapper.bat' :
+				'kernel-wrapper.sh');
+		const logArg = [logFile];
+
 		// Use the VS Code terminal API to create a terminal for the kernel
 		vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
-			shellPath: args[0],
-			shellArgs: args.slice(1),
+			shellPath: kernelWrapperPath,
+			shellArgs: logArg.concat(args),
 			env,
-			message: `** ${this._spec.display_name} **`,
+			message: '',
 			hideFromUser: !showTerminal,
 			isTransient: false
 		});
