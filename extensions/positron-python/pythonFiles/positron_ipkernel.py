@@ -183,6 +183,7 @@ class EnvironmentMessageFormatted(EnvironmentMessage):
         self['format'] = clipboard_format
         self['content'] = content
 
+
 class EnvironmentMessageDetails(EnvironmentMessage):
     """
     Message 'details' type summarizes the variables in the user's environment.
@@ -236,6 +237,7 @@ class TableInspector:
     def to_tsv(self, df) -> str:
         pass
 
+
 class PandasInspector(TableInspector):
 
     TABLE_CLASS_NAME = 'pandas.core.frame.DataFrame'
@@ -260,6 +262,7 @@ class PandasInspector(TableInspector):
 
     def to_tsv(self, df) -> str:
         return df.to_csv(path_or_buf=None, sep='\t')
+
 
 class PolarsInspector(TableInspector):
 
@@ -293,6 +296,7 @@ POSITRON_ENVIRONMENT_COMM = 'positron.environment'
 MAX_ITEMS = 2000
 MAX_ITEM_SUMMARY_LENGTH = 1024
 ITEM_SUMMARY_PRINT_WIDTH = 100
+
 
 class PositronIPyKernel(IPythonKernel):
     """
@@ -562,18 +566,21 @@ class PositronIPyKernel(IPythonKernel):
             for column_name in inspector.get_columns(context):
                 values = inspector.get_column_values(context, column_name)
                 summary = self.summarize_variable(column_name, values)
-                children.append(summary)
+                if summary is not None:
+                    children.append(summary)
 
-        elif isinstance(context, (list, set, frozenset, tuple, range)):
+        elif isinstance(context, (list, set, frozenset, tuple)):
             # Treat collection items as children, with the index as the name
             for i, item in enumerate(context):
                 summary = self.summarize_variable(i, item)
-                children.append(summary)
+                if summary is not None:
+                    children.append(summary)
 
         else:
             # Otherwise, treat as a simple value at given path
             summary = self.summarize_variable('', context)
-            children.append(summary)
+            if summary is not None:
+                children.append(summary)
             # TODO: Handle scalar objects with a specific message type
 
         msg = EnvironmentMessageDetails(path, children)
@@ -683,43 +690,57 @@ class PositronIPyKernel(IPythonKernel):
                 break
 
             summary = self.summarize_variable(key, value)
-            summaries.append(summary)
+            if summary is not None:
+                summaries.append(summary)
 
             i += 1
 
         return summaries
 
     def summarize_variable(self, key, value) -> EnvironmentVariable:
+
         kind = self.get_kind(value)
 
-        if kind == EnvironmentVariableKind.FUNCTION:
-            summary = self.summarize_function(key, value)
+        if kind is not None:
+            return self.summarize_any(key, value, kind)
 
-        elif kind == EnvironmentVariableKind.TABLE:
-            summary = self.summarize_table(key, value)
-
-        else:
-            summary = self.summarize_any(key, value, kind)
-
-        return summary
+        return None
 
     def summarize_any(self, key, value, kind) -> EnvironmentVariable:
+
         type_name = self.get_qualname(value)
         try:
+            summarized_value = type_name
             length = self.get_length(value)
             size = sys.getsizeof(value)
+            has_children = length > 0
+            is_truncated = False
 
-            # For summaries, avoid pprint as it wraps strings into line chunks
+            # Apply type-specific formatting
             if kind == EnvironmentVariableKind.STRING:
+                # For string summaries, avoid pprint as it wraps strings into line chunks
                 summarized_value, is_truncated = self.truncate_string(value)
                 summarized_value = repr(summarized_value)
                 has_children = False
+
+            elif kind == EnvironmentVariableKind.TABLE:
+                # Tables are summarized by their dimensions
+                summarized_value = self.format_table_summary(value)
+                is_truncated = True
+
+            elif kind == EnvironmentVariableKind.FUNCTION:
+                # Functions are summarized by their signature
+                summarized_value = self.format_function_summary(value)
+                has_children = False
+
             elif kind == EnvironmentVariableKind.BYTES:
+                # For bytes, even though they have a length, we don't set them
+                # as having children
                 summarized_value, is_truncated = self.summarize_value(value)
                 has_children = False
+
             else:
                 summarized_value, is_truncated = self.summarize_value(value)
-                has_children = length > 0
 
             return EnvironmentVariable(key, summarized_value, kind,
                                        type_name, length, size, has_children, is_truncated)
@@ -727,9 +748,7 @@ class PositronIPyKernel(IPythonKernel):
             logging.warning(err)
             return EnvironmentVariable(key, type_name, None)
 
-    def summarize_table(self, key, value) -> EnvironmentVariable:
-        kind = EnvironmentVariableKind.TABLE
-        type_name = self.get_qualname(value)
+    def format_table_summary(self, value) -> str:
 
         try:
             # Calculate DataFrame dimentions in rows x cols
@@ -742,26 +761,18 @@ class PositronIPyKernel(IPythonKernel):
             if self.get_length(shape) == 2:
                 summarized_value = summarized_value + f'[{shape[0]} rows x {shape[1]} columns]'
 
-            length = self.get_length(value)
-            size = sys.getsizeof(value)
-            has_children = length > 0
-            is_truncated = True
+            return summarized_value
 
-            return EnvironmentVariable(key, summarized_value, kind,
-                                       type_name, length, size, has_children, is_truncated)
         except Exception as err:
             logging.warning(err)
-            return EnvironmentVariable(key, type_name, kind)
+            return None
 
-    def summarize_function(self, key, value) -> EnvironmentVariable:
-        kind = EnvironmentVariableKind.FUNCTION
+    def format_function_summary(self, value) -> str:
         if callable(value):
             sig = inspect.signature(value)
         else:
             sig = '()'
-        display_value = f'{value.__qualname__}{sig}'
-        size = sys.getsizeof(value)
-        return EnvironmentVariable(key, display_value, kind, value.__qualname__, None, size)
+        return f'{value.__qualname__}{sig}'
 
     def summarize_value(self, value, width: int = ITEM_SUMMARY_PRINT_WIDTH) -> (str, bool):
         s = pprint.pformat(value, indent=1, width=width, compact=True)
@@ -834,6 +845,8 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.COLLECTION
         elif isinstance(value, types.FunctionType):
             return EnvironmentVariableKind.FUNCTION
+        elif isinstance(value, types.ModuleType):
+            return None  # Hide module types for now
         elif value is not None:
             return EnvironmentVariableKind.OTHER
         else:
