@@ -5,8 +5,9 @@
 .header-row {
 	height: 100%;
 	display: flex;
-	padding: 5px 8px;
+	padding: 2px 8px;
 	align-items: center;
 	font-weight: bold;
+	background: var(--vscode-positronEnvironment-headerBackground);
 	border-bottom: 1px solid var(--vscode-positronSideActionBar-separator);
 }

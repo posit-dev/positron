@@ -1528,4 +1528,13 @@ export const POSITRON_ENVIRONMENT_FOREGROUND_COLOR = registerColor('positronEnvi
 	hcLight: 'terminal.foreground'
 }, localize('positronEnvironment.foreground', "Positron Environment foreground color."));
 
+// The Positron Environment header background color.
+export const POSITRON_ENVIRONMENT_HEADER_BACKGROUND_COLOR = registerColor('positronEnvironment.headerBackground', {
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground
+}, localize('positronEnvironment.headerBackground', "Positron Environment header background color."));
+
+
 // --- End Positron ---
