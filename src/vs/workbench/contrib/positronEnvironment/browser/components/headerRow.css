@@ -10,5 +10,4 @@
 	align-items: center;
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);
-	/* border-bottom: 1px solid var(--vscode-positronSideActionBar-separator); */
 }
