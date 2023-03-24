@@ -464,13 +464,14 @@ class PositronIPyKernel(IPythonKernel):
         for segment in path:
 
             # Check for membership as a property
-            is_known = hasattr(context, segment)
+            name = str(segment)
+            is_known = hasattr(context, name)
             if is_known:
-                value = getattr(context, segment, None)
+                value = getattr(context, name, None)
 
             # Check for membership by dict key
             elif isinstance(context, Mapping):
-                value = context.get(segment, _OurDefault)
+                value = context.get(name, _OurDefault)
                 if value is _OurDefault:
                     is_known = False
                 else:
@@ -479,7 +480,7 @@ class PositronIPyKernel(IPythonKernel):
             # Check for membership by collection index
             elif isinstance(context, (list, set, frozenset, tuple, range)):
                 try:
-                    value = context[int(segment)]
+                    value = context[int(name)]
                     is_known = True
                 except Exception:
                     is_known = False
