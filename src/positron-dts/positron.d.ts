@@ -34,6 +34,9 @@ declare module 'positron' {
 		/** A message representing a runtime event */
 		Event = 'event',
 
+		/** A message representing a new comm (client instance) being opened from the rutime side */
+		CommOpen = 'comm_open',
+
 		/** A message representing data received via a comm (to a client instance) */
 		CommData = 'comm_data',
 
