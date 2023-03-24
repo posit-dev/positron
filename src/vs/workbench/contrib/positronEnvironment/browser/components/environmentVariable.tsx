@@ -59,7 +59,7 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 							)}
 						</div>
 						<div className='name-value'>
-							{props.environmentVariableItem.name.length ? props.environmentVariableItem.name : '[None]'}
+							{props.environmentVariableItem.name}
 						</div>
 					</div>
 				</div>
