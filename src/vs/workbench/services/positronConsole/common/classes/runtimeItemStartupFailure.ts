@@ -16,6 +16,11 @@ export class RuntimeItemStartupFailure extends RuntimeItem {
 	 */
 	readonly outputLines: readonly ANSIOutputLine[];
 
+	/**
+	 * Gets the failure message.
+	 */
+	readonly message: string;
+
 	//#endregion Public Properties
 
 	//#region Constructor
@@ -29,14 +34,15 @@ export class RuntimeItemStartupFailure extends RuntimeItem {
 	constructor(
 		id: string,
 		message: string,
-		_details: string,
+		details: string,
 	) {
 		// Call the base class's constructor.
 		super(id);
 
 		// Process the message directly into ANSI output lines. In the future, we
 		// may want to do something more sophisticated here.
-		this.outputLines = ANSIOutput.processOutput(message);
+		this.message = message;
+		this.outputLines = ANSIOutput.processOutput(details);
 	}
 
 	//#endregion Constructor

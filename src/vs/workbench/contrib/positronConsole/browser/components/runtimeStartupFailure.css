@@ -8,3 +8,7 @@
 	padding-top: 1em;
 	padding-bottom: 1em;
 }
+
+.runtime-startup-failure .message {
+	font-weight: bold;
+}

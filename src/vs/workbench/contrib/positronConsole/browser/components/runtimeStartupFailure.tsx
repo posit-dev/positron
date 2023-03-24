@@ -21,6 +21,7 @@ export const RuntimeStartupFailure = ({ runtimeItemStartupFailure }: RuntimeStar
 	// Render.
 	return (
 		<div className='runtime-startup-failure'>
+			<div className='message'>{runtimeItemStartupFailure.message}</div>
 			<OutputLines outputLines={runtimeItemStartupFailure.outputLines} />
 		</div>
 	);
