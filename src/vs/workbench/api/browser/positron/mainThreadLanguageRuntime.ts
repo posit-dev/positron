@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -25,6 +25,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
+	private readonly _startupFailureEmitter = new Emitter<ILanguageRuntimeStartupFailure>();
 
 	private readonly _onDidReceiveRuntimeMessageOutputEmitter = new Emitter<ILanguageRuntimeMessageOutput>();
 	private readonly _onDidReceiveRuntimeMessageStreamEmitter = new Emitter<ILanguageRuntimeMessageStream>();
@@ -46,6 +47,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidCompleteStartup = this._startupEmitter.event;
+		this.onDidEncounterStartupFailure = this._startupFailureEmitter.event;
 
 		// Listen to state changes and track the current state
 		this.onDidChangeRuntimeState((state) => {
@@ -56,6 +58,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	onDidChangeRuntimeState: Event<RuntimeState>;
 
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
+
+	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
 
 	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutputEmitter.event;
 	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStreamEmitter.event;
@@ -202,7 +206,26 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				this._startupEmitter.fire(info);
 				resolve(info);
 			}).catch((err) => {
-				reject(err);
+				// Examine the error object to see what kind of failure it is
+				if (err.message && err.details) {
+					// We have an error message and details; use both
+					this._startupFailureEmitter.fire(err satisfies ILanguageRuntimeStartupFailure);
+					reject(err.message);
+				} else if (err.message) {
+					// We only have a message.
+					this._startupFailureEmitter.fire({
+						message: err.message,
+						details: ''
+					} satisfies ILanguageRuntimeStartupFailure);
+					reject(err.message);
+				} else {
+					// Not an error object, or it doesn't have a message; just use the string
+					this._startupFailureEmitter.fire({
+						message: err.toString(),
+						details: ''
+					} satisfies ILanguageRuntimeStartupFailure);
+					reject(err);
+				}
 			});
 		});
 	}

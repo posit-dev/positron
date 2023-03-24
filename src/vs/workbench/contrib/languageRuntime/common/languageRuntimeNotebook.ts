@@ -6,7 +6,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageRuntime, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, IRuntimeClientInstance, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageStream } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, IRuntimeClientInstance, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeCodeFragmentStatus, RuntimeOnlineState, RuntimeState, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageStream, ILanguageRuntimeStartupFailure } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { CellEditType, CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -39,6 +39,9 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 	/** Emitter for runtime startup event */
 	private readonly _startup: Emitter<ILanguageRuntimeInfo>;
+
+	/** Emitter for runtime startup failure event */
+	private readonly _failure: Emitter<ILanguageRuntimeStartupFailure>;
 
 	private readonly _onDidReceiveRuntimeMessageOutputEmitter = new Emitter<ILanguageRuntimeMessageOutput>();
 	private readonly _onDidReceiveRuntimeMessageStreamEmitter = new Emitter<ILanguageRuntimeMessageStream>();
@@ -86,6 +89,9 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 
 		this._startup = this._register(new Emitter<ILanguageRuntimeInfo>());
 		this.onDidCompleteStartup = this._startup.event;
+
+		this._failure = this._register(new Emitter<ILanguageRuntimeStartupFailure>());
+		this.onDidEncounterStartupFailure = this._failure.event;
 
 		// Listen to our own messages and track current state
 		this.onDidChangeRuntimeState((state) => {
@@ -179,6 +185,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	}
 
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
+	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
 

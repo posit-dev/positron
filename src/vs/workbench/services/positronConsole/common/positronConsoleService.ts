@@ -24,6 +24,7 @@ import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 
 //#region Helper Functions
 
@@ -343,6 +344,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeDisposableStore = new DisposableStore();
 
 	/**
+	 * Gets or sets the runtime state.
+	 */
+	private _runtimeState: RuntimeState = RuntimeState.Uninitialized;
+
+	/**
+	 * Whether or not we are currently attached to the runtime.
+	 */
+	private _runtimeAttached = false;
+
+	/**
 	 * Gets or sets the state.
 	 */
 	private _state = PositronConsoleState.Uninitialized;
@@ -595,6 +606,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param starting A value which indicates whether the runtime is starting.
 	 */
 	private attachRuntime(starting: boolean) {
+		// Mark the runtime as attached.
+		this._runtimeAttached = true;
+
 		// Set the state and add the appropriate runtime item to indicate whether the Positron
 		// console instance is is starting or is reconnected.
 		if (starting) {
@@ -615,8 +629,37 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(runtimeState => {
 			this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
 			if (runtimeState === RuntimeState.Exited) {
-				this.detachRuntime();
+				if (this._runtimeState === RuntimeState.Starting ||
+					this._runtimeState === RuntimeState.Initializing) {
+					// If we moved directly from Starting or Initializing to
+					// Exited, then we probably encountered a startup
+					// failure, and will be receiving a
+					// `onDidEncounterStartupFailure` event shortly.  In this
+					// case, we don't want to detach the runtime, because we
+					// want to keep the onDidEncounterStartupFailure event
+					// handler attached.
+					//
+					// We don't want to wait forever, though, so we'll set a
+					// timeout to detach the runtime if we don't receive a
+					// onDidEncounterStartupFailure event within a reasonable
+					// amount of time.
+					setTimeout(() => {
+						// If we're still in the Exited state and haven't
+						// disposed, then do it now.
+						if (this._runtimeState === RuntimeState.Exited && this._runtimeAttached) {
+							this.detachRuntime();
+						}
+					}, 1000);
+				} else if (this._runtimeAttached) {
+					// We exited from a state other than Starting or Initializing, so this is a
+					// "normal" exit, or at least not a startup failure. Detach the runtime.
+					this.detachRuntime();
+				}
 			}
+
+			// Remember this runtime state so we know which state we are
+			// transitioning from when the next state change occurs.
+			this._runtimeState = runtimeState;
 		}));
 
 		// Add the onDidCompleteStartup event handler.
@@ -631,6 +674,25 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				languageRuntimeInfo.implementation_version,
 				languageRuntimeInfo.language_version
 			));
+		}));
+
+		// Add the onDidEncounterStartupFailure event handler. This can arrive before or after
+		// the state change to Exited, so we need to handle it in both places.
+		this._runtimeDisposableStore.add(this._runtime.onDidEncounterStartupFailure(startupFailure => {
+			// Add item trace.
+			this.addRuntimeItemTrace(`onDidEncounterStartupFailure`);
+
+			// Add the item startup.
+			this.addRuntimeItem(new RuntimeItemStartupFailure(
+				generateUuid(),
+				startupFailure.message,
+				startupFailure.details,
+			));
+
+			// If we haven't already detached the runtime, do it now.
+			if (this._runtimeState === RuntimeState.Exited && this._runtimeAttached) {
+				this.detachRuntime();
+			}
 		}));
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
@@ -767,13 +829,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
-		this._runtimeDisposableStore.dispose();
-		this._runtimeDisposableStore = new DisposableStore();
+		if (this._runtimeAttached) {
+			// We are currently attached; detach.
+			this._runtimeAttached = false;
 
-		this.addRuntimeItem(new RuntimeItemExited(
-			generateUuid(),
-			`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} has exited.`
-		));
+			// Dispose of the runtime event handlers.
+			this._runtimeDisposableStore.dispose();
+			this._runtimeDisposableStore = new DisposableStore();
+
+			this.addRuntimeItem(new RuntimeItemExited(
+				generateUuid(),
+				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} has exited.`
+			));
+		} else {
+			// We are not currently attached; warn.
+			console.warn(`Attempt to detach already detached runtime ${this._runtime.metadata.runtimeName}.`);
+		}
 	}
 
 	/**
