@@ -195,6 +195,13 @@ export interface IEnvironmentClientMessageDelete extends IEnvironmentClientMessa
 }
 
 /**
+ * A request to clear all variables
+ */
+export interface IEnvironmentClientMessageClear extends IEnvironmentClientMessageInput {
+	include_hidden_objects: boolean;
+}
+
+/**
  * A message used to receive data from the language runtime environment client.
  */
 export interface IEnvironmentClientMessageOutput {
@@ -335,9 +342,13 @@ export class EnvironmentClientInstance extends Disposable {
 	/**
 	 * Requests that the environment client clear all variables.
 	 */
-	public async requestClear(): Promise<void> {
-		return this.performRpc<void>('clear all variables',
-			{ msg_type: EnvironmentClientMessageTypeInput.Clear });
+	public async requestClear(includeHiddenObjects: boolean): Promise<EnvironmentClientList> {
+		const list = await this.performRpc<IEnvironmentClientMessageList>('clear all variables',
+			{
+				msg_type: EnvironmentClientMessageTypeInput.Clear,
+				include_hidden_objects: includeHiddenObjects
+			} as IEnvironmentClientMessageClear);
+		return new EnvironmentClientList(list.variables, [], this);
 	}
 
 	/**
