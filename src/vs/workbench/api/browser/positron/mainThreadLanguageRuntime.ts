@@ -206,9 +206,26 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				this._startupEmitter.fire(info);
 				resolve(info);
 			}).catch((err) => {
-				this._startupFailureEmitter.fire(
-					{ message: err, details: '' } satisfies ILanguageRuntimeStartupFailure);
-				reject(err);
+				// Examine the error object to see what kind of failure it is
+				if (err.message && err.details) {
+					// We have an error message and details; use both
+					this._startupFailureEmitter.fire(err satisfies ILanguageRuntimeStartupFailure);
+					reject(err.message);
+				} else if (err.message) {
+					// We only have a message.
+					this._startupFailureEmitter.fire({
+						message: err.message,
+						details: ''
+					} satisfies ILanguageRuntimeStartupFailure);
+					reject(err.message);
+				} else {
+					// Not an error object, or it doesn't have a message; just use the string
+					this._startupFailureEmitter.fire({
+						message: err.toString(),
+						details: ''
+					} satisfies ILanguageRuntimeStartupFailure);
+					reject(err);
+				}
 			});
 		});
 	}

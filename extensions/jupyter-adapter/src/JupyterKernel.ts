@@ -30,6 +30,7 @@ import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
 import path = require('path');
+import { StartupFailure } from './StartupFailure';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -256,13 +257,22 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Bind the sockets to the ports specified in the connection file;
 		// returns a promise that resovles when all the sockets are connected
-		return Promise.all([
-			this._control.connect(connectionSpec.control_port),
-			this._shell.connect(connectionSpec.shell_port),
-			this._stdin.connect(connectionSpec.stdin_port),
-			this._iopub.connect(connectionSpec.iopub_port),
-			this._heartbeat.connect(connectionSpec.hb_port),
-		]);
+		return new Promise<void>((resolve, reject) => {
+			Promise.all([
+				this._control!.connect(connectionSpec.control_port),
+				this._shell!.connect(connectionSpec.shell_port),
+				this._stdin!.connect(connectionSpec.stdin_port),
+				this._iopub!.connect(connectionSpec.iopub_port),
+				this._heartbeat!.connect(connectionSpec.hb_port),
+			]).then(() => {
+				// Connected!
+				resolve();
+			}).catch((err) => {
+				// Wrap any errors in a StartupFailure so that any logs are
+				// included in the message delivered to the client
+				reject(this.createStartupFailure(err));
+			});
+		});
 	}
 
 	/**
@@ -289,11 +299,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// The kernel is currently starting. If it skips right to the "exited" status, then
 			// we'll throw an error so that this async function rejects.
 			this.once('status', (status) => {
-				this.log(`*** Got status event ${status}`);
 				if (status === positron.RuntimeState.Exited) {
-					this.log(`*** Throwing error`);
-					reject(`Failed to connect to ${this._spec.display_name} kernel; ` +
-						`kernel exited with status ${this._exitCode} during startup.`);
+					reject(this.createStartupFailure(
+						`Kernel exited with status ${this._exitCode} during startup.`));
 				}
 			});
 
@@ -306,10 +314,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			}
 
 			// Connect to the kernel's sockets; wait for all sockets to connect before continuing
-			this.log('*** Connecting to kernel sockets');
 			this.connect(session.state.connectionFile).then(() => {
-
-				this.log('*** Connected to kernel sockets');
 
 				// Subscribe to all topics and connect the IOPub socket
 				this._iopub?.socket().subscribe('');
@@ -344,7 +349,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				// Set a timer to reject the promise if we don't receive the initial
 				// heartbeat within 10 seconds
 				const timeout = setTimeout(() => {
-					reject(new Error('Timed out waiting 10 seconds for initial heartbeat'));
+					reject(this.createStartupFailure(
+						'Timed out waiting 10 seconds for initial heartbeat'));
 				}, 10000);
 
 				// Wait for the initial heartbeat
@@ -375,7 +381,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Starts the Jupyter kernel.
+	 * Starts the Jupyter kernel. Resolves when the kernel is ready to receive
+	 * messages; rejects with a StartupFailure error if the kernel fails to
+	 * start.
 	 */
 	public async start() {
 
@@ -406,14 +414,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 						// Defer the start until the next tick so we don't recurse
 						setTimeout(() => {
-							resolve(this.start());
+							this.start().then(() => {
+								resolve();
+							}).catch((err) => {
+								reject(err);
+							});
 						}, 0);
 					} else {
 						// The kernel was initializing but has moved on to another
 						// state; resolve the promise and treat it as already
 						// started.
 						this.log(`Skipping deferred start for ${this._spec.display_name} kernel; already '${status}'`);
-						reject(new Error(`Kernel already '${status}'`));
+						resolve();
 					}
 				};
 
@@ -521,10 +533,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 							// Connect to the kernel running in the terminal
 							this.connectToSession(session).then(() => {
-								this.log(`*** RESOLVING session connection promise for ${this._spec.display_name} kernel`);
 								resolve();
 							}).catch((err) => {
-								this.log(`*** REJECTING session connection promise for ${this._spec.display_name} kernel: ${err}`);
 								reject(err);
 							});
 						}
@@ -1010,5 +1020,28 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// starts up.
 			this._channel.appendLine(msg);
 		}
+	}
+
+	/**
+	 * Creates a detailed error object to emit to the client when the kernel fails
+	 * to start.
+	 *
+	 * @param message The error message
+	 * @returns A StartupFailure object containing the error message and the
+	 *   contents of the kernel's log file, if it exists
+	 */
+	private createStartupFailure(message: string): StartupFailure {
+		// Read the content of the log file, if it exists; this may contain more detail
+		// about why the kernel exited.
+		let logFileContent = '';
+		if (this._session) {
+			const state = this._session.state;
+			if (fs.existsSync(state.logFile)) {
+				logFileContent = fs.readFileSync(state.logFile, 'utf8');
+			}
+		}
+
+		// Create a startup failure message
+		return new StartupFailure(message, logFileContent);
 	}
 }
