@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
@@ -11,6 +12,7 @@ import { IPositronEnvironmentInstance, IPositronEnvironmentService } from 'vs/wo
  * PositronEnvironmentServices interface. Defines the set of services that are required by the Positron environment.
  */
 export interface PositronEnvironmentServices {
+	readonly configurationService: IConfigurationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly positronEnvironmentService: IPositronEnvironmentService;
 }
