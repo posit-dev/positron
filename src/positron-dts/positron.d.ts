@@ -34,6 +34,9 @@ declare module 'positron' {
 		/** A message representing a runtime event */
 		Event = 'event',
 
+		/** A message representing a new comm (client instance) being opened from the rutime side */
+		CommOpen = 'comm_open',
+
 		/** A message representing data received via a comm (to a client instance) */
 		CommData = 'comm_data',
 
@@ -242,6 +245,21 @@ declare module 'positron' {
 
 		/** The error stack trace */
 		traceback: Array<string>;
+	}
+
+	/**
+	 * LanguageRuntimeCommOpen is a LanguageRuntimeMessage that indicates a
+	 * comm (client instance) was opened from the server side
+	 */
+	export interface LanguageRuntimeCommOpen extends LanguageRuntimeMessage {
+		/** The unique ID of the comm being opened */
+		comm_id: string;
+
+		/** The name (type) of the comm being opened, e.g. 'jupyter.widget' */
+		target_name: string;
+
+		/** The data from the back-end */
+		data: object;
 	}
 
 	/** LanguageRuntimeCommMessage is a LanguageRuntimeMessage that represents data for a comm (client instance) */
