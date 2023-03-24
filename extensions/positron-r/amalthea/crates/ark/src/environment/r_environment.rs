@@ -231,19 +231,10 @@ impl REnvironment {
      * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
      */
     fn clear(&mut self, include_hidden_objects: bool, request_id: Option<String>) {
+
         // try to rm(<env>, list = ls(envir = <env>, all.names = TRUE)))
-        r_lock! {
-            if let Err(_) = self.clear_impl(include_hidden_objects) {
-                error!("Failed to clear the environment");
-            }
-        }
+        let result : Result<(), harp::error::Error> = r_lock! {
 
-        // and then refresh
-        self.refresh(request_id);
-    }
-
-    fn clear_impl(&mut self, include_hidden_objects: bool) -> Result<(), harp::error::Error> {
-        unsafe {
             let mut list = RFunction::new("base", "ls")
                 .param("envir", *self.env)
                 .param("all.names", Rf_ScalarLogical(include_hidden_objects as i32))
@@ -262,35 +253,38 @@ impl REnvironment {
                 .call()?;
 
             Ok(())
+        };
+
+        if let Err(_err) = result {
+            error!("Failed to clear the environment");
         }
+
+        // and then refresh anyway
+        //
+        // it is possible (is it ?) that in case of an error some variables
+        // were removed and some were not
+        self.refresh(request_id);
     }
 
     /**
      * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
      */
     fn delete(&mut self, variables: Vec<String>, request_id: Option<String>) {
-        // try to rm(list = variables, envir = <env>)
         r_lock! {
-            if let Err(_) = self.delete_impl(&variables) {
+            let variables : Vec<&str> = variables.iter().map(|s| s as &str).collect();
+
+            let result = RFunction::new("base", "rm")
+                .param("list", CharacterVector::create(variables).cast())
+                .param("envir", *self.env)
+                .call();
+
+            if let Err(_) = result {
                 error!("Failed to delete variables from the environment");
             }
         }
 
         // and then update
         self.update(request_id);
-    }
-
-    fn delete_impl(&mut self, variables: &Vec<String>) -> Result<(), harp::error::Error> {
-        unsafe {
-            let variables : Vec<&str> = variables.iter().map(|s| s as &str).collect();
-
-            RFunction::new("base", "rm")
-                .param("list", CharacterVector::create(variables).cast())
-                .param("envir", *self.env)
-                .call()?;
-
-            Ok(())
-        }
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
