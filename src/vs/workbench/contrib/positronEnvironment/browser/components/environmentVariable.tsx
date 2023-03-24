@@ -52,8 +52,8 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 								<button className='expand-collapse-button' onClick={handleExpandCollapse}>
 									<div className='expand-collapse-button-face'>
 										{!expanded ?
-											<div className={`expand-collapse-button-icon codicon codicon-positron-expand`}></div> :
-											<div className={`expand-collapse-button-icon codicon codicon-positron-collapse`}></div>
+											<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
+											<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
 										}
 									</div>
 								</button>
