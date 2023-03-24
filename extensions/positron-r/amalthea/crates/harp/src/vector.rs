@@ -5,6 +5,7 @@
 //
 //
 
+use std::os::raw::c_char;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -140,25 +141,76 @@ impl<'a> Iterator for CharacterVectorIterator<'a> {
     }
 }
 
+pub trait ToCharSxp {
+    fn to_charsxp(&self) -> SEXP;
+}
+
+impl<'a> ToCharSxp for &'a str {
+    fn to_charsxp(&self) -> SEXP {
+        unsafe {
+            /*
+                Rf_mkCharLenCE() will take care of allocating a nul terminated
+                string on the C side, so we don't need to worry about this here
+                    c = allocCharsxp(len);
+                    memcpy(CHAR_RW(c), name, len);
+                The only caveat is that this will error() if self embeds a nul
+                rust strings being utf8, we can use cetype_t_CE_UTF8 and skip
+                worrying about various problems in Rf_mkCharLenCE()
+            */
+            Rf_mkCharLenCE(self.as_ptr() as *mut c_char, self.len() as i32, cetype_t_CE_UTF8)
+        }
+    }
+}
+
+impl ToCharSxp for String {
+    fn to_charsxp(&self) -> SEXP {
+        self.as_str().to_charsxp()
+    }
+}
+
+pub trait ToRStrings {
+    fn to_r_strings(self) -> CharacterVector;
+}
+
+impl<S: ToCharSxp> ToRStrings for &[S] {
+    fn to_r_strings(self) -> CharacterVector {
+        unsafe {
+            let n = self.len();
+
+            let vector = CharacterVector::with_length(n);
+            for i in 0..self.len() {
+                let charsexp = self.get_unchecked(i).to_charsxp();
+                SET_STRING_ELT(*vector, i as R_xlen_t, charsexp);
+            }
+            vector
+        }
+    }
+}
+
+impl<S: ToCharSxp, const N: usize> ToRStrings for &[S; N] {
+    fn to_r_strings(self) -> CharacterVector {
+        self[..].to_r_strings()
+    }
+}
+
+impl<S: ToCharSxp> ToRStrings for Vec<S> {
+    fn to_r_strings(self) -> CharacterVector {
+        self[..].to_r_strings()
+    }
+}
+
+impl<S: ToCharSxp> ToRStrings for S {
+    fn to_r_strings(self) -> CharacterVector {
+        (&[self]).to_r_strings()
+    }
+}
+
 impl CharacterVector {
 
-    pub unsafe fn create<'a, T>(data: T) -> Self
-    where
-        T: AsSlice<&'a str>
+    pub unsafe fn create<T>(data: T) -> Self
+        where T: ToRStrings
     {
-        let data = data.as_slice();
-        let n = data.len();
-        let vector = CharacterVector::with_length(n);
-        for i in 0..data.len() {
-            let value: &str = data.get_unchecked(i).as_ref();
-            let charsexp = Rf_mkCharLenCE(
-                value.as_ptr() as *const i8,
-                value.len() as i32,
-                cetype_t_CE_UTF8,
-            );
-            SET_STRING_ELT(*vector, i as R_xlen_t, charsexp);
-        }
-        vector
+        data.to_r_strings()
     }
 
     pub unsafe fn get(&self, index: usize) -> Result<&'static str> {
@@ -384,6 +436,22 @@ mod tests {
             let value = it.next();
             assert!(value.is_none());
 
+            let vector = CharacterVector::create(&[String::from("hello"), String::from("world")]);
+            assert!(vector == ["hello", "world"]);
+            assert!(vector == &["hello", "world"]);
+
+            let mut it = vector.iter();
+
+            let value = it.next();
+            assert!(value.is_some());
+            assert!(value.unwrap() == "hello");
+
+            let value = it.next();
+            assert!(value.is_some());
+            assert!(value.unwrap() == "world");
+
+            let value = it.next();
+            assert!(value.is_none());
         }
     }
 
