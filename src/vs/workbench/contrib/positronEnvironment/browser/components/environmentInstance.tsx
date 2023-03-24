@@ -13,6 +13,7 @@ import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironme
 import { EnvironmentVariableValueKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/contrib/positronEnvironment/common/utils';
 import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { EnvironmentVariablesContainer } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariablesContainer';
 
 // EnvironmentInstanceProps interface.
 interface EnvironmentInstanceProps {
@@ -112,15 +113,21 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		return (<>
 			{dataItems.length !== 0 && <>
 				<HeaderRow title='Data' />
-				{renderItems(dataItems, 'name')}
+				<EnvironmentVariablesContainer>
+					{renderItems(dataItems, 'name')}
+				</EnvironmentVariablesContainer>
 			</>}
 			{valueItems.length !== 0 && <>
 				<HeaderRow title='Values' />
-				{renderItems(valueItems, 'name')}
+				<EnvironmentVariablesContainer>
+					{renderItems(valueItems, 'name')}
+				</EnvironmentVariablesContainer>
 			</>}
 			{functionItems.length !== 0 && <>
 				<HeaderRow title='Functions' />
-				{renderItems(functionItems, 'name')}
+				<EnvironmentVariablesContainer>
+					{renderItems(functionItems, 'name')}
+				</EnvironmentVariablesContainer>
 			</>}
 		</>);
 	};
@@ -139,9 +146,11 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		}
 
 		// Return the environment variable items.
-		return items.map(item => {
-			return <EnvironmentVariable key={item.id} indentLevel={0} environmentVariableItem={item} />;
-		});
+		return <EnvironmentVariablesContainer>
+			{items.map(item =>
+				<EnvironmentVariable key={item.id} indentLevel={0} environmentVariableItem={item} />
+			)}
+		</EnvironmentVariablesContainer>;
 	};
 
 	// Render.

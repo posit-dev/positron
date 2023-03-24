@@ -19,7 +19,7 @@ interface HeaderRowProps {
 export const HeaderRow = (props: HeaderRowProps) => {
 	// Render.
 	return (
-		<div className='header-row not-selectable'>
+		<div className='header-row'>
 			{props.title}
 		</div>
 	);

@@ -1536,5 +1536,12 @@ export const POSITRON_ENVIRONMENT_HEADER_BACKGROUND_COLOR = registerColor('posit
 	hcLight: inputBackground
 }, localize('positronEnvironment.headerBackground', "Positron Environment header background color."));
 
+// The Positron Environment gred color.
+export const POSITRON_ENVIRONMENT_GRID_COLOR = registerColor('positronEnvironment.gridColor', {
+	dark: '#2e3336',
+	light: '#dfe3e6',
+	hcDark: '#2f3436',
+	hcLight: '#dfe3e6'
+}, localize('positronEnvironment.gridColor', "Positron Environment grid color."));
 
 // --- End Positron ---
