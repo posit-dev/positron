@@ -29,6 +29,8 @@ import { JupyterInputReply } from './JupyterInputReply';
 import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
+import path = require('path');
+import { StartupFailure } from './StartupFailure';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -81,6 +83,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** The channel to which output for this specific terminal is logged, if any */
 	private _logChannel?: vscode.OutputChannel;
 
+	/** The exit code, if any */
+	private _exitCode: number;
+
 	constructor(private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
@@ -97,6 +102,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._heartbeatTimer = null;
 		this._nextHeartbeat = null;
 		this._lastHeartbeat = 0;
+		this._exitCode = 0;
 
 		// Set the initial status to uninitialized (we'll change it later if we
 		// discover it's actually running)
@@ -145,10 +151,17 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						`${this._spec.display_name} failed to start; exit code: ${closedTerminal.exitStatus?.code}`);
 				} else {
 					// Otherwise, we exited normally (but print the exit code anyway)
-					this.setStatus(positron.RuntimeState.Exited);
 					this.log(
 						`${this._spec.display_name} exited with code ${closedTerminal.exitStatus?.code}`);
 				}
+
+				// Save the exit code for error reporting if we know it
+				if (closedTerminal.exitStatus && closedTerminal.exitStatus.code) {
+					this._exitCode = closedTerminal.exitStatus.code;
+				}
+
+				// The kernel's status is now exited
+				this.setStatus(positron.RuntimeState.Exited);
 			}
 		});
 	}
@@ -244,13 +257,22 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Bind the sockets to the ports specified in the connection file;
 		// returns a promise that resovles when all the sockets are connected
-		return Promise.all([
-			this._control.connect(connectionSpec.control_port),
-			this._shell.connect(connectionSpec.shell_port),
-			this._stdin.connect(connectionSpec.stdin_port),
-			this._iopub.connect(connectionSpec.iopub_port),
-			this._heartbeat.connect(connectionSpec.hb_port),
-		]);
+		return new Promise<void>((resolve, reject) => {
+			Promise.all([
+				this._control!.connect(connectionSpec.control_port),
+				this._shell!.connect(connectionSpec.shell_port),
+				this._stdin!.connect(connectionSpec.stdin_port),
+				this._iopub!.connect(connectionSpec.iopub_port),
+				this._heartbeat!.connect(connectionSpec.hb_port),
+			]).then(() => {
+				// Connected!
+				resolve();
+			}).catch((err) => {
+				// Wrap any errors in a StartupFailure so that any logs are
+				// included in the message delivered to the client
+				reject(this.createStartupFailure(err));
+			});
+		});
 	}
 
 	/**
@@ -262,69 +284,106 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private async connectToSession(session: JupyterSession) {
 
-		// Establish a log channel for the kernel we're connecting to
-		this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
+		// Return a promise that resolves when we receive the initial heartbeat
+		return new Promise<void>((resolve, reject) => {
 
-		// Bind to the Jupyter session
-		this._session = session;
+			// Establish a log channel for the kernel we're connecting to
+			this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
 
-		this.log(
-			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
+			// Bind to the Jupyter session
+			this._session = session;
 
-		// Begin streaming the log file, if it exists. We create the log file
-		// when we start the kernel, if it has an argument that specifies a log
-		// file.
-		const logFilePath = this._session!.state.logFile;
-		if (fs.existsSync(logFilePath)) {
-			this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
-		}
+			this.log(
+				`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
 
-		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
-		await this.connect(session.state.connectionFile);
-
-		this._heartbeat?.socket().once('message', (msg: string) => {
-
-			this.log('Receieved initial heartbeat: ' + msg);
-			this.setStatus(positron.RuntimeState.Ready);
-
-			const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-			this.log(`Starting heartbeat check at ${seconds} second intervals...`);
-			this.heartbeat();
-			this._heartbeat?.socket().on('message', (msg: string) => {
-				this.onHeartbeat(msg);
-			});
-		});
-		this._heartbeat?.socket().send(['hello']);
-
-		// Subscribe to all topics
-		this._iopub?.socket().subscribe('');
-		this._iopub?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.iopub, msg);
-			}
-		});
-		this._shell?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-			if (msg !== null) {
-				this.emitMessage(JupyterSockets.shell, msg);
-			}
-		});
-		this._stdin?.socket().on('message', (...args: any[]) => {
-			const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-			if (msg !== null) {
-				// If this is an input request, save the header so we can
-				// can line it up with the client's response.
-				if (msg.header.msg_type === 'input_request') {
-					this._inputRequests.set(msg.header.msg_id, msg.header);
+			// The kernel is currently starting. If it skips right to the "exited" status, then
+			// we'll throw an error so that this async function rejects.
+			this.once('status', (status) => {
+				if (status === positron.RuntimeState.Exited) {
+					reject(this.createStartupFailure(
+						`Kernel exited with status ${this._exitCode} during startup.`));
 				}
-				this.emitMessage(JupyterSockets.stdin, msg);
+			});
+
+			// Begin streaming the log file, if it exists. We create the log file
+			// when we start the kernel, if it has an argument that specifies a log
+			// file.
+			const logFilePath = this._session!.state.logFile;
+			if (fs.existsSync(logFilePath)) {
+				this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
 			}
+
+			// Connect to the kernel's sockets; wait for all sockets to connect before continuing
+			this.connect(session.state.connectionFile).then(() => {
+
+				// Subscribe to all topics and connect the IOPub socket
+				this._iopub?.socket().subscribe('');
+				this._iopub?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+					if (msg !== null) {
+						this.emitMessage(JupyterSockets.iopub, msg);
+					}
+				});
+
+				// Connect the Shell socket
+				this._shell?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+					if (msg !== null) {
+						this.emitMessage(JupyterSockets.shell, msg);
+					}
+				});
+
+				// Connect the Stdin socket
+				this._stdin?.socket().on('message', (...args: any[]) => {
+					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+					if (msg !== null) {
+						// If this is an input request, save the header so we can
+						// can line it up with the client's response.
+						if (msg.header.msg_type === 'input_request') {
+							this._inputRequests.set(msg.header.msg_id, msg.header);
+						}
+						this.emitMessage(JupyterSockets.stdin, msg);
+					}
+				});
+
+				// Set a timer to reject the promise if we don't receive the initial
+				// heartbeat within 10 seconds
+				const timeout = setTimeout(() => {
+					reject(this.createStartupFailure(
+						'Timed out waiting 10 seconds for initial heartbeat'));
+				}, 10000);
+
+				// Wait for the initial heartbeat
+				this._heartbeat?.socket().once('message', (msg: string) => {
+
+					// We got the heartbeat, so cancel the timeout
+					clearTimeout(timeout);
+
+					// Resolve the promise, mark the kernel as ready, and start the heartbeat
+					// check
+					this.log('Receieved initial heartbeat: ' + msg);
+					this.setStatus(positron.RuntimeState.Ready);
+					resolve();
+
+					const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
+					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
+					this.heartbeat();
+					this._heartbeat?.socket().on('message', (msg: string) => {
+						this.onHeartbeat(msg);
+					});
+				});
+				this._heartbeat?.socket().send(['hello']);
+
+			}).catch((err) => {
+				reject(err);
+			});
 		});
 	}
 
 	/**
-	 * Starts the Jupyter kernel.
+	 * Starts the Jupyter kernel. Resolves when the kernel is ready to receive
+	 * messages; rejects with a StartupFailure error if the kernel fails to
+	 * start.
 	 */
 	public async start() {
 
@@ -355,14 +414,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 						// Defer the start until the next tick so we don't recurse
 						setTimeout(() => {
-							resolve(this.start());
+							this.start().then(() => {
+								resolve();
+							}).catch((err) => {
+								reject(err);
+							});
 						}, 0);
 					} else {
 						// The kernel was initializing but has moved on to another
-						// state; resolve the promise and treat it als already
+						// state; resolve the promise and treat it as already
 						// started.
 						this.log(`Skipping deferred start for ${this._spec.display_name} kernel; already '${status}'`);
-						reject(new Error(`Kernel already '${status}'`));
+						resolve();
 					}
 				};
 
@@ -428,13 +491,20 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const showTerminal = vscode.workspace.getConfiguration('positron.jupyterAdapter')
 			.get('showTerminal', false);
 
+		const kernelWrapperPath = path.join(this._context.extensionPath,
+			'resources',
+			process.platform === 'win32' ?
+				'kernel-wrapper.bat' :
+				'kernel-wrapper.sh');
+		const logArg = [logFile];
+
 		// Use the VS Code terminal API to create a terminal for the kernel
 		vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
-			shellPath: args[0],
-			shellArgs: args.slice(1),
+			shellPath: kernelWrapperPath,
+			shellArgs: logArg.concat(args),
 			env,
-			message: `** ${this._spec.display_name} **`,
+			message: '',
 			hideFromUser: !showTerminal,
 			isTransient: false
 		});
@@ -950,5 +1020,28 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// starts up.
 			this._channel.appendLine(msg);
 		}
+	}
+
+	/**
+	 * Creates a detailed error object to emit to the client when the kernel fails
+	 * to start.
+	 *
+	 * @param message The error message
+	 * @returns A StartupFailure object containing the error message and the
+	 *   contents of the kernel's log file, if it exists
+	 */
+	private createStartupFailure(message: string): StartupFailure {
+		// Read the content of the log file, if it exists; this may contain more detail
+		// about why the kernel exited.
+		let logFileContent = '';
+		if (this._session) {
+			const state = this._session.state;
+			if (fs.existsSync(state.logFile)) {
+				logFileContent = fs.readFileSync(state.logFile, 'utf8');
+			}
+		}
+
+		// Create a startup failure message
+		return new StartupFailure(message, logFileContent);
 	}
 }

@@ -29,6 +29,8 @@ import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -124,6 +126,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemExited) {
 			return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
+			return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemTrace) {
 			return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
 		} else {

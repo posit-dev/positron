@@ -164,6 +164,15 @@ export interface ILanguageRuntimeInfo {
 	language_version: string;
 }
 
+/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
+export interface ILanguageRuntimeStartupFailure {
+	/** The error message to show to the user; at most one line of text */
+	message: string;
+
+	/** Error details, logs, etc. as a multi-line string */
+	details: string;
+}
+
 /**
  * Possible error dispositions for a language runtime
  */
@@ -325,6 +334,9 @@ export interface ILanguageRuntime {
 
 	/** An object that emits an event when the runtime completes startup */
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
+
+	/** An object that emits an event when runtime startup fails */
+	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
 
 	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
 	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;
