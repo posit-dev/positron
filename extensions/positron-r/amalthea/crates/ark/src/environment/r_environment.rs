@@ -13,15 +13,20 @@ use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use harp::environment::env_bindings;
 use harp::environment::Binding;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_lock;
 use harp::utils::r_assert_type;
+use harp::vector::CharacterVector;
 use libR_sys::*;
 use log::debug;
 use log::error;
 use log::warn;
 
 use crate::environment::message::EnvironmentMessage;
+use crate::environment::message::EnvironmentMessageClear;
+use crate::environment::message::EnvironmentMessageDelete;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
@@ -34,13 +39,10 @@ use crate::lsp::signals::SIGNALS;
  */
 pub struct REnvironment {
     pub channel_msg_rx: Receiver<CommChannelMsg>,
-
     pub frontend_msg_sender: Sender<CommChannelMsg>,
-
     pub env: RObject,
-
-    current_bindings: Vec<Binding>, // TODO:
-                                    // - a version count
+    current_bindings: Vec<Binding>,
+    version: u64,
 }
 
 impl REnvironment {
@@ -71,6 +73,7 @@ impl REnvironment {
                 frontend_msg_sender,
                 env,
                 current_bindings: vec![],
+                version: 0
             };
             environment.execution_thread();
         });
@@ -102,7 +105,7 @@ impl REnvironment {
             select! {
                 recv(&prompt_signal_rx) -> msg => {
                     if let Ok(()) = msg {
-                        self.update();
+                        self.update(None);
                     }
                 },
 
@@ -157,6 +160,14 @@ impl REnvironment {
                                 self.refresh(Some(id));
                             },
 
+                            EnvironmentMessage::Clear(EnvironmentMessageClear{include_hidden_objects}) => {
+                                self.clear(include_hidden_objects, Some(id));
+                            },
+
+                            EnvironmentMessage::Delete(EnvironmentMessageDelete{variables}) => {
+                                self.delete(variables, Some(id));
+                            },
+
                             _ => {
                                 error!(
                                     "Environment: Don't know how to handle message type '{:?}'",
@@ -180,6 +191,13 @@ impl REnvironment {
         }
     }
 
+    fn update_bindings(&mut self, new_bindings: Vec<Binding>) -> u64 {
+        self.current_bindings = new_bindings;
+        self.version = self.version + 1;
+
+        self.version
+    }
+
     /**
      * Perform a full environment scan and deliver the results to the front end.
      * When this message is being sent in reply to a request from the front end,
@@ -189,7 +207,7 @@ impl REnvironment {
         let mut variables: Vec<EnvironmentVariable> = vec![];
 
         r_lock! {
-            self.current_bindings = self.bindings();
+            self.update_bindings(self.bindings());
 
             for binding in &self.current_bindings {
                 variables.push(EnvironmentVariable::new(binding));
@@ -203,18 +221,85 @@ impl REnvironment {
         let env_list = EnvironmentMessage::List(EnvironmentMessageList {
             variables,
             length: env_size,
+            version: self.version
         });
 
-        let data = serde_json::to_value(env_list);
+        self.send_message(env_list, request_id);
+    }
+
+    /**
+     * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
+     */
+    fn clear(&mut self, include_hidden_objects: bool, request_id: Option<String>) {
+
+        // try to rm(<env>, list = ls(envir = <env>, all.names = TRUE)))
+        let result : Result<(), harp::error::Error> = r_lock! {
+
+            let mut list = RFunction::new("base", "ls")
+                .param("envir", *self.env)
+                .param("all.names", Rf_ScalarLogical(include_hidden_objects as i32))
+                .call()?;
+
+            if *self.env == R_GlobalEnv {
+                list = RFunction::new("base", "setdiff")
+                    .add(list)
+                    .add(RObject::from(".Random.seed"))
+                    .call()?;
+            }
+
+            RFunction::new("base", "rm")
+                .param("list", list)
+                .param("envir", *self.env)
+                .call()?;
+
+            Ok(())
+        };
+
+        if let Err(_err) = result {
+            error!("Failed to clear the environment");
+        }
+
+        // and then refresh anyway
+        //
+        // it is possible (is it ?) that in case of an error some variables
+        // were removed and some were not
+        self.refresh(request_id);
+    }
+
+    /**
+     * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
+     */
+    fn delete(&mut self, variables: Vec<String>, request_id: Option<String>) {
+        r_lock! {
+            let variables : Vec<&str> = variables.iter().map(|s| s as &str).collect();
+
+            let result = RFunction::new("base", "rm")
+                .param("list", CharacterVector::create(variables).cast())
+                .param("envir", *self.env)
+                .call();
+
+            if let Err(_) = result {
+                error!("Failed to delete variables from the environment");
+            }
+        }
+
+        // and then update
+        self.update(request_id);
+    }
+
+    fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
+        let data = serde_json::to_value(message);
+
         match data {
             Ok(data) => {
                 // If we were given a request ID, send the response as an RPC;
                 // otherwise, send it as an event
-                let msg = match request_id {
+                let comm_msg = match request_id {
                     Some(id) => CommChannelMsg::Rpc(id, data),
-                    None => CommChannelMsg::Data(data),
+                    None => CommChannelMsg::Data(data)
                 };
-                self.frontend_msg_sender.send(msg).unwrap()
+
+                self.frontend_msg_sender.send(comm_msg).unwrap()
             },
             Err(err) => {
                 error!("Environment: Failed to serialize environment data: {}", err);
@@ -222,13 +307,15 @@ impl REnvironment {
         }
     }
 
-    fn update(&mut self) {
-        r_lock! {
-            let old_bindings = &self.current_bindings;
-            let new_bindings = self.bindings();
+    fn update(&mut self, request_id: Option<String>) {
+        let mut assigned : Vec<EnvironmentVariable> = vec![];
+        let mut removed : Vec<String> = vec![];
 
-            let mut assigned : Vec<EnvironmentVariable> = vec![];
-            let mut removed : Vec<String> = vec![];
+        let old_bindings = &self.current_bindings;
+        let mut new_bindings = vec![];
+
+        r_lock! {
+            new_bindings = self.bindings();
 
             let mut old_iter = old_bindings.iter();
             let mut old_next = old_iter.next();
@@ -299,22 +386,22 @@ impl REnvironment {
                     }
                 }
             }
+        }
 
+
+        if assigned.len() > 0 || removed.len() > 0 || request_id.is_some() {
+
+            // only update the bindings (and the version)
+            // if anything changed
             if assigned.len() > 0 || removed.len() > 0 {
-                let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
-                    assigned, removed
-                });
-                match serde_json::to_value(message) {
-                    Ok(data) => self.frontend_msg_sender
-                        .send(CommChannelMsg::Data(data))
-                        .unwrap(),
-                    Err(err) => {
-                        error!("Environment: Failed to serialize update data: {}", err);
-                    },
-                }
-
-                self.current_bindings = new_bindings;
+                self.update_bindings(new_bindings);
             }
+
+            // but the message might be sent anyway if this comes from a request
+            let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
+                assigned, removed, version: self.version
+            });
+            self.send_message(message, request_id);
         }
     }
 

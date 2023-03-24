@@ -31,6 +31,12 @@ pub enum EnvironmentMessage {
     /// variables.
     Refresh,
 
+    /// A message requesting to clear the environment
+    Clear(EnvironmentMessageClear),
+
+    /// A message requesting to delete some variables from the environment
+    Delete(EnvironmentMessageDelete),
+
     /// A message indicating that the server has successfully processed a client
     /// request. Used only for request messages that do not return data.
     Success,
@@ -47,6 +53,7 @@ pub enum EnvironmentMessage {
 pub struct EnvironmentMessageList {
     pub variables: Vec<EnvironmentVariable>,
     pub length: usize,
+    pub version: u64
 }
 
 /**
@@ -56,6 +63,7 @@ pub struct EnvironmentMessageList {
 pub struct EnvironmentMessageUpdate {
     pub assigned: Vec<EnvironmentVariable>,
     pub removed: Vec<String>,
+    pub version: u64
 }
 
 /**
@@ -64,4 +72,20 @@ pub struct EnvironmentMessageUpdate {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvironmentMessageError {
     pub message: String,
+}
+
+/**
+ * The data for the Clear message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageClear {
+    pub include_hidden_objects: bool,
+}
+
+/**
+ * The data for the Delete message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageDelete {
+    pub variables: Vec<String>,
 }
