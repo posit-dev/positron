@@ -247,6 +247,21 @@ declare module 'positron' {
 		traceback: Array<string>;
 	}
 
+	/**
+	 * LanguageRuntimeCommOpen is a LanguageRuntimeMessage that indicates a
+	 * comm (client instance) was opened from the server side
+	 */
+	export interface LanguageRuntimeCommOpen extends LanguageRuntimeMessage {
+		/** The unique ID of the comm being opened */
+		comm_id: string;
+
+		/** The name (type) of the comm being opened, e.g. 'jupyter.widget' */
+		target_name: string;
+
+		/** The data from the back-end */
+		data: object;
+	}
+
 	/** LanguageRuntimeCommMessage is a LanguageRuntimeMessage that represents data for a comm (client instance) */
 	export interface LanguageRuntimeCommMessage extends LanguageRuntimeMessage {
 		/** The unique ID of the client comm ID for which the message is intended */
