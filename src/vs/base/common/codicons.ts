@@ -596,8 +596,6 @@ export const Codicon = {
 	positronConsoleView: register('positron-console-view', 0xf24e),
 	positronWorkspace: register('positron-workspace', 0xf24f),
 	positronEnvironmentGrouping: register('positron-environment-grouping', 0xf250),
-	positronExpand: register('positron-expand', 0xf251),
-	positronCollpase: register('positron-collapse', 0xf252),
 
 	// --- End Positron ---
 
