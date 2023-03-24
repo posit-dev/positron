@@ -2,8 +2,9 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
-from collections.abc import Iterable, Mapping
+from itertools import chain
 from typing import Any, Optional
 import enum
 import html
@@ -13,75 +14,6 @@ import numbers
 import pprint
 import sys
 import types
-
-
-# Marker used to track if no default was specified when popping an item from our dict
-_NoDefaultSpecified = object()
-
-
-class PositronDict(dict):
-
-    """
-    A custom dict used to track changed and deleted variables in the user
-    namespace, allowing for partial updates to be sent to the client
-    environment display after statements are executed.
-
-    TODO: Detect modifications to collections and complex objects.
-    """
-
-    def __init__(self, other=None, **kwargs):
-        super().__init__()
-        self.update(other, **kwargs)
-        self._positron_assigned = {}
-        self._positron_removed = set()
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        self._positron_assigned[key] = value
-
-    def update(self, other=None, **kwargs):
-        if other is not None:
-            items = other
-            if isinstance(other, Mapping):
-                items = other.items()
-            for key, value in items:
-                self[key] = value
-        for key, value in kwargs.items():
-            self[key] = value
-
-    def setdefault(self, key, default=None):
-        result = super().setdefault(key, default)
-        if result is default:
-            self._positron_assigned[key] = default
-        return result
-
-    def __delitem__(self, key):
-        super().__delitem__(key)
-        self._positron_removed.add(key)
-
-    def pop(self, key, default=_NoDefaultSpecified):
-        result = None
-
-        if default is _NoDefaultSpecified:
-            result = super().pop(key)
-        else:
-            result = super().pop(key, default)
-
-        if result is not default:
-            self._positron_removed.add(key)
-
-        return result
-
-    def clear(self):
-        super().clear()
-        self._positron_reset_watch()
-
-    def _positron_get_changes(self):
-        return (self._positron_assigned.copy(), self._positron_removed.copy())
-
-    def _positron_reset_watch(self):
-        self._positron_assigned.clear()
-        self._positron_removed.clear()
 
 
 @enum.unique
@@ -231,6 +163,12 @@ class TableInspector:
     def shape(self, df) -> (int, int):
         pass
 
+    def equals(self, df1, df2) -> bool:
+        pass
+
+    def copy(self, df) -> Any:
+        pass
+
     def to_html(self, df) -> str:
         pass
 
@@ -256,6 +194,12 @@ class PandasInspector(TableInspector):
 
     def shape(self, df) -> (int, int):
         return df.shape
+
+    def equals(self, df1, df2) -> bool:
+        return df1.equals(df2)
+
+    def copy(self, df) -> Any:
+        return df.copy()
 
     def to_html(self, df) -> str:
         return df.to_html()
@@ -283,6 +227,12 @@ class PolarsInspector(TableInspector):
     def shape(self, df) -> (int, int):
         return df.shape
 
+    def equals(self, df1, df2) -> bool:
+        return df1.frame_equal(df2)
+
+    def copy(self, df) -> Any:
+        return df.clone()
+
     def to_html(self, df) -> str:
         return df._repr_html_()
 
@@ -297,19 +247,16 @@ MAX_ITEMS = 2000
 MAX_ITEM_SUMMARY_LENGTH = 1024
 ITEM_SUMMARY_PRINT_WIDTH = 100
 
+# Marker used to track if our default object was returned from a
+# conditional property lookup
+_OurDefault = object()
+
 
 class PositronIPyKernel(IPythonKernel):
     """
     Positron extension of IPythonKernel.
 
     Adds additional comms to introspect the user's environment.
-    """
-
-    user_ns = PositronDict()
-    """
-    A PositronDict is used to watch for changes to user variables.
-    We override it here before IPythonKernel uses it to initialize the
-    actual user_ns in InteractiveShell.
     """
 
     def __init__(self, **kwargs):
@@ -324,9 +271,70 @@ class PositronIPyKernel(IPythonKernel):
         """
         Prior to execution, reset the user environment watch state.
         """
+        try:
+            self.snapshot_user_ns()
+        except Exception:
+            logging.error('Failed to snapshot user namespace', exc_info=True)
 
+    def snapshot_user_ns(self) -> None:
+        """
+        Caches a shallow copy snapshot of the user's environment
+        before execution.
+        """
         ns = self.shell.user_ns
-        ns._positron_reset_watch()
+        snapshot = ns.copy()
+
+        # TODO: Determine snapshot strategy for nested objects
+        for key, value in ns.items():
+            if isinstance(value, (MutableMapping, MutableSequence, MutableSet)):
+                snapshot[key] = value.copy()
+            elif self.is_table(value):
+                inspector = self.get_table_inspector(value)
+                snapshot[key] = inspector.copy(value)
+
+        # Save the snapshot in the hidden namespace to compare against
+        # after an operation or execution is performed
+        self.shell.user_ns_hidden['__positron_cache'] = snapshot
+
+    def compare_user_ns(self) -> (dict, set[str]):
+
+        after = self.shell.user_ns
+        snapshot = self.shell.user_ns_hidden.get('__positron_cache', {})
+
+        # Find assigned and removed variables
+        assigned = {}
+        removed = set()
+        hidden = self.shell.user_ns_hidden
+
+        try:
+            for key in chain(snapshot.keys(), after.keys()):
+                if key in hidden:
+                    continue
+
+                if key in snapshot and key not in after:
+                    # Key was removed
+                    removed.add(key)
+                elif key not in snapshot and key in after:
+                    # Key was added
+                    assigned[key] = after[key]
+                elif key in snapshot and key in after:
+                    # If the value is a table, compare using a
+                    # special equals() method
+                    if self.is_table(after[key]):
+                        t1 = snapshot[key]
+                        t2 = after[key]
+                        inspector = self.get_table_inspector(t1)
+                        if not inspector.equals(t1, t2):
+                            assigned[key] = after[key]
+                    # Check if key's value changed after execution
+                    elif snapshot[key] != after[key] and key not in assigned:
+                        assigned[key] = after[key]
+        except Exception as err:
+            logging.warning(err, exc_info=True)
+
+        # Clear the snapshot
+        self.shell.user_ns_hidden['__positron_cache'] = {}
+        return assigned, removed
 
     def handle_post_execute(self) -> None:
         """
@@ -335,11 +343,8 @@ class PositronIPyKernel(IPythonKernel):
         """
 
         try:
-            ns = self.shell.user_ns
-
             # Try to detect the changes made since the last execution
-            assigned, removed = ns._positron_get_changes()
-            ns._positron_reset_watch()
+            assigned, removed = self.compare_user_ns()
 
             # Ensure the number of changes does not exceed our maximum items
             if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
@@ -348,7 +353,7 @@ class PositronIPyKernel(IPythonKernel):
                 # Otherwise, just refresh the client state
                 self.send_list()
         except Exception as err:
-            logging.warning(err)
+            logging.warning(err, exc_info=True)
 
     def environment_comm(self, comm, open_msg) -> None:
         """
@@ -432,8 +437,7 @@ class PositronIPyKernel(IPythonKernel):
         if self.shell is None or names is None:
             return
 
-        ns = self.shell.user_ns
-        ns._positron_reset_watch()
+        self.snapshot_user_ns()
 
         for name in names:
             try:
@@ -442,7 +446,7 @@ class PositronIPyKernel(IPythonKernel):
                 logging.warning(f'Unable to delete variable \'{name}\'')
                 pass
 
-        assigned, removed = ns._positron_get_changes()
+        assigned, removed = self.compare_user_ns()
         self.send_update(assigned, removed)
 
     def find_var(self, path: Iterable, context: Any) -> (bool, Any):
@@ -466,8 +470,8 @@ class PositronIPyKernel(IPythonKernel):
 
             # Check for membership by dict key
             elif isinstance(context, Mapping):
-                value = context.get(segment, _NoDefaultSpecified)
-                if value is _NoDefaultSpecified:
+                value = context.get(segment, _OurDefault)
+                if value is _OurDefault:
                     is_known = False
                 else:
                     is_known = True
@@ -841,7 +845,7 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.MAP
         elif isinstance(value, (bytes, bytearray, memoryview)):
             return EnvironmentVariableKind.BYTES
-        elif isinstance(value, (list, set, frozenset, tuple, range, Iterable)):
+        elif isinstance(value, (Sequence, Set)):
             return EnvironmentVariableKind.COLLECTION
         elif isinstance(value, types.FunctionType):
             return EnvironmentVariableKind.FUNCTION
