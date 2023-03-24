@@ -27,6 +27,7 @@ import { JupyterHistoryRequest } from './JupyterHistoryRequest';
 import { findAvailablePort } from './PortFinder';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
+import { JupyterCommOpen } from './JupyterCommOpen';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -422,6 +423,9 @@ export class LanguageRuntimeAdapter
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
+			case 'comm_open':
+				this.onCommOpen(msg, message as JupyterCommOpen);
+				break;
 			case 'comm_msg':
 				this.onCommMessage(msg, message as JupyterCommMsg);
 				break;
@@ -447,6 +451,26 @@ export class LanguageRuntimeAdapter
 			prompt: req.prompt,
 			password: req.password,
 		} as positron.LanguageRuntimePrompt);
+	}
+
+	/**
+	 * Delivers a comm_open message from the kernel to the front end. Typically
+	 * this is used to create a front-end representation of a back-end
+	 * object, such as an interactive plot or Jupyter widget.
+	 *
+	 * @param message The outer message packet
+	 * @param msg The inner comm_open message
+	 */
+	private onCommOpen(message: JupyterMessagePacket, msg: JupyterCommOpen): void {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			when: message.when,
+			type: positron.LanguageRuntimeMessageType.CommOpen,
+			comm_id: msg.comm_id,
+			target_name: msg.target_name,
+			data: msg.data,
+		} as positron.LanguageRuntimeCommOpen);
 	}
 
 	/**

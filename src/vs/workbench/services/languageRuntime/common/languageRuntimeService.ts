@@ -70,6 +70,18 @@ export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 	password: boolean;
 }
 
+/** ILanguageRuntimeMessageCommOpen is a LanguageRuntimeMessage representing a comm open request */
+export interface ILanguageRuntimeMessageCommOpen extends ILanguageRuntimeMessage {
+	/** The comm ID */
+	comm_id: string;
+
+	/** The target name of the comm to open, e.g. 'jupyter.widget' */
+	target_name: string;
+
+	/** Data associated with the request (e.g. parameters to client-side comm constructor) */
+	data: object;
+}
+
 /** ILanguageRuntimeMessageCommData is a LanguageRuntimeMessage representing data received from a comm */
 export interface ILanguageRuntimeMessageCommData extends ILanguageRuntimeMessage {
 	/** The comm ID */
@@ -213,6 +225,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a runtime event */
 	Event = 'event',
+
+	/** A message representing a new comm (client instance) being opened from the runtime side */
+	CommOpen = 'comm_open',
 
 	/** A message representing data received via a comm */
 	CommData = 'comm_data',
