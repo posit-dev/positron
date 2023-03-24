@@ -14,17 +14,10 @@ import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
- * EnvironmentVariablesContainerProps interface.
- */
-export interface EnvironmentVariablesContainerProps {
-}
-
-/**
  * EnvironmentVariablesContainer component.
- * @param props A EnvironmentVariableProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentVariablesContainer = (props: PropsWithChildren<EnvironmentVariablesContainerProps>) => {
+export const EnvironmentVariablesContainer = (props: PropsWithChildren) => {
 	// Hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 	const containerRef = useRef<HTMLDivElement>(undefined!);
