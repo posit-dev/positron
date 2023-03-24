@@ -752,15 +752,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @returns A Thenable that resolves with information about the runtime
 	 */
 	start(): Promise<positron.LanguageRuntimeInfo> {
-		// Zed 0.98.0 always fails to start.
+		// Zed 0.98.0 always fails to start. Simulate this by going directly
+		// from Starting to Exited and rejecting the promise with a multi-line
+		// error message.
 		if (this.metadata.runtimeId === '00000000-0000-0000-0000-000000000098') {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
-			this.simulateErrorMessage(randomUUID(), 'StartupFailed', 'Startup failed');
-			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
-			return Promise.reject('Failure');
+			return Promise.reject({
+				message: 'Zed Startup failed',
+				details: `Zed 0.98.0 always fails to start.\nFailure occured at ${new Date().toLocaleString()}.`
+			});
 		}
 
 		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {

@@ -40,13 +40,12 @@ export class JupyterSession implements vscode.Disposable {
 	}
 
 	dispose() {
-		// Remove the connection and log files if they exist
+		// Remove the connection file
 		if (fs.existsSync(this.state.connectionFile)) {
 			fs.unlinkSync(this.state.connectionFile);
 		}
-		if (fs.existsSync(this.state.logFile)) {
-			fs.unlinkSync(this.state.logFile);
-		}
+		// Note that we don't remove the log file, so we can still see what
+		// happened if the kernel crashed or failed to start.
 	}
 
 	get key(): string {

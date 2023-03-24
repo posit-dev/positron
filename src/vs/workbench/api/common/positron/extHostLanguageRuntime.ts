@@ -29,6 +29,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 			this._runtimes[handle].start().then(info => {
 				resolve(info);
+			}, err => {
+				reject(err);
 			});
 		});
 	}

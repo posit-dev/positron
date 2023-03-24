@@ -445,7 +445,12 @@ declare module 'positron' {
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
 
-		/** Start the runtime; returns a Thenable that resolves with information about the runtime. */
+		/**
+		 * Start the runtime; returns a Thenable that resolves with information about the runtime.
+		 * If the runtime fails to start for any reason, the Thenable should reject with an error
+		 * object containing a `message` field with a human-readable error message and an optional
+		 * `details` field with additional information.
+		 */
 		start(): Thenable<LanguageRuntimeInfo>;
 
 		/** Interrupt the runtime */
