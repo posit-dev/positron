@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-environment .environment-core {
-	/* cursor: text; */
+	background: transparent;
 }
 
 .positron-environment .environment-core .environment-instances-container {

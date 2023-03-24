@@ -31,7 +31,6 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 	 * Handles expand / collapse.
 	 */
 	const handleExpandCollapse = async () => {
-
 		if (expanded) {
 			setExpanded(false);
 			setChildren(undefined);
@@ -60,11 +59,9 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 							)}
 						</div>
 						<div className='name-value'>
-							{props.environmentVariableItem.name}
+							{props.environmentVariableItem.name.length ? props.environmentVariableItem.name : '[None]'}
 						</div>
-
 					</div>
-
 				</div>
 				<div className='value'>{props.environmentVariableItem.value}</div>
 			</div>
