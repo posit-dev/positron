@@ -267,6 +267,47 @@ class PositronIPyKernel(IPythonKernel):
         self.shell.events.register('pre_execute', self.handle_pre_execute)
         self.shell.events.register('post_execute', self.handle_post_execute)
 
+    def environment_comm(self, comm, open_msg) -> None:
+        """
+        Setup positron.environment comm to receive messages.
+        """
+
+        self.env_comm = comm
+
+        @comm.on_msg
+        def _recv(msg):
+            """
+            Message handler for the positron.environment comm.
+            """
+
+            data = msg['content']['data']
+
+            msgType = data.get('msg_type', None)
+            if msgType == EnvironmentMessageType.REFRESH:
+                self.send_list()
+
+            elif msgType == EnvironmentMessageType.INSPECT:
+                path = data.get('path', None)
+                self.inspect_var(path)
+
+            elif msgType == EnvironmentMessageType.CLIPBOARD_FORMAT:
+                path = data.get('path', None)
+                clipboard_format = data.get('format', ClipboardFormat.PLAIN)
+                self.send_formatted_var(path, clipboard_format)
+
+            elif msgType == EnvironmentMessageType.CLEAR:
+                self.delete_all_vars()
+
+            elif msgType == EnvironmentMessageType.DELETE:
+                names = data.get('names', [])
+                self.delete_vars(names)
+
+            else:
+                self.send_error(f'Unknown message type \'{msgType}\'')
+
+        # Send summary of user environment on comm initialization
+        self.send_list()
+
     def handle_pre_execute(self) -> None:
         """
         Prior to execution, reset the user environment watch state.
@@ -274,18 +315,48 @@ class PositronIPyKernel(IPythonKernel):
         try:
             self.snapshot_user_ns()
         except Exception:
-            logging.error('Failed to snapshot user namespace', exc_info=True)
+            logging.warning('Failed to snapshot user namespace', exc_info=True)
+
+    def handle_post_execute(self) -> None:
+        """
+        After execution, sends an update message to the client to summarize
+        the changes observed to variables in the user environment.
+        """
+
+        try:
+            # Try to detect the changes made since the last execution
+            assigned, removed = self.compare_user_ns()
+
+            # Ensure the number of changes does not exceed our maximum items
+            if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
+                self.send_update(assigned, removed)
+            else:
+                # Otherwise, just refresh the client state
+                self.send_list()
+        except Exception as err:
+            logging.warning(err, exc_info=True)
+
+    def get_user_ns(self) -> dict:
+        return self.shell.user_ns
+
+    def get_user_ns_hidden(self) -> dict:
+        return self.shell.user_ns_hidden
 
     def snapshot_user_ns(self) -> None:
         """
         Caches a shallow copy snapshot of the user's environment
         before execution.
         """
-        ns = self.shell.user_ns
+        ns = self.get_user_ns()
+        hidden = self.get_user_ns_hidden()
         snapshot = ns.copy()
 
         # TODO: Determine snapshot strategy for nested objects
         for key, value in ns.items():
+
+            if key in hidden:
+                continue
+
             if isinstance(value, (MutableMapping, MutableSequence, MutableSet)):
                 snapshot[key] = value.copy()
             elif self.is_table(value):
@@ -294,17 +365,17 @@ class PositronIPyKernel(IPythonKernel):
 
         # Save the snapshot in the hidden namespace to compare against
         # after an operation or execution is performed
-        self.shell.user_ns_hidden['__positron_cache'] = snapshot
+        hidden['__positron_cache'] = snapshot
 
     def compare_user_ns(self) -> (dict, set[str]):
 
-        after = self.shell.user_ns
-        snapshot = self.shell.user_ns_hidden.get('__positron_cache', {})
+        after = self.get_user_ns()
+        hidden = self.get_user_ns_hidden()
+        snapshot = hidden.get('__positron_cache', {})
 
         # Find assigned and removed variables
         assigned = {}
         removed = set()
-        hidden = self.shell.user_ns_hidden
 
         try:
             for key in chain(snapshot.keys(), after.keys()):
@@ -333,96 +404,30 @@ class PositronIPyKernel(IPythonKernel):
             logging.warning(err, exc_info=True)
 
         # Clear the snapshot
-        self.shell.user_ns_hidden['__positron_cache'] = {}
+        hidden['__positron_cache'] = {}
         return assigned, removed
-
-    def handle_post_execute(self) -> None:
-        """
-        After execution, sends an update message to the client to summarize
-        the changes observed to variables in the user environment.
-        """
-
-        try:
-            # Try to detect the changes made since the last execution
-            assigned, removed = self.compare_user_ns()
-
-            # Ensure the number of changes does not exceed our maximum items
-            if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
-                self.send_update(assigned, removed)
-            else:
-                # Otherwise, just refresh the client state
-                self.send_list()
-        except Exception as err:
-            logging.warning(err, exc_info=True)
-
-    def environment_comm(self, comm, open_msg) -> None:
-        """
-        Setup positron.environment comm to receive messages.
-        """
-
-        self.env_comm = comm
-
-        @comm.on_msg
-        def _recv(msg):
-            """
-            Message handler for the positron.environment comm.
-            """
-
-            data = msg['content']['data']
-
-            msgType = data.get('msg_type', None)
-            if msgType is not None:
-
-                if msgType == EnvironmentMessageType.REFRESH:
-                    self.send_list()
-
-                elif msgType == EnvironmentMessageType.INSPECT:
-                    path = data.get('path', None)
-                    self.inspect_var(path)
-
-                elif msgType == EnvironmentMessageType.CLIPBOARD_FORMAT:
-                    path = data.get('path', None)
-                    clipboard_format = data.get('format', ClipboardFormat.PLAIN)
-                    self.send_formatted_var(path, clipboard_format)
-
-                elif msgType == EnvironmentMessageType.CLEAR:
-                    self.delete_all_vars()
-
-                elif msgType == EnvironmentMessageType.DELETE:
-                    names = data.get('names', [])
-                    self.delete_vars(names)
-
-                else:
-                    self.send_error(f'Unknown message type \'{msgType}\'')
-            else:
-                self.send_error('Could not determine message type')
-
-        # Send summary of user environment on comm initialization
-        self.send_list()
 
     def delete_all_vars(self) -> None:
         """
         Deletes all of the variables in the current user session.
         """
 
-        if self.shell is None:
-            return
-
-        ns = self.shell.user_ns.copy()
-        hidden = self.shell.user_ns_hidden.copy()
+        ns = self.get_user_ns()
+        snapshot = ns.copy()
+        hidden = self.get_user_ns_hidden().copy()
 
         # Delete all non-hidden variables
-        for key, value in ns.items():
+        for key, value in snapshot.items():
             if key in hidden:
                 continue
 
             try:
                 # We check if value is None to avoid an issue in shell.del_var()
                 # cleaning up references
-                self.shell.del_var(key, value is None)
+                self.del_var(key, value is None)
             except Exception as err:
                 # Warn if delete failed and key is still in scope
-                if key in self.shell.user_ns:
+                if key in ns:
                     logging.warning(f'Unable to delete variable \'{key}\'. Error: %s', err)
                 pass
 
@@ -434,14 +439,14 @@ class PositronIPyKernel(IPythonKernel):
         Deletes the requested variables by name from the current user session.
         """
 
-        if self.shell is None or names is None:
+        if names is None:
             return
 
         self.snapshot_user_ns()
 
         for name in names:
             try:
-                self.shell.del_var(name)
+                self.del_var(name)
             except:
                 logging.warning(f'Unable to delete variable \'{name}\'')
                 pass
@@ -449,9 +454,24 @@ class PositronIPyKernel(IPythonKernel):
         assigned, removed = self.compare_user_ns()
         self.send_update(assigned, removed)
 
+    def del_var(self, name: str, by_name: bool = False) -> None:
+        """
+        Deletes the requested variable by name from the current user session.
+        """
+        self.shell.del_var(name, by_name)
+
     def find_var(self, path: Iterable, context: Any) -> (bool, Any):
         """
         Finds the variable at the requested path in the current user session.
+
+        Args:
+            path: A list of path segments that will be traversed to find
+              the requested variable.
+            context: The context from which to start the search.
+
+        Returns:
+            A tuple (bool, Any) containing a boolean indicating whether the
+            variable was found, as well as the value of the variable, if found.
         """
 
         if path is None:
@@ -499,10 +519,10 @@ class PositronIPyKernel(IPythonKernel):
         Describes the variable at the requested path in the current user session.
         """
 
-        if self.shell is None or path is None:
+        if path is None:
             return
 
-        context = self.shell.user_ns
+        context = self.get_user_ns()
         is_known, value = self.find_var(path, context)
 
         if is_known:
@@ -519,16 +539,16 @@ class PositronIPyKernel(IPythonKernel):
         environment comm to the client.
         """
 
-        if self.shell is None or path is None:
+        if path is None:
             return
 
-        context = self.shell.user_ns
+        context = self.get_user_ns()
         is_known, value = self.find_var(path, context)
 
         if is_known:
             content = self.format_value(value, clipboard_format)
             msg = EnvironmentMessageFormatted(clipboard_format, content)
-            self.env_comm.send(msg)
+            self.send_message(msg)
         else:
             message = f'Cannot find variable at \'{path}\' to format'
             self.send_error(message)
@@ -556,9 +576,6 @@ class PositronIPyKernel(IPythonKernel):
             ...
         }
         """
-
-        if self.env_comm is None or self.shell is None:
-            return
 
         children = []
         if isinstance(context, Mapping):
@@ -589,7 +606,7 @@ class PositronIPyKernel(IPythonKernel):
             # TODO: Handle scalar objects with a specific message type
 
         msg = EnvironmentMessageDetails(path, children)
-        self.env_comm.send(msg)
+        self.send_message(msg)
 
     def send_update(self, assigned: Mapping, removed: Iterable) -> None:
         """
@@ -611,10 +628,7 @@ class PositronIPyKernel(IPythonKernel):
         }
         """
 
-        if self.env_comm is None or self.shell is None:
-            return
-
-        hidden = self.shell.user_ns_hidden
+        hidden = self.get_user_ns_hidden()
 
         # Filter out hidden assigned variables
         filtered_assigned = self.summarize_variables(assigned, hidden)
@@ -627,7 +641,7 @@ class PositronIPyKernel(IPythonKernel):
             filtered_removed.add(name)
 
         msg = EnvironmentMessageUpdate(filtered_assigned, filtered_removed)
-        self.env_comm.send(msg)
+        self.send_message(msg)
 
     def send_list(self) -> None:
         """
@@ -648,15 +662,12 @@ class PositronIPyKernel(IPythonKernel):
         }
         """
 
-        if self.env_comm is None or self.shell is None:
-            return
-
-        ns = self.shell.user_ns
-        hidden = self.shell.user_ns_hidden
+        ns = self.get_user_ns()
+        hidden = self.get_user_ns_hidden()
         filtered_variables = self.summarize_variables(ns, hidden)
 
         msg = EnvironmentMessageList(filtered_variables)
-        self.env_comm.send(msg)
+        self.send_message(msg)
 
     def send_error(self, message: str) -> None:
         """
@@ -672,10 +683,15 @@ class PositronIPyKernel(IPythonKernel):
         }
         """
 
+        msg = EnvironmentMessageError(message)
+        self.send_message(msg)
+
+    def send_message(self, msg: EnvironmentMessage) -> None:
+
         if self.env_comm is None:
+            logging.warning('Cannot send message, environment comm is not open')
             return
 
-        msg = EnvironmentMessageError(message)
         self.env_comm.send(msg)
 
     def summarize_variables(self, variables: Mapping, hidden: Mapping = None,
@@ -715,6 +731,7 @@ class PositronIPyKernel(IPythonKernel):
 
         type_name = self.get_qualname(value)
         try:
+            name = str(key)
             summarized_value = type_name
             length = self.get_length(value)
             size = sys.getsizeof(value)
@@ -747,11 +764,11 @@ class PositronIPyKernel(IPythonKernel):
             else:
                 summarized_value, is_truncated = self.summarize_value(value)
 
-            return EnvironmentVariable(key, summarized_value, kind,
+            return EnvironmentVariable(name, summarized_value, kind,
                                        type_name, length, size, has_children, is_truncated)
         except Exception as err:
             logging.warning(err)
-            return EnvironmentVariable(key, type_name, None)
+            return EnvironmentVariable(name, type_name, None)
 
     def format_table_summary(self, value) -> str:
 
