@@ -37,7 +37,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [valuesExpanded, setValuesExpanded] = useState(true);
 	const [functionsExpanded, setFunctionsExpanded] = useState(true);
 
-	// useEffect for appending items.
+	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -100,6 +100,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	/**
 	 * Renders environment variable items grouped by kind.
+	 * @param items The environment variable items to render.
 	 * @returns The rendered environment variable items.
 	 */
 	const renderEnvironmentVariableItemsGroupedByKind = (items: EnvironmentVariableItem[]) => {
@@ -161,6 +162,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	/**
 	 * Renders environment variable items.
 	 * @param items The environment variable items to render.
+	 * @param sortBy The sort by setting.
 	 * @returns The rendered environment variable items.
 	 */
 	const renderItems = (items: EnvironmentVariableItem[], sortBy: 'name' | 'size') => {
