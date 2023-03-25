@@ -7,15 +7,17 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { HeaderRow } from 'vs/workbench/contrib/positronEnvironment/browser/components/headerRow';
 import { EnvironmentVariable } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariable';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { EnvironmentVariableValueKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentVariablesGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariablesGroup';
+import { EnvironmentVariablesContainer } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariablesContainer';
 import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/contrib/positronEnvironment/common/utils';
 import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { EnvironmentVariablesContainer } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariablesContainer';
 
-// EnvironmentInstanceProps interface.
+/**
+ * EnvironmentInstanceProps interface.
+ */
 interface EnvironmentInstanceProps {
 	hidden: boolean;
 	width: number;
@@ -31,6 +33,9 @@ interface EnvironmentInstanceProps {
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Hooks.
 	const [marker, setMarker] = useState(generateUuid());
+	const [dataExpanded, setDataExpanded] = useState(true);
+	const [valuesExpanded, setValuesExpanded] = useState(true);
+	const [functionsExpanded, setFunctionsExpanded] = useState(true);
 
 	// useEffect for appending items.
 	useEffect(() => {
@@ -71,17 +76,20 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const renderEnvironment = () => {
 		// Render based in grouping.
 		switch (props.positronEnvironmentInstance.environmentGrouping) {
+			// None.
 			case PositronEnvironmentGrouping.None:
 				return renderItems(
 					props.positronEnvironmentInstance.environmentVariableItems.concat(),
 					'name'
 				);
 
+			// Kind.
 			case PositronEnvironmentGrouping.Kind:
 				return renderEnvironmentVariableItemsGroupedByKind(
 					props.positronEnvironmentInstance.environmentVariableItems
 				);
 
+			// Size.
 			case PositronEnvironmentGrouping.Size:
 				return renderItems(
 					props.positronEnvironmentInstance.environmentVariableItems.concat(),
@@ -112,22 +120,40 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		// Render the groups.
 		return (<>
 			{dataItems.length !== 0 && <>
-				<HeaderRow title='Data' />
-				<EnvironmentVariablesContainer>
-					{renderItems(dataItems, 'name')}
-				</EnvironmentVariablesContainer>
+				<EnvironmentVariablesGroup
+					title='Data'
+					expanded={dataExpanded}
+					onExpand={() => setDataExpanded(true)}
+					onCollapse={() => setDataExpanded(false)}
+					onToggleExpandCollapse={() => setDataExpanded(!dataExpanded)}>
+					<EnvironmentVariablesContainer>
+						{renderItems(dataItems, 'name')}
+					</EnvironmentVariablesContainer>
+				</EnvironmentVariablesGroup>
 			</>}
 			{valueItems.length !== 0 && <>
-				<HeaderRow title='Values' />
-				<EnvironmentVariablesContainer>
-					{renderItems(valueItems, 'name')}
-				</EnvironmentVariablesContainer>
+				<EnvironmentVariablesGroup
+					title='Values'
+					expanded={valuesExpanded}
+					onExpand={() => setValuesExpanded(true)}
+					onCollapse={() => setValuesExpanded(false)}
+					onToggleExpandCollapse={() => setValuesExpanded(!valuesExpanded)}>
+					<EnvironmentVariablesContainer>
+						{renderItems(valueItems, 'name')}
+					</EnvironmentVariablesContainer>
+				</EnvironmentVariablesGroup>
 			</>}
 			{functionItems.length !== 0 && <>
-				<HeaderRow title='Functions' />
-				<EnvironmentVariablesContainer>
-					{renderItems(functionItems, 'name')}
-				</EnvironmentVariablesContainer>
+				<EnvironmentVariablesGroup
+					title='Functions'
+					expanded={functionsExpanded}
+					onExpand={() => setFunctionsExpanded(true)}
+					onCollapse={() => setFunctionsExpanded(false)}
+					onToggleExpandCollapse={() => setFunctionsExpanded(!functionsExpanded)}>
+					<EnvironmentVariablesContainer>
+						{renderItems(functionItems, 'name')}
+					</EnvironmentVariablesContainer>
+				</EnvironmentVariablesGroup>
 			</>}
 		</>);
 	};

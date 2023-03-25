@@ -2,12 +2,22 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.header-row {
-	height: 100%;
+.environment-variables-group {
 	display: flex;
-	font-size: 11px;
+	border: none;
 	padding: 2px 8px;
+	font-size: 11px;
+	cursor: pointer;
 	align-items: center;
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);
+}
+
+.environment-variables-group .expand-collapse-icon {
+	width: 20px;
+	text-align: left;
+}
+
+.environment-variables-group .title {
+	font-weight: 700;
 }
