@@ -36,6 +36,10 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [dataExpanded, setDataExpanded] = useState(true);
 	const [valuesExpanded, setValuesExpanded] = useState(true);
 	const [functionsExpanded, setFunctionsExpanded] = useState(true);
+	const [smallExpanded, setSmallExpanded] = useState(true);
+	const [mediumExpanded, setMediumExpanded] = useState(true);
+	const [largeExpanded, setLargeExpanded] = useState(true);
+	const [veryLargeExpanded, setVeryLargeExpanded] = useState(true);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -91,9 +95,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 			// Size.
 			case PositronEnvironmentGrouping.Size:
-				return renderItems(
-					props.positronEnvironmentInstance.environmentVariableItems.concat(),
-					'size'
+				return renderEnvironmentVariableItemsGroupedBySize(
+					props.positronEnvironmentInstance.environmentVariableItems
 				);
 		}
 	};
@@ -153,6 +156,82 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onToggleExpandCollapse={() => setFunctionsExpanded(!functionsExpanded)}>
 					<EnvironmentVariablesContainer>
 						{renderItems(functionItems, 'name')}
+					</EnvironmentVariablesContainer>
+				</EnvironmentVariablesGroup>
+			}
+		</>);
+	};
+
+	/**
+	 * Renders environment variable items grouped by size.
+	 * @param items The environment variable items to render.
+	 * @returns The rendered environment variable items.
+	 */
+	const renderEnvironmentVariableItemsGroupedBySize = (items: EnvironmentVariableItem[]) => {
+		// Break the environment variable items into groups.
+		const smallItems: EnvironmentVariableItem[] = [];
+		const mediumItems: EnvironmentVariableItem[] = [];
+		const largeItems: EnvironmentVariableItem[] = [];
+		const veryLargeItems: EnvironmentVariableItem[] = [];
+		props.positronEnvironmentInstance.environmentVariableItems.forEach(item => {
+			if (item.size < 1000) {
+				smallItems.push(item);
+			} else if (item.size < 10 * 1000) {
+				mediumItems.push(item);
+			} else if (item.size < 1000 * 1000) {
+				largeItems.push(item);
+			} else {
+				veryLargeItems.push(item);
+			}
+		});
+
+		// Render the groups.
+		return (<>
+			{smallItems.length !== 0 &&
+				<EnvironmentVariablesGroup
+					title='Small: Under 1 KB'
+					expanded={smallExpanded}
+					onExpand={() => setSmallExpanded(true)}
+					onCollapse={() => setSmallExpanded(false)}
+					onToggleExpandCollapse={() => setSmallExpanded(!smallExpanded)}>
+					<EnvironmentVariablesContainer>
+						{renderItems(smallItems, 'size')}
+					</EnvironmentVariablesContainer>
+				</EnvironmentVariablesGroup>
+			}
+			{mediumItems.length !== 0 &&
+				<EnvironmentVariablesGroup
+					title='Medium: 1 KB to 10 KB'
+					expanded={mediumExpanded}
+					onExpand={() => setMediumExpanded(true)}
+					onCollapse={() => setMediumExpanded(false)}
+					onToggleExpandCollapse={() => setMediumExpanded(!mediumExpanded)}>
+					<EnvironmentVariablesContainer>
+						{renderItems(mediumItems, 'size')}
+					</EnvironmentVariablesContainer>
+				</EnvironmentVariablesGroup>
+			}
+			{largeItems.length !== 0 &&
+				<EnvironmentVariablesGroup
+					title='Large: 10 KB to 1 MB'
+					expanded={largeExpanded}
+					onExpand={() => setLargeExpanded(true)}
+					onCollapse={() => setLargeExpanded(false)}
+					onToggleExpandCollapse={() => setLargeExpanded(!largeExpanded)}>
+					<EnvironmentVariablesContainer>
+						{renderItems(largeItems, 'size')}
+					</EnvironmentVariablesContainer>
+				</EnvironmentVariablesGroup>
+			}
+			{veryLargeItems.length !== 0 &&
+				<EnvironmentVariablesGroup
+					title='Very Large: Over 1 MB'
+					expanded={veryLargeExpanded}
+					onExpand={() => setVeryLargeExpanded(true)}
+					onCollapse={() => setVeryLargeExpanded(false)}
+					onToggleExpandCollapse={() => setVeryLargeExpanded(!veryLargeExpanded)}>
+					<EnvironmentVariablesContainer>
+						{renderItems(veryLargeItems, 'size')}
 					</EnvironmentVariablesContainer>
 				</EnvironmentVariablesGroup>
 			}
