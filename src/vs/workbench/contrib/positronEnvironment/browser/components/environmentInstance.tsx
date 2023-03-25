@@ -120,7 +120,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 		// Render the groups.
 		return (<>
-			{dataItems.length !== 0 && <>
+			{dataItems.length !== 0 &&
 				<EnvironmentVariablesGroup
 					title='Data'
 					expanded={dataExpanded}
@@ -131,8 +131,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 						{renderItems(dataItems, 'name')}
 					</EnvironmentVariablesContainer>
 				</EnvironmentVariablesGroup>
-			</>}
-			{valueItems.length !== 0 && <>
+			}
+			{valueItems.length !== 0 &&
 				<EnvironmentVariablesGroup
 					title='Values'
 					expanded={valuesExpanded}
@@ -143,8 +143,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 						{renderItems(valueItems, 'name')}
 					</EnvironmentVariablesContainer>
 				</EnvironmentVariablesGroup>
-			</>}
-			{functionItems.length !== 0 && <>
+			}
+			{functionItems.length !== 0 &&
 				<EnvironmentVariablesGroup
 					title='Functions'
 					expanded={functionsExpanded}
@@ -155,7 +155,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 						{renderItems(functionItems, 'name')}
 					</EnvironmentVariablesContainer>
 				</EnvironmentVariablesGroup>
-			</>}
+			}
 		</>);
 	};
 
@@ -174,11 +174,13 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		}
 
 		// Return the environment variable items.
-		return <EnvironmentVariablesContainer>
-			{items.map(item =>
-				<EnvironmentVariable key={item.id} indentLevel={0} environmentVariableItem={item} />
-			)}
-		</EnvironmentVariablesContainer>;
+		return (
+			<EnvironmentVariablesContainer>
+				{items.map(item =>
+					<EnvironmentVariable key={item.id} indentLevel={0} environmentVariableItem={item} />
+				)}
+			</EnvironmentVariablesContainer>
+		);
 	};
 
 	// Render.
