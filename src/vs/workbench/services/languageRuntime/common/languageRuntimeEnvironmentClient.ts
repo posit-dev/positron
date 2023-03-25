@@ -114,6 +114,9 @@ export interface IEnvironmentVariable {
 	/// The size of the variable's value, in bytes
 	size: number;
 
+	/// A compact representation of the variable's type (and length, if applicable) for display
+	type: string;
+
 	/// True if the variable contains other variables
 	has_children: boolean;
 
