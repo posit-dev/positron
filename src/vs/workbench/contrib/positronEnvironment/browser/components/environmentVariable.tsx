@@ -42,19 +42,17 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 
 	// Render.
 	return (
-		<div className='environment-variable-container'>
+		<>
 			<div className='environment-variable'>
 				<div className='name'>
 					<div style={{ display: 'flex', marginLeft: props.indentLevel * 20 }}>
 						<div className='gutter'>
 							{props.environmentVariableItem.hasChildren && (
 								<button className='expand-collapse-button' onClick={handleExpandCollapse}>
-									<div className='expand-collapse-button-face'>
-										{!expanded ?
-											<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
-											<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
-										}
-									</div>
+									{!expanded ?
+										<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
+										<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
+									}
 								</button>
 							)}
 						</div>
@@ -65,9 +63,9 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 				</div>
 				<div className='value'>{props.environmentVariableItem.value}</div>
 			</div>
-			{expanded && children && children.map(ss =>
-				<EnvironmentVariable key={ss.id} indentLevel={props.indentLevel + 1} environmentVariableItem={ss} />
+			{expanded && children && children.map(item =>
+				<EnvironmentVariable key={item.id} indentLevel={props.indentLevel + 1} environmentVariableItem={item} />
 			)}
-		</div>
+		</>
 	);
 };

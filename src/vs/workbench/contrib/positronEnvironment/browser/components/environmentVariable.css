@@ -2,10 +2,6 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.environment-variable-container {
-	background: transparent;
-}
-
 .environment-variable {
 	display: flex;
 	padding: 0 8px;
@@ -41,10 +37,6 @@
 .expand-collapse-button:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
-}
-
-.expand-collapse-button-face {
-	background: transparent;
 }
 
 .expand-collapse-button-icon {
