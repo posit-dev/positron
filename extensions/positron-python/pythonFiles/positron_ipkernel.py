@@ -5,7 +5,7 @@
 from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
 from itertools import chain
-from typing import Any, Optional
+from typing import Any
 import enum
 import html
 import inspect
@@ -67,14 +67,19 @@ class EnvironmentVariable(dict):
     Describes a variable in the user's environment.
     """
 
-    def __init__(self, name: str, value: Any, kind: Optional[EnvironmentVariableKind],
-                 type_name: str = None, length: int = None, size: int = None,
-                 has_children: bool = False, is_truncated: bool = False):
+    def __init__(self, name: str,
+                 value: Any,
+                 kind: EnvironmentVariableKind = EnvironmentVariableKind.OTHER,
+                 type_name: str = None,
+                 length: int = None,
+                 size: int = None,
+                 has_children: bool = False,
+                 is_truncated: bool = False):
         self['name'] = name
         self['value'] = value
         if kind is not None:
             self['kind'] = getattr(EnvironmentVariableKind, kind.upper())
-        self['type_name'] = type_name
+        self['type'] = type_name
         self['length'] = length
         self['size'] = size
         self['has_children'] = has_children
@@ -244,8 +249,8 @@ POSITRON_ENVIRONMENT_COMM = 'positron.environment'
 """The comm channel target name for Positron's Environment View"""
 
 MAX_ITEMS = 2000
-MAX_ITEM_SUMMARY_LENGTH = 1024
-ITEM_SUMMARY_PRINT_WIDTH = 100
+TRUNCATE_SUMMARY_AT = 1024
+SUMMARY_PRINT_WIDTH = 100
 
 # Marker used to track if our default object was returned from a
 # conditional property lookup
@@ -729,9 +734,9 @@ class PositronIPyKernel(IPythonKernel):
 
     def summarize_any(self, key, value, kind) -> EnvironmentVariable:
 
+        name = str(key)
         type_name = self.get_qualname(value)
         try:
-            name = str(key)
             summarized_value = type_name
             length = self.get_length(value)
             size = sys.getsizeof(value)
@@ -741,7 +746,7 @@ class PositronIPyKernel(IPythonKernel):
             # Apply type-specific formatting
             if kind == EnvironmentVariableKind.STRING:
                 # For string summaries, avoid pprint as it wraps strings into line chunks
-                summarized_value, is_truncated = self.truncate_string(value)
+                summarized_value, is_truncated = self.summarize_value(value, None)
                 summarized_value = repr(summarized_value)
                 has_children = False
 
@@ -758,9 +763,15 @@ class PositronIPyKernel(IPythonKernel):
             elif kind == EnvironmentVariableKind.BYTES:
                 # For bytes, even though they have a length, we don't set them
                 # as having children
-                summarized_value, is_truncated = self.summarize_value(value)
+                summarized_value, is_truncated = self.summarize_value(value, None)
                 has_children = False
 
+            elif kind == EnvironmentVariableKind.COLLECTION:
+                summarized_value, is_truncated = self.summarize_value(value)
+                # For ranges, we don't visualize the children as they're
+                # implied as a contiguous set of integers in a range
+                if isinstance(value, range):
+                    has_children = False
             else:
                 summarized_value, is_truncated = self.summarize_value(value)
 
@@ -768,7 +779,7 @@ class PositronIPyKernel(IPythonKernel):
                                        type_name, length, size, has_children, is_truncated)
         except Exception as err:
             logging.warning(err)
-            return EnvironmentVariable(name, type_name, None)
+            return EnvironmentVariable(name, type_name, kind)
 
     def format_table_summary(self, value) -> str:
 
@@ -796,13 +807,19 @@ class PositronIPyKernel(IPythonKernel):
             sig = '()'
         return f'{value.__qualname__}{sig}'
 
-    def summarize_value(self, value, width: int = ITEM_SUMMARY_PRINT_WIDTH) -> (str, bool):
-        s = pprint.pformat(value, indent=1, width=width, compact=True)
-        # TODO: Add type aware truncation
-        return self.truncate_string(s)
+    def summarize_value(self, value, print_width: int = SUMMARY_PRINT_WIDTH,
+                        truncate_at: int = TRUNCATE_SUMMARY_AT) -> (str, bool):
 
-    def truncate_string(self, value: str, max: int = MAX_ITEM_SUMMARY_LENGTH) -> (str, bool):
-        if len(value) > max:
+        if print_width is not None:
+            s = pprint.pformat(value, indent=1, width=print_width, compact=True)
+        else:
+            s = str(value)
+
+        # TODO: Add type aware truncation
+        return self.truncate_string(s, truncate_at)
+
+    def truncate_string(self, value: str, max: int = TRUNCATE_SUMMARY_AT) -> (str, bool):
+        if self.get_length(value) > max:
             return (value[:max], True)
         else:
             return (value, False)
@@ -853,10 +870,10 @@ class PositronIPyKernel(IPythonKernel):
     def get_kind(self, value) -> str:
         if isinstance(value, str):
             return EnvironmentVariableKind.STRING
-        elif isinstance(value, numbers.Number):
-            return EnvironmentVariableKind.NUMBER
         elif isinstance(value, bool):
             return EnvironmentVariableKind.BOOLEAN
+        elif isinstance(value, numbers.Number):
+            return EnvironmentVariableKind.NUMBER
         elif self.is_table(value):
             return EnvironmentVariableKind.TABLE
         elif isinstance(value, Mapping):
