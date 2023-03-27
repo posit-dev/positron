@@ -142,15 +142,21 @@ impl<'a> Iterator for CharacterVectorIterator<'a> {
 
 impl CharacterVector {
 
-    pub unsafe fn create<'a, T>(data: T) -> Self
+    pub unsafe fn create<T>(data: T) -> Self
     where
-        T: AsSlice<&'a str>
+        T: IntoIterator,
+        <T as IntoIterator>::IntoIter: ExactSizeIterator,
+        <T as IntoIterator>::Item: AsRef<str>,
     {
-        let data = data.as_slice();
+        // convert into iterator
+        let mut data = data.into_iter();
+
+        // build our character vector
         let n = data.len();
         let vector = CharacterVector::with_length(n);
         for i in 0..data.len() {
-            let value: &str = data.get_unchecked(i).as_ref();
+            let value = data.next().unwrap_unchecked();
+            let value = value.as_ref();
             let charsexp = Rf_mkCharLenCE(
                 value.as_ptr() as *const i8,
                 value.len() as i32,
@@ -383,6 +389,14 @@ mod tests {
 
             let value = it.next();
             assert!(value.is_none());
+
+            let vector = CharacterVector::create([
+                "hello".to_string(),
+                "world".to_string()
+            ]);
+
+            assert!(vector.get_unchecked(0) == "hello");
+            assert!(vector.get_unchecked(1) == "world");
 
         }
     }
