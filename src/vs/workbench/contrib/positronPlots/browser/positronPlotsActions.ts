@@ -38,8 +38,6 @@ export class PlotsRefreshAction extends Action2 {
 	 * @param accessor The service accessor.
 	 */
 	async run(accessor: ServicesAccessor) {
-		// TODO(jmcphers): This should ask the Positron plots service to
-		// refresh the plots, but that service doesn't yet own the set of
-		// active plotss.
+		// TODO: Implement a plots service.
 	}
 }
