@@ -53,7 +53,7 @@ pub struct EnvironmentVariable {
     /** The environment variable's value, formatted for display */
     pub display_value: String,
 
-    /** The environment variable's value, formatted for display */
+    /** The environment variable's type, formatted for display */
     pub display_type: String,
 
     /** Extended type information */
