@@ -127,8 +127,8 @@ fn describe_regular_binding(value: SEXP) -> String {
 
 }
 
-fn describe_altrep(value: SEXP) -> String {
-    let rtype = match unsafe{TYPEOF(value) as u32} {
+fn vec_type(value: SEXP) -> String {
+    let rtype = match r_typeof(value) {
         INTSXP  => "int",
         REALSXP => "dbl",
         LGLSXP  => "lgl",
@@ -140,8 +140,14 @@ fn describe_altrep(value: SEXP) -> String {
         // TODO: this should not happen
         _       => "???"
     };
+    String::from(rtype)
+}
 
-    format!("{} [{}] (altrep {}) {}", rtype, vec_shape(value), altrep_class(value), altrep_vec_glimpse(value))
+fn describe_altrep(value: SEXP) -> String {
+    // TODO: have something to differentiate altrep from standard
+    //       we used to show the altrep class, e.g. base::compact_int*,
+    //       but this takes a lot of real estate
+    format!("{} [{}] {}", vec_type(value), vec_shape(value), altrep_vec_glimpse(value))
 }
 
 fn describe_vec(rtype: &str, value: SEXP) -> String {
@@ -209,6 +215,7 @@ fn altrep_vec_glimpse(value: SEXP) -> String {
     vec_glimpse(value)
 }
 
+#[allow(dead_code)]
 fn altrep_class(object: SEXP) -> String {
     let serialized_klass = unsafe{
         ATTRIB(ALTREP_CLASS(object))
