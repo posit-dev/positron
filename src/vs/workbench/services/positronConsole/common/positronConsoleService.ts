@@ -25,6 +25,7 @@ import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole
 import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 
 //#region Helper Functions
 
@@ -703,13 +704,26 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				formatOutputData(languageRuntimeMessageOutput.data)
 			);
 
-			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutputMessage(
-				languageRuntimeMessageOutput.id,
-				languageRuntimeMessageOutput.parent_id,
-				new Date(languageRuntimeMessageOutput.when),
-				languageRuntimeMessageOutput.data
-			));
+			// Check to see if the data contains an image by checking the record for the
+			// "image/" mime type.
+			const images = Object.keys(languageRuntimeMessageOutput.data).find(key => key.startsWith('image/'));
+			if (images) {
+				// It's an image, so create a plot activity item.
+				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutputPlot(
+					languageRuntimeMessageOutput.id,
+					languageRuntimeMessageOutput.parent_id,
+					new Date(languageRuntimeMessageOutput.when),
+					languageRuntimeMessageOutput.data
+				));
+			} else {
+				// It's a plain old text output, so create a text activity item.
+				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutputMessage(
+					languageRuntimeMessageOutput.id,
+					languageRuntimeMessageOutput.parent_id,
+					new Date(languageRuntimeMessageOutput.when),
+					languageRuntimeMessageOutput.data
+				));
+			}
 		}));
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
