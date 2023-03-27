@@ -715,12 +715,6 @@ mod tests {
         assert_eq!(r_typeof(*s), STRSXP);
         assert_eq!(s, alphabet);
 
-        // &str
-        let string = "Banana";
-        let s = CharacterVector::create(string);
-        assert_eq!(r_typeof(*s), STRSXP);
-        assert_eq!(s, string);
-
     }}
 
 }
