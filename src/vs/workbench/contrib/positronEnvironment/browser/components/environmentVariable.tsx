@@ -12,6 +12,10 @@ import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironme
  * EnvironmentVariableProps interface.
  */
 export interface EnvironmentVariableProps {
+	nameColumnWidth: number;
+	typeColumnWidth: number;
+	typeColumnVisible: boolean;
+	valueColumnWidth: number;
 	indentLevel: number;
 	environmentVariableItem: EnvironmentVariableItem;
 }
@@ -41,31 +45,43 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 	};
 
 	// Render.
-	return (
-		<>
-			<div className='environment-variable'>
-				<div className='name'>
-					<div style={{ display: 'flex', marginLeft: props.indentLevel * 20 }}>
-						<div className='gutter'>
-							{props.environmentVariableItem.hasChildren && (
-								<button className='expand-collapse-button' onClick={handleExpandCollapse}>
-									{!expanded ?
-										<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
-										<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
-									}
-								</button>
-							)}
-						</div>
-						<div className='name-value'>
-							{props.environmentVariableItem.name}
-						</div>
+	return (<>
+		<div className='environment-variable'>
+			<div className='name' style={{ width: props.nameColumnWidth }}>
+				<div style={{ display: 'flex', marginLeft: props.indentLevel * 20 }}>
+					<div className='gutter'>
+						{props.environmentVariableItem.hasChildren && (
+							<button className='expand-collapse-button' onClick={handleExpandCollapse}>
+								{!expanded ?
+									<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
+									<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
+								}
+							</button>
+						)}
+					</div>
+					<div className='name-value'>
+						{props.environmentVariableItem.name}
 					</div>
 				</div>
-				<div className='value'>{props.environmentVariableItem.value}</div>
 			</div>
-			{expanded && children && children.map(item =>
-				<EnvironmentVariable key={item.id} indentLevel={props.indentLevel + 1} environmentVariableItem={item} />
+			{props.typeColumnVisible && (
+				<div className='type' style={{ width: props.typeColumnWidth }}>
+					{props.environmentVariableItem.kind}
+				</div>
 			)}
-		</>
-	);
+			<div className='value' style={{ width: props.valueColumnWidth }}>
+				{props.environmentVariableItem.value}
+			</div>
+		</div>
+		{expanded && children && children.map(item =>
+			<EnvironmentVariable
+				key={item.id}
+				nameColumnWidth={props.nameColumnWidth}
+				typeColumnWidth={props.typeColumnWidth}
+				typeColumnVisible={props.typeColumnVisible}
+				valueColumnWidth={props.valueColumnWidth}
+				indentLevel={props.indentLevel + 1}
+				environmentVariableItem={item} />
+		)}
+	</>);
 };
