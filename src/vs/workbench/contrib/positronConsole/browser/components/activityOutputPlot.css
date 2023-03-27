@@ -1,0 +1,12 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.activity-output-plot {
+	padding-left: 14px;
+}
+
+.activity-output-plot img {
+	max-height: 30px;
+	max-width: 30px;
+}

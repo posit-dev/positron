@@ -422,16 +422,6 @@ impl Iterator for RObjectI32Iterator {
     }
 }
 
-impl RObject {
-    pub fn i32_iter(&self) -> Result<RObjectI32Iterator, crate::error::Error> {
-        Ok(RObjectI32Iterator {
-            object: RObject::from(self.sexp),
-            current: -1,
-            size: unsafe { Rf_xlength(self.sexp) } as isize
-        })
-    }
-}
-
 impl TryFrom<RObject> for Vec<Option<String>> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {
@@ -690,9 +680,10 @@ mod tests {
     fn test_RObject_from_Vec_str() { r_test! {
         let expected = ["Apple", "Orange", "한"];
         let vector = CharacterVector::create(&expected);
-        assert_eq!(vector.get(0).unwrap(), "Apple".to_string());
-        assert_eq!(vector.get(1).unwrap(), "Orange".to_string());
-        assert_eq!(vector.get(2).unwrap(), "한".to_string());
+
+        assert_eq!(vector.get(0).unwrap(), Some("Apple"));
+        assert_eq!(vector.get(1).unwrap(), Some("Orange"));
+        assert_eq!(vector.get(2).unwrap(), Some("한"));
     }}
 
     #[test]

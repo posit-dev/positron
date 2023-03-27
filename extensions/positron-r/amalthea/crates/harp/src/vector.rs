@@ -6,6 +6,7 @@
 //
 
 use std::ffi::CStr;
+use std::fmt::Display;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -66,10 +67,77 @@ impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
     }
 }
 
+pub trait IsNa {
+    fn is_na(self) -> bool;
+}
+
+impl IsNa for u8 {
+    fn is_na(self) -> bool {
+        false
+    }
+}
+
+impl IsNa for i32 {
+    fn is_na(self) -> bool {
+        self == unsafe { R_NaInt }
+    }
+}
+
+impl IsNa for f64 {
+    fn is_na(self) -> bool {
+        unsafe { R_IsNA(self) == 1 }
+    }
+}
+
+impl IsNa for SEXP {
+    fn is_na(self) -> bool {
+        self == unsafe { R_NaString }
+    }
+}
+
+pub struct VectorIterator<'a, const SEXPTYPE: u32, NativeType> {
+    iter: Iter<'a, NativeType>
+}
+
+impl<'a, const SEXPTYPE: u32, NativeType> VectorIterator<'a, {SEXPTYPE}, NativeType> {
+    pub fn new(data: &'a Vector<{SEXPTYPE}, NativeType>) -> Self {
+        unsafe {
+            let len = data.len();
+            let data = DATAPTR(*data.object) as *mut NativeType;
+            let slice = std::slice::from_raw_parts(data, len);
+            let iter = slice.iter();
+
+            Self {
+                iter
+            }
+        }
+    }
+}
+
+impl<'a, const SEXPTYPE: u32, NativeType> Iterator for VectorIterator<'a, {SEXPTYPE}, NativeType>
+where
+    NativeType: Number + Copy + IsNa
+{
+    type Item = Option<NativeType>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            None => None,
+            Some(value) => {
+                if value.is_na() {
+                    Some(None)
+                } else {
+                    Some(Some(*value))
+                }
+            }
+        }
+    }
+}
+
 // Methods for vectors with primitive native types.
 impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType>
 where
-    NativeType: Number + Copy,
+    NativeType: Number + Copy + IsNa
 {
     pub unsafe fn create<T: AsSlice<NativeType>>(data: T) -> Self {
         let data = data.as_slice();
@@ -79,33 +147,34 @@ where
         vector
     }
 
-    pub fn get(&self, index: isize) -> Result<NativeType> {
+    pub fn get(&self, index: isize) -> Result<Option<NativeType>> {
         unsafe {
             r_assert_capacity(self.data(), index as u32)?;
             Ok(self.get_unchecked(index))
         }
     }
 
-    pub fn get_unchecked(&self, index: isize) -> NativeType {
+    pub fn get_unchecked(&self, index: isize) -> Option<NativeType> {
         unsafe {
-            let pointer = DATAPTR(*self.object) as *mut NativeType;
+            let dataptr = DATAPTR(*self.object);
+            let pointer = dataptr as *mut NativeType;
             let offset = pointer.offset(index);
-            *offset
+            if (*offset).is_na() {
+                None
+            } else {
+                Some(*offset)
+            }
         }
     }
 
-    pub fn iter(&self) -> Iter<'_, NativeType> {
-        unsafe {
-            let data = DATAPTR(*self.object) as *mut NativeType;
-            let len = self.len();
-            let slice = std::slice::from_raw_parts(data, len);
-            slice.iter()
-        }
+    pub fn iter<'a>(&'a self) -> VectorIterator<'a, {SEXPTYPE}, NativeType>{
+        VectorIterator::<'a, {SEXPTYPE}, NativeType>::new(self)
     }
 
     pub fn into_vec(self) -> Vec<NativeType> {
         self.into_iter().map(|value| *value).collect::<Vec<_>>()
     }
+
 }
 
 // Character vectors.
@@ -125,7 +194,7 @@ impl<'a> CharacterVectorIterator<'a> {
 }
 
 impl<'a> Iterator for CharacterVectorIterator<'a> {
-    type Item = &'static str;
+    type Item = Option<&'static str>;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -167,16 +236,21 @@ impl CharacterVector {
         vector
     }
 
-    pub unsafe fn get(&self, index: usize) -> Result<&'static str> {
+    pub unsafe fn get(&self, index: usize) -> Result<Option<&'static str>> {
         r_assert_capacity(self.data(), index as u32)?;
         Ok(self.get_unchecked(index))
     }
 
-    pub unsafe fn get_unchecked(&self, index: usize) -> &'static str {
+    pub unsafe fn get_unchecked(&self, index: usize) -> Option<&'static str> {
         let data = *self.object;
-        let cstr = Rf_translateCharUTF8(STRING_ELT(data, index as R_xlen_t));
-        let bytes = CStr::from_ptr(cstr).to_bytes();
-        std::str::from_utf8_unchecked(bytes)
+        let charsxp = STRING_ELT(data, index as R_xlen_t);
+        if charsxp == R_NaString {
+            None
+        } else {
+            let cstr = Rf_translateCharUTF8(charsxp);
+            let bytes = CStr::from_ptr(cstr).to_bytes();
+            Some(std::str::from_utf8_unchecked(bytes))
+        }
     }
 
     pub fn iter(&self) -> CharacterVectorIterator {
@@ -240,7 +314,9 @@ impl<'a, T> PartialEq<T> for CharacterVector
 
             for i in 0..self.len() {
                 let value = self.get_unchecked(i);
-                if value != other[i] {
+
+                // TODO: refine re NA aka Some(None)
+                if value != Some(other[i]) {
                     return false;
                 }
             }
@@ -264,6 +340,71 @@ impl<'a, const SEXPTYPE: u32, NativeType> IntoIterator
             let slice = std::slice::from_raw_parts(data, self.len());
             slice.iter()
         }
+    }
+}
+
+impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType>
+where
+    NativeType: Number + Copy + IsNa + Display
+{
+    pub fn glimpse(&self, limit: usize) -> (bool, String) {
+        let mut iter = self.iter();
+
+        let mut out = String::new();
+        let mut truncated = false;
+        loop {
+            match iter.next() {
+                None => break,
+                Some(None) => {
+                    out.push_str(" _");
+                },
+
+                Some(Some(x)) => {
+                    if out.len() > limit {
+                        truncated = true;
+                        break;
+                    }
+                    out.push_str(" ");
+                    out.push_str(x.to_string().as_str());
+                }
+            }
+
+        }
+
+        (truncated, out)
+
+    }
+}
+
+// TODO: this is mostly the same as the other glimpse
+impl CharacterVector
+{
+    pub fn glimpse(&self, limit: usize) -> (bool, String) {
+        let mut iter = self.iter();
+
+        let mut out = String::new();
+        let mut truncated = false;
+        loop {
+            match iter.next() {
+                None => break,
+                Some(None) => {
+                    out.push_str(" _");
+                },
+
+                Some(Some(x)) => {
+                    if out.len() > limit {
+                        truncated = true;
+                        break;
+                    }
+                    out.push_str(" ");
+                    out.push_str(x);
+                }
+            }
+
+        }
+
+        (truncated, out)
+
     }
 }
 
@@ -337,9 +478,9 @@ mod tests {
 
             let vector = NumericVector::create([1.0, 2.0, 3.0]);
             assert!(vector.len() == 3);
-            assert!(vector.get_unchecked(0) == 1.0);
-            assert!(vector.get_unchecked(1) == 2.0);
-            assert!(vector.get_unchecked(2) == 3.0);
+            assert!(vector.get_unchecked(0) == Some(1.0));
+            assert!(vector.get_unchecked(1) == Some(2.0));
+            assert!(vector.get_unchecked(2) == Some(3.0));
 
             let data = [1.0, 2.0, 3.0];
             assert!(vector == data);
@@ -353,15 +494,15 @@ mod tests {
             let mut it = vector.iter();
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == &1.0);
+            assert!(value.unwrap() == Some(1.0));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == &2.0);
+            assert!(value.unwrap() == Some(2.0));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == &3.0);
+            assert!(value.unwrap() == Some(3.0));
 
             let value = it.next();
             assert!(value.is_none());
@@ -381,11 +522,11 @@ mod tests {
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "hello");
+            assert!(value.unwrap() == Some("hello"));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "world");
+            assert!(value.unwrap() == Some("world"));
 
             let value = it.next();
             assert!(value.is_none());
@@ -395,8 +536,8 @@ mod tests {
                 "world".to_string()
             ]);
 
-            assert!(vector.get_unchecked(0) == "hello");
-            assert!(vector.get_unchecked(1) == "world");
+            assert!(vector.get_unchecked(0) == Some("hello"));
+            assert!(vector.get_unchecked(1) == Some("world"));
 
         }
     }
@@ -406,7 +547,7 @@ mod tests {
         r_test! {
             let vector = IntegerVector::create(42);
             assert!(vector.len() == 1);
-            assert!(vector.get_unchecked(0) == 42);
+            assert!(vector.get_unchecked(0) == Some(42));
         }
     }
 }

@@ -124,7 +124,7 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
     if R_IsNamespaceEnv(envir) != 0 {
         let spec = R_NamespaceEnvSpec(envir);
         if let Ok(vector) = CharacterVector::new(spec) {
-            let package = vector.get(0)?;
+            let package = vector.get(0)?.unwrap();
             return Ok(package.to_string());
         }
     }

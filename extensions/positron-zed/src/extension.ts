@@ -13,12 +13,12 @@ import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
 export function activate(context: vscode.ExtensionContext) {
 	// Register the Positron Zed language runtimes. We prefer V2 over V1, so register it first.
 	context.subscriptions.push(positron.runtime.registerLanguageRuntime(new PositronZedLanguageRuntime(
-		'00000000-0000-0000-0000-000000000200', '2.0.0'
+		context, '00000000-0000-0000-0000-000000000200', '2.0.0'
 	)));
 	context.subscriptions.push(positron.runtime.registerLanguageRuntime(new PositronZedLanguageRuntime(
-		'00000000-0000-0000-0000-000000000100', '1.0.0'
+		context, '00000000-0000-0000-0000-000000000100', '1.0.0'
 	)));
 	context.subscriptions.push(positron.runtime.registerLanguageRuntime(new PositronZedLanguageRuntime(
-		'00000000-0000-0000-0000-000000000098', '0.98.0'
+		context, '00000000-0000-0000-0000-000000000098', '0.98.0'
 	)));
 }

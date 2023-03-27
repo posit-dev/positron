@@ -9,6 +9,8 @@ import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi'
 import * as ansi from 'ansi-escape-sequences';
 import { resolve } from 'path';
 import { ZedEnvironment } from './positronZedEnvironment';
+import path = require('path');
+import fs = require('fs');
 
 /**
  * Constants.
@@ -54,6 +56,7 @@ const HelpLines = [
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
+	'plot         - Renders a plot',
 	'progress     - Renders a progress bar',
 	'shutdown     - Simulates orderly shutdown',
 	'version      - Shows the Zed version'
@@ -119,10 +122,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Constructor.
+	 * @param context The extension context.
 	 * @param runtimeId The ID for the new runtime
 	 * @param version The language version.
 	 */
-	constructor(runtimeId: string, version: string) {
+	constructor(
+		private readonly context: vscode.ExtensionContext,
+		runtimeId: string,
+		version: string) {
 		this.metadata = {
 			runtimeId,
 			languageId: 'zed',
@@ -656,6 +663,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'plot': {
+				this.simulatePlot(id, code);
+				break;
+			}
+
 			case 'progress': {
 				this.simulateProgressBar(id, code);
 				break;
@@ -837,6 +849,36 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		setTimeout(() => {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		}, 2000);
+	}
+
+	/**
+	 * Simulates a plot
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 */
+	private simulatePlot(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Read the plot data from the file in the extension's resources folder.
+		const plotPngPath = path.join(this.context.extensionPath, 'resources', 'zed-logo.png');
+		const plotPng = fs.readFileSync(plotPngPath);
+
+		// Encode the data to base64.
+		const plotPngBase64 = Buffer.from(plotPng).toString('base64');
+
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedPLOT 325x325>',
+				'image/png': plotPngBase64
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+		this.simulateIdleState(parentId);
 	}
 
 	/**
