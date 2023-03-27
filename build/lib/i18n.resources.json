@@ -167,6 +167,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronPlots",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/preferences",
 			"project": "vscode-workbench"
 		},

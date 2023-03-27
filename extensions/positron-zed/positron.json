@@ -1,0 +1,8 @@
+{
+	"binaries": [
+		{
+			"from": "resources/zed-logo.png",
+			"to": "resources"
+		}
+	]
+}
