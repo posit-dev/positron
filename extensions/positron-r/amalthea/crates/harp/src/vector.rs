@@ -66,33 +66,31 @@ impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Vector<{ SEXPTYPE }, Nativ
     }
 }
 
-impl RawVector {
-    fn is_na(_x: u8) -> bool{
+pub trait IsNa {
+    fn is_na(self) -> bool;
+}
+
+impl IsNa for u8 {
+    fn is_na(self) -> bool {
         false
     }
 }
 
-impl IntegerVector {
-    fn is_na(x: i32) -> bool{
-        x == unsafe { R_NaInt }
+impl IsNa for i32 {
+    fn is_na(self) -> bool {
+        self == unsafe { R_NaInt }
     }
 }
 
-impl LogicalVector {
-    fn is_na(x: i32) -> bool{
-        x == unsafe { R_NaInt }
+impl IsNa for f64 {
+    fn is_na(self) -> bool {
+        unsafe { R_IsNA(self) == 1 }
     }
 }
 
-impl NumericVector {
-    fn is_na(x: f64) -> bool {
-        unsafe { R_IsNA(x) == 1 }
-    }
-}
-
-impl CharacterVector {
-    fn is_na(x: SEXP) -> bool {
-        x == unsafe { R_NaString }
+impl IsNa for SEXP {
+    fn is_na(self) -> bool {
+        self == unsafe { R_NaString }
     }
 }
 
@@ -100,6 +98,7 @@ impl CharacterVector {
 impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
 where
     NativeType: Number + Copy,
+    UnderlyingType: IsNa + Copy
 {
     pub unsafe fn create<T: AsSlice<NativeType>>(data: T) -> Self {
         let data = data.as_slice();
@@ -118,9 +117,15 @@ where
 
     pub fn get_unchecked(&self, index: isize) -> Option<NativeType> {
         unsafe {
-            let pointer = DATAPTR(*self.object) as *mut NativeType;
+            let dataptr = DATAPTR(*self.object);
+            let pointer = dataptr as *mut UnderlyingType;
             let offset = pointer.offset(index);
-            Some(*offset)
+            if (*offset).is_na() {
+                None
+            } else {
+                // FIXME: that's a bit ugly
+                Some(*(dataptr as *mut NativeType).offset(index))
+            }
         }
     }
 
@@ -204,9 +209,14 @@ impl CharacterVector {
 
     pub unsafe fn get_unchecked(&self, index: usize) -> Option<&'static str> {
         let data = *self.object;
-        let cstr = Rf_translateCharUTF8(STRING_ELT(data, index as R_xlen_t));
-        let bytes = CStr::from_ptr(cstr).to_bytes();
-        Some(std::str::from_utf8_unchecked(bytes))
+        let charsxp = STRING_ELT(data, index as R_xlen_t);
+        if charsxp == R_NaString {
+            None
+        } else {
+            let cstr = Rf_translateCharUTF8(charsxp);
+            let bytes = CStr::from_ptr(cstr).to_bytes();
+            Some(std::str::from_utf8_unchecked(bytes))
+        }
     }
 
     pub fn iter(&self) -> CharacterVectorIterator {
