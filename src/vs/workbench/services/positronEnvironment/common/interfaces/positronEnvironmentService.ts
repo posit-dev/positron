@@ -29,7 +29,8 @@ export const enum PositronEnvironmentState {
 export const enum PositronEnvironmentGrouping {
 	None,
 	Kind,
-	Size
+	Size,
+	Type
 }
 
 /**
