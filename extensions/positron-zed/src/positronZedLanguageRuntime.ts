@@ -9,6 +9,8 @@ import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi'
 import * as ansi from 'ansi-escape-sequences';
 import { resolve } from 'path';
 import { ZedEnvironment } from './positronZedEnvironment';
+import path = require('path');
+import fs = require('fs');
 
 /**
  * Constants.
@@ -29,31 +31,35 @@ const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'1k          - Inserts 1,000 lines of ANSI output',
-	'ansi 16     - Displays standard ANSI colors as foreground and background colors',
-	'ansi 256    - Displays indexed ANSI colors as foreground and background colors',
-	'ansi blink  - Displays blinking output',
-	'ansi cub    - Outputs text using CUB',
-	'ansi cuf    - Outputs text using CUF',
-	'ansi cup    - Outputs text using CUP',
-	'ansi ed 0   - Clears to the end of the screen using ED',
-	'ansi ed 1   - Clears to the beginning of the screen using ED',
-	'ansi ed 2   - Clears an entire screen using ED',
-	'ansi el 0   - Clears to the end of the line using EL',
-	'ansi el 1   - Clears to the beginning of the line using EL',
-	'ansi el 2   - Clears an entire line using EL',
-	'ansi hidden - Displays hidden text',
-	'ansi rgb    - Displays RGB ANSI colors as foreground and background colors',
-	'code X Y    - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
-	'def X       - Defines X variables',
-	'def X Y     - Defines X variables of type Y',
-	'env clear   - Clears all variables from the environment',
-	'error X Y Z - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-	'help        - Shows this help',
-	'offline     - Simulates going offline for two seconds',
-	'progress    - Renders a progress bar',
-	'shutdown    - Simulates orderly shutdown',
-	'version     - Shows the Zed version'
+	'1k           - Inserts 1,000 lines of ANSI output',
+	'ansi 16      - Displays standard ANSI colors as foreground and background colors',
+	'ansi 256     - Displays indexed ANSI colors as foreground and background colors',
+	'ansi blink   - Displays blinking output',
+	'ansi cub     - Outputs text using CUB',
+	'ansi cuf     - Outputs text using CUF',
+	'ansi cup     - Outputs text using CUP',
+	'ansi ed 0    - Clears to the end of the screen using ED',
+	'ansi ed 1    - Clears to the beginning of the screen using ED',
+	'ansi ed 2    - Clears an entire screen using ED',
+	'ansi el 0    - Clears to the end of the line using EL',
+	'ansi el 1    - Clears to the beginning of the line using EL',
+	'ansi el 2    - Clears an entire line using EL',
+	'ansi hidden  - Displays hidden text',
+	'ansi rgb     - Displays RGB ANSI colors as foreground and background colors',
+	'code X Y     - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'env clear    - Clears all variables from the environment',
+	'env def X    - Defines X variables (randomly typed)',
+	'env def X Y  - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
+	'env max X    - Set the maximum number of displayed variables to X',
+	'env rm X     - Removes X variables',
+	'env update X - Updates X variables',
+	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'help         - Shows this help',
+	'offline      - Simulates going offline for two seconds',
+	'plot         - Renders a plot',
+	'progress     - Renders a progress bar',
+	'shutdown     - Simulates orderly shutdown',
+	'version      - Shows the Zed version'
 ].join('\n');
 
 /**
@@ -105,22 +111,32 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
 
+	/**
+	 * A stack of pending environment RPCs.
+	 */
+	private readonly _pendingRpcs: Array<string> = [];
+
 	//#endregion Private Properties
 
 	//#region Constructor
 
 	/**
 	 * Constructor.
+	 * @param context The extension context.
 	 * @param runtimeId The ID for the new runtime
 	 * @param version The language version.
 	 */
-	constructor(runtimeId: string, version: string) {
+	constructor(
+		private readonly context: vscode.ExtensionContext,
+		runtimeId: string,
+		version: string) {
 		this.metadata = {
 			runtimeId,
 			languageId: 'zed',
 			languageName: 'Zed',
 			runtimeName: 'Zed',
 			languageVersion: version,
+			inputPrompt: `Z>`,
 			runtimeVersion: '0.0.1',
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
@@ -194,7 +210,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			// Simulate unsuccessful code execution.
 			return this.simulateUnsuccessfulCodeExecution(id, code, 'Simulated Error', message, traceback);
-		} else if (match = code.match(/^def ([1-9]{1}[\d]*) ?(.*)/)) {
+		} else if (match = code.match(/^env def ([1-9]{1}[\d]*) ?(.*)/)) {
 			// Define the value in each environment; there's probably only one, but one can't be
 			// too careful about these things. In the future, we'll probably want to be able to
 			// define variables in specific environments or nest environments.
@@ -219,6 +235,33 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					'No Environments',
 					'No environments are available to define variables in.', []);
 			}
+		} else if (match = code.match(/^env update ([1-9]{1}[\d]*)/)) {
+			let count = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					count = environment.updateVars(count);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Updated the values of ${count} variables.`);
+		} else if (match = code.match(/^env rm ([1-9]{1}[\d]*)/)) {
+			let count = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					count = environment.removeVars(count);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Removed ${count} variables.`);
+		} else if (match = code.match(/^env max ([1-9]{1}[\d]*)/)) {
+			const max = +match[1];
+			if (this._environments.size > 0) {
+				for (const environment of this._environments.values()) {
+					environment.setMaxVarDisplay(max);
+				}
+			}
+			return this.simulateSuccessfulCodeExecution(id, code,
+				`Now displaying a maximum of ${max} variables.`);
 		}
 
 		// Process the "code".
@@ -620,6 +663,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'plot': {
+				this.simulatePlot(id, code);
+				break;
+			}
+
 			case 'progress': {
 				this.simulateProgressBar(id, code);
 				break;
@@ -691,13 +739,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
-	sendClientMessage(id: string, message: object): void {
+	sendClientMessage(client_id: string, message_id: string, message: object): void {
 		// Right now, the only client instances are environments.
-		const client = this._environments.get(id);
+		const client = this._environments.get(client_id);
 		if (client) {
+			this._pendingRpcs.push(message_id);
 			client.handleMessage(message);
 		} else {
-			throw new Error(`Can't send message; unknown client id ${id}`);
+			throw new Error(`Can't send message; unknown client id ${client_id}`);
 		}
 	}
 
@@ -715,15 +764,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @returns A Thenable that resolves with information about the runtime
 	 */
 	start(): Promise<positron.LanguageRuntimeInfo> {
-		// Zed 0.98.0 always fails to start.
+		// Zed 0.98.0 always fails to start. Simulate this by going directly
+		// from Starting to Exited and rejecting the promise with a multi-line
+		// error message.
 		if (this.metadata.runtimeId === '00000000-0000-0000-0000-000000000098') {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
-			this.simulateErrorMessage(randomUUID(), 'StartupFailed', 'Startup failed');
-			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
-			return Promise.reject('Failure');
+			return Promise.reject({
+				message: 'Zed Startup failed',
+				details: `Zed 0.98.0 always fails to start.\nFailure occured at ${new Date().toLocaleString()}.`
+			});
 		}
 
 		return new Promise<positron.LanguageRuntimeInfo>((resolve, reject) => {
@@ -797,6 +849,36 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		setTimeout(() => {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		}, 2000);
+	}
+
+	/**
+	 * Simulates a plot
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 */
+	private simulatePlot(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Read the plot data from the file in the extension's resources folder.
+		const plotPngPath = path.join(this.context.extensionPath, 'resources', 'zed-logo.png');
+		const plotPng = fs.readFileSync(plotPngPath);
+
+		// Encode the data to base64.
+		const plotPngBase64 = Buffer.from(plotPng).toString('base64');
+
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedPLOT 325x325>',
+				'image/png': plotPngBase64
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+		this.simulateIdleState(parentId);
 	}
 
 	/**
@@ -980,11 +1062,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Listen for data emitted from the environment instance
 		env.onDidEmitData(data => {
+			// If there's a pending RPC, then presume that this message is a
+			// reply to it; otherwise, just use an empty parent ID.
+			const parent_id = this._pendingRpcs.length > 0 ?
+				this._pendingRpcs.pop() : '';
 
 			// When received, wrap it up in a runtime message and emit it
 			this._onDidReceiveRuntimeMessage.fire({
 				id: randomUUID(),
-				parent_id: '',
+				parent_id,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.CommData,
 				comm_id: env.id,

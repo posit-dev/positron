@@ -15,8 +15,11 @@ pub mod protect;
 pub mod routines;
 pub mod string;
 pub mod test;
+pub mod traits;
 pub mod utils;
 pub mod vector;
+pub mod symbol;
+pub mod environment;
 
 pub use harp_macros::register;
 

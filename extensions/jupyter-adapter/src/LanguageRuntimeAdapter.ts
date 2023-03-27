@@ -27,6 +27,7 @@ import { JupyterHistoryRequest } from './JupyterHistoryRequest';
 import { findAvailablePort } from './PortFinder';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
+import { JupyterCommOpen } from './JupyterCommOpen';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -60,11 +61,28 @@ export class LanguageRuntimeAdapter
 	 */
 	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
+	/**
+	 * Create a new LanguageRuntimeAdapter to wrap a Jupyter kernel instance in
+	 * a LanguageRuntime interface.
+	 *
+	 * @param _context The extension context for the extension that owns this adapter
+	 * @param _spec The Jupyter kernel spec for the kernel to wrap
+	 * @param languageId  The language ID for the language this adapter supports; must be one of
+	 *    VS Code's built-in language IDs or a language ID registered by another extension.
+	 * @param languageVersion The specific version of the interpreter bound to this adapter
+	 * @param runtimeVersion The version of the language runtime wrapper around
+	 *    the interpreter, often the extension version
+	 * @param inputPrompt The input prompt to use for the kernel, such as ">"
+	 * @param _channel The channel on which to emit logging messages
+	 * @param startupBehavior Whether the runtime should be started automatically
+	 * @param _lsp A callback to invoke to start the client side of the LSP
+	 */
 	constructor(private readonly _context: vscode.ExtensionContext,
 		private readonly _spec: JupyterKernelSpec,
 		languageId: string,
 		languageVersion: string,
 		runtimeVersion: string,
+		inputPrompt: string,
 		private readonly _channel: vscode.OutputChannel,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
 		private readonly _lsp?: (port: number) => Promise<void>) {
@@ -89,6 +107,7 @@ export class LanguageRuntimeAdapter
 			languageId,
 			languageName: this._spec.language,
 			languageVersion,
+			inputPrompt,
 			startupBehavior: startupBehavior
 		};
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
@@ -304,8 +323,15 @@ export class LanguageRuntimeAdapter
 		}
 	}
 
-	sendClientMessage(id: string, message: any): void {
-		this._kernel.sendCommMessage(id, message);
+	/**
+	 * Sends a message to the back end of a client instance.
+	 *
+	 * @param client_id The ID of the client to send the message to
+	 * @param message_id The ID of the message to send (unique per message)
+	 * @param message The message payload to send
+	 */
+	sendClientMessage(client_id: string, message_id: string, message: any): void {
+		this._kernel.sendCommMessage(client_id, message_id, message);
 	}
 
 	/**
@@ -397,6 +423,9 @@ export class LanguageRuntimeAdapter
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
+			case 'comm_open':
+				this.onCommOpen(msg, message as JupyterCommOpen);
+				break;
 			case 'comm_msg':
 				this.onCommMessage(msg, message as JupyterCommMsg);
 				break;
@@ -422,6 +451,26 @@ export class LanguageRuntimeAdapter
 			prompt: req.prompt,
 			password: req.password,
 		} as positron.LanguageRuntimePrompt);
+	}
+
+	/**
+	 * Delivers a comm_open message from the kernel to the front end. Typically
+	 * this is used to create a front-end representation of a back-end
+	 * object, such as an interactive plot or Jupyter widget.
+	 *
+	 * @param message The outer message packet
+	 * @param msg The inner comm_open message
+	 */
+	private onCommOpen(message: JupyterMessagePacket, msg: JupyterCommOpen): void {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			when: message.when,
+			type: positron.LanguageRuntimeMessageType.CommOpen,
+			comm_id: msg.comm_id,
+			target_name: msg.target_name,
+			data: msg.data,
+		} as positron.LanguageRuntimeCommOpen);
 	}
 
 	/**

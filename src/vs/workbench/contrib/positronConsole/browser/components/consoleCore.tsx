@@ -4,15 +4,16 @@
 
 import 'vs/css!./consoleCore';
 import * as React from 'react';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { ActionBar } from 'vs/workbench/contrib/positronConsole/browser/components/actionBar';
-import { ConsoleRepl } from 'vs/workbench/contrib/positronConsole/browser/components/consoleRepl';
-import { PositronConsoleProps } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
+import { ConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstance';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 // ConsoleCoreProps interface.
-interface ConsoleCoreProps extends PositronConsoleProps {
-	width: number;
-	height: number;
+interface ConsoleCoreProps {
+	readonly width: number;
+	readonly height: number;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
@@ -33,15 +34,16 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	// Render.
 	return (
 		<div className='console-core'>
-			<ActionBar {...props} />
-			<div className='console-repls-container' style={{ width: props.width, height: props.height - 32 }}>
+			<ActionBar />
+			<div className='console-instances-container' style={{ width: props.width, height: props.height - 32 }}>
 				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
-					<ConsoleRepl
+					<ConsoleInstance
+						key={positronConsoleInstance.runtime.metadata.languageId}
 						width={props.width}
 						height={props.height - 32}
-						key={positronConsoleInstance.runtime.metadata.languageId}
-						hidden={positronConsoleInstance !== positronConsoleContext.activePositronConsoleInstance}
-						positronConsoleInstance={positronConsoleInstance} />
+						positronConsoleInstance={positronConsoleInstance}
+						focusReceiver={props.reactComponentContainer}
+						hidden={positronConsoleInstance !== positronConsoleContext.activePositronConsoleInstance} />
 				)}
 			</div>
 		</div>

@@ -11,13 +11,13 @@ import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/l
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
 
 /**
- * The PositronConsoleState
+ * PositronConsoleState enumeration.
  */
 export const enum PositronConsoleState {
 	Uninitialized = 'Uninitialized',
 	Starting = 'Starting',
-	Ready = 'Ready',
 	Busy = 'Busy',
+	Ready = 'Ready',
 	Offline = 'Offline',
 	Exiting = 'Exiting',
 	Exited = 'Exited'

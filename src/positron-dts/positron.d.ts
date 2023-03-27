@@ -34,6 +34,9 @@ declare module 'positron' {
 		/** A message representing a runtime event */
 		Event = 'event',
 
+		/** A message representing a new comm (client instance) being opened from the rutime side */
+		CommOpen = 'comm_open',
+
 		/** A message representing data received via a comm (to a client instance) */
 		CommData = 'comm_data',
 
@@ -244,6 +247,21 @@ declare module 'positron' {
 		traceback: Array<string>;
 	}
 
+	/**
+	 * LanguageRuntimeCommOpen is a LanguageRuntimeMessage that indicates a
+	 * comm (client instance) was opened from the server side
+	 */
+	export interface LanguageRuntimeCommOpen extends LanguageRuntimeMessage {
+		/** The unique ID of the comm being opened */
+		comm_id: string;
+
+		/** The name (type) of the comm being opened, e.g. 'jupyter.widget' */
+		target_name: string;
+
+		/** The data from the back-end */
+		data: object;
+	}
+
 	/** LanguageRuntimeCommMessage is a LanguageRuntimeMessage that represents data for a comm (client instance) */
 	export interface LanguageRuntimeCommMessage extends LanguageRuntimeMessage {
 		/** The unique ID of the client comm ID for which the message is intended */
@@ -265,7 +283,8 @@ declare module 'positron' {
 		data: object;
 	}
 
-	/** LanguageRuntimeMetadata contains information about a language runtime that is known
+	/**
+	 * LanguageRuntimeMetadata contains information about a language runtime that is known
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
@@ -291,6 +310,9 @@ declare module 'positron' {
 
 		/** The version of the language; e.g. "4.2" */
 		languageVersion: string;
+
+		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" */
+		inputPrompt: string;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
@@ -413,13 +435,22 @@ declare module 'positron' {
 		/** Remove an instance of a client (created with `createClient`) */
 		removeClient(id: string): void;
 
-		/** Send a message to the server end of a client instance */
-		sendClientMessage(id: string, message: any): void;
+		/**
+		 * Send a message to the server end of a client instance. Any replies to the message
+		 * will be sent back to the client via the `onDidReceiveRuntimeMessage` event, with
+		 * the `parent_id` field set to the `message_id` given here.
+		 */
+		sendClientMessage(client_id: string, message_id: string, message: any): void;
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
 
-		/** Start the runtime; returns a Thenable that resolves with information about the runtime. */
+		/**
+		 * Start the runtime; returns a Thenable that resolves with information about the runtime.
+		 * If the runtime fails to start for any reason, the Thenable should reject with an error
+		 * object containing a `message` field with a human-readable error message and an optional
+		 * `details` field with additional information.
+		 */
 		start(): Thenable<LanguageRuntimeInfo>;
 
 		/** Interrupt the runtime */

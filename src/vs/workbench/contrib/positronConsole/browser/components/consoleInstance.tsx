@@ -2,11 +2,13 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleRepl';
+import 'vs/css!./consoleInstance';
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
+import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
 import { LiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/liveInput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
@@ -27,25 +29,27 @@ import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
+import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 
-// ConsoleReplProps interface.
-interface ConsoleReplProps {
-	hidden: boolean;
-	width: number;
-	height: number;
-	positronConsoleInstance: IPositronConsoleInstance;
+// ConsoleInstanceProps interface.
+interface ConsoleInstanceProps {
+	readonly hidden: boolean;
+	readonly width: number;
+	readonly height: number;
+	readonly positronConsoleInstance: IPositronConsoleInstance;
+	readonly focusReceiver: IFocusReceiver;
 }
 
 /**
- * ConsoleRepl component.
- * @param props A ConsoleProps that contains the component properties.
+ * ConsoleInstance component.
+ * @param props A ConsoleInstanceProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleRepl = (props: ConsoleReplProps) => {
+export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Hooks.
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
-	const liveInputRef = useRef<HTMLDivElement>(undefined!);
+	const inputRef = useRef<HTMLDivElement>(undefined!);
 	const [marker, setMarker] = useState(generateUuid());
 
 	// Executes code.
@@ -86,13 +90,20 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			executeCode(codeFragment);
 		}));
 
+		// Add the onFocused event handler.
+		disposableStore.add(props.focusReceiver.onFocused(() => {
+			if (!props.hidden) {
+				inputRef.current?.scrollIntoView({ behavior: 'auto' });
+			}
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
 	// Experimental.
 	useEffect(() => {
-		liveInputRef.current?.scrollIntoView({ behavior: 'auto' });
+		inputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [marker]);
 
 	/**
@@ -115,14 +126,14 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemExited) {
 			return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+		} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
+			return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 		} else if (runtimeItem instanceof RuntimeItemTrace) {
 			return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
 		} else {
 			return null;
 		}
 	};
-
-	// console.log(`Rendering console repl in state ${props.positronConsoleInstance.state}`);
 
 	/**
 	 * Renders the input.
@@ -134,17 +145,21 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 			// Ready.
 			case PositronConsoleState.Ready:
 				return <LiveInput
-					ref={liveInputRef}
+					ref={inputRef}
 					width={props.width}
+					hidden={props.hidden}
 					executeCode={executeCode}
-					positronConsoleInstance={props.positronConsoleInstance} />;
+					positronConsoleInstance={props.positronConsoleInstance}
+					focusReceiver={props.focusReceiver} />;
 
 			// Busy.
 			case PositronConsoleState.Busy:
 				return <BusyInput
-					ref={liveInputRef}
+					ref={inputRef}
 					width={props.width}
-					positronConsoleInstance={props.positronConsoleInstance} />;
+					hidden={props.hidden}
+					positronConsoleInstance={props.positronConsoleInstance}
+					focusReceiver={props.focusReceiver} />;
 
 			// Render nothing.
 			default:
@@ -154,7 +169,7 @@ export const ConsoleRepl = (props: ConsoleReplProps) => {
 
 	// Render.
 	return (
-		<div className='console-repl' hidden={props.hidden}>
+		<div className='console-instance' hidden={props.hidden}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}

@@ -72,10 +72,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
 		}));
 
-		// Add the onVisibilityChanged event handler.
-		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visibility => {
-		}));
-
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);

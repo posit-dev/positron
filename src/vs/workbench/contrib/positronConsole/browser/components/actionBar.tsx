@@ -4,46 +4,26 @@
 
 import 'vs/css!./actionBar';
 import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ConsoleReplMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleReplMenuButton';
+import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
 
 // Constants.
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
 
 /**
- * ActionBarProps interface.
- */
-export interface ActionBarProps extends PositronConsoleServices {
-	// Services.
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly keybindingService: IKeybindingService;
-	readonly workbenchLayoutService: IWorkbenchLayoutService;
-}
-
-/**
  * ActionBar component.
  * @param props An ActionBarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBar = (props: PropsWithChildren<ActionBarProps>) => {
+export const ActionBar = () => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -59,11 +39,11 @@ export const ActionBar = (props: PropsWithChildren<ActionBarProps>) => {
 
 	// Render.
 	return (
-		<PositronActionBarContextProvider {...props}>
+		<PositronActionBarContextProvider {...positronConsoleContext as PositronActionBarServices}>
 			<div className='action-bar'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<ConsoleReplMenuButton />
+						<ConsoleInstanceMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle Trace")} onClick={toggleTraceHandler} />

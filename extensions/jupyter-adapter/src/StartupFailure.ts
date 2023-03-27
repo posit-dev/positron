@@ -2,10 +2,13 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.console-core .console-repl {
-	overflow-x: visible;
-	-webkit-user-select: text;
-	-moz-user-select: text;
-	-ms-user-select: text;
-	user-select: text;
+/**
+ * Represents a failure that occured during kernel startup; thrown as an error
+ * from all code paths that can fail during startup.
+ */
+export class StartupFailure {
+	constructor(
+		public readonly message: string,
+		public readonly details: string,
+	) { }
 }

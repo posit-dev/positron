@@ -70,6 +70,18 @@ export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 	password: boolean;
 }
 
+/** ILanguageRuntimeMessageCommOpen is a LanguageRuntimeMessage representing a comm open request */
+export interface ILanguageRuntimeMessageCommOpen extends ILanguageRuntimeMessage {
+	/** The comm ID */
+	comm_id: string;
+
+	/** The target name of the comm to open, e.g. 'jupyter.widget' */
+	target_name: string;
+
+	/** Data associated with the request (e.g. parameters to client-side comm constructor) */
+	data: object;
+}
+
 /** ILanguageRuntimeMessageCommData is a LanguageRuntimeMessage representing data received from a comm */
 export interface ILanguageRuntimeMessageCommData extends ILanguageRuntimeMessage {
 	/** The comm ID */
@@ -152,6 +164,15 @@ export interface ILanguageRuntimeInfo {
 	language_version: string;
 }
 
+/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
+export interface ILanguageRuntimeStartupFailure {
+	/** The error message to show to the user; at most one line of text */
+	message: string;
+
+	/** Error details, logs, etc. as a multi-line string */
+	details: string;
+}
+
 /**
  * Possible error dispositions for a language runtime
  */
@@ -213,6 +234,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a runtime event */
 	Event = 'event',
+
+	/** A message representing a new comm (client instance) being opened from the runtime side */
+	CommOpen = 'comm_open',
 
 	/** A message representing data received via a comm */
 	CommData = 'comm_data',
@@ -288,6 +312,9 @@ export interface ILanguageRuntimeMetadata {
 	/** The version of the language in question; e.g. "4.3.3" */
 	readonly languageVersion: string;
 
+	/** The text the langauge's interpreter uses to prompt the user for input, e.g. ">" */
+	readonly inputPrompt: string;
+
 	/** The user-facing descriptive name of the runtime; e.g. "R 4.3.3" */
 	readonly runtimeName: string;
 
@@ -307,6 +334,9 @@ export interface ILanguageRuntime {
 
 	/** An object that emits an event when the runtime completes startup */
 	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
+
+	/** An object that emits an event when runtime startup fails */
+	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
 
 	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
 	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;
@@ -335,11 +365,11 @@ export interface ILanguageRuntime {
 	 * @param type The type of client to create
 	 * @param params The parameters to pass to the client constructor
 	 */
-	createClient<T>(type: RuntimeClientType, params: any):
-		Thenable<IRuntimeClientInstance<T>>;
+	createClient<T, U>(type: RuntimeClientType, params: any):
+		Thenable<IRuntimeClientInstance<T, U>>;
 
 	/** Get a list of all known clients */
-	listClients(): Thenable<Array<IRuntimeClientInstance<any>>>;
+	listClients(): Thenable<Array<IRuntimeClientInstance<any, any>>>;
 
 	/** Reply to an input prompt that the runtime issued
 	 * (via a LanguageRuntimePrompt message)

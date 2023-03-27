@@ -15,6 +15,8 @@ import { ActivityErrorStreamGroup } from 'vs/workbench/contrib/positronConsole/b
 import { ActivityOutputStreamGroup } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputStreamGroup';
 import { ActivityItemErrorStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStreamGroup';
 import { ActivityItemOutputStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStreamGroup';
+import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
+import { ActivityOutputPlot } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputPlot';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
@@ -41,6 +43,8 @@ export const RuntimeActivity = ({ runtimeItemActivity }: RuntimeActivityProps) =
 			return <ActivityErrorStreamGroup key={activityItem.id} activityItemErrorStreamGroup={activityItem} />;
 		} else if (activityItem instanceof ActivityItemOutputMessage) {
 			return <ActivityOutputMessage key={activityItem.id} activityItemOutputMessage={activityItem} />;
+		} else if (activityItem instanceof ActivityItemOutputPlot) {
+			return <ActivityOutputPlot key={activityItem.id} activityItemOutputPlot={activityItem} />;
 		} else if (activityItem instanceof ActivityItemErrorMessage) {
 			return <ActivityErrorMessage key={activityItem.id} activityItemErrorMessage={activityItem} />;
 		} else {

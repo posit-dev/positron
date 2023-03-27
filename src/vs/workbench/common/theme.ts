@@ -1372,7 +1372,7 @@ export const POSITRON_CONSOLE_FOREGROUND_COLOR = registerColor('positronConsole.
 	light: 'terminal.foreground',
 	hcDark: 'terminal.foreground',
 	hcLight: 'terminal.foreground'
-}, localize('positronConsole.foreground', "Positron Console foreground."));
+}, localize('positronConsole.foreground', "Positron Console foreground color."));
 
 // Positron Console ANSI black color.
 export const POSITRON_CONSOLE_ANSI_BLACK = registerColor('positronConsole.ansiBlack', {
@@ -1509,5 +1509,39 @@ export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronCo
 	hcDark: '#262626',
 	hcLight: '#e5e5e5'
 }, localize('positronConsole.traceBackground', "Positron Console trace background color."));
+
+// < --- Positron Environment --- >
+
+// Positron Environment background color.
+export const POSITRON_ENVIRONMENT_BACKGROUND_COLOR = registerColor('positronEnvironment.background', {
+	dark: 'terminal.background',
+	light: 'terminal.background',
+	hcDark: 'terminal.background',
+	hcLight: 'terminal.background'
+}, localize('positronEnvironment.background', "Positron Environment background color."));
+
+// Positron Environment foreground color.
+export const POSITRON_ENVIRONMENT_FOREGROUND_COLOR = registerColor('positronEnvironment.foreground', {
+	dark: 'terminal.foreground',
+	light: 'terminal.foreground',
+	hcDark: 'terminal.foreground',
+	hcLight: 'terminal.foreground'
+}, localize('positronEnvironment.foreground', "Positron Environment foreground color."));
+
+// The Positron Environment header background color.
+export const POSITRON_ENVIRONMENT_HEADER_BACKGROUND_COLOR = registerColor('positronEnvironment.headerBackground', {
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground
+}, localize('positronEnvironment.headerBackground', "Positron Environment header background color."));
+
+// The Positron Environment gred color.
+export const POSITRON_ENVIRONMENT_GRID_COLOR = registerColor('positronEnvironment.gridColor', {
+	dark: '#2e3336',
+	light: '#dfe3e6',
+	hcDark: '#2f3436',
+	hcLight: '#dfe3e6'
+}, localize('positronEnvironment.gridColor', "Positron Environment grid color."));
 
 // --- End Positron ---

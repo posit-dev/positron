@@ -1,0 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.runtime-startup-failure {
+	color: red;
+	padding-left: 14px;
+	padding-top: 1em;
+	padding-bottom: 1em;
+}
+
+.runtime-startup-failure .message {
+	font-weight: bold;
+}

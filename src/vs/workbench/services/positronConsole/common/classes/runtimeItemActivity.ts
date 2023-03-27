@@ -10,6 +10,7 @@ import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { ActivityItemErrorStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStreamGroup';
 import { ActivityItemOutputStreamGroup } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStreamGroup';
+import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 
 /**
  * RuntimeItemActivity class.
@@ -24,7 +25,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 	/**
 	 * The activity items.
 	 */
-	readonly activityItems: (ActivityItemInput | ActivityItemOutputStreamGroup | ActivityItemErrorStreamGroup | ActivityItemOutputMessage | ActivityItemErrorMessage)[] = [];
+	readonly activityItems: (ActivityItemInput | ActivityItemOutputStreamGroup | ActivityItemErrorStreamGroup | ActivityItemOutputMessage | ActivityItemOutputPlot | ActivityItemErrorMessage)[] = [];
 
 	//#endregion Public Properties
 
@@ -35,7 +36,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param id The identifier.
 	 * @param activityItem The initial activity item.
 	 */
-	constructor(id: string, activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemErrorMessage) {
+	constructor(id: string, activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemOutputPlot | ActivityItemErrorMessage) {
 		// Call the base class's constructor.
 		super(id);
 
@@ -51,7 +52,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * Adds an activity item.
 	 * @param activityItem The activity item to add.
 	 */
-	addActivityItem(activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemErrorMessage) {
+	addActivityItem(activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemOutputPlot | ActivityItemOutputPlot | ActivityItemErrorMessage) {
 		if (activityItem instanceof ActivityItemOutputStream) {
 			if (this.activityItems.length) {
 				const lastActivityItem = this.activityItems[this.activityItems.length - 1];
