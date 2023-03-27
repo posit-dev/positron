@@ -422,16 +422,6 @@ impl Iterator for RObjectI32Iterator {
     }
 }
 
-impl RObject {
-    pub fn i32_iter(&self) -> Result<RObjectI32Iterator, crate::error::Error> {
-        Ok(RObjectI32Iterator {
-            object: RObject::from(self.sexp),
-            current: -1,
-            size: unsafe { Rf_xlength(self.sexp) } as isize
-        })
-    }
-}
-
 impl TryFrom<RObject> for Vec<Option<String>> {
     type Error = crate::error::Error;
     fn try_from(value: RObject) -> Result<Self, Self::Error> {

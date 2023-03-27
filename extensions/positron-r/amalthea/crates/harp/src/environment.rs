@@ -13,6 +13,7 @@ use libR_sys::*;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_typeof;
+use crate::vector::IntegerVector;
 use itertools::Itertools;
 
 #[derive(Copy, Clone, BitfieldStruct)]
@@ -156,18 +157,13 @@ fn describe_vec(rtype: &str, value: SEXP) -> String {
 
 fn vec_shape(value: SEXP) -> String {
     unsafe {
-        let dim = RObject::from(Rf_getAttrib(value, R_DimSymbol));
+        let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
         if *dim == R_NilValue {
             format!("{}", Rf_xlength(value))
         } else {
-            dim.i32_iter().unwrap()
-                .map(|x| {
-                    match x {
-                        Some(value) => value.to_string(),
-                        None => String::from("NA")
-                    }
-                })
+            let dim = IntegerVector::new(dim).unwrap();
+            dim.into_iter()
                 .format(", ")
                 .to_string()
         }
@@ -177,7 +173,8 @@ fn vec_shape(value: SEXP) -> String {
 fn vec_glimpse(value: SEXP) -> String {
     match unsafe{TYPEOF(value) as u32} {
         INTSXP => {
-            let mut iter = RObject::from(value).i32_iter().unwrap();
+            let vec = unsafe { IntegerVector::new(value) }.unwrap();
+            let mut iter = vec.iter();
 
             let mut out = String::new();
             loop {
@@ -190,14 +187,7 @@ fn vec_glimpse(value: SEXP) -> String {
                             break;
                         }
                         out.push_str(" ");
-                        match x {
-                            None => {
-                                out.push_str("_");
-                            },
-                            Some(x) => {
-                                out.push_str(x.to_string().as_str())
-                            }
-                        }
+                        out.push_str(x.to_string().as_str());
                     }
                 }
 
