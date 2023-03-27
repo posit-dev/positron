@@ -13,6 +13,11 @@ use libR_sys::*;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_typeof;
+use crate::vector::CharacterVector;
+use crate::vector::IntegerVector;
+use crate::vector::LogicalVector;
+use crate::vector::NumericVector;
+use crate::vector::RawVector;
 use itertools::Itertools;
 
 #[derive(Copy, Clone, BitfieldStruct)]
@@ -112,14 +117,14 @@ fn describe_regular_binding(value: SEXP) -> String {
 
     match r_typeof(value) {
         // standard vector
-        LGLSXP   => describe_vec("lgl", value),
-        INTSXP   => describe_vec("int", value),
-        REALSXP  => describe_vec("dbl", value),
-        CPLXSXP  => describe_vec("cplx", value),
-        STRSXP   => describe_vec("chr", value),
+        LGLSXP   => describe_vec(value),
+        INTSXP   => describe_vec(value),
+        REALSXP  => describe_vec(value),
+        CPLXSXP  => describe_vec(value),
+        STRSXP   => describe_vec(value),
         VECSXP   => {
             // TODO: data.frame
-            describe_vec("list", value)
+            describe_vec(value)
         },
 
         _       => String::from("???")
@@ -127,8 +132,8 @@ fn describe_regular_binding(value: SEXP) -> String {
 
 }
 
-fn describe_altrep(value: SEXP) -> String {
-    let rtype = match unsafe{TYPEOF(value) as u32} {
+fn vec_type(value: SEXP) -> String {
+    let rtype = match r_typeof(value) {
         INTSXP  => "int",
         REALSXP => "dbl",
         LGLSXP  => "lgl",
@@ -140,75 +145,84 @@ fn describe_altrep(value: SEXP) -> String {
         // TODO: this should not happen
         _       => "???"
     };
-
-    format!("{} [{}] (altrep {}) {}", rtype, vec_shape(value), altrep_class(value), altrep_vec_glimpse(value))
+    String::from(rtype)
 }
 
-fn describe_vec(rtype: &str, value: SEXP) -> String {
-    format!("{} [{}] {}", rtype, vec_shape(value), vec_glimpse(value))
+fn describe_altrep(value: SEXP) -> String {
+    // TODO: have something to differentiate altrep from standard
+    //       we used to show the altrep class, e.g. base::compact_int*,
+    //       but this takes a lot of real estate
+    let glimpsed = altrep_vec_glimpse(value);
+    let suffix = if glimpsed.0 {
+        " (...)"
+    } else {
+        ""
+    };
+    format!("{} [{}] {}{}", vec_type(value), vec_shape(value), glimpsed.1, suffix)
+}
+
+fn describe_vec(value: SEXP) -> String {
+    let glimpsed = altrep_vec_glimpse(value);
+    let suffix = if glimpsed.0 {
+        " (...)"
+    } else {
+        ""
+    };
+
+    format!("{} [{}] {}{}", vec_type(value), vec_shape(value), glimpsed.1, suffix)
 }
 
 fn vec_shape(value: SEXP) -> String {
     unsafe {
-        let dim = RObject::from(Rf_getAttrib(value, R_DimSymbol));
+        let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
         if *dim == R_NilValue {
             format!("{}", Rf_xlength(value))
         } else {
-            dim.i32_iter().unwrap()
-                .map(|x| {
-                    match x {
-                        Some(value) => value.to_string(),
-                        None => String::from("NA")
-                    }
-                })
+            let dim = IntegerVector::new(dim).unwrap();
+            dim.into_iter()
                 .format(", ")
                 .to_string()
         }
     }
 }
 
-fn vec_glimpse(value: SEXP) -> String {
+fn vec_glimpse(value: SEXP) -> (bool, String) {
+    // TODO: turn this into a macro perhaps
     match unsafe{TYPEOF(value) as u32} {
-        INTSXP => {
-            let mut iter = RObject::from(value).i32_iter().unwrap();
-
-            let mut out = String::new();
-            loop {
-                match iter.next() {
-                    None => break,
-
-                    Some(x) => {
-                        if out.len() > 20 {
-                            out.push_str(" (...)");
-                            break;
-                        }
-                        out.push_str(" ");
-                        match x {
-                            None => {
-                                out.push_str("_");
-                            },
-                            Some(x) => {
-                                out.push_str(x.to_string().as_str())
-                            }
-                        }
-                    }
-                }
-
-            }
-
-            out
+        LGLSXP => {
+            let vec = unsafe { LogicalVector::new(value) }.unwrap();
+            vec.glimpse(30)
         },
+        INTSXP => {
+            let vec = unsafe { IntegerVector::new(value) }.unwrap();
+            vec.glimpse(30)
+        },
+        REALSXP => {
+            let vec = unsafe { NumericVector::new(value) }.unwrap();
+            vec.glimpse(30)
+        },
+        RAWSXP => {
+            let vec = unsafe { RawVector::new(value) }.unwrap();
+            vec.glimpse(30)
+        },
+
+        STRSXP => {
+            let vec = unsafe { CharacterVector::new(value) }.unwrap();
+            vec.glimpse(30)
+        },
+
         _ => {
-            String::from("(...)")
+            (true, String::from(""))
         }
     }
 }
 
-fn altrep_vec_glimpse(value: SEXP) -> String {
+fn altrep_vec_glimpse(value: SEXP) -> (bool, String) {
     vec_glimpse(value)
 }
 
+#[allow(dead_code)]
 fn altrep_class(object: SEXP) -> String {
     let serialized_klass = unsafe{
         ATTRIB(ALTREP_CLASS(object))
