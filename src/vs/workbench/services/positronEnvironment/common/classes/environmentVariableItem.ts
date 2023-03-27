@@ -31,17 +31,17 @@ export class EnvironmentVariableItem {
 	readonly id = generateUuid();
 
 	/**
-	 * Gets the name.
+	 * Gets the name to display.
 	 */
 	get name() {
-		return this._environmentVariable.data.name;
+		return this._environmentVariable.data.display_name;
 	}
 
 	/**
-	 * Gets the value.
+	 * Gets the value to display.
 	 */
 	get value() {
-		return this._environmentVariable.data.value;
+		return this._environmentVariable.data.display_value;
 	}
 
 	/**
