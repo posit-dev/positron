@@ -17,6 +17,7 @@ import { EnvironmentRefreshAction } from 'vs/workbench/contrib/positronEnvironme
 import { PositronEnvironmentViewPane } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentView';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
+import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from 'vs/platform/configuration/common/configurationRegistry';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 
 // The Positron environment view identifier.
@@ -67,4 +68,35 @@ class PositronEnvironmentContribution extends Disposable implements IWorkbenchCo
 	}
 }
 
-Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronEnvironmentContribution, LifecyclePhase.Restored);
+// Register the contribution.
+Registry.
+	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
+	registerWorkbenchContribution(PositronEnvironmentContribution, LifecyclePhase.Restored);
+
+// Register the environment configuration.
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+	id: 'environment',
+	order: 10,
+	type: 'object',
+	title: nls.localize('environmentConfigurationTitle', "Environment"),
+	scope: ConfigurationScope.APPLICATION,
+	properties: {
+		'environment.fixedWidthFont': {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			markdownDescription: nls.localize('environment.fixedWidthFont', "Controls whether the Environment is rendered using a fixed-width font."),
+		}
+	}
+});
+
+/**
+ * Configuration options for the environment.
+ */
+export interface IEnvironmentOptions {
+	/**
+	 * Gets a value which indicates whether to render the environment with a fixed-width font.
+	 */
+	readonly fixedWidthFont?: boolean;
+}
+

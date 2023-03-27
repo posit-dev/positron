@@ -33,6 +33,10 @@ interface EnvironmentInstanceProps {
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Hooks.
 	const [marker, setMarker] = useState(generateUuid());
+	const [nameColumnWidth, _setNameColumnWidth] = useState(120);
+	const [typeColumnWidth, _setTypeColumnWidth] = useState(120);
+	const [typeColumnVisible, setTypeColumnVisible] = useState(false);
+	const [valueColumnWidth, setValueColumnWidth] = useState(0);
 	const [dataExpanded, setDataExpanded] = useState(true);
 	const [valuesExpanded, setValuesExpanded] = useState(true);
 	const [functionsExpanded, setFunctionsExpanded] = useState(true);
@@ -55,6 +59,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		// Add the onDidChangeEnvironmentItems event handler.
 		disposableStore.add(
 			props.positronEnvironmentInstance.onDidChangeEnvironmentVariableItems(() => {
+				// For the moment, simply re-render everything.
 				setMarker(generateUuid());
 			})
 		);
@@ -62,6 +67,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		// Add the onDidChangeEnvironmentItems event handler.
 		disposableStore.add(
 			props.positronEnvironmentInstance.onDidChangeEnvironmentGrouping(() => {
+				// For the moment, simply re-render everything.
 				setMarker(generateUuid());
 			})
 		);
@@ -69,6 +75,17 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
+
+	// Width use effect.
+	useEffect(() => {
+		if (props.width < 400) {
+			setTypeColumnVisible(false);
+			setValueColumnWidth(props.width - nameColumnWidth);
+		} else {
+			setTypeColumnVisible(true);
+			setValueColumnWidth(props.width - nameColumnWidth - typeColumnWidth);
+		}
+	}, [props.width]);
 
 	// Temporary logging.
 	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
@@ -256,11 +273,20 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		return (
 			<EnvironmentVariablesContainer>
 				{items.map(item =>
-					<EnvironmentVariable key={item.id} indentLevel={0} environmentVariableItem={item} />
+					<EnvironmentVariable
+						key={item.id}
+						nameColumnWidth={nameColumnWidth}
+						typeColumnWidth={typeColumnWidth}
+						typeColumnVisible={typeColumnVisible}
+						valueColumnWidth={valueColumnWidth}
+						indentLevel={0}
+						environmentVariableItem={item} />
 				)}
 			</EnvironmentVariablesContainer>
 		);
 	};
+
+	console.log(`Rendering environment at width ${props.width}`);
 
 	// Render.
 	return (
