@@ -6,6 +6,7 @@
 //
 
 use std::ffi::CStr;
+use std::fmt::Display;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -21,20 +22,20 @@ use crate::utils::r_assert_capacity;
 use crate::utils::r_assert_type;
 
 #[derive(Debug)]
-pub struct Vector<const SEXPTYPE: u32, NativeType, UnderlyingType> {
+pub struct Vector<const SEXPTYPE: u32, NativeType> {
     object: RObject,
-    phantom: PhantomData<(NativeType, UnderlyingType)>,
+    phantom: PhantomData<NativeType>,
 }
 
 // Useful type aliases for clients.
-pub type RawVector = Vector<RAWSXP, u8, u8>;
-pub type LogicalVector = Vector<LGLSXP, i32, i32>;
-pub type IntegerVector = Vector<INTSXP, i32, i32>;
-pub type NumericVector = Vector<REALSXP, f64, f64>;
-pub type CharacterVector = Vector<STRSXP, &'static str, SEXP>;
+pub type RawVector = Vector<RAWSXP, u8>;
+pub type LogicalVector = Vector<LGLSXP, i32>;
+pub type IntegerVector = Vector<INTSXP, i32>;
+pub type NumericVector = Vector<REALSXP, f64>;
+pub type CharacterVector = Vector<STRSXP, &'static str>;
 
 // Methods common to all R vectors.
-impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Vector<{ SEXPTYPE }, NativeType, UnderlyingType> {
+impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
     pub unsafe fn new(object: impl Into<SEXP>) -> Result<Self> {
         let object = object.into();
         r_assert_type(object, &[SEXPTYPE])?;
@@ -94,11 +95,49 @@ impl IsNa for SEXP {
     }
 }
 
-// Methods for vectors with primitive native types.
-impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
+pub struct VectorIterator<'a, const SEXPTYPE: u32, NativeType> {
+    iter: Iter<'a, NativeType>
+}
+
+impl<'a, const SEXPTYPE: u32, NativeType> VectorIterator<'a, {SEXPTYPE}, NativeType> {
+    pub fn new(data: &'a Vector<{SEXPTYPE}, NativeType>) -> Self {
+        unsafe {
+            let len = data.len();
+            let data = DATAPTR(*data.object) as *mut NativeType;
+            let slice = std::slice::from_raw_parts(data, len);
+            let iter = slice.iter();
+
+            Self {
+                iter
+            }
+        }
+    }
+}
+
+impl<'a, const SEXPTYPE: u32, NativeType> Iterator for VectorIterator<'a, {SEXPTYPE}, NativeType>
 where
-    NativeType: Number + Copy,
-    UnderlyingType: IsNa + Copy
+    NativeType: Number + Copy + IsNa
+{
+    type Item = Option<NativeType>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            None => None,
+            Some(value) => {
+                if value.is_na() {
+                    Some(None)
+                } else {
+                    Some(Some(*value))
+                }
+            }
+        }
+    }
+}
+
+// Methods for vectors with primitive native types.
+impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType>
+where
+    NativeType: Number + Copy + IsNa
 {
     pub unsafe fn create<T: AsSlice<NativeType>>(data: T) -> Self {
         let data = data.as_slice();
@@ -118,29 +157,24 @@ where
     pub fn get_unchecked(&self, index: isize) -> Option<NativeType> {
         unsafe {
             let dataptr = DATAPTR(*self.object);
-            let pointer = dataptr as *mut UnderlyingType;
+            let pointer = dataptr as *mut NativeType;
             let offset = pointer.offset(index);
             if (*offset).is_na() {
                 None
             } else {
-                // FIXME: that's a bit ugly
-                Some(*(dataptr as *mut NativeType).offset(index))
+                Some(*offset)
             }
         }
     }
 
-    pub fn iter(&self) -> Iter<'_, NativeType> {
-        unsafe {
-            let data = DATAPTR(*self.object) as *mut NativeType;
-            let len = self.len();
-            let slice = std::slice::from_raw_parts(data, len);
-            slice.iter()
-        }
+    pub fn iter<'a>(&'a self) -> VectorIterator<'a, {SEXPTYPE}, NativeType>{
+        VectorIterator::<'a, {SEXPTYPE}, NativeType>::new(self)
     }
 
     pub fn into_vec(self) -> Vec<NativeType> {
         self.into_iter().map(|value| *value).collect::<Vec<_>>()
     }
+
 }
 
 // Character vectors.
@@ -226,8 +260,8 @@ impl CharacterVector {
 }
 
 // Traits.
-impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Deref
-    for Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
+impl<const SEXPTYPE: u32, NativeType> Deref
+    for Vector<{ SEXPTYPE }, NativeType>
 {
     type Target = SEXP;
 
@@ -236,16 +270,16 @@ impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Deref
     }
 }
 
-impl<const SEXPTYPE: u32, NativeType, UnderlyingType> DerefMut
-    for Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
+impl<const SEXPTYPE: u32, NativeType> DerefMut
+    for Vector<{ SEXPTYPE }, NativeType>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.object
     }
 }
 
-impl<'a, T, const SEXPTYPE: u32, NativeType, UnderlyingType> PartialEq<T>
-    for Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
+impl<'a, T, const SEXPTYPE: u32, NativeType> PartialEq<T>
+    for Vector<{ SEXPTYPE }, NativeType>
     where
         T: AsSlice<NativeType>,
         NativeType: Number + PartialEq,
@@ -280,6 +314,8 @@ impl<'a, T> PartialEq<T> for CharacterVector
 
             for i in 0..self.len() {
                 let value = self.get_unchecked(i);
+
+                // TODO: refine re NA aka Some(None)
                 if value != Some(other[i]) {
                     return false;
                 }
@@ -291,8 +327,8 @@ impl<'a, T> PartialEq<T> for CharacterVector
     }
 }
 
-impl<'a, const SEXPTYPE: u32, NativeType, UnderlyingType> IntoIterator
-    for &'a Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
+impl<'a, const SEXPTYPE: u32, NativeType> IntoIterator
+    for &'a Vector<{ SEXPTYPE }, NativeType>
     where NativeType: Number
 {
     type Item = &'a NativeType;
@@ -304,6 +340,71 @@ impl<'a, const SEXPTYPE: u32, NativeType, UnderlyingType> IntoIterator
             let slice = std::slice::from_raw_parts(data, self.len());
             slice.iter()
         }
+    }
+}
+
+impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType>
+where
+    NativeType: Number + Copy + IsNa + Display
+{
+    pub fn glimpse(&self, limit: usize) -> (bool, String) {
+        let mut iter = self.iter();
+
+        let mut out = String::new();
+        let mut truncated = false;
+        loop {
+            match iter.next() {
+                None => break,
+                Some(None) => {
+                    out.push_str(" _");
+                },
+
+                Some(Some(x)) => {
+                    if out.len() > limit {
+                        truncated = true;
+                        break;
+                    }
+                    out.push_str(" ");
+                    out.push_str(x.to_string().as_str());
+                }
+            }
+
+        }
+
+        (truncated, out)
+
+    }
+}
+
+// TODO: this is mostly the same as the other glimpse
+impl CharacterVector
+{
+    pub fn glimpse(&self, limit: usize) -> (bool, String) {
+        let mut iter = self.iter();
+
+        let mut out = String::new();
+        let mut truncated = false;
+        loop {
+            match iter.next() {
+                None => break,
+                Some(None) => {
+                    out.push_str(" _");
+                },
+
+                Some(Some(x)) => {
+                    if out.len() > limit {
+                        truncated = true;
+                        break;
+                    }
+                    out.push_str(" ");
+                    out.push_str(x);
+                }
+            }
+
+        }
+
+        (truncated, out)
+
     }
 }
 
@@ -393,15 +494,15 @@ mod tests {
             let mut it = vector.iter();
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == &1.0);
+            assert!(value.unwrap() == Some(1.0));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == &2.0);
+            assert!(value.unwrap() == Some(2.0));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == &3.0);
+            assert!(value.unwrap() == Some(3.0));
 
             let value = it.next();
             assert!(value.is_none());
