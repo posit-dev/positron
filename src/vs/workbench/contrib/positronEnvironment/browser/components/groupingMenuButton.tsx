@@ -30,6 +30,8 @@ export const GroupingMenuButton = () => {
 
 		// Build the actions.
 		const actions: IAction[] = [];
+
+		// None.
 		actions.push({
 			id: 'None',
 			label: 'None',
@@ -46,7 +48,11 @@ export const GroupingMenuButton = () => {
 					PositronEnvironmentGrouping.None;
 			}
 		});
+
+		// Separator.
 		actions.push(new Separator());
+
+		// Kind.
 		actions.push({
 			id: 'Kind',
 			label: 'Kind',
@@ -63,6 +69,8 @@ export const GroupingMenuButton = () => {
 					PositronEnvironmentGrouping.Kind;
 			}
 		});
+
+		// Size.
 		actions.push({
 			id: 'Size',
 			label: 'Size',
@@ -77,6 +85,24 @@ export const GroupingMenuButton = () => {
 
 				positronEnvironmentContext.activePositronEnvironmentInstance.environmentGrouping =
 					PositronEnvironmentGrouping.Size;
+			}
+		});
+
+		// Type.
+		actions.push({
+			id: 'Type',
+			label: 'Type',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: environmentGrouping === PositronEnvironmentGrouping.Type,
+			run: () => {
+				if (!positronEnvironmentContext.activePositronEnvironmentInstance) {
+					return;
+				}
+
+				positronEnvironmentContext.activePositronEnvironmentInstance.environmentGrouping =
+					PositronEnvironmentGrouping.Type;
 			}
 		});
 
