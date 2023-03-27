@@ -67,23 +67,27 @@ class EnvironmentVariable(dict):
     Describes a variable in the user's environment.
     """
 
-    def __init__(self, name: str,
-                 value: Any,
+    def __init__(self,
+                 display_name: str,
+                 display_value: Any,
                  kind: EnvironmentVariableKind = EnvironmentVariableKind.OTHER,
-                 type_name: str = None,
-                 length: int = None,
+                 display_type: str = None,
+                 length: int = 0,
                  size: int = None,
                  has_children: bool = False,
                  is_truncated: bool = False):
-        self['name'] = name
-        self['value'] = value
+        self['display_name'] = display_name
+        self['display_value'] = display_value
         if kind is not None:
             self['kind'] = getattr(EnvironmentVariableKind, kind.upper())
-        self['type'] = type_name
+        self['display_type'] = display_type
         self['length'] = length
         self['size'] = size
         self['has_children'] = has_children
         self['is_truncated'] = is_truncated
+        # TODO: To be removed
+        self['name'] = display_name
+        self['value'] = display_value
 
 
 class EnvironmentMessage(dict):
@@ -734,10 +738,10 @@ class PositronIPyKernel(IPythonKernel):
 
     def summarize_any(self, key, value, kind) -> EnvironmentVariable:
 
-        name = str(key)
-        type_name = self.get_qualname(value)
+        display_name = str(key)
+        display_type = self.get_qualname(value)
         try:
-            summarized_value = type_name
+            display_value = display_type
             length = self.get_length(value)
             size = sys.getsizeof(value)
             has_children = length > 0
@@ -746,40 +750,40 @@ class PositronIPyKernel(IPythonKernel):
             # Apply type-specific formatting
             if kind == EnvironmentVariableKind.STRING:
                 # For string summaries, avoid pprint as it wraps strings into line chunks
-                summarized_value, is_truncated = self.summarize_value(value, None)
-                summarized_value = repr(summarized_value)
+                display_value, is_truncated = self.summarize_value(value, None)
+                display_value = repr(display_value)
                 has_children = False
 
             elif kind == EnvironmentVariableKind.TABLE:
                 # Tables are summarized by their dimensions
-                summarized_value = self.format_table_summary(value)
+                display_value = self.format_table_summary(value)
                 is_truncated = True
 
             elif kind == EnvironmentVariableKind.FUNCTION:
                 # Functions are summarized by their signature
-                summarized_value = self.format_function_summary(value)
+                display_value = self.format_function_summary(value)
                 has_children = False
 
             elif kind == EnvironmentVariableKind.BYTES:
                 # For bytes, even though they have a length, we don't set them
                 # as having children
-                summarized_value, is_truncated = self.summarize_value(value, None)
+                display_value, is_truncated = self.summarize_value(value, None)
                 has_children = False
 
             elif kind == EnvironmentVariableKind.COLLECTION:
-                summarized_value, is_truncated = self.summarize_value(value)
+                display_value, is_truncated = self.summarize_value(value)
                 # For ranges, we don't visualize the children as they're
                 # implied as a contiguous set of integers in a range
                 if isinstance(value, range):
                     has_children = False
             else:
-                summarized_value, is_truncated = self.summarize_value(value)
+                display_value, is_truncated = self.summarize_value(value)
 
-            return EnvironmentVariable(name, summarized_value, kind,
-                                       type_name, length, size, has_children, is_truncated)
+            return EnvironmentVariable(display_name, display_value, kind,
+                                       display_type, length, size, has_children, is_truncated)
         except Exception as err:
             logging.warning(err)
-            return EnvironmentVariable(name, type_name, kind)
+            return EnvironmentVariable(display_name, display_type, kind)
 
     def format_table_summary(self, value) -> str:
 
@@ -790,11 +794,11 @@ class PositronIPyKernel(IPythonKernel):
             if shape is None:
                 shape = (0, 0)
 
-            summarized_value = 'DataFrame: '
+            display_value = 'DataFrame: '
             if self.get_length(shape) == 2:
-                summarized_value = summarized_value + f'[{shape[0]} rows x {shape[1]} columns]'
+                display_value = display_value + f'[{shape[0]} rows x {shape[1]} columns]'
 
-            return summarized_value
+            return display_value
 
         except Exception as err:
             logging.warning(err)
@@ -811,7 +815,7 @@ class PositronIPyKernel(IPythonKernel):
                         truncate_at: int = TRUNCATE_SUMMARY_AT) -> (str, bool):
 
         if print_width is not None:
-            s = pprint.pformat(value, indent=1, width=print_width, compact=True)
+            s = pprint.pformat(value, width=print_width, compact=True)
         else:
             s = str(value)
 
@@ -882,7 +886,7 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.BYTES
         elif isinstance(value, (Sequence, Set)):
             return EnvironmentVariableKind.COLLECTION
-        elif isinstance(value, types.FunctionType):
+        elif isinstance(value, (types.FunctionType, types.MethodType)):
             return EnvironmentVariableKind.FUNCTION
         elif isinstance(value, types.ModuleType):
             return None  # Hide module types for now
