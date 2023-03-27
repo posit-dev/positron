@@ -6,7 +6,6 @@ import 'vs/css!./environmentVariable';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
-// import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
  * EnvironmentVariableProps interface.
@@ -27,7 +26,6 @@ export interface EnvironmentVariableProps {
  */
 export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 	// Hooks.
-	//const positronEnvironmentContext = usePositronEnvironmentContext();
 	const [expanded, setExpanded] = useState(false);
 	const [children, setChildren] = useState<EnvironmentVariableItem[] | undefined>(undefined);
 
