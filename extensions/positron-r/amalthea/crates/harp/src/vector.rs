@@ -109,18 +109,18 @@ where
         vector
     }
 
-    pub fn get(&self, index: isize) -> Result<NativeType> {
+    pub fn get(&self, index: isize) -> Result<Option<NativeType>> {
         unsafe {
             r_assert_capacity(self.data(), index as u32)?;
             Ok(self.get_unchecked(index))
         }
     }
 
-    pub fn get_unchecked(&self, index: isize) -> NativeType {
+    pub fn get_unchecked(&self, index: isize) -> Option<NativeType> {
         unsafe {
             let pointer = DATAPTR(*self.object) as *mut NativeType;
             let offset = pointer.offset(index);
-            *offset
+            Some(*offset)
         }
     }
 
@@ -155,7 +155,7 @@ impl<'a> CharacterVectorIterator<'a> {
 }
 
 impl<'a> Iterator for CharacterVectorIterator<'a> {
-    type Item = &'static str;
+    type Item = Option<&'static str>;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -197,16 +197,16 @@ impl CharacterVector {
         vector
     }
 
-    pub unsafe fn get(&self, index: usize) -> Result<&'static str> {
+    pub unsafe fn get(&self, index: usize) -> Result<Option<&'static str>> {
         r_assert_capacity(self.data(), index as u32)?;
         Ok(self.get_unchecked(index))
     }
 
-    pub unsafe fn get_unchecked(&self, index: usize) -> &'static str {
+    pub unsafe fn get_unchecked(&self, index: usize) -> Option<&'static str> {
         let data = *self.object;
         let cstr = Rf_translateCharUTF8(STRING_ELT(data, index as R_xlen_t));
         let bytes = CStr::from_ptr(cstr).to_bytes();
-        std::str::from_utf8_unchecked(bytes)
+        Some(std::str::from_utf8_unchecked(bytes))
     }
 
     pub fn iter(&self) -> CharacterVectorIterator {
@@ -270,7 +270,7 @@ impl<'a, T> PartialEq<T> for CharacterVector
 
             for i in 0..self.len() {
                 let value = self.get_unchecked(i);
-                if value != other[i] {
+                if value != Some(other[i]) {
                     return false;
                 }
             }
@@ -367,9 +367,9 @@ mod tests {
 
             let vector = NumericVector::create([1.0, 2.0, 3.0]);
             assert!(vector.len() == 3);
-            assert!(vector.get_unchecked(0) == 1.0);
-            assert!(vector.get_unchecked(1) == 2.0);
-            assert!(vector.get_unchecked(2) == 3.0);
+            assert!(vector.get_unchecked(0) == Some(1.0));
+            assert!(vector.get_unchecked(1) == Some(2.0));
+            assert!(vector.get_unchecked(2) == Some(3.0));
 
             let data = [1.0, 2.0, 3.0];
             assert!(vector == data);
@@ -411,11 +411,11 @@ mod tests {
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "hello");
+            assert!(value.unwrap() == Some("hello"));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "world");
+            assert!(value.unwrap() == Some("world"));
 
             let value = it.next();
             assert!(value.is_none());
@@ -425,8 +425,8 @@ mod tests {
                 "world".to_string()
             ]);
 
-            assert!(vector.get_unchecked(0) == "hello");
-            assert!(vector.get_unchecked(1) == "world");
+            assert!(vector.get_unchecked(0) == Some("hello"));
+            assert!(vector.get_unchecked(1) == Some("world"));
 
         }
     }
@@ -436,7 +436,7 @@ mod tests {
         r_test! {
             let vector = IntegerVector::create(42);
             assert!(vector.len() == 1);
-            assert!(vector.get_unchecked(0) == 42);
+            assert!(vector.get_unchecked(0) == Some(42));
         }
     }
 }
