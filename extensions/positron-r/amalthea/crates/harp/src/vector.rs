@@ -21,20 +21,20 @@ use crate::utils::r_assert_capacity;
 use crate::utils::r_assert_type;
 
 #[derive(Debug)]
-pub struct Vector<const SEXPTYPE: u32, NativeType> {
+pub struct Vector<const SEXPTYPE: u32, NativeType, UnderlyingType> {
     object: RObject,
-    phantom: PhantomData<NativeType>,
+    phantom: PhantomData<(NativeType, UnderlyingType)>,
 }
 
 // Useful type aliases for clients.
-pub type RawVector = Vector<RAWSXP, u8>;
-pub type LogicalVector = Vector<LGLSXP, i32>;
-pub type IntegerVector = Vector<INTSXP, i32>;
-pub type NumericVector = Vector<REALSXP, f64>;
-pub type CharacterVector = Vector<STRSXP, &'static str>;
+pub type RawVector = Vector<RAWSXP, u8, u8>;
+pub type LogicalVector = Vector<LGLSXP, i32, i32>;
+pub type IntegerVector = Vector<INTSXP, i32, i32>;
+pub type NumericVector = Vector<REALSXP, f64, f64>;
+pub type CharacterVector = Vector<STRSXP, &'static str, SEXP>;
 
 // Methods common to all R vectors.
-impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
+impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Vector<{ SEXPTYPE }, NativeType, UnderlyingType> {
     pub unsafe fn new(object: impl Into<SEXP>) -> Result<Self> {
         let object = object.into();
         r_assert_type(object, &[SEXPTYPE])?;
@@ -66,8 +66,38 @@ impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType> {
     }
 }
 
+impl RawVector {
+    fn is_na(_x: u8) -> bool{
+        false
+    }
+}
+
+impl IntegerVector {
+    fn is_na(x: i32) -> bool{
+        x == unsafe { R_NaInt }
+    }
+}
+
+impl LogicalVector {
+    fn is_na(x: i32) -> bool{
+        x == unsafe { R_NaInt }
+    }
+}
+
+impl NumericVector {
+    fn is_na(x: f64) -> bool {
+        unsafe { R_IsNA(x) == 1 }
+    }
+}
+
+impl CharacterVector {
+    fn is_na(x: SEXP) -> bool {
+        x == unsafe { R_NaString }
+    }
+}
+
 // Methods for vectors with primitive native types.
-impl<const SEXPTYPE: u32, NativeType> Vector<{ SEXPTYPE }, NativeType>
+impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
 where
     NativeType: Number + Copy,
 {
@@ -186,8 +216,8 @@ impl CharacterVector {
 }
 
 // Traits.
-impl<const SEXPTYPE: u32, NativeType> Deref
-    for Vector<{ SEXPTYPE }, NativeType>
+impl<const SEXPTYPE: u32, NativeType, UnderlyingType> Deref
+    for Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
 {
     type Target = SEXP;
 
@@ -196,16 +226,16 @@ impl<const SEXPTYPE: u32, NativeType> Deref
     }
 }
 
-impl<const SEXPTYPE: u32, NativeType> DerefMut
-    for Vector<{ SEXPTYPE }, NativeType>
+impl<const SEXPTYPE: u32, NativeType, UnderlyingType> DerefMut
+    for Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.object
     }
 }
 
-impl<'a, T, const SEXPTYPE: u32, NativeType> PartialEq<T>
-    for Vector<{ SEXPTYPE }, NativeType>
+impl<'a, T, const SEXPTYPE: u32, NativeType, UnderlyingType> PartialEq<T>
+    for Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
     where
         T: AsSlice<NativeType>,
         NativeType: Number + PartialEq,
@@ -251,8 +281,8 @@ impl<'a, T> PartialEq<T> for CharacterVector
     }
 }
 
-impl<'a, const SEXPTYPE: u32, NativeType> IntoIterator
-    for &'a Vector<{ SEXPTYPE }, NativeType>
+impl<'a, const SEXPTYPE: u32, NativeType, UnderlyingType> IntoIterator
+    for &'a Vector<{ SEXPTYPE }, NativeType, UnderlyingType>
     where NativeType: Number
 {
     type Item = &'a NativeType;
