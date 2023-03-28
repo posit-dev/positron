@@ -73,30 +73,30 @@ Registry.
 	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
 	registerWorkbenchContribution(PositronEnvironmentContribution, LifecyclePhase.Restored);
 
-// Register the environment configuration.
-Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
-	id: 'environment',
-	order: 10,
-	type: 'object',
-	title: nls.localize('environmentConfigurationTitle', "Environment"),
-	scope: ConfigurationScope.APPLICATION,
-	properties: {
-		'environment.fixedWidthFont': {
-			type: 'boolean',
-			default: false,
-			scope: ConfigurationScope.APPLICATION,
-			markdownDescription: nls.localize('environment.fixedWidthFont', "Controls whether the Environment is rendered using a fixed-width font."),
-		}
-	}
-});
+// ---------------- Deferred for internal preview ----------------
+// // Register the environment configuration.
+// Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+// 	id: 'environment',
+// 	order: 10,
+// 	type: 'object',
+// 	title: nls.localize('environmentConfigurationTitle', "Environment"),
+// 	scope: ConfigurationScope.APPLICATION,
+// 	properties: {
+// 		'environment.fixedWidthFont': {
+// 			type: 'boolean',
+// 			default: false,
+// 			scope: ConfigurationScope.APPLICATION,
+// 			markdownDescription: nls.localize('environment.fixedWidthFont', "Controls whether the Environment is rendered using a fixed-width font."),
+// 		}
+// 	}
+// });
 
-/**
- * Configuration options for the environment.
- */
-export interface IEnvironmentOptions {
-	/**
-	 * Gets a value which indicates whether to render the environment with a fixed-width font.
-	 */
-	readonly fixedWidthFont?: boolean;
-}
-
+// /**
+//  * Configuration options for the environment.
+//  */
+// export interface IEnvironmentOptions {
+// 	/**
+// 	 * Gets a value which indicates whether to render the environment with a fixed-width font.
+// 	 */
+// 	readonly fixedWidthFont?: boolean;
+// }
