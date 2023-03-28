@@ -91,8 +91,7 @@ class TestPositronIPKernel(unittest.TestCase):
 
         for i, case in enumerate(cases):
             length = len(case)
-            display_type = f'str [{length}]'
-            expected = EnvironmentVariable(f'xStr{i}', repr(case), 'string', display_type, length)
+            expected = EnvironmentVariable(f'xStr{i}', repr(case), 'string', 'str', length)
 
             key, value = f'xStr{i}', case
             result = self.kernel.summarize_variable(key, value)
@@ -105,7 +104,7 @@ class TestPositronIPKernel(unittest.TestCase):
         length = len(long_string)
         expected_value = f'\'{long_string[:TRUNCATE_SUMMARY_AT]}\''
         expected = EnvironmentVariable('xStrT', expected_value, 'string',
-                                       f'str [{length}]', length, None, False, True)
+                                       'str', length, None, False, True)
 
         key, value = 'xStrT', long_string
         result = self.kernel.summarize_variable(key, value)
