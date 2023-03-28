@@ -6,7 +6,7 @@
  */
 
 use crate::comm::comm_channel::Comm;
-use crate::comm::comm_listener::CommChanged;
+use crate::comm::comm_manager::CommChanged;
 use crate::comm::lsp_comm::LspComm;
 use crate::comm::lsp_comm::StartLsp;
 use crate::error::Error;
@@ -118,6 +118,20 @@ impl Shell {
             // only errors likely here are "can't deliver to client"
             if let Err(err) = self.process_message(message) {
                 warn!("Could not handle shell message: {}", err);
+            }
+
+            // If we got this far, we have just opened a comm channel. Add it to our
+            // open comms.
+            match self
+                .open_comms
+                .insert(req.content.comm_id.clone(), comm_socket)
+            {
+                Some(_) => {
+                    // We already knew about this comm; warn and discard
+                    warn!("Comm {} was already open", req.content.comm_id);
+                    Ok(())
+                },
+                None => Ok(()),
             }
         }
     }
@@ -421,20 +435,6 @@ impl Shell {
                 "Failed to send '{}' comm open notification to listener thread: {}",
                 comm_socket.comm_name, err
             );
-        }
-
-        // If we got this far, we have just opened a comm channel. Add it to our
-        // open comms.
-        match self
-            .open_comms
-            .insert(req.content.comm_id.clone(), comm_socket)
-        {
-            Some(_) => {
-                // We already knew about this comm; warn and discard
-                warn!("Comm {} was already open", req.content.comm_id);
-                Ok(())
-            },
-            None => Ok(()),
         }
     }
 

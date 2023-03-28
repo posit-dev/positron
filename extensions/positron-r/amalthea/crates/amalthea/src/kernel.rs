@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
-use crate::comm::comm_listener::comm_listener;
-use crate::comm::comm_listener::CommChanged;
+use crate::comm::comm_manager::comm_manager;
+use crate::comm::comm_manager::CommChanged;
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;
@@ -179,7 +179,7 @@ impl Kernel {
         // Create the comm listener thread
         let iopub_tx = self.create_iopub_tx();
         let comm_changed_rx = self.comm_changed_rx.clone();
-        thread::spawn(move || comm_listener(iopub_tx, comm_changed_rx));
+        thread::spawn(move || comm_manager(iopub_tx, comm_changed_rx));
 
         // TODO: thread/join thread? Exiting this thread will cause the whole
         // kernel to exit.

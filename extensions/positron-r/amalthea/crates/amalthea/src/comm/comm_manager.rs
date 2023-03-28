@@ -1,5 +1,5 @@
 /*
- * comm_listener.rs
+ * comm_manager.rs
  *
  * Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *
@@ -39,7 +39,7 @@ pub enum CommChanged {
  * - `comm_changed_rx`: The channel to receive messages about changes to the set
  *   (or state) of open comms.
  */
-pub fn comm_listener(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<CommChanged>) {
+pub fn comm_manager(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<CommChanged>) {
     // Create a vector of the open comms
     let mut open_comms = Vec::<CommSocket>::new();
 
