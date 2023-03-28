@@ -638,6 +638,10 @@ class PositronIPyKernel(IPythonKernel):
         elif isinstance(context, (list, set, frozenset, tuple)):
             # Treat collection items as children, with the index as the name
             for i, item in enumerate(context):
+
+                if len(children) >= MAX_ITEMS:
+                    break
+
                 summary = self.summarize_variable(i, item)
                 if summary is not None:
                     children.append(summary)
@@ -741,7 +745,6 @@ class PositronIPyKernel(IPythonKernel):
     def summarize_variables(self, variables: Mapping, hidden: Mapping = None,
                             max_items: int = MAX_ITEMS) -> list:
         summaries = []
-        i = 0
 
         for key, value in variables.items():
 
@@ -751,14 +754,12 @@ class PositronIPyKernel(IPythonKernel):
 
             # Ensure the number of items summarized is within our
             # max limit
-            if i >= max_items:
+            if len(summaries) >= max_items:
                 break
 
             summary = self.summarize_variable(key, value)
             if summary is not None:
                 summaries.append(summary)
-
-            i += 1
 
         return summaries
 
