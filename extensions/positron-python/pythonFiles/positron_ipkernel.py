@@ -248,6 +248,27 @@ class PolarsInspector(TableInspector):
     def to_tsv(self, df) -> str:
         return df.write_csv(file=None, separator='\t')
 
+class NumpyNDArrayInspector:
+
+    ARRAY_CLASS_NAME = 'numpy.ndarray'
+
+    def equals(self, a1, a2) -> bool:
+
+        # Try to use numpy's array_equal
+        try:
+            import numpy as np
+            return np.array_equal(a1, a2)
+        except Exception as err:
+            logging.warning(err)
+
+        # Fallback to comparing the raw bytes
+        if a1.shape != a2.shape:
+            return False
+        return a1.tobytes() == a2.tobytes()
+
+    def copy(self, a) -> Any:
+        return a.copy()
+
 
 POSITRON_ENVIRONMENT_COMM = 'positron.environment'
 """The comm channel target name for Positron's Environment View"""
@@ -371,6 +392,9 @@ class PositronIPyKernel(IPythonKernel):
             elif self.is_table(value):
                 inspector = self.get_table_inspector(value)
                 snapshot[key] = inspector.copy(value)
+            elif self.is_array(value):
+                inspector = self.get_array_inspector(value)
+                snapshot[key] = inspector.copy(value)
 
         # Save the snapshot in the hidden namespace to compare against
         # after an operation or execution is performed
@@ -398,6 +422,7 @@ class PositronIPyKernel(IPythonKernel):
                     # Key was added
                     assigned[key] = after[key]
                 elif key in snapshot and key in after:
+
                     # If the value is a table, compare using a
                     # special equals() method
                     if self.is_table(after[key]):
@@ -406,9 +431,19 @@ class PositronIPyKernel(IPythonKernel):
                         inspector = self.get_table_inspector(t1)
                         if not inspector.equals(t1, t2):
                             assigned[key] = after[key]
+
+                    # If the value a special ndarray, compare using numpy equals method
+                    elif self.is_array(after[key]):
+                        a1 = snapshot[key]
+                        a2 = after[key]
+                        inspector = self.get_array_inspector(a1)
+                        if not inspector.equals(a1, a2):
+                            assigned[key] = after[key]
+
                     # Check if key's value changed after execution
                     elif snapshot[key] != after[key] and key not in assigned:
                         assigned[key] = after[key]
+
         except Exception as err:
             logging.warning(err, exc_info=True)
 
@@ -739,13 +774,15 @@ class PositronIPyKernel(IPythonKernel):
     def summarize_any(self, key, value, kind) -> EnvironmentVariable:
 
         display_name = str(key)
-        display_type = self.get_qualname(value)
         try:
-            display_value = display_type
             length = self.get_length(value)
             size = sys.getsizeof(value)
             has_children = length > 0
             is_truncated = False
+
+            # Determine the short display type for the variable, including
+            # the length, if applicable
+            display_type = self.get_display_type(value, length)
 
             # Apply type-specific formatting
             if kind == EnvironmentVariableKind.STRING:
@@ -756,7 +793,7 @@ class PositronIPyKernel(IPythonKernel):
 
             elif kind == EnvironmentVariableKind.TABLE:
                 # Tables are summarized by their dimensions
-                display_value = self.format_table_summary(value)
+                display_value, display_type = self.format_table_summary(value)
                 is_truncated = True
 
             elif kind == EnvironmentVariableKind.FUNCTION:
@@ -783,22 +820,24 @@ class PositronIPyKernel(IPythonKernel):
                                        display_type, length, size, has_children, is_truncated)
         except Exception as err:
             logging.warning(err)
-            return EnvironmentVariable(display_name, display_type, kind)
+            return EnvironmentVariable(display_name, self.get_qualname(value), kind)
 
-    def format_table_summary(self, value) -> str:
+    def format_table_summary(self, value) -> (str, str):
 
         try:
+            display_value = self.get_qualname(value)
+
             # Calculate DataFrame dimentions in rows x cols
             inspector = self.get_table_inspector(value)
             shape = inspector.shape(value)
             if shape is None:
                 shape = (0, 0)
 
-            display_value = 'DataFrame: '
+            display_type = type(value).__name__
             if self.get_length(shape) == 2:
-                display_value = display_value + f'[{shape[0]} rows x {shape[1]} columns]'
+                display_type = display_type + f' [{shape[0]}x{shape[1]}]'
 
-            return display_value
+            return (display_value, display_type)
 
         except Exception as err:
             logging.warning(err)
@@ -855,6 +894,23 @@ class PositronIPyKernel(IPythonKernel):
                 pass
         return length
 
+    def get_display_type(self, value: Any, length: int = 0) -> str:
+        if value is not None:
+            type_name = type(value).__name__
+
+            if isinstance(value, Set):
+                return f'{type_name} {{{length}}}'
+            elif isinstance(value, tuple):
+                return f'{type_name} ({length})'
+            elif isinstance(value, (Sequence, Mapping)):
+                return f'{type_name} [{length}]'
+            elif length > 0:
+                return f'{type_name} [{length}]'
+
+            return type_name
+        else:
+            return 'NoneType'
+
     def get_qualname(self, value) -> str:
         """
         Utility to manually construct a qualified type name as
@@ -907,3 +963,12 @@ class PositronIPyKernel(IPythonKernel):
     def get_table_inspector(self, value) -> TableInspector:
         qualname = self.get_qualname(value)
         return self.TABLE_INSPECTORS.get(qualname, None)
+
+    ARRAY_INSPECTORS = {NumpyNDArrayInspector.ARRAY_CLASS_NAME: NumpyNDArrayInspector()}
+
+    def is_array(self, value) -> bool:
+        return self.get_qualname(value) == 'numpy.ndarray'
+
+    def get_array_inspector(self, value) -> NumpyNDArrayInspector:
+        qualname = self.get_qualname(value)
+        return self.ARRAY_INSPECTORS.get(qualname, None)
