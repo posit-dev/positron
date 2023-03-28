@@ -12,12 +12,13 @@ import { randomUUID } from 'crypto';
 class ZedVariable {
 	// Zed variables do not currently support truncation.
 	public readonly is_truncated: boolean = false;
-	public readonly type_name;
+	public readonly display_type;
+	public readonly type_info;
 	public readonly has_children;
 
 	constructor(
-		readonly name: string,
-		readonly value: string,
+		readonly display_name: string,
+		readonly display_value: string,
 		readonly kind: string,
 		readonly length: number,
 		readonly size: number,
@@ -26,7 +27,10 @@ class ZedVariable {
 		// The type name is the language-specific name for the variable's type.
 		// In Zed, the variable classes are named things like ZedNUMBER,
 		// ZedSTRING, etc.
-		this.type_name = `Zed${kind.toUpperCase()}`;
+		this.display_type = `Zed${kind.toUpperCase()}`;
+
+		// Extra information about the type
+		this.type_info = `'${this.display_type} (${this.kind}), ${this.size} bytes'`;
 
 		// The Zed language has a sample type named 'blob' that has its own Zed
 		// type, ZedBLOB, but is represented as a 'vector' in the environment.
@@ -141,7 +145,7 @@ export class ZedEnvironment {
 		// Generate a list of variables
 		const newVars = this.generateVars(count, kind);
 		for (const newVar of newVars) {
-			this._vars.set(newVar.name, newVar);
+			this._vars.set(newVar.display_name, newVar);
 		}
 
 		// Emit the new variables to the front end
@@ -172,7 +176,7 @@ export class ZedEnvironment {
 			// Create a random value for the variable
 			if (oldVar.kind === 'string') {
 				// Strings: replace 5 random characters with a hexadecimal digit
-				const chars = oldVar.value.split('');
+				const chars = oldVar.display_value.split('');
 				for (let i = 0; i < 5; i++) {
 					const randomIndex = Math.floor(Math.random() * chars.length);
 					chars[randomIndex] = Math.floor(Math.random() * 16).toString(16);
@@ -184,7 +188,7 @@ export class ZedEnvironment {
 				value = Math.random().toString();
 				size = 4;
 			} else if (oldVar.kind === 'vector') {
-				if (oldVar.value.startsWith('blob')) {
+				if (oldVar.display_value.startsWith('blob')) {
 					// Blobs are basically huge vectors. Randomly double or halve the size.
 					if (Math.random() < 0.5) {
 						size = oldVar.size * 2;
@@ -196,7 +200,7 @@ export class ZedEnvironment {
 				} else {
 					// Vectors: replace 2 random bytes with new random bytes and add an extra byte
 					// at the end
-					const bytes = oldVar.value.split(',').map((x) => parseInt(x, 10));
+					const bytes = oldVar.display_value.split(',').map((x) => parseInt(x, 10));
 					for (let i = 0; i < 2; i++) {
 						const randomIndex = Math.floor(Math.random() * bytes.length);
 						bytes[randomIndex] = Math.floor(Math.random() * 256);
@@ -213,11 +217,12 @@ export class ZedEnvironment {
 				size = children.length;
 			} else {
 				// Everything else: reverse the value
-				value = oldVar.value.split('').reverse().join('');
+				value = oldVar.display_value.split('').reverse().join('');
 				size = value.length;
 			}
 
-			const newVar = new ZedVariable(oldVar.name, value, oldVar.kind, value.length, size, children);
+			const newVar = new ZedVariable(oldVar.display_name, value, oldVar.kind,
+				value.length, size, children);
 			this._vars.set(key, newVar);
 
 			// Add the variable to the list of updated variables
@@ -360,7 +365,7 @@ export class ZedEnvironment {
 			this._onDidEmitData.fire({
 				msg_type: 'formatted_variable',
 				format,
-				content: `"${v.value}" (${format})`
+				content: `"${v.display_value}" (${format})`
 			});
 		} else {
 			// We didn't find the variable, so emit an error
@@ -396,7 +401,7 @@ export class ZedEnvironment {
 				v = this._vars.get(p);
 			} else {
 				// We're in the middle of the variable tree; get the named child
-				v = v.children.find(c => c.name === p);
+				v = v.children.find(c => c.display_name === p);
 			}
 
 			if (v === undefined) {
