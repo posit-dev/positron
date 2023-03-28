@@ -88,24 +88,6 @@ export const GroupingMenuButton = () => {
 			}
 		});
 
-		// Type.
-		actions.push({
-			id: 'Type',
-			label: 'Type',
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			checked: environmentGrouping === PositronEnvironmentGrouping.Type,
-			run: () => {
-				if (!positronEnvironmentContext.activePositronEnvironmentInstance) {
-					return;
-				}
-
-				positronEnvironmentContext.activePositronEnvironmentInstance.environmentGrouping =
-					PositronEnvironmentGrouping.Type;
-			}
-		});
-
 		// Done. Return the actions.
 		return actions;
 	};
