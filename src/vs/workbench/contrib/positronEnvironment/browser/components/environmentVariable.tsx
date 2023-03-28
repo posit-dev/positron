@@ -12,9 +12,8 @@ import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironme
  */
 export interface EnvironmentVariableProps {
 	nameColumnWidth: number;
-	typeColumnWidth: number;
-	typeColumnVisible: boolean;
-	valueColumnWidth: number;
+	detailsColumnWidth: number;
+	typeVisible: boolean;
 	indentLevel: number;
 	environmentVariableItem: EnvironmentVariableItem;
 }
@@ -62,20 +61,21 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 					</div>
 				</div>
 			</div>
-			<div className='value-and-type' style={{ width: props.valueColumnWidth }}>
+			<div className='details' style={{ width: props.detailsColumnWidth }}>
 				<div className='value'>{props.environmentVariableItem.displayValue}</div>
-				<div className='type'>
-					{props.environmentVariableItem.displayType}
-				</div>
+				{props.typeVisible && (
+					<div className='type'>
+						{props.environmentVariableItem.displayType}
+					</div>
+				)}
 			</div>
 		</div>
 		{expanded && children && children.map(item =>
 			<EnvironmentVariable
 				key={item.id}
 				nameColumnWidth={props.nameColumnWidth}
-				typeColumnWidth={props.typeColumnWidth}
-				typeColumnVisible={props.typeColumnVisible}
-				valueColumnWidth={props.valueColumnWidth}
+				detailsColumnWidth={props.detailsColumnWidth}
+				typeVisible={props.typeVisible}
 				indentLevel={props.indentLevel + 1}
 				environmentVariableItem={item} />
 		)}
