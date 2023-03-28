@@ -64,7 +64,7 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 			</div>
 			{props.typeColumnVisible && (
 				<div className='type' style={{ width: props.typeColumnWidth }}>
-					{props.environmentVariableItem.kind}
+					{props.environmentVariableItem.type}
 				</div>
 			)}
 			<div className='value' style={{ width: props.valueColumnWidth }}>

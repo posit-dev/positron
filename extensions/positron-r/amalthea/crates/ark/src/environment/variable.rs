@@ -47,14 +47,32 @@ pub enum ValueKind {
 /// Represents the serialized form of an environment variable.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvironmentVariable {
-    /** The environment variable's name */
-    pub name: String,
+    /** The environment variable's name, formatted for display */
+    pub display_name: String,
+
+    /** The environment variable's value, formatted for display */
+    pub display_value: String,
+
+    /** The environment variable's type, formatted for display */
+    pub display_type: String,
+
+    /** Extended type information */
+    pub type_info: String,
 
     /** The environment variable's value kind (string, number, etc.) */
     pub kind: ValueKind,
 
-    /** A formatted representation of the variable's value */
-    pub value: String,
+    /** The number of elements in the variable's value, if applicable */
+    pub length: usize,
+
+    /** The size of the variable's value, in bytes */
+    pub size: usize,
+
+    /** True if the variable contains other variables */
+    pub has_children: bool,
+
+    /** True if the 'value' field was truncated to fit in the message */
+    pub is_truncated: bool,
 }
 
 impl EnvironmentVariable {
@@ -67,6 +85,16 @@ impl EnvironmentVariable {
         let value = binding.describe();
         let kind = ValueKind::String;
 
-        Self { name, kind, value }
+        Self {
+            display_name: name,
+            display_value: value,
+            display_type: String::new(),
+            type_info: String::new(),
+            kind,
+            length: 0,
+            size: 0,
+            has_children: false,
+            is_truncated: false,
+        }
     }
 }
