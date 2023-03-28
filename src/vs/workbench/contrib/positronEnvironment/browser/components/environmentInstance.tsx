@@ -34,7 +34,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Hooks.
 	const [marker, setMarker] = useState(generateUuid());
 	const [nameColumnWidth, _setNameColumnWidth] = useState(120);
-	const [typeColumnWidth, _setTypeColumnWidth] = useState(120);
+	const [typeColumnWidth, _setTypeColumnWidth] = useState(110);
 	const [typeColumnVisible, setTypeColumnVisible] = useState(false);
 	const [valueColumnWidth, setValueColumnWidth] = useState(0);
 	const [dataExpanded, setDataExpanded] = useState(true);
@@ -83,7 +83,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			setValueColumnWidth(props.width - nameColumnWidth);
 		} else {
 			setTypeColumnVisible(true);
-			setValueColumnWidth(props.width - nameColumnWidth - typeColumnWidth);
+			setValueColumnWidth(props.width - nameColumnWidth);
 		}
 	}, [props.width]);
 
