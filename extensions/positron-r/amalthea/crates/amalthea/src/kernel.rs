@@ -9,6 +9,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
+use crate::comm::comm_listener::comm_listener;
+use crate::comm::comm_listener::CommChanged;
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;
@@ -24,9 +26,9 @@ use crate::socket::socket::Socket;
 use crate::socket::stdin::Stdin;
 use crate::stream_capture::StreamCapture;
 
+use crossbeam::channel::bounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use crossbeam::channel::bounded;
 use log::info;
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
@@ -43,6 +45,12 @@ pub struct Kernel {
 
     /// Receives message sent to the IOPub socket
     iopub_rx: Option<Receiver<IOPubMessage>>,
+
+    /// Sends notifications about changes to the open comms.
+    comm_changed_tx: Sender<CommChanged>,
+
+    /// Receives notifications about changes to the open comms.
+    comm_changed_rx: Receiver<CommChanged>,
 }
 
 /// Possible behaviors for the stream capture thread. When set to `Capture`,
@@ -61,11 +69,17 @@ impl Kernel {
 
         let (iopub_tx, iopub_rx) = bounded::<IOPubMessage>(10);
 
+        // Create the pair of channels that will be used to relay messages from
+        // the open comms
+        let (comm_changed_tx, comm_changed_rx) = bounded::<CommChanged>(10);
+
         Ok(Self {
             connection: file,
             session: Session::create(key)?,
             iopub_tx: iopub_tx,
             iopub_rx: Some(iopub_rx),
+            comm_changed_tx,
+            comm_changed_rx,
         })
     }
 
@@ -92,8 +106,19 @@ impl Kernel {
 
         let shell_clone = shell_handler.clone();
         let iopub_tx_clone = self.create_iopub_tx();
+        let comm_changed_tx_clone = self.comm_changed_tx.clone();
+        let comm_changed_rx_clone = self.comm_changed_rx.clone();
         let lsp_handler_clone = lsp_handler.clone();
-        thread::spawn(move || Self::shell_thread(shell_socket, iopub_tx_clone, shell_clone, lsp_handler_clone));
+        thread::spawn(move || {
+            Self::shell_thread(
+                shell_socket,
+                iopub_tx_clone,
+                comm_changed_tx_clone,
+                comm_changed_rx_clone,
+                shell_clone,
+                lsp_handler_clone,
+            )
+        });
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to
         // the client. IOPub only broadcasts messages, so it listens to other
@@ -151,6 +176,11 @@ impl Kernel {
             self.connection.endpoint(self.connection.control_port),
         )?;
 
+        // Create the comm listener thread
+        let iopub_tx = self.create_iopub_tx();
+        let comm_changed_rx = self.comm_changed_rx.clone();
+        thread::spawn(move || comm_listener(iopub_tx, comm_changed_rx));
+
         // TODO: thread/join thread? Exiting this thread will cause the whole
         // kernel to exit.
         Self::control_thread(control_socket, control_handler);
@@ -173,10 +203,19 @@ impl Kernel {
     fn shell_thread(
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
+        comm_changed_tx: Sender<CommChanged>,
+        comm_changed_rx: Receiver<CommChanged>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Result<(), Error> {
-        let mut shell = Shell::new(socket, iopub_tx.clone(), shell_handler, lsp_handler);
+        let mut shell = Shell::new(
+            socket,
+            iopub_tx.clone(),
+            comm_changed_tx,
+            comm_changed_rx,
+            shell_handler,
+            lsp_handler,
+        );
         shell.listen();
         Ok(())
     }

@@ -6,7 +6,6 @@
  */
 
 use crate::comm::comm_channel::Comm;
-use crate::comm::comm_listener::comm_listener;
 use crate::comm::comm_listener::CommChanged;
 use crate::comm::lsp_comm::LspComm;
 use crate::comm::lsp_comm::StartLsp;
@@ -36,7 +35,6 @@ use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
-use crossbeam::channel::bounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
@@ -45,7 +43,6 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
 
 /// Wrapper for the Shell socket; receives requests for execution, etc. from the
 /// front end and handles them or dispatches them to the execution thread.
@@ -79,18 +76,18 @@ impl Shell {
     ///
     /// * `socket` - The underlying ZeroMQ Shell socket
     /// * `iopub_tx` - A channel that delivers messages to the IOPub socket
+    /// * `comm_changed_tx` - A channel that delivers messages to the comm manager thread
+    /// * `comm_changed_rx` - A channel that receives messages related to comm channels
     /// * `shell_handler` - The language's shell channel handler
     /// * `lsp_handler` - The language's LSP handler, if it supports LSP
     pub fn new(
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
+        comm_changed_tx: Sender<CommChanged>,
+        comm_changed_rx: Receiver<CommChanged>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Self {
-        // Create the pair of channels that will be used to relay messages from
-        // the open comms
-        let (comm_changed_tx, comm_changed_rx) = bounded(10);
-
         Self {
             socket,
             iopub_tx,
@@ -104,16 +101,6 @@ impl Shell {
 
     /// Main loop for the Shell thread; to be invoked by the kernel.
     pub fn listen(&mut self) {
-        // Start a thread to listen for messages from the comm implementations.
-        // We'll amend these messages with the comm's metadata and then relay
-        // them to the front end via IOPub.
-        //
-        // This is done in a separate thread so that the main thread can
-        // continue to receive messages from the front end.
-        let iopub_tx = self.iopub_tx.clone();
-        let comm_changed_rx = self.comm_changed_rx.clone();
-        thread::spawn(move || comm_listener(iopub_tx, comm_changed_rx));
-
         // Begin listening for shell messages
         loop {
             trace!("Waiting for shell messages");
