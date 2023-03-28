@@ -13,7 +13,7 @@ export const sortEnvironmentVariableItemsByName = (items: EnvironmentVariableIte
 	// largest.
 	items.sort((a, b) => {
 		// Compare the name.
-		const result = a.name.localeCompare(b.name, undefined, { numeric: true });
+		const result = a.displayName.localeCompare(b.displayName, undefined, { numeric: true });
 		if (result !== 0) {
 			return result;
 		}
@@ -42,7 +42,7 @@ export const sortEnvironmentVariableItemsBySize = (items: EnvironmentVariableIte
 		} else if (a.size > b.size) {
 			return 1;
 		} else {
-			return a.name.localeCompare(b.name, undefined, { numeric: true });
+			return a.displayName.localeCompare(b.displayName, undefined, { numeric: true });
 		}
 	});
 };
