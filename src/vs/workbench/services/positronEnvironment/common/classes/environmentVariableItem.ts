@@ -66,6 +66,13 @@ export class EnvironmentVariableItem {
 	}
 
 	/**
+	 * Gets the type of the variable's value to display.
+	 */
+	get type() {
+		return this._environmentVariable.data.display_type;
+	}
+
+	/**
 	 * Gets a value which indicates whether the variable contains child variables.
 	 */
 	get hasChildren() {
