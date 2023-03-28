@@ -6,7 +6,8 @@
  */
 
 use crate::comm::comm_channel::Comm;
-use crate::comm::comm_manager::CommChanged;
+use crate::comm::comm_channel::CommChannelMsg;
+use crate::comm::comm_manager::CommEvent;
 use crate::comm::lsp_comm::LspComm;
 use crate::comm::lsp_comm::StartLsp;
 use crate::error::Error;
@@ -35,7 +36,6 @@ use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
-use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
 use log::{debug, trace, warn};
@@ -62,13 +62,8 @@ pub struct Shell {
     /// Map of open comm channels (UUID to CommSocket)
     open_comms: HashMap<String, CommSocket>,
 
-    /// Sender side of channel used to notify the listener thread that a comm
-    /// channel has been opened or closed
-    comm_changed_tx: Sender<CommChanged>,
-
-    /// Receiver side of channel used to notify the listener thread that a comm
-    /// channel has been opened or closed
-    comm_changed_rx: Receiver<CommChanged>,
+    /// Channel used to deliver comm events to the comm manager
+    comm_manager_tx: Sender<CommEvent>,
 }
 
 impl Shell {
@@ -76,15 +71,13 @@ impl Shell {
     ///
     /// * `socket` - The underlying ZeroMQ Shell socket
     /// * `iopub_tx` - A channel that delivers messages to the IOPub socket
-    /// * `comm_changed_tx` - A channel that delivers messages to the comm manager thread
-    /// * `comm_changed_rx` - A channel that receives messages related to comm channels
+    /// * `comm_manager_tx` - A channel that delivers messages to the comm manager thread
     /// * `shell_handler` - The language's shell channel handler
     /// * `lsp_handler` - The language's LSP handler, if it supports LSP
     pub fn new(
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
-        comm_changed_tx: Sender<CommChanged>,
-        comm_changed_rx: Receiver<CommChanged>,
+        comm_manager_tx: Sender<CommEvent>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Self {
@@ -94,8 +87,7 @@ impl Shell {
             shell_handler,
             lsp_handler,
             open_comms: HashMap::new(),
-            comm_changed_tx,
-            comm_changed_rx,
+            comm_manager_tx,
         }
     }
 
@@ -118,20 +110,6 @@ impl Shell {
             // only errors likely here are "can't deliver to client"
             if let Err(err) = self.process_message(message) {
                 warn!("Could not handle shell message: {}", err);
-            }
-
-            // If we got this far, we have just opened a comm channel. Add it to our
-            // open comms.
-            match self
-                .open_comms
-                .insert(req.content.comm_id.clone(), comm_socket)
-            {
-                Some(_) => {
-                    // We already knew about this comm; warn and discard
-                    warn!("Comm {} was already open", req.content.comm_id);
-                    Ok(())
-                },
-                None => Ok(()),
             }
         }
     }
@@ -345,14 +323,14 @@ impl Shell {
 
         let comm_id = req.content.comm_id.clone();
         let comm_name = req.content.target_name.clone();
-        let mut comm_socket = CommSocket::new(comm_id, comm_name);
+        let comm_socket = CommSocket::new(comm_id, comm_name.clone());
 
         // Create a routine to send messages to the front end over the IOPub
         // channel. This routine will be passed to the comm channel so it can
         // deliver messages to the front end without having to store its own
         // internal ID or a reference to the IOPub channel.
 
-        let comm_channel = match comm {
+        let opened = match comm {
             // If this is the special LSP comm, start the LSP server and create
             // a comm that wraps it
             Comm::Lsp => {
@@ -372,9 +350,9 @@ impl Shell {
 
                     // Create the new comm wrapper channel for the LSP and start
                     // the LSP server in a separate thread
-                    let lsp_comm = LspComm::new(handler, comm_socket.comm_msg_tx.clone());
+                    let lsp_comm = LspComm::new(handler, comm_socket.outgoing_tx.clone());
                     lsp_comm.start(&start_lsp)?;
-                    lsp_comm.msg_sender()
+                    true
                 } else {
                     // If we don't have an LSP handler, return an error
                     warn!(
@@ -392,7 +370,8 @@ impl Shell {
                 let handler = self.shell_handler.lock().unwrap();
 
                 // Call the shell handler to open the comm
-                match block_on(handler.handle_comm_open(comm, comm_socket.comm_msg_tx.clone())) {
+                match block_on(handler.handle_comm_open(comm, comm_socket.clone())) {
+                    Ok(result) => result,
                     Err(err) => {
                         // If the shell handler returns an error, send it back.
                         // This is a language evaluation error, so we can send
@@ -409,33 +388,28 @@ impl Shell {
                             errname,
                         ));
                     },
-                    Ok(comm) => match comm {
-                        // If the shell handler returns a comm channel, we're in good shape.
-                        Some(comm) => comm,
-                        // If the shell handler returns None, send an error
-                        // message back to the client; this indicates that the
-                        // comm type was unknown to the shell handler.
-                        None => {
-                            return Err(Error::UnknownCommName(req.content.target_name.clone()))
-                        },
-                    },
                 }
             },
         };
 
-        comm_socket.set_msg_handler(comm_channel);
-
-        // Send a notification to the comm message listener thread that a new
-        // comm has been opened
-        if let Err(err) = self
-            .comm_changed_tx
-            .send(CommChanged::Opened(comm_socket.clone()))
-        {
-            warn!(
-                "Failed to send '{}' comm open notification to listener thread: {}",
-                comm_socket.comm_name, err
-            );
+        if opened {
+            // Send a notification to the comm message listener thread that a new
+            // comm has been opened
+            if let Err(err) = self
+                .comm_manager_tx
+                .send(CommEvent::Opened(comm_socket.clone()))
+            {
+                warn!(
+                    "Failed to send '{}' comm open notification to listener thread: {}",
+                    comm_socket.comm_name, err
+                );
+            }
+        } else {
+            // If the comm was not opened, return an error to the caller
+            return Err(Error::UnknownCommName(comm_name.clone()));
         }
+
+        Ok(())
     }
 
     /// Deliver a request from the front end to a comm. Specifically, this is a
@@ -447,26 +421,18 @@ impl Shell {
         req: JupyterMessage<CommMsg>,
     ) -> Result<(), Error> {
         debug!("Received request to send a message on a comm: {:?}", req);
-        // Look for the comm in our open comms
-        let comm = match self.open_comms.get(&req.content.comm_id) {
-            Some(comm) => comm,
-            None => {
-                warn!(
-                    "Received a message on an unknown comm: {}",
-                    req.content.comm_id
-                );
-                return Err(Error::UnknownCommId(req.content.comm_id));
-            },
-        };
 
         // Store this message as a pending RPC request so that when the comm
         // responds, we can match it up
-        self.comm_changed_tx
-            .send(CommChanged::PendingRpc(req.header.clone()))
+        self.comm_manager_tx
+            .send(CommEvent::PendingRpc(req.header.clone()))
             .unwrap();
 
         // Send the message to the comm
-        comm.handle_msg(req.header.msg_id.clone(), req.content.data);
+        let msg = CommChannelMsg::Rpc(req.header.msg_id.clone(), req.content.data);
+        self.comm_manager_tx
+            .send(CommEvent::Message(req.content.comm_id.clone(), msg))
+            .unwrap();
         Ok(())
     }
 
@@ -474,27 +440,11 @@ impl Shell {
     fn handle_comm_close(&mut self, req: JupyterMessage<CommClose>) -> Result<(), Error> {
         // Look for the comm in our open comms
         debug!("Received request to close comm: {:?}", req);
-        let comm = match self.open_comms.get(&req.content.comm_id) {
-            Some(comm) => comm,
-            None => {
-                warn!(
-                    "Received a request to close unknown or already closed comm: {}",
-                    req.content.comm_id
-                );
-                return Err(Error::UnknownCommId(req.content.comm_id));
-            },
-        };
-
-        // Close the comm
-        comm.close();
-
-        // Remove the comm from the set of open comms
-        self.open_comms.remove(&req.content.comm_id);
 
         // Send a notification to the comm message listener thread notifying it that
         // the comm has been closed
-        self.comm_changed_tx
-            .send(CommChanged::Closed(req.content.comm_id))
+        self.comm_manager_tx
+            .send(CommEvent::Closed(req.content.comm_id))
             .unwrap();
 
         Ok(())

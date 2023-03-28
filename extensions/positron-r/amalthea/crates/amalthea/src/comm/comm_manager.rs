@@ -19,9 +19,13 @@ use crate::socket::iopub::IOPubMessage;
 use crate::wire::comm_msg::CommMsg;
 use crate::wire::header::JupyterHeader;
 
-pub enum CommChanged {
+pub enum CommEvent {
     /// A new Comm was opened
     Opened(CommSocket),
+
+    /// A message was received on a Comm; the first value is the comm ID, and the
+    /// second value is the message.
+    Message(String, CommChannelMsg),
 
     /// An RPC was received from the front end
     PendingRpc(JupyterHeader),
@@ -36,10 +40,10 @@ pub enum CommChanged {
  * end. It is meant to be called on a dedicated thread, and it does not return.
  *
  * - `iopub_tx`: The channel to send messages to the front end.
- * - `comm_changed_rx`: The channel to receive messages about changes to the set
+ * - `comm_event_rx`: The channel to receive messages about changes to the set
  *   (or state) of open comms.
  */
-pub fn comm_manager(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<CommChanged>) {
+pub fn comm_manager(iopub_tx: Sender<IOPubMessage>, comm_event_rx: Receiver<CommEvent>) {
     // Create a vector of the open comms
     let mut open_comms = Vec::<CommSocket>::new();
 
@@ -49,15 +53,16 @@ pub fn comm_manager(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<Co
     loop {
         let mut sel = Select::new();
 
-        // Listen for messages from each of the open comms
+        // Listen for messages from each of the open comms that are destined for
+        // the front end
         for comm_socket in &open_comms {
-            sel.recv(&comm_socket.comm_msg_rx);
+            sel.recv(&comm_socket.outgoing_rx);
         }
 
-        // Add a receiver for the comm_changed channel; this is used to
+        // Add a receiver for the comm_event channel; this is used to
         // unblock the select when a comm is added or removed so we can
         // start a new `Select` with the updated set of open comms.
-        sel.recv(&comm_changed_rx);
+        sel.recv(&comm_event_rx);
 
         // Wait until a message is received (blocking call)
         let oper = sel.select();
@@ -66,15 +71,15 @@ pub fn comm_manager(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<Co
         let index = oper.index();
         if index >= open_comms.len() {
             // If the index is greater than the number of open comms,
-            // then the message was received on the comm_changed channel.
-            let comm_changed = oper.recv(&comm_changed_rx);
-            if let Err(err) = comm_changed {
-                warn!("Error receiving comm_changed message: {}", err);
+            // then the message was received on the comm_event channel.
+            let comm_event = oper.recv(&comm_event_rx);
+            if let Err(err) = comm_event {
+                warn!("Error receiving comm_event message: {}", err);
                 continue;
             }
-            match comm_changed.unwrap() {
+            match comm_event.unwrap() {
                 // A Comm was opened; add it to the list of open comms
-                CommChanged::Opened(comm_socket) => {
+                CommEvent::Opened(comm_socket) => {
                     open_comms.push(comm_socket);
                     info!(
                         "Comm channel opened; there are now {} open comms",
@@ -83,12 +88,35 @@ pub fn comm_manager(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<Co
                 },
 
                 // An RPC was received; add it to the map of pending RPCs
-                CommChanged::PendingRpc(header) => {
+                CommEvent::PendingRpc(header) => {
                     pending_rpcs.insert(header.msg_id.clone(), header);
                 },
 
+                // A message was received from the front end
+                CommEvent::Message(comm_id, msg) => {
+                    // Find the index of the comm in the vector
+                    let index = open_comms
+                        .iter()
+                        .position(|comm_socket| comm_socket.comm_id == comm_id);
+
+                    // If we found it, send the message to the comm. TODO: Fewer unwraps
+                    if let Some(index) = index {
+                        open_comms
+                            .get(index)
+                            .unwrap()
+                            .incoming_tx
+                            .send(msg)
+                            .unwrap();
+                    } else {
+                        warn!(
+                            "Received message for unknown comm channel {}: {:?}",
+                            comm_id, msg
+                        );
+                    }
+                },
+
                 // A Comm was closed; attempt to remove it from the set of open comms
-                CommChanged::Closed(comm_id) => {
+                CommEvent::Closed(comm_id) => {
                     // Find the index of the comm in the vector
                     let index = open_comms
                         .iter()
@@ -112,7 +140,7 @@ pub fn comm_manager(iopub_tx: Sender<IOPubMessage>, comm_changed_rx: Receiver<Co
         } else {
             // Otherwise, the message was received on one of the open comms.
             let comm_socket = &open_comms[index];
-            let comm_msg = match oper.recv(&comm_socket.comm_msg_rx) {
+            let comm_msg = match oper.recv(&comm_socket.outgoing_rx) {
                 Ok(msg) => msg,
                 Err(err) => {
                     warn!("Error receiving comm message: {}", err);

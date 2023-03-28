@@ -6,8 +6,8 @@
 //
 
 use amalthea::comm::comm_channel::Comm;
-use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
+use amalthea::socket::comm::CommSocket;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::complete_reply::CompleteReply;
 use amalthea::wire::complete_request::CompleteRequest;
@@ -53,7 +53,7 @@ pub struct Shell {
 
 #[derive(Debug)]
 pub enum REvent {
-    Prompt
+    Prompt,
 }
 
 impl Shell {
@@ -222,20 +222,16 @@ impl ShellHandler for Shell {
     }
 
     /// Handles a request to open a new comm channel
-    async fn handle_comm_open(
-        &self,
-        comm: Comm,
-        msg_tx: Sender<CommChannelMsg>,
-    ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
-        match comm {
+    async fn handle_comm_open(&self, target: Comm, comm: CommSocket) -> Result<bool, Exception> {
+        match target {
             Comm::Environment => {
                 r_lock! {
                     let global_env = RObject::view(R_GlobalEnv);
-                    let channel_msg_tx = REnvironment::start(global_env, msg_tx.clone());
-                    Ok(Some(channel_msg_tx))
+                    REnvironment::start(global_env, comm.clone());
+                    Ok(true)
                 }
             },
-            _ => Ok(None),
+            _ => Ok(false),
         }
     }
 

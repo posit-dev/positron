@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use std::thread;
 
 use crate::comm::comm_manager::comm_manager;
-use crate::comm::comm_manager::CommChanged;
+use crate::comm::comm_manager::CommEvent;
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;
@@ -46,11 +46,11 @@ pub struct Kernel {
     /// Receives message sent to the IOPub socket
     iopub_rx: Option<Receiver<IOPubMessage>>,
 
-    /// Sends notifications about changes to the open comms.
-    comm_changed_tx: Sender<CommChanged>,
+    /// Sends notifications about comm changes and events to the comm manager
+    comm_manager_tx: Sender<CommEvent>,
 
-    /// Receives notifications about changes to the open comms.
-    comm_changed_rx: Receiver<CommChanged>,
+    /// Receives notifications about comm changes and events
+    comm_manager_rx: Receiver<CommEvent>,
 }
 
 /// Possible behaviors for the stream capture thread. When set to `Capture`,
@@ -71,15 +71,15 @@ impl Kernel {
 
         // Create the pair of channels that will be used to relay messages from
         // the open comms
-        let (comm_changed_tx, comm_changed_rx) = bounded::<CommChanged>(10);
+        let (comm_manager_tx, comm_manager_rx) = bounded::<CommEvent>(10);
 
         Ok(Self {
             connection: file,
             session: Session::create(key)?,
             iopub_tx: iopub_tx,
             iopub_rx: Some(iopub_rx),
-            comm_changed_tx,
-            comm_changed_rx,
+            comm_manager_tx,
+            comm_manager_rx,
         })
     }
 
@@ -106,15 +106,13 @@ impl Kernel {
 
         let shell_clone = shell_handler.clone();
         let iopub_tx_clone = self.create_iopub_tx();
-        let comm_changed_tx_clone = self.comm_changed_tx.clone();
-        let comm_changed_rx_clone = self.comm_changed_rx.clone();
+        let comm_manager_tx_clone = self.comm_manager_tx.clone();
         let lsp_handler_clone = lsp_handler.clone();
         thread::spawn(move || {
             Self::shell_thread(
                 shell_socket,
                 iopub_tx_clone,
-                comm_changed_tx_clone,
-                comm_changed_rx_clone,
+                comm_manager_tx_clone,
                 shell_clone,
                 lsp_handler_clone,
             )
@@ -178,8 +176,8 @@ impl Kernel {
 
         // Create the comm listener thread
         let iopub_tx = self.create_iopub_tx();
-        let comm_changed_rx = self.comm_changed_rx.clone();
-        thread::spawn(move || comm_manager(iopub_tx, comm_changed_rx));
+        let comm_manager_rx = self.comm_manager_rx.clone();
+        thread::spawn(move || comm_manager(iopub_tx, comm_manager_rx));
 
         // TODO: thread/join thread? Exiting this thread will cause the whole
         // kernel to exit.
@@ -203,16 +201,14 @@ impl Kernel {
     fn shell_thread(
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
-        comm_changed_tx: Sender<CommChanged>,
-        comm_changed_rx: Receiver<CommChanged>,
+        comm_manager_tx: Sender<CommEvent>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Result<(), Error> {
         let mut shell = Shell::new(
             socket,
             iopub_tx.clone(),
-            comm_changed_tx,
-            comm_changed_rx,
+            comm_manager_tx,
             shell_handler,
             lsp_handler,
         );
