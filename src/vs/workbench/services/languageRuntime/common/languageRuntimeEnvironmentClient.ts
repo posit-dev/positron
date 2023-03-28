@@ -99,11 +99,17 @@ export enum EnvironmentVariableValueKind {
  * This is the raw data format used to communicate with the language runtime.
  */
 export interface IEnvironmentVariable {
-	/// The name of the variable
-	name: string;
+	/// The name of the variable, formatted for display
+	display_name: string;
 
-	/// A string representation of the variable's value, possibly truncated
-	value: string;
+	/// A string representation of the variable's value formatted for display, possibly truncated
+	display_value: string;
+
+	/// The variable's type, formatted for display
+	display_type: string;
+
+	/// Extended information about the variable's type
+	type_info: string;
 
 	/// The kind of value the variable represents, such as 'string' or 'number'
 	kind: EnvironmentVariableValueKind;
@@ -147,10 +153,10 @@ export class EnvironmentVariable {
 	 */
 	async getChildren(): Promise<EnvironmentClientList> {
 		if (this.data.has_children) {
-			return this._envClient.requestInspect(this.parentNames.concat(this.data.name));
+			return this._envClient.requestInspect(this.parentNames.concat(this.data.display_name));
 		} else {
 			throw new Error(`Attempt to retrieve children of ` +
-				`${this.data.name} (${JSON.stringify(this.parentNames)}) ` +
+				`${this.data.display_name} (${JSON.stringify(this.parentNames)}) ` +
 				`which has no children.`);
 		}
 	}
@@ -162,7 +168,8 @@ export class EnvironmentVariable {
 	 * @returns A promise that resolves to the formatted value of this variable.
 	 */
 	async formatForClipboard(mime: string): Promise<string> {
-		return this._envClient.requestClipboardFormat(mime, this.parentNames.concat(this.data.name));
+		return this._envClient.requestClipboardFormat(mime,
+			this.parentNames.concat(this.data.display_name));
 	}
 }
 

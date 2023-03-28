@@ -617,7 +617,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the environment variable item.
 			environmentVariableItems.set(
-				environmentVariable.data.name,
+				environmentVariable.data.display_name,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		}
@@ -640,7 +640,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the environment variable item.
 			this._environmentVariableItems.set(
-				environmentVariable.data.name,
+				environmentVariable.data.display_name,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		}

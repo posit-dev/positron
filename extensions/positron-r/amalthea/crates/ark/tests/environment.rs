@@ -101,7 +101,7 @@ fn test_environment_list() {
     let list: EnvironmentMessageList = serde_json::from_value(data).unwrap();
     assert!(list.variables.len() == 1);
     let var = &list.variables[0];
-    assert_eq!(var.name, "everything");
+    assert_eq!(var.display_name, "everything");
     assert_eq!(list.version, 2);
 
     // create another variable
@@ -124,13 +124,13 @@ fn test_environment_list() {
     let msg: EnvironmentMessageUpdate = serde_json::from_value(data).unwrap();
     assert_eq!(msg.assigned.len(), 1);
     assert_eq!(msg.removed.len(), 1);
-    assert_eq!(msg.assigned[0].name, "nothing");
+    assert_eq!(msg.assigned[0].display_name, "nothing");
     assert_eq!(msg.removed[0], "everything");
     assert_eq!(msg.version, 3);
 
     // Request that the environment be cleared
-    let clear = EnvironmentMessage::Clear(EnvironmentMessageClear{
-        include_hidden_objects: true
+    let clear = EnvironmentMessage::Clear(EnvironmentMessageClear {
+        include_hidden_objects: true,
     });
     let data = serde_json::to_value(clear).unwrap();
     let request_id = String::from("clear-id-1235");
@@ -156,7 +156,7 @@ fn test_environment_list() {
     assert_eq!(list.version, 4);
 
     // test the env is now empty
-    r_lock!{
+    r_lock! {
         let contents = RObject::new(R_lsInternal(*test_env, Rboolean_TRUE));
         assert_eq!(Rf_length(*contents), 0);
     }
@@ -186,7 +186,7 @@ fn test_environment_list() {
 
     // Request that a environment be deleted
     let delete = EnvironmentMessage::Delete(EnvironmentMessageDelete {
-        variables: vec![String::from("a")]
+        variables: vec![String::from("a")],
     });
     let data = serde_json::to_value(delete).unwrap();
     let request_id = String::from("delete-id-1236");
@@ -209,5 +209,4 @@ fn test_environment_list() {
 
     // close the comm. Otherwise the thread panics
     backend_msg_sender.send(CommChannelMsg::Close).unwrap();
-
 }
