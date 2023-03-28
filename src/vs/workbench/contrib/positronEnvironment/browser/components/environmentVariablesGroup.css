@@ -5,9 +5,9 @@
 .environment-variables-group {
 	display: flex;
 	border: none;
-	padding: 2px 8px;
-	font-size: 11px;
+	padding: 0 8px;
 	cursor: pointer;
+	line-height: 200%;
 	align-items: center;
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);

@@ -16,6 +16,12 @@ import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize 
 import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 /**
+ * Constants.
+ */
+const DEFAULT_NAME_COLUMN_WIDTH = 130;
+const TYPE_VISIBILITY_THRESHOLD = 400;
+
+/**
  * EnvironmentInstanceProps interface.
  */
 interface EnvironmentInstanceProps {
@@ -33,10 +39,11 @@ interface EnvironmentInstanceProps {
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Hooks.
 	const [marker, setMarker] = useState(generateUuid());
-	const [nameColumnWidth, _setNameColumnWidth] = useState(120);
-	const [typeColumnWidth, _setTypeColumnWidth] = useState(110);
-	const [typeColumnVisible, setTypeColumnVisible] = useState(false);
-	const [valueColumnWidth, setValueColumnWidth] = useState(0);
+	const [nameColumnWidth, _setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
+	const [detailsColumnWidth, setDetailsColumnWidth] =
+		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
+	const [typeVisible, setTypeVisible] =
+		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_VISIBILITY_THRESHOLD);
 	const [dataExpanded, setDataExpanded] = useState(true);
 	const [valuesExpanded, setValuesExpanded] = useState(true);
 	const [functionsExpanded, setFunctionsExpanded] = useState(true);
@@ -78,13 +85,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// Width use effect.
 	useEffect(() => {
-		if (props.width < 400) {
-			setTypeColumnVisible(false);
-			setValueColumnWidth(props.width - nameColumnWidth);
-		} else {
-			setTypeColumnVisible(true);
-			setValueColumnWidth(props.width - nameColumnWidth);
-		}
+		setDetailsColumnWidth(props.width - nameColumnWidth);
+		setTypeVisible(props.width > TYPE_VISIBILITY_THRESHOLD);
 	}, [props.width]);
 
 	// Temporary logging.
@@ -276,9 +278,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					<EnvironmentVariable
 						key={item.id}
 						nameColumnWidth={nameColumnWidth}
-						typeColumnWidth={typeColumnWidth}
-						typeColumnVisible={typeColumnVisible}
-						valueColumnWidth={valueColumnWidth}
+						detailsColumnWidth={detailsColumnWidth}
+						typeVisible={typeVisible}
 						indentLevel={0}
 						environmentVariableItem={item} />
 				)}
