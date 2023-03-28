@@ -898,7 +898,11 @@ class PositronIPyKernel(IPythonKernel):
         if value is not None:
             type_name = type(value).__name__
 
-            if isinstance(value, Set):
+            if isinstance(value, str):
+                # For strings, which are sequences, we suppress showing
+                # the length in the type display
+                return type_name
+            elif isinstance(value, Set):
                 return f'{type_name} {{{length}}}'
             elif isinstance(value, tuple):
                 return f'{type_name} ({length})'
