@@ -62,13 +62,11 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 					</div>
 				</div>
 			</div>
-			{props.typeColumnVisible && (
-				<div className='type' style={{ width: props.typeColumnWidth }}>
+			<div className='value-and-type' style={{ width: props.valueColumnWidth }}>
+				<div className='value'>{props.environmentVariableItem.displayValue}</div>
+				<div className='type'>
 					{props.environmentVariableItem.displayType}
 				</div>
-			)}
-			<div className='value' style={{ width: props.valueColumnWidth }}>
-				{props.environmentVariableItem.displayValue}
 			</div>
 		</div>
 		{expanded && children && children.map(item =>

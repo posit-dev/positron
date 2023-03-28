@@ -4,12 +4,13 @@
 
 .environment-variable {
 	display: flex;
-	padding: 0 8px;
 	border-bottom: 1px solid var(--vscode-positronEnvironment-gridColor);
 }
 
 .environment-variable .name {
 	display: flex;
+	/* margin-left: 8px; */
+	flex-shrink: 0;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
@@ -17,6 +18,7 @@
 }
 
 .environment-variable .name .gutter {
+	margin-left: 8px;
 	width: 20px;
 	display: flex;
 }
@@ -43,17 +45,40 @@
 	display: flex !important;
 }
 
-.environment-variable .type {
-	margin-left: 8px;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-	border-right: 1px solid var(--vscode-positronEnvironment-gridColor);
+.environment-variable .value-and-type {
+	display: flex;
+	justify-content: space-between;
 }
 
-.environment-variable .value {
+.environment-variable .value-and-type .value {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 	margin-left: 8px;
+	flex: 1;
+}
+
+.environment-variable .value-and-type .type {
+	opacity: 0.7;
+	margin-right: 8px;
+	margin-left: 8px;
+}
+
+/* .environment-variable .value {
+	margin-left: 8px;
+	padding-right: 8px;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
+
+.environment-variable .type {
+	margin-left: 8px;
+	text-align: right;
+	flex-shrink: 0;
+	opacity: 0.7;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+*/
