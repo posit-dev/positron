@@ -22,6 +22,7 @@ use crate::utils::r_inherits;
 use crate::utils::r_stringify;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
+use crate::vector::Vector;
 
 extern "C" {
     pub static R_ParseError: c_int;

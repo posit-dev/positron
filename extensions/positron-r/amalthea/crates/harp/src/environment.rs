@@ -13,11 +13,8 @@ use libR_sys::*;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_typeof;
-use crate::vector::CharacterVector;
 use crate::vector::IntegerVector;
-use crate::vector::LogicalVector;
-use crate::vector::NumericVector;
-use crate::vector::RawVector;
+use crate::vector::Vector;
 use itertools::Itertools;
 
 #[derive(Copy, Clone, BitfieldStruct)]
@@ -180,42 +177,41 @@ fn vec_shape(value: SEXP) -> String {
             format!("{}", Rf_xlength(value))
         } else {
             let dim = IntegerVector::new(dim).unwrap();
-            dim.into_iter()
-                .format(", ")
-                .to_string()
+            dim.iter().format(", ").to_string()
         }
     }
 }
 
 fn vec_glimpse(value: SEXP) -> (bool, String) {
-    // TODO: turn this into a macro perhaps
-    match unsafe{TYPEOF(value) as u32} {
-        LGLSXP => {
-            let vec = unsafe { LogicalVector::new(value) }.unwrap();
-            vec.glimpse(30)
-        },
-        INTSXP => {
-            let vec = unsafe { IntegerVector::new(value) }.unwrap();
-            vec.glimpse(30)
-        },
-        REALSXP => {
-            let vec = unsafe { NumericVector::new(value) }.unwrap();
-            vec.glimpse(30)
-        },
-        RAWSXP => {
-            let vec = unsafe { RawVector::new(value) }.unwrap();
-            vec.glimpse(30)
-        },
+    todo!()
+    // // TODO: turn this into a macro perhaps
+    // match unsafe{TYPEOF(value) as u32} {
+    //     LGLSXP => {
+    //         let vec = unsafe { LogicalVector::new(value) }.unwrap();
+    //         vec.glimpse(30)
+    //     },
+    //     INTSXP => {
+    //         let vec = unsafe { IntegerVector::new(value) }.unwrap();
+    //         vec.glimpse(30)
+    //     },
+    //     REALSXP => {
+    //         let vec = unsafe { NumericVector::new(value) }.unwrap();
+    //         vec.glimpse(30)
+    //     },
+    //     RAWSXP => {
+    //         let vec = unsafe { RawVector::new(value) }.unwrap();
+    //         vec.glimpse(30)
+    //     },
 
-        STRSXP => {
-            let vec = unsafe { CharacterVector::new(value) }.unwrap();
-            vec.glimpse(30)
-        },
+    //     STRSXP => {
+    //         let vec = unsafe { CharacterVector::new(value) }.unwrap();
+    //         vec.glimpse(30)
+    //     },
 
-        _ => {
-            (true, String::from(""))
-        }
-    }
+    //     _ => {
+    //         (true, String::from(""))
+    //     }
+    // }
 }
 
 fn altrep_vec_glimpse(value: SEXP) -> (bool, String) {

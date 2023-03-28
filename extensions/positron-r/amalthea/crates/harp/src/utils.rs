@@ -19,6 +19,7 @@ use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::r_symbol;
 use crate::vector::CharacterVector;
+use crate::vector::Vector;
 
 extern "C" {
     fn R_removeVarFromFrame(symbol: SEXP, envir: SEXP) -> c_void;
@@ -124,7 +125,7 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
     if R_IsNamespaceEnv(envir) != 0 {
         let spec = R_NamespaceEnvSpec(envir);
         if let Ok(vector) = CharacterVector::new(spec) {
-            let package = vector.get(0)?.unwrap();
+            let package = vector.get(0)?;
             return Ok(package.to_string());
         }
     }
