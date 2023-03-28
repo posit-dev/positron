@@ -18,6 +18,7 @@
 
 .environment-variable .name .gutter {
 	width: 20px;
+	display: flex;
 }
 
 .expand-collapse-button {

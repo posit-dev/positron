@@ -115,13 +115,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				return renderEnvironmentVariableItemsGroupedBySize(
 					props.positronEnvironmentInstance.environmentVariableItems
 				);
-
-			// Type.
-			case PositronEnvironmentGrouping.Type:
-				return renderItems(
-					props.positronEnvironmentInstance.environmentVariableItems.concat(),
-					'name'
-				);
 		}
 	};
 
