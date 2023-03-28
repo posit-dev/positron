@@ -133,7 +133,13 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 				dyldFallbackLibraryPaths.push(defaultDyldFallbackLibraryPath);
 			}
 
-			env['DYLD_FALLBACK_LIBRARY_PATH'] = dyldFallbackLibraryPaths.join(':');
+			// Set the DYLD_FALLBACK_LIBRARY_PATH to include the R installation.
+			// This specific environment variable can be blocked from being
+			// inherited by child processes on macOS with SIP enabled, so we
+			// prefix it with 'POSITRON_' here. The script that starts the
+			// kernel will check for this variable and set it as
+			// DYLD_FALLBACK_LIBRARY_PATH if it's present.
+			env['POSITRON_DYLD_FALLBACK_LIBRARY_PATH'] = dyldFallbackLibraryPaths.join(':');
 
 		}
 
