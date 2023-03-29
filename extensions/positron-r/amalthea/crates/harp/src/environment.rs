@@ -182,8 +182,10 @@ fn vec_shape(value: SEXP) -> String {
     }
 }
 
-fn vec_glimpse(value: SEXP) -> (bool, String) {
-    todo!()
+fn vec_glimpse(_value: SEXP) -> (bool, String) {
+    // TODO
+    (true, String::from("..."))
+
     // // TODO: turn this into a macro perhaps
     // match unsafe{TYPEOF(value) as u32} {
     //     LGLSXP => {

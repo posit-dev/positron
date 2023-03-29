@@ -88,7 +88,8 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     return None;
                 }
 
-                let item = unsafe { self.data.get_unchecked(self.index) };
+                // TODO [romain]: match instead of unwrap() here
+                let item = unsafe { self.data.get_unchecked(self.index).unwrap() };
                 self.index = self.index + 1;
                 Some(item)
 

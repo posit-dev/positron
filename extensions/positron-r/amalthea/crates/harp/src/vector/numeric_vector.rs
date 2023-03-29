@@ -19,6 +19,7 @@ impl Vector for NumericVector {
     type Item = f64;
     type Type = f64;
     const SEXPTYPE: u32 = REALSXP;
+    type UnderlyingType = f64;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self { object: RObject::new(object.into()) }
@@ -46,8 +47,16 @@ impl Vector for NumericVector {
         self.object.sexp
     }
 
-    unsafe fn get_unchecked(&self, index: isize) -> Self::Type {
-        REAL_ELT(self.data(), index as R_xlen_t)
+    fn is_na(x: &Self::UnderlyingType) -> bool {
+        unsafe { R_IsNA(*x) == 1 }
+    }
+
+    fn get_unchecked_elt(&self, index: isize) -> Self::UnderlyingType {
+        unsafe { REAL_ELT(self.data(), index as R_xlen_t) }
+    }
+
+    fn convert_value(x: &Self::UnderlyingType) -> Self::Type {
+        *x
     }
 
 }
