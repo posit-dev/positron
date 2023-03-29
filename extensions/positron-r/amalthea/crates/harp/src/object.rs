@@ -483,8 +483,8 @@ mod tests {
     use libR_sys::*;
 
     use crate::assert_match;
-    use crate::vector::CharacterVector;
-    use crate::{r_test, r_char};
+    use crate::r_char;
+    use crate::r_test;
 
     use super::*;
 
@@ -673,39 +673,6 @@ mod tests {
             Vec::<String>::try_from(s),
             Err(Error::MissingValueError) => {}
         );
-    }}
-
-    #[test]
-    #[allow(non_snake_case)]
-    fn test_RObject_from_Vec_str() { r_test! {
-        let expected = ["Apple", "Orange", "한"];
-        let vector = CharacterVector::create(&expected);
-
-        assert_eq!(vector.get(0).unwrap(), Some("Apple"));
-        assert_eq!(vector.get(1).unwrap(), Some("Orange"));
-        assert_eq!(vector.get(2).unwrap(), Some("한"));
-    }}
-
-    #[test]
-    fn test_r_strings() { r_test! {
-
-        let alphabet = ["a", "b", "c"];
-
-        // &[&str]
-        let s = CharacterVector::create(&alphabet);
-        assert_eq!(r_typeof(*s), STRSXP);
-        assert_eq!(s, alphabet);
-
-        // &[&str; N]
-        let s = CharacterVector::create(&alphabet[..]);
-        assert_eq!(r_typeof(*s), STRSXP);
-        assert_eq!(s, alphabet);
-
-        // Vec<String>
-        let s = CharacterVector::create(alphabet.to_vec());
-        assert_eq!(r_typeof(*s), STRSXP);
-        assert_eq!(s, alphabet);
-
     }}
 
 }
