@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -34,6 +34,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
 	private readonly _onDidReceiveRuntimeMessageEventEmitter = new Emitter<ILanguageRuntimeMessageEvent>();
+	private readonly _onDidCreateClientInstanceEmitter = new Emitter<IRuntimeClientInstance<any, any>>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
@@ -68,6 +69,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
 	onDidReceiveRuntimeMessageEvent = this._onDidReceiveRuntimeMessageEventEmitter.event;
+	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 
 	emitDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput) {
 		this._onDidReceiveRuntimeMessageOutputEmitter.fire(languageRuntimeMessageOutput);
@@ -111,6 +113,36 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		} else {
 			this._logService.warn(`Client instance '${message.comm_id}' not found; dropping message: ${JSON.stringify(message)}`);
 		}
+	}
+
+	/**
+	 * Opens a client instance (comm) on the front end. This is called when a new
+	 * comm is created on the back end.
+	 */
+	openClientInstance(message: ILanguageRuntimeMessageCommOpen): void {
+		// If the target name is not a valid client type, remove the client on
+		// the back end instead of creating an instance wrapper on the front
+		// end.
+		if (!Object.values(RuntimeClientType).includes(message.target_name as RuntimeClientType)) {
+			this._proxy.$removeClient(this.handle, message.comm_id);
+			return;
+		}
+
+		// Create a new client instance wrapper on the front end. This will be
+		// used to relay messages to the server side of the comm.
+		const client = new ExtHostRuntimeClientInstance<any, any>(
+			message.comm_id,
+			message.target_name as RuntimeClientType,
+			this.handle, this._proxy);
+
+		// Save the client instance so we can relay messages to it
+		this._clients.set(message.comm_id, client);
+
+		// The client instance is now connected, since it already exists on the back end
+		client.setClientState(RuntimeClientState.Connected);
+
+		// Fire an event to notify listeners that a new client instance has been created
+		this._onDidCreateClientInstanceEmitter.fire(client);
 	}
 
 	/**
@@ -413,6 +445,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronConsoleService.initialize();
 		this._positronEnvironmentService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
+	}
+
+	$emitRuntimeClientOpened(handle: number, message: ILanguageRuntimeMessageCommOpen): void {
+		this.findRuntime(handle).openClientInstance(message);
 	}
 
 	$emitRuntimeClientMessage(handle: number, message: ILanguageRuntimeMessageCommData): void {
