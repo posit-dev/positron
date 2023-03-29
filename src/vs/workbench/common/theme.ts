@@ -1100,8 +1100,8 @@ export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideAction
 
 // The Positron side action bar background color.
 export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideActionBar.background', {
-	dark: darken(editorBackground, 0.2),
-	light: darken(editorBackground, 0.3),
+	dark: editorBackground,
+	light: editorBackground,
 	hcDark: SIDE_BAR_BACKGROUND,
 	hcLight: SIDE_BAR_BACKGROUND
 }, localize('positronSideActionBar.background', "Positron side action bar background color."));
@@ -1534,11 +1534,19 @@ export const POSITRON_ENVIRONMENT_FOREGROUND_COLOR = registerColor('positronEnvi
 
 // The Positron Environment header background color.
 export const POSITRON_ENVIRONMENT_HEADER_BACKGROUND_COLOR = registerColor('positronEnvironment.headerBackground', {
-	dark: editorBackground,
-	light: editorBackground,
+	dark: lighten(editorBackground, 0.2),
+	light: darken(editorBackground, 0.05),
 	hcDark: editorBackground,
 	hcLight: editorBackground
 }, localize('positronEnvironment.headerBackground', "Positron Environment header background color."));
+
+// The Positron Environment row hover background color.
+export const POSITRON_ENVIRONMENT_ROW_HOVER_BACKGROUND_COLOR = registerColor('positronEnvironment.rowHoverBackground', {
+	dark: lighten(editorBackground, 0.2),
+	light: darken(editorBackground, 0.05),
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronEnvironment.rowHoverBackground', "Positron Environment row hover background color."));
 
 // The Positron Environment gred color.
 export const POSITRON_ENVIRONMENT_GRID_COLOR = registerColor('positronEnvironment.gridColor', {
