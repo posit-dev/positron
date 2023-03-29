@@ -10,6 +10,7 @@ use std::sync::Mutex;
 use std::thread;
 
 use crate::comm::comm_manager::CommManager;
+use crate::comm::event::CommChanged;
 use crate::comm::event::CommEvent;
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
@@ -93,6 +94,11 @@ impl Kernel {
     ) -> Result<(), Error> {
         let ctx = zmq::Context::new();
 
+        // Create the comm manager thread
+        let iopub_tx = self.create_iopub_tx();
+        let comm_manager_rx = self.comm_manager_rx.clone();
+        let comm_changed_rx = CommManager::start(iopub_tx, comm_manager_rx);
+
         // Create the Shell ROUTER/DEALER socket and start a thread to listen
         // for client messages.
         let shell_socket = Socket::new(
@@ -113,6 +119,7 @@ impl Kernel {
                 shell_socket,
                 iopub_tx_clone,
                 comm_manager_tx_clone,
+                comm_changed_rx,
                 shell_clone,
                 lsp_handler_clone,
             )
@@ -174,11 +181,6 @@ impl Kernel {
             self.connection.endpoint(self.connection.control_port),
         )?;
 
-        // Create the comm listener thread
-        let iopub_tx = self.create_iopub_tx();
-        let comm_manager_rx = self.comm_manager_rx.clone();
-        thread::spawn(move || CommManager::start(iopub_tx, comm_manager_rx));
-
         // TODO: thread/join thread? Exiting this thread will cause the whole
         // kernel to exit.
         Self::control_thread(control_socket, control_handler);
@@ -202,6 +204,7 @@ impl Kernel {
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
         comm_manager_tx: Sender<CommEvent>,
+        comm_changed_rx: Receiver<CommChanged>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Result<(), Error> {
@@ -209,6 +212,7 @@ impl Kernel {
             socket,
             iopub_tx.clone(),
             comm_manager_tx,
+            comm_changed_rx,
             shell_handler,
             lsp_handler,
         );

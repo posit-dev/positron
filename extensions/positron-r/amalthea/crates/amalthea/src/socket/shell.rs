@@ -7,6 +7,7 @@
 
 use crate::comm::comm_channel::Comm;
 use crate::comm::comm_channel::CommChannelMsg;
+use crate::comm::event::CommChanged;
 use crate::comm::event::CommEvent;
 use crate::comm::lsp_comm::LspComm;
 use crate::comm::lsp_comm::StartLsp;
@@ -36,10 +37,10 @@ use crate::wire::kernel_info_reply::KernelInfoReply;
 use crate::wire::kernel_info_request::KernelInfoRequest;
 use crate::wire::status::ExecutionState;
 use crate::wire::status::KernelStatus;
+use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use futures::executor::block_on;
 use log::{debug, trace, warn};
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -59,11 +60,14 @@ pub struct Shell {
     /// Language-provided LSP handler object
     lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
 
-    /// Map of open comm channels (UUID to CommSocket)
-    open_comms: HashMap<String, CommSocket>,
+    /// Set of open comm channels; vector of (comm_id, target_name)
+    open_comms: Vec<(String, String)>,
 
     /// Channel used to deliver comm events to the comm manager
     comm_manager_tx: Sender<CommEvent>,
+
+    /// Channel used to receive comm events from the comm manager
+    comm_manager_rx: Receiver<CommChanged>,
 }
 
 impl Shell {
@@ -72,12 +76,14 @@ impl Shell {
     /// * `socket` - The underlying ZeroMQ Shell socket
     /// * `iopub_tx` - A channel that delivers messages to the IOPub socket
     /// * `comm_manager_tx` - A channel that delivers messages to the comm manager thread
+    /// * `comm_changed_rx` - A channel that receives messages from the comm manager thread
     /// * `shell_handler` - The language's shell channel handler
     /// * `lsp_handler` - The language's LSP handler, if it supports LSP
     pub fn new(
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
         comm_manager_tx: Sender<CommEvent>,
+        comm_changed_rx: Receiver<CommChanged>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Self {
@@ -86,8 +92,9 @@ impl Shell {
             iopub_tx,
             shell_handler,
             lsp_handler,
-            open_comms: HashMap::new(),
+            open_comms: Vec::new(),
             comm_manager_tx,
+            comm_manager_rx: comm_changed_rx,
         }
     }
 
@@ -104,6 +111,9 @@ impl Shell {
                     continue;
                 },
             };
+
+            // Process any comm changes before handling the message
+            self.process_comm_changes();
 
             // Handle the message; any failures while handling the messages are
             // delivered to the client instead of reported up the stack, so the
@@ -268,10 +278,10 @@ impl Shell {
 
         // Convert our internal map of open comms to a JSON object
         let mut info = serde_json::Map::new();
-        for (comm_id, comm) in &self.open_comms {
+        for (comm_id, target_name) in &self.open_comms {
             info.insert(
                 comm_id.clone(),
-                serde_json::Value::String(comm.comm_name.clone()),
+                serde_json::Value::String(target_name.clone()),
             );
         }
 
@@ -461,5 +471,24 @@ impl Shell {
             Ok(reply) => req.send_reply(reply, &self.socket),
             Err(err) => req.send_error::<InspectReply>(err, &self.socket),
         }
+    }
+
+    // Process changes to open comms
+    fn process_comm_changes(&mut self) {
+        if let Ok(comm_changed) = self.comm_manager_rx.try_recv() {
+            match comm_changed {
+                // Comm was added; add it to the list of open comms
+                CommChanged::Added(comm_id, target_name) => {
+                    self.open_comms.push((comm_id, target_name));
+                },
+
+                // Comm was removed; remove it from the list of open comms
+                CommChanged::Removed(comm_id) => {
+                    self.open_comms.retain(|(id, _)| id != &comm_id);
+                },
+            }
+        }
+        // No need to log errors; `try_recv` will return an error if there are no
+        // messages to receive
     }
 }
