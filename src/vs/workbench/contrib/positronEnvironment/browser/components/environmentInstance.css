@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .environment-core .environment-instance {
+	line-height: 200%;
 	-webkit-user-select: text;
 	-moz-user-select: text;
 	-ms-user-select: text;
