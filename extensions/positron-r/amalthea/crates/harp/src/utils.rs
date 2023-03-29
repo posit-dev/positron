@@ -19,6 +19,7 @@ use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::r_symbol;
 use crate::vector::CharacterVector;
+use crate::vector::Vector;
 
 extern "C" {
     fn R_removeVarFromFrame(symbol: SEXP, envir: SEXP) -> c_void;

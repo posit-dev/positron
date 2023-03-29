@@ -18,7 +18,7 @@ use crate::vector::IntegerVector;
 use crate::vector::LogicalVector;
 use crate::vector::NumericVector;
 use crate::vector::RawVector;
-use itertools::Itertools;
+use crate::vector::Vector;
 
 #[derive(Copy, Clone, BitfieldStruct)]
 #[repr(C)]
@@ -180,9 +180,7 @@ fn vec_shape(value: SEXP) -> String {
             format!("{}", Rf_xlength(value))
         } else {
             let dim = IntegerVector::new(dim).unwrap();
-            dim.into_iter()
-                .format(", ")
-                .to_string()
+            dim.format(",", 0).1
         }
     }
 }
@@ -192,24 +190,24 @@ fn vec_glimpse(value: SEXP) -> (bool, String) {
     match unsafe{TYPEOF(value) as u32} {
         LGLSXP => {
             let vec = unsafe { LogicalVector::new(value) }.unwrap();
-            vec.glimpse(30)
+            vec.format(" ", 30)
         },
         INTSXP => {
             let vec = unsafe { IntegerVector::new(value) }.unwrap();
-            vec.glimpse(30)
+            vec.format(" ", 30)
         },
         REALSXP => {
             let vec = unsafe { NumericVector::new(value) }.unwrap();
-            vec.glimpse(30)
+            vec.format(" ", 30)
         },
         RAWSXP => {
             let vec = unsafe { RawVector::new(value) }.unwrap();
-            vec.glimpse(30)
+            vec.format(" ", 30)
         },
 
         STRSXP => {
             let vec = unsafe { CharacterVector::new(value) }.unwrap();
-            vec.glimpse(30)
+            vec.format(" ", 30)
         },
 
         _ => {
