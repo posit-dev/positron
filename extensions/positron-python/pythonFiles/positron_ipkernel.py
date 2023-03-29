@@ -57,7 +57,6 @@ class ClipboardFormat(str, enum.Enum):
     """
     HTML = 'text/html'
     PLAIN = 'text/plain'
-    TAB = 'text/tab-separated-values'
 
 
 # Note: classes below are derived from dict to satisfy ipykernel util method
@@ -161,113 +160,258 @@ class EnvironmentMessageError(EnvironmentMessage):
         self['message'] = message
 
 
-class TableInspector:
+class CustomInspector:
 
-    def get_columns(self, df) -> list[str]:
+    def get_kind(self, value) -> EnvironmentVariableKind:
         pass
 
-    def get_column_values(self, df, column_name) -> list[Any]:
+    def get_child_names(self, value) -> list[str]:
         pass
 
-    def shape(self, df) -> (int, int):
+    def has_child(self, value, child_name) -> bool:
         pass
 
-    def equals(self, df1, df2) -> bool:
+    def get_child_info(self, value, child_name) -> (str, Any):
         pass
 
-    def copy(self, df) -> Any:
+    def get_display_value(self, value) -> str:
         pass
 
-    def to_html(self, df) -> str:
+    def get_display_type(self, value) -> str:
         pass
 
-    def to_tsv(self, df) -> str:
+    def equals(self, value1, value2) -> bool:
+        pass
+
+    def copy(self, value) -> Any:
+        pass
+
+    def to_html(self, value) -> str:
+        pass
+
+    def to_tsv(self, value) -> str:
         pass
 
 
-class PandasInspector(TableInspector):
+class PandasDataFrameInspector(CustomInspector):
 
-    TABLE_CLASS_NAME = 'pandas.core.frame.DataFrame'
+    CLASS_QNAME = 'pandas.core.frame.DataFrame'
 
-    def get_columns(self, df) -> list[str]:
+    def get_kind(self, value) -> EnvironmentVariableKind:
+        if value is not None:
+            return EnvironmentVariableKind.TABLE
+        else:
+            return EnvironmentVariableKind.EMPTY
+
+    def get_child_names(self, value) -> list[str]:
         try:
-            return df.columns.values.tolist()
+            return value.columns.values.tolist()
         except:
             return []
 
-    def get_column_values(self, df, column_name) -> list[Any]:
+    def has_child(self, value, child_name) -> bool:
+        return child_name in self.get_child_names(value)
+
+    def get_child_info(self, value, child_name) -> (str, Any):
         try:
-            return df[column_name].values.tolist()
+            column = value[child_name]
+            display_type = type(column).__name__
+            values = column.values.tolist()
+
+            # Include size information if we have it
+            if hasattr(column, 'size'):
+                size = column.size
+            else:
+                size = len(values)
+
+            display_type = f'{display_type} [{size}]'
+        except Exception:
+            logging.warning('Unable to get Pandas child: %s', child_name, exc_info=True)
+
+        return (display_type, values)
+
+    def get_display_value(self, value) -> str:
+        return type(value).__name__
+
+    def get_display_type(self, value) -> str:
+
+        display_type = type(value).__name__
+        shape = value.shape
+        display_type = display_type + f' [{shape[0]}x{shape[1]}]'
+
+        return display_type
+
+    def equals(self, value1, value2) -> bool:
+        return value1.equals(value2)
+
+    def copy(self, value) -> Any:
+        return value.copy()
+
+    def to_html(self, value) -> str:
+        return value.to_html()
+
+    def to_tsv(self, value) -> str:
+        return value.to_csv(path_or_buf=None, sep='\t')
+
+class PandasSeriesInspector(CustomInspector):
+
+    CLASS_QNAME = 'pandas.core.series.Series'
+
+    def get_kind(self, value) -> EnvironmentVariableKind:
+        if value is not None:
+            return EnvironmentVariableKind.TABLE
+        else:
+            return EnvironmentVariableKind.EMPTY
+
+    def get_child_names(self, value) -> list[str]:
+        try:
+            return map(str, list(range(value.size)))
         except:
             return []
 
-    def shape(self, df) -> (int, int):
-        return df.shape
+    def has_child(self, value, child_name) -> bool:
+        return child_name in self.get_child_names(value)
 
-    def equals(self, df1, df2) -> bool:
-        return df1.equals(df2)
-
-    def copy(self, df) -> Any:
-        return df.copy()
-
-    def to_html(self, df) -> str:
-        return df.to_html()
-
-    def to_tsv(self, df) -> str:
-        return df.to_csv(path_or_buf=None, sep='\t')
-
-
-class PolarsInspector(TableInspector):
-
-    TABLE_CLASS_NAME = 'polars.dataframe.frame.DataFrame'
-
-    def get_columns(self, df) -> list[str]:
+    def get_child_info(self, value, child_name) -> (str, Any):
         try:
-            return df.columns
+            item = value.iat[int(child_name)]
+            display_type = type(item).__name__
+            return (display_type, item)
+        except Exception:
+            logging.warning('Unable to get Series child: %s', child_name, exc_info=True)
+        return ('unknown', [])
+
+    def get_display_value(self, value) -> str:
+        return str(value)
+
+    def get_display_type(self, value) -> str:
+
+        display_type = type(value).__name__
+        length = len(value)
+        display_type = display_type + f' [{length}]'
+
+        return display_type
+
+    def equals(self, value1, value2) -> bool:
+        return value1.equals(value2)
+
+    def copy(self, value) -> Any:
+        return value.copy()
+
+    def to_html(self, value) -> str:
+        # TODO: Support HTML
+        return self.to_tsv(value)
+
+    def to_tsv(self, value) -> str:
+        return value.to_csv(path_or_buf=None, sep='\t')
+
+
+class PolarsInspector(CustomInspector):
+
+    CLASS_QNAME = 'polars.dataframe.frame.DataFrame'
+
+    def get_kind(self, value) -> EnvironmentVariableKind:
+        if value is not None:
+            return EnvironmentVariableKind.TABLE
+        else:
+            return EnvironmentVariableKind.EMPTY
+
+    def get_child_names(self, value) -> list[str]:
+        try:
+            return value.columns
         except:
             return []
 
-    def get_column_values(self, df, column_name) -> list[Any]:
+    def has_child(self, value, child_name) -> bool:
+        return child_name in self.get_child_names(value)
+
+    def get_child_info(self, value, child_name) -> (str, Any):
         try:
-            return df.get_column(column_name).to_list()
+            column = value.get_column(child_name)
+            display_type = type(column).__name__
+            return (display_type, column.to_list())
+        except Exception:
+            logging.warning('Unable to get Polars child: %s', child_name, exc_info=True)
+            return ('unknown', [])
+
+    def get_display_value(self, value) -> str:
+        return type(value).__name__
+
+    def get_display_type(self, value) -> (int, int):
+
+        display_type = type(value).__name__
+        shape = value.shape
+        display_type = display_type + f' [{shape[0]}x{shape[1]}]'
+
+        return display_type
+
+    def equals(self, value1, value2) -> bool:
+        return value1.frame_equal(value2)
+
+    def copy(self, value) -> Any:
+        return value.clone()
+
+    def to_html(self, value) -> str:
+        return value._repr_html_()
+
+    def to_tsv(self, value) -> str:
+        return value.write_csv(file=None, separator='\t')
+
+
+class NumpyNdarrayInspector(CustomInspector):
+
+    CLASS_QNAME = 'numpy.ndarray'
+
+    def get_kind(self, value) -> EnvironmentVariableKind:
+        if value is not None:
+            return EnvironmentVariableKind.TABLE
+        else:
+            return EnvironmentVariableKind.EMPTY
+
+    def get_child_names(self, value) -> list[str]:
+        try:
+            return map(str, list(range(len(value))))
         except:
             return []
 
-    def shape(self, df) -> (int, int):
-        return df.shape
+    def has_child(self, value, child_name) -> bool:
+        return child_name in self.get_child_names(value)
 
-    def equals(self, df1, df2) -> bool:
-        return df1.frame_equal(df2)
+    def get_child_info(self, value, child_name) -> (str, Any):
+        try:
+            child_display_type = type(value).__name__
+            child = value[int(child_name)]
+            return (child_display_type, child)
+        except Exception:
+            logging.warning('Unable to get ndarray child: %s', child_name, exc_info=True)
+            return ('unknown', [])
 
-    def copy(self, df) -> Any:
-        return df.clone()
+    def get_display_value(self, value) -> str:
+        return str(value)
 
-    def to_html(self, df) -> str:
-        return df._repr_html_()
+    def get_display_type(self, value) -> str:
+        display_type = type(value).__name__
+        length = len(value)
+        display_type = display_type + f' [{length}]'
 
-    def to_tsv(self, df) -> str:
-        return df.write_csv(file=None, separator='\t')
+        return display_type
 
-class NumpyNDArrayInspector:
-
-    ARRAY_CLASS_NAME = 'numpy.ndarray'
-
-    def equals(self, a1, a2) -> bool:
+    def equals(self, value1, value2) -> bool:
 
         # Try to use numpy's array_equal
         try:
             import numpy as np
-            return np.array_equal(a1, a2)
+            return np.array_equal(value1, value2)
         except Exception as err:
-            logging.warning(err)
+            logging.warning("numpy equals %s", err, exc_info=True)
 
         # Fallback to comparing the raw bytes
-        if a1.shape != a2.shape:
+        if value1.shape != value2.shape:
             return False
-        return a1.tobytes() == a2.tobytes()
+        return value1.tobytes() == value2.tobytes()
 
-    def copy(self, a) -> Any:
-        return a.copy()
+    def copy(self, value) -> Any:
+        return value.copy()
 
 
 POSITRON_ENVIRONMENT_COMM = 'positron.environment'
@@ -281,6 +425,8 @@ SUMMARY_PRINT_WIDTH = 100
 # conditional property lookup
 _OurDefault = object()
 
+POSITON_NS_HIDDEN = {'__warningregistry__': {}}
+"""Additional variables to hide from the user's namespace."""
 
 class PositronIPyKernel(IPythonKernel):
     """
@@ -296,6 +442,7 @@ class PositronIPyKernel(IPythonKernel):
         _get_comm_manager().register_target(POSITRON_ENVIRONMENT_COMM, self.environment_comm)
         self.shell.events.register('pre_execute', self.handle_pre_execute)
         self.shell.events.register('post_execute', self.handle_post_execute)
+        self.get_user_ns_hidden().update(POSITON_NS_HIDDEN)
 
     def environment_comm(self, comm, open_msg) -> None:
         """
@@ -370,6 +517,7 @@ class PositronIPyKernel(IPythonKernel):
         return self.shell.user_ns
 
     def get_user_ns_hidden(self) -> dict:
+
         return self.shell.user_ns_hidden
 
     def snapshot_user_ns(self) -> None:
@@ -389,11 +537,8 @@ class PositronIPyKernel(IPythonKernel):
 
             if isinstance(value, (MutableMapping, MutableSequence, MutableSet)):
                 snapshot[key] = value.copy()
-            elif self.is_table(value):
-                inspector = self.get_table_inspector(value)
-                snapshot[key] = inspector.copy(value)
-            elif self.is_array(value):
-                inspector = self.get_array_inspector(value)
+            elif self.is_inspectable(value):
+                inspector = self.get_inspector(value)
                 snapshot[key] = inspector.copy(value)
 
         # Save the snapshot in the hidden namespace to compare against
@@ -406,12 +551,13 @@ class PositronIPyKernel(IPythonKernel):
         hidden = self.get_user_ns_hidden()
         snapshot = hidden.get('__positron_cache', {})
 
-        # Find assigned and removed variables
         assigned = {}
         removed = set()
 
-        try:
-            for key in chain(snapshot.keys(), after.keys()):
+        # Find assigned and removed variables
+        for key in chain(snapshot.keys(), after.keys()):
+            try:
+
                 if key in hidden:
                     continue
 
@@ -422,30 +568,24 @@ class PositronIPyKernel(IPythonKernel):
                     # Key was added
                     assigned[key] = after[key]
                 elif key in snapshot and key in after:
+                    v1 = snapshot[key]
+                    v2 = after[key]
 
-                    # If the value is a table, compare using a
-                    # special equals() method
-                    if self.is_table(after[key]):
-                        t1 = snapshot[key]
-                        t2 = after[key]
-                        inspector = self.get_table_inspector(t1)
-                        if not inspector.equals(t1, t2):
-                            assigned[key] = after[key]
+                    # If the value has a custom inspector, compare using
+                    # the inspector's special equals() method
+                    if self.is_inspectable(v1) or self.is_inspectable(v2):
+                        inspector1 = self.get_inspector(v1)
+                        inspector2 = self.get_inspector(v2)
+                        if inspector1 != inspector2 or not inspector2.equals(v1, v2):
+                            assigned[key] = v2
 
-                    # If the value a special ndarray, compare using numpy equals method
-                    elif self.is_array(after[key]):
-                        a1 = snapshot[key]
-                        a2 = after[key]
-                        inspector = self.get_array_inspector(a1)
-                        if not inspector.equals(a1, a2):
-                            assigned[key] = after[key]
+                    # Otherwise, check if key's value is no longer
+                    # the same after exection
+                    elif v1 != v2 and key not in assigned:
+                        assigned[key] = v2
 
-                    # Check if key's value changed after execution
-                    elif snapshot[key] != after[key] and key not in assigned:
-                        assigned[key] = after[key]
-
-        except Exception as err:
-            logging.warning(err, exc_info=True)
+            except Exception as err:
+                logging.warning("v1: %s, v2: %s, err: %s", type(v1), type(v2), err, exc_info=True)
 
         # Clear the snapshot
         hidden['__positron_cache'] = {}
@@ -533,6 +673,12 @@ class PositronIPyKernel(IPythonKernel):
             if is_known:
                 value = getattr(context, name, None)
 
+            elif self.is_inspectable(context):
+                inspector = self.get_inspector(context)
+                is_known = inspector.has_child(context, name)
+                if is_known:
+                    display_type, value = inspector.get_child_info(context, name)
+
             # Check for membership by dict key
             elif isinstance(context, Mapping):
                 value = context.get(name, _OurDefault)
@@ -547,6 +693,7 @@ class PositronIPyKernel(IPythonKernel):
                     value = context[int(name)]
                     is_known = True
                 except Exception:
+                    logging.warning(f'Unable to find variable at \'{path}\'', exc_info=True)
                     is_known = False
 
             # Subsequent segment starts from the value
@@ -599,8 +746,9 @@ class PositronIPyKernel(IPythonKernel):
 
     def send_details(self, path: Iterable, context: Any = None):
         """
-        Sends the list of children (or the value itself if none) of the value
-        through the environment comm to the client.
+        Sends a detailed list of children of the value (or just the value
+        itself, if is a leaf node on the path) as a message through the
+        environment comm to the client.
 
         For example:
         {
@@ -608,13 +756,15 @@ class PositronIPyKernel(IPythonKernel):
                 "msg_type": "details",
                 "path": ["myobject", "myproperty"],
                 "children": [{
-                    "name": "property1",
-                    "value": "Hello",
-                    "kind": "string"
+                    "display_name": "property1",
+                    "display_value": "Hello",
+                    "kind": "string",
+                    "display_type": "str"
                 },{
-                    "name": "property2",
-                    "value": 123,
+                    "display_name": "property2",
+                    "display_value": "123",
                     "kind": "number"
+                    "display_type": "int"
                 }]
             }
             ...
@@ -626,13 +776,13 @@ class PositronIPyKernel(IPythonKernel):
             # Treat dictionary items as children
             children.extend(self.summarize_variables(context))
 
-        elif self.is_table(context):
-            # Treat table column series as children
-            inspector = self.get_table_inspector(context)
-            for column_name in inspector.get_columns(context):
-                values = inspector.get_column_values(context, column_name)
-                summary = self.summarize_variable(column_name, values)
+        elif self.is_inspectable(context):
+            inspector = self.get_inspector(context)
+            for child_name in inspector.get_child_names(context):
+                child_display_type, child_value = inspector.get_child_info(context, child_name)
+                summary = self.summarize_variable(child_name, child_value)
                 if summary is not None:
+                    summary['display_type'] = child_display_type
                     children.append(summary)
 
         elif isinstance(context, (list, set, frozenset, tuple)):
@@ -735,6 +885,9 @@ class PositronIPyKernel(IPythonKernel):
         self.send_message(msg)
 
     def send_message(self, msg: EnvironmentMessage) -> None:
+        """
+        Send a message through the environment comm to the client.
+        """
 
         if self.env_comm is None:
             logging.warning('Cannot send message, environment comm is not open')
@@ -794,7 +947,8 @@ class PositronIPyKernel(IPythonKernel):
 
             elif kind == EnvironmentVariableKind.TABLE:
                 # Tables are summarized by their dimensions
-                display_value, display_type = self.format_table_summary(value)
+                inspector = self.get_inspector(value)
+                display_value = inspector.get_display_value(value)
                 is_truncated = True
 
             elif kind == EnvironmentVariableKind.FUNCTION:
@@ -820,29 +974,8 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariable(display_name, display_value, kind,
                                        display_type, length, size, has_children, is_truncated)
         except Exception as err:
-            logging.warning(err)
+            logging.warning(err, exc_info=True)
             return EnvironmentVariable(display_name, self.get_qualname(value), kind)
-
-    def format_table_summary(self, value) -> (str, str):
-
-        try:
-            display_value = self.get_qualname(value)
-
-            # Calculate DataFrame dimentions in rows x cols
-            inspector = self.get_table_inspector(value)
-            shape = inspector.shape(value)
-            if shape is None:
-                shape = (0, 0)
-
-            display_type = type(value).__name__
-            if self.get_length(shape) == 2:
-                display_type = display_type + f' [{shape[0]}x{shape[1]}]'
-
-            return (display_value, display_type)
-
-        except Exception as err:
-            logging.warning(err)
-            return None
 
     def format_function_summary(self, value) -> str:
         if callable(value):
@@ -872,16 +1005,16 @@ class PositronIPyKernel(IPythonKernel):
 
         if clipboard_format == ClipboardFormat.HTML:
 
-            if self.is_table(value):
-                inspector = self.get_table_inspector(value)
+            if self.is_inspectable(value):
+                inspector = self.get_inspector(value)
                 return inspector.to_html(value)
             else:
                 return html.escape(str(value))
 
-        elif clipboard_format == ClipboardFormat.TAB:
+        elif clipboard_format == ClipboardFormat.PLAIN:
 
-            if self.is_table(value):
-                inspector = self.get_table_inspector(value)
+            if self.is_inspectable(value):
+                inspector = self.get_inspector(value)
                 return inspector.to_tsv(value)
 
         return str(value)
@@ -903,6 +1036,9 @@ class PositronIPyKernel(IPythonKernel):
                 # For strings, which are sequences, we suppress showing
                 # the length in the type display
                 return type_name
+            elif self.is_inspectable(value):
+                inspector = self.get_inspector(value)
+                return inspector.get_display_type(value)
             elif isinstance(value, Set):
                 return f'{type_name} {{{length}}}'
             elif isinstance(value, tuple):
@@ -939,8 +1075,9 @@ class PositronIPyKernel(IPythonKernel):
             return EnvironmentVariableKind.BOOLEAN
         elif isinstance(value, numbers.Number):
             return EnvironmentVariableKind.NUMBER
-        elif self.is_table(value):
-            return EnvironmentVariableKind.TABLE
+        elif self.is_inspectable(value):
+            inspector = self.get_inspector(value)
+            return inspector.get_kind(value)
         elif isinstance(value, Mapping):
             return EnvironmentVariableKind.MAP
         elif isinstance(value, (bytes, bytearray, memoryview)):
@@ -956,24 +1093,17 @@ class PositronIPyKernel(IPythonKernel):
         else:
             return EnvironmentVariableKind.EMPTY
 
-    TABLE_INSPECTORS = {PandasInspector.TABLE_CLASS_NAME: PandasInspector(),
-                        PolarsInspector.TABLE_CLASS_NAME: PolarsInspector()}
+    CUSTOM_INSPECTORS = {PandasDataFrameInspector.CLASS_QNAME: PandasDataFrameInspector(),
+                         PandasSeriesInspector.CLASS_QNAME: PandasSeriesInspector(),
+                         PolarsInspector.CLASS_QNAME: PolarsInspector(),
+                         NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector()}
 
-    def is_table(self, value) -> bool:
+    def is_inspectable(self, value) -> bool:
         qualname = self.get_qualname(value)
-        if qualname in self.TABLE_INSPECTORS.keys():
+        if qualname in self.CUSTOM_INSPECTORS.keys():
             return True
         return False
 
-    def get_table_inspector(self, value) -> TableInspector:
+    def get_inspector(self, value) -> CustomInspector:
         qualname = self.get_qualname(value)
-        return self.TABLE_INSPECTORS.get(qualname, None)
-
-    ARRAY_INSPECTORS = {NumpyNDArrayInspector.ARRAY_CLASS_NAME: NumpyNDArrayInspector()}
-
-    def is_array(self, value) -> bool:
-        return self.get_qualname(value) == 'numpy.ndarray'
-
-    def get_array_inspector(self, value) -> NumpyNDArrayInspector:
-        qualname = self.get_qualname(value)
-        return self.ARRAY_INSPECTORS.get(qualname, None)
+        return self.CUSTOM_INSPECTORS.get(qualname, None)
