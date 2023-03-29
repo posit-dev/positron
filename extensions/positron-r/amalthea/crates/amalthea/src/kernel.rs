@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
-use crate::comm::comm_manager::CommEvent;
 use crate::comm::comm_manager::CommManager;
+use crate::comm::event::CommEvent;
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;

@@ -7,7 +7,7 @@
 
 use crate::comm::comm_channel::Comm;
 use crate::comm::comm_channel::CommChannelMsg;
-use crate::comm::comm_manager::CommEvent;
+use crate::comm::event::CommEvent;
 use crate::comm::lsp_comm::LspComm;
 use crate::comm::lsp_comm::StartLsp;
 use crate::error::Error;

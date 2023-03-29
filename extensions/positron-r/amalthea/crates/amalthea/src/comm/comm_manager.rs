@@ -15,25 +15,11 @@ use log::info;
 use log::warn;
 
 use crate::comm::comm_channel::CommChannelMsg;
+use crate::comm::event::CommEvent;
 use crate::socket::comm::CommSocket;
 use crate::socket::iopub::IOPubMessage;
 use crate::wire::comm_msg::CommMsg;
 use crate::wire::header::JupyterHeader;
-
-pub enum CommEvent {
-    /// A new Comm was opened
-    Opened(CommSocket),
-
-    /// A message was received on a Comm; the first value is the comm ID, and the
-    /// second value is the message.
-    Message(String, CommChannelMsg),
-
-    /// An RPC was received from the front end
-    PendingRpc(JupyterHeader),
-
-    /// A Comm was closed
-    Closed(String),
-}
 
 pub struct CommManager {
     open_comms: Vec<CommSocket>,
