@@ -304,7 +304,7 @@ fn test_kernel() {
         data: serde_json::Value::Null,
     });
 
-    info!("Requesting comm info from the kernel (to test opening)");
+    info!("Requesting comm info from the kernel (to test opening from the front end)");
     frontend.send_shell(CommInfoRequest {
         target_name: "environment".to_string(),
     });
@@ -388,10 +388,11 @@ fn test_kernel() {
     // Now test opening a comm from the kernel side
     info!("Creating a comm from the kernel side");
     let test_comm_id = String::from("test_comm_id_84e7fe");
+    let test_comm_name = String::from("test_target");
     let test_comm = CommSocket::new(
         CommInitiator::BackEnd,
         test_comm_id.clone(),
-        "test_target".to_string(),
+        test_comm_name.clone(),
     );
     comm_manager_tx
         .send(CommEvent::Opened(
@@ -416,6 +417,31 @@ fn test_kernel() {
                 continue;
             },
         }
+    }
+
+    // Query the kernel to see if the comm we just opened is in the list of
+    // comms. It's similar to the test done above for opening a comm from the
+    // frontend, but this time we're testing the other direction, to ensure that
+    // the kernel is correctly tracking the list of comms regardless of where
+    // they originated.
+    info!("Requesting comm info from the kernel (to test opening from the back end)");
+    frontend.send_shell(CommInfoRequest {
+        target_name: test_comm_name.clone(),
+    });
+    let reply = frontend.receive_shell();
+    match reply {
+        Message::CommInfoReply(request) => {
+            info!("Got comm info: {:?}", request);
+            // Ensure the comm we just opened is in the list of comms
+            let comms = request.content.comms.as_object().unwrap();
+            assert!(comms.contains_key(&test_comm_id));
+        },
+        _ => {
+            panic!(
+                "Unexpected message received (expected comm info): {:?}",
+                reply
+            );
+        },
     }
 
     // Now send a message from the backend to the frontend using the comm we just
