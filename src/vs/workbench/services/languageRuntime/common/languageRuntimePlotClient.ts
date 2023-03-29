@@ -91,6 +91,14 @@ export class PlotClientInstance extends Disposable {
 		this._register(_client);
 	}
 
+	/**
+	 * Requests that the plot be rendered at a specific size.
+	 *
+	 * @param height The plot height, in pixels
+	 * @param width The plot width, in pixels
+	 * @param dpi The dots-per-inch measurement of the output device
+	 * @returns A promise that resolves to a rendered image, or rejects with an error.
+	 */
 	public render(height: number, width: number, dpi: number): Promise<IPlotClientMessageImage> {
 		return new Promise((resolve, reject) => {
 			this._client.performRpc({
