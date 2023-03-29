@@ -53,6 +53,7 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
     // It must be able to deliver messages to the shell channel directly.
     let lsp = Arc::new(Mutex::new(lsp::handler::Lsp::new(
         shell_request_tx.clone(),
+        kernel.create_comm_manager_tx(),
         kernel_init_tx.add_rx(),
     )));
 

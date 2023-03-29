@@ -24,12 +24,16 @@
 //!
 
 
+use amalthea::comm::event::CommEvent;
+use amalthea::socket::comm::CommSocket;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use libR_sys::*;
 use once_cell::sync::Lazy;
 use stdext::unwrap;
 use uuid::Uuid;
+
+use crate::lsp::globals::COMM_MANAGER_TX;
 
 macro_rules! trace {
     ($($tts:tt)*) => {{
@@ -86,7 +90,7 @@ impl DeviceContext {
         self._dirty = self._dirty || mode != 0;
     }
 
-    pub unsafe fn before_new_page(&mut self, dd: pGEcontext, dev: pDevDesc) {
+    pub unsafe fn before_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
 
         // Nothing to do if we don't have an ID (implies no page)
         let id = unwrap!(&self._id, None => {
@@ -106,10 +110,25 @@ impl DeviceContext {
 
     }
 
-    pub unsafe fn after_new_page(&mut self, dd: pGEcontext, dev: pDevDesc) {
+    pub unsafe fn after_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
 
         // Generate a new UUID to be associated with this plot.
-        self._id = Some(Uuid::new_v4().to_string());
+        let id = Uuid::new_v4().to_string();
+        self._id = Some(id.clone());
+
+        // Let Positron know that we just created a new plot.
+        let socket = CommSocket::new(
+            amalthea::socket::comm::CommInitiator::BackEnd,
+            id,
+            "positron.plots".to_string()
+        );
+
+        let event = CommEvent::Opened(socket, serde_json::Value::Null);
+
+        let comm_manager_tx = COMM_MANAGER_TX.get_unchecked().lock();
+        if let Err(error) = comm_manager_tx.send(event) {
+            log::error!("{}", error);
+        }
 
     }
 
