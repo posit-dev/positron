@@ -6,6 +6,7 @@
 //
 
 use std::cmp::Ordering;
+use std::fmt::Display;
 
 use c2rust_bitfields::BitfieldStruct;
 use libR_sys::*;
@@ -13,9 +14,12 @@ use libR_sys::*;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_typeof;
+use crate::vector::CharacterVector;
 use crate::vector::IntegerVector;
+use crate::vector::LogicalVector;
+use crate::vector::NumericVector;
+use crate::vector::RawVector;
 use crate::vector::Vector;
-use itertools::Itertools;
 
 #[derive(Copy, Clone, BitfieldStruct)]
 #[repr(C)]
@@ -169,6 +173,36 @@ fn describe_vec(value: SEXP) -> String {
     format!("{} [{}] {}{}", vec_type(value), vec_shape(value), glimpsed.1, suffix)
 }
 
+fn vec_format<T, R>(iter: &mut T, sep: &str, max: usize) -> (bool, String)
+where
+    T: Iterator<Item=Option<R>>,
+    R: Display
+{
+    let mut out = String::from("");
+    let mut truncated = false;
+    let mut first = true;
+
+    while let Some(x) = iter.next() {
+        if max > 0 && out.len() > max {
+            truncated = true;
+            break;
+        }
+
+        if first {
+            first = false;
+        } else {
+            out.push_str(sep);
+        }
+
+        match x {
+            Some(value) => out.push_str(value.to_string().as_str()),
+            None => out.push_str("NA")
+        }
+    }
+
+    (truncated, out)
+}
+
 fn vec_shape(value: SEXP) -> String {
     unsafe {
         let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
@@ -177,47 +211,40 @@ fn vec_shape(value: SEXP) -> String {
             format!("{}", Rf_xlength(value))
         } else {
             let dim = IntegerVector::new(dim).unwrap();
-            dim
-                .iter()
-                .map(|x| x.unwrap().to_string())
-                .format(", ")
-                .to_string()
+            vec_format(&mut dim.iter(), ",", 0).1
         }
     }
 }
 
-fn vec_glimpse(_value: SEXP) -> (bool, String) {
-    // TODO
-    (true, String::from("..."))
+fn vec_glimpse(value: SEXP) -> (bool, String) {
+    // TODO: turn this into a macro perhaps
+    match unsafe{TYPEOF(value) as u32} {
+        LGLSXP => {
+            let vec = unsafe { LogicalVector::new(value) }.unwrap();
+            vec_format(&mut vec.iter(), " ", 30)
+        },
+        INTSXP => {
+            let vec = unsafe { IntegerVector::new(value) }.unwrap();
+            vec_format(&mut vec.iter(), " ", 30)
+        },
+        REALSXP => {
+            let vec = unsafe { NumericVector::new(value) }.unwrap();
+            vec_format(&mut vec.iter(), " ", 30)
+        },
+        RAWSXP => {
+            let vec = unsafe { RawVector::new(value) }.unwrap();
+            vec_format(&mut vec.iter(), " ", 30)
+        },
 
-    // // TODO: turn this into a macro perhaps
-    // match unsafe{TYPEOF(value) as u32} {
-    //     LGLSXP => {
-    //         let vec = unsafe { LogicalVector::new(value) }.unwrap();
-    //         vec.glimpse(30)
-    //     },
-    //     INTSXP => {
-    //         let vec = unsafe { IntegerVector::new(value) }.unwrap();
-    //         vec.glimpse(30)
-    //     },
-    //     REALSXP => {
-    //         let vec = unsafe { NumericVector::new(value) }.unwrap();
-    //         vec.glimpse(30)
-    //     },
-    //     RAWSXP => {
-    //         let vec = unsafe { RawVector::new(value) }.unwrap();
-    //         vec.glimpse(30)
-    //     },
+        STRSXP => {
+            let vec = unsafe { CharacterVector::new(value) }.unwrap();
+            vec_format(&mut vec.iter(), " ", 30)
+        },
 
-    //     STRSXP => {
-    //         let vec = unsafe { CharacterVector::new(value) }.unwrap();
-    //         vec.glimpse(30)
-    //     },
-
-    //     _ => {
-    //         (true, String::from(""))
-    //     }
-    // }
+        _ => {
+            (true, String::from(""))
+        }
+    }
 }
 
 fn altrep_vec_glimpse(value: SEXP) -> (bool, String) {
