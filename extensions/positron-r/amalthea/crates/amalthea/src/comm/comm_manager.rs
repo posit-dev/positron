@@ -15,6 +15,7 @@ use log::info;
 use log::warn;
 
 use crate::comm::comm_channel::CommChannelMsg;
+use crate::comm::event::CommChanged;
 use crate::comm::event::CommEvent;
 use crate::socket::comm::CommSocket;
 use crate::socket::iopub::IOPubMessage;
@@ -25,6 +26,7 @@ pub struct CommManager {
     open_comms: Vec<CommSocket>,
     iopub_tx: Sender<IOPubMessage>,
     comm_event_rx: Receiver<CommEvent>,
+    comm_changed_tx: Sender<CommChanged>,
     pending_rpcs: HashMap<String, JupyterHeader>,
 }
 
@@ -38,22 +40,32 @@ impl CommManager {
      * - `comm_event_rx`: The channel to receive messages about changes to the set
      *   (or state) of open comms.
      */
-    pub fn start(iopub_tx: Sender<IOPubMessage>, comm_event_rx: Receiver<CommEvent>) {
+    pub fn start(
+        iopub_tx: Sender<IOPubMessage>,
+        comm_event_rx: Receiver<CommEvent>,
+    ) -> Receiver<CommChanged> {
+        let (comm_changed_tx, comm_changed_rx) = crossbeam::channel::unbounded();
         thread::spawn(move || {
-            let mut comm_manager = CommManager::new(iopub_tx, comm_event_rx);
+            let mut comm_manager = CommManager::new(iopub_tx, comm_event_rx, comm_changed_tx);
             loop {
                 comm_manager.execution_thread();
             }
         });
+        return comm_changed_rx;
     }
 
     /**
      * Create a new CommManager.
      */
-    pub fn new(iopub_tx: Sender<IOPubMessage>, comm_event_rx: Receiver<CommEvent>) -> Self {
+    pub fn new(
+        iopub_tx: Sender<IOPubMessage>,
+        comm_event_rx: Receiver<CommEvent>,
+        comm_changed_tx: Sender<CommChanged>,
+    ) -> Self {
         Self {
             iopub_tx,
             comm_event_rx,
+            comm_changed_tx,
             open_comms: Vec::<CommSocket>::new(),
             pending_rpcs: HashMap::<String, JupyterHeader>::new(),
         }
@@ -94,6 +106,12 @@ impl CommManager {
             match comm_event.unwrap() {
                 // A Comm was opened; add it to the list of open comms
                 CommEvent::Opened(comm_socket) => {
+                    self.comm_changed_tx
+                        .send(CommChanged::Added(
+                            comm_socket.comm_id.clone(),
+                            comm_socket.comm_name.clone(),
+                        ))
+                        .unwrap();
                     self.open_comms.push(comm_socket);
                     info!(
                         "Comm channel opened; there are now {} open comms",
@@ -141,6 +159,9 @@ impl CommManager {
                     // If we found it, remove it.
                     if let Some(index) = index {
                         self.open_comms.remove(index);
+                        self.comm_changed_tx
+                            .send(CommChanged::Removed(comm_id))
+                            .unwrap();
                         info!(
                             "Comm channel closed; there are now {} open comms",
                             self.open_comms.len()
