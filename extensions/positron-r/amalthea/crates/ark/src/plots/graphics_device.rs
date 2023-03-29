@@ -28,6 +28,8 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use libR_sys::*;
 use once_cell::sync::Lazy;
+use stdext::unwrap;
+use uuid::Uuid;
 
 macro_rules! trace {
     ($($tts:tt)*) => {{
@@ -64,8 +66,9 @@ struct DeviceContext {
     // recursive plot invocations.
     pub _rendering: bool,
 
-    // The path where plots are being written.
-    pub _path: Option<String>,
+    // The ID associated with the current plot page. Used primarily
+    // for accessing indexed plots, e.g. for the Plots pane history.
+    pub _id: Option<String>,
 
     // The device callbacks, which are patched into the device.
     pub _callbacks: DeviceCallbacks,
@@ -83,7 +86,39 @@ impl DeviceContext {
         self._dirty = self._dirty || mode != 0;
     }
 
+    pub unsafe fn before_new_page(&mut self, dd: pGEcontext, dev: pDevDesc) {
+
+        // Nothing to do if we don't have an ID (implies no page)
+        let id = unwrap!(&self._id, None => {
+            return;
+        });
+
+        // When a new page is created, check if we have a plot / display list
+        // active. If we do, save that before the new page is created, so that
+        // we can re-render the previous plot (page) if necessary.
+        let result = RFunction::from(".ps.graphics.createSnapshot")
+            .param("id", id.as_str())
+            .call();
+
+        if let Err(error) = result {
+            log::error!("{}", error);
+        }
+
+    }
+
+    pub unsafe fn after_new_page(&mut self, dd: pGEcontext, dev: pDevDesc) {
+
+        // Generate a new UUID to be associated with this plot.
+        self._id = Some(Uuid::new_v4().to_string());
+
+    }
+
     pub unsafe fn render_plot(&mut self) {
+
+        let id = unwrap!(&self._id, None => {
+            log::error!("{}", "internal error: unexpected null graphics id");
+            return;
+        });
 
         if self._rendering {
             trace!("+++ Ignoring recursive plot attempt.");
@@ -92,7 +127,9 @@ impl DeviceContext {
 
         trace!("+++ Rendering plot.");
         self._rendering = true;
-        let result = RFunction::from(".ps.graphics.renderPlot").call();
+        let result = RFunction::from(".ps.graphics.renderPlot")
+            .param("id", id.as_str())
+            .call();
         self._rendering = false;
 
         if let Err(error) = result {
@@ -213,10 +250,14 @@ unsafe extern "C" fn gd_mode(mode: i32, dev: pDevDesc) {
 unsafe extern "C" fn gd_new_page(dd: pGEcontext, dev: pDevDesc) {
     trace!("gd_new_page");
 
+    DEVICE_CONTEXT.before_new_page(dd, dev);
+
     // invoke the regular callback
     if let Some(callback) = DEVICE_CONTEXT._callbacks.newPage {
         callback(dd, dev);
     }
+
+    DEVICE_CONTEXT.after_new_page(dd, dev);
 
 }
 
@@ -231,27 +272,8 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
     // TODO: allow customization of device type.
     let r#type = "cairo";
 
-    // create the graphics device via R APIs
-    let filename = RFunction::new("base", "tempfile")
-        .param("pattern", "positron-graphics-")
-        .param("fileext", ".png")
-        .call()?
-        .to::<String>()?;
-
-    // TODO: Detect high DPI displays
-    RFunction::new("grDevices", "png")
-        .param("filename", filename.as_str())
-        .param("type", r#type)
-        .param("res", res)
-        .call()?;
-
-    // save the file name
-    DEVICE_CONTEXT._path = Some(filename);
-
-    // rename the current device
-    let index = Rf_curDevice() + 1;  // C -> R indexing
-    RFunction::from(".ps.graphics.initializeDevice")
-        .param("index", index)
+    // Create the graphics device.
+    RFunction::from(".ps.graphics.createDevice")
         .param("name", "Positron Graphics Device")
         .param("type", r#type)
         .param("res", res)
