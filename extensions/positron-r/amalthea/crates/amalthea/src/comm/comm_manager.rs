@@ -17,9 +17,11 @@ use log::warn;
 use crate::comm::comm_channel::CommChannelMsg;
 use crate::comm::event::CommChanged;
 use crate::comm::event::CommEvent;
+use crate::socket::comm::CommInitiator;
 use crate::socket::comm::CommSocket;
 use crate::socket::iopub::IOPubMessage;
 use crate::wire::comm_msg::CommMsg;
+use crate::wire::comm_open::CommOpen;
 use crate::wire::header::JupyterHeader;
 
 pub struct CommManager {
@@ -104,15 +106,31 @@ impl CommManager {
                 return;
             }
             match comm_event.unwrap() {
-                // A Comm was opened; add it to the list of open comms
-                CommEvent::Opened(comm_socket) => {
+                // A Comm was opened; notify everyone
+                CommEvent::Opened(comm_socket, val) => {
+                    // Notify the shell handler; it maintains a list of open
+                    // comms so that the frontend can query for comm state
                     self.comm_changed_tx
                         .send(CommChanged::Added(
                             comm_socket.comm_id.clone(),
                             comm_socket.comm_name.clone(),
                         ))
                         .unwrap();
+
+                    // Notify the front end, if this request originated from the back end
+                    if comm_socket.initiator == CommInitiator::BackEnd {
+                        self.iopub_tx
+                            .send(IOPubMessage::CommOpen(CommOpen {
+                                comm_id: comm_socket.comm_id.clone(),
+                                target_name: comm_socket.comm_name.clone(),
+                                data: val,
+                            }))
+                            .unwrap();
+                    }
+
+                    // Add to our own list of open comms
                     self.open_comms.push(comm_socket);
+
                     info!(
                         "Comm channel opened; there are now {} open comms",
                         self.open_comms.len()

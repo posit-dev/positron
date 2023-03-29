@@ -6,6 +6,7 @@
 //
 
 use amalthea::comm::comm_channel::CommChannelMsg;
+use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageClear;
@@ -51,6 +52,7 @@ fn test_environment_list() {
 
     // Create a sender/receiver pair for the comm channel.
     let comm = CommSocket::new(
+        CommInitiator::FrontEnd,
         String::from("test-environment-comm-id"),
         String::from("positron.environment"),
     );

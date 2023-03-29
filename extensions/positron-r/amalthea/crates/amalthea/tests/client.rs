@@ -5,7 +5,10 @@
  *
  */
 
+use amalthea::comm::event::CommEvent;
 use amalthea::kernel::{Kernel, StreamBehavior};
+use amalthea::socket::comm::CommInitiator;
+use amalthea::socket::comm::CommSocket;
 use amalthea::wire::comm_close::CommClose;
 use amalthea::wire::comm_info_request::CommInfoRequest;
 use amalthea::wire::comm_msg::CommMsg;
@@ -33,6 +36,7 @@ fn test_kernel() {
     let connection_file = frontend.get_connection_file();
     let mut kernel = Kernel::new(connection_file).unwrap();
     let shell_tx = kernel.create_iopub_tx();
+    let comm_manager_tx = kernel.create_comm_manager_tx();
     let shell = Arc::new(Mutex::new(shell::Shell::new(shell_tx)));
     let control = Arc::new(Mutex::new(control::Control {}));
 
@@ -378,5 +382,38 @@ fn test_kernel() {
                 reply
             );
         },
+    }
+
+    // Now test opening a comm from the kernel side
+    info!("Creating a comm from the kernel side");
+    let test_comm_id = String::from("test_comm_id_84e7fe");
+    let test_comm = CommSocket::new(
+        CommInitiator::BackEnd,
+        test_comm_id.clone(),
+        "test_target".to_string(),
+    );
+    comm_manager_tx
+        .send(CommEvent::Opened(
+            test_comm.clone(),
+            serde_json::Value::Null,
+        ))
+        .unwrap();
+
+    // Wait for the comm open message to be received by the frontend. We should get
+    // a CommOpen message on the IOPub channel notifying the frontend that the new comm
+    // has been opened.
+    //
+    // We do this in a loop because we expect a number of other messages, e.g. busy/idle
+    loop {
+        let msg = frontend.receive_iopub();
+        match msg {
+            Message::CommOpen(msg) => {
+                assert_eq!(msg.content.comm_id, test_comm_id);
+                break;
+            },
+            _ => {
+                continue;
+            },
+        }
     }
 }

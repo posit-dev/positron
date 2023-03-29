@@ -14,6 +14,7 @@ use crate::comm::lsp_comm::StartLsp;
 use crate::error::Error;
 use crate::language::lsp_handler::LspHandler;
 use crate::language::shell_handler::ShellHandler;
+use crate::socket::comm::CommInitiator;
 use crate::socket::comm::CommSocket;
 use crate::socket::iopub::IOPubMessage;
 use crate::socket::socket::Socket;
@@ -331,9 +332,12 @@ impl Shell {
             )
         })?;
 
+        // Create a comm socket for this comm. The initiator is FrontEnd here
+        // because we're processing a request from the front end to open a comm.
         let comm_id = req.content.comm_id.clone();
         let comm_name = req.content.target_name.clone();
-        let comm_socket = CommSocket::new(comm_id, comm_name.clone());
+        let comm_data = req.content.data.clone();
+        let comm_socket = CommSocket::new(CommInitiator::FrontEnd, comm_id, comm_name.clone());
 
         // Create a routine to send messages to the front end over the IOPub
         // channel. This routine will be passed to the comm channel so it can
@@ -407,7 +411,7 @@ impl Shell {
             // comm has been opened
             if let Err(err) = self
                 .comm_manager_tx
-                .send(CommEvent::Opened(comm_socket.clone()))
+                .send(CommEvent::Opened(comm_socket.clone(), comm_data))
             {
                 warn!(
                     "Failed to send '{}' comm open notification to listener thread: {}",

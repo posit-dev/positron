@@ -5,6 +5,8 @@
  *
  */
 
+use serde_json::Value;
+
 use crate::comm::comm_channel::CommChannelMsg;
 use crate::socket::comm::CommSocket;
 use crate::wire::header::JupyterHeader;
@@ -14,7 +16,7 @@ use crate::wire::header::JupyterHeader;
  */
 pub enum CommEvent {
     /// A new Comm was opened
-    Opened(CommSocket),
+    Opened(CommSocket, Value),
 
     /// A message was received on a Comm; the first value is the comm ID, and the
     /// second value is the message.

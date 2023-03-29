@@ -41,13 +41,16 @@ pub struct Kernel {
     /// The unique session information for this kernel session.
     session: Session,
 
-    /// Sends messages to the IOPub socket
+    /// Sends messages to the IOPub socket. This field is used throughout the
+    /// kernel codebase to send events to the front end; use `create_iopub_tx`
+    /// to access it.
     iopub_tx: Sender<IOPubMessage>,
 
     /// Receives message sent to the IOPub socket
     iopub_rx: Option<Receiver<IOPubMessage>>,
 
-    /// Sends notifications about comm changes and events to the comm manager
+    /// Sends notifications about comm changes and events to the comm manager.
+    /// Use `create_comm_manager_tx` to access it.
     comm_manager_tx: Sender<CommEvent>,
 
     /// Receives notifications about comm changes and events
@@ -191,6 +194,11 @@ impl Kernel {
     /// Returns a copy of the IOPub sending channel.
     pub fn create_iopub_tx(&self) -> Sender<IOPubMessage> {
         self.iopub_tx.clone()
+    }
+
+    /// Returns a copy of the comm manager sending channel.
+    pub fn create_comm_manager_tx(&self) -> Sender<CommEvent> {
+        self.comm_manager_tx.clone()
     }
 
     /// Starts the control thread
