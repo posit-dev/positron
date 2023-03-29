@@ -30,10 +30,28 @@ pub trait Vector {
     type Type;
     type Item: ?Sized;
     const SEXPTYPE: u32;
+    type UnderlyingType;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self;
-    unsafe fn get_unchecked(&self, index: isize) -> Self::Type;
     fn data(&self) -> SEXP;
+    fn is_na(x: &Self::UnderlyingType) -> bool;
+    fn get_unchecked_elt(&self, index: isize) -> Self::UnderlyingType;
+    fn convert_value(x: &Self::UnderlyingType) -> Self::Type;
+
+    fn get_unchecked(&self, index: isize) -> Option<Self::Type> {
+        let x = self.get_unchecked_elt(index);
+        match Self::is_na(&x) {
+            true => None,
+            false => Some(Self::convert_value(&x))
+        }
+    }
+
+    fn get(&self, index: isize) -> Result<Option<Self::Type>> {
+        unsafe {
+            r_assert_capacity(self.data(), index as u32)?;
+        }
+        Ok(self.get_unchecked(index))
+    }
 
     unsafe fn new(object: impl Into<SEXP>) -> Result<Self> where Self: Sized {
         let object = object.into();
@@ -54,11 +72,6 @@ pub trait Vector {
 
     unsafe fn len(&self) -> usize {
         Rf_xlength(self.data()) as usize
-    }
-
-    unsafe fn get(&self, index: isize) -> Result<Self::Type> {
-        r_assert_capacity(self.data(), index as u32)?;
-        Ok(self.get_unchecked(index))
     }
 
 }

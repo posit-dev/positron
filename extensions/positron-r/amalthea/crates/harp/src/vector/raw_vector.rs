@@ -19,6 +19,7 @@ impl Vector for RawVector {
     type Item = u8;
     type Type = u8;
     const SEXPTYPE: u32 = RAWSXP;
+    type UnderlyingType = u8;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self { object: RObject::new(object.into()) }
@@ -46,8 +47,16 @@ impl Vector for RawVector {
         self.object.sexp
     }
 
-    unsafe fn get_unchecked(&self, index: isize) -> Self::Type {
-        RAW_ELT(self.data(), index as R_xlen_t)
+    fn is_na(_x: &Self::UnderlyingType) -> bool {
+        false
+    }
+
+    fn get_unchecked_elt(&self, index: isize) -> Self::UnderlyingType {
+        unsafe { RAW_ELT(self.data(), index as R_xlen_t) }
+    }
+
+    fn convert_value(x: &Self::UnderlyingType) -> Self::Type {
+        *x
     }
 
 }

@@ -483,8 +483,6 @@ mod tests {
     use libR_sys::*;
 
     use crate::assert_match;
-    use crate::vector::CharacterVector;
-    use crate::vector::Vector;
     use crate::r_char;
     use crate::r_test;
 

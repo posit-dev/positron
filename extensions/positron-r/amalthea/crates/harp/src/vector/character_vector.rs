@@ -10,7 +10,6 @@ use std::ffi::CStr;
 use libR_sys::*;
 
 use crate::object::RObject;
-use crate::traits::AsSlice;
 use crate::vector::Vector;
 
 #[harp_macros::vector]
@@ -22,6 +21,7 @@ impl Vector for CharacterVector {
     type Item = str;
     type Type = &'static str;
     const SEXPTYPE: u32 = STRSXP;
+    type UnderlyingType = SEXP;
 
     fn data(&self) -> SEXP {
         self.object.sexp
@@ -59,12 +59,20 @@ impl Vector for CharacterVector {
         vector
     }
 
-    unsafe fn get_unchecked(&self, index: isize) -> Self::Type {
-        let data = self.data();
-        let charsxp = STRING_ELT(data, index as R_xlen_t);
-        let cstr = Rf_translateCharUTF8(charsxp);
-        let bytes = CStr::from_ptr(cstr).to_bytes();
-        std::str::from_utf8_unchecked(bytes)
+    fn is_na(x: &Self::UnderlyingType) -> bool {
+        unsafe { *x == R_NaString }
+    }
+
+    fn get_unchecked_elt(&self, index: isize) -> Self::UnderlyingType {
+        unsafe { STRING_ELT(self.data(), index as R_xlen_t) }
+    }
+
+    fn convert_value(x: &Self::UnderlyingType) -> Self::Type {
+        unsafe {
+            let cstr = Rf_translateCharUTF8(*x);
+            let bytes = CStr::from_ptr(cstr).to_bytes();
+            std::str::from_utf8_unchecked(bytes)
+        }
     }
 
 }
@@ -88,11 +96,11 @@ mod test {
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "hello");
+            assert!(value.unwrap() == Some("hello"));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "world");
+            assert!(value.unwrap() == Some("world"));
 
             let value = it.next();
             assert!(value.is_none());
@@ -102,8 +110,8 @@ mod test {
                 "world".to_string()
             ]);
 
-            assert!(vector.get_unchecked(0) == "hello");
-            assert!(vector.get_unchecked(1) == "world");
+            assert!(vector.get_unchecked(0) == Some("hello"));
+            assert!(vector.get_unchecked(1) == Some("world"));
 
         }
     }
@@ -114,9 +122,9 @@ mod test {
 
             let expected = ["Apple", "Orange", "한"];
             let vector = CharacterVector::create(&expected);
-            assert_eq!(vector.get(0).unwrap(), "Apple");
-            assert_eq!(vector.get(1).unwrap(), "Orange");
-            assert_eq!(vector.get(2).unwrap(), "한");
+            assert_eq!(vector.get(0).unwrap(), Some("Apple"));
+            assert_eq!(vector.get(1).unwrap(), Some("Orange"));
+            assert_eq!(vector.get(2).unwrap(), Some("한"));
 
             let alphabet = ["a", "b", "c"];
 
