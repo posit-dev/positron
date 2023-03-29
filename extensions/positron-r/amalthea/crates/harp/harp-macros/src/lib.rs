@@ -80,19 +80,28 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl<'a> std::iter::Iterator for VectorIter<'a> {
-            type Item = <#ident as Vector>::Type;
+            type Item = Option<<#ident as Vector>::Type>;
 
             fn next(&mut self) -> Option<Self::Item> {
-
                 if self.index == self.size {
                     return None;
                 }
 
-                // TODO [romain]: match instead of unwrap() here
-                let item = unsafe { self.data.get_unchecked(self.index).unwrap() };
+                // TODO: having the iterator to call get_unchecked()
+                //       feels wrong because down the line this will
+                //       need to call REAL_ELT(), STRING_ELT() etc ...
+                //       which has some extra cost one the R side
+                //
+                //       This is the opposite problem of calling
+                //       DATAPTR() which gives a contiguous array
+                //       but has to materialize for it which might be
+                //       costly for ALTREP() vectors
+                //
+                //       The compromise that was used in cpp11 is to use
+                //       GET_REGION and work on partial materialization
+                let item = unsafe { self.data.get_unchecked(self.index) };
                 self.index = self.index + 1;
                 Some(item)
-
             }
         }
 
@@ -107,7 +116,6 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-
         impl<T> std::cmp::PartialEq<T> for #ident
         where
             T: crate::traits::AsSlice<<Self as Vector>::Type>
@@ -119,9 +127,17 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let rhs = other.iter();
                 let zipped = std::iter::zip(lhs, rhs);
                 for (lhs, rhs) in zipped {
-                    if lhs != *rhs {
-                        return false;
+                    match lhs {
+                        Some(lhs) => {
+                            if lhs != *rhs {
+                                return false;
+                            }
+                        }
+                        None => {
+                            return false;
+                        }
                     }
+
                 }
 
                 true

@@ -177,7 +177,11 @@ fn vec_shape(value: SEXP) -> String {
             format!("{}", Rf_xlength(value))
         } else {
             let dim = IntegerVector::new(dim).unwrap();
-            dim.iter().format(", ").to_string()
+            dim
+                .iter()
+                .map(|x| x.unwrap().to_string())
+                .format(", ")
+                .to_string()
         }
     }
 }

@@ -96,11 +96,11 @@ mod test {
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "hello");
+            assert!(value.unwrap() == Some("hello"));
 
             let value = it.next();
             assert!(value.is_some());
-            assert!(value.unwrap() == "world");
+            assert!(value.unwrap() == Some("world"));
 
             let value = it.next();
             assert!(value.is_none());
