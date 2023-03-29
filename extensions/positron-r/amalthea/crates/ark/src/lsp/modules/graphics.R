@@ -5,6 +5,19 @@
 #
 #
 
+.ps.graphics.initializeDevice <- function(index, name, type, res) {
+
+    attributes(name) <- attributes(.Devices[[index]])
+    attr(name, "type") <- type
+    attr(name, "res") <- res
+    .Devices[[index]] <- name
+
+    .ps.binding.replace(".Devices", .Devices, envir = baseenv())
+    .ps.binding.replace(".Device", name, envir = baseenv())
+
+}
+
+
 # Render a plot to file.
 #
 # We use 'dev.copy()' to copy the current state of the graphics
@@ -23,18 +36,23 @@
     #
     # TODO: What about other things like DPI, and so on?
     size <- dev.size(units = "px")
+    res <- attr(device, "res") %??% 144
+    type <- attr(device, "type") %??% "cairo"
     width <- size[[1L]]
     height <- size[[2L]]
 
     # Copy to a new graphics device.
     # TODO: We'll want some indirection around which graphics device is selected here.
     filepath <- attr(device, "filepath")
-    dev.copy(
-        device = grDevices:::png,
-        filename = filepath,
-        width = width,
-        height = height
-    )
+    dev.copy(function() {
+        grDevices::png(
+            filename = filepath,
+            width    = width,
+            height   = height,
+            res      = res,
+            type     = type
+        )
+    })
 
     # Turn off the graphics device.
     dev.off()
@@ -43,14 +61,3 @@
     system(paste("open", shQuote(filepath)))
 
 }
-
-.ps.graphics.updateDeviceName <- function(name, index) {
-
-    attributes(name) <- attributes(.Devices[[index]])
-    .Devices[[index]] <- name
-
-    .ps.replaceBinding(".Devices", .Devices, envir = baseenv())
-    .ps.replaceBinding(".Device", name, envir = baseenv())
-
-}
-

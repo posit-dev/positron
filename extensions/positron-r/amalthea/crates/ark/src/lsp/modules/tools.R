@@ -5,7 +5,15 @@
 #
 #
 
-.ps.replaceBinding <- function(symbol, replacement, envir) {
+`%||%` <- function(x, y) {
+    if (length(x) || is.environment(x)) x else y
+}
+
+`%??%` <- function(x, y) {
+    if (is.null(x)) y else x
+}
+
+.ps.binding.replace <- function(symbol, replacement, envir) {
 
     if (bindingIsLocked(symbol, envir)) {
         unlockBinding(symbol, envir)

@@ -224,6 +224,13 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
 
     // TODO: Don't allow creation of more than one graphics device.
     // TODO: Allow customization of the graphics device here?
+
+    // TODO: Infer appropriate resolution based on whether display is high DPI.
+    let res = 144;
+
+    // TODO: allow customization of device type.
+    let r#type = "cairo";
+
     // create the graphics device via R APIs
     let filename = RFunction::new("base", "tempfile")
         .param("pattern", "positron-graphics-")
@@ -234,8 +241,8 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
     // TODO: Detect high DPI displays
     RFunction::new("grDevices", "png")
         .param("filename", filename.as_str())
-        .param("type", "cairo")
-        .param("res", 144)
+        .param("type", r#type)
+        .param("res", res)
         .call()?;
 
     // save the file name
@@ -243,9 +250,11 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
 
     // rename the current device
     let index = Rf_curDevice() + 1;  // C -> R indexing
-    RFunction::from(".ps.graphics.updateDeviceName")
-        .param("name", "Positron Graphics Device")
+    RFunction::from(".ps.graphics.initializeDevice")
         .param("index", index)
+        .param("name", "Positron Graphics Device")
+        .param("type", r#type)
+        .param("res", res)
         .call()?;
 
     // get reference to current device
