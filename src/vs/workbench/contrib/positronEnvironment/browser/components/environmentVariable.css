@@ -4,7 +4,12 @@
 
 .environment-variable {
 	display: flex;
+	cursor: pointer;
 	border-bottom: 1px solid var(--vscode-positronEnvironment-gridColor);
+}
+
+.environment-variable:hover {
+	background-color: var(--vscode-positronEnvironment-rowHoverBackground)
 }
 
 .environment-variable .name {
