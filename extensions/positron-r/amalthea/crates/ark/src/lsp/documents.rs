@@ -125,7 +125,10 @@ impl Document {
         let rhs = self.contents.line_to_char(range.end.line as usize) + range.end.character as usize;
 
         // Remove the old slice of text, and insert the new slice of text.
-        self.contents.remove(lhs..rhs);
+        if lhs != rhs {
+            self.contents.remove(lhs..rhs);
+        }
+
         self.contents.insert(lhs, change.text.as_str());
 
         // We've edited the AST, and updated the document. We can now re-parse.
