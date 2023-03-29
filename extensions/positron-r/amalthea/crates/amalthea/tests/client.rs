@@ -438,4 +438,21 @@ fn test_kernel() {
             },
         }
     }
+
+    // Close the test comm from the backend side
+    test_comm.outgoing_tx.send(CommChannelMsg::Close).unwrap();
+
+    // Ensure that the frontend is notified
+    loop {
+        let msg = frontend.receive_iopub();
+        match msg {
+            Message::CommClose(msg) => {
+                assert_eq!(msg.content.comm_id, test_comm_id);
+                break;
+            },
+            _ => {
+                continue;
+            },
+        }
+    }
 }
