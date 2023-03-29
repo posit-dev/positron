@@ -5,6 +5,7 @@
  *
  */
 
+use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::comm::event::CommEvent;
 use amalthea::kernel::{Kernel, StreamBehavior};
 use amalthea::socket::comm::CommInitiator;
@@ -408,6 +409,27 @@ fn test_kernel() {
         let msg = frontend.receive_iopub();
         match msg {
             Message::CommOpen(msg) => {
+                assert_eq!(msg.content.comm_id, test_comm_id);
+                break;
+            },
+            _ => {
+                continue;
+            },
+        }
+    }
+
+    // Now send a message from the backend to the frontend using the comm we just
+    // created.
+    test_comm
+        .outgoing_tx
+        .send(CommChannelMsg::Data(serde_json::Value::Null))
+        .unwrap();
+
+    // Wait for the comm data message to be received by the frontend.
+    loop {
+        let msg = frontend.receive_iopub();
+        match msg {
+            Message::CommMsg(msg) => {
                 assert_eq!(msg.content.comm_id, test_comm_id);
                 break;
             },
