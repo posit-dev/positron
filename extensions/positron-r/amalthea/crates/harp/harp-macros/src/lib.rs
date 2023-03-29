@@ -9,6 +9,8 @@ use proc_macro::TokenStream;
 use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
+use syn::ItemStruct;
+use syn::parse_macro_input;
 
 extern crate proc_macro;
 
@@ -31,6 +33,150 @@ fn invalid_extern(stream: impl ToTokens) -> ! {
         "Invalid signature `{}`: registered routines must be 'extern \"C\"'.",
         stream.to_token_stream()
     );
+}
+
+#[proc_macro_attribute]
+pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
+
+    // TODO: How do we parse an attribute?
+
+    // Parse input as struct.
+    let data = parse_macro_input!(item as ItemStruct);
+
+    // Get the name of the struct.
+    let ident = data.ident.clone();
+
+    // Include a bunch of derives.
+    let all = quote! {
+
+        #[derive(Debug)]
+        #data
+
+        impl std::ops::Deref for #ident {
+            type Target = SEXP;
+
+            fn deref(&self) -> &Self::Target {
+                &self.object.sexp
+            }
+        }
+
+        impl std::ops::DerefMut for #ident {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.object.sexp
+            }
+        }
+
+        impl std::convert::TryFrom<SEXP> for #ident {
+            type Error = crate::error::Error;
+            fn try_from(value: SEXP) -> Result<Self, Self::Error> {
+                unsafe { Self::new(value) }
+            }
+        }
+
+        pub struct VectorIter<'a> {
+            data: &'a #ident,
+            index: isize,
+            size: isize,
+        }
+
+        impl<'a> std::iter::Iterator for VectorIter<'a> {
+            type Item = Option<<#ident as Vector>::Type>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index == self.size {
+                    return None;
+                }
+
+                // TODO: having the iterator to call get_unchecked()
+                //       feels wrong because down the line this will
+                //       need to call REAL_ELT(), STRING_ELT() etc ...
+                //       which has some extra cost one the R side
+                //
+                //       This is the opposite problem of calling
+                //       DATAPTR() which gives a contiguous array
+                //       but has to materialize for it which might be
+                //       costly for ALTREP() vectors
+                //
+                //       The compromise that was used in cpp11 is to use
+                //       GET_REGION and work on partial materialization
+                let item = unsafe { self.data.get_unchecked(self.index) };
+                self.index = self.index + 1;
+                Some(item)
+            }
+        }
+
+        impl #ident {
+            pub fn iter(&self) -> VectorIter<'_> {
+                let size = unsafe { self.len() as isize };
+                VectorIter {
+                    data: self,
+                    index: 0,
+                    size: size,
+                }
+            }
+
+            pub fn format(&self, sep: &str, max: usize) -> (bool, String)
+            {
+                let mut out = String::from("");
+                let mut truncated = false;
+                let mut first = true;
+                let mut iter = self.iter();
+
+                while let Some(x) = iter.next() {
+                    if max > 0 && out.len() > max {
+                        truncated = true;
+                        break;
+                    }
+
+                    if first {
+                        first = false;
+                    } else {
+                        out.push_str(sep);
+                    }
+
+                    match x {
+                        Some(value) => out.push_str(value.to_string().as_str()),
+                        None => out.push_str("NA")
+                    }
+                }
+
+                (truncated, out)
+            }
+        }
+
+        impl<T> std::cmp::PartialEq<T> for #ident
+        where
+            T: crate::traits::AsSlice<<Self as Vector>::Type>
+        {
+            fn eq(&self, other: &T) -> bool {
+                let other: &[<Self as Vector>::Type] = other.as_slice();
+
+                let lhs = self.iter();
+                let rhs = other.iter();
+                let zipped = std::iter::zip(lhs, rhs);
+                for (lhs, rhs) in zipped {
+                    match lhs {
+                        Some(lhs) => {
+                            if lhs != *rhs {
+                                return false;
+                            }
+                        }
+                        None => {
+                            return false;
+                        }
+                    }
+
+                }
+
+                true
+
+            }
+        }
+
+    };
+
+    all.into()
+
 }
 
 #[proc_macro_attribute]
