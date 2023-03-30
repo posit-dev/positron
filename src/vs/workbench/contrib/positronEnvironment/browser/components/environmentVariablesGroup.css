@@ -10,6 +10,12 @@
 	align-items: center;
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);
+	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
+	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
+}
+
+.environment-variables-group:hover {
+	background: var(--vscode-positronEnvironment-rowHoverBackground)
 }
 
 .environment-variables-group .expand-collapse-icon {
