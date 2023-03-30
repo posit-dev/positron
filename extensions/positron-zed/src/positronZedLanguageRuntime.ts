@@ -848,10 +848,30 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Shuts down the runtime.
 	 */
 	shutdown(): void {
-		// Simulate the busy/idle that happens first.
 		const parentId = randomUUID();
+
+		// Enter busy state to do shutdown processing.
 		this.simulateBusyState(parentId);
+
+		// Simulate closing all the open comms.
+		const enviromentIds = Array.from(this._environments.keys());
+		const plotIds = Array.from(this._plots.keys());
+		const allIds = enviromentIds.concat(plotIds);
+		allIds.forEach(id => {
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: parentId,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommClosed,
+				comm_id: id,
+				data: {}
+			} as positron.LanguageRuntimeCommClosed);
+		});
+
+		// Enter idle state after shutdown processing.
 		this.simulateIdleState(parentId);
+
+		// Simulate state changes on exit.
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
