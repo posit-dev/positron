@@ -16,7 +16,7 @@ interface PlotContainerProps {
 }
 
 /**
- * PlotContainer component.
+ * PlotContainer component; holds the plot instances.
  *
  * @param props A PlotContainerProps that contains the component properties.
  * @returns The rendered component.
@@ -26,8 +26,14 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const positronPlotsContext = usePositronPlotsContext();
 
 	useEffect(() => {
+		// Empty for now.
 	});
 
+	// If there are no plot instances, show a placeholder; otherwise, show the
+	// most recently generated plot.
+	//
+	// In the future we will probably want to have a filmstrip history of plot
+	// instances here for easy navigation.
 	return (
 		<div className='plots-container'>
 			{positronPlotsContext.positronPlotInstances.length === 0 &&

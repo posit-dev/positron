@@ -16,6 +16,10 @@ interface IPlotRenderRequest {
 	dpi: number;
 }
 
+/**
+ * A ZedPLOT instance; simulates a real plot instance by responding to render
+ * requests and delivering an SVG image at the requested size.
+ */
 export class ZedPlot {
 	/**
 	 * Emitter that handles outgoing messages to the front end
@@ -29,6 +33,11 @@ export class ZedPlot {
 		this.id = randomUUID();
 	}
 
+	/**
+	 * Handle message from the front end.
+	 *
+	 * @param message The message to handle
+	 */
 	public handleMessage(message: any): void {
 		switch (message.msg_type) {
 			case 'render':
