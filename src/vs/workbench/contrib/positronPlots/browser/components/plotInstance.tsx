@@ -16,7 +16,9 @@ interface PlotInstanceProps {
 }
 
 /**
- * PlotInstance component.
+ * PlotInstance component. This component renders a single plot in the Plots
+ * pane.
+ *
  * @param props A PlotInstanceProps that contains the component properties.
  * @returns The rendered component.
  */
@@ -30,6 +32,11 @@ export const PlotInstance = (props: PlotInstanceProps) => {
 		});
 	});
 
+	// If the plot is not yet rendered yet (no URI), show a placeholder;
+	// otherwise, show the rendered plot.
+	//
+	// Consider: we probably want a more explicit loading state; as written we
+	// will show the old URI until the new one is ready.
 	return (
 		<div className='plot-instance'>
 			{uri &&

@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPlotClientMessageInput, IPlotClientMessageOutput, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 
@@ -28,21 +28,44 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Register for language runtime service startups
 		this._register(this._languageRuntimeService.onDidStartRuntime((runtime) => {
 
-			// TODO: Ask the language runtime service for a list of all the clients
-			// that it has created. For each client, check to see if it is a plot and
-			// if so, register it with the plot service.
+			// Get the list of existing plot clients; these are expected in the
+			// case of reconnecting to a running language runtime, and represent
+			// the user's active set of plot objects.
+			runtime.listClients().then(clients => {
+				clients.forEach((client) => {
+					if (client.getClientType() === RuntimeClientType.Plot) {
+						this.registerPlotClient(client);
+					}
+				});
+			});
 
+			// Listen for new plots being emitted, and register each one with
+			// the plots service.
 			this._register(runtime.onDidCreateClientInstance((client) => {
 				if (client.getClientType() === RuntimeClientType.Plot) {
-					const plotClient = new PlotClientInstance(client);
-					// Register the plot client instance with the plot service.
-					this._plots.push(plotClient);
-
-					// Notify subscribers that a new plot instance has been created.
-					this._onDidEmitPlot.fire(plotClient);
+					this.registerPlotClient(client);
 				}
 			}));
 		}));
+	}
+
+	/**
+	 * Creates a new plot client instance wrapper and registers it with the
+	 * service.
+	 *
+	 * @param client The raw client instance.
+	 */
+	private registerPlotClient(client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>) {
+		// Wrap the client instance in a PlotClientInstance object
+		const plotClient = new PlotClientInstance(client);
+
+		// Add to our list of plots and fire the event notifying subscribers
+		this._plots.push(plotClient);
+		this._onDidEmitPlot.fire(plotClient);
+
+		// Dispose the plot client when this service is disposed (we own this
+		// object)
+		this._register(plotClient);
 	}
 
 	onDidEmitPlot: Event<PlotClientInstance> = this._onDidEmitPlot.event;
