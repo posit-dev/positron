@@ -8,7 +8,7 @@ import { PlotInstance } from 'vs/workbench/contrib/positronPlots/browser/compone
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 
 /**
- * PlotInstanceProps interface.
+ * PlotContainerProps interface.
  */
 interface PlotContainerProps {
 	width: number;
@@ -16,8 +16,9 @@ interface PlotContainerProps {
 }
 
 /**
- * PlotInstance component.
- * @param props A PlotInstanceProps that contains the component properties.
+ * PlotContainer component.
+ *
+ * @param props A PlotContainerProps that contains the component properties.
  * @returns The rendered component.
  */
 export const PlotsContainer = (props: PlotContainerProps) => {
@@ -31,7 +32,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		<div className='plots-container'>
 			{positronPlotsContext.positronPlotInstances.length === 0 &&
 				<span>Plot container: {props.height} x {props.width}</span>}
-			{positronPlotsContext.positronPlotInstances.map((plotInstance, _index) => (
+			{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
+				index === positronPlotsContext.positronPlotInstances.length - 1 &&
 				<PlotInstance
 					key={plotInstance.id}
 					width={props.width}

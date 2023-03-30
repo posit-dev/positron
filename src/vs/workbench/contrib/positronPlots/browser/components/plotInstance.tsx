@@ -32,8 +32,12 @@ export const PlotInstance = (props: PlotInstanceProps) => {
 
 	return (
 		<div className='plot-instance'>
-			{uri && <img src={uri} alt='Plot' />}
-			{!uri && <span>Rendering plot: {props.height} x {props.width}</span>}
+			{uri &&
+				<img src={uri}
+					height={props.height}
+					width={props.width}
+					alt={'Plot ' + props.plotClient.id} />}
+			{!uri && <span>Rendering plot {props.plotClient.id}: {props.height} x {props.width}</span>}
 		</div>
 	);
 };
