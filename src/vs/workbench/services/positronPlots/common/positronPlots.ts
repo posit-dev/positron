@@ -27,4 +27,9 @@ export interface IPositronPlotsService {
 	 * Notifies subscribers when a new Positron plot instance is created.
 	 */
 	readonly onDidEmitPlot: Event<PlotClientInstance>;
+
+	/**
+	 * Placeholder for service initialization.
+	 */
+	initialize(): void;
 }

@@ -18,6 +18,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
@@ -437,6 +438,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@ILogService private readonly _logService: ILogService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
@@ -444,6 +446,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		// is where we're doing this.
 		this._positronConsoleService.initialize();
 		this._positronEnvironmentService.initialize();
+		this._positronPlotService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 	}
 

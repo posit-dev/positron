@@ -47,4 +47,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	get positronPlotInstances(): PlotClientInstance[] {
 		return this._plots;
 	}
+
+	/**
+	 * Placeholder for service initialization.
+	 */
+	initialize() {
+	}
 }
