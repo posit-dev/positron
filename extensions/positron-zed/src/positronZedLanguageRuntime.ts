@@ -720,7 +720,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			const env = new ZedEnvironment(id, this.metadata.languageVersion);
 
 			// Connect it and save the instance to coordinate future communication
-			this.connectEnvironmentEmitter(env);
+			this.connectClientEmitter(env);
 			this._environments.set(env.id, env);
 		} else {
 			// All other types are unknown to Zed
@@ -904,6 +904,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Create the plot client comm.
 		const plot = new ZedPlot(this.context);
+		this.connectClientEmitter(plot);
 		this._plots.set(plot.id, plot);
 
 		// Send the comm open message to the client.
@@ -1092,15 +1093,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
-	 * Proxies messages from an environment instance to Positron, by amending the appropriate
-	 * metadata.
+	 * Proxies messages from an environment or plot instance to Positron, by
+	 * amending the appropriate metadata.
 	 *
-	 * @param env The environment to connect
+	 * @param client The environment or plot to connect
 	 */
-	private connectEnvironmentEmitter(env: ZedEnvironment) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot) {
 
 		// Listen for data emitted from the environment instance
-		env.onDidEmitData(data => {
+		client.onDidEmitData(data => {
 			// If there's a pending RPC, then presume that this message is a
 			// reply to it; otherwise, just use an empty parent ID.
 			const parent_id = this._pendingRpcs.length > 0 ?
@@ -1112,7 +1113,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				parent_id,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.CommData,
-				comm_id: env.id,
+				comm_id: client.id,
 				data: data
 			} as positron.LanguageRuntimeCommMessage);
 		});
