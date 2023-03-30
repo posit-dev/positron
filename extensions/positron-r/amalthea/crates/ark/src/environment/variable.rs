@@ -80,21 +80,23 @@ impl EnvironmentVariable {
      * Create a new EnvironmentVariable from a Binding
      */
     pub fn new(binding: &Binding) -> Self {
-        let name = binding.name.to_string();
+        let display_name = binding.name.to_string();
 
-        let value = binding.describe();
+        let value = binding.display_value();
+        let display_type = binding.display_type();
+
         let kind = ValueKind::String;
 
         Self {
-            display_name: name,
-            display_value: value,
-            display_type: String::new(),
+            display_name,
+            display_value: value.value,
+            display_type,
             type_info: String::new(),
             kind,
             length: 0,
             size: 0,
             has_children: false,
-            is_truncated: false,
+            is_truncated: value.is_truncated,
         }
     }
 }
