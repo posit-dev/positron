@@ -11,6 +11,7 @@ import { resolve } from 'path';
 import { ZedEnvironment } from './positronZedEnvironment';
 import path = require('path');
 import fs = require('fs');
+import { ZedPlot } from './positronZedPlot';
 
 /**
  * Constants.
@@ -110,6 +111,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of environment IDs to environment instances.
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+
+	/**
+	 * A map of plot IDs to plot instances.
+	 */
+	private readonly _plots: Map<string, ZedPlot> = new Map();
 
 	/**
 	 * A stack of pending environment RPCs.
@@ -724,11 +730,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Removes an instance of a client.
+	 *
+	 * Currently, Zed understands environment and plot clients.
 	 */
 	removeClient(id: string): void {
-		// Right now, the only client instances are environments.
 		if (this._environments.has(id)) {
+			// Is it ... an environment?
 			this._environments.delete(id);
+		} else if (this._plots.has(id)) {
+			// Is it ... a plot?
+			this._plots.delete(id);
 		} else {
 			throw new Error(`Can't remove client; unknown client id ${id}`);
 		}
@@ -736,18 +747,30 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Send a message to the client instance.
+	 *
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
 	sendClientMessage(client_id: string, message_id: string, message: object): void {
-		// Right now, the only client instances are environments.
-		const client = this._environments.get(client_id);
-		if (client) {
+
+		// See if this ID is a known environment
+		const env = this._environments.get(client_id);
+		if (env) {
 			this._pendingRpcs.push(message_id);
-			client.handleMessage(message);
-		} else {
-			throw new Error(`Can't send message; unknown client id ${client_id}`);
+			env.handleMessage(message);
+			return;
 		}
+
+		// See if this ID is a known plot
+		const plot = this._plots.get(client_id);
+		if (plot) {
+			this._pendingRpcs.push(message_id);
+			plot.handleMessage(message);
+			return;
+		}
+
+		// It wasn't either one! Give up.
+		throw new Error(`Can't send message; unknown client id ${client_id}`);
 	}
 
 	/**
@@ -878,6 +901,22 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				'image/png': plotPngBase64
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
+
+		// Create the plot client comm.
+		const plot = new ZedPlot(this.context);
+		this._plots.set(plot.id, plot);
+
+		// Send the comm open message to the client.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.CommOpen,
+			comm_id: plot.id,
+			target_name: 'positron.plot',
+			data: {}
+		} as positron.LanguageRuntimeCommOpen);
+
 		this.simulateIdleState(parentId);
 	}
 
