@@ -19,9 +19,10 @@ pub struct CharacterVector {
 
 impl Vector for CharacterVector {
     type Item = str;
-    type Type = &'static str;
+    type Type = String;
     const SEXPTYPE: u32 = STRSXP;
     type UnderlyingType = SEXP;
+    type CompareType = &'static str;
 
     fn data(&self) -> SEXP {
         self.object.sexp
@@ -56,6 +57,7 @@ impl Vector for CharacterVector {
             );
             SET_STRING_ELT(vector.data(), i as R_xlen_t, charsexp);
         }
+
         vector
     }
 
@@ -71,8 +73,12 @@ impl Vector for CharacterVector {
         unsafe {
             let cstr = Rf_translateCharUTF8(*x);
             let bytes = CStr::from_ptr(cstr).to_bytes();
-            std::str::from_utf8_unchecked(bytes)
+            std::str::from_utf8_unchecked(bytes).to_owned()
         }
+    }
+
+    fn format_one(&self, x: Self::Type) -> String {
+        format!("\"{}\"", x)
     }
 
 }
@@ -94,24 +100,19 @@ mod test {
 
             let mut it = vector.iter();
 
-            let value = it.next();
-            assert!(value.is_some());
-            assert!(value.unwrap() == Some("hello"));
-
-            let value = it.next();
-            assert!(value.is_some());
-            assert!(value.unwrap() == Some("world"));
-
-            let value = it.next();
-            assert!(value.is_none());
+            assert_eq!(it.next(), Some(Some(String::from("hello"))));
+            assert_eq!(it.next(), Some(Some(String::from("world"))));
+            assert!(it.next().is_none());
 
             let vector = CharacterVector::create([
                 "hello".to_string(),
                 "world".to_string()
             ]);
+            assert!(vector == ["hello", "world"]);
+            assert!(vector == &["hello", "world"]);
 
-            assert!(vector.get_unchecked(0) == Some("hello"));
-            assert!(vector.get_unchecked(1) == Some("world"));
+            assert!(vector.get_unchecked(0) == Some(String::from("hello")));
+            assert!(vector.get_unchecked(1) == Some(String::from("world")));
 
         }
     }
@@ -122,9 +123,9 @@ mod test {
 
             let expected = ["Apple", "Orange", "한"];
             let vector = CharacterVector::create(&expected);
-            assert_eq!(vector.get(0).unwrap(), Some("Apple"));
-            assert_eq!(vector.get(1).unwrap(), Some("Orange"));
-            assert_eq!(vector.get(2).unwrap(), Some("한"));
+            assert_eq!(vector.get(0).unwrap(), Some(String::from("Apple")));
+            assert_eq!(vector.get(1).unwrap(), Some(String::from("Orange")));
+            assert_eq!(vector.get(2).unwrap(), Some(String::from("한")));
 
             let alphabet = ["a", "b", "c"];
 

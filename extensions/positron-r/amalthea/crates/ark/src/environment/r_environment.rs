@@ -7,10 +7,9 @@
 use std::thread;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
+use amalthea::socket::comm::CommSocket;
 use crossbeam::channel::select;
 use crossbeam::channel::unbounded;
-use crossbeam::channel::Receiver;
-use crossbeam::channel::Sender;
 use harp::environment::env_bindings;
 use harp::environment::Binding;
 use harp::exec::RFunction;
@@ -39,8 +38,7 @@ use crate::lsp::signals::SIGNALS;
  * the R environment.
  */
 pub struct REnvironment {
-    pub channel_msg_rx: Receiver<CommChannelMsg>,
-    pub frontend_msg_sender: Sender<CommChannelMsg>,
+    comm: CommSocket,
     pub env: RObject,
     current_bindings: Vec<Binding>,
     version: u64,
@@ -51,14 +49,9 @@ impl REnvironment {
      * Creates a new REnvironment instance.
      *
      * - `env`: An R environment to scan for variables, typically R_GlobalEnv
-     * - `frontend_msg_sender`: A channel used to send messages to the front end
+     * - `comm`: A channel used to send messages to the front end
      */
-    pub fn start(
-        env: RObject,
-        frontend_msg_sender: Sender<CommChannelMsg>,
-    ) -> Sender<CommChannelMsg> {
-        let (channel_msg_tx, channel_msg_rx) = unbounded::<CommChannelMsg>();
-
+    pub fn start(env: RObject, comm: CommSocket) {
         // Validate that the RObject we were passed is actually an environment
         if let Err(err) = r_assert_type(env.sexp, &[ENVSXP]) {
             warn!(
@@ -70,16 +63,13 @@ impl REnvironment {
         // Start the execution thread and wait for requests from the front end
         thread::spawn(move || {
             let environment = Self {
-                channel_msg_rx,
-                frontend_msg_sender,
+                comm,
                 env,
                 current_bindings: vec![],
-                version: 0
+                version: 0,
             };
             environment.execution_thread();
         });
-
-        channel_msg_tx
     }
 
     pub fn execution_thread(mut self) {
@@ -110,7 +100,7 @@ impl REnvironment {
                     }
                 },
 
-                recv(&self.channel_msg_rx) -> msg => {
+                recv(&self.comm.incoming_rx) -> msg => {
                     let msg = match msg {
                         Ok(msg) => msg,
                         Err(e) => {
@@ -186,9 +176,7 @@ impl REnvironment {
         if !user_initiated_close {
             // Send a close message to the front end if the front end didn't
             // initiate the close
-            self.frontend_msg_sender
-                .send(CommChannelMsg::Close)
-                .unwrap();
+            self.comm.outgoing_tx.send(CommChannelMsg::Close).unwrap();
         }
     }
 
@@ -222,7 +210,7 @@ impl REnvironment {
         let env_list = EnvironmentMessage::List(EnvironmentMessageList {
             variables,
             length: env_size,
-            version: self.version
+            version: self.version,
         });
 
         self.send_message(env_list, request_id);
@@ -232,9 +220,8 @@ impl REnvironment {
      * Clear the environment. Uses rm(envir = <env>, list = ls(<env>, all.names = TRUE))
      */
     fn clear(&mut self, include_hidden_objects: bool, request_id: Option<String>) {
-
         // try to rm(<env>, list = ls(envir = <env>, all.names = TRUE)))
-        let result : Result<(), harp::error::Error> = r_lock! {
+        let result: Result<(), harp::error::Error> = r_lock! {
 
             let mut list = RFunction::new("base", "ls")
                 .param("envir", *self.env)
@@ -297,10 +284,10 @@ impl REnvironment {
                 // otherwise, send it as an event
                 let comm_msg = match request_id {
                     Some(id) => CommChannelMsg::Rpc(id, data),
-                    None => CommChannelMsg::Data(data)
+                    None => CommChannelMsg::Data(data),
                 };
 
-                self.frontend_msg_sender.send(comm_msg).unwrap()
+                self.comm.outgoing_tx.send(comm_msg).unwrap()
             },
             Err(err) => {
                 error!("Environment: Failed to serialize environment data: {}", err);
@@ -309,8 +296,8 @@ impl REnvironment {
     }
 
     fn update(&mut self, request_id: Option<String>) {
-        let mut assigned : Vec<EnvironmentVariable> = vec![];
-        let mut removed : Vec<String> = vec![];
+        let mut assigned: Vec<EnvironmentVariable> = vec![];
+        let mut removed: Vec<String> = vec![];
 
         let old_bindings = &self.current_bindings;
         let mut new_bindings = vec![];
@@ -389,9 +376,7 @@ impl REnvironment {
             }
         }
 
-
         if assigned.len() > 0 || removed.len() > 0 || request_id.is_some() {
-
             // only update the bindings (and the version)
             // if anything changed
             if assigned.len() > 0 || removed.len() > 0 {
@@ -400,7 +385,9 @@ impl REnvironment {
 
             // but the message might be sent anyway if this comes from a request
             let message = EnvironmentMessage::Update(EnvironmentMessageUpdate {
-                assigned, removed, version: self.version
+                assigned,
+                removed,
+                version: self.version,
             });
             self.send_message(message, request_id);
         }

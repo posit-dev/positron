@@ -6,6 +6,8 @@
 //
 
 use amalthea::comm::comm_channel::CommChannelMsg;
+use amalthea::socket::comm::CommInitiator;
+use amalthea::socket::comm::CommSocket;
 use ark::environment::message::EnvironmentMessage;
 use ark::environment::message::EnvironmentMessageClear;
 use ark::environment::message::EnvironmentMessageDelete;
@@ -49,16 +51,21 @@ fn test_environment_list() {
     };
 
     // Create a sender/receiver pair for the comm channel.
-    let (frontend_message_tx, frontend_message_rx) =
-        crossbeam::channel::unbounded::<CommChannelMsg>();
+    let comm = CommSocket::new(
+        CommInitiator::FrontEnd,
+        String::from("test-environment-comm-id"),
+        String::from("positron.environment"),
+    );
 
     // Create a new environment handler and give it a view of the test
     // environment we created.
     let test_env_view = RObject::view(test_env.sexp);
-    let backend_msg_sender = REnvironment::start(test_env_view, frontend_message_tx.clone());
+    let incoming_tx = comm.incoming_tx.clone();
+    let outgoing_rx = comm.outgoing_rx.clone();
+    REnvironment::start(test_env_view, comm);
 
     // Ensure we get a list of variables after initialization
-    let msg = frontend_message_rx.recv().unwrap();
+    let msg = outgoing_rx.recv().unwrap();
     let data = match msg {
         CommChannelMsg::Data(data) => data,
         _ => panic!("Expected data message"),
@@ -81,12 +88,12 @@ fn test_environment_list() {
     let refresh = EnvironmentMessage::Refresh;
     let data = serde_json::to_value(refresh).unwrap();
     let request_id = String::from("refresh-id-1234");
-    backend_msg_sender
+    incoming_tx
         .send(CommChannelMsg::Rpc(request_id.clone(), data))
         .unwrap();
 
     // Wait for the new list of variables to be delivered
-    let msg = frontend_message_rx.recv().unwrap();
+    let msg = outgoing_rx.recv().unwrap();
     let data = match msg {
         CommChannelMsg::Rpc(reply_id, data) => {
             // Ensure that the reply ID we received from then environment pane
@@ -114,7 +121,7 @@ fn test_environment_list() {
     SIGNALS.console_prompt.emit(());
 
     // Wait for the new list of variables to be delivered
-    let msg = frontend_message_rx.recv().unwrap();
+    let msg = outgoing_rx.recv().unwrap();
     let data = match msg {
         CommChannelMsg::Data(data) => data,
         _ => panic!("Expected data message, got {:?}", msg),
@@ -134,12 +141,12 @@ fn test_environment_list() {
     });
     let data = serde_json::to_value(clear).unwrap();
     let request_id = String::from("clear-id-1235");
-    backend_msg_sender
+    incoming_tx
         .send(CommChannelMsg::Rpc(request_id.clone(), data))
         .unwrap();
 
     // Wait for the success message to be delivered
-    let data = match frontend_message_rx.recv().unwrap() {
+    let data = match outgoing_rx.recv().unwrap() {
         CommChannelMsg::Rpc(reply_id, data) => {
             // Ensure that the reply ID we received from then environment pane
             // matches the request ID we sent
@@ -173,7 +180,7 @@ fn test_environment_list() {
     // Simulate a prompt signal
     SIGNALS.console_prompt.emit(());
 
-    let msg = frontend_message_rx.recv().unwrap();
+    let msg = outgoing_rx.recv().unwrap();
     let data = match msg {
         CommChannelMsg::Data(data) => data,
         _ => panic!("Expected data message, got {:?}", msg),
@@ -190,11 +197,11 @@ fn test_environment_list() {
     });
     let data = serde_json::to_value(delete).unwrap();
     let request_id = String::from("delete-id-1236");
-    backend_msg_sender
+    incoming_tx
         .send(CommChannelMsg::Rpc(request_id.clone(), data))
         .unwrap();
 
-    let data = match frontend_message_rx.recv().unwrap() {
+    let data = match outgoing_rx.recv().unwrap() {
         CommChannelMsg::Rpc(reply_id, data) => {
             assert_eq!(request_id, reply_id);
             data
@@ -208,5 +215,5 @@ fn test_environment_list() {
     assert_eq!(update.version, 6);
 
     // close the comm. Otherwise the thread panics
-    backend_msg_sender.send(CommChannelMsg::Close).unwrap();
+    incoming_tx.send(CommChannelMsg::Close).unwrap();
 }

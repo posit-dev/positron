@@ -10,6 +10,7 @@ use std::thread;
 use amalthea::comm::comm_channel::Comm;
 use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
+use amalthea::socket::comm::CommSocket;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::complete_reply::CompleteReply;
 use amalthea::wire::complete_request::CompleteRequest;
@@ -33,7 +34,6 @@ use amalthea::wire::kernel_info_reply::KernelInfoReply;
 use amalthea::wire::kernel_info_request::KernelInfoRequest;
 use amalthea::wire::language_info::LanguageInfo;
 use async_trait::async_trait;
-use crossbeam::channel::unbounded;
 use crossbeam::channel::Sender;
 use log::warn;
 use serde_json::json;
@@ -229,26 +229,21 @@ impl ShellHandler for Shell {
         })
     }
 
-    async fn handle_comm_open(
-        &self,
-        _req: Comm,
-        sender: Sender<CommChannelMsg>,
-    ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
+    async fn handle_comm_open(&self, _req: Comm, comm: CommSocket) -> Result<bool, Exception> {
         // Open a test comm channel; this test comm channel is used for every
         // comm open request (regardless of the target name). It just echoes back any
         // messages it receives.
-        let (msg_tx, msg_rx) = unbounded();
         thread::spawn(move || loop {
-            match msg_rx.recv().unwrap() {
+            match comm.incoming_rx.recv().unwrap() {
                 CommChannelMsg::Data(val) => {
                     // Echo back the data we received on the comm channel to the
                     // sender.
-                    sender.send(CommChannelMsg::Data(val)).unwrap();
+                    comm.outgoing_tx.send(CommChannelMsg::Data(val)).unwrap();
                 },
                 CommChannelMsg::Rpc(id, val) => {
                     // Echo back the data we received on the comm channel to the
                     // sender as the response to the RPC, using the same ID.
-                    sender.send(CommChannelMsg::Rpc(id, val)).unwrap();
+                    comm.outgoing_tx.send(CommChannelMsg::Rpc(id, val)).unwrap();
                 },
                 CommChannelMsg::Close => {
                     // Close the channel and exit the thread.
@@ -256,7 +251,7 @@ impl ShellHandler for Shell {
                 },
             }
         });
-        Ok(Some(msg_tx))
+        Ok(true)
     }
 
     async fn handle_input_reply(&self, _msg: &InputReply) -> Result<(), Exception> {

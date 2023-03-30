@@ -6,7 +6,7 @@
  */
 
 use crate::comm::comm_channel::Comm;
-use crate::comm::comm_channel::CommChannelMsg;
+use crate::socket::comm::CommSocket;
 use crate::wire::complete_reply::CompleteReply;
 use crate::wire::complete_request::CompleteRequest;
 use crate::wire::exception::Exception;
@@ -72,19 +72,13 @@ pub trait ShellHandler: Send {
 
     /// Handles a request to open a comm.
     ///
-    /// Returns a `Sender` that can be used to send messages to the back end of
-    /// the comm, or `None` if the kernel does not support the named comm.
-    ///
     /// https://jupyter-client.readthedocs.io/en/stable/messaging.html#opening-a-comm
     ///
-    /// * `comm` - The comm to open (from the comm_open message)
-    /// * `msg_tx` - A channel that can be used to send messages to front end
-    /// side of the comm
-    async fn handle_comm_open(
-        &self,
-        comm: Comm,
-        msg_tx: Sender<CommChannelMsg>,
-    ) -> Result<Option<Sender<CommChannelMsg>>, Exception>;
+    /// Returns true if the handler handled the request (and opened the comm), false if it did not.
+    ///
+    /// * `target` - The target name of the comm, such as `positron.environment`
+    /// * `comm` - The comm channel to use to communicate with the front end
+    async fn handle_comm_open(&self, target: Comm, comm: CommSocket) -> Result<bool, Exception>;
 
     /// Handles a reply to a request for input from the front end (from stdin socket)
     ///

@@ -116,6 +116,7 @@ dependencies = [
  "tower-lsp",
  "tree-sitter",
  "tree-sitter-r",
+ "uuid",
  "walkdir",
  "yaml-rust",
 ]

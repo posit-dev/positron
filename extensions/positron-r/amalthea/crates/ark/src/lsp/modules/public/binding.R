@@ -1,11 +1,10 @@
 #
-# tools.R
+# binding.R
 #
-# Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 #
-
-.ps.replaceBinding <- function(symbol, replacement, envir) {
+.ps.binding.replace <- function(symbol, replacement, envir) {
 
     if (bindingIsLocked(symbol, envir)) {
         unlockBinding(symbol, envir)

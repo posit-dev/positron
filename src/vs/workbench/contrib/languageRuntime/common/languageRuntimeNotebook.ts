@@ -50,6 +50,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
 	private readonly _onDidReceiveRuntimeMessageEventEmitter = new Emitter<ILanguageRuntimeMessageEvent>();
+	private readonly _onDidCreateRuntimeClientInstanceEmitter = new Emitter<IRuntimeClientInstance<any, any>>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 
@@ -196,6 +197,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
 	onDidReceiveRuntimeMessageEvent = this._onDidReceiveRuntimeMessageEventEmitter.event;
+	onDidCreateClientInstance = this._onDidCreateRuntimeClientInstanceEmitter.event;
 
 	metadata: ILanguageRuntimeMetadata;
 

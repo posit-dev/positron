@@ -17,6 +17,7 @@ use crate::error::Error;
 use crate::error::Result;
 use crate::object::RObject;
 use crate::protect::RProtect;
+use crate::r_string;
 use crate::r_symbol;
 use crate::utils::r_inherits;
 use crate::utils::r_stringify;
@@ -344,7 +345,7 @@ pub unsafe fn r_parse_vector(code: &str) -> Result<ParseResult> {
 
     let mut ps : ParseStatus = 0;
     let mut protect = RProtect::new();
-    let r_code = protect.add(crate::r_string!(code));
+    let r_code = r_string!(code, &mut protect);
 
     let result = r_try_catch_error(|| {
         R_ParseVector(r_code, -1, &mut ps, R_NilValue)

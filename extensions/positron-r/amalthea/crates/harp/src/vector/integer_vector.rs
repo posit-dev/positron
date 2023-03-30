@@ -20,6 +20,7 @@ impl Vector for IntegerVector {
     type Type = i32;
     const SEXPTYPE: u32 = INTSXP;
     type UnderlyingType = i32;
+    type CompareType = i32;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self { object: RObject::new(object.into()) }
@@ -57,5 +58,9 @@ impl Vector for IntegerVector {
 
     fn convert_value(x: &Self::UnderlyingType) -> Self::Type {
         *x
+    }
+
+    fn format_one(&self, x: Self::Type) -> String {
+        x.to_string()
     }
 }

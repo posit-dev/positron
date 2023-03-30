@@ -338,6 +338,14 @@ export interface ILanguageRuntime {
 	/** An object that emits an event when runtime startup fails */
 	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
 
+	/**
+	 * An object that emits an event when a client instance (comm) is created
+	 * from the runtime side. Note that this only fires when an instance is
+	 * created from the runtime side; it does not fire when
+	 * `createClient` is called from the front end.
+	 */
+	onDidCreateClientInstance: Event<IRuntimeClientInstance<any, any>>;
+
 	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
 	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;
 	onDidReceiveRuntimeMessageInput: Event<ILanguageRuntimeMessageInput>;

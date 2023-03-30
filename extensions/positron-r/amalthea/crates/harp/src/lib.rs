@@ -72,12 +72,11 @@ macro_rules! r_char {
 #[macro_export]
 macro_rules! r_string {
 
-    ($id:expr) => {{
+    ($id:expr, $protect:expr) => {{
         use libR_sys::*;
 
-        let mut protect = $crate::protect::RProtect::new();
-        let string_sexp = protect.add(Rf_allocVector(STRSXP, 1));
-        SET_STRING_ELT(string_sexp, 0, crate::r_char!($id));
+        let string_sexp = $protect.add(Rf_allocVector(STRSXP, 1));
+        SET_STRING_ELT(string_sexp, 0, $crate::r_char!($id));
         string_sexp
     }}
 
@@ -172,6 +171,7 @@ macro_rules! assert_match {
 mod tests {
     use libR_sys::*;
     use crate::object::RObject;
+    use crate::protect::RProtect;
     use crate::utils::r_typeof;
 
     use super::*;
@@ -179,6 +179,7 @@ mod tests {
     #[test]
     fn test_pairlist() { r_test! {
 
+        let mut protect = RProtect::new();
         let value = RObject::new(r_pairlist! {
             A = r_symbol!("a"),
             B = r_symbol!("b"),
@@ -196,7 +197,7 @@ mod tests {
 
         let value = RObject::new(r_pairlist! {
             r_symbol!("a"),
-            r_string!("b"),
+            r_string!("b", &mut protect),
             r_double!(42.0),
         });
 
