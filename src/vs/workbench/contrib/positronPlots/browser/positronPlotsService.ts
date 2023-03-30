@@ -63,6 +63,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._plots.push(plotClient);
 		this._onDidEmitPlot.fire(plotClient);
 
+		// Remove the plot from our list when it is closed
+		plotClient.onDidClose(() => {
+			const index = this._plots.indexOf(plotClient);
+			if (index >= 0) {
+				this._plots.splice(index, 1);
+			}
+		});
+
 		// Dispose the plot client when this service is disposed (we own this
 		// object)
 		this._register(plotClient);

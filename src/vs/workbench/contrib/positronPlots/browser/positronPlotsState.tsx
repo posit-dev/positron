@@ -41,7 +41,13 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 		// Listen for new plot instances.
 		disposableStore.add(services.positronPlotsService.onDidEmitPlot(plotInstance => {
+			// Add the plot instance to the list of plot instances
 			setPositronPlotInstances(positronPlotInstances => [...positronPlotInstances, plotInstance]);
+
+			// When the plot closes, remove it from the list.
+			plotInstance.onDidClose(() => {
+				setPositronPlotInstances(positronPlotInstances => positronPlotInstances.filter(p => p !== plotInstance));
+			});
 		}));
 
 		// Return the clean up for our event handlers.

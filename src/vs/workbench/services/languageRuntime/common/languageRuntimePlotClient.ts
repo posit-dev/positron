@@ -3,7 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { Event, Emitter } from 'vs/base/common/event';
 
 /**
  * The possible types of messages that can be sent to the language runtime as
@@ -88,12 +89,28 @@ export class PlotClientInstance extends Disposable {
 	 */
 	public readonly id: string;
 
+
+	/**
+	 * Event that fires when the plot is closed on the runtime side, typically
+	 * because the runtime exited and doesn't preserve plot state.
+	 */
+	onDidClose: Event<void>;
+	private readonly _closeEmitter = new Emitter<void>();
+
 	constructor(
 		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>) {
 		super();
 
 		// Store the unique ID for this plot instance
 		this.id = _client.getClientId();
+
+		// Connect close emitter event
+		this.onDidClose = this._closeEmitter.event;
+		_client.onDidChangeClientState((state) => {
+			if (state === RuntimeClientState.Closed) {
+				this._closeEmitter.fire();
+			}
+		});
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
 		// the runtime will also dispose the client.
