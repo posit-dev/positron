@@ -31,6 +31,9 @@ pub struct LspComm {
 /**
  * LspComm makes an LSP look like a CommChannel; it's used to start the LSP and
  * track the server thread.
+ *
+ * - `handler` is the LSP handler that will be used to start the LSP.
+ * - `msg_tx` is the channel that will be used to send messages to the front end.
  */
 impl LspComm {
     pub fn new(handler: Arc<Mutex<dyn LspHandler>>, msg_tx: Sender<CommChannelMsg>) -> LspComm {

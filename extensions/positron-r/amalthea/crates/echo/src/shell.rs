@@ -6,8 +6,8 @@
  */
 
 use amalthea::comm::comm_channel::Comm;
-use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::language::shell_handler::ShellHandler;
+use amalthea::socket::comm::CommSocket;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::complete_reply::CompleteReply;
 use amalthea::wire::complete_request::CompleteRequest;
@@ -198,13 +198,9 @@ impl ShellHandler for Shell {
         })
     }
 
-    async fn handle_comm_open(
-        &self,
-        _comm: Comm,
-        _msg_tx: Sender<CommChannelMsg>,
-    ) -> Result<Option<Sender<CommChannelMsg>>, Exception> {
+    async fn handle_comm_open(&self, _target: Comm, _comm: CommSocket) -> Result<bool, Exception> {
         // No comms in this toy implementation.
-        Ok(None)
+        Ok(false)
     }
 
     async fn handle_input_reply(&self, _msg: &InputReply) -> Result<(), Exception> {

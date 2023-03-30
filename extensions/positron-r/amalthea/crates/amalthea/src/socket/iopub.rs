@@ -11,6 +11,7 @@ use crate::socket::socket::Socket;
 use crate::wire::client_event::ClientEvent;
 use crate::wire::comm_close::CommClose;
 use crate::wire::comm_msg::CommMsg;
+use crate::wire::comm_open::CommOpen;
 use crate::wire::execute_error::ExecuteError;
 use crate::wire::execute_input::ExecuteInput;
 use crate::wire::execute_result::ExecuteResult;
@@ -45,6 +46,7 @@ pub enum IOPubMessage {
     ExecuteInput(ExecuteInput),
     Stream(StreamOutput),
     Event(PositronEvent),
+    CommOpen(CommOpen),
     CommMsgReply(JupyterHeader, CommMsg),
     CommMsgEvent(CommMsg),
     CommClose(String),
@@ -102,6 +104,7 @@ impl IOPub {
             IOPubMessage::ExecuteError(msg) => self.send_message(msg),
             IOPubMessage::ExecuteInput(msg) => self.send_message(msg),
             IOPubMessage::Stream(msg) => self.send_message(msg),
+            IOPubMessage::CommOpen(msg) => self.send_message(msg),
             IOPubMessage::CommMsgEvent(msg) => self.send_message(msg),
             IOPubMessage::CommMsgReply(header, msg) => self.send_message_with_header(header, msg),
             IOPubMessage::CommClose(comm_id) => self.send_message(CommClose { comm_id }),

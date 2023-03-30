@@ -9,6 +9,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
+use crate::comm::comm_manager::CommManager;
+use crate::comm::event::CommChanged;
+use crate::comm::event::CommEvent;
 use crate::connection_file::ConnectionFile;
 use crate::error::Error;
 use crate::language::control_handler::ControlHandler;
@@ -24,9 +27,9 @@ use crate::socket::socket::Socket;
 use crate::socket::stdin::Stdin;
 use crate::stream_capture::StreamCapture;
 
+use crossbeam::channel::bounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use crossbeam::channel::bounded;
 use log::info;
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
@@ -38,11 +41,20 @@ pub struct Kernel {
     /// The unique session information for this kernel session.
     session: Session,
 
-    /// Sends messages to the IOPub socket
+    /// Sends messages to the IOPub socket. This field is used throughout the
+    /// kernel codebase to send events to the front end; use `create_iopub_tx`
+    /// to access it.
     iopub_tx: Sender<IOPubMessage>,
 
     /// Receives message sent to the IOPub socket
     iopub_rx: Option<Receiver<IOPubMessage>>,
+
+    /// Sends notifications about comm changes and events to the comm manager.
+    /// Use `create_comm_manager_tx` to access it.
+    comm_manager_tx: Sender<CommEvent>,
+
+    /// Receives notifications about comm changes and events
+    comm_manager_rx: Receiver<CommEvent>,
 }
 
 /// Possible behaviors for the stream capture thread. When set to `Capture`,
@@ -61,11 +73,17 @@ impl Kernel {
 
         let (iopub_tx, iopub_rx) = bounded::<IOPubMessage>(10);
 
+        // Create the pair of channels that will be used to relay messages from
+        // the open comms
+        let (comm_manager_tx, comm_manager_rx) = bounded::<CommEvent>(10);
+
         Ok(Self {
             connection: file,
             session: Session::create(key)?,
             iopub_tx: iopub_tx,
             iopub_rx: Some(iopub_rx),
+            comm_manager_tx,
+            comm_manager_rx,
         })
     }
 
@@ -78,6 +96,11 @@ impl Kernel {
         stream_behavior: StreamBehavior,
     ) -> Result<(), Error> {
         let ctx = zmq::Context::new();
+
+        // Create the comm manager thread
+        let iopub_tx = self.create_iopub_tx();
+        let comm_manager_rx = self.comm_manager_rx.clone();
+        let comm_changed_rx = CommManager::start(iopub_tx, comm_manager_rx);
 
         // Create the Shell ROUTER/DEALER socket and start a thread to listen
         // for client messages.
@@ -92,8 +115,18 @@ impl Kernel {
 
         let shell_clone = shell_handler.clone();
         let iopub_tx_clone = self.create_iopub_tx();
+        let comm_manager_tx_clone = self.comm_manager_tx.clone();
         let lsp_handler_clone = lsp_handler.clone();
-        thread::spawn(move || Self::shell_thread(shell_socket, iopub_tx_clone, shell_clone, lsp_handler_clone));
+        thread::spawn(move || {
+            Self::shell_thread(
+                shell_socket,
+                iopub_tx_clone,
+                comm_manager_tx_clone,
+                comm_changed_rx,
+                shell_clone,
+                lsp_handler_clone,
+            )
+        });
 
         // Create the IOPub PUB/SUB socket and start a thread to broadcast to
         // the client. IOPub only broadcasts messages, so it listens to other
@@ -163,6 +196,11 @@ impl Kernel {
         self.iopub_tx.clone()
     }
 
+    /// Returns a copy of the comm manager sending channel.
+    pub fn create_comm_manager_tx(&self) -> Sender<CommEvent> {
+        self.comm_manager_tx.clone()
+    }
+
     /// Starts the control thread
     fn control_thread(socket: Socket, handler: Arc<Mutex<dyn ControlHandler>>) {
         let control = Control::new(socket, handler);
@@ -173,10 +211,19 @@ impl Kernel {
     fn shell_thread(
         socket: Socket,
         iopub_tx: Sender<IOPubMessage>,
+        comm_manager_tx: Sender<CommEvent>,
+        comm_changed_rx: Receiver<CommChanged>,
         shell_handler: Arc<Mutex<dyn ShellHandler>>,
         lsp_handler: Option<Arc<Mutex<dyn LspHandler>>>,
     ) -> Result<(), Error> {
-        let mut shell = Shell::new(socket, iopub_tx.clone(), shell_handler, lsp_handler);
+        let mut shell = Shell::new(
+            socket,
+            iopub_tx.clone(),
+            comm_manager_tx,
+            comm_changed_rx,
+            shell_handler,
+            lsp_handler,
+        );
         shell.listen();
         Ok(())
     }

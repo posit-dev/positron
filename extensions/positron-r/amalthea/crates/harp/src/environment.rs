@@ -74,6 +74,24 @@ impl PartialOrd for Binding {
     }
 }
 
+pub struct BindingValue {
+    pub value: String,
+    pub is_truncated: bool
+}
+
+impl BindingValue {
+    pub fn new(value: String, is_truncated: bool) -> Self {
+        BindingValue {
+            value,
+            is_truncated
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self::new(String::from(""), false)
+    }
+}
+
 impl Binding {
     pub fn new(frame: SEXP) -> Self {
 
@@ -96,40 +114,63 @@ impl Binding {
         }
     }
 
-    pub fn describe(&self) -> String {
+    pub fn display_value(&self) -> BindingValue {
+        match self.kind {
+            BindingKind::Regular => regular_binding_display_value(self.value),
+            BindingKind::Promise(true) => regular_binding_display_value(unsafe{PRVALUE(self.value)}),
 
+            BindingKind::Active => BindingValue::empty(),
+            BindingKind::Promise(false) => BindingValue::empty()
+        }
+    }
+
+    pub fn display_type(&self) -> String {
         match self.kind {
             BindingKind::Active => String::from("active binding"),
-            BindingKind::Regular => describe_regular_binding(self.value),
             BindingKind::Promise(false) => String::from("promise"),
-            BindingKind::Promise(true) => describe_regular_binding(unsafe{PRVALUE(self.value)})
+
+            BindingKind::Regular => regular_binding_display_type(self.value),
+            BindingKind::Promise(true) => regular_binding_display_type(unsafe{PRVALUE(self.value)})
         }
     }
 
 }
 
-fn describe_regular_binding(value: SEXP) -> String {
-    if unsafe{ALTREP(value) != 0} {
-        return describe_altrep(value);
-    }
-
+fn regular_binding_display_value(value: SEXP) -> BindingValue {
     // TODO: some form of R based dispatch
 
     match r_typeof(value) {
         // standard vector
-        LGLSXP   => describe_vec(value),
-        INTSXP   => describe_vec(value),
-        REALSXP  => describe_vec(value),
-        CPLXSXP  => describe_vec(value),
-        STRSXP   => describe_vec(value),
+        LGLSXP   => vec_glimpse(value),
+        INTSXP   => vec_glimpse(value),
+        REALSXP  => vec_glimpse(value),
+        CPLXSXP  => vec_glimpse(value),
+        STRSXP   => vec_glimpse(value),
         VECSXP   => {
             // TODO: data.frame
-            describe_vec(value)
+            vec_glimpse(value)
+        },
+
+        _       => BindingValue::new(String::from("???"), false)
+    }
+
+}
+
+fn regular_binding_display_type(value: SEXP) -> String {
+    match r_typeof(value) {
+        // standard vector
+        LGLSXP   => vec_type_info(value),
+        INTSXP   => vec_type_info(value),
+        REALSXP  => vec_type_info(value),
+        CPLXSXP  => vec_type_info(value),
+        STRSXP   => vec_type_info(value),
+        VECSXP   => {
+            // TODO: data.frame
+            vec_type_info(value)
         },
 
         _       => String::from("???")
     }
-
 }
 
 fn vec_type(value: SEXP) -> String {
@@ -148,28 +189,8 @@ fn vec_type(value: SEXP) -> String {
     String::from(rtype)
 }
 
-fn describe_altrep(value: SEXP) -> String {
-    // TODO: have something to differentiate altrep from standard
-    //       we used to show the altrep class, e.g. base::compact_int*,
-    //       but this takes a lot of real estate
-    let glimpsed = altrep_vec_glimpse(value);
-    let suffix = if glimpsed.0 {
-        " (...)"
-    } else {
-        ""
-    };
-    format!("{} [{}] {}{}", vec_type(value), vec_shape(value), glimpsed.1, suffix)
-}
-
-fn describe_vec(value: SEXP) -> String {
-    let glimpsed = altrep_vec_glimpse(value);
-    let suffix = if glimpsed.0 {
-        " (...)"
-    } else {
-        ""
-    };
-
-    format!("{} [{}] {}{}", vec_type(value), vec_shape(value), glimpsed.1, suffix)
+fn vec_type_info(value: SEXP) -> String {
+    format!("{} [{}]", vec_type(value), vec_shape(value))
 }
 
 fn vec_shape(value: SEXP) -> String {
@@ -185,39 +206,40 @@ fn vec_shape(value: SEXP) -> String {
     }
 }
 
-fn vec_glimpse(value: SEXP) -> (bool, String) {
+fn vec_glimpse(value: SEXP) -> BindingValue {
     // TODO: turn this into a macro perhaps
     match unsafe{TYPEOF(value) as u32} {
         LGLSXP => {
             let vec = unsafe { LogicalVector::new(value) }.unwrap();
-            vec.format(" ", 30)
+            let formatted = vec.format(" ", 100);
+            BindingValue::new(formatted.1, formatted.0)
         },
         INTSXP => {
             let vec = unsafe { IntegerVector::new(value) }.unwrap();
-            vec.format(" ", 30)
+            let formatted = vec.format(" ", 100);
+            BindingValue::new(formatted.1, formatted.0)
         },
         REALSXP => {
             let vec = unsafe { NumericVector::new(value) }.unwrap();
-            vec.format(" ", 30)
+            let formatted = vec.format(" ", 100);
+            BindingValue::new(formatted.1, formatted.0)
         },
         RAWSXP => {
             let vec = unsafe { RawVector::new(value) }.unwrap();
-            vec.format(" ", 30)
+            let formatted = vec.format(" ", 100);
+            BindingValue::new(formatted.1, formatted.0)
         },
 
         STRSXP => {
             let vec = unsafe { CharacterVector::new(value) }.unwrap();
-            vec.format(" ", 30)
+            let formatted = vec.format(" ", 100);
+            BindingValue::new(formatted.1, formatted.0)
         },
 
         _ => {
-            (true, String::from(""))
+            BindingValue::empty()
         }
     }
-}
-
-fn altrep_vec_glimpse(value: SEXP) -> (bool, String) {
-    vec_glimpse(value)
 }
 
 #[allow(dead_code)]

@@ -5,7 +5,11 @@
  *
  */
 
+use amalthea::comm::comm_channel::CommChannelMsg;
+use amalthea::comm::event::CommEvent;
 use amalthea::kernel::{Kernel, StreamBehavior};
+use amalthea::socket::comm::CommInitiator;
+use amalthea::socket::comm::CommSocket;
 use amalthea::wire::comm_close::CommClose;
 use amalthea::wire::comm_info_request::CommInfoRequest;
 use amalthea::wire::comm_msg::CommMsg;
@@ -33,6 +37,7 @@ fn test_kernel() {
     let connection_file = frontend.get_connection_file();
     let mut kernel = Kernel::new(connection_file).unwrap();
     let shell_tx = kernel.create_iopub_tx();
+    let comm_manager_tx = kernel.create_comm_manager_tx();
     let shell = Arc::new(Mutex::new(shell::Shell::new(shell_tx)));
     let control = Arc::new(Mutex::new(control::Control {}));
 
@@ -299,7 +304,7 @@ fn test_kernel() {
         data: serde_json::Value::Null,
     });
 
-    info!("Requesting comm info from the kernel (to test opening)");
+    info!("Requesting comm info from the kernel (to test opening from the front end)");
     frontend.send_shell(CommInfoRequest {
         target_name: "environment".to_string(),
     });
@@ -378,5 +383,102 @@ fn test_kernel() {
                 reply
             );
         },
+    }
+
+    // Now test opening a comm from the kernel side
+    info!("Creating a comm from the kernel side");
+    let test_comm_id = String::from("test_comm_id_84e7fe");
+    let test_comm_name = String::from("test_target");
+    let test_comm = CommSocket::new(
+        CommInitiator::BackEnd,
+        test_comm_id.clone(),
+        test_comm_name.clone(),
+    );
+    comm_manager_tx
+        .send(CommEvent::Opened(
+            test_comm.clone(),
+            serde_json::Value::Null,
+        ))
+        .unwrap();
+
+    // Wait for the comm open message to be received by the frontend. We should get
+    // a CommOpen message on the IOPub channel notifying the frontend that the new comm
+    // has been opened.
+    //
+    // We do this in a loop because we expect a number of other messages, e.g. busy/idle
+    loop {
+        let msg = frontend.receive_iopub();
+        match msg {
+            Message::CommOpen(msg) => {
+                assert_eq!(msg.content.comm_id, test_comm_id);
+                break;
+            },
+            _ => {
+                continue;
+            },
+        }
+    }
+
+    // Query the kernel to see if the comm we just opened is in the list of
+    // comms. It's similar to the test done above for opening a comm from the
+    // frontend, but this time we're testing the other direction, to ensure that
+    // the kernel is correctly tracking the list of comms regardless of where
+    // they originated.
+    info!("Requesting comm info from the kernel (to test opening from the back end)");
+    frontend.send_shell(CommInfoRequest {
+        target_name: test_comm_name.clone(),
+    });
+    let reply = frontend.receive_shell();
+    match reply {
+        Message::CommInfoReply(request) => {
+            info!("Got comm info: {:?}", request);
+            // Ensure the comm we just opened is in the list of comms
+            let comms = request.content.comms.as_object().unwrap();
+            assert!(comms.contains_key(&test_comm_id));
+        },
+        _ => {
+            panic!(
+                "Unexpected message received (expected comm info): {:?}",
+                reply
+            );
+        },
+    }
+
+    // Now send a message from the backend to the frontend using the comm we just
+    // created.
+    test_comm
+        .outgoing_tx
+        .send(CommChannelMsg::Data(serde_json::Value::Null))
+        .unwrap();
+
+    // Wait for the comm data message to be received by the frontend.
+    loop {
+        let msg = frontend.receive_iopub();
+        match msg {
+            Message::CommMsg(msg) => {
+                assert_eq!(msg.content.comm_id, test_comm_id);
+                break;
+            },
+            _ => {
+                continue;
+            },
+        }
+    }
+
+    // Close the test comm from the backend side
+    test_comm.outgoing_tx.send(CommChannelMsg::Close).unwrap();
+
+    // Ensure that the frontend is notified
+    loop {
+        let msg = frontend.receive_iopub();
+        match msg {
+            Message::CommClose(msg) => {
+                assert_eq!(msg.content.comm_id, test_comm_id);
+                break;
+            },
+            _ => {
+                continue;
+            },
+        }
     }
 }

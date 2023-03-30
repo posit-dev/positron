@@ -20,6 +20,7 @@ impl Vector for RawVector {
     type Type = u8;
     const SEXPTYPE: u32 = RAWSXP;
     type UnderlyingType = u8;
+    type CompareType = u8;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self { object: RObject::new(object.into()) }
@@ -57,6 +58,10 @@ impl Vector for RawVector {
 
     fn convert_value(x: &Self::UnderlyingType) -> Self::Type {
         *x
+    }
+
+    fn format_one(&self, x: Self::Type) -> String {
+        x.to_string()
     }
 
 }

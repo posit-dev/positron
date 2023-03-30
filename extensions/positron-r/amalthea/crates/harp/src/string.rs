@@ -17,7 +17,7 @@ pub unsafe fn r_string_decode(code: &str) -> Option<String> {
 
     // convert to R string
     let mut protect = RProtect::new();
-    let code = protect.add(r_string!(code));
+    let code = r_string!(code, &mut protect);
 
     // parse into vector
     let mut ps: ParseStatus = 0;

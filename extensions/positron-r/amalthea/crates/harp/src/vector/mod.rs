@@ -31,6 +31,7 @@ pub trait Vector {
     type Item: ?Sized;
     const SEXPTYPE: u32;
     type UnderlyingType;
+    type CompareType;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self;
     fn data(&self) -> SEXP;
@@ -73,5 +74,7 @@ pub trait Vector {
     unsafe fn len(&self) -> usize {
         Rf_xlength(self.data()) as usize
     }
+
+    fn format_one(&self, x: Self::Type) -> String;
 
 }

@@ -7,7 +7,10 @@
 
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::protect::RProtect;
 use harp::r_lock;
+use harp::r_string;
+use harp::r_symbol;
 use libR_sys::*;
 use stdext::local;
 use std::collections::HashMap;
@@ -16,6 +19,25 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 use walkdir::WalkDir;
+
+// We use a set of three environments for the functions exposed to
+// the R session. The environment chain is:
+//
+//     [public] => [private] => [globalenv]
+//
+// The bindings are copied from the [public] environment, into
+// the [attached] environment, which itself is placed on the
+// search path.
+//
+// This modularity allows us to have certain 'private' functions which
+// are visible to our Positron APIs, but not directly exposed to users.
+// This is mainly useful when defining things like custom binary
+// operators, or other helper functions which we prefer not hiding
+// behind the '.ps.' prefix.
+static mut POSITRON_PRIVATE_ENVIRONMENT: SEXP = std::ptr::null_mut();
+static mut POSITRON_PUBLIC_ENVIRONMENT: SEXP = std::ptr::null_mut();
+static mut POSITRON_ATTACHED_ENVIRONMENT: SEXP = std::ptr::null_mut();
+pub const POSITRION_ATTACHED_ENVIRONMENT_NAME: &str = "tools:positron";
 
 pub struct RModuleInfo {
     pub help_server_port: i32,
@@ -84,11 +106,43 @@ impl Watcher {
 
 pub unsafe fn initialize() -> anyhow::Result<RModuleInfo> {
 
-    // Ensure the 'tools:positron' environment has been initialized.
-    RFunction::new("base", "attach")
-        .param("what", R_NilValue)
-        .param("name", "tools:positron")
+    // Create the 'private' Positron environment.
+    let private = RFunction::new("base", "new.env")
+        .param("parent", R_GlobalEnv)
         .call()?;
+
+    // Create the 'public' Positron environment.
+    let public = RFunction::new("base", "new.env")
+        .param("parent", *private)
+        .call()?;
+
+    let mut protect = RProtect::new();
+
+    // Save these environments.
+    R_PreserveObject(*private);
+    POSITRON_PRIVATE_ENVIRONMENT = *private;
+    Rf_setAttrib(
+        POSITRON_PRIVATE_ENVIRONMENT,
+        r_symbol!("name"),
+        r_string!("positron:private", &mut protect)
+    );
+
+    R_PreserveObject(*public);
+    POSITRON_PUBLIC_ENVIRONMENT = *public;
+    Rf_setAttrib(
+        POSITRON_PUBLIC_ENVIRONMENT,
+        r_symbol!("name"),
+        r_string!("positron:public", &mut protect)
+    );
+
+    // Create the attached 'tools:positron' environment.
+    let attached = RFunction::new("base", "attach")
+        .param("what", R_NilValue)
+        .param("name", POSITRION_ATTACHED_ENVIRONMENT_NAME)
+        .call()?;
+
+    R_PreserveObject(*attached);
+    POSITRON_ATTACHED_ENVIRONMENT = *attached;
 
     // Get the path to the 'modules' directory, adjacent to the executable file.
     // This is where we place the R source files in packaged releases.
@@ -144,17 +198,41 @@ pub unsafe fn initialize() -> anyhow::Result<RModuleInfo> {
 
 pub unsafe fn import(file: &Path) {
 
-    log::info!("Loading module: {:?}", file);
+    // Figure out if this is a 'private' or 'public' component.
+    let parent = file.parent().unwrap();
+    let name = parent.file_name().unwrap();
+    let envir = if name == "private" {
+        log::info!("Loading private module: {:?}", file);
+        POSITRON_PRIVATE_ENVIRONMENT
+    } else if name == "public" {
+        log::info!("Loading public module: {:?}", file);
+        POSITRON_PUBLIC_ENVIRONMENT
+    } else {
+        log::info!("Loading top-level module: {:?}", file);
+        POSITRON_ATTACHED_ENVIRONMENT
+    };
 
-    let envir = RFunction::new("base", "as.environment")
-            .add("tools:positron")
-            .call()
-            .unwrap();
-
+    // Source the file in the appropriate environment.
     let file = file.to_str().unwrap();
     RFunction::new("base", "sys.source")
         .param("file", file)
         .param("envir", envir)
+        .call()
+        .unwrap();
+
+    // Get a list of bindings from the public environment.
+    let bindings = RFunction::new("base", "as.list.environment")
+        .param("x", POSITRON_PUBLIC_ENVIRONMENT)
+        .param("all.names", true)
+        .call()
+        .unwrap();
+
+    // Update bindings in the attached environment.
+    // TODO: It might be fine to just do this only after importing
+    // all files?
+    RFunction::new("base", "list2env")
+        .param("x", *bindings)
+        .param("envir", POSITRON_ATTACHED_ENVIRONMENT)
         .call()
         .unwrap();
 
