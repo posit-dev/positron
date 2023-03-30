@@ -34,8 +34,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 			this._register(runtime.onDidCreateClientInstance((client) => {
 				if (client.getClientType() === RuntimeClientType.Plot) {
+					const plotClient = new PlotClientInstance(client);
 					// Register the plot client instance with the plot service.
-					this._plots.push(new PlotClientInstance(client));
+					this._plots.push(plotClient);
+
+					// Notify subscribers that a new plot instance has been created.
+					this._onDidEmitPlot.fire(plotClient);
 				}
 			}));
 		}));

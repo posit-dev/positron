@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
@@ -22,12 +22,18 @@ interface PlotInstanceProps {
  */
 export const PlotInstance = (props: PlotInstanceProps) => {
 
+	const [uri, setUri] = useState('');
+
 	useEffect(() => {
+		props.plotClient.render(props.width, props.height, 200).then((result) => {
+			setUri(`data:${result.mime_type};base64,${result.data}`);
+		});
 	});
 
 	return (
 		<div className='plot-instance'>
-			Plot, width: {props.width}, height: {props.height}
+			{uri && <img src={uri} alt='Plot' />}
+			{!uri && <span>Rendering plot: {props.height} x {props.width}</span>}
 		</div>
 	);
 };
