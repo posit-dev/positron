@@ -5,6 +5,7 @@
 import 'vs/css!./environmentVariable';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 
 /**
@@ -25,6 +26,7 @@ export interface EnvironmentVariableProps {
  */
 export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 	// Hooks.
+	const [selected, _setSelected] = useState(false);
 	const [expanded, setExpanded] = useState(false);
 	const [children, setChildren] = useState<EnvironmentVariableItem[] | undefined>(undefined);
 
@@ -41,9 +43,15 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 		}
 	};
 
+	// Create the class names.
+	const classNames = positronClassNames(
+		'environment-variable',
+		{ 'selected': selected }
+	);
+
 	// Render.
 	return (<>
-		<div className='environment-variable'>
+		<div className={classNames}>
 			<div className='name' style={{ width: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.indentLevel * 20 }}>
 					<div className='gutter'>
