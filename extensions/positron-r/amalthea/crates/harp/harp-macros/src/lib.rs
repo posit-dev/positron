@@ -135,7 +135,9 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
 
                     match x {
-                        Some(value) => out.push_str(value.to_string().as_str()),
+                        Some(value) => {
+                            out.push_str(self.format_one(value).as_str());
+                        },
                         None => out.push_str("NA")
                     }
                 }
@@ -146,10 +148,10 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl<T> std::cmp::PartialEq<T> for #ident
         where
-            T: crate::traits::AsSlice<<Self as Vector>::Type>
+            T: crate::traits::AsSlice<<Self as Vector>::CompareType>
         {
             fn eq(&self, other: &T) -> bool {
-                let other: &[<Self as Vector>::Type] = other.as_slice();
+                let other: &[<Self as Vector>::CompareType] = other.as_slice();
 
                 let lhs = self.iter();
                 let rhs = other.iter();
