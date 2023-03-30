@@ -476,7 +476,8 @@ impl LanguageServer for Backend {
         });
 
         // request signature help
-        let result = unsafe { signature_help(document.value(), &params) };
+        let position = params.text_document_position_params.position;
+        let result = unsafe { signature_help(document.value(), &position) };
 
         // unwrap errors
         let result = unwrap!(result, Err(error) => {

@@ -23,6 +23,7 @@ use harp::r_symbol;
 use harp::string::r_string_decode;
 use harp::utils::r_envir_name;
 use harp::utils::r_formals;
+use harp::utils::r_typeof;
 use lazy_static::lazy_static;
 use libR_sys::*;
 use log::*;
@@ -51,6 +52,7 @@ use crate::lsp::backend::Backend;
 use crate::lsp::documents::Document;
 use crate::lsp::help::RHtmlHelp;
 use crate::lsp::indexer;
+use crate::lsp::signature_help::signature_help;
 use crate::lsp::traits::cursor::TreeCursorExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
@@ -77,6 +79,7 @@ pub enum CompletionData {
     ScopeParameter { name: String },
     ScopeVariable { name: String },
     Snippet { text: String },
+    Unknown,
 }
 
 #[derive(Debug)]
@@ -195,6 +198,7 @@ pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &Completi
         CompletionData::ScopeVariable { name } => Ok(false),
         CompletionData::ScopeParameter { name } => Ok(false),
         CompletionData::Snippet { text } => Ok(false),
+        CompletionData::Unknown => Ok(false),
     }
 
 }
@@ -345,6 +349,14 @@ pub fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: Option<&s
     return Ok(item);
 }
 
+// TODO
+unsafe fn completion_item_from_dataset(name: &str) -> Result<CompletionItem> {
+
+    let mut item = completion_item(name.to_string(), CompletionData::Unknown)?;
+    item.kind = Some(CompletionItemKind::STRUCT);
+    Ok(item)
+
+}
 unsafe fn completion_item_from_data_variable(name: &str, owner: &str, enquote: bool) -> Result<CompletionItem> {
 
     let mut item = completion_item(name.to_string(), CompletionData::DataVariable {
@@ -632,82 +644,69 @@ unsafe fn append_subset_completions(_context: &CompletionContext, callee: &str, 
 
 }
 
-unsafe fn append_call_library_completions(context: &CompletionContext, cursor: &Node, node: &Node, completions: &mut Vec<CompletionItem>) -> Result<bool> {
+unsafe fn append_custom_completions(
+    context: &CompletionContext,
+    cursor: &Node,
+    completions: &mut Vec<CompletionItem>) -> Result<bool>
+{
 
-    // Try to figure out the callee (if any).
-    let ok = local! {
+    // Use the signature help tools to figure out the necessary pieces.
+    let position = cursor.start_position().as_position();
+    let signatures = signature_help(context.document, &position)?;
 
-        info!("Cursor: {}", cursor.to_sexp());
-        info!("Node:   {}", node.to_sexp());
+    let signatures = unwrap!(signatures, None => {
+        return Ok(false);
+    });
 
-        // Get the parent node.
-        let mut parent = cursor.parent()?;
-        if matches!(parent.kind(), "argument") {
-            parent = parent.parent()?;
-            if matches!(parent.kind(), "arguments") {
-                parent = parent.parent()?;
-            }
+    // Pull out the relevant signature information.
+    let signature = signatures.signatures.get(0).into_result()?;
+    let mut name = signature.label.clone();
+    let parameters = signature.parameters.as_ref().into_result()?;
+    let index = signature.active_parameter.into_result()?;
+    let parameter = parameters.get(index as usize).into_result()?;
+
+    // Extract the argument text.
+    let argument = match parameter.label.clone() {
+        tower_lsp::lsp_types::ParameterLabel::LabelOffsets([start, end]) => {
+            let label = signature.label.as_str();
+            let substring = label.get((start as usize)..(end as usize));
+            substring.unwrap().to_string()
+        },
+        tower_lsp::lsp_types::ParameterLabel::Simple(string) => {
+            string
         }
-
-        // Make sure it matches the call node.
-        info!("Parent: {}", parent.to_sexp());
-        (parent == *node).into_option()?;
-
-        // Get the callee.
-        let mut callee = node.child(0)?;
-        info!("Callee: {}", callee.to_sexp());
-
-        // Resolve the callee for namespaced calls.
-        if matches!(callee.kind(), "::" | ":::") {
-
-            // Check for callable lhs.
-            let lhs = callee.child_by_field_name("lhs")?;
-            if !matches!(lhs.kind(), "identifier" | "string") {
-                return None;
-            }
-
-            // Make sure it matches base.
-            let contents = unwrap!(lhs.utf8_text(context.source.as_bytes()), Err(_) => {
-                return None;
-            });
-
-            (contents == "base").into_option()?;
-
-            // Update the callee.
-            callee = callee.child_by_field_name("rhs")?;
-
-        }
-
-        // Make sure we have an identifier.
-        (callee.kind() == "identifier").into_option()?;
-
-        // Check for call to handled functions.
-        let callee = callee.utf8_text(context.source.as_bytes()).unwrap_or_default();
-        info!("Callee text: {}", callee);
-        if !matches!(callee, "library" | "require" | "requireNamespace") {
-            return None;
-        }
-
-        Some(true)
-
     };
 
-    if ok.is_none() {
-        return Ok(false);
+    // Trim off the function arguments from the signature.
+    if let Some(index) = name.find('(') {
+        name = name[0..index].to_string();
     }
 
-    let packages = RFunction::new("base", ".packages")
-        .param("all.available", true)
-        .call()?
-        .to::<Vec<String>>()?;
+    // Call our custom completion function.
+    let r_completions = RFunction::from(".ps.completions.getCustomCallCompletions")
+        .param("name", name)
+        .param("argument", argument)
+        .call()?;
 
-    for package in packages {
-        let item = completion_item_from_package(package.as_str(), false)?;
-        completions.push(item);
+    if r_typeof(*r_completions) == VECSXP {
+        let values = VECTOR_ELT(*r_completions, 0);
+        let kind = VECTOR_ELT(*r_completions, 1);
+        if let Ok(values) = RObject::view(values).to::<Vec<String>>() {
+            let kind = RObject::view(kind).to::<String>().unwrap_or("unknown".to_string());
+            for value in values.iter() {
+                let item = match kind.as_str() {
+                    "package" => completion_item_from_package(value, false),
+                    "dataset" => completion_item_from_dataset(value),
+                    _ => completion_item(value, CompletionData::Unknown),
+                };
+                if let Ok(item) = item {
+                    completions.push(item);
+                }
+            }
+        }
     }
 
     Ok(true)
-
 }
 
 unsafe fn append_call_completions(context: &CompletionContext, _cursor: &Node, node: &Node, completions: &mut Vec<CompletionItem>) -> Result<()> {
@@ -814,7 +813,7 @@ unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str
 
     if Rf_isFunction(*value) != 0 {
 
-        let strings = RFunction::from(".ps.formalNames")
+        let strings = RFunction::from(".ps.completions.formalNames")
             .add(*value)
             .call()?
             .to::<Vec<String>>()?;
@@ -1169,7 +1168,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
             found_call_completions = true;
 
             // Check for library() completions.
-            match append_call_library_completions(context, &cursor, &node, completions) {
+            match append_custom_completions(context, &cursor, completions) {
                 Ok(done) => if done { return Ok(()) },
                 Err(error) => error!("{}", error),
             }
