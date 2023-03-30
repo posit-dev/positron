@@ -20,6 +20,7 @@ impl Vector for NumericVector {
     type Type = f64;
     const SEXPTYPE: u32 = REALSXP;
     type UnderlyingType = f64;
+    type CompareType = f64;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self { object: RObject::new(object.into()) }

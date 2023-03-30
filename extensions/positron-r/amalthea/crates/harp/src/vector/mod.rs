@@ -31,6 +31,7 @@ pub trait Vector {
     type Item: ?Sized;
     const SEXPTYPE: u32;
     type UnderlyingType;
+    type CompareType;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self;
     fn data(&self) -> SEXP;

@@ -20,6 +20,7 @@ impl Vector for LogicalVector {
     type Type = i32;
     const SEXPTYPE: u32 = LGLSXP;
     type UnderlyingType = i32;
+    type CompareType = i32;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self { object: RObject::new(object.into()) }
