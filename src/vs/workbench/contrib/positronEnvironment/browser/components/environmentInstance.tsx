@@ -40,7 +40,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [marker, setMarker] = useState(generateUuid());
 	const [nameColumnWidth, _setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
 	const [detailsColumnWidth, setDetailsColumnWidth] =
-		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
+		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH - 1);
 	const [typeVisible, setTypeVisible] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_VISIBILITY_THRESHOLD);
 	const [dataExpanded, setDataExpanded] = useState(true);
@@ -85,12 +85,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// Width use effect.
 	useEffect(() => {
-		setDetailsColumnWidth(props.width - nameColumnWidth);
+		setDetailsColumnWidth(props.width - nameColumnWidth - 1);
 		setTypeVisible(props.width > TYPE_VISIBILITY_THRESHOLD);
 	}, [props.width]);
-
-	// Temporary logging.
-	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
 
 	/**
 	 * Renders environment.
@@ -268,7 +265,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		);
 	};
 
-	console.log(`Rendering environment at width ${props.width}`);
+	// Temporary logging.
+	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
 
 	// Render.
 	return (
