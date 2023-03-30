@@ -43,8 +43,11 @@ export interface IPlotClientMessageRender extends IPlotClientMessageInput {
 	/** The plot width, in pixels */
 	width: number;
 
-	/** The dots-per-inch measurement of the output device */
-	dpi: number;
+	/**
+	 * The pixel ratio of the display device; typically 1 for standard displays,
+	 * 2 for retina/high DPI displays, etc.
+	 */
+	pixel_ratio: number;
 }
 
 /**
@@ -122,16 +125,16 @@ export class PlotClientInstance extends Disposable {
 	 *
 	 * @param height The plot height, in pixels
 	 * @param width The plot width, in pixels
-	 * @param dpi The dots-per-inch measurement of the output device
+	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
-	public render(height: number, width: number, dpi: number): Promise<IPlotClientMessageImage> {
+	public render(height: number, width: number, pixel_ratio: number): Promise<IPlotClientMessageImage> {
 		return new Promise((resolve, reject) => {
 			this._client.performRpc({
 				msg_type: PlotClientMessageTypeInput.Render,
 				height,
 				width,
-				dpi
+				pixel_ratio
 			} as IPlotClientMessageRender).then((response) => {
 				if (response.msg_type === PlotClientMessageTypeOutput.Image) {
 					resolve(response as IPlotClientMessageImage);

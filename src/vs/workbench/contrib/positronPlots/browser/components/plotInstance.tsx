@@ -27,7 +27,8 @@ export const PlotInstance = (props: PlotInstanceProps) => {
 	const [uri, setUri] = useState('');
 
 	useEffect(() => {
-		props.plotClient.render(props.width, props.height, 200).then((result) => {
+		const ratio = window.devicePixelRatio;
+		props.plotClient.render(props.width, props.height, ratio).then((result) => {
 			setUri(`data:${result.mime_type};base64,${result.data}`);
 		});
 	});

@@ -13,7 +13,7 @@ import * as vscode from 'vscode';
 interface IPlotRenderRequest {
 	height: number;
 	width: number;
-	dpi: number;
+	pixel_ratio: number;
 }
 
 /**
