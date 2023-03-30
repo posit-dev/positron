@@ -339,7 +339,9 @@ class PolarsInspector(CustomInspector):
             return ('unknown', [])
 
     def get_display_value(self, value) -> str:
-        return type(value).__name__
+        type_name = type(value).__name__
+        shape = value.shape
+        return f'{type_name}: [{shape[0]} rows x {shape[1]} columns]'
 
     def get_display_type(self, value) -> (int, int):
 
