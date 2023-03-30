@@ -75,4 +75,6 @@ pub trait Vector {
         Rf_xlength(self.data()) as usize
     }
 
+    fn format_one(&self, x: Self::Type) -> String;
+
 }

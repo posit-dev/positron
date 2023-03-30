@@ -121,7 +121,6 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let mut truncated = false;
                 let mut first = true;
                 let mut iter = self.iter();
-                let quote = Self::SEXPTYPE == STRSXP;
 
                 while let Some(x) = iter.next() {
                     if max > 0 && out.len() > max {
@@ -137,13 +136,7 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     match x {
                         Some(value) => {
-                            if quote {
-                                out.push_str("\"");
-                            }
-                            out.push_str(value.to_string().as_str());
-                            if quote {
-                                out.push_str("\"");
-                            }
+                            out.push_str(self.format_one(value).as_str());
                         },
                         None => out.push_str("NA")
                     }

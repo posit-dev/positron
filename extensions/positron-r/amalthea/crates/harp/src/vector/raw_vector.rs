@@ -60,4 +60,8 @@ impl Vector for RawVector {
         *x
     }
 
+    fn format_one(&self, x: Self::Type) -> String {
+        x.to_string()
+    }
+
 }

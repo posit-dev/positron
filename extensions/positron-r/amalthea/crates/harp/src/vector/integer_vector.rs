@@ -59,4 +59,8 @@ impl Vector for IntegerVector {
     fn convert_value(x: &Self::UnderlyingType) -> Self::Type {
         *x
     }
+
+    fn format_one(&self, x: Self::Type) -> String {
+        x.to_string()
+    }
 }

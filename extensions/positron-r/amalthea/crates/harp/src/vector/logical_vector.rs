@@ -60,4 +60,11 @@ impl Vector for LogicalVector {
         *x
     }
 
+    fn format_one(&self, x: Self::Type) -> String {
+        if x == 1 {
+            String::from("TRUE")
+        } else {
+            String::from("FALSE")
+        }
+    }
 }
