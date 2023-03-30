@@ -86,7 +86,7 @@ impl DeviceContext {
         self._dirty = self._dirty || mode != 0;
     }
 
-    pub unsafe fn before_new_page(&mut self, dd: pGEcontext, dev: pDevDesc) {
+    pub unsafe fn before_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
 
         // Nothing to do if we don't have an ID (implies no page)
         let id = unwrap!(&self._id, None => {
@@ -106,7 +106,7 @@ impl DeviceContext {
 
     }
 
-    pub unsafe fn after_new_page(&mut self, dd: pGEcontext, dev: pDevDesc) {
+    pub unsafe fn after_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
 
         // Generate a new UUID to be associated with this plot.
         self._id = Some(Uuid::new_v4().to_string());
