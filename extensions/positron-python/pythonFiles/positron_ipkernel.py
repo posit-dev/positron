@@ -71,6 +71,7 @@ class EnvironmentVariable(dict):
                  display_value: Any,
                  kind: EnvironmentVariableKind = EnvironmentVariableKind.OTHER,
                  display_type: str = None,
+                 type_info: str = None,
                  length: int = 0,
                  size: int = None,
                  has_children: bool = False,
@@ -80,6 +81,7 @@ class EnvironmentVariable(dict):
         if kind is not None:
             self['kind'] = getattr(EnvironmentVariableKind, kind.upper())
         self['display_type'] = display_type
+        self['type_info'] = type_info
         self['length'] = length
         self['size'] = size
         self['has_children'] = has_children
@@ -231,7 +233,9 @@ class PandasDataFrameInspector(CustomInspector):
         return (display_type, values)
 
     def get_display_value(self, value) -> str:
-        return type(value).__name__
+        type_name = type(value).__name__
+        shape = value.shape
+        return f'{type_name}: [{shape[0]} rows x {shape[1]} columns]'
 
     def get_display_type(self, value) -> str:
 
@@ -937,6 +941,7 @@ class PositronIPyKernel(IPythonKernel):
             # Determine the short display type for the variable, including
             # the length, if applicable
             display_type = self.get_display_type(value, length)
+            type_info = self.get_qualname(value)
 
             # Apply type-specific formatting
             if kind == EnvironmentVariableKind.STRING:
@@ -972,7 +977,8 @@ class PositronIPyKernel(IPythonKernel):
                 display_value, is_truncated = self.summarize_value(value)
 
             return EnvironmentVariable(display_name, display_value, kind,
-                                       display_type, length, size, has_children, is_truncated)
+                                       display_type, type_info, length, size,
+                                       has_children, is_truncated)
         except Exception as err:
             logging.warning(err, exc_info=True)
             return EnvironmentVariable(display_name, self.get_qualname(value), kind)
