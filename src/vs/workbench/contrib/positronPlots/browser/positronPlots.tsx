@@ -13,9 +13,10 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronPlotsServices } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
-import { PositronPlotsContextProvider } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
+import { PositronPlotsContextProvider, usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { PlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/plotInstance';
 
 /**
  * PositronPlotsProps interface.
@@ -43,6 +44,8 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
+	const positronPlotsContext = usePositronPlotsContext();
+
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -62,8 +65,17 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	return (
 		<PositronPlotsContextProvider {...props}>
 			<div className='positron-plots'>
-				Plot placeholder: {height} x {width}
+				{positronPlotsContext.positronPlotInstances.length === 0 &&
+					<span>Plot container: {height} x {width}</span>}
+				{positronPlotsContext.positronPlotInstances.map((plotInstance, _index) => (
+					<PlotInstance
+						key={plotInstance.id}
+						width={width}
+						height={height}
+						plotClient={plotInstance} />
+				))}
 			</div>
 		</PositronPlotsContextProvider>
 	);
+
 };

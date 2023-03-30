@@ -83,9 +83,18 @@ export interface IPlotClientMessageError extends IPlotClientMessageOutput {
  * by calling the `render` method, which returns a promise that resolves to the rendered plot.
  */
 export class PlotClientInstance extends Disposable {
+	/**
+	 * The runtime-supplied ID for this client instance.
+	 */
+	public readonly id: string;
+
 	constructor(
 		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>) {
 		super();
+
+		// Store the unique ID for this plot instance
+		this.id = _client.getClientId();
+
 		// Register the client instance with the runtime, so that when this instance is disposed,
 		// the runtime will also dispose the client.
 		this._register(_client);
