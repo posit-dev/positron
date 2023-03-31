@@ -4,9 +4,10 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPlotClientMessageInput, IPlotClientMessageOutput, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
+import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 
 /**
  * PositronPlotsService class.
@@ -39,11 +40,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				});
 			});
 
-			// Listen for new plots being emitted, and register each one with
-			// the plots service.
+			// Listen for new dynamic plots being emitted, and register each one
+			// with the plots service.
 			this._register(runtime.onDidCreateClientInstance((client) => {
 				if (client.getClientType() === RuntimeClientType.Plot) {
 					this.registerPlotClient(client);
+				}
+			}));
+
+			// Listen for static plots being emitted, and register each one with
+			// the plots service.
+			this._register(runtime.onDidReceiveRuntimeMessageOutput((message) => {
+				const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
+				if (imageKey) {
+					this.registerStaticPlot(message);
 				}
 			}));
 		}));
@@ -74,6 +84,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Dispose the plot client when this service is disposed (we own this
 		// object)
 		this._register(plotClient);
+	}
+
+	/**
+	 * Creates a new static plot client instance and registers it with the
+	 * service.
+	 *
+	 * @param message The message containing the static plot data.
+	 */
+	private registerStaticPlot(message: ILanguageRuntimeMessageOutput) {
+		const client = new StaticPlotClient(message);
+		this._plots.push(client);
+		this._onDidEmitPlot.fire(client);
+		this._register(client);
 	}
 
 	onDidEmitPlot: Event<PositronPlotClient> = this._onDidEmitPlot.event;
