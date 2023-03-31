@@ -76,7 +76,7 @@ export function _resetSharedProperties(): void {
 }
 
 let telemetryReporter: TelemetryReporter | undefined;
-function getTelemetryReporter() {
+export function getTelemetryReporter(): TelemetryReporter {
     if (!isTestExecution() && telemetryReporter) {
         return telemetryReporter;
     }
@@ -1476,6 +1476,17 @@ export interface IEventNamePropertyMapping {
      */
     [EventName.LANGUAGE_SERVER_REQUEST]: unknown;
     /**
+     * Telemetry send when Language Server is restarted.
+     */
+    /* __GDPR__
+       "language_server_restart" : {
+          "reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "karthiknadig" }
+       }
+     */
+    [EventName.LANGUAGE_SERVER_RESTART]: {
+        reason: 'command' | 'settings' | 'notebooksExperiment';
+    };
+    /**
      * Telemetry event sent when Jedi Language Server is started for workspace (workspace folder in case of multi-root)
      */
     /* __GDPR__
@@ -2043,7 +2054,7 @@ export interface IEventNamePropertyMapping {
      */
     [EventName.ENVIRONMENT_INSTALLING_PACKAGES]: {
         environmentType: 'venv' | 'conda';
-        using: 'requirements.txt' | 'pyproject.toml' | 'environment.yml';
+        using: 'requirements.txt' | 'pyproject.toml' | 'environment.yml' | 'pipUpgrade';
     };
     /**
      * Telemetry event sent after installing packages.
@@ -2056,7 +2067,7 @@ export interface IEventNamePropertyMapping {
      */
     [EventName.ENVIRONMENT_INSTALLED_PACKAGES]: {
         environmentType: 'venv' | 'conda';
-        using: 'requirements.txt' | 'pyproject.toml' | 'environment.yml';
+        using: 'requirements.txt' | 'pyproject.toml' | 'environment.yml' | 'pipUpgrade';
     };
     /**
      * Telemetry event sent if installing packages failed.

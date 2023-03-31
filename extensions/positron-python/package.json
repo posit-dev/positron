@@ -18,7 +18,9 @@
     },
     "publisher": "ms-python",
     "enabledApiProposals": [
+        "contribEditorContentMenu",
         "quickPickSortByLabel",
+        "envShellEvent",
         "testObserver"
     ],
     "author": {
@@ -40,7 +42,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.75.0-20230123"
+        "vscode": "^1.77.0-20230309"
     },
     "keywords": [
         "python",
@@ -82,7 +84,7 @@
         "walkthroughs": [
             {
                 "id": "pythonWelcome",
-                "title": "Get started with Python development",
+                "title": "Get Started with Python Development",
                 "description": "Your first steps to set up a Python project with all the powerful tools and features that the Python extension has to offer!",
                 "when": "workspacePlatform != webworker",
                 "steps": [
@@ -169,7 +171,7 @@
             },
             {
                 "id": "pythonDataScienceWelcome",
-                "title": "Get started with Python for Data Science",
+                "title": "Get Started with Python for Data Science",
                 "description": "Your first steps to getting started with a Data Science project with Python!",
                 "when": "false",
                 "steps": [
@@ -433,7 +435,14 @@
                         "enum": [
                             "All",
                             "pythonSurveyNotification",
-                            "pythonPromptNewToolsExt"
+                            "pythonPromptNewToolsExt",
+                            "pythonTerminalEnvVarActivation"
+                        ],
+                        "enumDescriptions": [
+                            "%python.experiments.All.description%",
+                            "%python.experiments.pythonSurveyNotification.description%",
+                            "%python.experiments.pythonPromptNewToolsExt.description%",
+                            "%python.experiments.pythonTerminalEnvVarActivation.description%"
                         ]
                     },
                     "scope": "machine",
@@ -447,7 +456,14 @@
                         "enum": [
                             "All",
                             "pythonSurveyNotification",
-                            "pythonPromptNewToolsExt"
+                            "pythonPromptNewToolsExt",
+                            "pythonTerminalEnvVarActivation"
+                        ],
+                        "enumDescriptions": [
+                            "%python.experiments.All.description%",
+                            "%python.experiments.pythonSurveyNotification.description%",
+                            "%python.experiments.pythonPromptNewToolsExt.description%",
+                            "%python.experiments.pythonTerminalEnvVarActivation.description%"
                         ]
                     },
                     "scope": "machine",
@@ -1680,6 +1696,18 @@
                     "when": "!virtualWorkspace && shellExecutionSupported"
                 }
             ],
+            "editor/content": [
+                {
+                    "group": "Python",
+                    "command": "python.createEnvironment",
+                    "when": "resourceLangId == pip-requirements && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "group": "Python",
+                    "command": "python.createEnvironment",
+                    "when": "resourceFilename == pyproject.toml && pipInstallableToml && !virtualWorkspace && shellExecutionSupported"
+                }
+            ],
             "editor/context": [
                 {
                     "command": "python.execInTerminal",
@@ -1823,8 +1851,6 @@
         "node-stream-zip": "^1.6.0",
         "portfinder": "^1.0.28",
         "reflect-metadata": "^0.1.12",
-        "request": "^2.87.0",
-        "request-progress": "^3.0.0",
         "rxjs": "^6.5.4",
         "rxjs-compat": "^6.5.4",
         "semver": "^5.5.0",
@@ -1847,6 +1873,7 @@
     },
     "devDependencies": {
         "@istanbuljs/nyc-config-typescript": "^1.0.2",
+        "@types/bent": "^7.3.0",
         "@types/chai": "^4.1.2",
         "@types/chai-arrays": "^2.0.0",
         "@types/chai-as-promised": "^7.1.0",
@@ -1859,20 +1886,20 @@
         "@types/mocha": "^9.1.0",
         "@types/nock": "^10.0.3",
         "@types/node": "^14.18.0",
-        "@types/request": "^2.47.0",
         "@types/semver": "^5.5.0",
         "@types/shortid": "^0.0.29",
         "@types/sinon": "^10.0.11",
         "@types/stack-trace": "0.0.29",
         "@types/tmp": "^0.0.33",
         "@types/uuid": "^8.3.4",
-        "@types/vscode": "1.74.0",
+        "@types/vscode": "^1.75.0",
         "@types/which": "^2.0.1",
         "@types/winreg": "^1.2.30",
         "@types/xml2js": "0.4.9",
         "@typescript-eslint/eslint-plugin": "^3.7.0",
         "@typescript-eslint/parser": "^3.7.0",
         "@vscode/test-electron": "^2.1.3",
+        "bent": "^7.3.12",
         "chai": "^4.1.2",
         "chai-arrays": "^2.0.0",
         "chai-as-promised": "^7.1.1",
@@ -1916,7 +1943,7 @@
         "uuid": "^8.3.2",
         "vsce": "^2.6.6",
         "vscode-debugadapter-testsupport": "^1.27.0",
-        "webpack": "^5.70.0",
+        "webpack": "^5.76.0",
         "webpack-bundle-analyzer": "^4.5.0",
         "webpack-cli": "^4.9.2",
         "webpack-fix-default-import-plugin": "^1.0.3",
