@@ -4,7 +4,7 @@
 
 import 'vs/css!./positronPlots';
 import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -14,6 +14,9 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronPlotsServices } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
 import { PositronPlotsContextProvider } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { PlotsContainer } from 'vs/workbench/contrib/positronPlots/browser/components/plotsContainer';
 
 /**
  * PositronPlotsProps interface.
@@ -27,6 +30,7 @@ export interface PositronPlotsProps extends PositronPlotsServices {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: IReactComponentContainer;
+	readonly positronPlotsService: IPositronPlotsService;
 }
 
 /**
@@ -35,13 +39,33 @@ export interface PositronPlotsProps extends PositronPlotsServices {
  * @returns The rendered component.
  */
 export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
+
+	// Hooks.
+	const [width, setWidth] = useState(props.reactComponentContainer.width);
+	const [height, setHeight] = useState(props.reactComponentContainer.height);
+
+	// Add IReactComponentContainer event handlers.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onSizeChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
+			setWidth(size.width);
+			setHeight(size.height);
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, []);
+
 	// Render.
 	return (
 		<PositronPlotsContextProvider {...props}>
-			<div className='positron-plots'>
-				<p>There was a PLOT here.</p>
-				<p>It's gone now.</p>
-			</div>
+			<PlotsContainer
+				width={width}
+				height={height} />
 		</PositronPlotsContextProvider>
 	);
+
 };
