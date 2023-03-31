@@ -385,8 +385,8 @@ class NumpyNdarrayInspector(CustomInspector):
 
     def get_child_info(self, value, child_name) -> (str, Any):
         try:
-            child_display_type = type(value).__name__
             child = value[int(child_name)]
+            child_display_type = type(child).__name__
             return (child_display_type, child)
         except Exception:
             logging.warning('Unable to get ndarray child: %s', child_name, exc_info=True)
