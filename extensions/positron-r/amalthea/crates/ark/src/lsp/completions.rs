@@ -54,6 +54,7 @@ use crate::lsp::help::RHtmlHelp;
 use crate::lsp::indexer;
 use crate::lsp::signature_help::signature_help;
 use crate::lsp::traits::cursor::TreeCursorExt;
+use crate::lsp::traits::node::NodeExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::string::StringExt;
@@ -484,13 +485,10 @@ pub fn completion_context<'a>(document: &'a Document, position: &TextDocumentPos
     let ast = &document.ast;
 
     // try to find node at completion position
-    let mut point = position.position.as_point();
-    if point.column > 1 {
-        point.column -= 1;
-    }
+    let point = position.position.as_point();
 
     // use the node to figure out the completion token
-    let node = ast.node_at_point(point)?;
+    let node = ast.node_at_point(point);
     let source = document.contents.to_string();
 
     // build completion context
@@ -646,12 +644,10 @@ unsafe fn append_subset_completions(_context: &CompletionContext, callee: &str, 
 
 unsafe fn append_custom_completions(
     context: &CompletionContext,
-    cursor: &Node,
     completions: &mut Vec<CompletionItem>) -> Result<bool>
 {
-
     // Use the signature help tools to figure out the necessary pieces.
-    let position = cursor.start_position().as_position();
+    let position = context.point.as_position();
     let signatures = signature_help(context.document, &position)?;
 
     let signatures = unwrap!(signatures, None => {
@@ -682,26 +678,66 @@ unsafe fn append_custom_completions(
         name = name[0..index].to_string();
     }
 
+    // Check and see if we're in the 'name' position,
+    // versus the 'value' position, for a function invocation.
+    //
+    // For example:
+    //
+    //    Sys.setenv(EDITOR = "vim")
+    //               ^^^^^^   ^^^^^
+    //                name    value
+    //
+    // This is mainly relevant because we might only want to
+    // provide certain completions in the 'name' position.
+    let node = context.document.ast.node_at_point(context.point);
+
+    let marker = node.bwd_leaf_iter().find_map(|node| {
+        match node.kind() {
+            "(" | "comma" => Some("name"),
+            "=" => Some("value"),
+            _ => None,
+        }
+    });
+
+    let position = marker.unwrap_or("value");
+
     // Call our custom completion function.
     let r_completions = RFunction::from(".ps.completions.getCustomCallCompletions")
         .param("name", name)
         .param("argument", argument)
+        .param("position", position)
         .call()?;
 
     if r_typeof(*r_completions) == VECSXP {
         let values = VECTOR_ELT(*r_completions, 0);
         let kind = VECTOR_ELT(*r_completions, 1);
+        let enquote = VECTOR_ELT(*r_completions, 2);
+        let append = VECTOR_ELT(*r_completions, 3);
         if let Ok(values) = RObject::view(values).to::<Vec<String>>() {
             let kind = RObject::view(kind).to::<String>().unwrap_or("unknown".to_string());
+            let enquote = RObject::view(enquote).to::<bool>().unwrap_or(false);
+            let append = RObject::view(append).to::<String>().unwrap_or("".to_string());
             for value in values.iter() {
+                let value = value.clone();
                 let item = match kind.as_str() {
-                    "package" => completion_item_from_package(value, false),
-                    "dataset" => completion_item_from_dataset(value),
-                    _ => completion_item(value, CompletionData::Unknown),
+                    "package" => completion_item_from_package(&value, false),
+                    "dataset" => completion_item_from_dataset(&value),
+                    _ => completion_item(&value, CompletionData::Unknown),
                 };
-                if let Ok(item) = item {
-                    completions.push(item);
+
+                let mut item = unwrap!(item, Err(error) => {
+                    log::error!("{}", error);
+                    continue;
+                });
+
+                if enquote && node.kind() != "string" {
+                    item.insert_text = Some(format!("\"{}\"", value));
+                } else if !append.is_empty() {
+                    item.insert_text = Some(format!("{}{}", value, append));
                 }
+
+                completions.push(item);
+
             }
         }
     }
@@ -1044,7 +1080,7 @@ pub fn can_provide_completions(document: &mut Document, params: &CompletionParam
         point.column -= 1;
     }
 
-    let node = document.ast.node_at_point(point)?;
+    let node = document.ast.node_at_point(point);
     let source = document.contents.to_string();
     let value = node.utf8_text(source.as_bytes())?;
 
@@ -1124,13 +1160,8 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 
     // get reference to AST
     let ast = &context.document.ast;
-    let cursor = ast.node_at_point(context.point)?;
+    let cursor = ast.node_at_point(context.point);
     let mut node = cursor;
-
-    // check for strings; when encountered, provide file completions
-    if node.kind() == "string" {
-        return append_file_completions(context, completions);
-    }
 
     // check for completion within a comment -- in such a case, we usually
     // want to complete things like roxygen tags
@@ -1168,7 +1199,7 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
             found_call_completions = true;
 
             // Check for library() completions.
-            match append_custom_completions(context, &cursor, completions) {
+            match append_custom_completions(context, completions) {
                 Ok(done) => if done { return Ok(()) },
                 Err(error) => error!("{}", error),
             }
@@ -1206,6 +1237,12 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 
     }
 
+    // If we get here, and we were located within a string,
+    // just provide file completions.
+    if node.kind() == "string" {
+        return append_file_completions(context, completions);
+    }
+
     // If we got here, then it's appropriate to return completions
     // for any packages + symbols on the search path.
     if use_search_path {
@@ -1220,7 +1257,7 @@ pub fn append_document_completions(context: &CompletionContext, completions: &mu
 
     // get reference to AST
     let ast = &context.document.ast;
-    let mut node = ast.node_at_point(context.point)?;
+    let mut node = ast.node_at_point(context.point);
 
     // skip comments
     if node.kind() == "comment" {
