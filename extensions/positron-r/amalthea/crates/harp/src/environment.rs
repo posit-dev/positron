@@ -10,6 +10,8 @@ use std::cmp::Ordering;
 use c2rust_bitfields::BitfieldStruct;
 use libR_sys::*;
 
+use crate::exec::RFunction;
+use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_inherits;
@@ -173,6 +175,7 @@ fn is_vector(value: SEXP) -> bool {
         CPLXSXP => true,
         STRSXP => true,
         RAWSXP => true,
+        VECSXP => true,
 
         _ => false
     }
@@ -219,7 +222,13 @@ fn vec_type(value: SEXP) -> String {
         STRSXP  => "str",
         RAWSXP  => "raw",
         CPLXSXP => "cplx",
-        VECSXP  => "list",
+        VECSXP  => {
+            if unsafe { r_inherits(value, "data.frame") } {
+                "data.frame"
+            } else {
+                "list"
+            }
+        },
 
         // TODO: this should not happen
         _       => "???"
@@ -240,7 +249,14 @@ fn vec_type_info(value: SEXP) -> BindingType {
 
 fn vec_shape(value: SEXP) -> String {
     unsafe {
-        let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
+        let dim = if r_inherits(value, "data.frame") {
+            RFunction::new("base", "dim.data.frame")
+                .add(value)
+                .call()
+                .unwrap()
+        } else {
+            RObject::new(Rf_getAttrib(value, R_DimSymbol))
+        };
 
         if *dim == R_NilValue {
             format!("{}", Rf_xlength(value))
@@ -285,6 +301,10 @@ fn vec_glimpse(value: SEXP) -> BindingValue {
             let vec = unsafe { CharacterVector::new(value) }.unwrap();
             let formatted = vec.format(" ", 100);
             BindingValue::new(formatted.1, formatted.0)
+        },
+
+        VECSXP => {
+            BindingValue::empty()
         },
 
         _ => {
