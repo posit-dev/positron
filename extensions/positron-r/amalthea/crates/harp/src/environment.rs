@@ -138,40 +138,42 @@ impl Binding {
 
 }
 
+fn is_vector(value: SEXP) -> bool {
+    match r_typeof(value) {
+        LGLSXP => true,
+        INTSXP => true,
+        REALSXP => true,
+        CPLXSXP => true,
+        STRSXP => true,
+        RAWSXP => true,
+
+        _ => false
+    }
+}
+
 fn regular_binding_display_value(value: SEXP) -> BindingValue {
     // TODO: some form of R based dispatch
+    if is_vector(value) {
+        vec_glimpse(value)
+    } else {
 
-    match r_typeof(value) {
-        // standard vector
-        LGLSXP   => vec_glimpse(value),
-        INTSXP   => vec_glimpse(value),
-        REALSXP  => vec_glimpse(value),
-        CPLXSXP  => vec_glimpse(value),
-        STRSXP   => vec_glimpse(value),
-        VECSXP   => {
-            // TODO: data.frame
-            vec_glimpse(value)
-        },
+        // TODO:
+        //   - list (or does that go in vector too)
+        //   - function
+        //   - environment
+        //   - pairlist
+        //   - calls
 
-        _       => BindingValue::new(String::from("???"), false)
+        BindingValue::new(String::from("???"), false)
     }
 
 }
 
 fn regular_binding_display_type(value: SEXP) -> String {
-    match r_typeof(value) {
-        // standard vector
-        LGLSXP   => vec_type_info(value),
-        INTSXP   => vec_type_info(value),
-        REALSXP  => vec_type_info(value),
-        CPLXSXP  => vec_type_info(value),
-        STRSXP   => vec_type_info(value),
-        VECSXP   => {
-            // TODO: data.frame
-            vec_type_info(value)
-        },
-
-        _       => String::from("???")
+    if is_vector(value) {
+        vec_type_info(value)
+    } else {
+        String::from("???")
     }
 }
 
@@ -187,9 +189,9 @@ fn vec_type(value: SEXP) -> String {
         REALSXP => "dbl",
         LGLSXP  => "lgl",
         STRSXP  => "str",
-        VECSXP  => "list",
         RAWSXP  => "raw",
         CPLXSXP => "cplx",
+        VECSXP  => "list",
 
         // TODO: this should not happen
         _       => "???"
