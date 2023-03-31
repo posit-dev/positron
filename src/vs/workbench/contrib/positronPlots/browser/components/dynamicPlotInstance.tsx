@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
- * PlotInstanceProps interface.
+ * DynamicPlotInstanceProps interface.
  */
 interface DynamicPlotInstanceProps {
 	width: number;
@@ -23,7 +23,7 @@ interface DynamicPlotInstanceProps {
  * the plot size changes. It wraps a PlotClientInstance, which is responsible
  * for generating the plot data.
  *
- * @param props A PlotInstanceProps that contains the component properties.
+ * @param props A DynamicPlotInstanceProps that contains the component properties.
  * @returns The rendered component.
  */
 export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
@@ -43,7 +43,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	// Consider: we probably want a more explicit loading state; as written we
 	// will show the old URI until the new one is ready.
 	return (
-		<div className='plot-instance'>
+		<div className='dynamic-plot-instance'>
 			{uri &&
 				<img src={uri}
 					height={props.height}

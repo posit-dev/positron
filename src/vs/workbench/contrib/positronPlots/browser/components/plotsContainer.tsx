@@ -5,9 +5,11 @@
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
+import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 
 /**
  * PlotContainerProps interface.
@@ -31,6 +33,14 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		// Empty for now.
 	});
 
+	/**
+	 * Renders either a DynamicPlotInstance (resizable plot) or a
+	 * StaticPlotInstance (static plot image), depending on the type of plot
+	 * instance.
+	 *
+	 * @param plotInstance The plot instance to render
+	 * @returns The rendered component.
+	 */
 	const render = (plotInstance: PositronPlotClient) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotInstance
@@ -38,9 +48,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				width={props.width}
 				height={props.height}
 				plotClient={plotInstance} />;
-		} else {
-			return <span>Plot container: {props.height} x {props.width}</span>;
+		} else if (plotInstance instanceof StaticPlotClient) {
+			return <StaticPlotInstance
+				key={plotInstance.id}
+				plotClient={plotInstance} />;
 		}
+		return null;
 	};
 
 	// If there are no plot instances, show a placeholder; otherwise, show the
