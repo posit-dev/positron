@@ -12,8 +12,10 @@ use libR_sys::*;
 
 use crate::object::RObject;
 use crate::symbol::RSymbol;
+use crate::utils::r_inherits;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
+use crate::vector::Factor;
 use crate::vector::IntegerVector;
 use crate::vector::LogicalVector;
 use crate::vector::NumericVector;
@@ -175,7 +177,13 @@ fn regular_binding_display_type(value: SEXP) -> String {
 
 fn vec_type(value: SEXP) -> String {
     let rtype = match r_typeof(value) {
-        INTSXP  => "int",
+        INTSXP  => {
+            if unsafe {r_inherits(value, "factor")} {
+                "fct"
+            } else {
+                "int"
+            }
+        },
         REALSXP => "dbl",
         LGLSXP  => "lgl",
         STRSXP  => "str",
@@ -215,9 +223,15 @@ fn vec_glimpse(value: SEXP) -> BindingValue {
             BindingValue::new(formatted.1, formatted.0)
         },
         INTSXP => {
-            let vec = unsafe { IntegerVector::new(value) }.unwrap();
-            let formatted = vec.format(" ", 100);
-            BindingValue::new(formatted.1, formatted.0)
+            if unsafe { r_inherits(value, "factor") } {
+                let vec = unsafe { Factor::new(value) }.unwrap();
+                let formatted = vec.format(" ", 100);
+                BindingValue::new(formatted.1, formatted.0)
+            } else {
+                let vec = unsafe { IntegerVector::new(value) }.unwrap();
+                let formatted = vec.format(" ", 100);
+                BindingValue::new(formatted.1, formatted.0)
+            }
         },
         REALSXP => {
             let vec = unsafe { NumericVector::new(value) }.unwrap();
