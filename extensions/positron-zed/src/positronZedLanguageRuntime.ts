@@ -57,7 +57,7 @@ const HelpLines = [
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
-	'plot         - Renders a plot',
+	'plot X       - Renders a plot of the letter X',
 	'progress     - Renders a progress bar',
 	'shutdown     - Simulates orderly shutdown',
 	'version      - Shows the Zed version'
