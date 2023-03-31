@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPlotClientMessageInput, IPlotClientMessageOutput, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 
 /**
@@ -16,10 +16,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	declare readonly _serviceBrand: undefined;
 
 	/** The list of Positron plots. */
-	private readonly _plots: PlotClientInstance[] = [];
+	private readonly _plots: PositronPlotClient[] = [];
 
 	/** The emitter for the onDidEmitPlot event */
-	private readonly _onDidEmitPlot = new Emitter<PlotClientInstance>();
+	private readonly _onDidEmitPlot = new Emitter<PositronPlotClient>();
 
 	/** Creates the Positron plots service instance */
 	constructor(@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService) {
@@ -76,10 +76,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._register(plotClient);
 	}
 
-	onDidEmitPlot: Event<PlotClientInstance> = this._onDidEmitPlot.event;
+	onDidEmitPlot: Event<PositronPlotClient> = this._onDidEmitPlot.event;
 
 	// Gets the individual plot instances.
-	get positronPlotInstances(): PlotClientInstance[] {
+	get positronPlotInstances(): PositronPlotClient[] {
 		return this._plots;
 	}
 

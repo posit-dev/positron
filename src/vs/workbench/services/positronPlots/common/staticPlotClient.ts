@@ -22,6 +22,8 @@ export class StaticPlotClient {
 			throw new Error(`No image/ MIME type found in message data. ` +
 				`Found MIME types: ${Object.keys(message.data).join(', ')}`);
 		}
+
+		// Save the MIME type and data for the image.
 		this.mimeType = imageKey!;
 		this.data = message.data[imageKey!];
 	}
