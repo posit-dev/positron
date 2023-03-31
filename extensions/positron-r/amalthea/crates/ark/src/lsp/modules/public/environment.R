@@ -14,3 +14,20 @@
     }
     names
 }
+
+.ps.environment_extract <- function(env, path) {
+    object <- env
+
+    rx_unnamed <- "^[[][[]([[:digit:]])[]][]]"
+
+    for (p in path) {
+        if (grepl(rx_unnamed, p)) {
+            index <- as.integer(sub(rx_unnamed, "\\1", p))
+            object <- object[[index]]
+        } else {
+            object <- object[[p]]
+        }
+    }
+
+    object
+}

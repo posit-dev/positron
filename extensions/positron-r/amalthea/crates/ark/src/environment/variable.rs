@@ -12,9 +12,11 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
+use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
 use libR_sys::Rf_findVarInFrame;
+use libR_sys::VECSXP;
 use libR_sys::VECTOR_ELT;
 use libR_sys::XLENGTH;
 use serde::Deserialize;
@@ -113,22 +115,29 @@ impl EnvironmentVariable {
     }
 
     pub fn inspect(env: RObject, path: Vec<String>) -> Vec<Self> {
-        // for now path is only one string, and the object is a list
-        let name = unsafe{ path.get_unchecked(0) };
-        let list = unsafe{ Rf_findVarInFrame(*env, r_symbol!(name))};
+        // for now only lists can be expanded
+        let list = unsafe {
+            RFunction::from(".ps.environment_extract")
+                .param("env", env)
+                .param("path", CharacterVector::create(path).cast())
+                .call()
+                .unwrap()
+        };
 
         let mut out : Vec<Self> = vec![];
-        let n = unsafe { XLENGTH(list) };
+        let n = unsafe { XLENGTH(*list) };
 
         let names = unsafe{
-            CharacterVector::new_unchecked(RFunction::from(".ps.list_display_names").add(list).call().unwrap())
+            CharacterVector::new_unchecked(RFunction::from(".ps.list_display_names").add(*list).call().unwrap())
         };
 
         for i in 0..n {
-            let x = RObject::view(unsafe{ VECTOR_ELT(list, i)});
+            let x = RObject::view(unsafe{ VECTOR_ELT(*list, i)});
             let display_name = names.get_unchecked(i).unwrap();
             let BindingValue{display_value, is_truncated} = BindingValue::from(*x);
             let BindingType{display_type, type_info} = BindingType::from(*x);
+            let has_children = r_typeof(*x) == VECSXP;
+
             out.push(Self {
                 display_name,
                 display_value,
@@ -137,9 +146,9 @@ impl EnvironmentVariable {
                 kind: ValueKind::Other,
                 length: 0,
                 size: 0,
-                has_children: false,
+                has_children,
                 is_truncated
-            })
+            });
         }
 
         out
