@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crossbeam::channel::Sender;
 use dashmap::DashMap;
@@ -278,11 +279,10 @@ impl LanguageServer for Backend {
             return;
         });
 
-        // update the document
-        for change in params.content_changes.iter() {
-            if let Err(error) = doc.update(change) {
-                backend_trace!(self, "doc.update(): unexpected error {}", error);
-            }
+        // respond to document updates
+        if let Err(error) = doc.on_did_change(&params) {
+            backend_trace!(self, "did_change(): unexpected error applying updates {}", error);
+            return;
         }
 
         // update index
