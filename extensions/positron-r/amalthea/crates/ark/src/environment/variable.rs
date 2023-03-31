@@ -6,6 +6,7 @@
 //
 
 use harp::environment::Binding;
+use harp::environment::BindingType;
 use harp::environment::BindingValue;
 use serde::Deserialize;
 use serde::Serialize;
@@ -83,8 +84,8 @@ impl EnvironmentVariable {
     pub fn new(binding: &Binding) -> Self {
         let display_name = binding.name.to_string();
 
-        let BindingValue{display_value, is_truncated} = binding.display_value();
-        let display_type = binding.display_type();
+        let BindingValue{display_value, is_truncated} = binding.get_value();
+        let BindingType{display_type, type_info} = binding.get_type();
 
         let kind = ValueKind::String;
 
@@ -92,7 +93,7 @@ impl EnvironmentVariable {
             display_name,
             display_value,
             display_type,
-            type_info: String::new(),
+            type_info,
             kind,
             length: 0,
             size: 0,

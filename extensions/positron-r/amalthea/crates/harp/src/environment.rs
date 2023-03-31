@@ -94,6 +94,20 @@ impl BindingValue {
     }
 }
 
+pub struct BindingType {
+    pub display_type: String,
+    pub type_info: String
+}
+
+impl BindingType {
+    pub fn new(display_type: String, type_info: String) -> Self {
+        BindingType {
+            display_type,
+            type_info
+        }
+    }
+}
+
 impl Binding {
     pub fn new(frame: SEXP) -> Self {
 
@@ -116,7 +130,7 @@ impl Binding {
         }
     }
 
-    pub fn display_value(&self) -> BindingValue {
+    pub fn get_value(&self) -> BindingValue {
         match self.kind {
             BindingKind::Regular => regular_binding_display_value(self.value),
             BindingKind::Promise(true) => regular_binding_display_value(unsafe{PRVALUE(self.value)}),
@@ -126,13 +140,13 @@ impl Binding {
         }
     }
 
-    pub fn display_type(&self) -> String {
+    pub fn get_type(&self) -> BindingType {
         match self.kind {
-            BindingKind::Active => String::from("active binding"),
-            BindingKind::Promise(false) => String::from("promise"),
+            BindingKind::Active => BindingType::new(String::from("active binding"), String::from("")),
+            BindingKind::Promise(false) => BindingType::new(String::from("promise"), String::from("")),
 
-            BindingKind::Regular => regular_binding_display_type(self.value),
-            BindingKind::Promise(true) => regular_binding_display_type(unsafe{PRVALUE(self.value)})
+            BindingKind::Regular => regular_binding_type(self.value),
+            BindingKind::Promise(true) => regular_binding_type(unsafe{PRVALUE(self.value)})
         }
     }
 
@@ -170,11 +184,11 @@ fn regular_binding_display_value(value: SEXP) -> BindingValue {
 
 }
 
-fn regular_binding_display_type(value: SEXP) -> String {
+fn regular_binding_type(value: SEXP) -> BindingType {
     if is_vector(value) {
         vec_type_info(value)
     } else {
-        String::from("???")
+        BindingType::new(String::from("???"), String::from(""))
     }
 }
 
@@ -200,8 +214,15 @@ fn vec_type(value: SEXP) -> String {
     String::from(rtype)
 }
 
-fn vec_type_info(value: SEXP) -> String {
-    format!("{} [{}]", vec_type(value), vec_shape(value))
+fn vec_type_info(value: SEXP) -> BindingType {
+    let display_type = format!("{} [{}]", vec_type(value), vec_shape(value));
+
+    let mut type_info = display_type.clone();
+    if unsafe{ ALTREP(value) == 1} {
+        type_info.push_str(altrep_class(value).as_str())
+    }
+
+    BindingType::new(display_type, type_info)
 }
 
 fn vec_shape(value: SEXP) -> String {
@@ -259,7 +280,6 @@ fn vec_glimpse(value: SEXP) -> BindingValue {
     }
 }
 
-#[allow(dead_code)]
 fn altrep_class(object: SEXP) -> String {
     let serialized_klass = unsafe{
         ATTRIB(ALTREP_CLASS(object))
