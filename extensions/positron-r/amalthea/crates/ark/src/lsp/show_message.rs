@@ -11,7 +11,7 @@ use libR_sys::*;
 use stdext::local;
 use stdext::unwrap;
 
-use crate::lsp::global::SHELL_REQUEST_TX;
+use crate::lsp::globals::SHELL_REQUEST_TX;
 use crate::request::Request;
 
 /// Shows a message in the Positron frontend
@@ -26,10 +26,7 @@ pub unsafe extern "C" fn ps_show_message(message: SEXP) -> SEXP {
         let event = PositronEvent::ShowMessage(ShowMessageEvent { message });
         let event = Request::DeliverEvent(event);
 
-        let shell_request_tx = SHELL_REQUEST_TX.lock().unwrap();
-        let shell_request_tx = unwrap!(shell_request_tx.as_ref(), Err(error) => {
-             anyhow::bail!("Error getting shell request channel: {}", error);
-        });
+        let shell_request_tx = SHELL_REQUEST_TX.get_unchecked().lock();
         let status = unwrap!(shell_request_tx.send(event), Err(error) => {
             anyhow::bail!("Error sending request: {}", error);
         });

@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
+use amalthea::comm::event::CommEvent;
 use crossbeam::channel::Sender;
 use dashmap::DashMap;
 use harp::r_lock;
@@ -36,8 +37,10 @@ use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::definitions::goto_definition;
 use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::documents::Document;
-use crate::lsp::global::LSP_CLIENT;
-use crate::lsp::global::SHELL_REQUEST_TX;
+use crate::lsp::globals;
+use crate::lsp::globals::COMM_MANAGER_TX;
+use crate::lsp::globals::LSP_CLIENT;
+use crate::lsp::globals::SHELL_REQUEST_TX;
 use crate::lsp::help_proxy;
 use crate::lsp::hover::hover;
 use crate::lsp::indexer;
@@ -566,7 +569,7 @@ impl Backend {
 }
 
 #[tokio::main]
-pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, lsp_initialized: bool) {
+pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, comm_manager_tx: Sender<CommEvent>, lsp_initialized: bool) {
     #[cfg(feature = "runtime-agnostic")]
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
@@ -584,8 +587,11 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, lsp_i
     let init = |client: Client| {
 
         // initialize shared globals (needed for R callbacks)
-        LSP_CLIENT.lock().unwrap().replace(client.clone());
-        SHELL_REQUEST_TX.lock().unwrap().replace(shell_request_tx.clone());
+        globals::initialize(
+            client.clone(),
+            shell_request_tx.clone(),
+            comm_manager_tx.clone()
+        );
 
         // create backend
         let backend = Backend {
