@@ -11,7 +11,6 @@ import { EnvironmentVariable } from 'vs/workbench/contrib/positronEnvironment/br
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { EnvironmentVariableValueKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 import { EnvironmentVariablesGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariablesGroup';
-import { EnvironmentVariablesContainer } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariablesContainer';
 import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/contrib/positronEnvironment/common/utils';
 import { IPositronEnvironmentInstance, PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
@@ -41,7 +40,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [marker, setMarker] = useState(generateUuid());
 	const [nameColumnWidth, _setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
 	const [detailsColumnWidth, setDetailsColumnWidth] =
-		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
+		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH - 1);
 	const [typeVisible, setTypeVisible] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_VISIBILITY_THRESHOLD);
 	const [dataExpanded, setDataExpanded] = useState(true);
@@ -60,6 +59,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		// Add the onDidChangeState event handler.
 		disposableStore.add(
 			props.positronEnvironmentInstance.onDidChangeState(state => {
+				// TODO
 			})
 		);
 
@@ -85,12 +85,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// Width use effect.
 	useEffect(() => {
-		setDetailsColumnWidth(props.width - nameColumnWidth);
+		setDetailsColumnWidth(props.width - nameColumnWidth - 1);
 		setTypeVisible(props.width > TYPE_VISIBILITY_THRESHOLD);
 	}, [props.width]);
-
-	// Temporary logging.
-	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
 
 	/**
 	 * Renders environment.
@@ -149,9 +146,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onExpand={() => setDataExpanded(true)}
 					onCollapse={() => setDataExpanded(false)}
 					onToggleExpandCollapse={() => setDataExpanded(!dataExpanded)}>
-					<EnvironmentVariablesContainer>
-						{renderItems(dataItems, 'name')}
-					</EnvironmentVariablesContainer>
+					{renderItems(dataItems, 'name')}
 				</EnvironmentVariablesGroup>
 			}
 			{valueItems.length !== 0 &&
@@ -161,9 +156,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onExpand={() => setValuesExpanded(true)}
 					onCollapse={() => setValuesExpanded(false)}
 					onToggleExpandCollapse={() => setValuesExpanded(!valuesExpanded)}>
-					<EnvironmentVariablesContainer>
-						{renderItems(valueItems, 'name')}
-					</EnvironmentVariablesContainer>
+					{renderItems(valueItems, 'name')}
 				</EnvironmentVariablesGroup>
 			}
 			{functionItems.length !== 0 &&
@@ -173,9 +166,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onExpand={() => setFunctionsExpanded(true)}
 					onCollapse={() => setFunctionsExpanded(false)}
 					onToggleExpandCollapse={() => setFunctionsExpanded(!functionsExpanded)}>
-					<EnvironmentVariablesContainer>
-						{renderItems(functionItems, 'name')}
-					</EnvironmentVariablesContainer>
+					{renderItems(functionItems, 'name')}
 				</EnvironmentVariablesGroup>
 			}
 		</>);
@@ -213,9 +204,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onExpand={() => setSmallExpanded(true)}
 					onCollapse={() => setSmallExpanded(false)}
 					onToggleExpandCollapse={() => setSmallExpanded(!smallExpanded)}>
-					<EnvironmentVariablesContainer>
-						{renderItems(smallItems, 'size')}
-					</EnvironmentVariablesContainer>
+					{renderItems(smallItems, 'size')}
 				</EnvironmentVariablesGroup>
 			}
 			{mediumItems.length !== 0 &&
@@ -225,9 +214,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onExpand={() => setMediumExpanded(true)}
 					onCollapse={() => setMediumExpanded(false)}
 					onToggleExpandCollapse={() => setMediumExpanded(!mediumExpanded)}>
-					<EnvironmentVariablesContainer>
-						{renderItems(mediumItems, 'size')}
-					</EnvironmentVariablesContainer>
+					{renderItems(mediumItems, 'size')}
 				</EnvironmentVariablesGroup>
 			}
 			{largeItems.length !== 0 &&
@@ -237,9 +224,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onExpand={() => setLargeExpanded(true)}
 					onCollapse={() => setLargeExpanded(false)}
 					onToggleExpandCollapse={() => setLargeExpanded(!largeExpanded)}>
-					<EnvironmentVariablesContainer>
-						{renderItems(largeItems, 'size')}
-					</EnvironmentVariablesContainer>
+					{renderItems(largeItems, 'size')}
 				</EnvironmentVariablesGroup>
 			}
 			{veryLargeItems.length !== 0 &&
@@ -249,9 +234,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					onExpand={() => setVeryLargeExpanded(true)}
 					onCollapse={() => setVeryLargeExpanded(false)}
 					onToggleExpandCollapse={() => setVeryLargeExpanded(!veryLargeExpanded)}>
-					<EnvironmentVariablesContainer>
-						{renderItems(veryLargeItems, 'size')}
-					</EnvironmentVariablesContainer>
+					{renderItems(veryLargeItems, 'size')}
 				</EnvironmentVariablesGroup>
 			}
 		</>);
@@ -271,23 +254,19 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			sortEnvironmentVariableItemsBySize(items);
 		}
 
-		// Return the environment variable items.
-		return (
-			<EnvironmentVariablesContainer>
-				{items.map(item =>
-					<EnvironmentVariable
-						key={item.id}
-						nameColumnWidth={nameColumnWidth}
-						detailsColumnWidth={detailsColumnWidth}
-						typeVisible={typeVisible}
-						indentLevel={0}
-						environmentVariableItem={item} />
-				)}
-			</EnvironmentVariablesContainer>
+		return items.map(item =>
+			<EnvironmentVariable
+				key={item.id}
+				nameColumnWidth={nameColumnWidth}
+				detailsColumnWidth={detailsColumnWidth}
+				typeVisible={typeVisible}
+				indentLevel={0}
+				environmentVariableItem={item} />
 		);
 	};
 
-	console.log(`Rendering environment at width ${props.width}`);
+	// Temporary logging.
+	console.log(`+++++++++++++ Rendering EnvironmentInstance for marker ${marker}`);
 
 	// Render.
 	return (

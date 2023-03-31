@@ -278,11 +278,10 @@ impl LanguageServer for Backend {
             return;
         });
 
-        // update the document
-        for change in params.content_changes.iter() {
-            if let Err(error) = doc.update(change) {
-                backend_trace!(self, "doc.update(): unexpected error {}", error);
-            }
+        // respond to document updates
+        if let Err(error) = doc.on_did_change(&params) {
+            backend_trace!(self, "did_change(): unexpected error applying updates {}", error);
+            return;
         }
 
         // update index
@@ -476,7 +475,8 @@ impl LanguageServer for Backend {
         });
 
         // request signature help
-        let result = unsafe { signature_help(document.value(), &params) };
+        let position = params.text_document_position_params.position;
+        let result = unsafe { signature_help(document.value(), &position) };
 
         // unwrap errors
         let result = unwrap!(result, Err(error) => {

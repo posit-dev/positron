@@ -14,6 +14,9 @@ use crate::utils::r_assert_type;
 pub mod character_vector;
 pub use character_vector::CharacterVector;
 
+pub mod factor;
+pub use factor::Factor;
+
 pub mod integer_vector;
 pub use integer_vector::IntegerVector;
 
@@ -31,6 +34,7 @@ pub trait Vector {
     type Item: ?Sized;
     const SEXPTYPE: u32;
     type UnderlyingType;
+    type CompareType;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self;
     fn data(&self) -> SEXP;
@@ -73,5 +77,7 @@ pub trait Vector {
     unsafe fn len(&self) -> usize {
         Rf_xlength(self.data()) as usize
     }
+
+    fn format_one(&self, x: Self::Type) -> String;
 
 }

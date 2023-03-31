@@ -1,5 +1,5 @@
 //
-// integer_vector.rs
+// factor.rs
 //
 // Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
@@ -8,14 +8,17 @@
 use libR_sys::*;
 
 use crate::object::RObject;
+use crate::r_symbol;
 use crate::vector::Vector;
+use crate::vector::CharacterVector;
 
 #[harp_macros::vector]
-pub struct IntegerVector {
+pub struct Factor {
     object: RObject,
+    levels: CharacterVector
 }
 
-impl Vector for IntegerVector {
+impl Vector for Factor {
     type Item = i32;
     type Type = i32;
     const SEXPTYPE: u32 = INTSXP;
@@ -23,7 +26,13 @@ impl Vector for IntegerVector {
     type CompareType = i32;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
-        Self { object: RObject::new(object.into()) }
+        let object = RObject::new(object.into());
+        let levels = CharacterVector::new(Rf_getAttrib(*object, r_symbol!("levels"))).unwrap();
+
+        Self {
+            object,
+            levels
+        }
     }
 
     unsafe fn create<T>(data: T) -> Self
@@ -61,6 +70,6 @@ impl Vector for IntegerVector {
     }
 
     fn format_one(&self, x: Self::Type) -> String {
-        x.to_string()
+        self.levels.get_unchecked((x - 1) as isize).unwrap()
     }
 }

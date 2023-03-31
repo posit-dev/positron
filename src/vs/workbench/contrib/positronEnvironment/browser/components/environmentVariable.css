@@ -4,7 +4,18 @@
 
 .environment-variable {
 	display: flex;
-	border-bottom: 1px solid var(--vscode-positronEnvironment-gridColor);
+	cursor: pointer;
+	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
+	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
+}
+
+.environment-variable:hover {
+	background: var(--vscode-positronEnvironment-rowHoverBackground)
+}
+
+.environment-variable.selected {
+	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
+	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
 }
 
 .environment-variable .name {

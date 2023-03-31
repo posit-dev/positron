@@ -3,8 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .environment-core .environment-instance {
-	-webkit-user-select: text;
-	-moz-user-select: text;
-	-ms-user-select: text;
-	user-select: text;
+	line-height: 200%;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
 }

@@ -4,12 +4,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-// --- Start Positron ---
-import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, buttonForeground, buttonSecondaryForeground, buttonBackground, buttonSecondaryBackground, secondaryBackground, checkboxBorder, checkboxBackground, checkboxForeground, inputBackground, foreground, disabledForeground } from 'vs/platform/theme/common/colorRegistry';
-// --- End Positron ---
+import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder } from 'vs/platform/theme/common/colorRegistry';
 import { IColorTheme } from 'vs/platform/theme/common/themeService';
 import { Color } from 'vs/base/common/color';
 import { ColorScheme } from 'vs/platform/theme/common/theme';
+
+// --- Start Positron ---
+import { // eslint-disable-line no-duplicate-imports
+	foreground,
+	disabledForeground,
+	secondaryBackground,
+	buttonBackground,
+	buttonForeground,
+	buttonSecondaryBackground,
+	buttonSecondaryForeground,
+	checkboxBorder,
+	checkboxForeground,
+	checkboxBackground,
+	inputBackground,
+	listHoverBackground,
+	listHoverForeground,
+	tableColumnsBorder
+} from 'vs/platform/theme/common/colorRegistry';
+// --- End Positron ---
 
 // < --- Workbench (not customizable) --- >
 
@@ -480,10 +497,10 @@ export const STATUS_BAR_NO_FOLDER_FOREGROUND = registerColor('statusBar.noFolder
 
 export const STATUS_BAR_BACKGROUND = registerColor('statusBar.background', {
 	// --- Start Positron ---
-	dark: inputBackground,
-	light: inputBackground,
-	hcDark: inputBackground,
-	hcLight: inputBackground,
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground,
 	// dark: '#007ACC',
 	// light: '#007ACC',
 	// hcDark: null,
@@ -827,8 +844,8 @@ export const TITLE_BAR_INACTIVE_FOREGROUND = registerColor('titleBar.inactiveFor
 
 export const TITLE_BAR_ACTIVE_BACKGROUND = registerColor('titleBar.activeBackground', {
 	// --- Start Positron ---
-	dark: inputBackground,
-	light: inputBackground,
+	dark: editorBackground,
+	light: editorBackground,
 	// dark: '#3C3C3C',
 	// light: '#DDDDDD',
 	// --- End Positron ---
@@ -1002,10 +1019,10 @@ export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBa
 
 // The Positron top action bar background color.
 export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActionBar.background', {
-	dark: inputBackground,
-	light: inputBackground,
-	hcDark: inputBackground,
-	hcLight: inputBackground
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
 }, localize('positronTopActionBar.background', "Positron top action bar background color."));
 
 // The Positron top action bar foreground color.
@@ -1100,8 +1117,8 @@ export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideAction
 
 // The Positron side action bar background color.
 export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideActionBar.background', {
-	dark: '#000000',
-	light: '#ffffff',
+	dark: editorBackground,
+	light: editorBackground,
 	hcDark: SIDE_BAR_BACKGROUND,
 	hcLight: SIDE_BAR_BACKGROUND
 }, localize('positronSideActionBar.background', "Positron side action bar background color."));
@@ -1132,7 +1149,7 @@ export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideAct
 
 // The Positron side action bar hover background color.
 export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
-	dark: inputBackground,
+	dark: editorBackground,
 	light: '#dae1ea',
 	hcDark: null,
 	hcLight: null
@@ -1174,10 +1191,14 @@ export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = register
 
 // Modal dialog background color.
 export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
-	dark: inputBackground,
-	light: inputBackground,
-	hcDark: inputBackground,
-	hcLight: inputBackground
+	// dark: '#3b4245',
+	// light: '#f1f3f5',
+	// hcDark: '#000000',
+	// hcLight: '#ffffff',
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
 }, localize('modalDialog.background', "Modal dialog background color."));
 
 // Modal dialog foreground color.
@@ -1530,18 +1551,64 @@ export const POSITRON_ENVIRONMENT_FOREGROUND_COLOR = registerColor('positronEnvi
 
 // The Positron Environment header background color.
 export const POSITRON_ENVIRONMENT_HEADER_BACKGROUND_COLOR = registerColor('positronEnvironment.headerBackground', {
-	dark: inputBackground,
-	light: inputBackground,
-	hcDark: inputBackground,
-	hcLight: inputBackground
+	dark: lighten(editorBackground, 0.2),
+	light: darken(editorBackground, 0.05),
+	hcDark: editorBackground,
+	hcLight: editorBackground
 }, localize('positronEnvironment.headerBackground', "Positron Environment header background color."));
 
-// The Positron Environment gred color.
+// The Positron Environment grid color.
 export const POSITRON_ENVIRONMENT_GRID_COLOR = registerColor('positronEnvironment.gridColor', {
-	dark: '#2e3336',
-	light: '#dfe3e6',
-	hcDark: '#2f3436',
-	hcLight: '#dfe3e6'
+	dark: tableColumnsBorder,
+	light: tableColumnsBorder,
+	hcDark: tableColumnsBorder,
+	hcLight: tableColumnsBorder
 }, localize('positronEnvironment.gridColor', "Positron Environment grid color."));
+
+// The Positron Environment row hover background color.
+export const POSITRON_ENVIRONMENT_ROW_HOVER_BACKGROUND_COLOR = registerColor('positronEnvironment.rowHoverBackground', {
+	dark: listHoverBackground,
+	light: listHoverBackground,
+	hcDark: listHoverBackground,
+	hcLight: listHoverBackground
+}, localize('positronEnvironment.rowHoverBackground', "Positron Environment row hover background color."));
+
+// The Positron Environment row hover foreground color.
+export const POSITRON_ENVIRONMENT_ROW_HOVER_FOREGROUND_COLOR = registerColor('positronEnvironment.rowHoverForeground', {
+	dark: listHoverForeground,
+	light: listHoverForeground,
+	hcDark: listHoverForeground,
+	hcLight: listHoverForeground
+}, localize('positronEnvironment.rowHoverForeground', "Positron Environment row hover foreground color."));
+
+
+
+
+export const POSITRON_ENVIRONMENT_ACTIVE_SELECTION_BACKGROUND_COLOR = registerColor('positronEnvironment.activeSelectionBackgroundColor', {
+	dark: listActiveSelectionBackground,
+	light: listActiveSelectionBackground,
+	hcDark: listActiveSelectionBackground,
+	hcLight: listActiveSelectionBackground
+}, localize('positronEnvironment.activeSelectionBackgroundColor', "Positron Environment active selection background color."));
+
+
+export const POSITRON_ENVIRONMENT_ACTIVE_SELECTION_FOREGROUND_COLOR = registerColor('positronEnvironment.activeSelectionForegroundColor', {
+	dark: listActiveSelectionForeground,
+	light: listActiveSelectionForeground,
+	hcDark: listActiveSelectionForeground,
+	hcLight: listActiveSelectionForeground
+}, localize('positronEnvironment.activeSelectionForegroundColor', "Positron Environment active selection foreground color."));
+
+
+
+
+export const POSITRON_ENVIRONMENT_SELECTION_FOREGROUND_COLOR = registerColor('positronEnvironment.selectionForegroundColor', {
+	dark: '#ffffff',
+	light: '#4777ad',
+	hcDark: '#2d77ce',
+	hcLight: '#4777ad'
+}, localize('positronEnvironment.selectionForegroundColor', "Positron Environment selection foreground color."));
+
+//listActiveSelectionBackground, listActiveSelectionForeground
 
 // --- End Positron ---
