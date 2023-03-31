@@ -7,22 +7,26 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
- * PlotInstanceProps interface.
+ * DynamicPlotInstanceProps interface.
  */
-interface PlotInstanceProps {
+interface DynamicPlotInstanceProps {
 	width: number;
 	height: number;
 	plotClient: PlotClientInstance;
 }
 
 /**
- * PlotInstance component. This component renders a single plot in the Plots
- * pane.
+ * DynamicPlotInstance component. This component renders a single dynamic plot
+ * in the Plots pane.
  *
- * @param props A PlotInstanceProps that contains the component properties.
+ * Unlike a StaticPlotInstance, a DynamicPlotInstance can redraw itself when
+ * the plot size changes. It wraps a PlotClientInstance, which is responsible
+ * for generating the plot data.
+ *
+ * @param props A DynamicPlotInstanceProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PlotInstance = (props: PlotInstanceProps) => {
+export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
 
@@ -39,7 +43,7 @@ export const PlotInstance = (props: PlotInstanceProps) => {
 	// Consider: we probably want a more explicit loading state; as written we
 	// will show the old URI until the new one is ready.
 	return (
-		<div className='plot-instance'>
+		<div className='dynamic-plot-instance'>
 			{uri &&
 				<img src={uri}
 					height={props.height}

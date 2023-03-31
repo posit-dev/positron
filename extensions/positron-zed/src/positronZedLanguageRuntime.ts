@@ -57,9 +57,10 @@ const HelpLines = [
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
-	'plot X       - Renders a plot of the letter X',
+	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
 	'progress     - Renders a progress bar',
 	'shutdown     - Simulates orderly shutdown',
+	'static plot  - Renders a static plot (image)',
 	'version      - Shows the Zed version'
 ].join('\n');
 
@@ -273,7 +274,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			// drawn in the middle of the plot. If no argument is given, the
 			// letter "Z" is used.
 			const letter = (match.length > 1 && match[1]) ? match[1].trim().toUpperCase() : 'Z';
-			this.simulatePlot(id, letter, code);
+			this.simulateDynamicPlot(id, letter, code);
 			return;
 		}
 
@@ -681,6 +682,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'static plot': {
+				this.simulateStaticPlot(id, code);
+				break;
+			}
+
 			case 'shutdown': {
 				this.shutdown();
 				break;
@@ -896,14 +902,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		}, 2000);
 	}
 
-	/**
-	 * Simulates a plot. Zed plots a single letter.
-	 *
-	 * @param parentId The parent identifier.
-	 * @param letter The plot letter.
-	 * @param code The code.
-	 */
-	private simulatePlot(parentId: string, letter: string, code: string) {
+	private simulateStaticPlot(parentId: string, code: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
@@ -926,6 +925,22 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
 
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates a dynamic plot. Zed plots a single letter.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param letter The plot letter.
+	 * @param code The code.
+	 */
+	private simulateDynamicPlot(parentId: string, letter: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
 		// Create the plot client comm.
 		const plot = new ZedPlot(this.context, letter);
 		this.connectClientEmitter(plot);
@@ -942,6 +957,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			data: {}
 		} as positron.LanguageRuntimeCommOpen);
 
+		// Emit text output so something shows up in the console.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': `<ZedDynamic PLOT '${letter}'>`
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
 		this.simulateIdleState(parentId);
 	}
 
