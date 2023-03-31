@@ -304,6 +304,11 @@ fn test_kernel() {
         data: serde_json::Value::Null,
     });
 
+    // Absorb the IOPub messages that the kernel sends back during the
+    // processing of the above `CommOpen` request
+    frontend.receive_iopub(); // Busy
+    frontend.receive_iopub(); // Idle
+
     info!("Requesting comm info from the kernel (to test opening from the front end)");
     frontend.send_shell(CommInfoRequest {
         target_name: "environment".to_string(),

@@ -298,6 +298,63 @@ impl Shell {
     fn handle_comm_open(&mut self, req: JupyterMessage<CommOpen>) -> Result<(), Error> {
         debug!("Received request to open comm: {:?}", req);
 
+        // Enter the kernel-busy state in preparation for handling the message.
+        if let Err(err) = self.send_state(req.clone(), ExecutionState::Busy) {
+            warn!("Failed to change kernel status to busy: {}", err)
+        }
+
+        // Process the comm open request
+        let result = self.open_comm(req.clone());
+
+        // Return kernel to idle state
+        if let Err(err) = self.send_state(req, ExecutionState::Idle) {
+            warn!("Failed to restore kernel status to idle: {}", err)
+        }
+
+        // Return the result
+        result
+    }
+
+    /// Deliver a request from the front end to a comm. Specifically, this is a
+    /// request from the front end to deliver a message to a backend, often as
+    /// the request side of a request/response pair.
+    fn handle_comm_msg(
+        &self,
+        _handler: &dyn ShellHandler,
+        req: JupyterMessage<CommMsg>,
+    ) -> Result<(), Error> {
+        debug!("Received request to send a message on a comm: {:?}", req);
+
+        // Enter the kernel-busy state in preparation for handling the message.
+        if let Err(err) = self.send_state(req.clone(), ExecutionState::Busy) {
+            warn!("Failed to change kernel status to busy: {}", err)
+        }
+
+        // Store this message as a pending RPC request so that when the comm
+        // responds, we can match it up
+        self.comm_manager_tx
+            .send(CommEvent::PendingRpc(req.header.clone()))
+            .unwrap();
+
+        // Send the message to the comm
+        let msg = CommChannelMsg::Rpc(req.header.msg_id.clone(), req.content.data.clone());
+        self.comm_manager_tx
+            .send(CommEvent::Message(req.content.comm_id.clone(), msg))
+            .unwrap();
+
+        // Return kernel to idle state
+        if let Err(err) = self.send_state(req, ExecutionState::Idle) {
+            warn!("Failed to restore kernel status to idle: {}", err)
+        }
+        Ok(())
+    }
+
+    /**
+     * Performs the body of the comm open request; wrapped in a separate method to make
+     * it easier to handle errors and return to the idle state when the request is
+     * complete.
+     */
+    fn open_comm(&mut self, req: JupyterMessage<CommOpen>) -> Result<(), Error> {
         // Check to see whether the target name begins with "positron." This
         // prefix designates comm IDs that are known to the Positron IDE.
         let comm = match req.content.target_name.starts_with("positron.") {
@@ -353,10 +410,10 @@ impl Shell {
                     // message from the front end that contains the information
                     // about the client side of the LSP; specifically, the
                     // address to bind to.
-                    let start_lsp: StartLsp =
-                        serde_json::from_value(req.content.data).map_err(|err| {
+                    let start_lsp: StartLsp = serde_json::from_value(req.content.data.clone())
+                        .map_err(|err| {
                             Error::InvalidCommMessage(
-                                req.content.target_name,
+                                req.content.target_name.clone(),
                                 data_str,
                                 err.to_string(),
                             )
@@ -423,30 +480,6 @@ impl Shell {
             return Err(Error::UnknownCommName(comm_name.clone()));
         }
 
-        Ok(())
-    }
-
-    /// Deliver a request from the front end to a comm. Specifically, this is a
-    /// request from the front end to deliver a message to a backend, often as
-    /// the request side of a request/response pair.
-    fn handle_comm_msg(
-        &self,
-        _handler: &dyn ShellHandler,
-        req: JupyterMessage<CommMsg>,
-    ) -> Result<(), Error> {
-        debug!("Received request to send a message on a comm: {:?}", req);
-
-        // Store this message as a pending RPC request so that when the comm
-        // responds, we can match it up
-        self.comm_manager_tx
-            .send(CommEvent::PendingRpc(req.header.clone()))
-            .unwrap();
-
-        // Send the message to the comm
-        let msg = CommChannelMsg::Rpc(req.header.msg_id.clone(), req.content.data);
-        self.comm_manager_tx
-            .send(CommEvent::Message(req.content.comm_id.clone(), msg))
-            .unwrap();
         Ok(())
     }
 
