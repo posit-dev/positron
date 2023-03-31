@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/plotInstance';
+import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 
 /**
@@ -40,7 +40,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				<span>Plot container: {props.height} x {props.width}</span>}
 			{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
 				index === positronPlotsContext.positronPlotInstances.length - 1 &&
-				<PlotInstance
+				<DynamicPlotInstance
 					key={plotInstance.id}
 					width={props.width}
 					height={props.height}

@@ -9,20 +9,24 @@ import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common
 /**
  * PlotInstanceProps interface.
  */
-interface PlotInstanceProps {
+interface DynamicPlotInstanceProps {
 	width: number;
 	height: number;
 	plotClient: PlotClientInstance;
 }
 
 /**
- * PlotInstance component. This component renders a single plot in the Plots
- * pane.
+ * DynamicPlotInstance component. This component renders a single dynamic plot
+ * in the Plots pane.
+ *
+ * Unlike a StaticPlotInstance, a DynamicPlotInstance can redraw itself when
+ * the plot size changes. It wraps a PlotClientInstance, which is responsible
+ * for generating the plot data.
  *
  * @param props A PlotInstanceProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PlotInstance = (props: PlotInstanceProps) => {
+export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
 
