@@ -25,7 +25,9 @@ interface StaticPlotInstanceProps {
 export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	return (
 		<div className='static-plot-instance'>
-			<img src={props.plotClient.uri}
-				alt={'Plot ' + props.plotClient.id} />
+			<div className='image-wrapper'>
+				<img src={props.plotClient.uri}
+					alt={'Plot ' + props.plotClient.id} />
+			</div>
 		</div>);
 };
