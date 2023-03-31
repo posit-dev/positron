@@ -77,14 +77,14 @@ impl PartialOrd for Binding {
 }
 
 pub struct BindingValue {
-    pub value: String,
+    pub display_value: String,
     pub is_truncated: bool
 }
 
 impl BindingValue {
-    pub fn new(value: String, is_truncated: bool) -> Self {
+    pub fn new(display_value: String, is_truncated: bool) -> Self {
         BindingValue {
-            value,
+            display_value,
             is_truncated
         }
     }
@@ -159,6 +159,7 @@ fn regular_binding_display_value(value: SEXP) -> BindingValue {
 
         // TODO:
         //   - list (or does that go in vector too)
+        //   - data.frame
         //   - function
         //   - environment
         //   - pairlist
