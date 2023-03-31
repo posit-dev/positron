@@ -8,13 +8,13 @@
 use harp::environment::Binding;
 use harp::environment::BindingType;
 use harp::environment::BindingValue;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
-use libR_sys::R_NamesSymbol;
 use libR_sys::Rf_findVarInFrame;
-use libR_sys::Rf_getAttrib;
 use libR_sys::VECTOR_ELT;
 use libR_sys::XLENGTH;
 use serde::Deserialize;
@@ -113,14 +113,17 @@ impl EnvironmentVariable {
     }
 
     pub fn inspect(env: RObject, path: Vec<String>) -> Vec<Self> {
-        // for now path is only one string, and the object is a named list
+        // for now path is only one string, and the object is a list
         let name = unsafe{ path.get_unchecked(0) };
         let list = unsafe{ Rf_findVarInFrame(*env, r_symbol!(name))};
 
         let mut out : Vec<Self> = vec![];
         let n = unsafe { XLENGTH(list) };
 
-        let names = unsafe { CharacterVector::new_unchecked(Rf_getAttrib(list, R_NamesSymbol)) };
+        let names = unsafe{
+            CharacterVector::new_unchecked(RFunction::from(".ps.list_display_names").add(list).call().unwrap())
+        };
+
         for i in 0..n {
             let x = RObject::view(unsafe{ VECTOR_ELT(list, i)});
             let display_name = names.get_unchecked(i).unwrap();
