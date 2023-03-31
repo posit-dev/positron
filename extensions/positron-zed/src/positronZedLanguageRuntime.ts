@@ -268,6 +268,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			}
 			return this.simulateSuccessfulCodeExecution(id, code,
 				`Now displaying a maximum of ${max} variables.`);
+		} else if (match = code.match(/^plot( [a-zA-Z])?/)) {
+			// Create a plot. This takes a single-character argument that is
+			// drawn in the middle of the plot. If no argument is given, the
+			// letter "Z" is used.
+			const letter = (match.length > 1 && match[1]) ? match[1].trim().toUpperCase() : 'Z';
+			this.simulatePlot(id, letter, code);
+			return;
 		}
 
 		// Process the "code".
@@ -669,11 +676,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'plot': {
-				this.simulatePlot(id, code);
-				break;
-			}
-
 			case 'progress': {
 				this.simulateProgressBar(id, code);
 				break;
@@ -895,11 +897,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
-	 * Simulates a plot
+	 * Simulates a plot. Zed plots a single letter.
+	 *
 	 * @param parentId The parent identifier.
+	 * @param letter The plot letter.
 	 * @param code The code.
 	 */
-	private simulatePlot(parentId: string, code: string) {
+	private simulatePlot(parentId: string, letter: string, code: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
@@ -923,7 +927,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} as positron.LanguageRuntimeOutput);
 
 		// Create the plot client comm.
-		const plot = new ZedPlot(this.context);
+		const plot = new ZedPlot(this.context, letter);
 		this.connectClientEmitter(plot);
 		this._plots.set(plot.id, plot);
 

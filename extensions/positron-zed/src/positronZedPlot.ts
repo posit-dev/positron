@@ -29,7 +29,8 @@ export class ZedPlot {
 
 	public readonly id: string;
 
-	constructor(private readonly context: vscode.ExtensionContext) {
+	constructor(private readonly context: vscode.ExtensionContext,
+		private readonly letter: string) {
 		this.id = randomUUID();
 	}
 
@@ -64,6 +65,7 @@ export class ZedPlot {
 		// rendered at the size they requested.
 		const plotSvgContents = plotSvg.toString();
 		const finalSvg = plotSvgContents
+			.replace('$title', this.letter)
 			.replace('$width', request.width.toString())
 			.replace('$height', request.height.toString());
 
