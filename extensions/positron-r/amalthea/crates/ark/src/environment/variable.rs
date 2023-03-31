@@ -15,6 +15,7 @@ use harp::vector::Vector;
 use libR_sys::R_NamesSymbol;
 use libR_sys::Rf_findVarInFrame;
 use libR_sys::Rf_getAttrib;
+use libR_sys::VECTOR_ELT;
 use libR_sys::XLENGTH;
 use serde::Deserialize;
 use serde::Serialize;
@@ -121,17 +122,20 @@ impl EnvironmentVariable {
 
         let names = unsafe { CharacterVector::new_unchecked(Rf_getAttrib(list, R_NamesSymbol)) };
         for i in 0..n {
+            let x = RObject::view(unsafe{ VECTOR_ELT(list, i)});
             let display_name = names.get_unchecked(i).unwrap();
+            let BindingValue{display_value, is_truncated} = BindingValue::from(*x);
+            let BindingType{display_type, type_info} = BindingType::from(*x);
             out.push(Self {
                 display_name,
-                display_value: String::from("..."),
-                display_type: String::from("..."),
-                type_info: String::from("..."),
+                display_value,
+                display_type,
+                type_info,
                 kind: ValueKind::Other,
                 length: 0,
                 size: 0,
                 has_children: false,
-                is_truncated: false
+                is_truncated
             })
         }
 

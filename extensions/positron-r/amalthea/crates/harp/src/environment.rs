@@ -94,6 +94,10 @@ impl BindingValue {
     pub fn empty() -> Self {
         Self::new(String::from(""), false)
     }
+
+    pub fn from(x: SEXP) -> Self {
+        regular_binding_display_value(x)
+    }
 }
 
 pub struct BindingType {
@@ -107,6 +111,10 @@ impl BindingType {
             display_type,
             type_info
         }
+    }
+
+    pub fn from(value: SEXP) -> Self {
+        regular_binding_type(value)
     }
 }
 
