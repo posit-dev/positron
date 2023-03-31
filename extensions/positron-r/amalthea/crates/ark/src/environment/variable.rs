@@ -88,6 +88,7 @@ impl EnvironmentVariable {
         let BindingType{display_type, type_info} = binding.get_type();
 
         let kind = ValueKind::String;
+        let has_children = binding.has_children();
 
         Self {
             display_name,
@@ -97,7 +98,7 @@ impl EnvironmentVariable {
             kind,
             length: 0,
             size: 0,
-            has_children: false,
+            has_children,
             is_truncated,
         }
     }

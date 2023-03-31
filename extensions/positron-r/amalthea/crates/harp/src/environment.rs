@@ -150,6 +150,19 @@ impl Binding {
         }
     }
 
+    pub fn has_children(&self) -> bool {
+        match self.kind {
+            // TODO: for now only lists have children
+            BindingKind::Regular => r_typeof(self.value) == VECSXP,
+            BindingKind::Promise(true) => r_typeof(unsafe{PRVALUE(self.value)}) == VECSXP,
+
+            // TODO:
+            //   - BindingKind::Promise(false) could have code and env as their children
+            //   - BindingKind::Active could have their function
+            _ => false
+        }
+    }
+
 }
 
 fn is_vector(value: SEXP) -> bool {
