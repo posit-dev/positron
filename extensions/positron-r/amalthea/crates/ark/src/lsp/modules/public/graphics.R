@@ -107,8 +107,8 @@
     dev.copy(function() {
         grDevices::png(
             filename = filepath,
-            width    = height,
-            height   = width,
+            width    = width,
+            height   = height,
             res      = res,
             type     = type
         )
@@ -122,5 +122,3 @@
     base64enc::base64encode(contents)
 
 }
-
-
