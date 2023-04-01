@@ -24,8 +24,13 @@
 //!
 
 
+use std::collections::HashMap;
+
+use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::comm::event::CommEvent;
+use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
+use crossbeam::channel::Select;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use libR_sys::*;
@@ -34,6 +39,12 @@ use stdext::unwrap;
 use uuid::Uuid;
 
 use crate::lsp::globals::COMM_MANAGER_TX;
+use crate::plots::message::PlotMessageInput;
+use crate::plots::message::PlotMessageInputRender;
+use crate::plots::message::PlotMessageOutput;
+use crate::plots::message::PlotMessageOutputImage;
+
+const POSITRON_PLOT_CHANNEL_ID: &str = "positron.plot";
 
 macro_rules! trace {
     ($($tts:tt)*) => {{
@@ -52,7 +63,7 @@ struct DeviceCallbacks {
     pub newPage: Option<unsafe extern "C" fn(pGEcontext, pDevDesc)>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct DeviceContext {
 
     // Tracks whether the graphics device has changes.
@@ -73,6 +84,10 @@ struct DeviceContext {
     // The ID associated with the current plot page. Used primarily
     // for accessing indexed plots, e.g. for the Plots pane history.
     pub _id: Option<String>,
+
+    // A map, mapping plot IDs to the communication channels used
+    // for communicating their rendered results to the front-end.
+    pub _channels: HashMap<String, CommSocket>,
 
     // The device callbacks, which are patched into the device.
     pub _callbacks: DeviceCallbacks,
@@ -118,44 +133,104 @@ impl DeviceContext {
 
         // Let Positron know that we just created a new plot.
         let socket = CommSocket::new(
-            amalthea::socket::comm::CommInitiator::BackEnd,
-            id,
-            "positron.plots".to_string()
+            CommInitiator::BackEnd,
+            id.clone(),
+            POSITRON_PLOT_CHANNEL_ID.to_string(),
         );
 
-        let event = CommEvent::Opened(socket, serde_json::Value::Null);
-
+        let event = CommEvent::Opened(socket.clone(), serde_json::Value::Null);
         let comm_manager_tx = COMM_MANAGER_TX.get_unchecked().lock();
         if let Err(error) = comm_manager_tx.send(event) {
             log::error!("{}", error);
         }
 
+        // Save our new socket.
+        self._channels.insert(id.clone(), socket.clone());
+
     }
 
-    pub unsafe fn render_plot(&mut self) {
+    pub unsafe fn on_process_events(&mut self) {
 
-        let id = unwrap!(&self._id, None => {
-            log::error!("{}", "internal error: unexpected null graphics id");
+        // Collect existing channels into a vector of tuples.
+        // Necessary for handling Select in a clean way.
+        let channels = self._channels.clone();
+        let channels = channels.iter().collect::<Vec<_>>();
+
+        // Check for incoming plot render requests.
+        let mut select = Select::new();
+        for (_id, channel) in channels.iter() {
+            select.recv(&channel.incoming_rx);
+        }
+
+        let selection = unwrap!(select.try_select(), Err(_error) => {
+            // We don't log errors here, since it's most likely that none
+            // of the channels have any messages available.
             return;
         });
 
-        if self._rendering {
-            trace!("+++ Ignoring recursive plot attempt.");
+        eprintln!("Selection index: {}", selection.index());
+
+        let plot_id = channels.get_unchecked(selection.index()).0;
+        let socket = channels.get_unchecked(selection.index()).1;
+        let message = unwrap!(selection.recv(&socket.incoming_rx), Err(error) => {
+            log::error!("{}", error);
             return;
+        });
+
+        // Get the RPC request.
+        if let CommChannelMsg::Rpc(rpc_id, value) = message {
+
+            let input = serde_json::from_value::<PlotMessageInput>(value);
+            let input = unwrap!(input, Err(error) => {
+                log::error!("{}", error);
+                return;
+            });
+
+            match input {
+                PlotMessageInput::Render(plot_meta) => {
+                    self.render_plot(plot_id, plot_meta, rpc_id.as_str(), socket);
+                }
+            }
+
         }
 
-        trace!("+++ Rendering plot.");
+
+    }
+
+    pub unsafe fn render_plot(
+        &mut self,
+        plot_id: &str,
+        plot_meta: PlotMessageInputRender,
+        rpc_id: &str,
+        socket: &CommSocket)
+    {
+        eprintln!("+++ Rendering plot {}. [{:?}]", plot_id, plot_meta);
+
         self._rendering = true;
         let result = RFunction::from(".ps.graphics.renderPlot")
-            .param("id", id.as_str())
+            .param("id", plot_id)
+            .param("width", plot_meta.width)
+            .param("height", plot_meta.height)
+            .param("dpr", plot_meta.pixel_ratio)
             .call();
         self._rendering = false;
 
+        let image = unwrap!(result, Err(error) => {
+            log::error!("{}", error);
+            return;
+        });
+
+        let response = PlotMessageOutput::Image(PlotMessageOutputImage {
+            data: image.to::<String>().unwrap(),
+            mime_type: "image/x-png".to_string(),
+        });
+
+        let json = serde_json::to_value(response).unwrap();
+        let result = socket.outgoing_tx.send(CommChannelMsg::Rpc(rpc_id.to_string(), json));
         if let Err(error) = result {
             log::error!("{}", error);
             return;
         }
-
 
     }
 
@@ -205,14 +280,7 @@ pub unsafe fn on_process_events() {
         return;
     }
 
-    // Don't do anything if we haven't observed any changes.
-    if !context._dirty {
-        return;
-    }
-
-    // Okay, go for it.
-    context._dirty = false;
-    DEVICE_CONTEXT.render_plot();
+    DEVICE_CONTEXT.on_process_events();
 
 }
 

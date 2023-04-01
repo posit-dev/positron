@@ -43,9 +43,7 @@ impl TreeExt for Tree {
         let mut cursor = node.walk();
         let children = node.children(&mut cursor);
         for child in children {
-            eprintln!("Child: {:?}", child);
             if child.start_position() <= point {
-                eprintln!("{}", "Updating node.");
                 node = child;
             }
         }
