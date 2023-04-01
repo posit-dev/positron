@@ -168,8 +168,6 @@ impl DeviceContext {
             return;
         });
 
-        eprintln!("Selection index: {}", selection.index());
-
         let plot_id = channels.get_unchecked(selection.index()).0;
         let socket = channels.get_unchecked(selection.index()).1;
         let message = unwrap!(selection.recv(&socket.incoming_rx), Err(error) => {
@@ -204,8 +202,6 @@ impl DeviceContext {
         rpc_id: &str,
         socket: &CommSocket)
     {
-        eprintln!("+++ Rendering plot {}. [{:?}]", plot_id, plot_meta);
-
         self._rendering = true;
         let result = RFunction::from(".ps.graphics.renderPlot")
             .param("id", plot_id)
