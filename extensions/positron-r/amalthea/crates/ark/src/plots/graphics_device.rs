@@ -218,7 +218,7 @@ impl DeviceContext {
 
         let response = PlotMessageOutput::Image(PlotMessageOutputImage {
             data: image.to::<String>().unwrap(),
-            mime_type: "image/x-png".to_string(),
+            mime_type: "image/png".to_string(),
         });
 
         let json = serde_json::to_value(response).unwrap();
