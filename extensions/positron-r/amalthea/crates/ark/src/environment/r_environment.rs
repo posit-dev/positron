@@ -163,7 +163,7 @@ impl REnvironment {
                             },
 
                             EnvironmentMessage::Inspect(EnvironmentMessageInspect{path}) => {
-                                self.inspect(path, Some(id));
+                                self.inspect(&path, Some(id));
                             },
 
                             _ => {
@@ -282,15 +282,15 @@ impl REnvironment {
         self.update(request_id);
     }
 
-    fn inspect(&mut self, path: Vec<String>, request_id: Option<String>) {
+    fn inspect(&mut self, path: &Vec<String>, request_id: Option<String>) {
         let inspect = r_lock!{
-            EnvironmentVariable::inspect(RObject::new(*self.env), path.clone())
+            EnvironmentVariable::inspect(RObject::new(*self.env), &path)
         };
         let msg = match inspect {
             Ok(children) => {
                 let length = children.len();
                 EnvironmentMessage::Details(EnvironmentMessageDetails {
-                    path,
+                    path: path.clone(),
                     children,
                     length
                 })

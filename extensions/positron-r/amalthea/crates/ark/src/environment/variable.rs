@@ -112,7 +112,7 @@ impl EnvironmentVariable {
         }
     }
 
-    pub fn inspect(env: RObject, path: Vec<String>) -> Result<Vec<Self>, harp::error::Error> {
+    pub fn inspect(env: RObject, path: &Vec<String>) -> Result<Vec<Self>, harp::error::Error> {
         // for now only lists can be expanded
         let list = unsafe {
             RFunction::from(".ps.environment.resolveObjectFromPath")
