@@ -217,31 +217,31 @@ fn regular_binding_type(value: SEXP) -> BindingType {
 }
 
 fn vec_type(value: SEXP) -> String {
-    let rtype = match r_typeof(value) {
+    match r_typeof(value) {
         INTSXP  => {
             if unsafe {r_inherits(value, "factor")} {
-                "fct"
+                String::from("fct")
             } else {
-                "int"
+                String::from("int")
             }
         },
-        REALSXP => "dbl",
-        LGLSXP  => "lgl",
-        STRSXP  => "str",
-        RAWSXP  => "raw",
-        CPLXSXP => "cplx",
-        VECSXP  => {
-            if unsafe { r_inherits(value, "data.frame") } {
-                "data.frame"
+        REALSXP => String::from("dbl"),
+        LGLSXP  => String::from("lgl"),
+        STRSXP  => String::from("str"),
+        RAWSXP  => String::from("raw"),
+        CPLXSXP => String::from("cplx"),
+        VECSXP  => unsafe {
+            if r_inherits(value, "data.frame") {
+                let classes = CharacterVector::new_unchecked(Rf_getAttrib(value, R_ClassSymbol));
+                classes.get_unchecked(0).unwrap()
             } else {
-                "list"
+                String::from("list")
             }
         },
 
         // TODO: this should not happen
-        _       => "???"
-    };
-    String::from(rtype)
+        _       => String::from("???")
+    }
 }
 
 fn vec_type_info(value: SEXP) -> BindingType {
