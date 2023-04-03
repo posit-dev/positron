@@ -7,6 +7,23 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
 import { Event, Emitter } from 'vs/base/common/event';
 
 /**
+ * The possible states for the plot client instance
+ */
+export enum PlotClientState {
+	/** The plot client has never rendered a plot */
+	Unrendered = 'unrendered',
+
+	/** The plot client is currently rendering a plot */
+	Rendering = 'rendering',
+
+	/** The plot client has rendered a plot */
+	Rendered = 'rendered',
+
+	/** The plot client is closed (disconnected); it cannot render any further plots */
+	Closed = 'closed',
+}
+
+/**
  * The possible types of messages that can be sent to the language runtime as
  * requests to the plot backend.
  */
