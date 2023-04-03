@@ -218,9 +218,10 @@ fn regular_binding_type(value: SEXP) -> BindingType {
 
 fn vec_type(value: SEXP) -> String {
     match r_typeof(value) {
-        INTSXP  => {
-            if unsafe {r_inherits(value, "factor")} {
-                String::from("fct")
+        INTSXP  => unsafe {
+            if r_inherits(value, "factor") {
+                let levels = Rf_getAttrib(value, R_LevelsSymbol);
+                format!("fct({})", XLENGTH(levels))
             } else {
                 String::from("int")
             }
