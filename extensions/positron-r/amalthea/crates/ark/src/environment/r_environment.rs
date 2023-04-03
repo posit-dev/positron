@@ -284,7 +284,7 @@ impl REnvironment {
 
     fn inspect(&mut self, path: &Vec<String>, request_id: Option<String>) {
         let inspect = r_lock!{
-            EnvironmentVariable::inspect(RObject::new(*self.env), &path)
+            EnvironmentVariable::inspect(RObject::view(*self.env), &path)
         };
         let msg = match inspect {
             Ok(children) => {
