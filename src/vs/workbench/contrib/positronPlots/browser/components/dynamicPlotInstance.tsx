@@ -33,7 +33,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	useEffect(() => {
 		const ratio = window.devicePixelRatio;
 		props.plotClient.render(props.height, props.width, ratio).then((result) => {
-			setUri(`data:${result.mime_type};base64,${result.data}`);
+			setUri(result.uri);
 		});
 	});
 
