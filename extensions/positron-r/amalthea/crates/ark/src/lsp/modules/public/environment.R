@@ -7,7 +7,7 @@
 .ps.environment.listDisplayNames <- function(x) {
     names <- names(x)
     if (is.null(names)) {
-        paste0("[[", seq_along(x), "]]")
+        names <- paste0("[[", seq_along(x), "]]")
     } else {
         empty <- which(names == "")
         names[empty] <- paste0("[[", empty, "]]")
@@ -16,10 +16,12 @@
 }
 
 .ps.environment.resolveObjectFromPath <- function(env, path) {
-    object <- env
-
     rx_unnamed <- "^[[][[]([[:digit:]])[]][]]"
 
+    # start with environment
+    object <- env
+
+    # and then move down the path
     for (p in path) {
         if (grepl(rx_unnamed, p)) {
             index <- as.integer(sub(rx_unnamed, "\\1", p))
