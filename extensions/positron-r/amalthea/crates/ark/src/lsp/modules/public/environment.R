@@ -4,7 +4,7 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 #
-.ps.list_display_names <- function(x) {
+.ps.environment.listDisplayNames <- function(x) {
     names <- names(x)
     if (is.null(names)) {
         paste0("[[", seq_along(x), "]]")
@@ -15,7 +15,7 @@
     names
 }
 
-.ps.environment_extract <- function(env, path) {
+.ps.environment.resolveObjectFromPath <- function(env, path) {
     object <- env
 
     rx_unnamed <- "^[[][[]([[:digit:]])[]][]]"

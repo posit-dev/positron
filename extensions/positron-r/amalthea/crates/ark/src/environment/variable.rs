@@ -115,7 +115,7 @@ impl EnvironmentVariable {
     pub fn inspect(env: RObject, path: Vec<String>) -> Vec<Self> {
         // for now only lists can be expanded
         let list = unsafe {
-            RFunction::from(".ps.environment_extract")
+            RFunction::from(".ps.environment.resolveObjectFromPath")
                 .param("env", env)
                 .param("path", CharacterVector::create(path).cast())
                 .call()
@@ -126,7 +126,7 @@ impl EnvironmentVariable {
         let n = unsafe { XLENGTH(*list) };
 
         let names = unsafe{
-            CharacterVector::new_unchecked(RFunction::from(".ps.list_display_names").add(*list).call().unwrap())
+            CharacterVector::new_unchecked(RFunction::from(".ps.environment.listDisplayNames").add(*list).call().unwrap())
         };
 
         for i in 0..n {
