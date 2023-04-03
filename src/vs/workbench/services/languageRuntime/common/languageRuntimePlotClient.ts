@@ -5,6 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { Event, Emitter } from 'vs/base/common/event';
+import { DeferredPromise } from 'vs/base/common/async';
 
 /**
  * The possible states for the plot client instance
@@ -109,6 +110,10 @@ export class PlotClientInstance extends Disposable {
 	 */
 	public readonly id: string;
 
+	/**
+	 * The pending render request, if any.
+	 */
+	private _pendingRender?: DeferredPromise<IPlotClientMessageImage>;
 
 	/**
 	 * Event that fires when the plot is closed on the runtime side, typically
@@ -116,6 +121,12 @@ export class PlotClientInstance extends Disposable {
 	 */
 	onDidClose: Event<void>;
 	private readonly _closeEmitter = new Emitter<void>();
+
+	/**
+	 * Event that fires when the state of the plot client changes.
+	 */
+	onDidChangeState: Event<PlotClientState>;
+	private readonly _stateEmitter = new Emitter<PlotClientState>();
 
 	constructor(
 		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>) {
@@ -130,7 +141,11 @@ export class PlotClientInstance extends Disposable {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
 			}
+			this._stateEmitter.fire(PlotClientState.Closed);
 		});
+
+		// Connect the state emitter event
+		this.onDidChangeState = this._stateEmitter.event;
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
 		// the runtime will also dispose the client.
@@ -146,20 +161,40 @@ export class PlotClientInstance extends Disposable {
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
 	public render(height: number, width: number, pixel_ratio: number): Promise<IPlotClientMessageImage> {
-		return new Promise((resolve, reject) => {
-			this._client.performRpc({
-				msg_type: PlotClientMessageTypeInput.Render,
-				height,
-				width,
-				pixel_ratio
-			} as IPlotClientMessageRender).then((response) => {
-				if (response.msg_type === PlotClientMessageTypeOutput.Image) {
-					resolve(response as IPlotClientMessageImage);
-				} else if (response.msg_type === PlotClientMessageTypeOutput.Error) {
-					const err = response as IPlotClientMessageError;
-					reject(new Error(`Failed to render plot: ${err.message}`));
-				}
-			});
+		// If there is already a render request in flight, cancel it; this
+		// request supercedes it.
+		if (this._pendingRender && !this._pendingRender.isSettled) {
+			this._pendingRender.cancel();
+			this._pendingRender = undefined;
+		}
+
+		this._stateEmitter.fire(PlotClientState.Rendering);
+
+		// Create a new deferred promise to track the render request
+		const dp = new DeferredPromise<IPlotClientMessageImage>();
+		const request: IPlotClientMessageRender = {
+			msg_type: PlotClientMessageTypeInput.Render,
+			height,
+			width,
+			pixel_ratio
+		};
+		this._pendingRender = dp;
+
+		// Perform the RPC request and resolve the promise when the response is received
+		this._client.performRpc(request).then((response) => {
+			if (response.msg_type === PlotClientMessageTypeOutput.Image) {
+				dp.complete(response as IPlotClientMessageImage);
+				this._stateEmitter.fire(PlotClientState.Rendered);
+			} else if (response.msg_type === PlotClientMessageTypeOutput.Error) {
+				const err = response as IPlotClientMessageError;
+				dp.error(new Error(`Failed to render plot: ${err.message}`));
+
+				// TODO: Do we want to have a separate state for this case, or
+				// return to the unrendered state?
+			}
 		});
+
+		// Return the deferred promise to the caller
+		return dp.p;
 	}
 }
