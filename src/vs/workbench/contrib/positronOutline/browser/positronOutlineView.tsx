@@ -62,7 +62,7 @@ export class PositronOutlineViewPane extends ViewPane {
 		);
 	}
 
-	override layoutBody(height: number, width: number): void {
+	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
 	}
 
