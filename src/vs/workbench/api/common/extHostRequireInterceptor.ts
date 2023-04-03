@@ -212,7 +212,7 @@ class VSCodeNodeModuleFactory implements INodeModuleFactory {
 class PositronNodeModuleFactory implements INodeModuleFactory {
 	public readonly nodeModuleName = 'positron';
 
-	private readonly _extApiImpl = new Map<string, typeof positron>();
+	private readonly _extApiImpl = new ExtensionIdentifierMap<typeof positron>();
 	private _defaultApiImpl?: typeof positron;
 
 	constructor(
@@ -229,10 +229,10 @@ class PositronNodeModuleFactory implements INodeModuleFactory {
 		// get extension id from filename and api for extension
 		const ext = this._extensionPaths.findSubstr(parent);
 		if (ext) {
-			let apiImpl = this._extApiImpl.get(ExtensionIdentifier.toKey(ext.identifier));
+			let apiImpl = this._extApiImpl.get(ext.identifier);
 			if (!apiImpl) {
 				apiImpl = this._apiFactory(ext, this._extensionRegistry, this._configProvider);
-				this._extApiImpl.set(ExtensionIdentifier.toKey(ext.identifier), apiImpl);
+				this._extApiImpl.set(ext.identifier, apiImpl);
 			}
 			return apiImpl;
 		}
