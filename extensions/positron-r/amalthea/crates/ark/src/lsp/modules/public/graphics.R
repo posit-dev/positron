@@ -5,6 +5,8 @@
 #
 #
 
+.ps.graphics.defaultResolution <- if (Sys.info()[["sysname"]] == "Darwin") 96L else 72L
+
 .ps.graphics.createDevice <- function(name, type, res) {
 
     # Get path where plots will be generated.
@@ -97,7 +99,7 @@
     # TODO: What about other things like DPI, and so on?
     size <- dev.size(units = "px")
     type <- attr(device, "type") %??% "cairo"
-    res <- 72 * dpr
+    res <- .ps.graphics.defaultResolution * dpr
     width <- width * dpr
     height <- height * dpr
 
