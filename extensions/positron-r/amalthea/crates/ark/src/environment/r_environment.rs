@@ -28,6 +28,7 @@ use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
 use crate::environment::message::EnvironmentMessageDelete;
 use crate::environment::message::EnvironmentMessageDetails;
+use crate::environment::message::EnvironmentMessageError;
 use crate::environment::message::EnvironmentMessageInspect;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
@@ -282,17 +283,27 @@ impl REnvironment {
     }
 
     fn inspect(&mut self, path: Vec<String>, request_id: Option<String>) {
-        let children = r_lock!{
+        let inspect = r_lock!{
             EnvironmentVariable::inspect(RObject::new(*self.env), path.clone())
         };
-        let length = children.len();
-        let msg = EnvironmentMessage::Details(EnvironmentMessageDetails {
-            path,
-            children,
-            length
-        });
+        let msg = match inspect {
+            Ok(children) => {
+                let length = children.len();
+                EnvironmentMessage::Details(EnvironmentMessageDetails {
+                    path,
+                    children,
+                    length
+                })
+            },
+            Err(_) => {
+                EnvironmentMessage::Error(EnvironmentMessageError {
+                    message: String::from("Inspection error")
+                })
+            }
+        };
 
         self.send_message(msg, request_id);
+
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
