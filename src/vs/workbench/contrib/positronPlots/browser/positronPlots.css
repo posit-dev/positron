@@ -6,6 +6,18 @@
 	height: 100%;
 }
 
+.plot-history {
+	display: flex;
+	flex-direction: column;
+	height: 100px;
+}
+
+.plot-thumbnail {
+	height: 100px;
+	width: 100px;
+}
+
+.plot-thumbnail,
 .static-plot-instance {
 	display: flex;
 	justify-content: center;
@@ -14,7 +26,8 @@
 	position: relative;
 }
 
-.static-plot-instance .image-wrapper img {
+.static-plot-instance .image-wrapper img,
+.plot-thumbnail .image-wrapper img {
 	display: block;
 	max-width: 100%;
 	max-height: 100%;

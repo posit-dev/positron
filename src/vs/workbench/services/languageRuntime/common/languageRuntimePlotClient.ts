@@ -150,6 +150,12 @@ export class PlotClientInstance extends Disposable {
 	onDidChangeState: Event<PlotClientState>;
 	private readonly _stateEmitter = new Emitter<PlotClientState>();
 
+	/**
+	 * Event that fires when the plot has finished rendering.
+	 */
+	onDidCompleteRender: Event<IRenderedPlot>;
+	private readonly _completeRenderEmitter = new Emitter<IRenderedPlot>();
+
 	constructor(
 		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>) {
 		super();
@@ -168,6 +174,9 @@ export class PlotClientInstance extends Disposable {
 
 		// Connect the state emitter event
 		this.onDidChangeState = this._stateEmitter.event;
+
+		// Connect the complete render emitter event
+		this.onDidCompleteRender = this._completeRenderEmitter.event;
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
 		// the runtime will also dispose the client.
@@ -204,7 +213,7 @@ export class PlotClientInstance extends Disposable {
 
 		// Perform the RPC request and resolve the promise when the response is received
 		this._client.performRpc(request).then((response) => {
-			// Ignore if the request was cancelled
+			// Ignore if the request was cancelled or already fulfilled
 			if (dp.isSettled) {
 				return;
 			}
@@ -221,6 +230,7 @@ export class PlotClientInstance extends Disposable {
 				};
 				dp.complete(this._lastRender);
 				this._stateEmitter.fire(PlotClientState.Rendered);
+				this._completeRenderEmitter.fire(this._lastRender);
 			} else if (response.msg_type === PlotClientMessageTypeOutput.Error) {
 				const err = response as IPlotClientMessageError;
 				dp.error(new Error(`Failed to render plot: ${err.message}`));
