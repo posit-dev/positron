@@ -37,7 +37,7 @@ use harp::exec::r_parse_vector;
 use harp::exec::ParseResult;
 use harp::object::RObject;
 use harp::r_lock;
-use libR_sys::R_GlobalEnv;
+use libR_sys::*;
 use log::*;
 use serde_json::json;
 

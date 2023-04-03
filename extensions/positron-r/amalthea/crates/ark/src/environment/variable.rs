@@ -14,9 +14,7 @@ use harp::object::RObject;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
-use libR_sys::VECSXP;
-use libR_sys::VECTOR_ELT;
-use libR_sys::XLENGTH;
+use libR_sys::*;
 use serde::Deserialize;
 use serde::Serialize;
 
