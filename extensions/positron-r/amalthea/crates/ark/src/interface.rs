@@ -19,10 +19,10 @@ use harp::lock::R_RUNTIME_LOCK_COUNT;
 use harp::routines::r_register_routines;
 use harp::utils::r_get_option;
 use libR_sys::*;
-use libc::{c_char, c_int};
 use log::*;
+use nix::sys::signal::*;
 use parking_lot::MutexGuard;
-use std::ffi::{CStr, CString};
+use std::ffi::*;
 use std::os::raw::c_uchar;
 use std::os::raw::c_void;
 use std::sync::Arc;
@@ -52,6 +52,10 @@ extern "C" {
     pub static mut R_wait_usec: i32;
     pub static mut R_InputHandlers: *const c_void;
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
+}
+
+extern "C" fn on_interrupt(_signal: libc::c_int) {
+    unsafe { R_interrupts_pending = 1 };
 }
 
 // --- Globals ---
@@ -318,6 +322,15 @@ pub fn start_r(
         // See https://cran.r-project.org/doc/manuals/R-exts.html#Threading-issues
         // for more information.
         R_CStackLimit = usize::MAX;
+
+        // Set up an interrupt handler.
+        let action = SigAction::new(
+            SigHandler::Handler(on_interrupt),
+            SaFlags::empty(),
+            SigSet::empty(),
+        );
+
+        sigaction(SIGINT, &action).unwrap();
 
         // Log the value of R_HOME, so we can know if something hairy is afoot
         let home = CStr::from_ptr(R_HomeDir());
