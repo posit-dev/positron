@@ -163,8 +163,8 @@ impl Binding {
     pub fn has_children(&self) -> bool {
         match self.kind {
             // TODO: for now only lists have children
-            BindingKind::Regular => r_typeof(self.value) == VECSXP,
-            BindingKind::Promise(true) => r_typeof(unsafe{PRVALUE(self.value)}) == VECSXP,
+            BindingKind::Regular => has_children(self.value),
+            BindingKind::Promise(true) => has_children(unsafe{PRVALUE(self.value)}),
 
             // TODO:
             //   - BindingKind::Promise(false) could have code and env as their children
@@ -175,44 +175,129 @@ impl Binding {
 
 }
 
-fn is_vector(value: SEXP) -> bool {
-    match r_typeof(value) {
-        LGLSXP => true,
-        INTSXP => true,
-        REALSXP => true,
-        CPLXSXP => true,
-        STRSXP => true,
-        RAWSXP => true,
-        VECSXP => true,
+fn has_children(value: SEXP) -> bool {
+    r_typeof(value) == VECSXP && !unsafe{ r_inherits(value, "POSIXlt") }
+}
 
-        _ => false
+fn is_simple_vector(value: SEXP) -> bool {
+    unsafe {
+        let class = Rf_getAttrib(value, R_ClassSymbol);
+
+        match r_typeof(value) {
+            LGLSXP => class == R_NilValue,
+            INTSXP => class == R_NilValue || r_inherits(value, "factor"),
+            REALSXP => class == R_NilValue,
+            CPLXSXP => class == R_NilValue,
+            STRSXP => class == R_NilValue,
+            RAWSXP => class == R_NilValue,
+
+            _ => false
+        }
+    }
+
+}
+
+fn first_class(value: SEXP) -> Option<String> {
+    unsafe {
+        let classes = Rf_getAttrib(value, R_ClassSymbol);
+        if classes == R_NilValue {
+            None
+        } else {
+            let classes = CharacterVector::new_unchecked(classes);
+            Some(classes.get_unchecked(0).unwrap())
+        }
+    }
+}
+
+fn all_classes(value: SEXP) -> String {
+    unsafe {
+        let classes = Rf_getAttrib(value, R_ClassSymbol);
+        let classes = CharacterVector::new_unchecked(classes);
+        classes.format("/", 0).1
     }
 }
 
 fn regular_binding_display_value(value: SEXP) -> BindingValue {
-    // TODO: some form of R based dispatch
-    if is_vector(value) {
+    if is_simple_vector(value) {
         vec_glimpse(value)
-    } else {
+    } else if r_typeof(value) == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
+        // TODO : handle records such as POSIXlt etc ...
 
+        // This includes data frames
+        BindingValue::empty()
+    } else {
         // TODO:
-        //   - list (or does that go in vector too)
-        //   - data.frame
         //   - function
         //   - environment
         //   - pairlist
         //   - calls
 
-        BindingValue::new(String::from("???"), false)
+        unsafe {
+            // try to call format() on the object
+            let formatted = RFunction::new("base", "format")
+                .add(value)
+                .call();
+
+            match formatted {
+                Ok(fmt) => {
+                    if r_typeof(*fmt) == STRSXP {
+                        let fmt = CharacterVector::unquoted(*fmt);
+                        let fmt = fmt.format(", ", 100);
+
+                        BindingValue::new(fmt.1, fmt.0)
+                    } else {
+                        BindingValue::new(String::from("???"), false)
+                    }
+                },
+                Err(_) => {
+                    BindingValue::new(String::from("???"), false)
+                }
+            }
+        }
     }
 
 }
 
 fn regular_binding_type(value: SEXP) -> BindingType {
-    if is_vector(value) {
+    if is_simple_vector(value) {
         vec_type_info(value)
+    } else if r_typeof(value) == VECSXP {
+        unsafe {
+            if r_inherits(value, "data.frame") {
+                let dfclass = first_class(value).unwrap();
+
+                let dim = RFunction::new("base", "dim.data.frame")
+                    .add(value)
+                    .call()
+                    .unwrap();
+
+                let dim = IntegerVector::new(dim).unwrap();
+                let shape = dim.format(",", 0).1;
+
+                BindingType::new(
+                    format!("{} [{}]", dfclass, shape),
+
+                    // TODO: add info about column types ?
+                    format!("{} [{}]", dfclass, shape)
+                )
+            } else {
+                match first_class(value) {
+                    None => BindingType::new(String::from("list"), String::from("list")),
+                    Some(class) => {
+                        BindingType::new(class, all_classes(value))
+                    }
+                }
+                // TODO: should type_info be different ?
+                // TODO: deal with record types, e.g. POSIXlt
+
+            }
+        }
     } else {
-        BindingType::new(String::from("???"), String::from(""))
+        let class = first_class(value);
+        match class {
+            Some(class) => BindingType::new(class, all_classes(value)),
+            None        => BindingType::new(String::from("???"), String::from(""))
+        }
     }
 }
 
@@ -231,14 +316,6 @@ fn vec_type(value: SEXP) -> String {
         STRSXP  => String::from("str"),
         RAWSXP  => String::from("raw"),
         CPLXSXP => String::from("cplx"),
-        VECSXP  => unsafe {
-            if r_inherits(value, "data.frame") {
-                let classes = CharacterVector::new_unchecked(Rf_getAttrib(value, R_ClassSymbol));
-                classes.get_unchecked(0).unwrap()
-            } else {
-                String::from("list")
-            }
-        },
 
         // TODO: this should not happen
         _       => String::from("???")
@@ -258,14 +335,7 @@ fn vec_type_info(value: SEXP) -> BindingType {
 
 fn vec_shape(value: SEXP) -> String {
     unsafe {
-        let dim = if r_inherits(value, "data.frame") {
-            RFunction::new("base", "dim.data.frame")
-                .add(value)
-                .call()
-                .unwrap()
-        } else {
-            RObject::new(Rf_getAttrib(value, R_DimSymbol))
-        };
+        let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
         if *dim == R_NilValue {
             format!("{}", Rf_xlength(value))
