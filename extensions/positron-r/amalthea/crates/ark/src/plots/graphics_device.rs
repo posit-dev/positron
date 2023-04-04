@@ -25,11 +25,16 @@
 
 
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
 
 use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::comm::event::CommEvent;
 use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
+use base64::Engine;
+use base64::engine::general_purpose;
 use crossbeam::channel::Select;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -186,7 +191,11 @@ impl DeviceContext {
 
             match input {
                 PlotMessageInput::Render(plot_meta) => {
-                    self.render_plot(plot_id, plot_meta, rpc_id.as_str(), socket);
+                    let result = self.render_plot(plot_id, plot_meta, rpc_id.as_str(), socket);
+                    if let Err(error) = result {
+                        log::error!("{}", error);
+                        return;
+                    }
                 }
             }
 
@@ -201,7 +210,11 @@ impl DeviceContext {
         plot_meta: PlotMessageInputRender,
         rpc_id: &str,
         socket: &CommSocket)
+    -> anyhow::Result<()>
     {
+        // Render the plot to file.
+        // TODO: Is it possible to do this without writing to file; e.g. could
+        // we instead write to a connection or something else?
         self._rendering = true;
         let result = RFunction::from(".ps.graphics.renderPlot")
             .param("id", plot_id)
@@ -211,22 +224,28 @@ impl DeviceContext {
             .call();
         self._rendering = false;
 
-        let image = unwrap!(result, Err(error) => {
-            log::error!("{}", error);
-            return;
-        });
+        // Get the path to the image.
+        let image_path = result?.to::<String>()?;
+
+        // Read contents into bytes.
+        let conn = File::open(image_path)?;
+        let mut reader = BufReader::new(conn);
+
+        let mut buffer = vec![];
+        reader.read_to_end(&mut buffer)?;
+
+        // what an odd interface
+        let data = general_purpose::STANDARD_NO_PAD.encode(buffer);
 
         let response = PlotMessageOutput::Image(PlotMessageOutputImage {
-            data: image.to::<String>().unwrap(),
+            data: data,
             mime_type: "image/png".to_string(),
         });
 
         let json = serde_json::to_value(response).unwrap();
-        let result = socket.outgoing_tx.send(CommChannelMsg::Rpc(rpc_id.to_string(), json));
-        if let Err(error) = result {
-            log::error!("{}", error);
-            return;
-        }
+        socket.outgoing_tx.send(CommChannelMsg::Rpc(rpc_id.to_string(), json))?;
+
+        Ok(())
 
     }
 

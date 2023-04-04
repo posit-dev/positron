@@ -97,7 +97,6 @@
     # Get device attributes to be passed along.
     #
     # TODO: What about other things like DPI, and so on?
-    size <- dev.size(units = "px")
     type <- attr(device, "type") %??% "cairo"
     res <- .ps.graphics.defaultResolution * dpr
     width <- width * dpr
@@ -119,8 +118,7 @@
     # Turn off the graphics device.
     dev.off()
 
-    # Read the contents of the generated PNG file, and then base64-encode it.
-    contents <- readBin(filepath, what = "raw", n = file.size(filepath))
-    base64enc::base64encode(contents)
+    # Return path to the generated file.
+    invisible(filepath)
 
 }
