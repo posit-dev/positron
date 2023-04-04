@@ -6,6 +6,15 @@
 //
 
 use harp::environment::Binding;
+use harp::environment::BindingType;
+use harp::environment::BindingValue;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
+use harp::object::RObject;
+use harp::utils::r_typeof;
+use harp::vector::CharacterVector;
+use harp::vector::Vector;
+use libR_sys::*;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -82,21 +91,62 @@ impl EnvironmentVariable {
     pub fn new(binding: &Binding) -> Self {
         let display_name = binding.name.to_string();
 
-        let value = binding.display_value();
-        let display_type = binding.display_type();
+        let BindingValue{display_value, is_truncated} = binding.get_value();
+        let BindingType{display_type, type_info} = binding.get_type();
 
         let kind = ValueKind::String;
+        let has_children = binding.has_children();
 
         Self {
             display_name,
-            display_value: value.value,
+            display_value,
             display_type,
-            type_info: String::new(),
+            type_info,
             kind,
             length: 0,
             size: 0,
-            has_children: false,
-            is_truncated: value.is_truncated,
+            has_children,
+            is_truncated,
         }
     }
+
+    pub fn inspect(env: RObject, path: &Vec<String>) -> Result<Vec<Self>, harp::error::Error> {
+        // for now only lists can be expanded
+        let list = unsafe {
+            RFunction::from(".ps.environment.resolveObjectFromPath")
+                .param("env", env)
+                .param("path", CharacterVector::create(path).cast())
+                .call()?
+        };
+
+        let mut out : Vec<Self> = vec![];
+        let n = unsafe { XLENGTH(*list) };
+
+        let names = unsafe {
+            CharacterVector::new_unchecked(RFunction::from(".ps.environment.listDisplayNames").add(*list).call()?)
+        };
+
+        for i in 0..n {
+            let x = RObject::view(unsafe{ VECTOR_ELT(*list, i)});
+            let display_name = names.get_unchecked(i).unwrap();
+            let BindingValue{display_value, is_truncated} = BindingValue::from(*x);
+            let BindingType{display_type, type_info} = BindingType::from(*x);
+            let has_children = r_typeof(*x) == VECSXP;
+
+            out.push(Self {
+                display_name,
+                display_value,
+                display_type,
+                type_info,
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children,
+                is_truncated
+            });
+        }
+
+        Ok(out)
+    }
+
 }

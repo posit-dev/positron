@@ -10,6 +10,8 @@ use std::cmp::Ordering;
 use c2rust_bitfields::BitfieldStruct;
 use libR_sys::*;
 
+use crate::exec::RFunction;
+use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_inherits;
@@ -77,20 +79,42 @@ impl PartialOrd for Binding {
 }
 
 pub struct BindingValue {
-    pub value: String,
+    pub display_value: String,
     pub is_truncated: bool
 }
 
 impl BindingValue {
-    pub fn new(value: String, is_truncated: bool) -> Self {
+    pub fn new(display_value: String, is_truncated: bool) -> Self {
         BindingValue {
-            value,
+            display_value,
             is_truncated
         }
     }
 
     pub fn empty() -> Self {
         Self::new(String::from(""), false)
+    }
+
+    pub fn from(x: SEXP) -> Self {
+        regular_binding_display_value(x)
+    }
+}
+
+pub struct BindingType {
+    pub display_type: String,
+    pub type_info: String
+}
+
+impl BindingType {
+    pub fn new(display_type: String, type_info: String) -> Self {
+        BindingType {
+            display_type,
+            type_info
+        }
+    }
+
+    pub fn from(value: SEXP) -> Self {
+        regular_binding_type(value)
     }
 }
 
@@ -116,7 +140,7 @@ impl Binding {
         }
     }
 
-    pub fn display_value(&self) -> BindingValue {
+    pub fn get_value(&self) -> BindingValue {
         match self.kind {
             BindingKind::Regular => regular_binding_display_value(self.value),
             BindingKind::Promise(true) => regular_binding_display_value(unsafe{PRVALUE(self.value)}),
@@ -126,79 +150,187 @@ impl Binding {
         }
     }
 
-    pub fn display_type(&self) -> String {
+    pub fn get_type(&self) -> BindingType {
         match self.kind {
-            BindingKind::Active => String::from("active binding"),
-            BindingKind::Promise(false) => String::from("promise"),
+            BindingKind::Active => BindingType::new(String::from("active binding"), String::from("")),
+            BindingKind::Promise(false) => BindingType::new(String::from("promise"), String::from("")),
 
-            BindingKind::Regular => regular_binding_display_type(self.value),
-            BindingKind::Promise(true) => regular_binding_display_type(unsafe{PRVALUE(self.value)})
+            BindingKind::Regular => regular_binding_type(self.value),
+            BindingKind::Promise(true) => regular_binding_type(unsafe{PRVALUE(self.value)})
+        }
+    }
+
+    pub fn has_children(&self) -> bool {
+        match self.kind {
+            // TODO: for now only lists have children
+            BindingKind::Regular => has_children(self.value),
+            BindingKind::Promise(true) => has_children(unsafe{PRVALUE(self.value)}),
+
+            // TODO:
+            //   - BindingKind::Promise(false) could have code and env as their children
+            //   - BindingKind::Active could have their function
+            _ => false
         }
     }
 
 }
 
-fn regular_binding_display_value(value: SEXP) -> BindingValue {
-    // TODO: some form of R based dispatch
+fn has_children(value: SEXP) -> bool {
+    r_typeof(value) == VECSXP && !unsafe{ r_inherits(value, "POSIXlt") }
+}
 
-    match r_typeof(value) {
-        // standard vector
-        LGLSXP   => vec_glimpse(value),
-        INTSXP   => vec_glimpse(value),
-        REALSXP  => vec_glimpse(value),
-        CPLXSXP  => vec_glimpse(value),
-        STRSXP   => vec_glimpse(value),
-        VECSXP   => {
-            // TODO: data.frame
-            vec_glimpse(value)
-        },
+fn is_simple_vector(value: SEXP) -> bool {
+    unsafe {
+        let class = Rf_getAttrib(value, R_ClassSymbol);
 
-        _       => BindingValue::new(String::from("???"), false)
+        match r_typeof(value) {
+            LGLSXP => class == R_NilValue,
+            INTSXP => class == R_NilValue || r_inherits(value, "factor"),
+            REALSXP => class == R_NilValue,
+            CPLXSXP => class == R_NilValue,
+            STRSXP => class == R_NilValue,
+            RAWSXP => class == R_NilValue,
+
+            _ => false
+        }
     }
 
 }
 
-fn regular_binding_display_type(value: SEXP) -> String {
-    match r_typeof(value) {
-        // standard vector
-        LGLSXP   => vec_type_info(value),
-        INTSXP   => vec_type_info(value),
-        REALSXP  => vec_type_info(value),
-        CPLXSXP  => vec_type_info(value),
-        STRSXP   => vec_type_info(value),
-        VECSXP   => {
-            // TODO: data.frame
-            vec_type_info(value)
-        },
+fn first_class(value: SEXP) -> Option<String> {
+    unsafe {
+        let classes = Rf_getAttrib(value, R_ClassSymbol);
+        if classes == R_NilValue {
+            None
+        } else {
+            let classes = CharacterVector::new_unchecked(classes);
+            Some(classes.get_unchecked(0).unwrap())
+        }
+    }
+}
 
-        _       => String::from("???")
+fn all_classes(value: SEXP) -> String {
+    unsafe {
+        let classes = Rf_getAttrib(value, R_ClassSymbol);
+        let classes = CharacterVector::new_unchecked(classes);
+        classes.format("/", 0).1
+    }
+}
+
+fn regular_binding_display_value(value: SEXP) -> BindingValue {
+    if is_simple_vector(value) {
+        vec_glimpse(value)
+    } else if r_typeof(value) == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
+        // TODO : handle records such as POSIXlt etc ...
+
+        // This includes data frames
+        BindingValue::empty()
+    } else {
+        // TODO:
+        //   - function
+        //   - environment
+        //   - pairlist
+        //   - calls
+
+        unsafe {
+            // try to call format() on the object
+            let formatted = RFunction::new("base", "format")
+                .add(value)
+                .call();
+
+            match formatted {
+                Ok(fmt) => {
+                    if r_typeof(*fmt) == STRSXP {
+                        let fmt = CharacterVector::unquoted(*fmt);
+                        let fmt = fmt.format(", ", 100);
+
+                        BindingValue::new(fmt.1, fmt.0)
+                    } else {
+                        BindingValue::new(String::from("???"), false)
+                    }
+                },
+                Err(_) => {
+                    BindingValue::new(String::from("???"), false)
+                }
+            }
+        }
+    }
+
+}
+
+fn regular_binding_type(value: SEXP) -> BindingType {
+    if is_simple_vector(value) {
+        vec_type_info(value)
+    } else if r_typeof(value) == VECSXP {
+        unsafe {
+            if r_inherits(value, "data.frame") {
+                let dfclass = first_class(value).unwrap();
+
+                let dim = RFunction::new("base", "dim.data.frame")
+                    .add(value)
+                    .call()
+                    .unwrap();
+
+                let dim = IntegerVector::new(dim).unwrap();
+                let shape = dim.format(",", 0).1;
+
+                BindingType::new(
+                    format!("{} [{}]", dfclass, shape),
+
+                    // TODO: add info about column types ?
+                    format!("{} [{}]", dfclass, shape)
+                )
+            } else {
+                match first_class(value) {
+                    None => BindingType::new(String::from("list"), String::from("list")),
+                    Some(class) => {
+                        BindingType::new(class, all_classes(value))
+                    }
+                }
+                // TODO: should type_info be different ?
+                // TODO: deal with record types, e.g. POSIXlt
+
+            }
+        }
+    } else {
+        let class = first_class(value);
+        match class {
+            Some(class) => BindingType::new(class, all_classes(value)),
+            None        => BindingType::new(String::from("???"), String::from(""))
+        }
     }
 }
 
 fn vec_type(value: SEXP) -> String {
-    let rtype = match r_typeof(value) {
-        INTSXP  => {
-            if unsafe {r_inherits(value, "factor")} {
-                "fct"
+    match r_typeof(value) {
+        INTSXP  => unsafe {
+            if r_inherits(value, "factor") {
+                let levels = Rf_getAttrib(value, R_LevelsSymbol);
+                format!("fct({})", XLENGTH(levels))
             } else {
-                "int"
+                String::from("int")
             }
         },
-        REALSXP => "dbl",
-        LGLSXP  => "lgl",
-        STRSXP  => "str",
-        VECSXP  => "list",
-        RAWSXP  => "raw",
-        CPLXSXP => "cplx",
+        REALSXP => String::from("dbl"),
+        LGLSXP  => String::from("lgl"),
+        STRSXP  => String::from("str"),
+        RAWSXP  => String::from("raw"),
+        CPLXSXP => String::from("cplx"),
 
         // TODO: this should not happen
-        _       => "???"
-    };
-    String::from(rtype)
+        _       => String::from("???")
+    }
 }
 
-fn vec_type_info(value: SEXP) -> String {
-    format!("{} [{}]", vec_type(value), vec_shape(value))
+fn vec_type_info(value: SEXP) -> BindingType {
+    let display_type = format!("{} [{}]", vec_type(value), vec_shape(value));
+
+    let mut type_info = display_type.clone();
+    if unsafe{ ALTREP(value) == 1} {
+        type_info.push_str(altrep_class(value).as_str())
+    }
+
+    BindingType::new(display_type, type_info)
 }
 
 fn vec_shape(value: SEXP) -> String {
@@ -250,13 +382,16 @@ fn vec_glimpse(value: SEXP) -> BindingValue {
             BindingValue::new(formatted.1, formatted.0)
         },
 
+        VECSXP => {
+            BindingValue::empty()
+        },
+
         _ => {
             BindingValue::empty()
         }
     }
 }
 
-#[allow(dead_code)]
 fn altrep_class(object: SEXP) -> String {
     let serialized_klass = unsafe{
         ATTRIB(ALTREP_CLASS(object))

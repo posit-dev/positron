@@ -27,6 +27,9 @@ use log::warn;
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
 use crate::environment::message::EnvironmentMessageDelete;
+use crate::environment::message::EnvironmentMessageDetails;
+use crate::environment::message::EnvironmentMessageError;
+use crate::environment::message::EnvironmentMessageInspect;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
@@ -159,6 +162,10 @@ impl REnvironment {
                                 self.delete(variables, Some(id));
                             },
 
+                            EnvironmentMessage::Inspect(EnvironmentMessageInspect{path}) => {
+                                self.inspect(&path, Some(id));
+                            },
+
                             _ => {
                                 error!(
                                     "Environment: Don't know how to handle message type '{:?}'",
@@ -273,6 +280,30 @@ impl REnvironment {
 
         // and then update
         self.update(request_id);
+    }
+
+    fn inspect(&mut self, path: &Vec<String>, request_id: Option<String>) {
+        let inspect = r_lock!{
+            EnvironmentVariable::inspect(RObject::view(*self.env), &path)
+        };
+        let msg = match inspect {
+            Ok(children) => {
+                let length = children.len();
+                EnvironmentMessage::Details(EnvironmentMessageDetails {
+                    path: path.clone(),
+                    children,
+                    length
+                })
+            },
+            Err(_) => {
+                EnvironmentMessage::Error(EnvironmentMessageError {
+                    message: String::from("Inspection error")
+                })
+            }
+        };
+
+        self.send_message(msg, request_id);
+
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
