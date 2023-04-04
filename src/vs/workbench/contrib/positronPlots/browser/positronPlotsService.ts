@@ -45,9 +45,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 			// Listen for new dynamic plots being emitted, and register each one
 			// with the plots service.
-			this._register(runtime.onDidCreateClientInstance((client) => {
-				if (client.getClientType() === RuntimeClientType.Plot) {
-					this.registerPlotClient(client);
+			this._register(runtime.onDidCreateClientInstance((event) => {
+				if (event.client.getClientType() === RuntimeClientType.Plot) {
+					this.registerPlotClient(event.client);
 				}
 			}));
 
