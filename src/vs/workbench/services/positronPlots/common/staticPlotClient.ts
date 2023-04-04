@@ -13,7 +13,8 @@ export class StaticPlotClient extends Disposable {
 	public readonly mimeType;
 	public readonly data;
 
-	constructor(message: ILanguageRuntimeMessageOutput) {
+	constructor(message: ILanguageRuntimeMessageOutput,
+		public readonly code?: string) {
 		super();
 		this.id = message.id;
 

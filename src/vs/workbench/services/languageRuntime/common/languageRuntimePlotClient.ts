@@ -156,8 +156,15 @@ export class PlotClientInstance extends Disposable {
 	onDidCompleteRender: Event<IRenderedPlot>;
 	private readonly _completeRenderEmitter = new Emitter<IRenderedPlot>();
 
+	/**
+	 * Creates a new plot client instance.
+	 *
+	 * @param _client The client instance for this plot
+	 * @param code The code that generated the plot, if known
+	 */
 	constructor(
-		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>) {
+		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
+		public readonly code?: string) {
 		super();
 
 		// Store the unique ID for this plot instance
