@@ -8,6 +8,7 @@
 use harp::environment::Binding;
 use harp::environment::BindingType;
 use harp::environment::BindingValue;
+use harp::environment::env_bindings;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
@@ -150,6 +151,7 @@ impl EnvironmentVariable {
         match r_typeof(*object) {
             VECSXP  => Self::inspect_list(object),
             LISTSXP => Self::inspect_pairlist(object),
+            ENVSXP  => Self::inspect_environment(object),
             _       => Ok(vec![])
         }
     }
@@ -248,4 +250,20 @@ impl EnvironmentVariable {
 
         Ok(out)
     }
+
+    fn inspect_environment(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out : Vec<Self> = vec![];
+
+        for binding in &env_bindings(*value) {
+            out.push(Self::new(binding));
+        }
+
+        // TODO: figure out how to avoid .clone() ?
+        out.sort_by_key(|v| {
+            v.display_name.clone()
+        });
+
+        Ok(out)
+    }
+
 }

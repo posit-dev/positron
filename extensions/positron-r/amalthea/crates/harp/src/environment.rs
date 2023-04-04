@@ -180,6 +180,7 @@ pub fn has_children(value: SEXP) -> bool {
     match r_typeof(value) {
         VECSXP  => !unsafe{ r_inherits(value, "POSIXlt") },
         LISTSXP => true,
+        ENVSXP => true,
 
         _       => false
     }
@@ -311,6 +312,8 @@ fn regular_binding_type(value: SEXP) -> BindingType {
         BindingType::new(String::from("symbol"), String::from("symbol"))
     } else if rtype == CLOSXP {
         BindingType::new(String::from("function"), String::from("function"))
+    } else if rtype == ENVSXP {
+        BindingType::new(String::from("environment"), String::from("environment"))
     } else {
         let class = first_class(value);
         match class {
