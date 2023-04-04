@@ -192,6 +192,18 @@ export class PlotClientInstance extends Disposable {
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
 	public render(height: number, width: number, pixel_ratio: number): Promise<IRenderedPlot> {
+		// Compare against the last render request. It is normal for the same
+		// render request to be made multiple times, e.g. when the UI component
+		// is redrawn without changing the plot size.
+		if (this._lastRender &&
+			this._lastRender.height === height &&
+			this._lastRender.width === width &&
+			this._lastRender.pixel_ratio === pixel_ratio) {
+			// The last render request was the same size; return the last render
+			// result without performing another render.
+			return Promise.resolve(this._lastRender);
+		}
+
 		// If there is already a render request in flight, cancel it; this
 		// request supercedes it.
 		if (this._pendingRender && !this._pendingRender.isSettled) {
