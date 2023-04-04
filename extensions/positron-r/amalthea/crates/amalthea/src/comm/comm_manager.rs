@@ -13,6 +13,7 @@ use crossbeam::channel::Select;
 use crossbeam::channel::Sender;
 use log::info;
 use log::warn;
+use stdext::spawn;
 
 use crate::comm::comm_channel::CommChannelMsg;
 use crate::comm::event::CommChanged;
@@ -47,7 +48,7 @@ impl CommManager {
         comm_event_rx: Receiver<CommEvent>,
     ) -> Receiver<CommChanged> {
         let (comm_changed_tx, comm_changed_rx) = crossbeam::channel::unbounded();
-        thread::spawn(move || {
+        spawn!("comm-manager", move || {
             let mut comm_manager = CommManager::new(iopub_tx, comm_event_rx, comm_changed_tx);
             loop {
                 comm_manager.execution_thread();

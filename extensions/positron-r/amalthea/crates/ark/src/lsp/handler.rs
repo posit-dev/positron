@@ -9,7 +9,7 @@ use amalthea::comm::event::CommEvent;
 use amalthea::language::lsp_handler::LspHandler;
 use bus::BusReader;
 use crossbeam::channel::Sender;
-use std::thread;
+use stdext::spawn;
 
 use crate::kernel::KernelInfo;
 use crate::request::Request;
@@ -52,7 +52,9 @@ impl LspHandler for Lsp {
 
         let shell_request_tx = self.shell_request_tx.clone();
         let comm_manager_tx = self.comm_manager_tx.clone();
-        thread::spawn(move || backend::start_lsp(tcp_address, shell_request_tx, comm_manager_tx, lsp_initialized));
+        spawn!("ark-lsp", move || {
+            backend::start_lsp(tcp_address, shell_request_tx, comm_manager_tx, lsp_initialized)
+        });
         return Ok(());
     }
 }

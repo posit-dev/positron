@@ -40,6 +40,7 @@ use harp::r_lock;
 use libR_sys::R_GlobalEnv;
 use log::*;
 use serde_json::json;
+use stdext::spawn;
 
 use crate::environment::r_environment::REnvironment;
 use crate::kernel::KernelInfo;
@@ -66,7 +67,7 @@ impl Shell {
         kernel_init_rx: BusReader<KernelInfo>,
     ) -> Self {
         let iopub_tx = iopub_tx.clone();
-        std::thread::spawn(move || {
+        spawn!("ark-shell", move || {
             Self::execution_thread(iopub_tx, kernel_init_tx, shell_request_rx);
         });
 

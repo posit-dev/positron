@@ -27,7 +27,7 @@ use ark::version::detect_r;
 
 fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
     // Create a new kernel from the connection file
-    let mut kernel = match Kernel::new(connection_file) {
+    let mut kernel = match Kernel::new("ark", connection_file) {
         Ok(k) => k,
         Err(e) => {
             error!("Failed to create kernel: {}", e);
