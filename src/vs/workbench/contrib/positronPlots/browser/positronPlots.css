@@ -4,17 +4,40 @@
 
 .plots-container {
 	height: 100%;
+	display: flex;
+	flex-direction: column;
 }
 
 .plot-history {
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	height: 100px;
+}
+
+.selected-plot {
+	display: flex;
+	flex-direction: column;
+	flex-grow: 1;
 }
 
 .plot-thumbnail {
 	height: 100px;
 	width: 100px;
+	border: 1px solid var(--vscode-editorWidget-border);
+	padding: 0;
+	margin-left: 5px;
+	margin-right: 5px;
+	opacity: 0.75;
+	transition: opacity 0.2s ease-in-out;
+	cursor: pointer;
+}
+
+/**
+ * Hover the plot thumbnail to make it opaque; fades out when not hovered.
+ */
+.plot-thumbnail:hover {
+	opacity: 1;
+	transition: opacity 0.2s ease-in-out;
 }
 
 .plot-thumbnail,

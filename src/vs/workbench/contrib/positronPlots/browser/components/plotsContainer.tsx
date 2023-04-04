@@ -22,6 +22,12 @@ interface PlotContainerProps {
 }
 
 /**
+ * The number of pixels (height or width) to use for the history portion of the
+ * plots container.
+ */
+export const HistoryPx = 100;
+
+/**
  * PlotContainer component; holds the plot instances.
  *
  * @param props A PlotContainerProps that contains the component properties.
@@ -48,7 +54,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return <DynamicPlotInstance
 				key={plotInstance.id}
 				width={props.width}
-				height={props.height}
+				height={props.height - HistoryPx}
 				plotClient={plotInstance} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
