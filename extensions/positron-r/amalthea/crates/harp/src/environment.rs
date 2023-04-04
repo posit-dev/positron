@@ -426,7 +426,6 @@ pub fn env_bindings(env: SEXP) -> Vec<Binding> {
 unsafe fn frame_bindings(mut frame: SEXP, bindings: &mut Vec<Binding> ) {
     while frame != R_NilValue {
         bindings.push(Binding::new(frame));
-
         frame = CDR(frame);
     }
 }

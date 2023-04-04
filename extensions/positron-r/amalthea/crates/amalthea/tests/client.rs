@@ -35,7 +35,7 @@ mod shell;
 fn test_kernel() {
     let frontend = frontend::Frontend::new();
     let connection_file = frontend.get_connection_file();
-    let mut kernel = Kernel::new(connection_file).unwrap();
+    let mut kernel = Kernel::new("amalthea", connection_file).unwrap();
     let shell_tx = kernel.create_iopub_tx();
     let comm_manager_tx = kernel.create_comm_manager_tx();
     let shell = Arc::new(Mutex::new(shell::Shell::new(shell_tx)));

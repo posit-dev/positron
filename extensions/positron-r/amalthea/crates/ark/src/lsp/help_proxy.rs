@@ -13,6 +13,7 @@ use hyper::Body;
 use hyper::client::conn::handshake;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
+use stdext::spawn;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 
@@ -73,7 +74,7 @@ async fn task(port: i32) -> anyhow::Result<()> {
 }
 
 pub fn start(port: i32) {
-    std::thread::spawn(move || {
+    spawn!("ark-help-proxy", move || {
         match task(port) {
             Ok(value) => log::info!("Help proxy server exited with value {:?}", value),
             Err(error) => log::error!("Help proxy server exited unexpectedly: {}", error),

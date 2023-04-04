@@ -4,8 +4,6 @@
 // Copyright (C) 2023 by Posit Software, PBC
 //
 //
-use std::thread;
-
 use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::socket::comm::CommSocket;
 use crossbeam::channel::select;
@@ -23,6 +21,7 @@ use libR_sys::*;
 use log::debug;
 use log::error;
 use log::warn;
+use stdext::spawn;
 
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
@@ -64,7 +63,7 @@ impl REnvironment {
         }
 
         // Start the execution thread and wait for requests from the front end
-        thread::spawn(move || {
+        spawn!("ark-environment", move || {
             let environment = Self {
                 comm,
                 env,

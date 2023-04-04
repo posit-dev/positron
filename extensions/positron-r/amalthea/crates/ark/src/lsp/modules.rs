@@ -13,6 +13,7 @@ use harp::r_string;
 use harp::r_symbol;
 use libR_sys::*;
 use stdext::local;
+use stdext::spawn;
 use stdext::unwrap::IntoResult;
 use std::collections::HashMap;
 use std::env;
@@ -185,7 +186,7 @@ pub unsafe fn initialize() -> anyhow::Result<RModuleInfo> {
     }
 
     // Create a directory watcher that reloads module files as they are changed.
-    std::thread::spawn({
+    spawn!("ark-watcher", {
         let root = root.clone();
         move || {
             let mut watcher = RModuleWatcher::new(root);

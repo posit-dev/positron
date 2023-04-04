@@ -48,6 +48,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "stdext",
  "strum",
  "strum_macros",
  "uuid",

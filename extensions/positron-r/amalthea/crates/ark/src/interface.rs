@@ -14,6 +14,7 @@ use bus::Bus;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::RecvTimeoutError;
 use crossbeam::channel::Sender;
+use harp::interrupts::RInterruptsSuspendedScope;
 use harp::lock::R_RUNTIME_LOCK;
 use harp::lock::R_RUNTIME_LOCK_COUNT;
 use harp::routines::r_register_routines;
@@ -28,7 +29,6 @@ use std::os::raw::c_void;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::Once;
-use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
 use stdext::*;
@@ -81,6 +81,10 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 static INIT: Once = Once::new();
 
 pub unsafe fn process_events() {
+
+    // Don't process interrupts in this scope.
+    let _interrupts_suspended = RInterruptsSuspendedScope::new();
+
     // Process regular R events.
     R_ProcessEvents();
 
@@ -134,6 +138,7 @@ pub extern "C" fn r_read_console(
     let r_prompt = unsafe { CStr::from_ptr(prompt) };
     debug!("R prompt: {}", r_prompt.to_str().unwrap());
 
+    // TODO: Can we remove this below code?
     // If the prompt begins with "Save workspace", respond with (n)
     if r_prompt.to_str().unwrap().starts_with("Save workspace") {
         let n = CString::new("n\n").unwrap();
@@ -305,7 +310,9 @@ pub fn start_r(
     });
 
     // Start thread to listen to execution requests
-    thread::spawn(move || listen(shell_request_rx, rprompt_rx));
+    spawn!("ark-execution", move || {
+        listen(shell_request_rx, rprompt_rx)
+    });
 
     unsafe {
         let mut args = cargs!["ark", "--interactive"];
