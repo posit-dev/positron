@@ -70,16 +70,21 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	 * instance.
 	 *
 	 * @param plotInstance The plot instance to render
+	 * @param selected Whether the thumbnail is selected
 	 * @returns
 	 */
-	const renderThumbnail = (plotInstance: PositronPlotClient) => {
+	const renderThumbnail = (plotInstance: PositronPlotClient, index: number, selected: boolean) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotThumbnail
 				key={plotInstance.id}
+				plotIndex={index}
+				plotService={positronPlotsContext}
 				plotClient={plotInstance} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotThumbnail
 				key={plotInstance.id}
+				plotIndex={index}
+				plotService={positronPlotsContext}
 				plotClient={plotInstance} />;
 		}
 		return null;
@@ -96,13 +101,14 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				{positronPlotsContext.positronPlotInstances.length === 0 &&
 					<span>Plot container: {props.height} x {props.width}</span>}
 				{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
-					index === positronPlotsContext.positronPlotInstances.length - 1 &&
+					index === positronPlotsContext.selectedInstanceIdx &&
 					render(plotInstance)
 				))}
 			</div>
 			<div className='plot-history'>
-				{positronPlotsContext.positronPlotInstances.map((plotInstance, _index) => (
-					renderThumbnail(plotInstance)
+				{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
+					renderThumbnail(plotInstance, index,
+						index === positronPlotsContext.selectedInstanceIdx)
 				))}
 			</div>
 		</div>

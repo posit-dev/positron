@@ -4,12 +4,15 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PositronPlotsServices } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
  * DynamicPlotThumbnailProps interface.
  */
 interface DynamicPlotThumbnailProps {
+	plotIndex: number;
+	plotService: PositronPlotsServices;
 	plotClient: PlotClientInstance;
 }
 
@@ -37,6 +40,10 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 		});
 	});
 
+	const selectPlot = () => {
+		props.plotService.positronPlotsService.selectPlot(props.plotIndex);
+	};
+
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered plot.
 	//
@@ -45,7 +52,8 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	return (
 		<div className='plot-thumbnail'>
 			{uri && <div className='image-wrapper'>
-				<img src={uri} alt={'Plot ' + props.plotClient.id} />
+				<img src={uri} alt={'Plot ' + props.plotClient.id}
+					onClick={selectPlot} />
 			</div>}
 			{!uri && <div className='plot-thumbnail-placeholder'></div>}
 		</div>
