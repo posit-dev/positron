@@ -11,7 +11,6 @@ import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/sta
  */
 interface StaticPlotThumbnailProps {
 	plotService: PositronPlotsServices;
-	plotIndex: number;
 	plotClient: StaticPlotClient;
 }
 
@@ -24,7 +23,7 @@ interface StaticPlotThumbnailProps {
 export const StaticPlotThumbnail = (props: StaticPlotThumbnailProps) => {
 
 	const selectPlot = () => {
-		props.plotService.positronPlotsService.selectPlot(props.plotIndex);
+		props.plotService.positronPlotsService.selectPlot(props.plotClient.id);
 	};
 
 	return (

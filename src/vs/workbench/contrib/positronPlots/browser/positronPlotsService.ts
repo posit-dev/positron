@@ -23,7 +23,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private readonly _onDidEmitPlot = new Emitter<PositronPlotClient>();
 
 	/** The emitter for the onDidSelectPlot event */
-	private readonly _onDidSelectPlot = new Emitter<number>();
+	private readonly _onDidSelectPlot = new Emitter<string>();
 
 	/** Creates the Positron plots service instance */
 	constructor(@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService) {
@@ -73,9 +73,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const plotClient = new PlotClientInstance(client);
 
 		// Add to our list of plots and fire the event notifying subscribers
-		this._plots.push(plotClient);
+		this._plots.unshift(plotClient);
 		this._onDidEmitPlot.fire(plotClient);
-		this._onDidSelectPlot.fire(this._plots.length - 1);
+		this._onDidSelectPlot.fire(plotClient.id);
 
 		// Remove the plot from our list when it is closed
 		plotClient.onDidClose(() => {
@@ -98,14 +98,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	private registerStaticPlot(message: ILanguageRuntimeMessageOutput) {
 		const client = new StaticPlotClient(message);
-		this._plots.push(client);
+		this._plots.unshift(client);
 		this._onDidEmitPlot.fire(client);
-		this._onDidSelectPlot.fire(this._plots.length - 1);
+		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
 	}
 
 	onDidEmitPlot: Event<PositronPlotClient> = this._onDidEmitPlot.event;
-	onDidSelectPlot: Event<number> = this._onDidSelectPlot.event;
+	onDidSelectPlot: Event<string> = this._onDidSelectPlot.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): PositronPlotClient[] {
@@ -113,12 +113,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Select a plot by index.
+	 * Select a plot by ID
 	 *
-	 * @param index The index of the plot to select.
+	 * @param index The ID of the plot to select.
 	 */
-	selectPlot(index: number): void {
-		this._onDidSelectPlot.fire(index);
+	selectPlot(id: string): void {
+		this._onDidSelectPlot.fire(id);
 	}
 
 	/**

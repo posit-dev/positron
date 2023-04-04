@@ -11,7 +11,6 @@ import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common
  * DynamicPlotThumbnailProps interface.
  */
 interface DynamicPlotThumbnailProps {
-	plotIndex: number;
 	plotService: PositronPlotsServices;
 	plotClient: PlotClientInstance;
 }
@@ -41,7 +40,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	});
 
 	const selectPlot = () => {
-		props.plotService.positronPlotsService.selectPlot(props.plotIndex);
+		props.plotService.positronPlotsService.selectPlot(props.plotClient.id);
 	};
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
