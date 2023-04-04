@@ -48,7 +48,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				<img src={uri}
 					height={props.height}
 					width={props.width}
-					alt={'Plot ' + props.plotClient.id} />}
+					alt={props.plotClient.code ? props.plotClient.code : 'Plot ' + props.plotClient.id} />}
 			{!uri && <span>Rendering plot {props.plotClient.id}: {props.height} x {props.width}</span>}
 		</div>
 	);
