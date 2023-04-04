@@ -106,7 +106,7 @@ impl EnvironmentVariable {
             type_info,
         } = binding.get_type();
 
-        let kind = ValueKind::String;
+        let kind = ValueKind::Other;
         let has_children = binding.has_children();
 
         Self {

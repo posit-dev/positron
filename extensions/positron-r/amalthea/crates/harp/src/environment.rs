@@ -305,11 +305,12 @@ fn regular_binding_type(value: SEXP) -> BindingType {
                 }
                 // TODO: should type_info be different ?
                 // TODO: deal with record types, e.g. POSIXlt
-
             }
         }
     } else if rtype == SYMSXP {
         BindingType::new(String::from("symbol"), String::from("symbol"))
+    } else if rtype == CLOSXP {
+        BindingType::new(String::from("function"), String::from("function"))
     } else {
         let class = first_class(value);
         match class {
