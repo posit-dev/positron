@@ -11,12 +11,15 @@ use harp::environment::BindingValue;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
+use harp::r_symbol;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
 use libR_sys::*;
 use serde::Deserialize;
 use serde::Serialize;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 /// Represents the supported kinds of variable values.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -120,51 +123,127 @@ impl EnvironmentVariable {
         }
     }
 
+    fn from(display_name: String, x: SEXP) -> Self {
+        let BindingValue{display_value, is_truncated} = BindingValue::from(x);
+        let BindingType{display_type, type_info} = BindingType::from(x);
+        let has_children = harp::environment::has_children(x);
+
+        Self {
+            access_key: display_name.clone(),
+            display_name,
+            display_value,
+            display_type,
+            type_info,
+            kind: ValueKind::Other,
+            length: 0,
+            size: 0,
+            has_children,
+            is_truncated
+        }
+    }
+
     pub fn inspect(env: RObject, path: &Vec<String>) -> Result<Vec<Self>, harp::error::Error> {
-        // for now only lists can be expanded
-        let list = unsafe {
-            RFunction::from(".ps.environment.resolveObjectFromPath")
-                .param("env", env)
-                .param("path", CharacterVector::create(path).cast())
-                .call()?
+        let object = unsafe {
+            Self::resolve_object_from_path(env, &path)?
         };
 
-        let mut out: Vec<Self> = vec![];
-        let n = unsafe { XLENGTH(*list) };
+        match r_typeof(*object) {
+            VECSXP  => Self::inspect_list(object),
+            LISTSXP => Self::inspect_pairlist(object),
+            _       => Ok(vec![])
+        }
+    }
+
+    unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
+
+        lazy_static! {
+            static ref SQUARE_REGEX: Regex = Regex::new(r"\[\[(?P<index>\d+)\]\]").unwrap();
+        };
+
+        for path_element in path {
+            let rtype = r_typeof(*object);
+            object = match rtype {
+                ENVSXP => {
+                    // TODO: active bindings and promises can't be inspected at the moment,
+                    //       so we can safely assume we can call Rf_findVarInFrame()
+                    //       without forcing them, but it might be something we want to relax in the future
+                    //       e.g. if we want to be able to expand a promise to show its code and/or env
+                    RObject::view(unsafe { Rf_findVarInFrame(*object, r_symbol!(path_element)) } )
+                },
+                VECSXP => {
+
+                    if SQUARE_REGEX.is_match(&path_element) {
+                        let index = SQUARE_REGEX.replace_all(path_element, r"$index").parse::<isize>().unwrap();
+                        RObject::view(VECTOR_ELT(*object, index - 1))
+                    } else {
+                        // TODO: this is wrong because a list can have multiple things
+                        //       that have the same name, we need a better way access than the display name
+                        let names = CharacterVector::new_unchecked(Rf_getAttrib(*object, R_NamesSymbol));
+                        let n = names.len();
+                        let mut element = R_NilValue;
+                        for i in 0..n {
+                            if *path_element == names.get_unchecked(i as isize).unwrap() {
+                                element = VECTOR_ELT(*object, i as isize);
+                                break
+                            }
+                        }
+                        RObject::view(element)
+                    }
+                },
+
+                LISTSXP => {
+                    if path_element == "tag" {
+                        RObject::view(TAG(*object))
+                    } else if path_element == "car" {
+                        RObject::view(CAR(*object))
+                    } else {
+                        RObject::view(CDR(*object))
+                    }
+                }
+
+                _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
+            };
+        }
+
+        Ok(object)
+    }
+
+    fn inspect_list(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out : Vec<Self> = vec![];
+        let n = unsafe { XLENGTH(*value) };
 
         let names = unsafe {
-            CharacterVector::new_unchecked(
-                RFunction::from(".ps.environment.listDisplayNames")
-                    .add(*list)
-                    .call()?,
-            )
+            CharacterVector::new_unchecked(RFunction::from(".ps.environment.listDisplayNames").add(*value).call()?)
         };
 
         for i in 0..n {
-            let x = RObject::view(unsafe { VECTOR_ELT(*list, i) });
-            let display_name = names.get_unchecked(i).unwrap();
-            let BindingValue {
-                display_value,
-                is_truncated,
-            } = BindingValue::from(*x);
-            let BindingType {
-                display_type,
-                type_info,
-            } = BindingType::from(*x);
-            let has_children = r_typeof(*x) == VECSXP;
+            out.push(Self::from(
+                names.get_unchecked(i).unwrap(),
+                unsafe{ VECTOR_ELT(*value, i)}
+            ));
+        }
 
-            out.push(Self {
-                access_key: display_name.clone(),
-                display_name,
-                display_value,
-                display_type,
-                type_info,
-                kind: ValueKind::Other,
-                length: 0,
-                size: 0,
-                has_children,
-                is_truncated,
-            });
+        Ok(out)
+    }
+
+    fn inspect_pairlist(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out : Vec<Self> = vec![];
+
+        unsafe {
+            let tag = TAG(*value);
+            if tag != R_NilValue {
+                out.push(Self::from(String::from("tag"), tag));
+            }
+
+            let car = CAR(*value);
+            if car != R_NilValue {
+                out.push(Self::from(String::from("car"), car));
+            }
+
+            let cdr = CDR(*value);
+            if cdr != R_NilValue {
+                out.push(Self::from(String::from("cdr"), cdr));
+            }
         }
 
         Ok(out)

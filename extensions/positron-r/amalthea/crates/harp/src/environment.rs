@@ -176,8 +176,13 @@ impl Binding {
 
 }
 
-fn has_children(value: SEXP) -> bool {
-    r_typeof(value) == VECSXP && !unsafe{ r_inherits(value, "POSIXlt") }
+pub fn has_children(value: SEXP) -> bool {
+    match r_typeof(value) {
+        VECSXP  => !unsafe{ r_inherits(value, "POSIXlt") },
+        LISTSXP => true,
+
+        _       => false
+    }
 }
 
 fn is_simple_vector(value: SEXP) -> bool {
@@ -185,14 +190,14 @@ fn is_simple_vector(value: SEXP) -> bool {
         let class = Rf_getAttrib(value, R_ClassSymbol);
 
         match r_typeof(value) {
-            LGLSXP => class == R_NilValue,
-            INTSXP => class == R_NilValue || r_inherits(value, "factor"),
+            LGLSXP  => class == R_NilValue,
+            INTSXP  => class == R_NilValue || r_inherits(value, "factor"),
             REALSXP => class == R_NilValue,
             CPLXSXP => class == R_NilValue,
-            STRSXP => class == R_NilValue,
-            RAWSXP => class == R_NilValue,
+            STRSXP  => class == R_NilValue,
+            RAWSXP  => class == R_NilValue,
 
-            _ => false
+            _       => false
         }
     }
 
@@ -219,53 +224,60 @@ fn all_classes(value: SEXP) -> String {
 }
 
 fn regular_binding_display_value(value: SEXP) -> BindingValue {
+    let rtype = r_typeof(value);
     if is_simple_vector(value) {
         with_vector!(value, |v| {
             let formatted = v.format(" ", 100);
             BindingValue::new(formatted.1, formatted.0)
         }).unwrap()
-    } else if r_typeof(value) == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
-        // TODO : handle records such as POSIXlt etc ...
-
+    } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
         // This includes data frames
         BindingValue::empty()
     } else {
         // TODO:
         //   - function
         //   - environment
-        //   - pairlist
-        //   - calls
+        format_display_value(value)
+    }
+}
 
-        unsafe {
-            // try to call format() on the object
-            let formatted = RFunction::new("base", "format")
-                .add(value)
-                .call();
+fn format_display_value(value: SEXP) -> BindingValue {
+    unsafe {
+        // try to call format() on the object
+        let formatted = RFunction::new("base", "format")
+            .add(value)
+            .call();
 
-            match formatted {
-                Ok(fmt) => {
-                    if r_typeof(*fmt) == STRSXP {
-                        let fmt = CharacterVector::unquoted(*fmt);
-                        let fmt = fmt.format(", ", 100);
+        match formatted {
+            Ok(fmt) => {
+                if r_typeof(*fmt) == STRSXP {
+                    let fmt = CharacterVector::unquoted(*fmt);
+                    let fmt = fmt.format(" ", 100);
 
-                        BindingValue::new(fmt.1, fmt.0)
-                    } else {
-                        BindingValue::new(String::from("???"), false)
-                    }
-                },
-                Err(_) => {
+                    BindingValue::new(fmt.1, fmt.0)
+                } else {
                     BindingValue::new(String::from("???"), false)
                 }
+            },
+            Err(_) => {
+                BindingValue::new(String::from("???"), false)
             }
         }
     }
-
 }
 
 fn regular_binding_type(value: SEXP) -> BindingType {
+    let rtype = r_typeof(value);
     if is_simple_vector(value) {
         vec_type_info(value)
-    } else if r_typeof(value) == VECSXP {
+    } else if rtype == LISTSXP {
+        match first_class(value) {
+            None        => BindingType::new(String::from("pairlist"), String::from("pairlist")),
+
+            // TODO: maybe call some R function for the class hint and info
+            Some(class) => BindingType::new(class, all_classes(value))
+        }
+    } else if rtype == VECSXP {
         unsafe {
             if r_inherits(value, "data.frame") {
                 let dfclass = first_class(value).unwrap();
@@ -296,6 +308,8 @@ fn regular_binding_type(value: SEXP) -> BindingType {
 
             }
         }
+    } else if rtype == SYMSXP {
+        BindingType::new(String::from("symbol"), String::from("symbol"))
     } else {
         let class = first_class(value);
         match class {
@@ -360,7 +374,6 @@ fn altrep_class(object: SEXP) -> String {
 
     format!("{}::{}", pkg, klass)
 }
-
 
 pub fn env_bindings(env: SEXP) -> Vec<Binding> {
     unsafe {

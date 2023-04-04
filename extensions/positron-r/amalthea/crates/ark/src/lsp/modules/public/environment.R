@@ -14,22 +14,3 @@
     }
     names
 }
-
-.ps.environment.resolveObjectFromPath <- function(env, path) {
-    rx_unnamed <- "^[[][[]([[:digit:]])[]][]]"
-
-    # start with environment
-    object <- env
-
-    # and then move down the path
-    for (p in path) {
-        if (grepl(rx_unnamed, p)) {
-            index <- as.integer(sub(rx_unnamed, "\\1", p))
-            object <- object[[index]]
-        } else {
-            object <- object[[p]]
-        }
-    }
-
-    object
-}
