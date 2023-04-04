@@ -15,6 +15,7 @@ use ark::lsp;
 use bus::Bus;
 use crossbeam::channel::bounded;
 use log::*;
+use nix::sys::signal::*;
 use std::env;
 use std::io::stdin;
 use std::sync::{Arc, Mutex};
@@ -183,11 +184,17 @@ Available options:
 }
 
 fn main() {
+
     #[cfg(target_os = "macos")]
     {
         // Unset DYLD_INSERT_LIBRARIES if it was passed down
         std::env::remove_var("DYLD_INSERT_LIBRARIES");
     }
+
+    // Block signals in this (and any child) threads.
+    let mut sigset = SigSet::empty();
+    sigset.add(SIGINT);
+    sigprocmask(SigmaskHow::SIG_BLOCK, Some(&sigset), None).unwrap();
 
     // Get an iterator over all the command-line arguments
     let mut argv = std::env::args();
