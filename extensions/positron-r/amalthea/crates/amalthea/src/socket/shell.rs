@@ -281,11 +281,15 @@ impl Shell {
         // Convert our internal map of open comms to a JSON object
         let mut info = serde_json::Map::new();
         for (comm_id, target_name) in &self.open_comms {
-            let comm_info = serde_json::to_value(CommInfoTargetName { target_name: target_name.clone() }).unwrap();
-            info.insert(
-                comm_id.clone(),
-                comm_info
-            );
+            // Only include comms that match the target name, if one was specified
+            if req.content.target_name.is_empty() || &req.content.target_name == target_name {
+                let comm_info_target = CommInfoTargetName { target_name: target_name.clone() };
+                let comm_info = serde_json::to_value(comm_info_target).unwrap();
+                info.insert(
+                    comm_id.clone(),
+                    comm_info
+                );
+            }
         }
 
         // Form a reply and send it
