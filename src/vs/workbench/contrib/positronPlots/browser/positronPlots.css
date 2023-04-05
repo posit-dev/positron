@@ -73,6 +73,13 @@
 	transform: translate(-50%, -50%);
 }
 
+.plot-thumbnail-placeholder {
+	height: 75px;
+	width: 75px;
+	background-color: var(--vscode-input-background);
+	cursor: pointer;
+}
+
 .static-plot-instance {
 	height: 100%;
 	width: 100%;

@@ -242,6 +242,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 							clientType as RuntimeClientType,
 							this.handle,
 							this._proxy);
+
+						// The client instance is now connected, since it
+						// already exists on the back end
+						client.setClientState(RuntimeClientState.Connected);
 						this._clients.set(key, client);
 						instances.push(client);
 					} else {

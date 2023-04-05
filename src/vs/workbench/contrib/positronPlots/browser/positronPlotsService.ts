@@ -53,10 +53,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			// Get the list of existing plot clients; these are expected in the
 			// case of reconnecting to a running language runtime, and represent
 			// the user's active set of plot objects.
-			runtime.listClients().then(clients => {
+			runtime.listClients(RuntimeClientType.Plot).then(clients => {
 				clients.forEach((client) => {
 					if (client.getClientType() === RuntimeClientType.Plot) {
 						this.registerPlotClient(client);
+					} else {
+						console.warn(
+							`Unexpected client type ${client.getClientType()} ` +
+							`(expected ${RuntimeClientType.Plot})`);
 					}
 				});
 			});

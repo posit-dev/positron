@@ -59,7 +59,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 				<img src={uri} alt={'Plot ' + props.plotClient.id}
 					onClick={selectPlot} />
 			</div>}
-			{!uri && <div className='plot-thumbnail-placeholder'></div>}
+			{!uri && <div className='plot-thumbnail-placeholder' onClick={selectPlot}></div>}
 			<div className='plot-close codicon codicon-close' onClick={removePlot}></div>
 		</div>
 	);

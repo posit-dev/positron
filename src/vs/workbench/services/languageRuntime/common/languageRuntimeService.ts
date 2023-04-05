@@ -389,7 +389,7 @@ export interface ILanguageRuntime {
 		Thenable<IRuntimeClientInstance<T, U>>;
 
 	/** Get a list of all known clients */
-	listClients(): Thenable<Array<IRuntimeClientInstance<any, any>>>;
+	listClients(type?: RuntimeClientType): Thenable<Array<IRuntimeClientInstance<any, any>>>;
 
 	/** Reply to an input prompt that the runtime issued
 	 * (via a LanguageRuntimePrompt message)
