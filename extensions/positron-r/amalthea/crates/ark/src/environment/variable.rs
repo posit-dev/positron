@@ -13,6 +13,8 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
+use harp::symbol::RSymbol;
+use harp::utils::r_assert_type;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
@@ -21,6 +23,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use lazy_static::lazy_static;
 use regex::Regex;
+
+lazy_static! {
+    static ref SQUARE_REGEX: Regex = Regex::new(r"\[\[(?P<index>\d+)\]\]").unwrap();
+}
 
 /// Represents the supported kinds of variable values.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -157,11 +163,6 @@ impl EnvironmentVariable {
     }
 
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
-
-        lazy_static! {
-            static ref SQUARE_REGEX: Regex = Regex::new(r"\[\[(?P<index>\d+)\]\]").unwrap();
-        };
-
         for path_element in path {
             let rtype = r_typeof(*object);
             object = match rtype {
@@ -194,13 +195,31 @@ impl EnvironmentVariable {
                 },
 
                 LISTSXP => {
-                    if path_element == "tag" {
-                        RObject::view(TAG(*object))
-                    } else if path_element == "car" {
-                        RObject::view(CAR(*object))
+
+                    let mut pairlist = *object;
+
+                    if SQUARE_REGEX.is_match(&path_element) {
+                        // [[<index>]]
+
+                        let index = SQUARE_REGEX.replace_all(path_element, r"$index").parse::<isize>().unwrap() - 1;
+                        for _i in 0..index {
+                            pairlist = CDR(pairlist);
+                        }
                     } else {
-                        RObject::view(CDR(*object))
+                        // we have a name: compare it to the tags
+
+                        // TODO: RSymbol::from(path_element) instead so that we don't need to keep
+                        //       making String from each tag, and just compare SYMSXP
+                        loop {
+                            let tag = TAG(pairlist);
+                            if tag != R_NilValue && String::from(RSymbol::new(tag)) == *path_element {
+                                break;
+                            }
+                            pairlist = CDR(pairlist);
+                        }
                     }
+
+                    RObject::view(CAR(pairlist))
                 }
 
                 _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
@@ -231,20 +250,24 @@ impl EnvironmentVariable {
     fn inspect_pairlist(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
 
+        let mut pairlist = *value;
         unsafe {
-            let tag = TAG(*value);
-            if tag != R_NilValue {
-                out.push(Self::from(String::from("tag"), tag));
-            }
+            let mut i = 1;
+            while pairlist != R_NilValue {
 
-            let car = CAR(*value);
-            if car != R_NilValue {
-                out.push(Self::from(String::from("car"), car));
-            }
+                r_assert_type(pairlist, &[LISTSXP])?;
 
-            let cdr = CDR(*value);
-            if cdr != R_NilValue {
-                out.push(Self::from(String::from("cdr"), cdr));
+                let tag = TAG(pairlist);
+                let name = if tag == R_NilValue {
+                    format!("[[{}]]", i)
+                } else {
+                    String::from(RSymbol::new(tag))
+                };
+
+                out.push(Self::from(name, CAR(pairlist)));
+
+                pairlist = CDR(pairlist);
+                i = i + 1;
             }
         }
 
