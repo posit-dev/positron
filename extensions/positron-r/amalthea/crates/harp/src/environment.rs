@@ -117,6 +117,14 @@ impl BindingType {
     pub fn from(value: SEXP) -> Self {
         regular_binding_type(value)
     }
+
+    pub fn simple(display_type: String) -> Self {
+        let type_info = display_type.clone();
+        BindingType {
+            display_type,
+            type_info
+        }
+    }
 }
 
 impl Binding {
@@ -272,12 +280,20 @@ fn regular_binding_type(value: SEXP) -> BindingType {
     if is_simple_vector(value) {
         vec_type_info(value)
     } else if rtype == LISTSXP {
-        match first_class(value) {
-            None        => BindingType::new(String::from("pairlist"), String::from("pairlist")),
 
-            // TODO: maybe call some R function for the class hint and info
-            Some(class) => BindingType::new(class, all_classes(value))
+        let mut n = 0;
+        let mut pairlist = value;
+        unsafe {
+            while pairlist != R_NilValue {
+                if r_typeof(pairlist) != LISTSXP {
+                    return BindingType::simple(String::from("pairlist [?]"));
+                }
+                pairlist = CDR(pairlist);
+                n = n + 1;
+            }
         }
+
+        BindingType::simple(format!("pairlist [{}]", n))
     } else if rtype == VECSXP {
         unsafe {
             if r_inherits(value, "data.frame") {
@@ -291,15 +307,12 @@ fn regular_binding_type(value: SEXP) -> BindingType {
                 let dim = IntegerVector::new(dim).unwrap();
                 let shape = dim.format(",", 0).1;
 
-                BindingType::new(
-                    format!("{} [{}]", dfclass, shape),
-
-                    // TODO: add info about column types ?
+                BindingType::simple(
                     format!("{} [{}]", dfclass, shape)
                 )
             } else {
                 match first_class(value) {
-                    None => BindingType::new(String::from("list"), String::from("list")),
+                    None => BindingType::simple(String::from("list")),
                     Some(class) => {
                         BindingType::new(class, all_classes(value))
                     }
@@ -309,16 +322,16 @@ fn regular_binding_type(value: SEXP) -> BindingType {
             }
         }
     } else if rtype == SYMSXP {
-        BindingType::new(String::from("symbol"), String::from("symbol"))
+        BindingType::simple(String::from("symbol"))
     } else if rtype == CLOSXP {
-        BindingType::new(String::from("function"), String::from("function"))
+        BindingType::simple(String::from("function"))
     } else if rtype == ENVSXP {
-        BindingType::new(String::from("environment"), String::from("environment"))
+        BindingType::simple(String::from("environment"))
     } else {
         let class = first_class(value);
         match class {
             Some(class) => BindingType::new(class, all_classes(value)),
-            None        => BindingType::new(String::from("???"), String::from(""))
+            None        => BindingType::simple(String::from("???"))
         }
     }
 }
