@@ -56,6 +56,9 @@ pub enum ValueKind {
 /// Represents the serialized form of an environment variable.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvironmentVariable {
+    /** The access key; not displayed to the user, but used to form path accessors */
+    pub access_key: String,
+
     /** The environment variable's name, formatted for display */
     pub display_name: String,
 
@@ -91,13 +94,20 @@ impl EnvironmentVariable {
     pub fn new(binding: &Binding) -> Self {
         let display_name = binding.name.to_string();
 
-        let BindingValue{display_value, is_truncated} = binding.get_value();
-        let BindingType{display_type, type_info} = binding.get_type();
+        let BindingValue {
+            display_value,
+            is_truncated,
+        } = binding.get_value();
+        let BindingType {
+            display_type,
+            type_info,
+        } = binding.get_type();
 
         let kind = ValueKind::String;
         let has_children = binding.has_children();
 
         Self {
+            access_key: display_name.clone(),
             display_name,
             display_value,
             display_type,
@@ -119,21 +129,32 @@ impl EnvironmentVariable {
                 .call()?
         };
 
-        let mut out : Vec<Self> = vec![];
+        let mut out: Vec<Self> = vec![];
         let n = unsafe { XLENGTH(*list) };
 
         let names = unsafe {
-            CharacterVector::new_unchecked(RFunction::from(".ps.environment.listDisplayNames").add(*list).call()?)
+            CharacterVector::new_unchecked(
+                RFunction::from(".ps.environment.listDisplayNames")
+                    .add(*list)
+                    .call()?,
+            )
         };
 
         for i in 0..n {
-            let x = RObject::view(unsafe{ VECTOR_ELT(*list, i)});
+            let x = RObject::view(unsafe { VECTOR_ELT(*list, i) });
             let display_name = names.get_unchecked(i).unwrap();
-            let BindingValue{display_value, is_truncated} = BindingValue::from(*x);
-            let BindingType{display_type, type_info} = BindingType::from(*x);
+            let BindingValue {
+                display_value,
+                is_truncated,
+            } = BindingValue::from(*x);
+            let BindingType {
+                display_type,
+                type_info,
+            } = BindingType::from(*x);
             let has_children = r_typeof(*x) == VECSXP;
 
             out.push(Self {
+                access_key: display_name.clone(),
                 display_name,
                 display_value,
                 display_type,
@@ -142,11 +163,10 @@ impl EnvironmentVariable {
                 length: 0,
                 size: 0,
                 has_children,
-                is_truncated
+                is_truncated,
             });
         }
 
         Ok(out)
     }
-
 }

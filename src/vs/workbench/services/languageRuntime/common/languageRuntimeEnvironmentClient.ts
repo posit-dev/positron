@@ -99,6 +99,10 @@ export enum EnvironmentVariableValueKind {
  * This is the raw data format used to communicate with the language runtime.
  */
 export interface IEnvironmentVariable {
+	/// A key that uniquely identifies the variable within the current environment and
+	/// can be used to access the variable in `inspect` requests
+	access_key: string;
+
 	/// The name of the variable, formatted for display
 	display_name: string;
 
@@ -136,13 +140,13 @@ export class EnvironmentVariable {
 	 * Creates a new EnvironmentVariable instance.
 	 *
 	 * @param data The raw data from the language runtime.
-	 * @param parentNames A list of the names of the parent variables, if any;
+	 * @param parentKeys A list of the access keys of the parent variables, if any;
 	 *   used to construct the full path to this variable.
 	 * @param _envClient The environment client instance that owns this variable.
 	 */
 	constructor(
 		public readonly data: IEnvironmentVariable,
-		public readonly parentNames: Array<string> = [],
+		public readonly parentKeys: Array<string> = [],
 		private readonly _envClient: EnvironmentClientInstance) {
 	}
 
@@ -153,10 +157,10 @@ export class EnvironmentVariable {
 	 */
 	async getChildren(): Promise<EnvironmentClientList> {
 		if (this.data.has_children) {
-			return this._envClient.requestInspect(this.parentNames.concat(this.data.display_name));
+			return this._envClient.requestInspect(this.parentKeys.concat(this.data.access_key));
 		} else {
 			throw new Error(`Attempt to retrieve children of ` +
-				`${this.data.display_name} (${JSON.stringify(this.parentNames)}) ` +
+				`${this.data.display_name} (${JSON.stringify(this.parentKeys)}) ` +
 				`which has no children.`);
 		}
 	}
@@ -169,7 +173,7 @@ export class EnvironmentVariable {
 	 */
 	async formatForClipboard(mime: string): Promise<string> {
 		return this._envClient.requestClipboardFormat(mime,
-			this.parentNames.concat(this.data.display_name));
+			this.parentKeys.concat(this.data.access_key));
 	}
 }
 
@@ -254,9 +258,9 @@ export class EnvironmentClientList {
 	public readonly variables: Array<EnvironmentVariable>;
 	constructor(
 		public readonly data: Array<IEnvironmentVariable>,
-		parentNames: Array<string> = [],
+		parentKeys: Array<string> = [],
 		envClient: EnvironmentClientInstance) {
-		this.variables = data.map(v => new EnvironmentVariable(v, parentNames, envClient));
+		this.variables = data.map(v => new EnvironmentVariable(v, parentKeys, envClient));
 	}
 }
 
@@ -361,7 +365,7 @@ export class EnvironmentClientInstance extends Disposable {
 	/**
 	 * Requests that the environment client inspect the specified variable.
 	 *
-	 * @param path The path to the variable to inspect
+	 * @param path The path to the variable to inspect, as an array of access key values
 	 * @returns The variable's children
 	 */
 	public async requestInspect(path: string[]): Promise<EnvironmentClientList> {
