@@ -11,6 +11,7 @@ import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common
  * DynamicPlotThumbnailProps interface.
  */
 interface DynamicPlotThumbnailProps {
+	selected: boolean;
 	plotService: PositronPlotsServices;
 	plotClient: PlotClientInstance;
 }
@@ -53,7 +54,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	// Consider: we probably want a more explicit loading state; as written we
 	// will show the old URI until the new one is ready.
 	return (
-		<div className='plot-thumbnail'>
+		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
 			{uri && <div className='image-wrapper'>
 				<img src={uri} alt={'Plot ' + props.plotClient.id}
 					onClick={selectPlot} />

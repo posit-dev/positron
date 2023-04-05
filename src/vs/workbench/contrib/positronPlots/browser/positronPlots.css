@@ -34,6 +34,12 @@
 	cursor: pointer;
 }
 
+.plot-thumbnail.selected {
+	border: 1px solid var(--vscode-editorWidget-border);
+	opacity: 1;
+	cursor: hand;
+}
+
 /**
  * Hover the plot thumbnail to make it opaque; fades out when not hovered.
  */
