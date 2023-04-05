@@ -23,7 +23,8 @@ pub enum Error {
     InvalidUtf8(Utf8Error),
     TryCatchError { message: Vec<String>, classes : Vec<String> },
     ParseSyntaxError { message: String, line: i32 },
-    MissingValueError
+    MissingValueError,
+    NotSimpleVectorError,
 }
 
 // empty implementation required for 'anyhow'
@@ -86,7 +87,11 @@ impl fmt::Display for Error {
             }
 
             Error::MissingValueError => {
-                write!(f, "Missing value" )
+                write!(f, "Missing value")
+            },
+
+            Error::NotSimpleVectorError => {
+                write!(f, "Not a simple vector")
             }
 
         }

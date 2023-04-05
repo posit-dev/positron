@@ -23,6 +23,7 @@ use crate::vector::LogicalVector;
 use crate::vector::NumericVector;
 use crate::vector::RawVector;
 use crate::vector::Vector;
+use crate::with_vector;
 
 #[derive(Copy, Clone, BitfieldStruct)]
 #[repr(C)]
@@ -219,7 +220,10 @@ fn all_classes(value: SEXP) -> String {
 
 fn regular_binding_display_value(value: SEXP) -> BindingValue {
     if is_simple_vector(value) {
-        vec_glimpse(value)
+        with_vector!(value, |v| {
+            let formatted = v.format(" ", 100);
+            BindingValue::new(formatted.1, formatted.0)
+        }).unwrap()
     } else if r_typeof(value) == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
         // TODO : handle records such as POSIXlt etc ...
 
@@ -342,52 +346,6 @@ fn vec_shape(value: SEXP) -> String {
         } else {
             let dim = IntegerVector::new(dim).unwrap();
             dim.format(",", 0).1
-        }
-    }
-}
-
-fn vec_glimpse(value: SEXP) -> BindingValue {
-    // TODO: turn this into a macro perhaps
-    match unsafe{TYPEOF(value) as u32} {
-        LGLSXP => {
-            let vec = unsafe { LogicalVector::new(value) }.unwrap();
-            let formatted = vec.format(" ", 100);
-            BindingValue::new(formatted.1, formatted.0)
-        },
-        INTSXP => {
-            if unsafe { r_inherits(value, "factor") } {
-                let vec = unsafe { Factor::new(value) }.unwrap();
-                let formatted = vec.format(" ", 100);
-                BindingValue::new(formatted.1, formatted.0)
-            } else {
-                let vec = unsafe { IntegerVector::new(value) }.unwrap();
-                let formatted = vec.format(" ", 100);
-                BindingValue::new(formatted.1, formatted.0)
-            }
-        },
-        REALSXP => {
-            let vec = unsafe { NumericVector::new(value) }.unwrap();
-            let formatted = vec.format(" ", 100);
-            BindingValue::new(formatted.1, formatted.0)
-        },
-        RAWSXP => {
-            let vec = unsafe { RawVector::new(value) }.unwrap();
-            let formatted = vec.format(" ", 100);
-            BindingValue::new(formatted.1, formatted.0)
-        },
-
-        STRSXP => {
-            let vec = unsafe { CharacterVector::new(value) }.unwrap();
-            let formatted = vec.format(" ", 100);
-            BindingValue::new(formatted.1, formatted.0)
-        },
-
-        VECSXP => {
-            BindingValue::empty()
-        },
-
-        _ => {
-            BindingValue::empty()
         }
     }
 }
