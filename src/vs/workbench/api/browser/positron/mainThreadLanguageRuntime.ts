@@ -213,8 +213,49 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/** List active clients */
-	listClients(): Thenable<IRuntimeClientInstance<any, any>[]> {
-		return Promise.resolve(Array.from(this._clients.values()));
+	listClients(type?: RuntimeClientType): Thenable<IRuntimeClientInstance<any, any>[]> {
+		return new Promise((resolve, reject) => {
+			this._proxy.$listClients(this.handle, type).then(clients => {
+				// Array to hold resolved set of clients. This will be a combination of clients
+				// already known to the extension host and new clients that need to be created.
+				const instances = new Array<IRuntimeClientInstance<any, any>>();
+
+				// Loop over each client ID and check if we already have an instance for it;
+				// if not, create a new instance and add it to the list.
+				Object.keys(clients).forEach((key) => {
+					// Check for it in the list of active clients; if it's there, add it to the
+					// list of instances and move on.
+					const instance = this._clients.get(key);
+					if (instance) {
+						instances.push(instance);
+						return;
+					}
+					// We don't know about this client yet. Create a new
+					// instance and add it to the list, if it's a valid client
+					// type.
+					const clientType = clients[key];
+					if (Object.values(RuntimeClientType).includes(clientType as RuntimeClientType)) {
+						// We know what type of client this is, so create a new
+						// instance and add it to the list.
+						const client = new ExtHostRuntimeClientInstance<any, any>(
+							key,
+							clientType as RuntimeClientType,
+							this.handle,
+							this._proxy);
+						this._clients.set(key, client);
+						instances.push(client);
+					} else {
+						// We don't know what type of client this is, so
+						// just log a warning and ignore it.
+						this._logService.warn(`Ignoring unknown client type '${clientType}' for client '${key}'`);
+					}
+				});
+
+				resolve(instances);
+			}).catch((err) => {
+				reject(err);
+			});
+		});
 	}
 
 	replyToPrompt(id: string, value: string): void {
