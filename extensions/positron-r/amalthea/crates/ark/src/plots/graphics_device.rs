@@ -105,26 +105,8 @@ impl DeviceContext {
         self._dirty = self._dirty || mode != 0;
     }
 
-    pub unsafe fn before_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
-        // Nothing to do if we don't have an ID (implies no page)
-        let id = unwrap!(&self._id, None => {
-            return;
-        });
-
-        // When a new page is created, check if we have a plot / display list
-        // active. If we do, save that before the new page is created, so that
-        // we can re-render the previous plot (page) if necessary.
-        let result = RFunction::from(".ps.graphics.createSnapshot")
-            .param("id", id.as_str())
-            .call();
-
-        if let Err(error) = result {
-            log::error!("{}", error);
-        }
-    }
-
-    pub unsafe fn after_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
-        // Generate a new UUID to be associated with this plot.
+    pub unsafe fn new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
+        // Create a new id.
         let id = Uuid::new_v4().to_string();
         self._id = Some(id.clone());
 
@@ -325,14 +307,12 @@ unsafe extern "C" fn gd_mode(mode: i32, dev: pDevDesc) {
 unsafe extern "C" fn gd_new_page(dd: pGEcontext, dev: pDevDesc) {
     trace!("gd_new_page");
 
-    DEVICE_CONTEXT.before_new_page(dd, dev);
-
     // invoke the regular callback
     if let Some(callback) = DEVICE_CONTEXT._callbacks.newPage {
         callback(dd, dev);
     }
 
-    DEVICE_CONTEXT.after_new_page(dd, dev);
+    DEVICE_CONTEXT.new_page(dd, dev);
 }
 
 unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
@@ -361,7 +341,7 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
         // initialize display list (needed for copying of plots)
         GEinitDisplayList(dd);
         (*dd).displayListOn = 1;
-        (*dd).recordGraphics = 1;
+        // (*dd).recordGraphics = 1;
 
         // device description struct
         let callbacks = &mut DEVICE_CONTEXT._callbacks;
@@ -394,4 +374,22 @@ unsafe extern "C" fn ps_graphics_device() -> SEXP {
             R_NilValue
         },
     }
+}
+
+#[harp::register]
+unsafe extern "C" fn ps_graphics_event(_name: SEXP) -> SEXP {
+    let id = unwrap!(DEVICE_CONTEXT._id.clone(), None => {
+        return Rf_ScalarLogical(0);
+    });
+
+    let result = RFunction::from(".ps.graphics.createSnapshot")
+        .param("id", id)
+        .call();
+
+    if let Err(error) = result {
+        log::error!("{}", error);
+        return Rf_ScalarLogical(0);
+    }
+
+    Rf_ScalarLogical(1)
 }
