@@ -1,23 +1,22 @@
 //
-// signals.rs
+// event.rs
 //
 // Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
 //
 
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::sync::atomic::AtomicI32;
+use std::sync::Mutex;
 
 static ID: AtomicI32 = AtomicI32::new(0);
 
 #[derive(Default)]
-pub struct Signal<T> {
-    listeners: Mutex<HashMap<i32, Box<dyn Fn(&T) + Send>>>
+pub struct Event<T> {
+    listeners: Mutex<HashMap<i32, Box<dyn Fn(&T) + Send>>>,
 }
 
-impl<T> Signal<T> {
-
+impl<T> Event<T> {
     pub fn emit(&self, data: impl Into<T>) {
         let data = data.into();
         let mut listeners = self.listeners.lock().unwrap();
@@ -37,7 +36,6 @@ impl<T> Signal<T> {
         let mut listeners = self.listeners.lock().unwrap();
         listeners.remove(&id);
     }
-
 }
 
 #[cfg(test)]
@@ -46,14 +44,13 @@ mod tests {
 
     #[test]
     fn test_signals() {
-
         #[derive(Default)]
-        pub struct Signals {
-            number: Signal<i32>,
-            string: Signal<String>,
+        pub struct Events {
+            number: Event<i32>,
+            string: Event<String>,
         }
 
-        let signals = Signals::default();
+        let signals = Events::default();
 
         // call with a number
         signals.number.listen(|number| {
@@ -76,8 +73,5 @@ mod tests {
 
         signals.string.remove(id);
         signals.string.emit("hello");
-
     }
-
 }
-

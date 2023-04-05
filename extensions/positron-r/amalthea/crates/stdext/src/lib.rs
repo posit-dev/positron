@@ -11,7 +11,7 @@ pub mod case;
 pub mod local;
 pub mod join;
 pub mod push;
-pub mod signals;
+pub mod event;
 pub mod spawn;
 pub mod unwrap;
 

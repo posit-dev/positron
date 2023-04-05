@@ -22,7 +22,7 @@ pub mod markdown;
 pub mod modules;
 pub mod references;
 pub mod show_message;
-pub mod signals;
+pub mod events;
 pub mod signature_help;
 pub mod symbols;
 pub mod traits;

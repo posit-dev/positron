@@ -5,6 +5,15 @@
 //
 //
 
+use std::ffi::*;
+use std::os::raw::c_uchar;
+use std::os::raw::c_void;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::Once;
+use std::time::Duration;
+use std::time::SystemTime;
+
 use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::ShowMessageEvent;
@@ -23,19 +32,11 @@ use libR_sys::*;
 use log::*;
 use nix::sys::signal::*;
 use parking_lot::MutexGuard;
-use std::ffi::*;
-use std::os::raw::c_uchar;
-use std::os::raw::c_void;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::Once;
-use std::time::Duration;
-use std::time::SystemTime;
 use stdext::*;
 
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
-use crate::lsp::signals::SIGNALS;
+use crate::lsp::events::EVENTS;
 use crate::plots::graphics_device;
 use crate::request::Request;
 
@@ -55,7 +56,6 @@ extern "C" {
 }
 
 fn initialize_signal_handlers() {
-
     // Reset the signal block.
     //
     // This appears to be necessary on macOS; 'sigprocmask()' specifically
@@ -86,11 +86,12 @@ fn initialize_signal_handlers() {
     unsafe {
         signal(SIGINT, SigHandler::Handler(handle_interrupt)).unwrap();
     }
-
 }
 
 extern "C" fn handle_interrupt(_signal: libc::c_int) {
-    unsafe { R_interrupts_pending = 1; }
+    unsafe {
+        R_interrupts_pending = 1;
+    }
 }
 
 // --- Globals ---
@@ -116,7 +117,6 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 static INIT: Once = Once::new();
 
 pub unsafe fn process_events() {
-
     // Don't process interrupts in this scope.
     let _interrupts_suspended = RInterruptsSuspendedScope::new();
 
@@ -288,7 +288,6 @@ pub extern "C" fn r_show_message(buf: *const c_char) {
  */
 #[no_mangle]
 pub extern "C" fn r_busy(which: i32) {
-
     // Ensure signal handlers are initialized.
     //
     // We perform this awkward dance because R tries to set and reset
@@ -313,7 +312,6 @@ pub extern "C" fn r_busy(which: i32) {
 }
 
 pub unsafe extern "C" fn r_polled_events() {
-
     // Check for pending tasks.
     let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
     if count == 0 {
@@ -443,7 +441,7 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     let kernel = mutex.lock().unwrap();
 
     // Signal prompt
-    SIGNALS.console_prompt.emit(());
+    EVENTS.console_prompt.emit(());
 
     // The request is incomplete if we see the continue prompt
     let continue_prompt = unsafe { r_get_option::<String>("continue") };
