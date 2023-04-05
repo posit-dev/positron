@@ -26,12 +26,17 @@ export const StaticPlotThumbnail = (props: StaticPlotThumbnailProps) => {
 		props.plotService.positronPlotsService.selectPlot(props.plotClient.id);
 	};
 
+	const removePlot = () => {
+		props.plotService.positronPlotsService.removePlot(props.plotClient.id);
+	};
+
 	return (
 		<div className='plot-thumbnail'>
 			<div className='image-wrapper'>
 				<img src={props.plotClient.uri} alt={'Plot ' + props.plotClient.id}
 					onClick={selectPlot} />
 			</div>
+			<div className='plot-close codicon codicon-close' onClick={removePlot}></div>
 		</div>
 	);
 };

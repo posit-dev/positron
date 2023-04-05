@@ -28,6 +28,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the onDidSelectPlot event */
 	private readonly _onDidSelectPlot = new Emitter<string>();
 
+	/** The emitter for the onDidRemovePlot event */
+	private readonly _onDidRemovePlot = new Emitter<string>();
+
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
 	 * code executed. We keep around the last 10 executions so that when a plot
@@ -139,6 +142,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	onDidEmitPlot: Event<PositronPlotClient> = this._onDidEmitPlot.event;
 	onDidSelectPlot: Event<string> = this._onDidSelectPlot.event;
+	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): PositronPlotClient[] {
@@ -152,6 +156,24 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	selectPlot(id: string): void {
 		this._onDidSelectPlot.fire(id);
+	}
+
+	/**
+	 * Remove a plot by ID
+	 *
+	 * @param id The ID of the plot to remove
+	 */
+	removePlot(id: string): void {
+		// Find the plot with the given ID and remove it from the list
+		this._plots.forEach((plot, index) => {
+			if (plot.id === id) {
+				plot.dispose();
+				this._plots.splice(index, 1);
+			}
+		});
+
+		// Fire the event notifying subscribers
+		this._onDidRemovePlot.fire(id);
 	}
 
 	/**
