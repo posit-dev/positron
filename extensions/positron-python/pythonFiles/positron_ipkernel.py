@@ -72,6 +72,7 @@ class EnvironmentVariable(dict):
                  kind: EnvironmentVariableKind = EnvironmentVariableKind.OTHER,
                  display_type: str = None,
                  type_info: str = None,
+                 access_key: str = None,
                  length: int = 0,
                  size: int = None,
                  has_children: bool = False,
@@ -82,6 +83,7 @@ class EnvironmentVariable(dict):
             self['kind'] = getattr(EnvironmentVariableKind, kind.upper())
         self['display_type'] = display_type
         self['type_info'] = type_info
+        self['access_key'] = access_key
         self['length'] = length
         self['size'] = size
         self['has_children'] = has_children
@@ -978,12 +980,21 @@ class PositronIPyKernel(IPythonKernel):
             else:
                 display_value, is_truncated = self.summarize_value(value)
 
-            return EnvironmentVariable(display_name, display_value, kind,
-                                       display_type, type_info, length, size,
-                                       has_children, is_truncated)
+            return EnvironmentVariable(display_name=display_name,
+                                       display_value=display_value,
+                                       display_type=display_type,
+                                       kind=kind,
+                                       type_info=type_info,
+                                       access_key=display_name,
+                                       length=length,
+                                       size=size,
+                                       has_children=has_children,
+                                       is_truncated=is_truncated)
         except Exception as err:
             logging.warning(err, exc_info=True)
-            return EnvironmentVariable(display_name, self.get_qualname(value), kind)
+            return EnvironmentVariable(display_name=display_name,
+                                       display_value=self.get_qualname(value),
+                                       kind=kind)
 
     def format_function_summary(self, value) -> str:
         if callable(value):

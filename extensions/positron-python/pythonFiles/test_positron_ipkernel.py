@@ -42,7 +42,9 @@ class TestPositronIPKernel(unittest.TestCase):
         self.assertEqual(result['display_name'], expected['display_name'])
         self.assertEqual(result['display_value'], expected['display_value'])
         self.assertEqual(result['kind'], expected['kind'])
+        self.assertEqual(result['type_info'], expected['type_info'])
         self.assertEqual(result['display_type'], expected['display_type'])
+        self.assertEqual(result['access_key'], expected['access_key'])
         self.assertEqual(result['length'], expected['length'])
         self.assertEqual(result['has_children'], expected['has_children'])
         self.assertEqual(result['is_truncated'], expected['is_truncated'])
@@ -62,9 +64,11 @@ class TestPositronIPKernel(unittest.TestCase):
         cases = self.BOOL_CASES
 
         for i, case in enumerate(cases):
-            expected = EnvironmentVariable(f'xBool{i}', str(case), 'boolean', 'bool', 0)
+            display_name = f'xBool{i}'
+            expected = EnvironmentVariable(display_name, str(case), 'boolean', 'bool', 'bool',
+                                           display_name, 0)
 
-            key, value = f'xBool{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
@@ -90,23 +94,26 @@ class TestPositronIPKernel(unittest.TestCase):
         cases = self.STRING_CASES
 
         for i, case in enumerate(cases):
+            display_name = f'xStr{i}'
             length = len(case)
-            expected = EnvironmentVariable(f'xStr{i}', repr(case), 'string', 'str', length)
+            expected = EnvironmentVariable(display_name, repr(case), 'string', 'str', 'str',
+                                           display_name, length)
 
-            key, value = f'xStr{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
     def test_string_long_truncated(self):
 
+        display_name = 'xStrT'
         long_string = ''.join(random.choices(string.ascii_letters, k=(TRUNCATE_SUMMARY_AT + 10)))
         length = len(long_string)
         expected_value = f'\'{long_string[:TRUNCATE_SUMMARY_AT]}\''
-        expected = EnvironmentVariable('xStrT', expected_value, 'string',
-                                       'str', length, None, False, True)
+        expected = EnvironmentVariable(display_name, expected_value, 'string', 'str', 'str',
+                                       display_name, length, None, False, True)
 
-        key, value = 'xStrT', long_string
+        key, value = display_name, long_string
         result = self.kernel.summarize_variable(key, value)
 
         self.compare_summary(result, expected)
@@ -125,9 +132,11 @@ class TestPositronIPKernel(unittest.TestCase):
         cases = self.INT_CASES
 
         for i, case in enumerate(cases):
-            expected = EnvironmentVariable(f'xInt{i}', str(case), 'number', 'int', 0)
+            display_name = f'xInt{i}'
+            expected = EnvironmentVariable(display_name, str(case), 'number', 'int', 'int',
+                                           display_name, 0)
 
-            key, value = f'xInt{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
@@ -141,9 +150,11 @@ class TestPositronIPKernel(unittest.TestCase):
         cases = self.FLOAT_CASES
 
         for i, case in enumerate(cases):
-            expected = EnvironmentVariable(f'xFloat{i}', str(case), 'number', 'float', 0)
+            display_name = f'xFloat{i}'
+            expected = EnvironmentVariable(display_name, str(case), 'number', 'float', 'float',
+                                           display_name, 0)
 
-            key, value = f'xFloat{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
@@ -156,9 +167,11 @@ class TestPositronIPKernel(unittest.TestCase):
         cases = self.COMPLEX_CASES
 
         for i, case in enumerate(cases):
-            expected = EnvironmentVariable(f'xComplex{i}', str(case), 'number', 'complex', 0)
+            display_name = f'xComplex{i}'
+            expected = EnvironmentVariable(display_name, str(case), 'number', 'complex', 'complex',
+                                           display_name, 0)
 
-            key, value = f'xComplex{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
@@ -174,10 +187,12 @@ class TestPositronIPKernel(unittest.TestCase):
         cases = self.BYTES_CASES
 
         for i, case in enumerate(cases):
+            display_name = f'xBytes{i}'
             length = len(case)
-            expected = EnvironmentVariable(f'xBytes{i}', str(case), 'bytes', f'bytes [{length}]', length)
+            expected = EnvironmentVariable(display_name, str(case), 'bytes', f'bytes [{length}]',
+                                           'bytes', display_name, length)
 
-            key, value = f'xBytes{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
@@ -189,36 +204,42 @@ class TestPositronIPKernel(unittest.TestCase):
         cases = self.BYTEARRAY_CASES
 
         for i, case in enumerate(cases):
+            display_name = f'xBytearray{i}'
             length = len(case)
-            expected = EnvironmentVariable(f'xBytearray{i}', str(case), 'bytes',
-                                           f'bytearray [{length}]', length)
+            expected = EnvironmentVariable(display_name, str(case), 'bytes',
+                                           f'bytearray [{length}]', 'bytearray',
+                                           display_name, length)
 
-            key, value = f'xBytearray{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
     def test_bytearray_truncated(self):
 
+        display_name = 'xBytearrayT'
         case = bytearray(TRUNCATE_SUMMARY_AT * 2)
         length = len(case)
-        expected = EnvironmentVariable('xBytearrayT', str(case)[:TRUNCATE_SUMMARY_AT],
-                                       'bytes', f'bytearray [{length}]', length, None, False, True)
+        expected = EnvironmentVariable(display_name, str(case)[:TRUNCATE_SUMMARY_AT], 'bytes',
+                                       f'bytearray [{length}]', 'bytearray', display_name,
+                                       length, None, False, True)
 
-        key, value = 'xBytearrayT', case
+        key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
     def test_memoryview(self):
 
+        display_name = 'xMemoryview'
         byte_array = bytearray('東京', 'utf-8')
         case = memoryview(byte_array)
         length = len(case)
-        expected = EnvironmentVariable('xMemoryview', str(case),
-                                       'bytes', f'memoryview [{length}]', length)
+        expected = EnvironmentVariable(display_name, str(case),
+                                       'bytes', f'memoryview [{length}]', 'memoryview',
+                                       display_name, length)
 
-        key, value = 'xMemoryview', case
+        key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
 
         self.compare_summary(result, expected)
@@ -229,10 +250,12 @@ class TestPositronIPKernel(unittest.TestCase):
 
     def test_none(self):
 
+        display_name = 'xNone'
         case = None
-        expected = EnvironmentVariable('xNone', 'None', 'empty', 'NoneType', 0)
+        expected = EnvironmentVariable(display_name, 'None', 'empty', 'NoneType', 'None',
+                                       display_name, 0)
 
-        key, value = 'xNone', case
+        key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
 
         self.compare_summary(result, expected)
@@ -253,26 +276,29 @@ class TestPositronIPKernel(unittest.TestCase):
                  set(self.STRING_CASES)]
         for i, case in enumerate(cases):
 
+            display_name = f'xSet{i}'
             length = len(case)
             expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
-            expected = EnvironmentVariable(f'xSet{i}', expected_value, 'collection',
-                                           f'set {{{length}}}',
+            expected = EnvironmentVariable(display_name, expected_value, 'collection',
+                                           f'set {{{length}}}', 'set', display_name,
                                            length, None, length > 0)
 
-            key, value = f'xSet{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
     def test_set_truncated(self):
 
+        display_name = 'xSetT'
         case = set(list(range(TRUNCATE_SUMMARY_AT * 2)))
         length = len(case)
         expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
-        expected = EnvironmentVariable('xSetT', expected_value[:TRUNCATE_SUMMARY_AT],
-                                       'collection', f'set {{{length}}}', length, None, True, True)
+        expected = EnvironmentVariable(display_name, expected_value[:TRUNCATE_SUMMARY_AT],
+                                       'collection', f'set {{{length}}}', 'set', display_name,
+                                       length, None, True, True)
 
-        key, value = 'xSetT', case
+        key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
 
         self.compare_summary(result, expected)
@@ -290,10 +316,12 @@ class TestPositronIPKernel(unittest.TestCase):
                  list(self.STRING_CASES)]
         for i, case in enumerate(cases):
 
+            display_name = f'xList{i}'
             length = len(case)
             expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
-            expected = EnvironmentVariable(f'xList{i}', expected_value, 'collection',
-                                           f'list [{length}]', length, None, length > 0)
+            expected = EnvironmentVariable(display_name, expected_value, 'collection',
+                                           f'list [{length}]', 'list', display_name,
+                                           length, None, length > 0)
 
             key, value = f'xList{i}', case
             result = self.kernel.summarize_variable(key, value)
@@ -302,27 +330,31 @@ class TestPositronIPKernel(unittest.TestCase):
 
     def test_list_truncated(self):
 
+        display_name = 'xListT'
         case = list(range(TRUNCATE_SUMMARY_AT * 2))
         length = len(case)
         expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
-        expected = EnvironmentVariable('xListT', expected_value[:TRUNCATE_SUMMARY_AT],
-                                       'collection', f'list [{length}]', length, None, True, True)
+        expected = EnvironmentVariable(display_name, expected_value[:TRUNCATE_SUMMARY_AT],
+                                       'collection', f'list [{length}]', 'list', display_name,
+                                       length, None, True, True)
 
-        key, value = 'xListT', case
+        key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
     def test_list_cycle(self):
 
+        display_name = 'xListCycle'
         case = list([1, 2])
         case.append(case)
         length = len(case)
         expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
-        expected = EnvironmentVariable('xListCycle', expected_value[:TRUNCATE_SUMMARY_AT],
-                                       'collection', f'list [{length}]', length, None, True)
+        expected = EnvironmentVariable(display_name, expected_value[:TRUNCATE_SUMMARY_AT],
+                                       'collection', f'list [{length}]', 'list', display_name,
+                                       length, None, True)
 
-        key, value = 'xListCycle', case
+        key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
 
         self.compare_summary(result, expected)
@@ -340,12 +372,13 @@ class TestPositronIPKernel(unittest.TestCase):
                  range(-10, 3, 2),    # Range with negative start, positive stop, and positive step
                  range(1, 5000)]      # Large Range (compact display, does not show elements)
         for i, case in enumerate(cases):
+            display_name = f'xRange{i}'
             length = len(case)
             expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
-            expected = EnvironmentVariable(f'xRange{i}', expected_value, 'collection',
-                                           f'range [{length}]', length)
+            expected = EnvironmentVariable(display_name, expected_value, 'collection',
+                                           f'range [{length}]', 'range', display_name, length)
 
-            key, value = f'xRange{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
@@ -373,12 +406,14 @@ class TestPositronIPKernel(unittest.TestCase):
                  {'L': {'L1': 1, 'L2': 2, 'L3': 3}}]  # nested dict value
         for i, case in enumerate(cases):
 
+            display_name = f'xDict{i}'
             length = len(case)
             expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
-            expected = EnvironmentVariable(f'xDict{i}', expected_value, 'map',
-                                           f'dict [{length}]', length, None, length > 0)
+            expected = EnvironmentVariable(display_name, expected_value, 'map',
+                                           f'dict [{length}]', 'dict', display_name,
+                                           length, None, length > 0)
 
-            key, value = f'xDict{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
@@ -397,13 +432,15 @@ class TestPositronIPKernel(unittest.TestCase):
                  helper.fn_two_args]  # Multiple argument method with tuple return type
         for i, case in enumerate(cases):
 
+            display_name = f'xFn{i}'
             expected_value = f'{case.__qualname__}{inspect.signature(case)}'
             expected_type = 'function'
             if (isinstance(case, types.MethodType)):
                 expected_type = 'method'
-            expected = EnvironmentVariable(f'xFn{i}', expected_value, 'function', expected_type)
+            expected = EnvironmentVariable(display_name, expected_value, 'function', expected_type,
+                                           expected_type, display_name)
 
-            key, value = f'xFn{i}', case
+            key, value = display_name, case
             result = self.kernel.summarize_variable(key, value)
 
             self.compare_summary(result, expected)
