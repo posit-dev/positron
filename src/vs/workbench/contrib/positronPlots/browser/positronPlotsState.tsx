@@ -21,6 +21,7 @@ export interface PositronPlotsServices {
  */
 export interface PositronPlotsState extends PositronPlotsServices {
 	readonly positronPlotInstances: PositronPlotClient[];
+	selectedInstanceId: string;
 }
 
 /**
@@ -30,10 +31,8 @@ export interface PositronPlotsState extends PositronPlotsServices {
 export const usePositronPlotsState = (services: PositronPlotsServices): PositronPlotsState => {
 
 	// Hooks.
-	const [positronPlotInstances, setPositronPlotInstances] =
-		useState<PositronPlotClient[]>(
-			services.positronPlotsService.positronPlotInstances
-		);
+	const [positronPlotInstances, setPositronPlotInstances] = useState<PositronPlotClient[]>([]);
+	const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
 
 	// Add event handlers.
 	useEffect(() => {
@@ -42,7 +41,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 		// Listen for new plot instances.
 		disposableStore.add(services.positronPlotsService.onDidEmitPlot(plotInstance => {
 			// Add the plot instance to the list of plot instances
-			setPositronPlotInstances(positronPlotInstances => [...positronPlotInstances, plotInstance]);
+			setPositronPlotInstances(positronPlotInstances => [plotInstance, ...positronPlotInstances]);
 
 			// When the plot closes, remove it from the list of plot instances.
 			// (If the plot is not a plot client instance, then it doesn't have
@@ -55,9 +54,14 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 			}
 		}));
 
+		// Listen for plot selection changes.
+		disposableStore.add(services.positronPlotsService.onDidSelectPlot(id => {
+			setSelectedInstanceId(id);
+		}));
+
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	return { ...services, positronPlotInstances };
+	return { ...services, positronPlotInstances, selectedInstanceId };
 };

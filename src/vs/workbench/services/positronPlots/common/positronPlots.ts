@@ -32,6 +32,19 @@ export interface IPositronPlotsService {
 	readonly onDidEmitPlot: Event<PositronPlotClient>;
 
 	/**
+	 * Notifies subscribers when a Positron plot instance is selected. The ID
+	 * of the selected plot is the event payload.
+	 */
+	readonly onDidSelectPlot: Event<string>;
+
+	/**
+	 * Selects the plot at the specified index.
+	 *
+	 * @param index The ID of the plot to select.
+	 */
+	selectPlot(id: string): void;
+
+	/**
 	 * Placeholder for service initialization.
 	 */
 	initialize(): void;

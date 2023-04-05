@@ -104,6 +104,18 @@ export interface ILanguageRuntimeMessageCommClosed extends ILanguageRuntimeMessa
 }
 
 /**
+ * ILanguageRuntimeClientCreatedEvent is an event indicating that a client has
+ * been created for a comm open request.
+ */
+export interface ILanguageRuntimeClientCreatedEvent {
+	/** The message that created the client */
+	message: ILanguageRuntimeMessageCommOpen;
+
+	/** The client that was created */
+	client: IRuntimeClientInstance<any, any>;
+}
+
+/**
  * The set of possible statuses for a language runtime
  */
 export enum RuntimeState {
@@ -344,7 +356,7 @@ export interface ILanguageRuntime {
 	 * created from the runtime side; it does not fire when
 	 * `createClient` is called from the front end.
 	 */
-	onDidCreateClientInstance: Event<IRuntimeClientInstance<any, any>>;
+	onDidCreateClientInstance: Event<ILanguageRuntimeClientCreatedEvent>;
 
 	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
 	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;

@@ -4,17 +4,54 @@
 
 .plots-container {
 	height: 100%;
+	display: flex;
+	flex-direction: column;
 }
 
+.plot-history {
+	display: flex;
+	flex-direction: row;
+	height: 100px;
+	overflow: auto;
+}
+
+.selected-plot {
+	display: flex;
+	flex-direction: column;
+	flex-grow: 1;
+}
+
+.plot-thumbnail {
+	height: 80px;
+	width: 80px;
+	border: 1px solid var(--vscode-editorWidget-border);
+	padding: 0;
+	margin-left: 5px;
+	margin-right: 5px;
+	margin-top: 5px;
+	opacity: 0.75;
+	transition: opacity 0.2s ease-in-out;
+	cursor: pointer;
+}
+
+/**
+ * Hover the plot thumbnail to make it opaque; fades out when not hovered.
+ */
+.plot-thumbnail:hover {
+	opacity: 1;
+	transition: opacity 0.2s ease-in-out;
+}
+
+.plot-thumbnail,
 .static-plot-instance {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	height: 100%;
 	position: relative;
 }
 
-.static-plot-instance .image-wrapper img {
+.static-plot-instance .image-wrapper img,
+.plot-thumbnail .image-wrapper img {
 	display: block;
 	max-width: 100%;
 	max-height: 100%;
@@ -23,4 +60,9 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
+}
+
+.static-plot-instance {
+	height: 100%;
+	width: 100%;
 }

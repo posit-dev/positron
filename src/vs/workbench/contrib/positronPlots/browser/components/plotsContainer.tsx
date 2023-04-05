@@ -5,7 +5,9 @@
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
+import { DynamicPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotThumbnail';
 import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
+import { StaticPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotThumbnail';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
@@ -18,6 +20,12 @@ interface PlotContainerProps {
 	width: number;
 	height: number;
 }
+
+/**
+ * The number of pixels (height or width) to use for the history portion of the
+ * plots container.
+ */
+export const HistoryPx = 100;
 
 /**
  * PlotContainer component; holds the plot instances.
@@ -46,11 +54,35 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return <DynamicPlotInstance
 				key={plotInstance.id}
 				width={props.width}
-				height={props.height}
+				height={props.height - HistoryPx}
 				plotClient={plotInstance} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={plotInstance.id}
+				plotClient={plotInstance} />;
+		}
+		return null;
+	};
+
+	/**
+	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot) or a
+	 * StaticPlotInstance (static plot image), depending on the type of plot
+	 * instance.
+	 *
+	 * @param plotInstance The plot instance to render
+	 * @param selected Whether the thumbnail is selected
+	 * @returns
+	 */
+	const renderThumbnail = (plotInstance: PositronPlotClient, selected: boolean) => {
+		if (plotInstance instanceof PlotClientInstance) {
+			return <DynamicPlotThumbnail
+				key={plotInstance.id}
+				plotService={positronPlotsContext}
+				plotClient={plotInstance} />;
+		} else if (plotInstance instanceof StaticPlotClient) {
+			return <StaticPlotThumbnail
+				key={plotInstance.id}
+				plotService={positronPlotsContext}
 				plotClient={plotInstance} />;
 		}
 		return null;
@@ -63,12 +95,20 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// instances here for easy navigation.
 	return (
 		<div className='plots-container'>
-			{positronPlotsContext.positronPlotInstances.length === 0 &&
-				<span>Plot container: {props.height} x {props.width}</span>}
-			{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
-				index === positronPlotsContext.positronPlotInstances.length - 1 &&
-				render(plotInstance)
-			))}
+			<div className='selected-plot'>
+				{positronPlotsContext.positronPlotInstances.length === 0 &&
+					<span>Plot container: {props.height} x {props.width}</span>}
+				{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
+					plotInstance.id === positronPlotsContext.selectedInstanceId &&
+					render(plotInstance)
+				))}
+			</div>
+			<div className='plot-history'>
+				{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
+					renderThumbnail(plotInstance,
+						plotInstance.id === positronPlotsContext.selectedInstanceId)
+				))}
+			</div>
 		</div>
 	);
 };
