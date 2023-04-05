@@ -127,7 +127,6 @@ setHook("before.grid.newpage", function(...) {
     )
 
     # Replay the plot.
-    plot.new()
     suppressWarnings(grDevices::replayPlot(recordedPlot))
 
     # Turn off the device (commit the plot to disk)
