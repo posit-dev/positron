@@ -1,4 +1,3 @@
-//
 // node.rs
 //
 // Copyright (C) 2022 Posit Software, PBC. All rights reserved.
@@ -6,29 +5,29 @@
 //
 
 use stdext::all;
+use tree_sitter::Node;
 use tree_sitter::Point;
-use tree_sitter::{Node, TreeCursor};
+use tree_sitter::TreeCursor;
 
 fn _dump_impl(cursor: &mut TreeCursor, source: &str, indent: &str, output: &mut String) {
-
     let node = cursor.node();
 
     if node.start_position().row == node.end_position().row {
-
         // write line
-        output.push_str(format!(
-            "{} - {} - {} ({} -- {})\n",
-            indent.to_string(),
-            node.utf8_text(source.as_bytes()).unwrap(),
-            node.kind().to_string(),
-            node.start_position().to_string(),
-            node.end_position().to_string(),
-        ).as_str());
-
+        output.push_str(
+            format!(
+                "{} - {} - {} ({} -- {})\n",
+                indent.to_string(),
+                node.utf8_text(source.as_bytes()).unwrap(),
+                node.kind().to_string(),
+                node.start_position().to_string(),
+                node.end_position().to_string(),
+            )
+            .as_str(),
+        );
     }
 
     if cursor.goto_first_child() {
-
         let indent = format!("  {}", indent);
         _dump_impl(cursor, source, indent.as_str(), output);
         while cursor.goto_next_sibling() {
@@ -36,10 +35,7 @@ fn _dump_impl(cursor: &mut TreeCursor, source: &str, indent: &str, output: &mut 
         }
 
         cursor.goto_parent();
-
     }
-
-
 }
 
 pub struct FwdLeafIterator<'a> {
@@ -95,7 +91,6 @@ pub trait NodeExt: Sized {
 }
 
 impl NodeExt for Node<'_> {
-
     fn dump(&self, source: &str) -> String {
         let mut output = "\n".to_string();
         _dump_impl(&mut self.walk(), source, "", &mut output);
@@ -103,10 +98,8 @@ impl NodeExt for Node<'_> {
     }
 
     fn find_parent(&self, callback: impl Fn(&Self) -> bool) -> Option<Self> {
-
         let mut node = *self;
         loop {
-
             if callback(&node) {
                 return Some(node);
             }
@@ -115,9 +108,7 @@ impl NodeExt for Node<'_> {
                 Some(node) => node,
                 None => return None,
             }
-
         }
-
     }
 
     fn contains_point(&self, point: Point) -> bool {
@@ -125,7 +116,6 @@ impl NodeExt for Node<'_> {
     }
 
     fn prev_leaf(&self) -> Option<Self> {
-
         // Walk up the tree, until we find a node with a previous sibling.
         // Then, move to that sibling.
         // Finally, descend down the last children of that node, if any.
@@ -157,11 +147,9 @@ impl NodeExt for Node<'_> {
         }
 
         Some(node)
-
     }
 
     fn next_leaf(&self) -> Option<Self> {
-
         // Walk up the tree, until we find a node with a sibling.
         // Then, move to that sibling.
         // Finally, descend down the first children of that node, if any.
@@ -191,7 +179,6 @@ impl NodeExt for Node<'_> {
         }
 
         Some(node)
-
     }
 
     fn fwd_leaf_iter(&self) -> FwdLeafIterator<'_> {
@@ -207,20 +194,15 @@ impl NodeExt for Node<'_> {
     }
 
     fn is_unary_operator(&self) -> bool {
-
         all! {
             self.child_by_field_name("operand").is_some()
         }
-
     }
 
     fn is_binary_operator(&self) -> bool {
-
         all! {
             self.child_by_field_name("operand").is_none()
             self.child_by_field_name("operator").is_some()
         }
-
     }
-
 }
