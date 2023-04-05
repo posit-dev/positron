@@ -318,7 +318,7 @@ fn test_kernel() {
         Message::CommInfoReply(request) => {
             info!("Got comm info: {:?}", request);
             // Ensure the comm we just opened is in the list of comms
-            let comms = request.content.comms.as_object().unwrap();
+            let comms = request.content.comms;
             assert!(comms.contains_key(comm_id));
         },
         _ => {
@@ -379,7 +379,7 @@ fn test_kernel() {
         Message::CommInfoReply(request) => {
             info!("Got comm info: {:?}", request);
             // Ensure the comm we just closed not present in the list of comms
-            let comms = request.content.comms.as_object().unwrap();
+            let comms = request.content.comms;
             assert!(!comms.contains_key(comm_id));
         },
         _ => {
@@ -438,7 +438,7 @@ fn test_kernel() {
         Message::CommInfoReply(request) => {
             info!("Got comm info: {:?}", request);
             // Ensure the comm we just opened is in the list of comms
-            let comms = request.content.comms.as_object().unwrap();
+            let comms = request.content.comms;
             assert!(comms.contains_key(&test_comm_id));
         },
         _ => {

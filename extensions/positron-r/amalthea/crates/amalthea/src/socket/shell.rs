@@ -20,6 +20,7 @@ use crate::socket::iopub::IOPubMessage;
 use crate::socket::socket::Socket;
 use crate::wire::comm_close::CommClose;
 use crate::wire::comm_info_reply::CommInfoReply;
+use crate::wire::comm_info_reply::CommInfoTargetName;
 use crate::wire::comm_info_request::CommInfoRequest;
 use crate::wire::comm_msg::CommMsg;
 use crate::wire::comm_open::CommOpen;
@@ -280,16 +281,17 @@ impl Shell {
         // Convert our internal map of open comms to a JSON object
         let mut info = serde_json::Map::new();
         for (comm_id, target_name) in &self.open_comms {
+            let comm_info = serde_json::to_value(CommInfoTargetName { target_name: target_name.clone() }).unwrap();
             info.insert(
                 comm_id.clone(),
-                serde_json::Value::String(target_name.clone()),
+                comm_info
             );
         }
 
         // Form a reply and send it
         let reply = CommInfoReply {
             status: Status::Ok,
-            comms: serde_json::Value::Object(info),
+            comms: info
         };
         req.send_reply(reply, &self.socket)
     }
