@@ -281,9 +281,8 @@ impl EnvironmentVariable {
             out.push(Self::new(binding));
         }
 
-        // TODO: figure out how to avoid .clone() ?
-        out.sort_by_key(|v| {
-            v.display_name.clone()
+        out.sort_by(|a, b| {
+            a.display_name.cmp(&b.display_name)
         });
 
         Ok(out)
