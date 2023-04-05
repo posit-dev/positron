@@ -191,7 +191,11 @@ fn main() {
         std::env::remove_var("DYLD_INSERT_LIBRARIES");
     }
 
-    // Block signals in this (and any child) threads.
+    // Block signals in this thread (and any child threads).
+    //
+    // Any threads that would like to handle signals should explicitly
+    // unblock the signals they want to handle. This allows us to ensure
+    // that interrupts are consistently handled on the same thread.
     let mut sigset = SigSet::empty();
     sigset.add(SIGINT);
     sigprocmask(SigmaskHow::SIG_BLOCK, Some(&sigset), None).unwrap();
