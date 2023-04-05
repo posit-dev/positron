@@ -3,27 +3,25 @@
 //
 // Copyright (C) 2022 by Posit Software, PBC
 //
-//
 
-//! The Positron Graphics Device.
-//!
-//! Rather than implement a separate graphics device, Positron
-//! allows the user to select their own graphics device, and
-//! then monkey-patches it in a way that allows us to hook into
-//! the various graphics events.
-//!
-//! This approach is similar in spirit to the RStudio approach,
-//! but is vastly simpler as we no longer need to implement and
-//! synchronize two separate graphics devices.
-//!
-//! See also:
-//!
-//! https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsDevice.h
-//! https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsEngine.h
-//! https://github.com/rstudio/rstudio/blob/main/src/cpp/r/session/graphics/RGraphicsDevice.cpp
-//!
-
-
+///
+/// The Positron Graphics Device.
+///
+/// Rather than implement a separate graphics device, Positron
+/// allows the user to select their own graphics device, and
+/// then monkey-patches it in a way that allows us to hook into
+/// the various graphics events.
+///
+/// This approach is similar in spirit to the RStudio approach,
+/// but is vastly simpler as we no longer need to implement and
+/// synchronize two separate graphics devices.
+///
+/// See also:
+///
+/// https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsDevice.h
+/// https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsEngine.h
+/// https://github.com/rstudio/rstudio/blob/main/src/cpp/r/session/graphics/RGraphicsDevice.cpp
+///
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -33,8 +31,8 @@ use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::comm::event::CommEvent;
 use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
-use base64::Engine;
 use base64::engine::general_purpose;
+use base64::Engine;
 use crossbeam::channel::Select;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -43,7 +41,7 @@ use once_cell::sync::Lazy;
 use stdext::unwrap;
 use uuid::Uuid;
 
-use crate::lsp::globals::COMM_MANAGER_TX;
+use crate::lsp::globals::comm_manager_tx;
 use crate::plots::message::PlotMessageInput;
 use crate::plots::message::PlotMessageInputRender;
 use crate::plots::message::PlotMessageOutput;
@@ -70,7 +68,6 @@ struct DeviceCallbacks {
 
 #[derive(Default)]
 struct DeviceContext {
-
     // Tracks whether the graphics device has changes.
     pub _dirty: bool,
 
@@ -96,11 +93,9 @@ struct DeviceContext {
 
     // The device callbacks, which are patched into the device.
     pub _callbacks: DeviceCallbacks,
-
 }
 
 impl DeviceContext {
-
     pub unsafe fn holdflush(&mut self, holdflush: i32) {
         self._holdflush = holdflush;
     }
@@ -111,7 +106,6 @@ impl DeviceContext {
     }
 
     pub unsafe fn before_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
-
         // Nothing to do if we don't have an ID (implies no page)
         let id = unwrap!(&self._id, None => {
             return;
@@ -127,11 +121,9 @@ impl DeviceContext {
         if let Err(error) = result {
             log::error!("{}", error);
         }
-
     }
 
     pub unsafe fn after_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
-
         // Generate a new UUID to be associated with this plot.
         let id = Uuid::new_v4().to_string();
         self._id = Some(id.clone());
@@ -144,18 +136,16 @@ impl DeviceContext {
         );
 
         let event = CommEvent::Opened(socket.clone(), serde_json::Value::Null);
-        let comm_manager_tx = COMM_MANAGER_TX.get_unchecked().lock();
+        let comm_manager_tx = comm_manager_tx();
         if let Err(error) = comm_manager_tx.send(event) {
             log::error!("{}", error);
         }
 
         // Save our new socket.
         self._channels.insert(id.clone(), socket.clone());
-
     }
 
     pub unsafe fn on_process_events(&mut self) {
-
         // Collect existing channels into a vector of tuples.
         // Necessary for handling Select in a clean way.
         let channels = self._channels.clone();
@@ -182,7 +172,6 @@ impl DeviceContext {
 
         // Get the RPC request.
         if let CommChannelMsg::Rpc(rpc_id, value) = message {
-
             let input = serde_json::from_value::<PlotMessageInput>(value);
             let input = unwrap!(input, Err(error) => {
                 log::error!("{}", error);
@@ -196,12 +185,9 @@ impl DeviceContext {
                         log::error!("{}", error);
                         return;
                     }
-                }
+                },
             }
-
         }
-
-
     }
 
     pub unsafe fn render_plot(
@@ -209,9 +195,8 @@ impl DeviceContext {
         plot_id: &str,
         plot_meta: PlotMessageInputRender,
         rpc_id: &str,
-        socket: &CommSocket)
-    -> anyhow::Result<()>
-    {
+        socket: &CommSocket,
+    ) -> anyhow::Result<()> {
         // Render the plot to file.
         // TODO: Is it possible to do this without writing to file; e.g. could
         // we instead write to a connection or something else?
@@ -243,23 +228,20 @@ impl DeviceContext {
         });
 
         let json = serde_json::to_value(response).unwrap();
-        socket.outgoing_tx.send(CommChannelMsg::Rpc(rpc_id.to_string(), json))?;
+        socket
+            .outgoing_tx
+            .send(CommChannelMsg::Rpc(rpc_id.to_string(), json))?;
 
         Ok(())
-
     }
-
 }
 
-static mut DEVICE_CONTEXT : Lazy<DeviceContext> = Lazy::new(|| {
-    DeviceContext::default()
-});
+static mut DEVICE_CONTEXT: Lazy<DeviceContext> = Lazy::new(|| DeviceContext::default());
 
 // TODO: This macro needs to be updated every time we introduce support
 // for a new graphics device. Is there a better way?
 macro_rules! with_device {
-    ($value:expr, |$name:ident| $block:block) => {{
-
+    ($value:expr, | $name:ident | $block:block) => {{
         let version = R_GE_getVersion();
         if version == 13 {
             let $name = $value as *mut $crate::plots::dev_desc::DevDescVersion13;
@@ -271,18 +253,15 @@ macro_rules! with_device {
             let $name = $value as *mut $crate::plots::dev_desc::DevDescVersion15;
             $block;
         } else {
-           panic!(
-               "R graphics engine version {} is not supported by this version of Positron.",
-               version
-           )
+            panic!(
+                "R graphics engine version {} is not supported by this version of Positron.",
+                version
+            )
         };
-
-
-    }}
+    }};
 }
 
 pub unsafe fn on_process_events() {
-
     let context = &mut DEVICE_CONTEXT;
 
     // Don't try to render a plot if we're currently drawing.
@@ -296,7 +275,6 @@ pub unsafe fn on_process_events() {
     }
 
     DEVICE_CONTEXT.on_process_events();
-
 }
 
 // NOTE: May be called when rendering a plot to file, since this is done by
@@ -307,7 +285,6 @@ unsafe extern "C" fn gd_activate(dev: pDevDesc) {
     if let Some(callback) = DEVICE_CONTEXT._callbacks.activate {
         callback(dev);
     }
-
 }
 
 // NOTE: May be called when rendering a plot to file, since this is done by
@@ -318,7 +295,6 @@ unsafe extern "C" fn gd_deactivate(dev: pDevDesc) {
     if let Some(callback) = DEVICE_CONTEXT._callbacks.deactivate {
         callback(dev);
     }
-
 }
 
 unsafe extern "C" fn gd_hold_flush(dev: pDevDesc, mut holdflush: i32) -> i32 {
@@ -330,9 +306,7 @@ unsafe extern "C" fn gd_hold_flush(dev: pDevDesc, mut holdflush: i32) -> i32 {
 
     DEVICE_CONTEXT.holdflush(holdflush);
     holdflush
-
 }
-
 
 // mode = 0, graphics off
 // mode = 1, graphics on
@@ -346,7 +320,6 @@ unsafe extern "C" fn gd_mode(mode: i32, dev: pDevDesc) {
     }
 
     DEVICE_CONTEXT.mode(mode, dev);
-
 }
 
 unsafe extern "C" fn gd_new_page(dd: pGEcontext, dev: pDevDesc) {
@@ -360,11 +333,9 @@ unsafe extern "C" fn gd_new_page(dd: pGEcontext, dev: pDevDesc) {
     }
 
     DEVICE_CONTEXT.after_new_page(dd, dev);
-
 }
 
 unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
-
     // TODO: Don't allow creation of more than one graphics device.
     // TODO: Allow customization of the graphics device here?
 
@@ -387,7 +358,6 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
     // initialize our _callbacks
     let device = (*dd).dev;
     with_device!(device, |device| {
-
         // initialize display list (needed for copying of plots)
         GEinitDisplayList(dd);
         (*dd).displayListOn = 1;
@@ -410,22 +380,18 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
 
         callbacks.newPage = (*device).newPage;
         (*device).newPage = Some(gd_new_page);
-
     });
 
     Ok(R_NilValue)
-
 }
 
 #[harp::register]
 unsafe extern "C" fn ps_graphics_device() -> SEXP {
-
     match ps_graphics_device_impl() {
         Ok(value) => value,
         Err(error) => {
             log::error!("{}", error);
             R_NilValue
-        }
+        },
     }
-
 }
