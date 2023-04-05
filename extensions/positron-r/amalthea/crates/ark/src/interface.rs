@@ -97,8 +97,6 @@ static INIT: Once = Once::new();
 
 pub unsafe fn process_events() {
 
-    eprintln!("process_events()");
-
     // Don't process interrupts in this scope.
     let _interrupts_suspended = RInterruptsSuspendedScope::new();
 
@@ -189,6 +187,12 @@ pub extern "C" fn r_read_console(
             Ok(response) => {
                 // Take back the lock after we've received some console input.
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
+
+                // If we received an interrupt while the user was typing input,
+                // we can assume the interrupt was 'handled' and so reset the flag.
+                unsafe {
+                    R_interrupts_pending = 0;
+                }
 
                 // Process events.
                 unsafe { process_events() };

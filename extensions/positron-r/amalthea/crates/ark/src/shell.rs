@@ -67,7 +67,7 @@ impl Shell {
         kernel_init_rx: BusReader<KernelInfo>,
     ) -> Self {
         let iopub_tx = iopub_tx.clone();
-        spawn!("ark-shell", move || {
+        spawn!("ark-r-main-thread", move || {
             Self::execution_thread(iopub_tx, kernel_init_tx, shell_request_rx);
         });
 
