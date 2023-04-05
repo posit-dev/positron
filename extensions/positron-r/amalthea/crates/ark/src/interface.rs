@@ -5,6 +5,15 @@
 //
 //
 
+use std::ffi::*;
+use std::os::raw::c_uchar;
+use std::os::raw::c_void;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::Once;
+use std::time::Duration;
+use std::time::SystemTime;
+
 use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::ShowMessageEvent;
@@ -23,19 +32,11 @@ use libR_sys::*;
 use log::*;
 use nix::sys::signal::*;
 use parking_lot::MutexGuard;
-use std::ffi::*;
-use std::os::raw::c_uchar;
-use std::os::raw::c_void;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::Once;
-use std::time::Duration;
-use std::time::SystemTime;
 use stdext::*;
 
 use crate::kernel::Kernel;
 use crate::kernel::KernelInfo;
-use crate::lsp::signals::SIGNALS;
+use crate::lsp::events::EVENTS;
 use crate::plots::graphics_device;
 use crate::request::Request;
 
@@ -54,8 +55,43 @@ extern "C" {
     pub static mut R_PolledEvents: Option<unsafe extern "C" fn()>;
 }
 
-extern "C" fn on_interrupt(_signal: libc::c_int) {
-    unsafe { R_interrupts_pending = 1 };
+fn initialize_signal_handlers() {
+    // Reset the signal block.
+    //
+    // This appears to be necessary on macOS; 'sigprocmask()' specifically
+    // blocks the signals in _all_ threads associated with the process, even
+    // when called from a spawned child thread. See:
+    //
+    // https://github.com/opensource-apple/xnu/blob/0a798f6738bc1db01281fc08ae024145e84df927/bsd/kern/kern_sig.c#L1238-L1285
+    // https://github.com/opensource-apple/xnu/blob/0a798f6738bc1db01281fc08ae024145e84df927/bsd/kern/kern_sig.c#L796-L839
+    //
+    // and note that 'sigprocmask()' uses 'block_procsigmask()' to apply the
+    // requested block to all threads in the process:
+    //
+    // https://github.com/opensource-apple/xnu/blob/0a798f6738bc1db01281fc08ae024145e84df927/bsd/kern/kern_sig.c#L571-L599
+    //
+    // We may need to re-visit this on Linux later on, since 'sigprocmask()' and
+    // 'pthread_sigmask()' may only target the executing thread there.
+    //
+    // The behavior of 'sigprocmask()' is unspecified after all, so we're really
+    // just relying on what the implementation happens to do.
+    let mut sigset = SigSet::empty();
+    sigset.add(SIGINT);
+    sigprocmask(SigmaskHow::SIG_BLOCK, Some(&sigset), None).unwrap();
+
+    // Unblock signals on this thread.
+    pthread_sigmask(SigmaskHow::SIG_UNBLOCK, Some(&sigset), None).unwrap();
+
+    // Install an interrupt handler.
+    unsafe {
+        signal(SIGINT, SigHandler::Handler(handle_interrupt)).unwrap();
+    }
+}
+
+extern "C" fn handle_interrupt(_signal: libc::c_int) {
+    unsafe {
+        R_interrupts_pending = 1;
+    }
 }
 
 // --- Globals ---
@@ -81,7 +117,6 @@ static mut CONSOLE_RECV: Option<Mutex<Receiver<Option<String>>>> = None;
 static INIT: Once = Once::new();
 
 pub unsafe fn process_events() {
-
     // Don't process interrupts in this scope.
     let _interrupts_suspended = RInterruptsSuspendedScope::new();
 
@@ -173,6 +208,12 @@ pub extern "C" fn r_read_console(
                 // Take back the lock after we've received some console input.
                 unsafe { R_RUNTIME_LOCK_GUARD = Some(R_RUNTIME_LOCK.lock()) };
 
+                // If we received an interrupt while the user was typing input,
+                // we can assume the interrupt was 'handled' and so reset the flag.
+                unsafe {
+                    R_interrupts_pending = 0;
+                }
+
                 // Process events.
                 unsafe { process_events() };
 
@@ -247,7 +288,18 @@ pub extern "C" fn r_show_message(buf: *const c_char) {
  */
 #[no_mangle]
 pub extern "C" fn r_busy(which: i32) {
-    // Convert the message to a string
+    // Ensure signal handlers are initialized.
+    //
+    // We perform this awkward dance because R tries to set and reset
+    // the interrupt signal handler here, using 'signal()':
+    //
+    // https://github.com/wch/r-source/blob/e7a21904029917a63b4717b53a173b01eeabcc7b/src/unix/sys-std.c#L171-L178
+    //
+    // However, it seems like this can cause the old interrupt handler to be
+    // 'moved' to a separate thread, such that interrupts end up being handled
+    // on a thread different from the R execution thread. At least, on macOS.
+    initialize_signal_handlers();
+
     // Wait for a lock on the kernel
     let mutex = unsafe { KERNEL.as_ref().unwrap() };
     let kernel = mutex.lock().unwrap();
@@ -259,7 +311,6 @@ pub extern "C" fn r_busy(which: i32) {
     kernel.send_event(event);
 }
 
-#[no_mangle]
 pub unsafe extern "C" fn r_polled_events() {
     // Check for pending tasks.
     let count = R_RUNTIME_LOCK_COUNT.load(std::sync::atomic::Ordering::Acquire);
@@ -320,6 +371,9 @@ pub fn start_r(
         R_SignalHandlers = 0;
         Rf_initialize_R(args.len() as i32, args.as_mut_ptr() as *mut *mut c_char);
 
+        // Initialize the interrupt handler.
+        initialize_signal_handlers();
+
         // Disable stack checking; R doesn't know the starting point of the
         // stack for threads other than the main thread. Consequently, it will
         // report a stack overflow if we don't disable it. This is a problem
@@ -329,15 +383,6 @@ pub fn start_r(
         // See https://cran.r-project.org/doc/manuals/R-exts.html#Threading-issues
         // for more information.
         R_CStackLimit = usize::MAX;
-
-        // Set up an interrupt handler.
-        let action = SigAction::new(
-            SigHandler::Handler(on_interrupt),
-            SaFlags::empty(),
-            SigSet::empty(),
-        );
-
-        sigaction(SIGINT, &action).unwrap();
 
         // Log the value of R_HOME, so we can know if something hairy is afoot
         let home = CStr::from_ptr(R_HomeDir());
@@ -396,7 +441,7 @@ fn complete_execute_request(req: &Request, prompt_recv: &Receiver<String>) {
     let kernel = mutex.lock().unwrap();
 
     // Signal prompt
-    SIGNALS.console_prompt.emit(());
+    EVENTS.console_prompt.emit(());
 
     // The request is incomplete if we see the continue prompt
     let continue_prompt = unsafe { r_get_option::<String>("continue") };

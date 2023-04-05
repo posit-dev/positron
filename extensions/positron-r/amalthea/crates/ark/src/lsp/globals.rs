@@ -1,5 +1,5 @@
 //
-// global.rs
+// globals.rs
 //
 // Copyright (C) 2022 Posit Software, PBC. All rights reserved.
 //
@@ -7,30 +7,44 @@
 
 use amalthea::comm::event::CommEvent;
 use crossbeam::channel::Sender;
-use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
+use parking_lot::MutexGuard;
 use tower_lsp::Client;
 
 use crate::request::Request;
 
 // The LSP client.
 // For use within R callback functions.
-pub static LSP_CLIENT: OnceCell<Mutex<Client>> = OnceCell::new();
+static mut LSP_CLIENT: Option<Mutex<Client>> = None;
 
 // The shell request channel.
 // For use within R callback functions.
-pub static SHELL_REQUEST_TX: OnceCell<Mutex<Sender<Request>>> = OnceCell::new();
+static mut SHELL_REQUEST_TX: Option<Mutex<Sender<Request>>> = None;
 
 // The communication channel manager's request channel.
 // For use within R callback functions.
-pub static COMM_MANAGER_TX: OnceCell<Mutex<Sender<CommEvent>>> = OnceCell::new();
+static mut COMM_MANAGER_TX: Option<Mutex<Sender<CommEvent>>> = None;
+
+pub fn lsp_client<'a>() -> MutexGuard<'a, Client> {
+    unsafe { LSP_CLIENT.as_ref().unwrap_unchecked().lock() }
+}
+
+pub fn shell_request_tx<'a>() -> MutexGuard<'a, Sender<Request>> {
+    unsafe { SHELL_REQUEST_TX.as_ref().unwrap_unchecked().lock() }
+}
+
+pub fn comm_manager_tx<'a>() -> MutexGuard<'a, Sender<CommEvent>> {
+    unsafe { COMM_MANAGER_TX.as_ref().unwrap_unchecked().lock() }
+}
 
 pub fn initialize(
     lsp_client: Client,
     shell_request_tx: Sender<Request>,
     comm_manager_tx: Sender<CommEvent>,
 ) {
-    LSP_CLIENT.set(Mutex::new(lsp_client)).unwrap();
-    SHELL_REQUEST_TX.set(Mutex::new(shell_request_tx)).unwrap();
-    COMM_MANAGER_TX.set(Mutex::new(comm_manager_tx)).unwrap();
+    unsafe {
+        LSP_CLIENT = Some(Mutex::new(lsp_client));
+        SHELL_REQUEST_TX = Some(Mutex::new(shell_request_tx));
+        COMM_MANAGER_TX = Some(Mutex::new(comm_manager_tx));
+    }
 }

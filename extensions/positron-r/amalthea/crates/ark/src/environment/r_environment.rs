@@ -32,7 +32,7 @@ use crate::environment::message::EnvironmentMessageInspect;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
-use crate::lsp::signals::SIGNALS;
+use crate::lsp::events::EVENTS;
 
 /**
  * The R Environment handler provides the server side of Positron's Environment
@@ -78,7 +78,7 @@ impl REnvironment {
         let (prompt_signal_tx, prompt_signal_rx) = unbounded::<()>();
 
         // Register a handler for console prompt events
-        let listen_id = SIGNALS.console_prompt.listen({
+        let listen_id = EVENTS.console_prompt.listen({
             move |_| {
                 log::info!("Got console prompt signal.");
                 prompt_signal_tx.send(()).unwrap();
@@ -177,7 +177,7 @@ impl REnvironment {
             }
         }
 
-        SIGNALS.console_prompt.remove(listen_id);
+        EVENTS.console_prompt.remove(listen_id);
 
         if !user_initiated_close {
             // Send a close message to the front end if the front end didn't
@@ -282,7 +282,7 @@ impl REnvironment {
     }
 
     fn inspect(&mut self, path: &Vec<String>, request_id: Option<String>) {
-        let inspect = r_lock!{
+        let inspect = r_lock! {
             EnvironmentVariable::inspect(RObject::view(*self.env), &path)
         };
         let msg = match inspect {
@@ -291,18 +291,15 @@ impl REnvironment {
                 EnvironmentMessage::Details(EnvironmentMessageDetails {
                     path: path.clone(),
                     children,
-                    length
+                    length,
                 })
             },
-            Err(_) => {
-                EnvironmentMessage::Error(EnvironmentMessageError {
-                    message: String::from("Inspection error")
-                })
-            }
+            Err(_) => EnvironmentMessage::Error(EnvironmentMessageError {
+                message: String::from("Inspection error"),
+            }),
         };
 
         self.send_message(msg, request_id);
-
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {

@@ -15,6 +15,7 @@ use ark::lsp;
 use bus::Bus;
 use crossbeam::channel::bounded;
 use log::*;
+use nix::sys::signal::*;
 use std::env;
 use std::io::stdin;
 use std::sync::{Arc, Mutex};
@@ -183,11 +184,21 @@ Available options:
 }
 
 fn main() {
+
     #[cfg(target_os = "macos")]
     {
         // Unset DYLD_INSERT_LIBRARIES if it was passed down
         std::env::remove_var("DYLD_INSERT_LIBRARIES");
     }
+
+    // Block signals in this thread (and any child threads).
+    //
+    // Any threads that would like to handle signals should explicitly
+    // unblock the signals they want to handle. This allows us to ensure
+    // that interrupts are consistently handled on the same thread.
+    let mut sigset = SigSet::empty();
+    sigset.add(SIGINT);
+    sigprocmask(SigmaskHow::SIG_BLOCK, Some(&sigset), None).unwrap();
 
     // Get an iterator over all the command-line arguments
     let mut argv = std::env::args();
