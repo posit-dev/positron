@@ -7,7 +7,6 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
-import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 
 // Create the decorator for the Positron environment service (used in dependency injection).
 export const IPositronEnvironmentService = createDecorator<IPositronEnvironmentService>('positronEnvironmentService');
@@ -147,4 +146,16 @@ export interface IPositronEnvironmentInstance {
 	 * @param id The identifier of the environment variable group to collapse.
 	 */
 	collapseEnvironmentVariableGroup(id: string): void;
+
+	/**
+	 * Expands an environment variable.
+	 * @param path The path of the environment variable to expand.
+	 */
+	expandEnvironmentVariable(path: string[]): void;
+
+	/**
+	 * Collapses an environment variable.
+	 * @param path The path of the environment variable to collapse.
+	 */
+	collapseEnvironmentVariable(path: string[]): void;
 }

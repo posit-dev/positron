@@ -15,13 +15,6 @@ import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize 
 export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	//#region Private Properties
 
-	//private readonly _indentLevel: number;
-
-	/**
-	 * Gets the path.
-	 */
-	private readonly _path: string = '';
-
 	/**
 	 * Gets the environment variable.
 	 */
@@ -50,7 +43,7 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	 * Gets the path.
 	 */
 	get path() {
-		return `${this._path}/${this._environmentVariable.data.display_name}`;
+		return this._environmentVariable.path;
 	}
 
 	/**
@@ -138,8 +131,7 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	 * Constructor.
 	 * @param name The environment variable.
 	 */
-	constructor(environmentVariable: EnvironmentVariable, path: string = '') {
-		this._path = path;
+	constructor(environmentVariable: EnvironmentVariable) {
 		this._environmentVariable = environmentVariable;
 	}
 
@@ -150,30 +142,17 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	/**
 	 * Loads the children.
 	 */
-	async loadChildren(): Promise<EnvironmentVariableItem[] | undefined> {
-		// If the environment variable has no children, return undefined.
+	async loadChildren(): Promise<void> {
+		// If the environment variable has no children, return.
 		if (!this.hasChildren) {
-			return undefined;
-		}
-
-		// If the children have already been loaded, return them.
-		if (this._environmentVariableItems) {
-			return this._environmentVariableItems;
+			return;
 		}
 
 		// Asynchronously load the children.
 		const environmentClientList = await this._environmentVariable.getChildren();
-		const environmentVariableItems: EnvironmentVariableItem[] = [];
-		environmentClientList.variables.map(environmentVariable => {
-			environmentVariableItems.push(new EnvironmentVariableItem(
-				environmentVariable,
-				this.path
-			));
-		});
-
-		// Set the child environment variable items and return them.
-		this._environmentVariableItems = environmentVariableItems;
-		return this._environmentVariableItems;
+		this._environmentVariableItems = environmentClientList.variables.map(environmentVariable =>
+			new EnvironmentVariableItem(environmentVariable)
+		);
 	}
 
 	/**
@@ -185,8 +164,15 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 		// Create the flattened environment variable items with this item as the first entry.
 		const items: EnvironmentVariableItem[] = [this];
 
-		// If this item is not expanded, or, it had no children, return.
-		if (!this.hasChildren || !this._environmentVariableItems) {
+		// Update the expanded state.
+		if (!this.hasChildren) {
+			return items;
+		}
+
+		this.expanded = isExpanded(JSON.stringify(this._environmentVariable.path));
+
+		// If this environment variable isn't expanded or the children have not been loaded, return.
+		if (!this.expanded || !this._environmentVariableItems) {
 			return items;
 		}
 
