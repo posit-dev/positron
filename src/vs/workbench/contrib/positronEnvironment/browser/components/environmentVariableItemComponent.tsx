@@ -2,16 +2,16 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./environmentVariable';
+import 'vs/css!./environmentVariableItemComponent';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 
 /**
- * EnvironmentVariableProps interface.
+ * EnvironmentVariableItemComponentProps interface.
  */
-export interface EnvironmentVariableProps {
+export interface EnvironmentVariableItemComponentProps {
 	nameColumnWidth: number;
 	detailsColumnWidth: number;
 	typeVisible: boolean;
@@ -20,15 +20,14 @@ export interface EnvironmentVariableProps {
 }
 
 /**
- * EnvironmentVariable component.
- * @param props A EnvironmentVariableProps that contains the component properties.
+ * EnvironmentVariableItemComponent component.
+ * @param props A EnvironmentVariableItemComponentProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
+export const EnvironmentVariableItemComponent = (props: EnvironmentVariableItemComponentProps) => {
 	// Hooks.
 	const [selected, _setSelected] = useState(false);
 	const [expanded, setExpanded] = useState(false);
-	const [children, setChildren] = useState<EnvironmentVariableItem[] | undefined>(undefined);
 
 	/**
 	 * Handles expand / collapse.
@@ -36,10 +35,10 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 	const handleExpandCollapse = async () => {
 		if (expanded) {
 			setExpanded(false);
-			setChildren(undefined);
+			// setChildren(undefined);
 		} else {
 			setExpanded(true);
-			setChildren(await props.environmentVariableItem.loadChildren());
+			// setChildren(await props.environmentVariableItem.loadChildren());
 		}
 	};
 
@@ -78,14 +77,5 @@ export const EnvironmentVariable = (props: EnvironmentVariableProps) => {
 				)}
 			</div>
 		</div>
-		{expanded && children && children.map(item =>
-			<EnvironmentVariable
-				key={item.id}
-				nameColumnWidth={props.nameColumnWidth}
-				detailsColumnWidth={props.detailsColumnWidth}
-				typeVisible={props.typeVisible}
-				indentLevel={props.indentLevel + 1}
-				environmentVariableItem={item} />
-		)}
 	</>);
 };

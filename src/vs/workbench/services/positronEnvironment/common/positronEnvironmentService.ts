@@ -8,9 +8,24 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
+import { EnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableGroup';
+import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/services/positronEnvironment/common/helpers/utils';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { EnvironmentClientInstance, EnvironmentClientList, EnvironmentClientUpdate, IEnvironmentClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { EnvironmentClientInstance, EnvironmentClientList, EnvironmentClientUpdate, EnvironmentVariableValueKind, IEnvironmentClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentSorting, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
+import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
+
+/**
+ * Constants.
+ */
+const DATA_GROUP_ID = 'data';
+const VALUES_GROUP_ID = 'values';
+const FUNCTIONS_GROUP_ID = 'functions';
+const SMALL_GROUP_ID = 'small';
+const MEDIUM_GROUP_ID = 'medium';
+const LARGE_GROUP_ID = 'large';
+const VERY_LARGE_GROUP_ID = 'very-large';
 
 /**
  * PositronEnvironmentService class.
@@ -296,14 +311,37 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _state = PositronEnvironmentState.Uninitialized;
 
 	/**
-	 * Gets or sets the environment variable items.
+	 * Gets or sets the items map.
 	 */
 	private _environmentVariableItems = new Map<string, EnvironmentVariableItem>();
 
 	/**
 	 * Gets or sets the grouping.
 	 */
-	private _environmentGrouping = PositronEnvironmentGrouping.Kind;
+	private _grouping = PositronEnvironmentGrouping.Kind;
+
+	/**
+	 * Gets or sets the sorting.
+	 */
+	private _sorting = PositronEnvironmentSorting.Name;
+
+	/**
+	 * Gets the collapsed groups set, which is used to keep track of which groups the user has
+	 * collapsed. This is keyed by group ID. By default, all groups are expanded.
+	 */
+	private readonly _collapsedGroupIds = new Set<string>();
+
+	/**
+	 * Gets the expanded paths set, which is used to keep track of which environment variables the
+	 * user has expanded. This is keyed by environment variable path. By default, all environment
+	 * variables are collapsed.
+	 */
+	private readonly _expandedPaths = new Set<string>();
+
+	/**
+	 * Gets or sets the entries that are being displayed.
+	 */
+	private _entries: (IEnvironmentVariableGroup | IEnvironmentVariableItem)[] = [];
 
 	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
@@ -317,16 +355,22 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		this._register(new Emitter<PositronEnvironmentState>);
 
 	/**
-	 * The onDidChangeEnvironmentVariableItems event emitter.
-	 */
-	private readonly _onDidChangeEnvironmentVariableItemsEmitter =
-		this._register(new Emitter<void>);
-
-	/**
 	 * The onDidChangeEnvironmentGrouping event emitter.
 	 */
 	private readonly _onDidChangeEnvironmentGroupingEmitter =
 		this._register(new Emitter<PositronEnvironmentGrouping>);
+
+	/**
+	 * The onDidChangeEnvironmentGrouping event emitter.
+	 */
+	private readonly _onDidChangeEnvironmentSortingEmitter =
+		this._register(new Emitter<PositronEnvironmentSorting>);
+
+	/**
+	 * The onDidChangeEntries event emitter.
+	 */
+	private readonly _onDidChangeEntriesEmitter =
+		this._register(new Emitter<(EnvironmentVariableGroup | IEnvironmentVariableItem)[]>);
 
 	//#endregion Private Properties
 
@@ -386,18 +430,41 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
-	 * Gets the environment grouping.
+	 * Gets the grouping.
 	 */
-	get environmentGrouping(): PositronEnvironmentGrouping {
-		return this._environmentGrouping;
+	get grouping(): PositronEnvironmentGrouping {
+		return this._grouping;
 	}
 
 	/**
-	 * Sets the environment grouping.
+	 * Sets the grouping.
 	 */
-	set environmentGrouping(positronEnvironmentGrouping: PositronEnvironmentGrouping) {
-		this._environmentGrouping = positronEnvironmentGrouping;
-		this._onDidChangeEnvironmentGroupingEmitter.fire(this._environmentGrouping);
+	set grouping(environmentGrouping: PositronEnvironmentGrouping) {
+		// Set the environment grouping.
+		this._grouping = environmentGrouping;
+		this._onDidChangeEnvironmentGroupingEmitter.fire(this._grouping);
+
+		// Update entries.
+		this.updateEntries();
+	}
+
+	/**
+	 * Gets the environment sorting.
+	 */
+	get sorting(): PositronEnvironmentSorting {
+		return this._sorting;
+	}
+
+	/**
+	 * Sets the environment sorting.
+	 */
+	set sorting(environmentSorting: PositronEnvironmentSorting) {
+		// Set the environment sorting.
+		this._sorting = environmentSorting;
+		this._onDidChangeEnvironmentSortingEmitter.fire(this._sorting);
+
+		// Update entries.
+		this.updateEntries();
 	}
 
 	/**
@@ -407,16 +474,22 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		this._onDidChangeStateEmitter.event;
 
 	/**
-	 * onDidChangeEnvironmentItems event.
-	 */
-	readonly onDidChangeEnvironmentVariableItems: Event<void> =
-		this._onDidChangeEnvironmentVariableItemsEmitter.event;
-
-	/**
 	 * onDidChangeEnvironmentGrouping event.
 	 */
 	readonly onDidChangeEnvironmentGrouping: Event<PositronEnvironmentGrouping> =
 		this._onDidChangeEnvironmentGroupingEmitter.event;
+
+	/**
+	 * onDidChangeEnvironmentSorting event.
+	 */
+	readonly onDidChangeEnvironmentSorting: Event<PositronEnvironmentSorting> =
+		this._onDidChangeEnvironmentSortingEmitter.event;
+
+	/**
+	 * onDidChangeEntries event.
+	 */
+	readonly onDidChangeEntries: Event<(IEnvironmentVariableGroup | IEnvironmentVariableItem)[]> =
+		this._onDidChangeEntriesEmitter.event;
 
 	/**
 	 * Requests a refresh of the environment.
@@ -454,6 +527,30 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		}
 		else {
 			console.error('Ignoring delete request; environment client is not available.');
+		}
+	}
+
+	/**
+	 * Expands an environment variable group.
+	 * @param id The identifier of the environment variable group to expand.
+	 */
+	expandEnvironmentVariableGroup(id: string) {
+		if (this._collapsedGroupIds.has(id)) {
+			this._collapsedGroupIds.delete(id);
+
+			this.foo();
+		}
+	}
+
+	/**
+	 * Collapses an environment variable group.
+	 * @param id The identifier of the environment variable group to collapse.
+	 */
+	collapseEnvironmentVariableGroup(id: string) {
+		if (!this._collapsedGroupIds.has(id)) {
+			this._collapsedGroupIds.add(id);
+
+			this.foo();
 		}
 	}
 
@@ -611,21 +708,19 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private processList(environmentClientMessageList: EnvironmentClientList) {
 		// Build the new environment variable items.
 		const environmentVariableItems = new Map<string, EnvironmentVariableItem>();
-		for (let i = 0; i < environmentClientMessageList.variables.length; i++) {
-			// Get the environment variable.
-			const environmentVariable = environmentClientMessageList.variables[i];
-
+		environmentClientMessageList.variables.forEach(environmentVariable => {
 			// Add the environment variable item.
 			environmentVariableItems.set(
 				environmentVariable.data.display_name,
 				new EnvironmentVariableItem(environmentVariable)
 			);
-		}
+		});
 
-		// Set the environment veriable items and fire the onDidChangeEnvironmentVariableItems
-		// event.
+		// Set the environment variable items.
 		this._environmentVariableItems = environmentVariableItems;
-		this._onDidChangeEnvironmentVariableItemsEmitter.fire();
+
+		// Update entries.
+		this.updateEntries();
 	}
 
 	/**
@@ -651,8 +746,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 			this._environmentVariableItems.delete(environmentClientMessageUpdate.removed[i]);
 		}
 
-		// Fire the onDidChangeEnvironmentVariableItems event.
-		this._onDidChangeEnvironmentVariableItemsEmitter.fire();
+		// Update entries.
+		this.updateEntries();
 	}
 
 	/**
@@ -660,7 +755,240 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
 	private processError(environmentClientMessageError: IEnvironmentClientMessageError) {
+		// TODO@softwarenerd - Write more code.
 		console.error(environmentClientMessageError);
+	}
+
+	/**
+	 * Updates entries.
+	 */
+	private updateEntries() {
+		// Clear the entries.
+		this._entries = [];
+
+		// Update the entries by grouping.
+		switch (this._grouping) {
+			// None.
+			case PositronEnvironmentGrouping.None:
+				this.updateEntriesGroupedByNone();
+				break;
+
+			// Kind.
+			case PositronEnvironmentGrouping.Kind:
+				this.updateEntriesGroupedByKind();
+				break;
+
+			// Size.
+			case PositronEnvironmentGrouping.Size:
+				this.updateEntriesGroupedBySize();
+				break;
+		}
+
+		this.foo();
+	}
+
+	/**
+	 * Updates entries grouped by none.
+	 */
+	private updateEntriesGroupedByNone() {
+		// Get the environment variable items.
+		const items = Array.from(this._environmentVariableItems.values());
+
+		// Sort the environment variable items.
+		switch (this._sorting) {
+			// Sort the environment variable items by name.
+			case PositronEnvironmentSorting.Name:
+				sortEnvironmentVariableItemsByName(items);
+				break;
+
+			// Sort the environment variable items by size.
+			case PositronEnvironmentSorting.Size:
+				sortEnvironmentVariableItemsBySize(items);
+				break;
+		}
+
+		// Update the entries.
+		this._entries = items;
+	}
+
+	/**
+	 * Updates entries grouped by kind.
+	 */
+	private updateEntriesGroupedByKind() {
+		// Break the environment variable items into groups.
+		const dataItems: EnvironmentVariableItem[] = [];
+		const valueItems: EnvironmentVariableItem[] = [];
+		const functionItems: EnvironmentVariableItem[] = [];
+		for (const environmentVariableItem of this._environmentVariableItems.values()) {
+			if (environmentVariableItem.kind === EnvironmentVariableValueKind.Table) {
+				dataItems.push(environmentVariableItem);
+			} else if (environmentVariableItem.kind === EnvironmentVariableValueKind.Function) {
+				functionItems.push(environmentVariableItem);
+			} else {
+				valueItems.push(environmentVariableItem);
+			}
+		}
+
+		// Clear the entries.
+		this._entries = [];
+
+		// Add the data items group.
+		if (dataItems.length) {
+			this._entries.push(new EnvironmentVariableGroup(
+				DATA_GROUP_ID,
+				'Data',
+				!this._collapsedGroupIds.has(DATA_GROUP_ID),
+				this.sortItems(dataItems)
+			));
+		}
+
+		// Add the value items group.
+		if (valueItems.length) {
+			this._entries.push(new EnvironmentVariableGroup(
+				VALUES_GROUP_ID,
+				'Values',
+				!this._collapsedGroupIds.has(VALUES_GROUP_ID),
+				this.sortItems(valueItems)
+			));
+		}
+
+		// Add the function items group.
+		if (functionItems.length) {
+			this._entries.push(new EnvironmentVariableGroup(
+				FUNCTIONS_GROUP_ID,
+				'Functions',
+				!this._collapsedGroupIds.has(FUNCTIONS_GROUP_ID),
+				this.sortItems(functionItems)
+			));
+		}
+	}
+
+	/**
+	 * Updates entries grouped by size.
+	 */
+	private updateEntriesGroupedBySize() {
+		// Break the environment variable items into groups.
+		const smallItems: EnvironmentVariableItem[] = [];
+		const mediumItems: EnvironmentVariableItem[] = [];
+		const largeItems: EnvironmentVariableItem[] = [];
+		const veryLargeItems: EnvironmentVariableItem[] = [];
+		Array.from(this._environmentVariableItems.values()).forEach(item => {
+			if (item.size < 1000) {
+				smallItems.push(item);
+			} else if (item.size < 10 * 1000) {
+				mediumItems.push(item);
+			} else if (item.size < 1000 * 1000) {
+				largeItems.push(item);
+			} else {
+				veryLargeItems.push(item);
+			}
+		});
+
+		// Add the small items group.
+		if (smallItems.length) {
+			this._entries.push(new EnvironmentVariableGroup(
+				SMALL_GROUP_ID,
+				'Small',
+				!this._collapsedGroupIds.has(SMALL_GROUP_ID),
+				this.sortItems(smallItems)
+			));
+		}
+
+		// Add the medium items group.
+		if (mediumItems.length) {
+			this._entries.push(new EnvironmentVariableGroup(
+				MEDIUM_GROUP_ID,
+				'Medium',
+				!this._collapsedGroupIds.has(MEDIUM_GROUP_ID),
+				this.sortItems(mediumItems)
+			));
+		}
+
+		// Add the large items group.
+		if (largeItems.length) {
+			this._entries.push(new EnvironmentVariableGroup(
+				LARGE_GROUP_ID,
+				'Large',
+				!this._collapsedGroupIds.has(LARGE_GROUP_ID),
+				this.sortItems(largeItems)
+			));
+		}
+
+		// Add the very large items group.
+		if (veryLargeItems.length) {
+			this._entries.push(new EnvironmentVariableGroup(
+				VERY_LARGE_GROUP_ID,
+				'Very Large',
+				!this._collapsedGroupIds.has(VERY_LARGE_GROUP_ID),
+				this.sortItems(veryLargeItems)
+			));
+		}
+	}
+
+	/**
+	 * Sorts an array of environment variable items.
+	 * @param items The array of environment variable items.
+	 * @returns The array of environment variable items
+	 */
+	private sortItems(items: EnvironmentVariableItem[]): EnvironmentVariableItem[] {
+		// Sort the array of environment variable items.
+		switch (this._sorting) {
+			// Sort by name.
+			case PositronEnvironmentSorting.Name:
+				sortEnvironmentVariableItemsByName(items);
+				break;
+
+			// Sort by size.
+			case PositronEnvironmentSorting.Size:
+				sortEnvironmentVariableItemsBySize(items);
+				break;
+		}
+
+		// Done.
+		return items;
+	}
+
+	/**
+	 *
+	 */
+	private foo() {
+		const d = this._entries.flatMap(entry => {
+			if (entry instanceof EnvironmentVariableGroup) {
+				entry.expanded = !this._collapsedGroupIds.has(entry.id);
+				if (entry.expanded) {
+					return [entry, ...this.flattenEnvironmentVariableItems(entry.environmentVariableItems)];
+				} else {
+					return [entry];
+				}
+			} else if (entry instanceof EnvironmentVariableItem) {
+				entry.expanded = this._expandedPaths.has(entry.path);
+				return this.flattenEnvironmentVariableItems([]);
+			}
+		});
+
+		// Fire the onDidChangeEntries event.
+		this._onDidChangeEntriesEmitter.fire(d);
+	}
+
+	/**
+	 * Flattens an array of environment variable items.
+	 * @param environmentVariableItems The array of environment variable items to flatten.
+	 * @returns The flattened array of environment variable items.
+	 */
+	private flattenEnvironmentVariableItems(
+		environmentVariableItems: EnvironmentVariableItem[]
+	): EnvironmentVariableItem[] {
+		/**
+		 * Returns a value which indicates whether the path is expanded.
+		 * @param path The path.
+		 * @returns true, if the path is expanded; otherwise, false.
+		 */
+		const isExpanded = (path: string): boolean => this._expandedPaths.has(path);
+
+		// Flatten the array of environment variable items.
+		return environmentVariableItems.flatMap(environmentVariableItem =>
+			environmentVariableItem.flatten(isExpanded, this._sorting)
+		);
 	}
 
 	//#endregion Private Methods

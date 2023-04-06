@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.environment-variables-group {
+.environment-variable-group {
 	display: flex;
 	border: none;
 	padding: 0 8px;
@@ -14,15 +14,15 @@
 	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 }
 
-.environment-variables-group:hover {
+.environment-variable-group:hover {
 	background: var(--vscode-positronEnvironment-rowHoverBackground)
 }
 
-.environment-variables-group .expand-collapse-icon {
+.environment-variable-group .expand-collapse-icon {
 	width: 20px;
 	text-align: left;
 }
 
-.environment-variables-group .title {
+.environment-variable-group .title {
 	font-weight: 700;
 }
