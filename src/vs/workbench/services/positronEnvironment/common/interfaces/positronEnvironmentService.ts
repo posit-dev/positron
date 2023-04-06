@@ -5,6 +5,8 @@
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
+import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 
 // Create the decorator for the Positron environment service (used in dependency injection).
@@ -29,6 +31,14 @@ export const enum PositronEnvironmentState {
 export const enum PositronEnvironmentGrouping {
 	None,
 	Kind,
+	Size
+}
+
+/**
+ * PositronEnvironmentSorting enumeration.
+ */
+export const enum PositronEnvironmentSorting {
+	Name,
 	Size
 }
 
@@ -80,14 +90,14 @@ export interface IPositronEnvironmentInstance {
 	readonly state: PositronEnvironmentState;
 
 	/**
-	 * Gets the environment items.
-	 */
-	readonly environmentVariableItems: EnvironmentVariableItem[];
-
-	/**
 	 * Gets or sets the grouping.
 	 */
-	environmentGrouping: PositronEnvironmentGrouping;
+	grouping: PositronEnvironmentGrouping;
+
+	/**
+	 * Gets or sets the sorting.
+	 */
+	sorting: PositronEnvironmentSorting;
 
 	/**
 	 * The onDidChangeState event.
@@ -95,14 +105,19 @@ export interface IPositronEnvironmentInstance {
 	readonly onDidChangeState: Event<PositronEnvironmentState>;
 
 	/**
-	 * The onDidChangeEnvironmentItems event.
-	 */
-	readonly onDidChangeEnvironmentVariableItems: Event<void>;
-
-	/**
 	 * The onDidChangeEnvironmentGrouping event.
 	 */
 	readonly onDidChangeEnvironmentGrouping: Event<PositronEnvironmentGrouping>;
+
+	/**
+	 * The onDidChangeEnvironmentSorting event.
+	 */
+	readonly onDidChangeEnvironmentSorting: Event<PositronEnvironmentSorting>;
+
+	/**
+	 * The onDidChangeEntries event.
+	 */
+	readonly onDidChangeEntries: Event<(IEnvironmentVariableGroup | IEnvironmentVariableItem)[]>;
 
 	/**
 	 * Requests a refresh of the environment.
@@ -110,7 +125,7 @@ export interface IPositronEnvironmentInstance {
 	requestRefresh(): void;
 
 	/**
-	 * Requests a clear of the environment.
+	 * Requests clearing the environment.
 	 * @param includeHiddenObjects A value which indicates whether to include hidden objects.
 	 */
 	requestClear(includeHiddenObjects: boolean): void;
@@ -120,4 +135,16 @@ export interface IPositronEnvironmentInstance {
 	 * @param names The names of the variables to delete
 	 */
 	requestDelete(names: string[]): void;
+
+	/**
+	 * Expands an environment variable group.
+	 * @param id The identifier of the environment variable group to expand.
+	 */
+	expandEnvironmentVariableGroup(id: string): void;
+
+	/**
+	 * Collapses an environment variable group.
+	 * @param id The identifier of the environment variable group to collapse.
+	 */
+	collapseEnvironmentVariableGroup(id: string): void;
 }

@@ -497,10 +497,10 @@ export const STATUS_BAR_NO_FOLDER_FOREGROUND = registerColor('statusBar.noFolder
 
 export const STATUS_BAR_BACKGROUND = registerColor('statusBar.background', {
 	// --- Start Positron ---
-	dark: editorBackground,
-	light: editorBackground,
-	hcDark: editorBackground,
-	hcLight: editorBackground,
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground,
 	// dark: '#007ACC',
 	// light: '#007ACC',
 	// hcDark: null,
@@ -844,8 +844,8 @@ export const TITLE_BAR_INACTIVE_FOREGROUND = registerColor('titleBar.inactiveFor
 
 export const TITLE_BAR_ACTIVE_BACKGROUND = registerColor('titleBar.activeBackground', {
 	// --- Start Positron ---
-	dark: editorBackground,
-	light: editorBackground,
+	dark: inputBackground,
+	light: inputBackground,
 	// dark: '#3C3C3C',
 	// light: '#DDDDDD',
 	// --- End Positron ---
@@ -1019,10 +1019,10 @@ export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBa
 
 // The Positron top action bar background color.
 export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActionBar.background', {
-	dark: editorBackground,
-	light: editorBackground,
-	hcDark: editorBackground,
-	hcLight: editorBackground
+	dark: inputBackground,
+	light: inputBackground,
+	hcDark: inputBackground,
+	hcLight: inputBackground
 }, localize('positronTopActionBar.background', "Positron top action bar background color."));
 
 // The Positron top action bar foreground color.
