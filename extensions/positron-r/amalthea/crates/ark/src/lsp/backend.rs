@@ -22,21 +22,24 @@ use serde_json::Value;
 use stdext::*;
 use tokio::net::TcpListener;
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::*;
 use tower_lsp::lsp_types::request::GotoImplementationParams;
 use tower_lsp::lsp_types::request::GotoImplementationResponse;
-use tower_lsp::{Client, LanguageServer, LspService, Server};
+use tower_lsp::lsp_types::*;
+use tower_lsp::Client;
+use tower_lsp::LanguageServer;
+use tower_lsp::LspService;
+use tower_lsp::Server;
 
-use crate::lsp::completions::CompletionData;
 use crate::lsp::completions::append_document_completions;
 use crate::lsp::completions::append_session_completions;
 use crate::lsp::completions::append_workspace_completions;
 use crate::lsp::completions::can_provide_completions;
 use crate::lsp::completions::completion_context;
 use crate::lsp::completions::resolve_completion_item;
+use crate::lsp::completions::CompletionData;
 use crate::lsp::definitions::goto_definition;
-use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::documents::Document;
+use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::globals;
 use crate::lsp::help_proxy;
 use crate::lsp::hover::hover;
@@ -79,10 +82,9 @@ pub struct Backend {
 }
 
 impl Backend {
-
     pub fn with_document<T, F>(&self, path: &Path, mut callback: F) -> anyhow::Result<T>
     where
-        F: FnMut(&Document) -> anyhow::Result<T>
+        F: FnMut(&Document) -> anyhow::Result<T>,
     {
         let mut fallback = || {
             let contents = std::fs::read_to_string(path)?;
@@ -109,7 +111,6 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         backend_trace!(self, "initialize({:#?})", params);
 
@@ -224,7 +225,10 @@ impl LanguageServer for Backend {
         // TODO: Re-index the changed files.
     }
 
-    async fn symbol(&self, params: WorkspaceSymbolParams) -> Result<Option<Vec<SymbolInformation>>> {
+    async fn symbol(
+        &self,
+        params: WorkspaceSymbolParams,
+    ) -> Result<Option<Vec<SymbolInformation>>> {
         backend_trace!(self, "symbol({:?})", params);
 
         let response = unwrap!(symbols::symbols(self, &params), Err(error) => {
@@ -235,7 +239,10 @@ impl LanguageServer for Backend {
         Ok(Some(response))
     }
 
-    async fn document_symbol(&self, params: DocumentSymbolParams) -> Result<Option<DocumentSymbolResponse>> {
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
         backend_trace!(self, "document_symbols({})", params.text_document.uri);
 
         let response = unwrap!(symbols::document_symbols(self, &params), Err(error) => {
@@ -244,7 +251,6 @@ impl LanguageServer for Backend {
         });
 
         Ok(Some(DocumentSymbolResponse::Nested(response)))
-
     }
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
@@ -280,7 +286,11 @@ impl LanguageServer for Backend {
 
         // respond to document updates
         if let Err(error) = doc.on_did_change(&params) {
-            backend_trace!(self, "did_change(): unexpected error applying updates {}", error);
+            backend_trace!(
+                self,
+                "did_change(): unexpected error applying updates {}",
+                error
+            );
             return;
         }
 
@@ -365,6 +375,11 @@ impl LanguageServer for Backend {
         let mut uniques = HashSet::new();
         completions.retain(|x| uniques.insert(x.label.clone()));
 
+        // remove 'hidden' completions if necessary
+        if !context.include_hidden {
+            completions.retain(|x| !x.label.starts_with("."));
+        }
+
         // sort completions by providing custom 'sort' text to be used when
         // ordering completion results. we use some placeholders at the front
         // to 'bin' different completion types differently; e.g. we place parameter
@@ -372,7 +387,6 @@ impl LanguageServer for Backend {
         // characters at the end (e.g. completions starting with `.`)
         let pattern = Regex::new(r"^\w").unwrap();
         for item in &mut completions {
-
             case! {
 
                 item.kind == Some(CompletionItemKind::FIELD) => {
@@ -392,7 +406,6 @@ impl LanguageServer for Backend {
                 }
 
             }
-
         }
 
         if !completions.is_empty() {
@@ -411,7 +424,7 @@ impl LanguageServer for Backend {
             return Ok(item);
         });
 
-        let data : CompletionData = unwrap!(serde_json::from_value(data), Err(error) => {
+        let data: CompletionData = unwrap!(serde_json::from_value(data), Err(error) => {
             error!("{:?}", error);
             return Ok(item);
         });
@@ -424,7 +437,6 @@ impl LanguageServer for Backend {
         }
 
         Ok(item)
-
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
@@ -466,7 +478,6 @@ impl LanguageServer for Backend {
     }
 
     async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
-
         // get document reference
         let uri = &params.text_document_position_params.text_document.uri;
         let document = unwrap!(self.documents.get_mut(uri), None => {
@@ -492,7 +503,10 @@ impl LanguageServer for Backend {
         Ok(Some(result))
     }
 
-    async fn goto_definition(&self, params: GotoDefinitionParams) -> Result<Option<GotoDefinitionResponse>> {
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
         backend_trace!(self, "goto_definition({:?})", params);
 
         // get reference to document
@@ -509,10 +523,12 @@ impl LanguageServer for Backend {
         });
 
         Ok(result)
-
     }
 
-    async fn goto_implementation(&self, params: GotoImplementationParams) -> Result<Option<GotoImplementationResponse>> {
+    async fn goto_implementation(
+        &self,
+        params: GotoImplementationParams,
+    ) -> Result<Option<GotoImplementationResponse>> {
         backend_trace!(self, "goto_implementation({:?})", params);
         let _ = params;
         error!("Got a textDocument/implementation request, but it is not implemented");
@@ -526,7 +542,7 @@ impl LanguageServer for Backend {
             Ok(locations) => locations,
             Err(_error) => {
                 return Ok(None);
-            }
+            },
         };
 
         if locations.is_empty() {
@@ -553,7 +569,6 @@ impl LanguageServer for Backend {
 // https://github.com/Microsoft/vscode-languageserver-node/blob/18fad46b0e8085bb72e1b76f9ea23a379569231a/client/src/common/client.ts#L802-L838
 // https://github.com/Microsoft/vscode-languageserver-node/blob/18fad46b0e8085bb72e1b76f9ea23a379569231a/client/src/common/client.ts#L701-L752
 impl Backend {
-
     async fn request(&self, params: Option<Value>) -> Result<i32> {
         info!("Received Positron request: {:?}", params);
         Ok(42)
@@ -562,18 +577,22 @@ impl Backend {
     async fn notification(&self, params: Option<Value>) {
         info!("Received Positron notification: {:?}", params);
     }
-
 }
 
 #[tokio::main]
-pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, comm_manager_tx: Sender<CommEvent>, lsp_initialized: bool) {
+pub async fn start_lsp(
+    address: String,
+    shell_request_tx: Sender<Request>,
+    comm_manager_tx: Sender<CommEvent>,
+    lsp_initialized: bool,
+) {
     #[cfg(feature = "runtime-agnostic")]
-    use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
+    use tokio_util::compat::TokioAsyncReadCompatExt;
+    #[cfg(feature = "runtime-agnostic")]
+    use tokio_util::compat::TokioAsyncWriteCompatExt;
 
     debug!("Connecting to LSP at '{}'", &address);
-    let listener = TcpListener::bind(&address)
-        .await
-        .unwrap();
+    let listener = TcpListener::bind(&address).await.unwrap();
     let (stream, _) = listener.accept().await.unwrap();
     debug!("Connected to LSP at '{}'", address);
     let (read, write) = tokio::io::split(stream);
@@ -582,12 +601,11 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, comm_
     let (read, write) = (read.compat(), write.compat_write());
 
     let init = |client: Client| {
-
         // initialize shared globals (needed for R callbacks)
         globals::initialize(
             client.clone(),
             shell_request_tx.clone(),
-            comm_manager_tx.clone()
+            comm_manager_tx.clone(),
         );
 
         // create backend
@@ -596,11 +614,10 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, comm_
             documents: DOCUMENT_INDEX.clone(),
             workspace: Arc::new(Mutex::new(Workspace::default())),
             shell_request_tx: shell_request_tx.clone(),
-            lsp_initialized
+            lsp_initialized,
         };
 
         backend
-
     };
 
     let (service, socket) = LspService::build(init)
@@ -609,5 +626,8 @@ pub async fn start_lsp(address: String, shell_request_tx: Sender<Request>, comm_
         .finish();
 
     Server::new(read, write, socket).serve(service).await;
-    debug!("LSP thread exiting gracefully after connection closed ({:?}).", address);
+    debug!(
+        "LSP thread exiting gracefully after connection closed ({:?}).",
+        address
+    );
 }
