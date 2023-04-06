@@ -71,6 +71,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// case of reconnecting to a running language runtime, and represent
 		// the user's active set of plot objects.
 		runtime.listClients(RuntimeClientType.Plot).then(clients => {
+			const plotClients: Array<PlotClientInstance> = [];
 			clients.forEach((client) => {
 				if (client.getClientType() === RuntimeClientType.Plot) {
 
@@ -84,7 +85,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					if (storedMetadata) {
 						try {
 							const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
-							this.registerPlotClient(client, metadata);
+							plotClients.push(new PlotClientInstance(client, metadata));
 							registered = true;
 						} catch (error) {
 							console.warn(`Error parsing plot metadata: ${error}`);
@@ -99,13 +100,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							parent_id: '',
 							code: '',
 						};
-						this.registerPlotClient(client, metadata);
+						plotClients.push(new PlotClientInstance(client, metadata));
 					}
 				} else {
 					console.warn(
 						`Unexpected client type ${client.getClientType()} ` +
 						`(expected ${RuntimeClientType.Plot})`);
 				}
+			});
+
+			// Sort the plot clients by creation time, oldest first
+			plotClients.sort((a, b) => {
+				return a.metadata.created - b.metadata.created;
+			});
+
+			// Register each plot client with the plots service
+			plotClients.forEach((client) => {
+				this.registerPlotClient(client);
 			});
 		});
 
@@ -148,7 +159,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					StorageTarget.MACHINE);
 
 				// Register the plot client
-				this.registerPlotClient(event.client, metadata);
+				const plotClient = new PlotClientInstance(event.client, metadata);
+				this.registerPlotClient(plotClient);
 			}
 		}));
 
@@ -162,21 +174,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this.registerStaticPlot(runtime.metadata.runtimeId, message, code);
 			}
 		}));
-
 	}
 
 	/**
 	 * Creates a new plot client instance wrapper and registers it with the
 	 * service.
 	 *
-	 * @param client The raw client instance.
-	 * @param metadata The metadata associated with the plot.
+	 * @param plotClient The plot client instance to wrap.
 	 */
-	private registerPlotClient(
-		client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
-		metadata: IPositronPlotMetadata) {
-		// Wrap the client instance in a PlotClientInstance object
-		const plotClient = new PlotClientInstance(client, metadata);
+	private registerPlotClient(plotClient: PlotClientInstance) {
 
 		// Add to our list of plots and fire the event notifying subscribers
 		this._plots.unshift(plotClient);
