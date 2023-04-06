@@ -151,6 +151,13 @@ export class EnvironmentVariable {
 	}
 
 	/**
+	 * Gets the path of this variable.
+	 */
+	get path() {
+		return [...this.parentKeys, this.data.access_key];
+	}
+
+	/**
 	 * Gets the children of this variable, if any.
 	 *
 	 * @returns A promise that resolves to the list of children.

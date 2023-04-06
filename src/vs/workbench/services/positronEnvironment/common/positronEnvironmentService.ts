@@ -9,12 +9,12 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableGroup';
+import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
+import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/services/positronEnvironment/common/helpers/utils';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { EnvironmentClientInstance, EnvironmentClientList, EnvironmentClientUpdate, EnvironmentVariableValueKind, IEnvironmentClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentSorting, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
-import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 
 /**
  * Constants.
@@ -311,7 +311,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _state = PositronEnvironmentState.Uninitialized;
 
 	/**
-	 * Gets or sets the items map.
+	 * Gets or sets the environment variable items map.
 	 */
 	private _environmentVariableItems = new Map<string, EnvironmentVariableItem>();
 
@@ -537,7 +537,6 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	expandEnvironmentVariableGroup(id: string) {
 		if (this._collapsedGroupIds.has(id)) {
 			this._collapsedGroupIds.delete(id);
-
 			this.foo();
 		}
 	}
@@ -549,7 +548,30 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	collapseEnvironmentVariableGroup(id: string) {
 		if (!this._collapsedGroupIds.has(id)) {
 			this._collapsedGroupIds.add(id);
+			this.foo();
+		}
+	}
 
+	/**
+	 * Expands an environment variable.
+	 * @param path The path of the environment variable to expand.
+	 */
+	expandEnvironmentVariable(path: string[]) {
+		const pathString = JSON.stringify(path);
+		if (!this._expandedPaths.has(pathString)) {
+			this._expandedPaths.add(pathString);
+			this.foo();
+		}
+	}
+
+	/**
+	 * Collapses an environment variable.
+	 * @param path The path of the environment variable to collapse.
+	 */
+	collapseEnvironmentVariable(path: string[]) {
+		const pathString = JSON.stringify(path);
+		if (this._expandedPaths.has(pathString)) {
+			this._expandedPaths.delete(pathString);
 			this.foo();
 		}
 	}
@@ -711,7 +733,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		environmentClientMessageList.variables.forEach(environmentVariable => {
 			// Add the environment variable item.
 			environmentVariableItems.set(
-				environmentVariable.data.display_name,
+				environmentVariable.data.access_key,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		});
@@ -735,7 +757,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the environment variable item.
 			this._environmentVariableItems.set(
-				environmentVariable.data.display_name,
+				environmentVariable.data.access_key,
 				new EnvironmentVariableItem(environmentVariable)
 			);
 		}
@@ -961,8 +983,10 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 					return [entry];
 				}
 			} else if (entry instanceof EnvironmentVariableItem) {
-				entry.expanded = this._expandedPaths.has(entry.path);
+				entry.expanded = false;
 				return this.flattenEnvironmentVariableItems([]);
+			} else {
+				return [];
 			}
 		});
 
