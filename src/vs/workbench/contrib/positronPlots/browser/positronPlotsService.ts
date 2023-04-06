@@ -8,7 +8,7 @@ import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeServic
 import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
-import { IStorageService } from 'vs/platform/storage/common/storage';
+import { IStorageService, StorageTarget, StorageScope } from 'vs/platform/storage/common/storage';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -73,7 +73,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		runtime.listClients(RuntimeClientType.Plot).then(clients => {
 			clients.forEach((client) => {
 				if (client.getClientType() === RuntimeClientType.Plot) {
-					this.registerPlotClient(client);
+
+					// Attempt to load the metadata for this plot from storage
+					const storedMetadata = this._storageService.get(
+						this.generateStorageKey(runtime.metadata.runtimeId, client.getClientId()),
+						StorageScope.WORKSPACE);
+
+					// If we have metadata, try to parse it and register the plot
+					let registered = false;
+					if (storedMetadata) {
+						try {
+							const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
+							this.registerPlotClient(client, metadata);
+							registered = true;
+						} catch (error) {
+							console.warn(`Error parsing plot metadata: ${error}`);
+						}
+					}
+					// If we don't have metadata, register the plot with a default metadata object
+					if (!registered) {
+						const metadata: IPositronPlotMetadata = {
+							created: Date.now(),
+							id: client.getClientId(),
+							runtime_id: runtime.metadata.runtimeId,
+							parent_id: '',
+							code: '',
+						};
+						this.registerPlotClient(client, metadata);
+					}
 				} else {
 					console.warn(
 						`Unexpected client type ${client.getClientType()} ` +
@@ -114,6 +141,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 				// Save the metadata to storage so that we can restore it when
 				// the plot is reconnected.
+				this._storageService.store(
+					this.generateStorageKey(metadata.runtime_id, metadata.id),
+					JSON.stringify(metadata),
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
 
 				// Register the plot client
 				this.registerPlotClient(event.client, metadata);
@@ -157,6 +189,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			if (index >= 0) {
 				this._plots.splice(index, 1);
 			}
+			// Clear the plot's metadata from storage
+			this._storageService.remove(
+				this.generateStorageKey(plotClient.metadata.runtime_id, plotClient.metadata.id),
+				StorageScope.WORKSPACE);
 		});
 
 		// Dispose the plot client when this service is disposed (we own this
@@ -210,6 +246,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._plots.forEach((plot, index) => {
 			if (plot.id === id) {
 				plot.dispose();
+
+				// Remove the plot from the list
 				this._plots.splice(index, 1);
 			}
 		});
