@@ -1,4 +1,7 @@
-"""Custom entry point for launching Jedi and ipykernel in the same environment."""
+"""
+Custom entry point for launching Positron's extensions to the Jedi Language
+Server and IPyKernel in the same environment.
+"""
 
 import argparse
 import logging
@@ -10,17 +13,16 @@ import traceback
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
-from positron_ipkernel import PositronIPyKernel
-from ipykernel import kernelapp
-from jedi_language_server.server import SERVER
-from multiprocessing import Pool
+from positron_jedilsp import POSITRON
 
-def start_ipykernel():
-    app = kernelapp.IPKernelApp.instance(kernel_class=PositronIPyKernel)
-    app.initialize()
-    app.start()
+def initialize() -> (str, int):
+    """
+    Initialize the configuration for the Positron Python Language Server
+    and REPL Kernel.
 
-def start_jedi():
+    Returns:
+        (str, int): TCP host and port of the LSP server
+    """
 
     # Given we're using TCP, support a subset of the Jedi LSP configuration
     parser = argparse.ArgumentParser(
@@ -61,7 +63,7 @@ def start_jedi():
 
     log_level = {0: logging.WARN, 1: logging.INFO, 2: logging.DEBUG}.get(
         args.verbose,
-        logging.DEBUG,
+        logging.INFO,
     )
 
     if args.logfile:
@@ -73,22 +75,23 @@ def start_jedi():
     else:
         logging.basicConfig(stream=sys.stderr, level=log_level)
 
-    SERVER.start_tcp(host=args.host, port=args.port)
+    return args.host, args.port
 
-def ipk_error_handler(error):
-    logging.error('Error in Positron IPyKernel: %s', error)
+
+def start(lsp_host, lsp_port):
+    """
+    Starts Positron Python (based on the Jedi Language Server) to
+    suport both LSP and REPL functionality.
+    """
+    exitStatus = POSITRON.start(lsp_host, lsp_port)
+    return exitStatus
 
 
 if __name__ == "__main__":
 
-    # Start ipykernel as an async process
-    pool = Pool(processes=1, maxtasksperchild=1)
-    result = pool.apply_async(start_ipykernel, error_callback=ipk_error_handler)
-
-    # Start Jedi language server using TCP
     try:
-        exitStatus = start_jedi()
-        pool.terminate()
+        lsp_host, lsp_port = initialize()
+        exitStatus = start(lsp_host, lsp_port)
     except SystemExit as error:
         # TODO: Remove this workaround once we can improve Jedi disconnection logic
         tb = ''.join(traceback.format_tb(error.__traceback__))
