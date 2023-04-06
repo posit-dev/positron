@@ -55,7 +55,8 @@ macro_rules! with_vector {
         unsafe {
             let sexp = $sexp;
 
-            match r_typeof(sexp) {
+            let rtype = r_typeof(sexp);
+            match rtype {
                 LGLSXP => crate::with_vector_impl!(sexp, LogicalVector, $variable, $($code)*),
                 INTSXP => {
                     if r_inherits(sexp, "factor") {
@@ -68,7 +69,7 @@ macro_rules! with_vector {
                 RAWSXP => crate::with_vector_impl!(sexp, RawVector, $variable, $($code)*),
                 STRSXP => crate::with_vector_impl!(sexp, CharacterVector, $variable, $($code)*),
 
-                _ => Err(crate::error::Error::NotSimpleVectorError)
+                _ => Err(crate::error::Error::UnexpectedType(rtype, vec![LGLSXP, INTSXP, REALSXP, RAWSXP, STRSXP]))
             }
         }
 
