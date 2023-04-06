@@ -24,7 +24,6 @@ use crate::vector::NumericVector;
 use crate::vector::RawVector;
 use crate::vector::Vector;
 use crate::with_vector;
-use std::os::raw::c_void;
 
 #[derive(Copy, Clone, BitfieldStruct)]
 #[repr(C)]
@@ -43,10 +42,6 @@ pub struct Sxpinfo {
     #[bitfield(name = "named", ty = "libc::c_uint", bits = "32..=47")]
     #[bitfield(name = "extra", ty = "libc::c_uint", bits = "48..=63")]
     pub rtype_scalar_obj_alt_gp_mark_debug_trace_spare_gcgen_gccls_named_extra: [u8; 8],
-}
-
-extern "C" {
-    fn R_expand_binding_value(binding: SEXP) -> c_void;
 }
 
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
@@ -139,14 +134,15 @@ impl BindingType {
 }
 
 impl Binding {
-    pub fn new(frame: SEXP) -> Self {
+    pub fn new(env: SEXP, frame: SEXP) -> Self {
         let name = RSymbol::new(unsafe {TAG(frame)});
 
         let value = unsafe {
-            // TODO: actually return a BindingKind::Immediate without expanding
+            // force the immediate bindings
             if is_immediate_binding(frame) {
-                R_expand_binding_value(frame);
+                Rf_findVarInFrame(env, *name);
             }
+
             CAR(frame)
         };
 
@@ -416,11 +412,11 @@ pub fn env_bindings(env: SEXP) -> Vec<Binding> {
         // 1: traverse the envinronment
         let hash  = HASHTAB(env);
         if hash == R_NilValue {
-            frame_bindings(FRAME(env), &mut bindings);
+            frame_bindings(env, FRAME(env), &mut bindings);
         } else {
             let n = XLENGTH(hash);
             for i in 0..n {
-                frame_bindings(VECTOR_ELT(hash, i), &mut bindings);
+                frame_bindings(env, VECTOR_ELT(hash, i), &mut bindings);
             }
         }
 
@@ -428,9 +424,9 @@ pub fn env_bindings(env: SEXP) -> Vec<Binding> {
     }
 }
 
-unsafe fn frame_bindings(mut frame: SEXP, bindings: &mut Vec<Binding> ) {
+unsafe fn frame_bindings(env: SEXP, mut frame: SEXP, bindings: &mut Vec<Binding> ) {
     while frame != R_NilValue {
-        bindings.push(Binding::new(frame));
+        bindings.push(Binding::new(env, frame));
         frame = CDR(frame);
     }
 }
