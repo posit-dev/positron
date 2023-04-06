@@ -2,7 +2,7 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
-""" Positron extenstions to the iPython Kernel."""
+""" Positron extensions to the iPython Kernel."""
 
 import enum
 import html
