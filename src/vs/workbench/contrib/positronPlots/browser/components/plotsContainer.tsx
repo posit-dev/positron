@@ -103,9 +103,6 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
-	//
-	// In the future we will probably want to have a filmstrip history of plot
-	// instances here for easy navigation.
 	return (
 		<div className={'plots-container ' + historyEdge}>
 			<div className='selected-plot'>
@@ -116,11 +113,13 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 					render(plotInstance)
 				))}
 			</div>
-			<div className='plot-history'>
-				{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
-					renderThumbnail(plotInstance,
-						plotInstance.id === positronPlotsContext.selectedInstanceId)
-				))}
+			<div className='plot-history-scroller'>
+				<div className='plot-history'>
+					{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
+						renderThumbnail(plotInstance,
+							plotInstance.id === positronPlotsContext.selectedInstanceId)
+					))}
+				</div>
 			</div>
 		</div>
 	);

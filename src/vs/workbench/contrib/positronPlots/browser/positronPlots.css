@@ -15,19 +15,30 @@
 	flex-direction: column;
 }
 
+.plot-history-scroller {
+	overflow: auto;
+}
+
 .plot-history {
 	display: flex;
-	overflow: auto;
+}
+
+.history-right .plot-history-scroller {
+	width: 100px;
 }
 
 .history-right .plot-history {
 	flex-direction: column;
-	width: 100px;
+	height: fit-content;
+}
+
+.history-bottom .plot-history-scroller {
+	height: 100px;
 }
 
 .history-bottom .plot-history {
 	flex-direction: row;
-	height: 100px;
+	width: fit-content;
 }
 
 .selected-plot {
