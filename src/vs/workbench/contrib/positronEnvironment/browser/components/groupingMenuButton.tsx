@@ -26,7 +26,7 @@ export const GroupingMenuButton = () => {
 
 		// Get the current environment grouping.
 		const environmentGrouping = positronEnvironmentContext.activePositronEnvironmentInstance.
-			environmentGrouping;
+			grouping;
 
 		// Build the actions.
 		const actions: IAction[] = [];
@@ -44,7 +44,7 @@ export const GroupingMenuButton = () => {
 					return;
 				}
 
-				positronEnvironmentContext.activePositronEnvironmentInstance.environmentGrouping =
+				positronEnvironmentContext.activePositronEnvironmentInstance.grouping =
 					PositronEnvironmentGrouping.None;
 			}
 		});
@@ -65,7 +65,7 @@ export const GroupingMenuButton = () => {
 					return;
 				}
 
-				positronEnvironmentContext.activePositronEnvironmentInstance.environmentGrouping =
+				positronEnvironmentContext.activePositronEnvironmentInstance.grouping =
 					PositronEnvironmentGrouping.Kind;
 			}
 		});
@@ -83,7 +83,7 @@ export const GroupingMenuButton = () => {
 					return;
 				}
 
-				positronEnvironmentContext.activePositronEnvironmentInstance.environmentGrouping =
+				positronEnvironmentContext.activePositronEnvironmentInstance.grouping =
 					PositronEnvironmentGrouping.Size;
 			}
 		});
