@@ -3,11 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IPlotClientMessageInput, IPlotClientMessageOutput, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPlotClientMessageInput, IPlotClientMessageOutput, IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+import { IStorageService } from 'vs/platform/storage/common/storage';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -49,61 +50,80 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Register for language runtime service startups
 		this._register(this._languageRuntimeService.onDidStartRuntime((runtime) => {
-
-			// Get the list of existing plot clients; these are expected in the
-			// case of reconnecting to a running language runtime, and represent
-			// the user's active set of plot objects.
-			runtime.listClients(RuntimeClientType.Plot).then(clients => {
-				clients.forEach((client) => {
-					if (client.getClientType() === RuntimeClientType.Plot) {
-						this.registerPlotClient(client);
-					} else {
-						console.warn(
-							`Unexpected client type ${client.getClientType()} ` +
-							`(expected ${RuntimeClientType.Plot})`);
-					}
-				});
-			});
-
-			this._register(runtime.onDidReceiveRuntimeMessageInput((message) => {
-				// Add this code to the recent executions map. If the map is
-				// already at the maximum size, remove the oldest entry.
-				this._recentExecutionIds.push(message.parent_id);
-				if (this._recentExecutionIds.length > MaxRecentExecutions) {
-					const id = this._recentExecutionIds.shift();
-					if (id) {
-						this._recentExecutions.delete(id);
-					}
-				}
-				this._recentExecutions.set(message.parent_id, message.code);
-			}));
-
-			// Listen for new dynamic plots being emitted, and register each one
-			// with the plots service.
-			this._register(runtime.onDidCreateClientInstance((event) => {
-				const code = this._recentExecutions.has(event.message.parent_id) ?
-					this._recentExecutions.get(event.message.parent_id) : '';
-				if (event.client.getClientType() === RuntimeClientType.Plot) {
-					this.registerPlotClient(event.client, code);
-				}
-			}));
-
-			// Listen for static plots being emitted, and register each one with
-			// the plots service.
-			this._register(runtime.onDidReceiveRuntimeMessageOutput((message) => {
-				const code = this._recentExecutions.has(message.parent_id) ?
-					this._recentExecutions.get(message.parent_id) : '';
-				const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
-				if (imageKey) {
-					this.registerStaticPlot(message, code);
-				}
-			}));
-
-			// Listen for plots being selected and update the selected plot ID
-			this._register(this._onDidSelectPlot.event((id) => {
-				this._selectedPlotId = id;
-			}));
+			this.attachRuntime(runtime);
 		}));
+
+		// Listen for plots being selected and update the selected plot ID
+		this._register(this._onDidSelectPlot.event((id) => {
+			this._selectedPlotId = id;
+		}));
+	}
+
+	/**
+	 * Attaches to a language runtime.
+	 *
+	 * @param runtime The language runtime to attach to.
+	 */
+	private attachRuntime(runtime: ILanguageRuntime) {
+		// Get the list of existing plot clients; these are expected in the
+		// case of reconnecting to a running language runtime, and represent
+		// the user's active set of plot objects.
+		runtime.listClients(RuntimeClientType.Plot).then(clients => {
+			clients.forEach((client) => {
+				if (client.getClientType() === RuntimeClientType.Plot) {
+					this.registerPlotClient(client);
+				} else {
+					console.warn(
+						`Unexpected client type ${client.getClientType()} ` +
+						`(expected ${RuntimeClientType.Plot})`);
+				}
+			});
+		});
+
+		this._register(runtime.onDidReceiveRuntimeMessageInput((message) => {
+			// Add this code to the recent executions map. If the map is
+			// already at the maximum size, remove the oldest entry.
+			this._recentExecutionIds.push(message.parent_id);
+			if (this._recentExecutionIds.length > MaxRecentExecutions) {
+				const id = this._recentExecutionIds.shift();
+				if (id) {
+					this._recentExecutions.delete(id);
+				}
+			}
+			this._recentExecutions.set(message.parent_id, message.code);
+		}));
+
+		// Listen for new dynamic plots being emitted, and register each one
+		// with the plots service.
+		this._register(runtime.onDidCreateClientInstance((event) => {
+			if (event.client.getClientType() === RuntimeClientType.Plot) {
+				// Get the code that generated this plot, if we have it
+				const code = this._recentExecutions.has(event.message.parent_id) ?
+					this._recentExecutions.get(event.message.parent_id)! : '';
+
+				// Create the metadata object
+				const metadata: IPositronPlotMetadata = {
+					created: Date.parse(event.message.when),
+					id: event.client.getClientId(),
+					code,
+				};
+
+				// Register the plot client
+				this.registerPlotClient(event.client, metadata);
+			}
+		}));
+
+		// Listen for static plots being emitted, and register each one with
+		// the plots service.
+		this._register(runtime.onDidReceiveRuntimeMessageOutput((message) => {
+			const code = this._recentExecutions.has(message.parent_id) ?
+				this._recentExecutions.get(message.parent_id) : '';
+			const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
+			if (imageKey) {
+				this.registerStaticPlot(message, code);
+			}
+		}));
+
 	}
 
 	/**
@@ -111,13 +131,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * service.
 	 *
 	 * @param client The raw client instance.
-	 * @param code The code that generated the plot, if available.
+	 * @param metadata The metadata associated with the plot.
 	 */
 	private registerPlotClient(
 		client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
-		code?: string) {
+		metadata: IPositronPlotMetadata) {
 		// Wrap the client instance in a PlotClientInstance object
-		const plotClient = new PlotClientInstance(client, code);
+		const plotClient = new PlotClientInstance(client, metadata);
 
 		// Add to our list of plots and fire the event notifying subscribers
 		this._plots.unshift(plotClient);
