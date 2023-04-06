@@ -166,7 +166,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             this.extensionVersion,
             '>>>',
             startupBehavior, () => {
-                this.startClient(client);
+                return this.startClient(client);
             });
 
         // Also stop the language client when the runtime is exiting
