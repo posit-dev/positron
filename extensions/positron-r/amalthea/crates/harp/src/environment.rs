@@ -24,6 +24,7 @@ use crate::vector::NumericVector;
 use crate::vector::RawVector;
 use crate::vector::Vector;
 use crate::with_vector;
+use std::os::raw::c_void;
 
 #[derive(Copy, Clone, BitfieldStruct)]
 #[repr(C)]
@@ -44,11 +45,21 @@ pub struct Sxpinfo {
     pub rtype_scalar_obj_alt_gp_mark_debug_trace_spare_gcgen_gccls_named_extra: [u8; 8],
 }
 
+extern "C" {
+    fn R_expand_binding_value(binding: SEXP) -> c_void;
+}
+
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
 
 fn is_active_binding(frame: SEXP) -> bool {
     unsafe {
         (frame as *mut Sxpinfo).as_ref().unwrap().gp() & ACTIVE_BINDING_MASK != 0
+    }
+}
+
+fn is_immediate_binding(frame: SEXP) -> bool {
+    unsafe {
+        (frame as *mut Sxpinfo).as_ref().unwrap().extra() != 0
     }
 }
 
@@ -129,9 +140,15 @@ impl BindingType {
 
 impl Binding {
     pub fn new(frame: SEXP) -> Self {
-
         let name = RSymbol::new(unsafe {TAG(frame)});
-        let value = unsafe {CAR(frame)};
+
+        let value = unsafe {
+            // TODO: actually return a BindingKind::Immediate without expanding
+            if is_immediate_binding(frame) {
+                R_expand_binding_value(frame);
+            }
+            CAR(frame)
+        };
 
         let kind = if is_active_binding(frame) {
             BindingKind::Active
