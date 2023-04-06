@@ -5,14 +5,29 @@
 .plots-container {
 	height: 100%;
 	display: flex;
+}
+
+.plots-container.history-right {
+	flex-direction: row;
+}
+
+.plots-container.history-bottom {
 	flex-direction: column;
 }
 
 .plot-history {
 	display: flex;
+	overflow: auto;
+}
+
+.history-right .plot-history {
+	flex-direction: column;
+	width: 100px;
+}
+
+.history-bottom .plot-history {
 	flex-direction: row;
 	height: 100px;
-	overflow: auto;
 }
 
 .selected-plot {
