@@ -316,10 +316,14 @@ export class LanguageRuntimeAdapter
 	removeClient(id: string): void {
 		const comm = this._comms.get(id);
 		if (comm) {
+			// This is one of the clients we created, so we need to dispose of it
 			this._kernel.log(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.languageName}`);
 			comm.dispose();
 		} else {
-			this._kernel.log(`Error: can't remove client ${id} (not found)`);
+			// This is a client created on the back end, so we just need to send a
+			// comm_close message
+			this._kernel.log(`Closing client ${id} for ${this.metadata.languageName}`);
+			this._kernel.closeComm(id);
 		}
 	}
 

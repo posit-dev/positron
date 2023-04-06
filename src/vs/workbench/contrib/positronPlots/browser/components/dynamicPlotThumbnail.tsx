@@ -43,6 +43,10 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 		props.plotService.positronPlotsService.selectPlot(props.plotClient.id);
 	};
 
+	const removePlot = () => {
+		props.plotService.positronPlotsService.removePlot(props.plotClient.id);
+	};
+
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered plot.
 	//
@@ -55,6 +59,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 					onClick={selectPlot} />
 			</div>}
 			{!uri && <div className='plot-thumbnail-placeholder'></div>}
+			<div className='plot-close codicon codicon-close' onClick={removePlot}></div>
 		</div>
 	);
 };

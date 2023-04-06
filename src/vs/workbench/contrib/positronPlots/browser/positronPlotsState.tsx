@@ -59,6 +59,11 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 			setSelectedInstanceId(id);
 		}));
 
+		// Listen for plot removal.
+		disposableStore.add(services.positronPlotsService.onDidRemovePlot(id => {
+			setPositronPlotInstances(positronPlotInstances => positronPlotInstances.filter(p => p.id !== id));
+		}));
+
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, []);

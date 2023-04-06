@@ -38,11 +38,24 @@ export interface IPositronPlotsService {
 	readonly onDidSelectPlot: Event<string>;
 
 	/**
-	 * Selects the plot at the specified index.
+	 * Notifies subscribers when a Positron plot instance is removed. The ID
+	 * of the removed plot is the event payload.
+	 */
+	readonly onDidRemovePlot: Event<string>;
+
+	/**
+	 * Selects the plot with the specified ID.
 	 *
-	 * @param index The ID of the plot to select.
+	 * @param id The ID of the plot to select.
 	 */
 	selectPlot(id: string): void;
+
+	/**
+	 * Removes the plot with the specified ID.
+	 *
+	 * @param id The ID of the plot to remove.
+	 */
+	removePlot(id: string): void;
 
 	/**
 	 * Placeholder for service initialization.

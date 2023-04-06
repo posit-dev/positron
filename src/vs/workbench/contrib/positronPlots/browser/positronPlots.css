@@ -42,6 +42,11 @@
 	transition: opacity 0.2s ease-in-out;
 }
 
+.plot-thumbnail:hover .plot-close {
+	opacity: 1;
+	transition: opacity 0.2s ease-in-out;
+}
+
 .plot-thumbnail,
 .static-plot-instance {
 	display: flex;
@@ -65,4 +70,13 @@
 .static-plot-instance {
 	height: 100%;
 	width: 100%;
+}
+
+.plot-close {
+	position: absolute;
+	top: 0;
+	right: 0;
+	padding: 2px;
+	cursor: pointer;
+	opacity: 0;
 }
