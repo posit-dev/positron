@@ -46,15 +46,20 @@ pub struct Sxpinfo {
 
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
 
-fn is_active_binding(frame: SEXP) -> bool {
-    unsafe {
-        (frame as *mut Sxpinfo).as_ref().unwrap().gp() & ACTIVE_BINDING_MASK != 0
-    }
-}
+impl Sxpinfo {
 
-fn is_immediate_binding(frame: SEXP) -> bool {
-    unsafe {
-        (frame as *mut Sxpinfo).as_ref().unwrap().extra() != 0
+    pub fn interpret(frame: &SEXP) -> &Self {
+        unsafe {
+            (*frame as *mut Sxpinfo).as_ref().unwrap()
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.gp() & unsafe {ACTIVE_BINDING_MASK} != 0
+    }
+
+    pub fn is_immediate(&self) -> bool {
+        self.extra() != 0
     }
 }
 
@@ -63,7 +68,6 @@ pub enum BindingKind {
     Regular,
     Active,
     Promise(bool),
-    // Immediate,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -135,31 +139,31 @@ impl BindingType {
 
 impl Binding {
     pub fn new(env: SEXP, frame: SEXP) -> Self {
-        let name = RSymbol::new(unsafe {TAG(frame)});
+        unsafe {
+            let name = RSymbol::new(TAG(frame));
 
-        let value = unsafe {
-            // force the immediate bindings
-            if is_immediate_binding(frame) {
+            let info = Sxpinfo::interpret(&frame);
+
+            if info.is_immediate() {
+                // force the immediate bindings before we can safely call CAR()
                 Rf_findVarInFrame(env, *name);
             }
+            let value = CAR(frame);
 
-            CAR(frame)
-        };
+            let kind = if info.is_active() {
+                BindingKind::Active
+            } else {
+                match r_typeof(value) {
+                    PROMSXP => BindingKind::Promise(PRVALUE(value) != R_UnboundValue),
+                    _       => BindingKind::Regular
+                }
+            };
 
-        let kind = if is_active_binding(frame) {
-            BindingKind::Active
-        } else {
-            match r_typeof(value) {
-                PROMSXP => BindingKind::Promise(unsafe {PRVALUE(value) != R_UnboundValue}),
-
-                // TODO: Immediate
-                _ => BindingKind::Regular
+            Self {
+                name, value, kind
             }
-        };
-
-        Self {
-            name, value, kind
         }
+
     }
 
     pub fn get_value(&self) -> BindingValue {
