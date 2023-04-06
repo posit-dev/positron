@@ -46,9 +46,20 @@ pub struct Sxpinfo {
 
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
 
-fn is_active_binding(frame: SEXP) -> bool {
-    unsafe {
-        (frame as *mut Sxpinfo).as_ref().unwrap().gp() & ACTIVE_BINDING_MASK != 0
+impl Sxpinfo {
+
+    pub fn interpret(frame: &SEXP) -> &Self {
+        unsafe {
+            (*frame as *mut Sxpinfo).as_ref().unwrap()
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.gp() & unsafe {ACTIVE_BINDING_MASK} != 0
+    }
+
+    pub fn is_immediate(&self) -> bool {
+        self.extra() != 0
     }
 }
 
@@ -57,7 +68,6 @@ pub enum BindingKind {
     Regular,
     Active,
     Promise(bool),
-    // Immediate,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -128,25 +138,32 @@ impl BindingType {
 }
 
 impl Binding {
-    pub fn new(frame: SEXP) -> Self {
+    pub fn new(env: SEXP, frame: SEXP) -> Self {
+        unsafe {
+            let name = RSymbol::new(TAG(frame));
 
-        let name = RSymbol::new(unsafe {TAG(frame)});
-        let value = unsafe {CAR(frame)};
+            let info = Sxpinfo::interpret(&frame);
 
-        let kind = if is_active_binding(frame) {
-            BindingKind::Active
-        } else {
-            match r_typeof(value) {
-                PROMSXP => BindingKind::Promise(unsafe {PRVALUE(value) != R_UnboundValue}),
-
-                // TODO: Immediate
-                _ => BindingKind::Regular
+            if info.is_immediate() {
+                // force the immediate bindings before we can safely call CAR()
+                Rf_findVarInFrame(env, *name);
             }
-        };
+            let value = CAR(frame);
 
-        Self {
-            name, value, kind
+            let kind = if info.is_active() {
+                BindingKind::Active
+            } else {
+                match r_typeof(value) {
+                    PROMSXP => BindingKind::Promise(PRVALUE(value) != R_UnboundValue),
+                    _       => BindingKind::Regular
+                }
+            };
+
+            Self {
+                name, value, kind
+            }
         }
+
     }
 
     pub fn get_value(&self) -> BindingValue {
@@ -399,11 +416,11 @@ pub fn env_bindings(env: SEXP) -> Vec<Binding> {
         // 1: traverse the envinronment
         let hash  = HASHTAB(env);
         if hash == R_NilValue {
-            frame_bindings(FRAME(env), &mut bindings);
+            frame_bindings(env, FRAME(env), &mut bindings);
         } else {
             let n = XLENGTH(hash);
             for i in 0..n {
-                frame_bindings(VECTOR_ELT(hash, i), &mut bindings);
+                frame_bindings(env, VECTOR_ELT(hash, i), &mut bindings);
             }
         }
 
@@ -411,9 +428,9 @@ pub fn env_bindings(env: SEXP) -> Vec<Binding> {
     }
 }
 
-unsafe fn frame_bindings(mut frame: SEXP, bindings: &mut Vec<Binding> ) {
+unsafe fn frame_bindings(env: SEXP, mut frame: SEXP, bindings: &mut Vec<Binding> ) {
     while frame != R_NilValue {
-        bindings.push(Binding::new(frame));
+        bindings.push(Binding::new(env, frame));
         frame = CDR(frame);
     }
 }
