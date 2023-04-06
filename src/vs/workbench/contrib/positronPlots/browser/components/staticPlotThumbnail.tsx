@@ -10,6 +10,7 @@ import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/sta
  * StaticPlotThumbnailProps interface.
  */
 interface StaticPlotThumbnailProps {
+	selected: boolean;
 	plotService: PositronPlotsServices;
 	plotClient: StaticPlotClient;
 }
@@ -31,7 +32,7 @@ export const StaticPlotThumbnail = (props: StaticPlotThumbnailProps) => {
 	};
 
 	return (
-		<div className='plot-thumbnail'>
+		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
 			<div className='image-wrapper'>
 				<img src={props.plotClient.uri} alt={'Plot ' + props.plotClient.id}
 					onClick={selectPlot} />

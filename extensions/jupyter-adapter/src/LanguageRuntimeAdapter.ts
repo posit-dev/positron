@@ -28,6 +28,8 @@ import { findAvailablePort } from './PortFinder';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
 import { JupyterCommOpen } from './JupyterCommOpen';
+import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
+import { JupyterCommInfoReply } from './JupyterCommInfoReply';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -325,6 +327,40 @@ export class LanguageRuntimeAdapter
 			this._kernel.log(`Closing client ${id} for ${this.metadata.languageName}`);
 			this._kernel.closeComm(id);
 		}
+	}
+
+	/**
+	 * Lists the clients of a given type.
+	 *
+	 * @param type The type of client to list, or undefined to list all clients
+	 * @returns A record of client IDs to client types
+	 */
+	listClients(type?: positron.RuntimeClientType): Thenable<Record<string, string>> {
+		return new Promise<Record<string, string>>((resolve, _reject) => {
+			// Create an RPC to send to the kernel requesting the list of clients
+			const rpc = new JupyterRpc<JupyterCommInfoRequest, JupyterCommInfoReply>(
+				'comm_info_request',
+				{
+					target_name: type ? type : '',
+				},
+				'comm_info_reply', (response: JupyterCommInfoReply) => {
+					const comms = response.comms;
+					// Create the result object
+					const result: Record<string, string> = {};
+
+					// Unwrap the comm info and add it to the result
+					for (const key in comms) {
+						if (comms.hasOwnProperty(key)) {
+							result[key] = comms[key].target_name;
+						}
+					}
+					resolve(result);
+				});
+
+			// Send the RPC to the kernel and wait for a response
+			this._pendingRpcs.set(rpc.id, rpc);
+			rpc.send(this._kernel);
+		});
 	}
 
 	/**

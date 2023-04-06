@@ -737,6 +737,27 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
+	 * Lists all clients of a given type.
+	 *
+	 * @param type The type of client to list. If undefined, all clients are listed.
+	 * @returns The list of clients.
+	 */
+	async listClients(type?: positron.RuntimeClientType) {
+		const clients: Record<string, string> = {};
+		if (!type || type === positron.RuntimeClientType.Environment) {
+			for (const env of this._environments.values()) {
+				clients[env.id] = positron.RuntimeClientType.Environment;
+			}
+		}
+		if (!type || type === positron.RuntimeClientType.Plot) {
+			for (const plot of this._plots.values()) {
+				clients[plot.id] = positron.RuntimeClientType.Plot;
+			}
+		}
+		return clients;
+	}
+
+	/**
 	 * Removes an instance of a client.
 	 *
 	 * Currently, Zed understands environment and plot clients.

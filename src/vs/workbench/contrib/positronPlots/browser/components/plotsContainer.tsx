@@ -77,11 +77,13 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotThumbnail
 				key={plotInstance.id}
+				selected={selected}
 				plotService={positronPlotsContext}
 				plotClient={plotInstance} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotThumbnail
 				key={plotInstance.id}
+				selected={selected}
 				plotService={positronPlotsContext}
 				plotClient={plotInstance} />;
 		}

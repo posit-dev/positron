@@ -34,6 +34,12 @@
 	cursor: pointer;
 }
 
+.plot-thumbnail.selected {
+	border: 1px solid var(--vscode-editorWidget-border);
+	opacity: 1;
+	cursor: hand;
+}
+
 /**
  * Hover the plot thumbnail to make it opaque; fades out when not hovered.
  */
@@ -65,6 +71,13 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
+}
+
+.plot-thumbnail-placeholder {
+	height: 75px;
+	width: 75px;
+	background-color: var(--vscode-input-background);
+	cursor: pointer;
 }
 
 .static-plot-instance {
