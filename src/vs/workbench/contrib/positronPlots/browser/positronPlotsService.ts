@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IPlotClientMessageInput, IPlotClientMessageOutput, IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
@@ -22,6 +22,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The list of Positron plots. */
 	private readonly _plots: PositronPlotClient[] = [];
+
+	/** The emitter for the onDidReplacePlots event */
+	private readonly _onDidReplacePlots = new Emitter<PositronPlotClient[]>();
 
 	/** The emitter for the onDidEmitPlot event */
 	private readonly _onDidEmitPlot = new Emitter<PositronPlotClient>();
@@ -109,15 +112,32 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				}
 			});
 
-			// Sort the plot clients by creation time, oldest first
-			plotClients.sort((a, b) => {
-				return a.metadata.created - b.metadata.created;
+			// If we have no plot clients, we're done
+			if (plotClients.length === 0) {
+				return;
+			}
+
+			// Before we start registering plots, take note of whether we have
+			// any plots already registered.
+			const wasEmpty = this._plots.length === 0;
+
+			// Register each plot client with the plots service, but don't fire the
+			// events.
+			plotClients.forEach((client) => {
+				this.registerPlotClient(client, false);
 			});
 
-			// Register each plot client with the plots service
-			plotClients.forEach((client) => {
-				this.registerPlotClient(client);
-			});
+			// Re-sort the plots by creation time since we may have added new ones that are
+			// out of order.
+			this._plots.sort((a, b) => b.metadata.created - a.metadata.created);
+
+			// Fire the onDidReplacePlots event
+			this._onDidReplacePlots.fire(this._plots);
+
+			// If we had no plots before, select the first one
+			if (wasEmpty && this._plots.length > 0) {
+				this.selectPlot(this._plots[0].id);
+			}
 		});
 
 		this._register(runtime.onDidReceiveRuntimeMessageInput((message) => {
@@ -160,7 +180,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 				// Register the plot client
 				const plotClient = new PlotClientInstance(event.client, metadata);
-				this.registerPlotClient(plotClient);
+				this.registerPlotClient(plotClient, true);
 			}
 		}));
 
@@ -181,13 +201,18 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * service.
 	 *
 	 * @param plotClient The plot client instance to wrap.
+	 * @param fireEvents Whether to fire events for this plot client.
 	 */
-	private registerPlotClient(plotClient: PlotClientInstance) {
+	private registerPlotClient(plotClient: PlotClientInstance, fireEvents: boolean) {
 
-		// Add to our list of plots and fire the event notifying subscribers
+		// Add to our list of plots
 		this._plots.unshift(plotClient);
-		this._onDidEmitPlot.fire(plotClient);
-		this._onDidSelectPlot.fire(plotClient.id);
+
+		// Fire events for this plot if requested
+		if (fireEvents) {
+			this._onDidEmitPlot.fire(plotClient);
+			this._onDidSelectPlot.fire(plotClient.id);
+		}
 
 		// Remove the plot from our list when it is closed
 		plotClient.onDidClose(() => {
@@ -227,6 +252,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidEmitPlot: Event<PositronPlotClient> = this._onDidEmitPlot.event;
 	onDidSelectPlot: Event<string> = this._onDidSelectPlot.event;
 	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
+	onDidReplacePlots: Event<PositronPlotClient[]> = this._onDidReplacePlots.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): PositronPlotClient[] {

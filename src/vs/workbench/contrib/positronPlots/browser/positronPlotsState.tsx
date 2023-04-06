@@ -64,6 +64,11 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 			setPositronPlotInstances(positronPlotInstances => positronPlotInstances.filter(p => p.id !== id));
 		}));
 
+		// Listen for replacing all plots.
+		disposableStore.add(services.positronPlotsService.onDidReplacePlots((plots) => {
+			setPositronPlotInstances(plots);
+		}));
+
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, []);
