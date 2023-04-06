@@ -739,40 +739,43 @@ unsafe fn append_custom_completions(
         .param("position", position)
         .call()?;
 
-    if r_typeof(*r_completions) == VECSXP {
-        let values = VECTOR_ELT(*r_completions, 0);
-        let kind = VECTOR_ELT(*r_completions, 1);
-        let enquote = VECTOR_ELT(*r_completions, 2);
-        let append = VECTOR_ELT(*r_completions, 3);
-        if let Ok(values) = RObject::view(values).to::<Vec<String>>() {
-            let kind = RObject::view(kind)
-                .to::<String>()
-                .unwrap_or("unknown".to_string());
-            let enquote = RObject::view(enquote).to::<bool>().unwrap_or(false);
-            let append = RObject::view(append)
-                .to::<String>()
-                .unwrap_or("".to_string());
-            for value in values.iter() {
-                let value = value.clone();
-                let item = match kind.as_str() {
-                    "package" => completion_item_from_package(&value, false),
-                    "dataset" => completion_item_from_dataset(&value),
-                    _ => completion_item(&value, CompletionData::Unknown),
-                };
+    if r_typeof(*r_completions) != VECSXP {
+        return Ok(false);
+    }
 
-                let mut item = unwrap!(item, Err(error) => {
-                    log::error!("{}", error);
-                    continue;
-                });
+    // TODO: Use safe access APIs here.
+    let values = VECTOR_ELT(*r_completions, 0);
+    let kind = VECTOR_ELT(*r_completions, 1);
+    let enquote = VECTOR_ELT(*r_completions, 2);
+    let append = VECTOR_ELT(*r_completions, 3);
+    if let Ok(values) = RObject::view(values).to::<Vec<String>>() {
+        let kind = RObject::view(kind)
+            .to::<String>()
+            .unwrap_or("unknown".to_string());
+        let enquote = RObject::view(enquote).to::<bool>().unwrap_or(false);
+        let append = RObject::view(append)
+            .to::<String>()
+            .unwrap_or("".to_string());
+        for value in values.iter() {
+            let value = value.clone();
+            let item = match kind.as_str() {
+                "package" => completion_item_from_package(&value, false),
+                "dataset" => completion_item_from_dataset(&value),
+                _ => completion_item(&value, CompletionData::Unknown),
+            };
 
-                if enquote && node.kind() != "string" {
-                    item.insert_text = Some(format!("\"{}\"", value));
-                } else if !append.is_empty() {
-                    item.insert_text = Some(format!("{}{}", value, append));
-                }
+            let mut item = unwrap!(item, Err(error) => {
+                log::error!("{}", error);
+                continue;
+            });
 
-                completions.push(item);
+            if enquote && node.kind() != "string" {
+                item.insert_text = Some(format!("\"{}\"", value));
+            } else if !append.is_empty() {
+                item.insert_text = Some(format!("{}{}", value, append));
             }
+
+            completions.push(item);
         }
     }
 
@@ -1215,8 +1218,7 @@ pub unsafe fn append_session_completions(
     info!("append_session_completions()");
 
     // get reference to AST
-    let ast = &context.document.ast;
-    let cursor = ast.node_at_point(context.point);
+    let cursor = context.node;
     let mut node = cursor;
 
     // check for completion within a comment -- in such a case, we usually
@@ -1295,7 +1297,7 @@ pub unsafe fn append_session_completions(
 
     // If we get here, and we were located within a string,
     // just provide file completions.
-    if node.kind() == "string" {
+    if cursor.kind() == "string" {
         return append_file_completions(context, completions);
     }
 
@@ -1313,8 +1315,7 @@ pub fn append_document_completions(
     completions: &mut Vec<CompletionItem>,
 ) -> Result<()> {
     // get reference to AST
-    let ast = &context.document.ast;
-    let mut node = ast.node_at_point(context.point);
+    let mut node = context.node;
 
     // skip comments
     if node.kind() == "comment" {
@@ -1370,6 +1371,10 @@ pub fn append_workspace_completions(
         if matches!(parent.kind(), "::" | ":::") {
             return Ok(());
         }
+    }
+
+    if matches!(context.node.kind(), "string") {
+        return Ok(());
     }
 
     let token = if context.node.kind() == "identifier" {

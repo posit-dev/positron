@@ -5,6 +5,10 @@
 #
 #
 
+.ps.Call <- function(.NAME, ...) {
+    .Call(.NAME, ..., PACKAGE = "(embedding)")
+}
+
 .ps.inspect <- function(item) {
     .Internal(inspect(item))
 }
