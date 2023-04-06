@@ -21,12 +21,6 @@ use harp::vector::Vector;
 use libR_sys::*;
 use serde::Deserialize;
 use serde::Serialize;
-use lazy_static::lazy_static;
-use regex::Regex;
-
-lazy_static! {
-    static ref SQUARE_REGEX: Regex = Regex::new(r"\[\[(?P<index>\d+)\]\]").unwrap();
-}
 
 /// Represents the supported kinds of variable values.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -130,13 +124,16 @@ impl EnvironmentVariable {
         }
     }
 
-    fn from(display_name: String, x: SEXP) -> Self {
+    /**
+     * Create a new EnvironmentVariable from an R object
+     */
+    fn from(access_key: String, display_name: String, x: SEXP) -> Self {
         let BindingValue{display_value, is_truncated} = BindingValue::from(x);
         let BindingType{display_type, type_info} = BindingType::from(x);
         let has_children = harp::environment::has_children(x);
 
         Self {
-            access_key: display_name.clone(),
+            access_key,
             display_name,
             display_value,
             display_type,
@@ -174,51 +171,16 @@ impl EnvironmentVariable {
                     RObject::view(unsafe { Rf_findVarInFrame(*object, r_symbol!(path_element)) } )
                 },
                 VECSXP => {
-
-                    if SQUARE_REGEX.is_match(&path_element) {
-                        let index = SQUARE_REGEX.replace_all(path_element, r"$index").parse::<isize>().unwrap();
-                        RObject::view(VECTOR_ELT(*object, index - 1))
-                    } else {
-                        // TODO: this is wrong because a list can have multiple things
-                        //       that have the same name, we need a better way access than the display name
-                        let names = CharacterVector::new_unchecked(Rf_getAttrib(*object, R_NamesSymbol));
-                        let n = names.len();
-                        let mut element = R_NilValue;
-                        for i in 0..n {
-                            if *path_element == names.get_unchecked(i as isize).unwrap() {
-                                element = VECTOR_ELT(*object, i as isize);
-                                break
-                            }
-                        }
-                        RObject::view(element)
-                    }
+                    let index = path_element.parse::<isize>().unwrap();
+                    RObject::view(VECTOR_ELT(*object, index))
                 },
 
                 LISTSXP => {
-
                     let mut pairlist = *object;
-
-                    if SQUARE_REGEX.is_match(&path_element) {
-                        // [[<index>]]
-
-                        let index = SQUARE_REGEX.replace_all(path_element, r"$index").parse::<isize>().unwrap() - 1;
-                        for _i in 0..index {
-                            pairlist = CDR(pairlist);
-                        }
-                    } else {
-                        // we have a name: compare it to the tags
-
-                        // TODO: RSymbol::from(path_element) instead so that we don't need to keep
-                        //       making String from each tag, and just compare SYMSXP
-                        loop {
-                            let tag = TAG(pairlist);
-                            if tag != R_NilValue && String::from(RSymbol::new(tag)) == *path_element {
-                                break;
-                            }
-                            pairlist = CDR(pairlist);
-                        }
+                    let index = path_element.parse::<isize>().unwrap();
+                    for _i in 0..index {
+                        pairlist = CDR(pairlist);
                     }
-
                     RObject::view(CAR(pairlist))
                 }
 
@@ -239,6 +201,7 @@ impl EnvironmentVariable {
 
         for i in 0..n {
             out.push(Self::from(
+                i.to_string(),
                 names.get_unchecked(i).unwrap(),
                 unsafe{ VECTOR_ELT(*value, i)}
             ));
@@ -252,19 +215,19 @@ impl EnvironmentVariable {
 
         let mut pairlist = *value;
         unsafe {
-            let mut i = 1;
+            let mut i = 0;
             while pairlist != R_NilValue {
 
                 r_assert_type(pairlist, &[LISTSXP])?;
 
                 let tag = TAG(pairlist);
-                let name = if tag == R_NilValue {
-                    format!("[[{}]]", i)
+                let display_name = if tag == R_NilValue {
+                    format!("[[{}]]", i + 1)
                 } else {
                     String::from(RSymbol::new(tag))
                 };
 
-                out.push(Self::from(name, CAR(pairlist)));
+                out.push(Self::from(i.to_string(), display_name, CAR(pairlist)));
 
                 pairlist = CDR(pairlist);
                 i = i + 1;
