@@ -240,7 +240,7 @@ def positron_completion(server: PositronJediLanguageServer, params: CompletionPa
 
 @POSITRON.feature(COMPLETION_ITEM_RESOLVE)
 def positron_completion_item_resolve(
-    server: JediLanguageServer, params: CompletionItem
+    server: PositronJediLanguageServer, params: CompletionItem
 ) -> CompletionItem:
     return completion_item_resolve(server, params)
 
