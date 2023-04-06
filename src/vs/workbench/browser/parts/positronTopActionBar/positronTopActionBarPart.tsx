@@ -90,7 +90,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 	//#region Part Class
 
 	// Provide the content area.
-	override createContentArea(parent: HTMLElement): HTMLElement {
+	protected override createContentArea(parent: HTMLElement): HTMLElement {
 		// Set the element.
 		this.element = parent;
 		this.element.tabIndex = 0;

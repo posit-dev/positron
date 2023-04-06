@@ -1,4 +1,11 @@
 {
+    "[rust]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnSaveMode": "file",
+        "editor.defaultFormatter": "rust-lang.rust-analyzer"
+    },
+
+    "rust-analyzer.rustfmt.extraArgs": ["+nightly"],
     "rust-analyzer.imports.prefix": "crate",
     "rust-analyzer.imports.granularity.group": "item",
     "rust-analyzer.imports.granularity.enforce": true,

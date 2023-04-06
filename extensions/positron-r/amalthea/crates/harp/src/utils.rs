@@ -17,6 +17,7 @@ use crate::exec::RArgument;
 use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
 use crate::object::RObject;
+use crate::protect::RProtect;
 use crate::r_symbol;
 use crate::vector::CharacterVector;
 use crate::vector::Vector;
@@ -180,4 +181,11 @@ pub unsafe fn r_stringify(object: SEXP, delimiter: &str) -> Result<String> {
 
     Ok(object)
 
+}
+
+pub unsafe fn r_inspect(object: SEXP) {
+    let mut protect = RProtect::new();
+    let inspect = protect.add(Rf_lang2(r_symbol!("inspect"), object));
+    let internal = protect.add(Rf_lang2(r_symbol!(".Internal"), inspect));
+    Rf_eval(internal, R_BaseEnv);
 }

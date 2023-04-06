@@ -112,7 +112,7 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@IOpenerService openerService: IOpenerService,
-		@IPositronPlotsService positronPlotsService: IPositronPlotsService,
+		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
@@ -166,8 +166,8 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
 				layoutService={this.layoutService}
-				reactComponentContainer={this}
-			/>
+				positronPlotsService={this.positronPlotsService}
+				reactComponentContainer={this} />
 		);
 	}
 
@@ -187,7 +187,7 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	 * @param height The height of the body.
 	 * @param width The width of the body.
 	 */
-	override layoutBody(height: number, width: number): void {
+	protected override layoutBody(height: number, width: number): void {
 		// Call the base class's method.
 		super.layoutBody(height, width);
 

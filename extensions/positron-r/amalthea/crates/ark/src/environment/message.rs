@@ -43,6 +43,12 @@ pub enum EnvironmentMessage {
 
     /// A message containing an error message.
     Error(EnvironmentMessageError),
+
+    /// A message requesting to inspect a variable
+    Inspect(EnvironmentMessageInspect),
+
+    /// Details about a variable, response to an Inspect message
+    Details(EnvironmentMessageDetails)
 }
 
 /**
@@ -88,4 +94,22 @@ pub struct EnvironmentMessageClear {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvironmentMessageDelete {
     pub variables: Vec<String>,
+}
+
+/**
+ * The data for the Inspect message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageInspect {
+    pub path: Vec<String>,
+}
+
+/**
+ * The data for the Details message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageDetails {
+    pub path: Vec<String>,
+    pub children: Vec<EnvironmentVariable>,
+    pub length: usize,
 }

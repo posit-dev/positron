@@ -3,6 +3,10 @@
 		{
 			"from": "resources/zed-logo.png",
 			"to": "resources"
+		},
+		{
+			"from": "resources/zed-plot.svg",
+			"to": "resources"
 		}
 	]
 }

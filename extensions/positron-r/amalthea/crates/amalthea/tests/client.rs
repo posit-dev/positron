@@ -11,6 +11,7 @@ use amalthea::kernel::{Kernel, StreamBehavior};
 use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
 use amalthea::wire::comm_close::CommClose;
+use amalthea::wire::comm_info_reply::CommInfoTargetName;
 use amalthea::wire::comm_info_request::CommInfoRequest;
 use amalthea::wire::comm_msg::CommMsg;
 use amalthea::wire::comm_open::CommOpen;
@@ -35,7 +36,7 @@ mod shell;
 fn test_kernel() {
     let frontend = frontend::Frontend::new();
     let connection_file = frontend.get_connection_file();
-    let mut kernel = Kernel::new(connection_file).unwrap();
+    let mut kernel = Kernel::new("amalthea", connection_file).unwrap();
     let shell_tx = kernel.create_iopub_tx();
     let comm_manager_tx = kernel.create_comm_manager_tx();
     let shell = Arc::new(Mutex::new(shell::Shell::new(shell_tx)));
@@ -304,17 +305,44 @@ fn test_kernel() {
         data: serde_json::Value::Null,
     });
 
+    // Absorb the IOPub messages that the kernel sends back during the
+    // processing of the above `CommOpen` request
+    frontend.receive_iopub(); // Busy
+    frontend.receive_iopub(); // Idle
+
     info!("Requesting comm info from the kernel (to test opening from the front end)");
     frontend.send_shell(CommInfoRequest {
-        target_name: "environment".to_string(),
+        target_name: "".to_string(),
     });
     let reply = frontend.receive_shell();
     match reply {
         Message::CommInfoReply(request) => {
             info!("Got comm info: {:?}", request);
             // Ensure the comm we just opened is in the list of comms
-            let comms = request.content.comms.as_object().unwrap();
+            let comms = request.content.comms;
             assert!(comms.contains_key(comm_id));
+        },
+        _ => {
+            panic!(
+                "Unexpected message received (expected comm info): {:?}",
+                reply
+            );
+        },
+    }
+
+    // Test requesting comm info and filtering by target name. We should get
+    // back an empty list of comms, since we haven't opened any comms with
+    // the target name "i-think-not".
+    info!("Requesting comm info from the kernel for a non-existent comm");
+    frontend.send_shell(CommInfoRequest {
+        target_name: "i-think-not".to_string(),
+    });
+    let reply = frontend.receive_shell();
+    match reply {
+        Message::CommInfoReply(request) => {
+            info!("Got comm info: {:?}", request);
+            let comms = request.content.comms;
+            assert!(comms.is_empty());
         },
         _ => {
             panic!(
@@ -374,7 +402,7 @@ fn test_kernel() {
         Message::CommInfoReply(request) => {
             info!("Got comm info: {:?}", request);
             // Ensure the comm we just closed not present in the list of comms
-            let comms = request.content.comms.as_object().unwrap();
+            let comms = request.content.comms;
             assert!(!comms.contains_key(comm_id));
         },
         _ => {
@@ -433,8 +461,13 @@ fn test_kernel() {
         Message::CommInfoReply(request) => {
             info!("Got comm info: {:?}", request);
             // Ensure the comm we just opened is in the list of comms
-            let comms = request.content.comms.as_object().unwrap();
+            let comms = request.content.comms;
             assert!(comms.contains_key(&test_comm_id));
+
+            // Ensure the comm we just opened has the correct target name
+            let comm = comms.get(&test_comm_id).unwrap();
+            let target = serde_json::from_value::<CommInfoTargetName>(comm.clone()).unwrap();
+            assert!(target.target_name == test_comm_name)
         },
         _ => {
             panic!(

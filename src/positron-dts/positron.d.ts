@@ -433,6 +433,14 @@ declare module 'positron' {
 		 */
 		createClient(id: string, type: RuntimeClientType, params: any): Thenable<void>;
 
+		/**
+		 * List all clients, optionally filtered by type.
+		 *
+		 * @param type If specified, only clients of this type will be returned.
+		 * @returns A Thenable that resolves with a map of client IDs to client types.
+		 */
+		listClients(type?: RuntimeClientType): Thenable<Record<string, string>>;
+
 		/** Remove an instance of a client (created with `createClient`) */
 		removeClient(id: string): void;
 

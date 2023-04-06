@@ -42,7 +42,14 @@ impl RHtmlHelp {
         let contents = RFunction::from(".ps.help.getHtmlHelpContents")
             .param("topic", topic)
             .param("package", package)
-            .call()?;
+            .call();
+
+        if let Err(error) = contents {
+            log::error!("{}", error);
+            return Ok(None);
+        };
+
+        let contents = contents.unwrap_unchecked();
 
         // check for NULL (implies no help available)
         if r_typeof(*contents) == NILSXP {

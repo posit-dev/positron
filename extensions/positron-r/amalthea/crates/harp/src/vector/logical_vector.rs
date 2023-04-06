@@ -16,11 +16,11 @@ pub struct LogicalVector {
 }
 
 impl Vector for LogicalVector {
-    type Item = i32;
-    type Type = i32;
+    type Item = bool;
+    type Type = bool;
     const SEXPTYPE: u32 = LGLSXP;
     type UnderlyingType = i32;
-    type CompareType = i32;
+    type CompareType = bool;
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self { object: RObject::new(object.into()) }
@@ -57,11 +57,11 @@ impl Vector for LogicalVector {
     }
 
     fn convert_value(x: &Self::UnderlyingType) -> Self::Type {
-        *x
+        *x == 1
     }
 
     fn format_one(&self, x: Self::Type) -> String {
-        if x == 1 {
+        if x {
             String::from("TRUE")
         } else {
             String::from("FALSE")

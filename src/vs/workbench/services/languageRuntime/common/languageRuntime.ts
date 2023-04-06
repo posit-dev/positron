@@ -90,7 +90,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		super();
 
 		// Add the onDidEncounterLanguage event handler.
-		this._register(this._languageService.onDidEncounterLanguage(languageId => {
+		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
 			// Add the language to the set of encountered languages.
 			this._encounteredLanguagesByLanguageId.add(languageId);
 

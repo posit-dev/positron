@@ -3,33 +3,51 @@
 //
 // Copyright (C) 2022 by Posit Software, PBC
 //
-//
 
-//! The Positron Graphics Device.
-//!
-//! Rather than implement a separate graphics device, Positron
-//! allows the user to select their own graphics device, and
-//! then monkey-patches it in a way that allows us to hook into
-//! the various graphics events.
-//!
-//! This approach is similar in spirit to the RStudio approach,
-//! but is vastly simpler as we no longer need to implement and
-//! synchronize two separate graphics devices.
-//!
-//! See also:
-//!
-//! https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsDevice.h
-//! https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsEngine.h
-//! https://github.com/rstudio/rstudio/blob/main/src/cpp/r/session/graphics/RGraphicsDevice.cpp
-//!
+///
+/// The Positron Graphics Device.
+///
+/// Rather than implement a separate graphics device, Positron
+/// allows the user to select their own graphics device, and
+/// then monkey-patches it in a way that allows us to hook into
+/// the various graphics events.
+///
+/// This approach is similar in spirit to the RStudio approach,
+/// but is vastly simpler as we no longer need to implement and
+/// synchronize two separate graphics devices.
+///
+/// See also:
+///
+/// https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsDevice.h
+/// https://github.com/wch/r-source/blob/trunk/src/include/R_ext/GraphicsEngine.h
+/// https://github.com/rstudio/rstudio/blob/main/src/cpp/r/session/graphics/RGraphicsDevice.cpp
+///
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
 
-
+use amalthea::comm::comm_channel::CommChannelMsg;
+use amalthea::comm::event::CommEvent;
+use amalthea::socket::comm::CommInitiator;
+use amalthea::socket::comm::CommSocket;
+use base64::engine::general_purpose;
+use base64::Engine;
+use crossbeam::channel::Select;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use libR_sys::*;
 use once_cell::sync::Lazy;
 use stdext::unwrap;
 use uuid::Uuid;
+
+use crate::lsp::globals::comm_manager_tx;
+use crate::plots::message::PlotMessageInput;
+use crate::plots::message::PlotMessageInputRender;
+use crate::plots::message::PlotMessageOutput;
+use crate::plots::message::PlotMessageOutputImage;
+
+const POSITRON_PLOT_CHANNEL_ID: &str = "positron.plot";
 
 macro_rules! trace {
     ($($tts:tt)*) => {{
@@ -48,9 +66,8 @@ struct DeviceCallbacks {
     pub newPage: Option<unsafe extern "C" fn(pGEcontext, pDevDesc)>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct DeviceContext {
-
     // Tracks whether the graphics device has changes.
     pub _dirty: bool,
 
@@ -70,13 +87,15 @@ struct DeviceContext {
     // for accessing indexed plots, e.g. for the Plots pane history.
     pub _id: Option<String>,
 
+    // A map, mapping plot IDs to the communication channels used
+    // for communicating their rendered results to the front-end.
+    pub _channels: HashMap<String, CommSocket>,
+
     // The device callbacks, which are patched into the device.
     pub _callbacks: DeviceCallbacks,
-
 }
 
 impl DeviceContext {
-
     pub unsafe fn holdflush(&mut self, holdflush: i32) {
         self._holdflush = holdflush;
     }
@@ -86,71 +105,125 @@ impl DeviceContext {
         self._dirty = self._dirty || mode != 0;
     }
 
-    pub unsafe fn before_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
+    pub unsafe fn new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
+        // Create a new id.
+        let id = Uuid::new_v4().to_string();
+        self._id = Some(id.clone());
 
-        // Nothing to do if we don't have an ID (implies no page)
-        let id = unwrap!(&self._id, None => {
-            return;
-        });
+        // Let Positron know that we just created a new plot.
+        let socket = CommSocket::new(
+            CommInitiator::BackEnd,
+            id.clone(),
+            POSITRON_PLOT_CHANNEL_ID.to_string(),
+        );
 
-        // When a new page is created, check if we have a plot / display list
-        // active. If we do, save that before the new page is created, so that
-        // we can re-render the previous plot (page) if necessary.
-        let result = RFunction::from(".ps.graphics.createSnapshot")
-            .param("id", id.as_str())
-            .call();
-
-        if let Err(error) = result {
+        let event = CommEvent::Opened(socket.clone(), serde_json::Value::Null);
+        let comm_manager_tx = comm_manager_tx();
+        if let Err(error) = comm_manager_tx.send(event) {
             log::error!("{}", error);
         }
 
+        // Save our new socket.
+        self._channels.insert(id.clone(), socket.clone());
     }
 
-    pub unsafe fn after_new_page(&mut self, _dd: pGEcontext, _dev: pDevDesc) {
+    pub unsafe fn on_process_events(&mut self) {
+        // Collect existing channels into a vector of tuples.
+        // Necessary for handling Select in a clean way.
+        let channels = self._channels.clone();
+        let channels = channels.iter().collect::<Vec<_>>();
 
-        // Generate a new UUID to be associated with this plot.
-        self._id = Some(Uuid::new_v4().to_string());
+        // Check for incoming plot render requests.
+        let mut select = Select::new();
+        for (_id, channel) in channels.iter() {
+            select.recv(&channel.incoming_rx);
+        }
 
-    }
-
-    pub unsafe fn render_plot(&mut self) {
-
-        let id = unwrap!(&self._id, None => {
-            log::error!("{}", "internal error: unexpected null graphics id");
+        let selection = unwrap!(select.try_select(), Err(_error) => {
+            // We don't log errors here, since it's most likely that none
+            // of the channels have any messages available.
             return;
         });
 
-        if self._rendering {
-            trace!("+++ Ignoring recursive plot attempt.");
+        let plot_id = channels.get_unchecked(selection.index()).0;
+        let socket = channels.get_unchecked(selection.index()).1;
+        let message = unwrap!(selection.recv(&socket.incoming_rx), Err(error) => {
+            log::error!("{}", error);
             return;
-        }
+        });
 
-        trace!("+++ Rendering plot.");
+        // Get the RPC request.
+        if let CommChannelMsg::Rpc(rpc_id, value) = message {
+            let input = serde_json::from_value::<PlotMessageInput>(value);
+            let input = unwrap!(input, Err(error) => {
+                log::error!("{}", error);
+                return;
+            });
+
+            match input {
+                PlotMessageInput::Render(plot_meta) => {
+                    let result = self.render_plot(plot_id, plot_meta, rpc_id.as_str(), socket);
+                    if let Err(error) = result {
+                        log::error!("{}", error);
+                        return;
+                    }
+                },
+            }
+        }
+    }
+
+    pub unsafe fn render_plot(
+        &mut self,
+        plot_id: &str,
+        plot_meta: PlotMessageInputRender,
+        rpc_id: &str,
+        socket: &CommSocket,
+    ) -> anyhow::Result<()> {
+        // Render the plot to file.
+        // TODO: Is it possible to do this without writing to file; e.g. could
+        // we instead write to a connection or something else?
         self._rendering = true;
         let result = RFunction::from(".ps.graphics.renderPlot")
-            .param("id", id.as_str())
+            .param("id", plot_id)
+            .param("width", plot_meta.width)
+            .param("height", plot_meta.height)
+            .param("dpr", plot_meta.pixel_ratio)
             .call();
         self._rendering = false;
 
-        if let Err(error) = result {
-            log::error!("{}", error);
-            return;
-        }
+        // Get the path to the image.
+        let image_path = result?.to::<String>()?;
 
+        // Read contents into bytes.
+        let conn = File::open(image_path)?;
+        let mut reader = BufReader::new(conn);
 
+        let mut buffer = vec![];
+        reader.read_to_end(&mut buffer)?;
+
+        // what an odd interface
+        let data = general_purpose::STANDARD_NO_PAD.encode(buffer);
+
+        let response = PlotMessageOutput::Image(PlotMessageOutputImage {
+            data: data,
+            mime_type: "image/png".to_string(),
+        });
+
+        let json = serde_json::to_value(response).unwrap();
+        socket
+            .outgoing_tx
+            .send(CommChannelMsg::Rpc(rpc_id.to_string(), json))?;
+
+        Ok(())
     }
-
 }
 
-static mut DEVICE_CONTEXT : Lazy<DeviceContext> = Lazy::new(|| {
-    DeviceContext::default()
-});
+static mut DEVICE_CONTEXT: Lazy<DeviceContext> = Lazy::new(|| DeviceContext::default());
 
 // TODO: This macro needs to be updated every time we introduce support
 // for a new graphics device. Is there a better way?
 macro_rules! with_device {
-    ($value:expr, |$name:ident| $block:block) => {{
-
+    ($value:expr, | $name:ident | $block:block) => {{
         let version = R_GE_getVersion();
         if version == 13 {
             let $name = $value as *mut $crate::plots::dev_desc::DevDescVersion13;
@@ -162,18 +235,15 @@ macro_rules! with_device {
             let $name = $value as *mut $crate::plots::dev_desc::DevDescVersion15;
             $block;
         } else {
-           panic!(
-               "R graphics engine version {} is not supported by this version of Positron.",
-               version
-           )
+            panic!(
+                "R graphics engine version {} is not supported by this version of Positron.",
+                version
+            )
         };
-
-
-    }}
+    }};
 }
 
 pub unsafe fn on_process_events() {
-
     let context = &mut DEVICE_CONTEXT;
 
     // Don't try to render a plot if we're currently drawing.
@@ -186,15 +256,7 @@ pub unsafe fn on_process_events() {
         return;
     }
 
-    // Don't do anything if we haven't observed any changes.
-    if !context._dirty {
-        return;
-    }
-
-    // Okay, go for it.
-    context._dirty = false;
-    DEVICE_CONTEXT.render_plot();
-
+    DEVICE_CONTEXT.on_process_events();
 }
 
 // NOTE: May be called when rendering a plot to file, since this is done by
@@ -205,7 +267,6 @@ unsafe extern "C" fn gd_activate(dev: pDevDesc) {
     if let Some(callback) = DEVICE_CONTEXT._callbacks.activate {
         callback(dev);
     }
-
 }
 
 // NOTE: May be called when rendering a plot to file, since this is done by
@@ -216,7 +277,6 @@ unsafe extern "C" fn gd_deactivate(dev: pDevDesc) {
     if let Some(callback) = DEVICE_CONTEXT._callbacks.deactivate {
         callback(dev);
     }
-
 }
 
 unsafe extern "C" fn gd_hold_flush(dev: pDevDesc, mut holdflush: i32) -> i32 {
@@ -228,9 +288,7 @@ unsafe extern "C" fn gd_hold_flush(dev: pDevDesc, mut holdflush: i32) -> i32 {
 
     DEVICE_CONTEXT.holdflush(holdflush);
     holdflush
-
 }
-
 
 // mode = 0, graphics off
 // mode = 1, graphics on
@@ -244,25 +302,20 @@ unsafe extern "C" fn gd_mode(mode: i32, dev: pDevDesc) {
     }
 
     DEVICE_CONTEXT.mode(mode, dev);
-
 }
 
 unsafe extern "C" fn gd_new_page(dd: pGEcontext, dev: pDevDesc) {
     trace!("gd_new_page");
-
-    DEVICE_CONTEXT.before_new_page(dd, dev);
 
     // invoke the regular callback
     if let Some(callback) = DEVICE_CONTEXT._callbacks.newPage {
         callback(dd, dev);
     }
 
-    DEVICE_CONTEXT.after_new_page(dd, dev);
-
+    DEVICE_CONTEXT.new_page(dd, dev);
 }
 
 unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
-
     // TODO: Don't allow creation of more than one graphics device.
     // TODO: Allow customization of the graphics device here?
 
@@ -285,11 +338,10 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
     // initialize our _callbacks
     let device = (*dd).dev;
     with_device!(device, |device| {
-
         // initialize display list (needed for copying of plots)
         GEinitDisplayList(dd);
         (*dd).displayListOn = 1;
-        (*dd).recordGraphics = 1;
+        // (*dd).recordGraphics = 1;
 
         // device description struct
         let callbacks = &mut DEVICE_CONTEXT._callbacks;
@@ -308,22 +360,36 @@ unsafe fn ps_graphics_device_impl() -> anyhow::Result<SEXP> {
 
         callbacks.newPage = (*device).newPage;
         (*device).newPage = Some(gd_new_page);
-
     });
 
     Ok(R_NilValue)
-
 }
 
 #[harp::register]
 unsafe extern "C" fn ps_graphics_device() -> SEXP {
-
     match ps_graphics_device_impl() {
         Ok(value) => value,
         Err(error) => {
             log::error!("{}", error);
             R_NilValue
-        }
+        },
+    }
+}
+
+#[harp::register]
+unsafe extern "C" fn ps_graphics_event(_name: SEXP) -> SEXP {
+    let id = unwrap!(DEVICE_CONTEXT._id.clone(), None => {
+        return Rf_ScalarLogical(0);
+    });
+
+    let result = RFunction::from(".ps.graphics.createSnapshot")
+        .param("id", id)
+        .call();
+
+    if let Err(error) = result {
+        log::error!("{}", error);
+        return Rf_ScalarLogical(0);
     }
 
+    Rf_ScalarLogical(1)
 }

@@ -78,7 +78,7 @@ export class PositronPreviewViewPane extends ViewPane {
 		super.focus();
 	}
 
-	override layoutBody(height: number, width: number): void {
+	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
 	}
 

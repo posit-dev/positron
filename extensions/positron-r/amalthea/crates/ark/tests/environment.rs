@@ -14,7 +14,7 @@ use ark::environment::message::EnvironmentMessageDelete;
 use ark::environment::message::EnvironmentMessageList;
 use ark::environment::message::EnvironmentMessageUpdate;
 use ark::environment::r_environment::REnvironment;
-use ark::lsp::signals::SIGNALS;
+use ark::lsp::events::EVENTS;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
@@ -118,7 +118,7 @@ fn test_environment_list() {
     }
 
     // Simulate a prompt signal
-    SIGNALS.console_prompt.emit(());
+    EVENTS.console_prompt.emit(());
 
     // Wait for the new list of variables to be delivered
     let msg = outgoing_rx.recv().unwrap();
@@ -178,7 +178,7 @@ fn test_environment_list() {
     }
 
     // Simulate a prompt signal
-    SIGNALS.console_prompt.emit(());
+    EVENTS.console_prompt.emit(());
 
     let msg = outgoing_rx.recv().unwrap();
     let data = match msg {

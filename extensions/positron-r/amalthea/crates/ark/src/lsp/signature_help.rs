@@ -15,8 +15,8 @@ use stdext::unwrap::IntoResult;
 use tower_lsp::lsp_types::Documentation;
 use tower_lsp::lsp_types::ParameterInformation;
 use tower_lsp::lsp_types::ParameterLabel;
+use tower_lsp::lsp_types::Position;
 use tower_lsp::lsp_types::SignatureHelp;
-use tower_lsp::lsp_types::SignatureHelpParams;
 use tower_lsp::lsp_types::SignatureInformation;
 
 use crate::lsp::documents::Document;
@@ -26,12 +26,12 @@ use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 
 /// SAFETY: Requires access to the R runtime.
-pub unsafe fn signature_help(document: &Document, params: &SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+pub unsafe fn signature_help(document: &Document, position: &Position) -> Result<Option<SignatureHelp>> {
 
     // Get document AST + completion position.
     let ast = &document.ast;
     let source = document.contents.to_string();
-    let point = params.text_document_position_params.position.as_point();
+    let point = position.as_point();
 
     // Find the node closest to the completion point.
     let mut cursor = ast.walk();

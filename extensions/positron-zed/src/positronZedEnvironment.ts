@@ -15,6 +15,7 @@ class ZedVariable {
 	public readonly display_type;
 	public readonly type_info;
 	public readonly has_children;
+	public readonly access_key;
 
 	constructor(
 		readonly display_name: string,
@@ -23,6 +24,9 @@ class ZedVariable {
 		readonly length: number,
 		readonly size: number,
 		readonly children: ZedVariable[] = []) {
+
+		// Set the access key to the variable's name
+		this.access_key = display_name;
 
 		// The type name is the language-specific name for the variable's type.
 		// In Zed, the variable classes are named things like ZedNUMBER,

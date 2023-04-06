@@ -5,12 +5,38 @@
 #
 #
 
+# Set up plot hooks.
+setHook("before.plot.new", function(...) {
+    .Call("ps_graphics_event", "before.plot.new", PACKAGE = "(embedding)")
+}, action = "replace")
+
+setHook("before.grid.newpage", function(...) {
+    .Call("ps_graphics_event", "before.grid.newpage", PACKAGE = "(embedding)")
+}, action = "replace")
+
+.ps.graphics.defaultResolution <- if (Sys.info()[["sysname"]] == "Darwin") 96L else 72L
+
+.ps.graphics.plotSnapshotRoot <- function(...) {
+    file.path(tempdir(), "positron-snapshots", ...)
+}
+
+.ps.graphics.plotSnapshotPath <- function(id) {
+    root <- .ps.graphics.plotSnapshotRoot(id)
+    ensure_directory(root)
+    file.path(root, "snapshot.rds")
+}
+
+.ps.graphics.plotOutputPath <- function(id) {
+    root <- .ps.graphics.plotSnapshotRoot(id)
+    ensure_directory(root)
+    file.path(root, "snapshot.png")
+}
+
 .ps.graphics.createDevice <- function(name, type, res) {
 
     # Get path where plots will be generated.
-    snapshotFolder <- .ps.graphics.snapshotFolder()
-    dir.create(snapshotFolder, showWarnings = FALSE, recursive = TRUE)
-    plotsPath <- file.path(snapshotFolder, "last-rendered-plot.png")
+    plotsPath <- .ps.graphics.plotSnapshotRoot("current-plot.png")
+    ensure_parent_directory(plotsPath)
 
     # Create the graphics device.
     # TODO: Use 'ragg' if available?
@@ -41,72 +67,90 @@
 
 }
 
-.ps.graphics.snapshotFolder <- function(...) {
-    file.path(tempdir(), "positron-snapshots", ...)
-}
-
 # Create a snapshot of the current plot.
 #
 # This saves the plot's display list, so it can be used
 # to re-render plots as necessary.
 .ps.graphics.createSnapshot <- function(id) {
 
-    # create snapshot folder path
-    folder <- .ps.graphics.snapshotFolder(id)
-    dir.create(folder, showWarnings = FALSE, recursive = TRUE)
+    # Flush any pending plot actions.
+    dev.set(dev.cur())
+    dev.flush()
 
-    # save plot to file
+    # Create the plot snapshot.
     recordedPlot <- recordPlot()
-    snapshotPath <- file.path(folder, "snapshot.rds")
+
+    # Get the path to the plot snapshot file.
+    snapshotPath <- .ps.graphics.plotSnapshotPath(id)
+
+    # Save it to disk.
     saveRDS(recordedPlot, file = snapshotPath)
 
-    # return path to snapshot file
+    # Return the path to that snapshot file.
     snapshotPath
 
 }
 
-.ps.graphics.replaySnapshot <- function(id) {
+.ps.graphics.renderPlot <- function(id, width, height, dpr) {
 
-    tryCatch(
-        .ps.graphics.replaySnapshotImpl(id),
-        error = warning
+    # If we have an existing snapshot, render from that file.
+    snapshotPath <- .ps.graphics.plotSnapshotPath(id)
+    if (file.exists(snapshotPath))
+        .ps.graphics.renderPlotFromSnapshot(id, width, height, dpr)
+    else
+        .ps.graphics.renderPlotFromCurrentDevice(id, width, height, dpr)
+
+}
+
+.ps.graphics.renderPlotFromSnapshot <- function(id, width, height, dpr) {
+
+    # Get path to snapshot file + output path.
+    outputPath <- .ps.graphics.plotOutputPath(id)
+    snapshotPath <- .ps.graphics.plotSnapshotPath(id)
+
+    # Read the snapshot data.
+    recordedPlot <- readRDS(snapshotPath)
+
+    # Get device attributes to be passed along.
+    type <- "cairo"
+    res <- .ps.graphics.defaultResolution * dpr
+    width <- width * dpr
+    height <- height * dpr
+
+    # Create a new graphics device.
+    grDevices::png(
+        filename = outputPath,
+        width    = width,
+        height   = height,
+        res      = res,
+        type     = type
     )
+
+    # Replay the plot.
+    suppressWarnings(grDevices::replayPlot(recordedPlot))
+
+    # Turn off the device (commit the plot to disk)
+    dev.off()
+
+    # Return path to generated plot file.
+    invisible(outputPath)
+
 }
 
-.ps.graphics.replaySnapshotImpl <- function(id) {
-
-    plotsPath <- .ps.graphics.snapshotFolder(id, "snapshot.rds")
-    recordedPlot <- readRDS(plotsPath)
-    replayPlot(recordedPlot)
-    .ps.graphics.renderPlot(id)
-
-}
-
-# Render a plot to file.
-#
-# We use 'dev.copy()' to copy the current state of the graphics
-# device to a new device, and the immediately shut that device
-# off to force it to render to file.
-.ps.graphics.renderPlot <- function(id) {
+.ps.graphics.renderPlotFromCurrentDevice <- function(id, width, height, dpr) {
 
     # Try and force the graphics device to sync changes.
     dev.set(dev.cur())
     dev.flush()
 
-    # Update the snapshot associated with this plot.
-    .ps.graphics.createSnapshot(id)
-
     # Get the file name associated with the current graphics device.
     device <- .Devices[[dev.cur()]]
 
     # Get device attributes to be passed along.
-    #
-    # TODO: What about other things like DPI, and so on?
-    size <- dev.size(units = "px")
-    res <- attr(device, "res") %??% 144
     type <- attr(device, "type") %??% "cairo"
-    width <- size[[1L]]
-    height <- size[[2L]]
+    res <- .ps.graphics.defaultResolution * dpr
+    width <- width * dpr
+    height <- height * dpr
 
     # Copy to a new graphics device.
     # TODO: We'll want some indirection around which graphics device is selected here.
@@ -124,7 +168,7 @@
     # Turn off the graphics device.
     dev.off()
 
-    # For debugging; open the rendered plot.
-    system(paste("open", shQuote(filepath)))
+    # Return path to the generated file.
+    invisible(filepath)
 
 }

@@ -86,9 +86,8 @@ impl fmt::Display for Error {
             }
 
             Error::MissingValueError => {
-                write!(f, "Missing value" )
+                write!(f, "Missing value")
             }
-
         }
     }
 }

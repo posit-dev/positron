@@ -14,6 +14,9 @@ use crate::utils::r_assert_type;
 pub mod character_vector;
 pub use character_vector::CharacterVector;
 
+pub mod factor;
+pub use factor::Factor;
+
 pub mod integer_vector;
 pub use integer_vector::IntegerVector;
 

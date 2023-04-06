@@ -12,3 +12,11 @@
 `%??%` <- function(x, y) {
     if (is.null(x)) y else x
 }
+
+ensure_directory <- function(path) {
+    dir.create(path, showWarnings = FALSE, recursive = TRUE)
+}
+
+ensure_parent_directory <- function(path) {
+    ensure_directory(dirname(path))
+}
