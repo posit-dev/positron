@@ -19,7 +19,7 @@ use std::io::stdin;
 use std::sync::{Arc, Mutex};
 
 fn start_kernel(connection_file: ConnectionFile) {
-    let mut kernel = match Kernel::new(connection_file) {
+    let mut kernel = match Kernel::new("echo", connection_file) {
         Ok(k) => k,
         Err(e) => {
             error!("Failed to create kernel: {}", e);

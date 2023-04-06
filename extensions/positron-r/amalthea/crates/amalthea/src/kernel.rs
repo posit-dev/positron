@@ -7,7 +7,6 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
 
 use crate::comm::comm_manager::CommManager;
 use crate::comm::event::CommChanged;
@@ -31,10 +30,14 @@ use crossbeam::channel::bounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use log::info;
+use stdext::spawn;
 
 /// A Kernel represents a unique Jupyter kernel session and is the host for all
 /// execution and messaging threads.
 pub struct Kernel {
+    /// The name of the kernel.
+    name: String,
+
     /// The connection metadata.
     connection: ConnectionFile,
 
@@ -68,7 +71,7 @@ pub enum StreamBehavior {
 
 impl Kernel {
     /// Create a new Kernel, given a connection file from a front end.
-    pub fn new(file: ConnectionFile) -> Result<Kernel, Error> {
+    pub fn new(name: &str, file: ConnectionFile) -> Result<Kernel, Error> {
         let key = file.key.clone();
 
         let (iopub_tx, iopub_rx) = bounded::<IOPubMessage>(10);
@@ -78,6 +81,7 @@ impl Kernel {
         let (comm_manager_tx, comm_manager_rx) = bounded::<CommEvent>(10);
 
         Ok(Self {
+            name: name.to_string(),
             connection: file,
             session: Session::create(key)?,
             iopub_tx: iopub_tx,
@@ -117,7 +121,7 @@ impl Kernel {
         let iopub_tx_clone = self.create_iopub_tx();
         let comm_manager_tx_clone = self.comm_manager_tx.clone();
         let lsp_handler_clone = lsp_handler.clone();
-        thread::spawn(move || {
+        spawn!(format!("{}-shell", self.name), move || {
             Self::shell_thread(
                 shell_socket,
                 iopub_tx_clone,
@@ -140,7 +144,9 @@ impl Kernel {
             self.connection.endpoint(self.connection.iopub_port),
         )?;
         let iopub_rx = self.iopub_rx.take().unwrap();
-        thread::spawn(move || Self::iopub_thread(iopub_socket, iopub_rx));
+        spawn!(format!("{}-iopub", self.name), move || {
+            Self::iopub_thread(iopub_socket, iopub_rx)
+        });
 
         // Create the heartbeat socket and start a thread to listen for
         // heartbeat messages.
@@ -152,7 +158,9 @@ impl Kernel {
             None,
             self.connection.endpoint(self.connection.hb_port),
         )?;
-        thread::spawn(move || Self::heartbeat_thread(heartbeat_socket));
+        spawn!(format!("{}-heartbeat", self.name), move || {
+            Self::heartbeat_thread(heartbeat_socket)
+        });
 
         // Create the stdin socket and start a thread to listen for stdin
         // messages. These are used by the kernel to request input from the
@@ -166,12 +174,16 @@ impl Kernel {
             self.connection.endpoint(self.connection.stdin_port),
         )?;
         let shell_clone = shell_handler.clone();
-        thread::spawn(move || Self::stdin_thread(stdin_socket, shell_clone));
+        spawn!(format!("{}-stdin", self.name), move || {
+            Self::stdin_thread(stdin_socket, shell_clone)
+        });
 
         // Create the thread that handles stdout and stderr, if requested
         if stream_behavior == StreamBehavior::Capture {
             let iopub_tx = self.create_iopub_tx();
-            thread::spawn(move || Self::output_capture_thread(iopub_tx));
+            spawn!(format!("{}-output-capture", self.name), move || {
+                Self::output_capture_thread(iopub_tx)
+            });
         }
 
         // Create the Control ROUTER/DEALER socket

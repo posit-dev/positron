@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -18,6 +18,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
@@ -34,7 +35,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
 	private readonly _onDidReceiveRuntimeMessageEventEmitter = new Emitter<ILanguageRuntimeMessageEvent>();
-	private readonly _onDidCreateClientInstanceEmitter = new Emitter<IRuntimeClientInstance<any, any>>();
+	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
@@ -142,7 +143,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		client.setClientState(RuntimeClientState.Connected);
 
 		// Fire an event to notify listeners that a new client instance has been created
-		this._onDidCreateClientInstanceEmitter.fire(client);
+		this._onDidCreateClientInstanceEmitter.fire({ client, message });
 	}
 
 	/**
@@ -212,8 +213,53 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/** List active clients */
-	listClients(): Thenable<IRuntimeClientInstance<any, any>[]> {
-		return Promise.resolve(Array.from(this._clients.values()));
+	listClients(type?: RuntimeClientType): Thenable<IRuntimeClientInstance<any, any>[]> {
+		return new Promise((resolve, reject) => {
+			this._proxy.$listClients(this.handle, type).then(clients => {
+				// Array to hold resolved set of clients. This will be a combination of clients
+				// already known to the extension host and new clients that need to be created.
+				const instances = new Array<IRuntimeClientInstance<any, any>>();
+
+				// Loop over each client ID and check if we already have an instance for it;
+				// if not, create a new instance and add it to the list.
+				Object.keys(clients).forEach((key) => {
+					// Check for it in the list of active clients; if it's there, add it to the
+					// list of instances and move on.
+					const instance = this._clients.get(key);
+					if (instance) {
+						instances.push(instance);
+						return;
+					}
+					// We don't know about this client yet. Create a new
+					// instance and add it to the list, if it's a valid client
+					// type.
+					const clientType = clients[key];
+					if (Object.values(RuntimeClientType).includes(clientType as RuntimeClientType)) {
+						// We know what type of client this is, so create a new
+						// instance and add it to the list.
+						const client = new ExtHostRuntimeClientInstance<any, any>(
+							key,
+							clientType as RuntimeClientType,
+							this.handle,
+							this._proxy);
+
+						// The client instance is now connected, since it
+						// already exists on the back end
+						client.setClientState(RuntimeClientState.Connected);
+						this._clients.set(key, client);
+						instances.push(client);
+					} else {
+						// We don't know what type of client this is, so
+						// just log a warning and ignore it.
+						this._logService.warn(`Ignoring unknown client type '${clientType}' for client '${key}'`);
+					}
+				});
+
+				resolve(instances);
+			}).catch((err) => {
+				reject(err);
+			});
+		});
 	}
 
 	replyToPrompt(id: string, value: string): void {
@@ -437,6 +483,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@ILogService private readonly _logService: ILogService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
@@ -444,6 +491,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		// is where we're doing this.
 		this._positronConsoleService.initialize();
 		this._positronEnvironmentService.initialize();
+		this._positronPlotService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 	}
 

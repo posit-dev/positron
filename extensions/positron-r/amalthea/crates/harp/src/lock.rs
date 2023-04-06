@@ -7,6 +7,7 @@
 
 use std::sync::atomic::AtomicI32;
 
+use libR_sys::R_interrupts_suspended;
 use log::info;
 use parking_lot::Mutex;
 
@@ -67,9 +68,16 @@ pub unsafe fn with_r_lock_impl<T, F: FnMut() ->T>(mut callback: F) -> T {
     let polled_events = unsafe { R_PolledEvents };
     R_PolledEvents = Some(r_polled_events_disabled);
 
+    // Disable interrupts in this scope.
+    let interrupts_suspended = R_interrupts_suspended;
+    R_interrupts_suspended = 1;
+
     // Execute the callback.
     let now = std::time::SystemTime::now();
     let result = callback();
+
+    // Restore interrupts.
+    R_interrupts_suspended = interrupts_suspended;
 
     // Restore the polled events handler.
     R_PolledEvents = polled_events;

@@ -11,6 +11,7 @@ import { resolve } from 'path';
 import { ZedEnvironment } from './positronZedEnvironment';
 import path = require('path');
 import fs = require('fs');
+import { ZedPlot } from './positronZedPlot';
 
 /**
  * Constants.
@@ -56,9 +57,10 @@ const HelpLines = [
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
-	'plot         - Renders a plot',
+	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
 	'progress     - Renders a progress bar',
 	'shutdown     - Simulates orderly shutdown',
+	'static plot  - Renders a static plot (image)',
 	'version      - Shows the Zed version'
 ].join('\n');
 
@@ -110,6 +112,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of environment IDs to environment instances.
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+
+	/**
+	 * A map of plot IDs to plot instances.
+	 */
+	private readonly _plots: Map<string, ZedPlot> = new Map();
 
 	/**
 	 * A stack of pending environment RPCs.
@@ -262,6 +269,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			}
 			return this.simulateSuccessfulCodeExecution(id, code,
 				`Now displaying a maximum of ${max} variables.`);
+		} else if (match = code.match(/^plot( [a-zA-Z])?/)) {
+			// Create a plot. This takes a single-character argument that is
+			// drawn in the middle of the plot. If no argument is given, the
+			// letter "Z" is used.
+			const letter = (match.length > 1 && match[1]) ? match[1].trim().toUpperCase() : 'Z';
+			this.simulateDynamicPlot(id, letter, code);
+			return;
 		}
 
 		// Process the "code".
@@ -663,13 +677,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'plot': {
-				this.simulatePlot(id, code);
+			case 'progress': {
+				this.simulateProgressBar(id, code);
 				break;
 			}
 
-			case 'progress': {
-				this.simulateProgressBar(id, code);
+			case 'static plot': {
+				this.simulateStaticPlot(id, code);
 				break;
 			}
 
@@ -714,7 +728,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			const env = new ZedEnvironment(id, this.metadata.languageVersion);
 
 			// Connect it and save the instance to coordinate future communication
-			this.connectEnvironmentEmitter(env);
+			this.connectClientEmitter(env);
 			this._environments.set(env.id, env);
 		} else {
 			// All other types are unknown to Zed
@@ -723,12 +737,38 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
+	 * Lists all clients of a given type.
+	 *
+	 * @param type The type of client to list. If undefined, all clients are listed.
+	 * @returns The list of clients.
+	 */
+	async listClients(type?: positron.RuntimeClientType) {
+		const clients: Record<string, string> = {};
+		if (!type || type === positron.RuntimeClientType.Environment) {
+			for (const env of this._environments.values()) {
+				clients[env.id] = positron.RuntimeClientType.Environment;
+			}
+		}
+		if (!type || type === positron.RuntimeClientType.Plot) {
+			for (const plot of this._plots.values()) {
+				clients[plot.id] = positron.RuntimeClientType.Plot;
+			}
+		}
+		return clients;
+	}
+
+	/**
 	 * Removes an instance of a client.
+	 *
+	 * Currently, Zed understands environment and plot clients.
 	 */
 	removeClient(id: string): void {
-		// Right now, the only client instances are environments.
 		if (this._environments.has(id)) {
+			// Is it ... an environment?
 			this._environments.delete(id);
+		} else if (this._plots.has(id)) {
+			// Is it ... a plot?
+			this._plots.delete(id);
 		} else {
 			throw new Error(`Can't remove client; unknown client id ${id}`);
 		}
@@ -736,18 +776,30 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	/**
 	 * Send a message to the client instance.
+	 *
 	 * @param id The ID of the message.
 	 * @param message The message.
 	 */
 	sendClientMessage(client_id: string, message_id: string, message: object): void {
-		// Right now, the only client instances are environments.
-		const client = this._environments.get(client_id);
-		if (client) {
+
+		// See if this ID is a known environment
+		const env = this._environments.get(client_id);
+		if (env) {
 			this._pendingRpcs.push(message_id);
-			client.handleMessage(message);
-		} else {
-			throw new Error(`Can't send message; unknown client id ${client_id}`);
+			env.handleMessage(message);
+			return;
 		}
+
+		// See if this ID is a known plot
+		const plot = this._plots.get(client_id);
+		if (plot) {
+			this._pendingRpcs.push(message_id);
+			plot.handleMessage(message);
+			return;
+		}
+
+		// It wasn't either one! Give up.
+		throw new Error(`Can't send message; unknown client id ${client_id}`);
 	}
 
 	/**
@@ -825,10 +877,30 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Shuts down the runtime.
 	 */
 	shutdown(): void {
-		// Simulate the busy/idle that happens first.
 		const parentId = randomUUID();
+
+		// Enter busy state to do shutdown processing.
 		this.simulateBusyState(parentId);
+
+		// Simulate closing all the open comms.
+		const enviromentIds = Array.from(this._environments.keys());
+		const plotIds = Array.from(this._plots.keys());
+		const allIds = enviromentIds.concat(plotIds);
+		allIds.forEach(id => {
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: parentId,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommClosed,
+				comm_id: id,
+				data: {}
+			} as positron.LanguageRuntimeCommClosed);
+		});
+
+		// Enter idle state after shutdown processing.
 		this.simulateIdleState(parentId);
+
+		// Simulate state changes on exit.
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
@@ -851,12 +923,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		}, 2000);
 	}
 
-	/**
-	 * Simulates a plot
-	 * @param parentId The parent identifier.
-	 * @param code The code.
-	 */
-	private simulatePlot(parentId: string, code: string) {
+	private simulateStaticPlot(parentId: string, code: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
@@ -878,6 +945,51 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				'image/png': plotPngBase64
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates a dynamic plot. Zed plots a single letter.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param letter The plot letter.
+	 * @param code The code.
+	 */
+	private simulateDynamicPlot(parentId: string, letter: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Create the plot client comm.
+		const plot = new ZedPlot(this.context, letter);
+		this.connectClientEmitter(plot);
+		this._plots.set(plot.id, plot);
+
+		// Send the comm open message to the client.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.CommOpen,
+			comm_id: plot.id,
+			target_name: 'positron.plot',
+			data: {}
+		} as positron.LanguageRuntimeCommOpen);
+
+		// Emit text output so something shows up in the console.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': `<ZedDynamic PLOT '${letter}'>`
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
 		this.simulateIdleState(parentId);
 	}
 
@@ -1053,15 +1165,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
-	 * Proxies messages from an environment instance to Positron, by amending the appropriate
-	 * metadata.
+	 * Proxies messages from an environment or plot instance to Positron, by
+	 * amending the appropriate metadata.
 	 *
-	 * @param env The environment to connect
+	 * @param client The environment or plot to connect
 	 */
-	private connectEnvironmentEmitter(env: ZedEnvironment) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot) {
 
 		// Listen for data emitted from the environment instance
-		env.onDidEmitData(data => {
+		client.onDidEmitData(data => {
 			// If there's a pending RPC, then presume that this message is a
 			// reply to it; otherwise, just use an empty parent ID.
 			const parent_id = this._pendingRpcs.length > 0 ?
@@ -1073,7 +1185,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				parent_id,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.CommData,
-				comm_id: env.id,
+				comm_id: client.id,
 				data: data
 			} as positron.LanguageRuntimeCommMessage);
 		});

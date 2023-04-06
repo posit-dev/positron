@@ -13,6 +13,8 @@ use harp::r_string;
 use harp::r_symbol;
 use libR_sys::*;
 use stdext::local;
+use stdext::spawn;
+use stdext::unwrap::IntoResult;
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
@@ -53,12 +55,12 @@ pub struct RModuleInfo {
 // We can't use a crate like 'notify' here as the file watchers they try
 // to add seem to conflict with the ones added by VSCode; at least, that's
 // what I observed on macOS.
-struct Watcher {
+struct RModuleWatcher {
     pub path: PathBuf,
     pub cache: HashMap<PathBuf, std::fs::Metadata>,
 }
 
-impl Watcher {
+impl RModuleWatcher {
 
     pub fn new(path: PathBuf) -> Self {
         Self {
@@ -69,13 +71,18 @@ impl Watcher {
 
     pub fn watch(&mut self) -> anyhow::Result<()> {
 
+        let public  = self.path.join("public");
+        let private = self.path.join("private");
+
         // initialize
-        let entries = std::fs::read_dir(&self.path)?;
-        for entry in entries.into_iter() {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                let meta = path.metadata()?;
-                self.cache.insert(path, meta);
+        for path in [public, private] {
+            let entries = std::fs::read_dir(path)?;
+            for entry in entries.into_iter() {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    let meta = path.metadata()?;
+                    self.cache.insert(path, meta);
+                }
             }
         }
 
@@ -87,7 +94,11 @@ impl Watcher {
                 for (path, oldmeta) in self.cache.iter_mut() {
                     let newmeta = path.metadata()?;
                     if oldmeta.modified()? != newmeta.modified()? {
-                        r_lock! { import(path) };
+                        r_lock! {
+                            if let Err(error) = import(path) {
+                                log::error!("{}", error);
+                            }
+                        };
                         *oldmeta = newmeta;
                     }
                 }
@@ -169,16 +180,16 @@ pub unsafe fn initialize() -> anyhow::Result<RModuleInfo> {
         let path = file.path();
         if let Some(ext) = path.extension() {
             if ext == "R" {
-                import(path);
+                import(path).unwrap();
             }
         }
     }
 
     // Create a directory watcher that reloads module files as they are changed.
-    std::thread::spawn({
+    spawn!("ark-watcher", {
         let root = root.clone();
         move || {
-            let mut watcher = Watcher::new(root);
+            let mut watcher = RModuleWatcher::new(root);
             match watcher.watch() {
                 Ok(_) => {},
                 Err(error) => log::error!("[watcher] Error watching files: {}", error),
@@ -196,11 +207,11 @@ pub unsafe fn initialize() -> anyhow::Result<RModuleInfo> {
     });
 }
 
-pub unsafe fn import(file: &Path) {
+pub unsafe fn import(file: &Path) -> anyhow::Result<()> {
 
     // Figure out if this is a 'private' or 'public' component.
-    let parent = file.parent().unwrap();
-    let name = parent.file_name().unwrap();
+    let parent = file.parent().into_result()?;
+    let name = parent.file_name().into_result()?;
     let envir = if name == "private" {
         log::info!("Loading private module: {:?}", file);
         POSITRON_PRIVATE_ENVIRONMENT
@@ -217,15 +228,13 @@ pub unsafe fn import(file: &Path) {
     RFunction::new("base", "sys.source")
         .param("file", file)
         .param("envir", envir)
-        .call()
-        .unwrap();
+        .call()?;
 
     // Get a list of bindings from the public environment.
     let bindings = RFunction::new("base", "as.list.environment")
         .param("x", POSITRON_PUBLIC_ENVIRONMENT)
         .param("all.names", true)
-        .call()
-        .unwrap();
+        .call()?;
 
     // Update bindings in the attached environment.
     // TODO: It might be fine to just do this only after importing
@@ -233,8 +242,9 @@ pub unsafe fn import(file: &Path) {
     RFunction::new("base", "list2env")
         .param("x", *bindings)
         .param("envir", POSITRON_ATTACHED_ENVIRONMENT)
-        .call()
-        .unwrap();
+        .call()?;
+
+    Ok(())
 
 }
 
