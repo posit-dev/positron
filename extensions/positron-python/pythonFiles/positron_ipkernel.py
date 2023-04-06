@@ -2,10 +2,8 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
-from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
-from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
-from itertools import chain
-from typing import Any
+""" Positron extenstions to the iPython Kernel."""
+
 import enum
 import html
 import inspect
@@ -14,6 +12,11 @@ import numbers
 import pprint
 import sys
 import types
+
+from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
+from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
+from itertools import chain
+from typing import Any
 
 
 @enum.unique
@@ -525,7 +528,6 @@ class PositronIPyKernel(IPythonKernel):
         return self.shell.user_ns
 
     def get_user_ns_hidden(self) -> dict:
-
         return self.shell.user_ns_hidden
 
     def snapshot_user_ns(self) -> None:
