@@ -14,14 +14,16 @@ export class StaticPlotClient extends Disposable {
 	public readonly mimeType;
 	public readonly data;
 
-	constructor(message: ILanguageRuntimeMessageOutput,
+	constructor(runtimeId: string, message: ILanguageRuntimeMessageOutput,
 		public readonly code?: string) {
 		super();
 
 		// Create the metadata for the plot.
 		this.metadata = {
 			id: message.id,
+			parent_id: message.parent_id,
 			created: Date.parse(message.when),
+			runtime_id: runtimeId,
 			code: code ? code : '',
 		};
 

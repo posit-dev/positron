@@ -45,7 +45,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private readonly _recentExecutionIds = new Array<string>();
 
 	/** Creates the Positron plots service instance */
-	constructor(@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService) {
+	constructor(
+		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@IStorageService private _storageService: IStorageService,) {
 		super();
 
 		// Register for language runtime service startups
@@ -105,8 +107,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const metadata: IPositronPlotMetadata = {
 					created: Date.parse(event.message.when),
 					id: event.client.getClientId(),
+					runtime_id: runtime.metadata.runtimeId,
+					parent_id: event.message.parent_id,
 					code,
 				};
+
+				// Save the metadata to storage so that we can restore it when
+				// the plot is reconnected.
 
 				// Register the plot client
 				this.registerPlotClient(event.client, metadata);
@@ -120,7 +127,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this._recentExecutions.get(message.parent_id) : '';
 			const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
 			if (imageKey) {
-				this.registerStaticPlot(message, code);
+				this.registerStaticPlot(runtime.metadata.runtimeId, message, code);
 			}
 		}));
 
@@ -164,8 +171,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param message The message containing the static plot data.
 	 * @param code The code that generated the plot, if available.
 	 */
-	private registerStaticPlot(message: ILanguageRuntimeMessageOutput, code?: string) {
-		const client = new StaticPlotClient(message, code);
+	private registerStaticPlot(
+		runtimeId: string,
+		message: ILanguageRuntimeMessageOutput,
+		code?: string) {
+		const client = new StaticPlotClient(runtimeId, message, code);
 		this._plots.unshift(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
@@ -218,6 +228,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Fire the event notifying subscribers
 		this._onDidRemovePlot.fire(id);
+	}
+
+	/**
+	 * Generates a storage key for a plot.
+	 *
+	 * @param runtimeId The ID of the runtime that owns the plot.
+	 * @param plotId The ID of the plot itself.
+	 */
+	generateStorageKey(runtimeId: string, plotId: string): string {
+		return `positron.plot.${runtimeId}.${plotId}`;
 	}
 
 	/**

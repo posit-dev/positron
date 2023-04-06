@@ -127,6 +127,12 @@ export interface IPositronPlotMetadata {
 
 	/** The code that created the plot, if known. */
 	code: string;
+
+	/** The plot's parent message ID; useful for jumping to associated spot in the console */
+	parent_id: string;
+
+	/** The ID of the runtime that created the plot */
+	runtime_id: string;
 }
 
 /**
