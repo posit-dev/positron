@@ -33,7 +33,7 @@ pub unsafe fn goto_definition<'a>(document: &'a Document, params: GotoDefinition
 
     // try to find node at completion position
     let point = params.text_document_position_params.position.as_point();
-    let node = ast.node_at_point(point)?;
+    let node = ast.node_at_point(point);
     let range = Range {
         start: node.start_position().as_position(),
         end: node.end_position().as_position(),

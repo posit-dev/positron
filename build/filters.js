@@ -226,3 +226,7 @@ module.exports.eslintFilter = [
 		.filter(line => !!line)
 		.map(line => `!${line}`)
 ];
+
+module.exports.stylelintFilter = [
+	'src/**/*.css'
+];

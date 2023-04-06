@@ -4,8 +4,6 @@
 // Copyright (C) 2023 by Posit Software, PBC
 //
 //
-use std::thread;
-
 use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::socket::comm::CommSocket;
 use crossbeam::channel::select;
@@ -23,14 +21,18 @@ use libR_sys::*;
 use log::debug;
 use log::error;
 use log::warn;
+use stdext::spawn;
 
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
 use crate::environment::message::EnvironmentMessageDelete;
+use crate::environment::message::EnvironmentMessageDetails;
+use crate::environment::message::EnvironmentMessageError;
+use crate::environment::message::EnvironmentMessageInspect;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
 use crate::environment::variable::EnvironmentVariable;
-use crate::lsp::signals::SIGNALS;
+use crate::lsp::events::EVENTS;
 
 /**
  * The R Environment handler provides the server side of Positron's Environment
@@ -61,7 +63,7 @@ impl REnvironment {
         }
 
         // Start the execution thread and wait for requests from the front end
-        thread::spawn(move || {
+        spawn!("ark-environment", move || {
             let environment = Self {
                 comm,
                 env,
@@ -76,7 +78,7 @@ impl REnvironment {
         let (prompt_signal_tx, prompt_signal_rx) = unbounded::<()>();
 
         // Register a handler for console prompt events
-        let listen_id = SIGNALS.console_prompt.listen({
+        let listen_id = EVENTS.console_prompt.listen({
             move |_| {
                 log::info!("Got console prompt signal.");
                 prompt_signal_tx.send(()).unwrap();
@@ -159,6 +161,10 @@ impl REnvironment {
                                 self.delete(variables, Some(id));
                             },
 
+                            EnvironmentMessage::Inspect(EnvironmentMessageInspect{path}) => {
+                                self.inspect(&path, Some(id));
+                            },
+
                             _ => {
                                 error!(
                                     "Environment: Don't know how to handle message type '{:?}'",
@@ -171,7 +177,7 @@ impl REnvironment {
             }
         }
 
-        SIGNALS.console_prompt.remove(listen_id);
+        EVENTS.console_prompt.remove(listen_id);
 
         if !user_initiated_close {
             // Send a close message to the front end if the front end didn't
@@ -273,6 +279,27 @@ impl REnvironment {
 
         // and then update
         self.update(request_id);
+    }
+
+    fn inspect(&mut self, path: &Vec<String>, request_id: Option<String>) {
+        let inspect = r_lock! {
+            EnvironmentVariable::inspect(RObject::view(*self.env), &path)
+        };
+        let msg = match inspect {
+            Ok(children) => {
+                let length = children.len();
+                EnvironmentMessage::Details(EnvironmentMessageDetails {
+                    path: path.clone(),
+                    children,
+                    length,
+                })
+            },
+            Err(_) => EnvironmentMessage::Error(EnvironmentMessageError {
+                message: String::from("Inspection error"),
+            }),
+        };
+
+        self.send_message(msg, request_id);
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {

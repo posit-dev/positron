@@ -5,6 +5,10 @@
 //
 //
 
+use std::result::Result::Err;
+use std::result::Result::Ok;
+use std::sync::atomic::AtomicBool;
+
 use amalthea::events::PositronEvent;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::wire::exception::Exception;
@@ -21,8 +25,8 @@ use amalthea::wire::stream::Stream;
 use amalthea::wire::stream::StreamOutput;
 use anyhow::*;
 use bus::Bus;
+use crossbeam::atomic::AtomicCell;
 use crossbeam::channel::Sender;
-use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
@@ -31,15 +35,13 @@ use harp::utils::r_inherits;
 use libR_sys::*;
 use log::*;
 use serde_json::json;
-use std::result::Result::Err;
-use std::result::Result::Ok;
-use std::sync::atomic::AtomicBool;
 use stdext::unwrap;
 
 use crate::request::Request;
 
 /// Represents whether an error occurred during R code execution.
 pub static R_ERROR_OCCURRED: AtomicBool = AtomicBool::new(false);
+pub static R_ERROR_MESSAGE: AtomicCell<String> = AtomicCell::new(String::new());
 
 /// Represents the Rust state of the R kernel
 pub struct Kernel {
@@ -135,7 +137,7 @@ impl Kernel {
         execute_response_tx: Sender<ExecuteResponse>,
     ) {
         // Clear error occurred flag
-        R_ERROR_OCCURRED.store(true, std::sync::atomic::Ordering::Release);
+        R_ERROR_OCCURRED.store(false, std::sync::atomic::Ordering::Release);
 
         // Initialize stdout, stderr
         self.stdout = String::new();
@@ -207,7 +209,10 @@ impl Kernel {
 
         // TODO: Include a traceback if an error occurs.
         if error_occurred {
-            let message = geterrmessage();
+            let mut message = R_ERROR_MESSAGE.take();
+            if message.is_empty() {
+                message.push_str("[no message available]");
+            }
             log::info!("An R error occurred: {}", message);
         }
 
@@ -290,7 +295,6 @@ impl Kernel {
 
     /// Called from R when console data is written.
     pub fn write_console(&mut self, content: &str, stream: Stream) {
-        log::info!("R output on {:?}: {}", stream, content);
         if self.initializing {
             // During init, consider all output to be part of the startup banner
             self.banner.push_str(content);

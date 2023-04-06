@@ -11,6 +11,7 @@ use anyhow::*;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
 use ropey::Rope;
+use tower_lsp::lsp_types::DidChangeTextDocumentParams;
 use tower_lsp::lsp_types::TextDocumentContentChangeEvent;
 use tower_lsp::lsp_types::Url;
 use tree_sitter::InputEdit;
@@ -60,6 +61,13 @@ pub struct Document {
     // The document's textual contents.
     pub contents: Rope,
 
+    // A set of pending changes for this document.
+    pub pending: Vec<DidChangeTextDocumentParams>,
+
+    // The version of the document we last synchronized with.
+    // None if the document hasn't been synchronized yet.
+    pub version: Option<i32>,
+
     // The parser used to generate the AST.
     pub parser: Parser,
 
@@ -86,11 +94,62 @@ impl Document {
         parser.set_language(tree_sitter_r::language()).expect("failed to create parser");
         let ast = parser.parse(contents, None).unwrap();
 
+        let pending = Vec::new();
+        let version = None;
+
         // return generated document
-        Self { contents: document, parser, ast }
+        Self { contents: document, pending, version, parser, ast }
     }
 
-    pub fn update(&mut self, change: &TextDocumentContentChangeEvent) -> Result<()> {
+    pub fn on_did_change(&mut self, params: &DidChangeTextDocumentParams) -> Result<i32> {
+
+        // Add pending changes.
+        self.pending.push(params.clone());
+
+        // Check the version of this update.
+        //
+        // If we receive version {n + 2} before {n + 1}, then we'll
+        // bail here, and handle the {n + 2} change after we received
+        // version {n + 1}.
+        //
+        // TODO: What if an intermediate document change is somehow dropped or lost?
+        // Do we need a way to recover (e.g. reset the document state)?
+        if let Some(old_version) = self.version {
+            let new_version = params.text_document.version;
+            if new_version > old_version + 1 {
+                log::info!("on_did_change(): received out-of-order document changes; deferring");
+                return Ok(old_version);
+            }
+        }
+
+        // Get pending updates, sort by version, and then apply them one-by-one.
+        self.pending.sort_by(|lhs, rhs| {
+            let lhs = lhs.text_document.version;
+            let rhs = rhs.text_document.version;
+            lhs.cmp(&rhs)
+        });
+
+        // Get the maximum version.
+        let version = self.pending.last().unwrap().text_document.version;
+
+        // Take the changes, and apply them one-by-one.
+        let changes = std::mem::take(&mut self.pending);
+        for change in changes {
+            for event in change.content_changes {
+                if let Err(error) = self.update(&event) {
+                    log::error!("error updating document: {}", error);
+                }
+            }
+        }
+
+        // Updates successfully applied; update cached document version.
+        self.version = Some(version);
+
+        Ok(version)
+
+    }
+
+    fn update(&mut self, change: &TextDocumentContentChangeEvent) -> Result<()> {
 
         // Extract edit range. Nothing to do if there wasn't an edit.
         let range = match change.range {
@@ -125,10 +184,7 @@ impl Document {
         let rhs = self.contents.line_to_char(range.end.line as usize) + range.end.character as usize;
 
         // Remove the old slice of text, and insert the new slice of text.
-        if lhs != rhs {
-            self.contents.remove(lhs..rhs);
-        }
-
+        self.contents.remove(lhs..rhs);
         self.contents.insert(lhs, change.text.as_str());
 
         // We've edited the AST, and updated the document. We can now re-parse.

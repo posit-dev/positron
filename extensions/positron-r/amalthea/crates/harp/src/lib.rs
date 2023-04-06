@@ -40,6 +40,43 @@ macro_rules! r_lock {
 }
 
 #[macro_export]
+macro_rules! with_vector_impl {
+    ($x:expr, $class:ident, $variable:ident, $($code:tt)*) => {{
+        let fun = |$variable: $class| {
+            $($code)*
+        };
+        Ok(fun($class::new_unchecked($x)))
+    }};
+}
+
+#[macro_export]
+macro_rules! with_vector {
+    ($sexp:expr, |$variable:ident| { $($code:tt)* }) => {
+        unsafe {
+            let sexp = $sexp;
+
+            let rtype = r_typeof(sexp);
+            match rtype {
+                LGLSXP => crate::with_vector_impl!(sexp, LogicalVector, $variable, $($code)*),
+                INTSXP => {
+                    if r_inherits(sexp, "factor") {
+                        crate::with_vector_impl!(sexp, Factor, $variable, $($code)*)
+                    } else {
+                        crate::with_vector_impl!(sexp, IntegerVector, $variable, $($code)*)
+                    }
+                },
+                REALSXP => crate::with_vector_impl!(sexp, NumericVector, $variable, $($code)*),
+                RAWSXP => crate::with_vector_impl!(sexp, RawVector, $variable, $($code)*),
+                STRSXP => crate::with_vector_impl!(sexp, CharacterVector, $variable, $($code)*),
+
+                _ => Err(crate::error::Error::UnexpectedType(rtype, vec![LGLSXP, INTSXP, REALSXP, RAWSXP, STRSXP]))
+            }
+        }
+
+    };
+}
+
+#[macro_export]
 macro_rules! r_symbol {
 
     ($id:literal) => {{

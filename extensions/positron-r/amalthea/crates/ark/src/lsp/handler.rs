@@ -5,10 +5,11 @@
 //
 //
 
+use amalthea::comm::event::CommEvent;
 use amalthea::language::lsp_handler::LspHandler;
 use bus::BusReader;
 use crossbeam::channel::Sender;
-use std::thread;
+use stdext::spawn;
 
 use crate::kernel::KernelInfo;
 use crate::request::Request;
@@ -17,6 +18,7 @@ use super::backend;
 
 pub struct Lsp {
     shell_request_tx: Sender<Request>,
+    comm_manager_tx: Sender<CommEvent>,
     kernel_init_rx: BusReader<KernelInfo>,
     kernel_initialized: bool,
 }
@@ -24,9 +26,10 @@ pub struct Lsp {
 impl Lsp {
     pub fn new(
         shell_request_tx: Sender<Request>,
+        comm_manager_tx: Sender<CommEvent>,
         kernel_init_rx: BusReader<KernelInfo>
     ) -> Self {
-        Self { shell_request_tx, kernel_init_rx, kernel_initialized: false }
+        Self { shell_request_tx, comm_manager_tx, kernel_init_rx, kernel_initialized: false }
     }
 }
 
@@ -48,7 +51,10 @@ impl LspHandler for Lsp {
         }
 
         let shell_request_tx = self.shell_request_tx.clone();
-        thread::spawn(move || backend::start_lsp(tcp_address, shell_request_tx, lsp_initialized));
+        let comm_manager_tx = self.comm_manager_tx.clone();
+        spawn!("ark-lsp", move || {
+            backend::start_lsp(tcp_address, shell_request_tx, comm_manager_tx, lsp_initialized)
+        });
         return Ok(());
     }
 }

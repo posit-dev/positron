@@ -1007,6 +1007,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param msg The message to log
 	 */
 	public log(msg: string) {
+		// Ensure message isn't over the maximum length
+		if (msg.length > 2048) {
+			msg = msg.substring(0, 2048) + '... (truncated)';
+		}
+
 		if (this._logChannel) {
 			// If we have a kernel-specific log channel, log to that. The kernel
 			// log channel primarily streams the kernel's log, so prefix our

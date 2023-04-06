@@ -11,10 +11,10 @@ use std::fs::DirEntry;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Result;
 use anyhow::bail;
-use harp::eval::RParseEvalOptions;
+use anyhow::Result;
 use harp::eval::r_parse_eval;
+use harp::eval::RParseEvalOptions;
 use harp::exec::geterrmessage;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -23,6 +23,7 @@ use harp::r_symbol;
 use harp::string::r_string_decode;
 use harp::utils::r_envir_name;
 use harp::utils::r_formals;
+use harp::utils::r_typeof;
 use lazy_static::lazy_static;
 use libR_sys::*;
 use log::*;
@@ -30,10 +31,10 @@ use regex::Captures;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
-use stdext::*;
 use stdext::join::joined;
 use stdext::unwrap::IntoOption;
 use stdext::unwrap::IntoResult;
+use stdext::*;
 use tower_lsp::lsp_types::Command;
 use tower_lsp::lsp_types::CompletionItem;
 use tower_lsp::lsp_types::CompletionItemKind;
@@ -51,7 +52,9 @@ use crate::lsp::backend::Backend;
 use crate::lsp::documents::Document;
 use crate::lsp::help::RHtmlHelp;
 use crate::lsp::indexer;
+use crate::lsp::signature_help::signature_help;
 use crate::lsp::traits::cursor::TreeCursorExt;
+use crate::lsp::traits::node::NodeExt;
 use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::string::StringExt;
@@ -66,17 +69,43 @@ lazy_static! {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum CompletionData {
-    DataVariable { name: String, owner: String },
-    Directory { path: PathBuf },
-    File { path: PathBuf },
-    Function { name: String, package: Option<String> },
-    Object { name: String },
-    Package { name: String },
-    Parameter { name: String, function: String },
-    RoxygenTag { tag: String },
-    ScopeParameter { name: String },
-    ScopeVariable { name: String },
-    Snippet { text: String },
+    DataVariable {
+        name: String,
+        owner: String,
+    },
+    Directory {
+        path: PathBuf,
+    },
+    File {
+        path: PathBuf,
+    },
+    Function {
+        name: String,
+        package: Option<String>,
+    },
+    Object {
+        name: String,
+    },
+    Package {
+        name: String,
+    },
+    Parameter {
+        name: String,
+        function: String,
+    },
+    RoxygenTag {
+        tag: String,
+    },
+    ScopeParameter {
+        name: String,
+    },
+    ScopeVariable {
+        name: String,
+    },
+    Snippet {
+        text: String,
+    },
+    Unknown,
 }
 
 #[derive(Debug)]
@@ -85,6 +114,7 @@ pub struct CompletionContext<'a> {
     pub node: Node<'a>,
     pub source: String,
     pub point: Point,
+    pub include_hidden: bool,
 }
 
 fn is_pipe_operator(node: &Node) -> bool {
@@ -104,7 +134,6 @@ fn quote_if_non_syntactic(name: &str) -> String {
 }
 
 fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
-
     let result: Result<()> = local! {
 
         let lhs = node.child(0).into_result()?;
@@ -118,11 +147,12 @@ fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
     };
 
     result.is_ok()
-
 }
 
-unsafe fn resolve_package_completion_item(item: &mut CompletionItem, package: &str) -> Result<bool> {
-
+unsafe fn resolve_package_completion_item(
+    item: &mut CompletionItem,
+    package: &str,
+) -> Result<bool> {
     let topic = join!(package, "-package");
     let help = unwrap!(RHtmlHelp::new(topic.as_str(), Some(package))?, None => {
         return Ok(false);
@@ -140,8 +170,11 @@ unsafe fn resolve_package_completion_item(item: &mut CompletionItem, package: &s
     Ok(true)
 }
 
-unsafe fn resolve_function_completion_item(item: &mut CompletionItem, name: &str, package: Option<&str>) -> Result<bool> {
-
+unsafe fn resolve_function_completion_item(
+    item: &mut CompletionItem,
+    name: &str,
+    package: Option<&str>,
+) -> Result<bool> {
     let help = unwrap!(RHtmlHelp::new(name, package)?, None => {
         return Ok(false);
     });
@@ -156,12 +189,14 @@ unsafe fn resolve_function_completion_item(item: &mut CompletionItem, name: &str
     item.documentation = Some(Documentation::MarkupContent(markup));
 
     Ok(true)
-
 }
 
 // TODO: Include package as well here?
-unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &str, function: &str) -> Result<bool> {
-
+unsafe fn resolve_parameter_completion_item(
+    item: &mut CompletionItem,
+    name: &str,
+    function: &str,
+) -> Result<bool> {
     // Get help for this function.
     let help = unwrap!(RHtmlHelp::new(function, None)?, None => {
         return Ok(false);
@@ -177,58 +212,54 @@ unsafe fn resolve_parameter_completion_item(item: &mut CompletionItem, name: &st
     item.detail = Some(format!("{}()", function));
     item.documentation = Some(Documentation::MarkupContent(markup));
     Ok(true)
-
 }
 
 #[allow(unused_variables)]
-pub unsafe fn resolve_completion_item(item: &mut CompletionItem, data: &CompletionData) -> Result<bool> {
-
+pub unsafe fn resolve_completion_item(
+    item: &mut CompletionItem,
+    data: &CompletionData,
+) -> Result<bool> {
     match data {
         CompletionData::DataVariable { name, owner } => Ok(false),
         CompletionData::Directory { path } => Ok(false),
         CompletionData::File { path } => Ok(false),
-        CompletionData::Function { name, package } => resolve_function_completion_item(item, name, package.as_deref()),
+        CompletionData::Function { name, package } => {
+            resolve_function_completion_item(item, name, package.as_deref())
+        },
         CompletionData::Package { name } => resolve_package_completion_item(item, name),
-        CompletionData::Parameter { name, function } => resolve_parameter_completion_item(item, name, function),
+        CompletionData::Parameter { name, function } => {
+            resolve_parameter_completion_item(item, name, function)
+        },
         CompletionData::Object { name } => Ok(false),
         CompletionData::RoxygenTag { tag } => Ok(false),
         CompletionData::ScopeVariable { name } => Ok(false),
         CompletionData::ScopeParameter { name } => Ok(false),
         CompletionData::Snippet { text } => Ok(false),
+        CompletionData::Unknown => Ok(false),
     }
-
 }
 
 fn completion_item(label: impl AsRef<str>, data: CompletionData) -> Result<CompletionItem> {
-
     Ok(CompletionItem {
         label: label.as_ref().to_string(),
         data: Some(serde_json::to_value(data)?),
         ..Default::default()
     })
-
 }
 
 fn completion_item_from_file(entry: DirEntry) -> Result<CompletionItem> {
-
     let name = entry.file_name().to_string_lossy().to_string();
-    let mut item = completion_item(name, CompletionData::File {
-        path: entry.path(),
-    })?;
+    let mut item = completion_item(name, CompletionData::File { path: entry.path() })?;
 
     item.kind = Some(CompletionItemKind::FILE);
     Ok(item)
-
 }
 
 fn completion_item_from_directory(entry: DirEntry) -> Result<CompletionItem> {
-
     let mut name = entry.file_name().to_string_lossy().to_string();
     name.push_str("/");
 
-    let mut item = completion_item(&name, CompletionData::Directory {
-        path: entry.path(),
-    })?;
+    let mut item = completion_item(&name, CompletionData::Directory { path: entry.path() })?;
 
     item.kind = Some(CompletionItemKind::FOLDER);
     item.command = Some(Command {
@@ -238,25 +269,24 @@ fn completion_item_from_directory(entry: DirEntry) -> Result<CompletionItem> {
     });
 
     Ok(item)
-
 }
 
-
 fn completion_item_from_direntry(entry: DirEntry) -> Result<CompletionItem> {
-
-    let is_dir = entry.file_type().map(|value| value.is_dir()) .unwrap_or(false);
+    let is_dir = entry
+        .file_type()
+        .map(|value| value.is_dir())
+        .unwrap_or(false);
     if is_dir {
         return completion_item_from_directory(entry);
     } else {
         return completion_item_from_file(entry);
     }
-
 }
 
-
-
-fn completion_item_from_assignment(node: &Node, context: &CompletionContext) -> Result<CompletionItem> {
-
+fn completion_item_from_assignment(
+    node: &Node,
+    context: &CompletionContext,
+) -> Result<CompletionItem> {
     let lhs = node.child_by_field_name("lhs").into_result()?;
     let rhs = node.child_by_field_name("rhs").into_result()?;
 
@@ -264,12 +294,15 @@ fn completion_item_from_assignment(node: &Node, context: &CompletionContext) -> 
 
     // TODO: Resolve functions that exist in-document here.
     let mut item = completion_item(label, CompletionData::ScopeVariable {
-        name: label.to_string()
+        name: label.to_string(),
     })?;
 
     let markup = MarkupContent {
         kind: MarkupKind::Markdown,
-        value: format!("Defined in this document on line {}.", lhs.start_position().row + 1),
+        value: format!(
+            "Defined in this document on line {}.",
+            lhs.start_position().row + 1
+        ),
     };
 
     item.detail = Some(label.to_string());
@@ -277,7 +310,6 @@ fn completion_item_from_assignment(node: &Node, context: &CompletionContext) -> 
     item.kind = Some(CompletionItemKind::VARIABLE);
 
     if rhs.kind() == "function" {
-
         if let Some(parameters) = rhs.child_by_field_name("parameters") {
             let parameters = parameters.utf8_text(context.source.as_bytes())?;
             item.detail = Some(join!(label, parameters));
@@ -286,15 +318,15 @@ fn completion_item_from_assignment(node: &Node, context: &CompletionContext) -> 
         item.kind = Some(CompletionItemKind::FUNCTION);
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
         item.insert_text = Some(format!("{}($0)", label));
-
     }
 
     return Ok(item);
-
 }
 
-unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Result<CompletionItem> {
-
+unsafe fn completion_item_from_package(
+    package: &str,
+    append_colons: bool,
+) -> Result<CompletionItem> {
     let mut item = completion_item(package.to_string(), CompletionData::Package {
         name: package.to_string(),
     })?;
@@ -312,11 +344,13 @@ unsafe fn completion_item_from_package(package: &str, append_colons: bool) -> Re
     }
 
     return Ok(item);
-
 }
 
-pub fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: Option<&str>, parameters: &[T]) -> Result<CompletionItem> {
-
+pub fn completion_item_from_function<T: AsRef<str>>(
+    name: &str,
+    envir: Option<&str>,
+    parameters: &[T],
+) -> Result<CompletionItem> {
     let label = format!("{}", name);
     let mut item = completion_item(label, CompletionData::Function {
         name: name.to_string(),
@@ -345,8 +379,17 @@ pub fn completion_item_from_function<T: AsRef<str>>(name: &str, envir: Option<&s
     return Ok(item);
 }
 
-unsafe fn completion_item_from_data_variable(name: &str, owner: &str, enquote: bool) -> Result<CompletionItem> {
-
+// TODO
+unsafe fn completion_item_from_dataset(name: &str) -> Result<CompletionItem> {
+    let mut item = completion_item(name.to_string(), CompletionData::Unknown)?;
+    item.kind = Some(CompletionItemKind::STRUCT);
+    Ok(item)
+}
+unsafe fn completion_item_from_data_variable(
+    name: &str,
+    owner: &str,
+    enquote: bool,
+) -> Result<CompletionItem> {
     let mut item = completion_item(name.to_string(), CompletionData::DataVariable {
         name: name.to_string(),
         owner: owner.to_string(),
@@ -360,11 +403,13 @@ unsafe fn completion_item_from_data_variable(name: &str, owner: &str, enquote: b
     item.kind = Some(CompletionItemKind::VARIABLE);
 
     Ok(item)
-
 }
 
-unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP) -> Result<CompletionItem> {
-
+unsafe fn completion_item_from_object(
+    name: &str,
+    mut object: SEXP,
+    envir: SEXP,
+) -> Result<CompletionItem> {
     // TODO: Can we figure out the object type without forcing promise evaluation?
     if TYPEOF(object) as u32 == PROMSXP {
         let mut errc = 0;
@@ -382,7 +427,10 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
     if Rf_isFunction(object) != 0 {
         let envir = r_envir_name(envir)?;
         let formals = r_formals(object)?;
-        let arguments = formals.iter().map(|formal| formal.name.as_str()).collect::<Vec<_>>();
+        let arguments = formals
+            .iter()
+            .map(|formal| formal.name.as_str())
+            .collect::<Vec<_>>();
         return completion_item_from_function(name, Some(envir.as_str()), &arguments);
     }
 
@@ -394,11 +442,9 @@ unsafe fn completion_item_from_object(name: &str, mut object: SEXP, envir: SEXP)
     item.kind = Some(CompletionItemKind::STRUCT);
 
     Ok(item)
-
 }
 
 unsafe fn completion_item_from_namespace(name: &str, namespace: SEXP) -> Result<CompletionItem> {
-
     let symbol = r_symbol!(name);
 
     // First, look in the namespace itself.
@@ -414,12 +460,14 @@ unsafe fn completion_item_from_namespace(name: &str, namespace: SEXP) -> Result<
         return completion_item_from_object(name, object, namespace);
     }
 
-    bail!("Object '{}' not defined in namespace {:?}", name, r_envir_name(namespace)?);
-
+    bail!(
+        "Object '{}' not defined in namespace {:?}",
+        name,
+        r_envir_name(namespace)?
+    );
 }
 
 unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<CompletionItem> {
-
     let symbol = r_symbol!(name);
     let object = Rf_findVarInFrame(envir, symbol);
     if object == R_UnboundValue {
@@ -427,24 +475,23 @@ unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<Complet
     }
 
     return completion_item_from_object(name, object, envir);
-
 }
 
 // This is used when providing completions for a parameter in a document
 // that is considered in-scope at the cursor position.
-fn completion_item_from_scope_parameter(parameter: &str, _context: &CompletionContext) -> Result<CompletionItem> {
-
+fn completion_item_from_scope_parameter(
+    parameter: &str,
+    _context: &CompletionContext,
+) -> Result<CompletionItem> {
     let mut item = completion_item(parameter, CompletionData::ScopeParameter {
         name: parameter.to_string(),
     })?;
 
     item.kind = Some(CompletionItemKind::VARIABLE);
     Ok(item)
-
 }
 
 unsafe fn completion_item_from_parameter(parameter: &str, callee: &str) -> Result<CompletionItem> {
-
     let label = quote_if_non_syntactic(parameter);
     let mut item = completion_item(label, CompletionData::Parameter {
         name: parameter.to_string(),
@@ -463,36 +510,45 @@ unsafe fn completion_item_from_parameter(parameter: &str, callee: &str) -> Resul
     };
 
     Ok(item)
-
 }
 
-pub fn completion_context<'a>(document: &'a Document, position: &TextDocumentPositionParams) -> Result<CompletionContext<'a>> {
-
+pub fn completion_context<'a>(
+    document: &'a Document,
+    position: &TextDocumentPositionParams,
+) -> Result<CompletionContext<'a>> {
     // get reference to AST
     let ast = &document.ast;
 
     // try to find node at completion position
-    let mut point = position.position.as_point();
-    if point.column > 1 {
-        point.column -= 1;
-    }
+    let point = position.position.as_point();
 
     // use the node to figure out the completion token
-    let node = ast.node_at_point(point)?;
+    let node = ast.node_at_point(point);
     let source = document.contents.to_string();
 
-    // build completion context
-    Ok(CompletionContext { document, node, source, point })
+    // track whether we should include hidden completions
+    let text = node.utf8_text(source.as_bytes())?;
+    let include_hidden = text.starts_with(".");
 
+    // build completion context
+    Ok(CompletionContext {
+        document,
+        node,
+        source,
+        point,
+        include_hidden,
+    })
 }
 
-fn append_defined_variables(node: &Node, context: &CompletionContext, completions: &mut Vec<CompletionItem>) {
-
-    let visited : HashSet<usize> = HashSet::new();
+fn append_defined_variables(
+    node: &Node,
+    context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) {
+    let visited: HashSet<usize> = HashSet::new();
 
     let mut cursor = node.walk();
     cursor.recurse(|node| {
-
         // skip nodes that exist beyond the completion position
         if node.start_position().is_after(context.point) {
             return false;
@@ -504,9 +560,7 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
         }
 
         match node.kind() {
-
             "=" | "<-" | "<<-" => {
-
                 // check that the left-hand side is an identifier or a string
                 if let Some(child) = node.child(0) {
                     if matches!(child.kind(), "identifier" | "string") {
@@ -519,51 +573,43 @@ fn append_defined_variables(node: &Node, context: &CompletionContext, completion
 
                 // return true in case we have nested assignments
                 return true;
-
-            }
+            },
 
             "->" | "->>" => {
-
                 // return true for nested assignments
                 return true;
-
-            }
+            },
 
             "call" => {
-
                 // don't recurse into calls for certain functions
                 return !call_uses_nse(&node, context);
-
-            }
+            },
 
             "function" => {
-
                 // don't recurse into function definitions, as these create as new scope
                 // for variable definitions (and so such definitions are no longer visible)
                 return false;
-
-            }
+            },
 
             _ => {
                 return true;
-            }
-
+            },
         }
-
     });
-
 }
 
 // TODO: Pick a name that makes it clear this is a function defined in the associated document.
-fn append_function_parameters(node: &Node, context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+fn append_function_parameters(
+    node: &Node,
+    context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     // get the parameters node
     let parameters = node.child_by_field_name("parameters").into_result()?;
 
     // iterate through the children, looking for parameters with known names
     let mut cursor = parameters.walk();
     for node in parameters.children(&mut cursor) {
-
         if node.kind() != "parameter" {
             continue;
         }
@@ -581,15 +627,12 @@ fn append_function_parameters(node: &Node, context: &CompletionContext, completi
             Ok(item) => completions.push(item),
             Err(error) => error!("{:?}", error),
         }
-
     }
 
     Ok(())
-
 }
 
 unsafe fn list_namespace_exports(namespace: SEXP) -> RObject {
-
     let ns = Rf_findVarInFrame(namespace, r_symbol!(".__NAMESPACE__."));
     if ns == R_UnboundValue {
         return RObject::null();
@@ -601,15 +644,18 @@ unsafe fn list_namespace_exports(namespace: SEXP) -> RObject {
     }
 
     return RObject::new(R_lsInternal(exports, 1));
-
 }
 
 unsafe fn list_namespace_symbols(namespace: SEXP) -> RObject {
     return RObject::new(R_lsInternal(namespace, 1));
 }
 
-unsafe fn append_subset_completions(_context: &CompletionContext, callee: &str, enquote: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+unsafe fn append_subset_completions(
+    _context: &CompletionContext,
+    callee: &str,
+    enquote: bool,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     info!("append_subset_completions({:?})", callee);
 
     let value = r_parse_eval(callee, RParseEvalOptions {
@@ -629,98 +675,127 @@ unsafe fn append_subset_completions(_context: &CompletionContext, callee: &str, 
     }
 
     Ok(())
-
 }
 
-unsafe fn append_call_library_completions(context: &CompletionContext, cursor: &Node, node: &Node, completions: &mut Vec<CompletionItem>) -> Result<bool> {
+unsafe fn append_custom_completions(
+    context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<bool> {
+    // Use the signature help tools to figure out the necessary pieces.
+    let position = context.point.as_position();
+    let signatures = signature_help(context.document, &position)?;
 
-    // Try to figure out the callee (if any).
-    let ok = local! {
+    let signatures = unwrap!(signatures, None => {
+        return Ok(false);
+    });
 
-        info!("Cursor: {}", cursor.to_sexp());
-        info!("Node:   {}", node.to_sexp());
+    // Pull out the relevant signature information.
+    let signature = signatures.signatures.get(0).into_result()?;
+    let mut name = signature.label.clone();
+    let parameters = signature.parameters.as_ref().into_result()?;
+    let index = signature.active_parameter.into_result()?;
+    let parameter = parameters.get(index as usize).into_result()?;
 
-        // Get the parent node.
-        let mut parent = cursor.parent()?;
-        if matches!(parent.kind(), "argument") {
-            parent = parent.parent()?;
-            if matches!(parent.kind(), "arguments") {
-                parent = parent.parent()?;
-            }
-        }
-
-        // Make sure it matches the call node.
-        info!("Parent: {}", parent.to_sexp());
-        (parent == *node).into_option()?;
-
-        // Get the callee.
-        let mut callee = node.child(0)?;
-        info!("Callee: {}", callee.to_sexp());
-
-        // Resolve the callee for namespaced calls.
-        if matches!(callee.kind(), "::" | ":::") {
-
-            // Check for callable lhs.
-            let lhs = callee.child_by_field_name("lhs")?;
-            if !matches!(lhs.kind(), "identifier" | "string") {
-                return None;
-            }
-
-            // Make sure it matches base.
-            let contents = unwrap!(lhs.utf8_text(context.source.as_bytes()), Err(_) => {
-                return None;
-            });
-
-            (contents == "base").into_option()?;
-
-            // Update the callee.
-            callee = callee.child_by_field_name("rhs")?;
-
-        }
-
-        // Make sure we have an identifier.
-        (callee.kind() == "identifier").into_option()?;
-
-        // Check for call to handled functions.
-        let callee = callee.utf8_text(context.source.as_bytes()).unwrap_or_default();
-        info!("Callee text: {}", callee);
-        if !matches!(callee, "library" | "require" | "requireNamespace") {
-            return None;
-        }
-
-        Some(true)
-
+    // Extract the argument text.
+    let argument = match parameter.label.clone() {
+        tower_lsp::lsp_types::ParameterLabel::LabelOffsets([start, end]) => {
+            let label = signature.label.as_str();
+            let substring = label.get((start as usize)..(end as usize));
+            substring.unwrap().to_string()
+        },
+        tower_lsp::lsp_types::ParameterLabel::Simple(string) => string,
     };
 
-    if ok.is_none() {
-        return Ok(false);
+    // Trim off the function arguments from the signature.
+    if let Some(index) = name.find('(') {
+        name = name[0..index].to_string();
     }
 
-    let packages = RFunction::new("base", ".packages")
-        .param("all.available", true)
-        .call()?
-        .to::<Vec<String>>()?;
+    // Check and see if we're in the 'name' position,
+    // versus the 'value' position, for a function invocation.
+    //
+    // For example:
+    //
+    //    Sys.setenv(EDITOR = "vim")
+    //               ^^^^^^   ^^^^^
+    //                name    value
+    //
+    // This is mainly relevant because we might only want to
+    // provide certain completions in the 'name' position.
+    let node = context.document.ast.node_at_point(context.point);
 
-    for package in packages {
-        let item = completion_item_from_package(package.as_str(), false)?;
-        completions.push(item);
+    let marker = node.bwd_leaf_iter().find_map(|node| match node.kind() {
+        "(" | "comma" => Some("name"),
+        "=" => Some("value"),
+        _ => None,
+    });
+
+    let position = marker.unwrap_or("value");
+
+    // Call our custom completion function.
+    let r_completions = RFunction::from(".ps.completions.getCustomCallCompletions")
+        .param("name", name)
+        .param("argument", argument)
+        .param("position", position)
+        .call()?;
+
+    if r_typeof(*r_completions) == VECSXP {
+        let values = VECTOR_ELT(*r_completions, 0);
+        let kind = VECTOR_ELT(*r_completions, 1);
+        let enquote = VECTOR_ELT(*r_completions, 2);
+        let append = VECTOR_ELT(*r_completions, 3);
+        if let Ok(values) = RObject::view(values).to::<Vec<String>>() {
+            let kind = RObject::view(kind)
+                .to::<String>()
+                .unwrap_or("unknown".to_string());
+            let enquote = RObject::view(enquote).to::<bool>().unwrap_or(false);
+            let append = RObject::view(append)
+                .to::<String>()
+                .unwrap_or("".to_string());
+            for value in values.iter() {
+                let value = value.clone();
+                let item = match kind.as_str() {
+                    "package" => completion_item_from_package(&value, false),
+                    "dataset" => completion_item_from_dataset(&value),
+                    _ => completion_item(&value, CompletionData::Unknown),
+                };
+
+                let mut item = unwrap!(item, Err(error) => {
+                    log::error!("{}", error);
+                    continue;
+                });
+
+                if enquote && node.kind() != "string" {
+                    item.insert_text = Some(format!("\"{}\"", value));
+                } else if !append.is_empty() {
+                    item.insert_text = Some(format!("{}{}", value, append));
+                }
+
+                completions.push(item);
+            }
+        }
     }
 
     Ok(true)
-
 }
 
-unsafe fn append_call_completions(context: &CompletionContext, _cursor: &Node, node: &Node, completions: &mut Vec<CompletionItem>) -> Result<()> {
-    let callee = node.child(0).into_result()?.utf8_text(context.source.as_bytes())?;
+unsafe fn append_call_completions(
+    context: &CompletionContext,
+    _cursor: &Node,
+    node: &Node,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
+    let callee = node
+        .child(0)
+        .into_result()?
+        .utf8_text(context.source.as_bytes())?;
     append_argument_completions(context, &callee, completions)
 }
 
 fn find_pipe_root(mut node: Node) -> Option<Node> {
-
     let mut root = None;
 
     loop {
-
         if is_pipe_operator(&node) {
             root = Some(node);
         }
@@ -729,13 +804,14 @@ fn find_pipe_root(mut node: Node) -> Option<Node> {
             Some(node) => node,
             None => return root,
         }
-
     }
-
 }
 
-unsafe fn append_pipe_completions(context: &CompletionContext, node: &Node, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+unsafe fn append_pipe_completions(
+    context: &CompletionContext,
+    node: &Node,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     // Try to figure out the code associated with the 'root' of the pipe expression.
     let root = local! {
 
@@ -759,7 +835,7 @@ unsafe fn append_pipe_completions(context: &CompletionContext, node: &Node, comp
     });
 
     let value = r_parse_eval(root, RParseEvalOptions {
-        forbid_function_calls: true
+        forbid_function_calls: true,
     })?;
 
     // Try to retrieve names from the resulting item
@@ -774,20 +850,19 @@ unsafe fn append_pipe_completions(context: &CompletionContext, node: &Node, comp
     }
 
     Ok(())
-
 }
 
-
-unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+unsafe fn append_argument_completions(
+    _context: &CompletionContext,
+    callee: &str,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     info!("append_argument_completions({:?})", callee);
 
     // Check for a function defined in the workspace that can provide parameters.
     if let Some((_path, entry)) = indexer::find(callee) {
-
         #[allow(unused)]
         match entry.data {
-
             indexer::IndexEntryData::Function { name, arguments } => {
                 for argument in arguments {
                     match completion_item_from_parameter(argument.as_str(), name.as_str()) {
@@ -799,10 +874,8 @@ unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str
 
             indexer::IndexEntryData::Section { level, title } => {
                 // nothing to do
-            }
-
+            },
         }
-
     }
 
     // TODO: Given the callee, we should also try to find its definition within
@@ -813,8 +886,7 @@ unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str
     })?;
 
     if Rf_isFunction(*value) != 0 {
-
-        let strings = RFunction::from(".ps.formalNames")
+        let strings = RFunction::from(".ps.completions.formalNames")
             .add(*value)
             .call()?
             .to::<Vec<String>>()?;
@@ -826,21 +898,24 @@ unsafe fn append_argument_completions(_context: &CompletionContext, callee: &str
                 Err(error) => error!("{:?}", error),
             }
         }
-
     }
 
     Ok(())
-
 }
 
-unsafe fn append_namespace_completions(_context: &CompletionContext, package: &str, exports_only: bool, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
-    info!("append_namespace_completions({:?}, {})", package, exports_only);
+unsafe fn append_namespace_completions(
+    _context: &CompletionContext,
+    package: &str,
+    exports_only: bool,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
+    info!(
+        "append_namespace_completions({:?}, {})",
+        package, exports_only
+    );
 
     // Get the package namespace.
-    let namespace = RFunction::new("base", "getNamespace")
-        .add(package)
-        .call()?;
+    let namespace = RFunction::new("base", "getNamespace").add(package).call()?;
 
     let symbols = if package == "base" {
         list_namespace_symbols(*namespace)
@@ -859,11 +934,9 @@ unsafe fn append_namespace_completions(_context: &CompletionContext, package: &s
     }
 
     Ok(())
-
 }
 
 fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::Result<()> {
-
     // add some built-in snippet completions for control flow
     // NOTE: We don't use placeholder names for the final cursor locations below,
     // as the editting experience is not great (e.g. trying to insert a '{' will
@@ -878,7 +951,6 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::
     ];
 
     for snippet in snippets {
-
         let label = snippet.0.to_string();
         let mut item = completion_item(label.to_string(), CompletionData::Snippet {
             text: label.clone(),
@@ -896,9 +968,20 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::
     // base namespace, so we don't need to provide duplicate
     // definitions for these here.
     let keywords = vec![
-        "NULL", "NA", "TRUE", "FALSE", "Inf", "NaN",
-        "NA_integer_", "NA_real_", "NA_character_", "NA_complex_",
-        "in", "else", "next", "break",
+        "NULL",
+        "NA",
+        "TRUE",
+        "FALSE",
+        "Inf",
+        "NaN",
+        "NA_integer_",
+        "NA_real_",
+        "NA_character_",
+        "NA_complex_",
+        "in",
+        "else",
+        "next",
+        "break",
     ];
 
     for keyword in keywords {
@@ -908,11 +991,12 @@ fn append_keyword_completions(completions: &mut Vec<CompletionItem>) -> anyhow::
     }
 
     Ok(())
-
 }
 
-unsafe fn append_search_path_completions(_context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+unsafe fn append_search_path_completions(
+    _context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     // start with keywords
     append_keyword_completions(completions)?;
 
@@ -920,7 +1004,6 @@ unsafe fn append_search_path_completions(_context: &CompletionContext, completio
     let mut envir = R_GlobalEnv;
 
     while envir != R_EmptyEnv {
-
         // List symbols in the environment.
         let symbols = R_lsInternal(envir, 1);
 
@@ -932,7 +1015,18 @@ unsafe fn append_search_path_completions(_context: &CompletionContext, completio
         // behave like "regular" functions.)
         if envir == R_BaseEnv || envir == R_BaseNamespace {
             strings.retain(|name| {
-                !matches!(name.as_str(), "if" | "else" | "for" | "in" | "while" | "repeat" | "break" | "next" | "return" | "function")
+                !matches!(
+                    name.as_str(),
+                    "if" | "else" |
+                        "for" |
+                        "in" |
+                        "while" |
+                        "repeat" |
+                        "break" |
+                        "next" |
+                        "return" |
+                        "function"
+                )
             });
         }
 
@@ -945,7 +1039,6 @@ unsafe fn append_search_path_completions(_context: &CompletionContext, completio
 
         // Get the next environment.
         envir = ENCLOS(envir);
-
     }
 
     // Include installed packages as well.
@@ -961,11 +1054,12 @@ unsafe fn append_search_path_completions(_context: &CompletionContext, completio
     }
 
     Ok(())
-
 }
 
-unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+unsafe fn append_roxygen_completions(
+    _token: &str,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     // TODO: cache these?
     // TODO: use an indexer to build the tag list?
     let tags = RFunction::new("base", "system.file")
@@ -989,7 +1083,6 @@ unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<Complet
 
     let items = doc.as_vec().unwrap();
     for entry in items.iter() {
-
         let name = unwrap!(entry["name"].as_str(), None => {
             continue;
         });
@@ -1028,15 +1121,12 @@ unsafe fn append_roxygen_completions(_token: &str, completions: &mut Vec<Complet
         }
 
         completions.push(item);
-
     }
 
     return Ok(());
-
 }
 
 pub fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> Result<bool> {
-
     // figure out the token / node at the cursor position. note that we use
     // the previous token here as the cursor itself will be located just past
     // the cursor / node providing the associated context
@@ -1045,7 +1135,7 @@ pub fn can_provide_completions(document: &mut Document, params: &CompletionParam
         point.column -= 1;
     }
 
-    let node = document.ast.node_at_point(point)?;
+    let node = document.ast.node_at_point(point);
     let source = document.contents.to_string();
     let value = node.utf8_text(source.as_bytes())?;
 
@@ -1058,11 +1148,12 @@ pub fn can_provide_completions(document: &mut Document, params: &CompletionParam
     }
 
     return Ok(true);
-
 }
 
-unsafe fn append_file_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+unsafe fn append_file_completions(
+    context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     // Get the contents of the string token.
     //
     // NOTE: This includes the quotation characters on the string, and so
@@ -1101,7 +1192,6 @@ unsafe fn append_file_completions(context: &CompletionContext, completions: &mut
     log::info!("Reading directory: {}", path.display());
     let entries = std::fs::read_dir(path)?;
     for entry in entries.into_iter() {
-
         let entry = unwrap!(entry, Err(error) => {
             log::error!("{}", error);
             continue;
@@ -1113,25 +1203,21 @@ unsafe fn append_file_completions(context: &CompletionContext, completions: &mut
         });
 
         completions.push(item);
-
     }
 
     Ok(())
 }
 
-pub unsafe fn append_session_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+pub unsafe fn append_session_completions(
+    context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     info!("append_session_completions()");
 
     // get reference to AST
     let ast = &context.document.ast;
-    let cursor = ast.node_at_point(context.point)?;
+    let cursor = ast.node_at_point(context.point);
     let mut node = cursor;
-
-    // check for strings; when encountered, provide file completions
-    if node.kind() == "string" {
-        return append_file_completions(context, completions);
-    }
 
     // check for completion within a comment -- in such a case, we usually
     // want to complete things like roxygen tags
@@ -1152,7 +1238,6 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
     let mut found_call_completions = false;
 
     loop {
-
         // Check for 'subset' completions.
         if matches!(node.kind(), "$" | "[" | "[[") {
             let enquote = matches!(node.kind(), "[" | "[[");
@@ -1165,12 +1250,15 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
         // If we landed on a 'call', then we should provide parameter completions
         // for the associated callee if possible.
         if !found_call_completions && node.kind() == "call" {
-
             found_call_completions = true;
 
             // Check for library() completions.
-            match append_call_library_completions(context, &cursor, &node, completions) {
-                Ok(done) => if done { return Ok(()) },
+            match append_custom_completions(context, completions) {
+                Ok(done) => {
+                    if done {
+                        return Ok(());
+                    }
+                },
                 Err(error) => error!("{}", error),
             }
 
@@ -1179,7 +1267,6 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
 
             // Check for generic call completions.
             append_call_completions(context, &cursor, &node, completions)?;
-
         }
 
         // Handle the case with 'package::prefix', where the user has now
@@ -1202,9 +1289,14 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
         // Update the node.
         node = match node.parent() {
             Some(node) => node,
-            None => break
+            None => break,
         };
+    }
 
+    // If we get here, and we were located within a string,
+    // just provide file completions.
+    if node.kind() == "string" {
+        return append_file_completions(context, completions);
     }
 
     // If we got here, then it's appropriate to return completions
@@ -1214,14 +1306,15 @@ pub unsafe fn append_session_completions(context: &CompletionContext, completion
     }
 
     Ok(())
-
 }
 
-pub fn append_document_completions(context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+pub fn append_document_completions(
+    context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     // get reference to AST
     let ast = &context.document.ast;
-    let mut node = ast.node_at_point(context.point)?;
+    let mut node = ast.node_at_point(context.point);
 
     // skip comments
     if node.kind() == "comment" {
@@ -1234,9 +1327,8 @@ pub fn append_document_completions(context: &CompletionContext, completions: &mu
         return Ok(());
     }
 
-    let mut visited : HashSet<usize> = HashSet::new();
+    let mut visited: HashSet<usize> = HashSet::new();
     loop {
-
         // If this is a brace list, or the document root, recurse to find identifiers.
         if node.kind() == "{" || node.parent() == None {
             append_defined_variables(&node, context, completions);
@@ -1258,15 +1350,16 @@ pub fn append_document_completions(context: &CompletionContext, completions: &mu
             Some(node) => node,
             None => break,
         };
-
     }
 
     Ok(())
-
 }
 
-pub fn append_workspace_completions(backend: &Backend, context: &CompletionContext, completions: &mut Vec<CompletionItem>) -> Result<()> {
-
+pub fn append_workspace_completions(
+    backend: &Backend,
+    context: &CompletionContext,
+    completions: &mut Vec<CompletionItem>,
+) -> Result<()> {
     // TODO: Don't provide completions if token is empty in certain contexts
     // (e.g. parameter completions or something like that)
     if matches!(context.node.kind(), "::" | ":::") {
@@ -1287,15 +1380,12 @@ pub fn append_workspace_completions(backend: &Backend, context: &CompletionConte
 
     // get entries from the index
     indexer::map(|path, symbol, entry| {
-
         if !symbol.fuzzy_matches(token) {
             return;
         }
 
         match &entry.data {
-
             indexer::IndexEntryData::Function { name, arguments } => {
-
                 let mut completion = unwrap!(completion_item_from_function(name, None, arguments), Err(error) => {
                     error!("{:?}", error);
                     return;
@@ -1315,7 +1405,11 @@ pub fn append_workspace_completions(backend: &Backend, context: &CompletionConte
                     }
                 }
 
-                let value = format!("Defined in `{}` on line {}.", path, entry.range.start.line + 1);
+                let value = format!(
+                    "Defined in `{}` on line {}.",
+                    path,
+                    entry.range.start.line + 1
+                );
                 let markup = MarkupContent {
                     kind: MarkupKind::Markdown,
                     value: value,
@@ -1323,10 +1417,9 @@ pub fn append_workspace_completions(backend: &Backend, context: &CompletionConte
 
                 completion.documentation = Some(Documentation::MarkupContent(markup));
                 completions.push(completion);
+            },
 
-            }
-
-            indexer::IndexEntryData::Section { level: _, title: _ } => {}
+            indexer::IndexEntryData::Section { level: _, title: _ } => {},
         }
     });
 

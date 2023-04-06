@@ -286,7 +286,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param height The height of the body.
 	 * @param width The width of the body.
 	 */
-	override layoutBody(height: number, width: number): void {
+	protected override layoutBody(height: number, width: number): void {
 		// Call the base class's method.
 		super.layoutBody(height, width);
 

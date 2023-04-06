@@ -2,6 +2,7 @@
 name = "ark"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.64.0"
 description = """
 The Amalthea R Kernel.
 """
@@ -10,6 +11,7 @@ The Amalthea R Kernel.
 amalthea = { path = "../amalthea" }
 anyhow = { version = "^1.0", features = ["backtrace"] }
 async-trait = "0.1.66"
+base64 = "0.21.0"
 bus = "2.3.0"
 chrono = "0.4.23"
 crossbeam = { version = "0.8.2", features = ["crossbeam-channel"] }
