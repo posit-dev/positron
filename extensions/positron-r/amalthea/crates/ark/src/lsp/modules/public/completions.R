@@ -100,7 +100,7 @@
     if (as.integer(index) != -1L) {
         package <- substring(name, 1L, index - 1L)
         if (!package %in% loadedNamespaces())
-            return(list())
+            return(NULL)
     }
 
     # Search for a completion handler for this specification.

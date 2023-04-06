@@ -8,19 +8,32 @@
 # Enable HTML help
 options(help_type = "html")
 
+# Use internal editor
+options(editor = function(file, title, ...) {
+
+    # Make sure the requested files exist.
+    file <- as.character(path.expand(file))
+    ensure_parent_directory(file)
+    file.create(file[!file.exists(file)])
+
+    # Edit those files.
+    .ps.Call("ps_editor", as.character(file), as.character(title))
+
+})
+
 # Use custom browser implementation
 options(browser = function(url) {
-    .Call("ps_browse_url", as.character(url), PACKAGE = "(embedding)")
+    .ps.Call("ps_browse_url", as.character(url))
 })
 
 # Set up error handlers
 options(error = function() {
-    .Call("ps_error_handler", PACKAGE = "(embedding)")
+    .ps.Call("ps_error_handler")
 })
 
 # Set up graphics device
 options(device = function() {
-    .Call("ps_graphics_device", PACKAGE = "(embedding)")
+    .ps.Call("ps_graphics_device")
 })
 
 # Set cran mirror

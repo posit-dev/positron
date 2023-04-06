@@ -15,7 +15,7 @@ use crate::request::Request;
 
 // The LSP client.
 // For use within R callback functions.
-static mut LSP_CLIENT: Option<Mutex<Client>> = None;
+static mut LSP_CLIENT: Option<Client> = None;
 
 // The shell request channel.
 // For use within R callback functions.
@@ -25,8 +25,8 @@ static mut SHELL_REQUEST_TX: Option<Mutex<Sender<Request>>> = None;
 // For use within R callback functions.
 static mut COMM_MANAGER_TX: Option<Mutex<Sender<CommEvent>>> = None;
 
-pub fn lsp_client<'a>() -> MutexGuard<'a, Client> {
-    unsafe { LSP_CLIENT.as_ref().unwrap_unchecked().lock() }
+pub fn lsp_client() -> Client {
+    unsafe { LSP_CLIENT.as_ref().unwrap_unchecked().clone() }
 }
 
 pub fn shell_request_tx<'a>() -> MutexGuard<'a, Sender<Request>> {
@@ -43,7 +43,7 @@ pub fn initialize(
     comm_manager_tx: Sender<CommEvent>,
 ) {
     unsafe {
-        LSP_CLIENT = Some(Mutex::new(lsp_client));
+        LSP_CLIENT = Some(lsp_client);
         SHELL_REQUEST_TX = Some(Mutex::new(shell_request_tx));
         COMM_MANAGER_TX = Some(Mutex::new(comm_manager_tx));
     }
