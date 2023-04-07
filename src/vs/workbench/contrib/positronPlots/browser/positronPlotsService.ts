@@ -77,6 +77,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const plotClients: Array<PlotClientInstance> = [];
 			clients.forEach((client) => {
 				if (client.getClientType() === RuntimeClientType.Plot) {
+					// Check to see if we we already have a plot client for this
+					// client ID. If so, we don't need to do anything.
+					if (this.hasPlot(runtime.metadata.runtimeId, client.getClientId())) {
+						return;
+					}
 
 					// Attempt to load the metadata for this plot from storage
 					const storedMetadata = this._storageService.get(
@@ -157,6 +162,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// with the plots service.
 		this._register(runtime.onDidCreateClientInstance((event) => {
 			if (event.client.getClientType() === RuntimeClientType.Plot) {
+				const clientId = event.client.getClientId();
+
+				// Check to see if we we already have a plot client for this
+				// client ID. If so, we don't need to do anything.
+				if (this.hasPlot(runtime.metadata.runtimeId, clientId)) {
+					return;
+				}
+
 				// Get the code that generated this plot, if we have it
 				const code = this._recentExecutions.has(event.message.parent_id) ?
 					this._recentExecutions.get(event.message.parent_id)! : '';
@@ -164,7 +177,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Create the metadata object
 				const metadata: IPositronPlotMetadata = {
 					created: Date.parse(event.message.when),
-					id: event.client.getClientId(),
+					id: clientId,
 					runtime_id: runtime.metadata.runtimeId,
 					parent_id: event.message.parent_id,
 					code,
@@ -187,6 +200,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Listen for static plots being emitted, and register each one with
 		// the plots service.
 		this._register(runtime.onDidReceiveRuntimeMessageOutput((message) => {
+			// Check to see if we we already have a plot client for this
+			// message ID. If so, we don't need to do anything.
+			if (this.hasPlot(runtime.metadata.runtimeId, message.id)) {
+				return;
+			}
+
 			const code = this._recentExecutions.has(message.parent_id) ?
 				this._recentExecutions.get(message.parent_id) : '';
 			const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
@@ -306,8 +325,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param runtimeId The ID of the runtime that owns the plot.
 	 * @param plotId The ID of the plot itself.
 	 */
-	generateStorageKey(runtimeId: string, plotId: string): string {
+	private generateStorageKey(runtimeId: string, plotId: string): string {
 		return `positron.plot.${runtimeId}.${plotId}`;
+	}
+
+	/**
+	 * Checks to see whether the service has a plot with the given ID.
+	 *
+	 * @param runtimId The runtime ID that generated the plot.
+	 * @param plotId The plot's unique ID.
+	 */
+	private hasPlot(runtimeId: string, plotId: string): boolean {
+		return this._plots.some(plot =>
+			plot.metadata.runtime_id === runtimeId &&
+			plot.metadata.id === plotId);
 	}
 
 	/**
