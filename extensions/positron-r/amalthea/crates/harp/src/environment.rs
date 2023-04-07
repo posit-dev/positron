@@ -14,6 +14,7 @@ use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
+use crate::utils::r_assert_type;
 use crate::utils::r_inherits;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
@@ -203,9 +204,11 @@ impl Binding {
 
 pub fn has_children(value: SEXP) -> bool {
     match r_typeof(value) {
+        // TODO: consider if we'd want to be able to see the components of a POSIXlt
         VECSXP  => !unsafe{ r_inherits(value, "POSIXlt") },
         LISTSXP => true,
         ENVSXP => true,
+        CLOSXP => true,
 
         _       => false
     }
@@ -260,9 +263,6 @@ fn regular_binding_display_value(value: SEXP) -> BindingValue {
         // This includes data frames
         BindingValue::empty()
     } else {
-        // TODO:
-        //   - function
-        //   - environment
         format_display_value(value)
     }
 }
@@ -292,25 +292,28 @@ fn format_display_value(value: SEXP) -> BindingValue {
     }
 }
 
+fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
+    let mut n = 0;
+    unsafe {
+        while pairlist != R_NilValue {
+            r_assert_type(pairlist, &[LISTSXP])?;
+
+            pairlist = CDR(pairlist);
+            n = n + 1;
+        }
+    }
+    Ok(n)
+}
+
 fn regular_binding_type(value: SEXP) -> BindingType {
     let rtype = r_typeof(value);
     if is_simple_vector(value) {
         vec_type_info(value)
     } else if rtype == LISTSXP {
-
-        let mut n = 0;
-        let mut pairlist = value;
-        unsafe {
-            while pairlist != R_NilValue {
-                if r_typeof(pairlist) != LISTSXP {
-                    return BindingType::simple(String::from("pairlist [?]"));
-                }
-                pairlist = CDR(pairlist);
-                n = n + 1;
-            }
+        match pairlist_size(value) {
+            Ok(n)  => BindingType::simple(format!("pairlist [{}]", n)),
+            Err(_) => BindingType::simple(String::from("pairlist [?]"))
         }
-
-        BindingType::simple(format!("pairlist [{}]", n))
     } else if rtype == VECSXP {
         unsafe {
             if r_inherits(value, "data.frame") {
