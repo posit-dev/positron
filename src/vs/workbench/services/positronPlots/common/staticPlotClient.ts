@@ -3,20 +3,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * Creates a static plot client from a language runtime message.
  */
 export class StaticPlotClient extends Disposable {
-	public readonly id;
+	public readonly metadata: IPositronPlotMetadata;
 	public readonly mimeType;
 	public readonly data;
 
-	constructor(message: ILanguageRuntimeMessageOutput,
+	constructor(runtimeId: string, message: ILanguageRuntimeMessageOutput,
 		public readonly code?: string) {
 		super();
-		this.id = message.id;
+
+		// Create the metadata for the plot.
+		this.metadata = {
+			id: message.id,
+			parent_id: message.parent_id,
+			created: Date.parse(message.when),
+			runtime_id: runtimeId,
+			code: code ? code : '',
+		};
 
 		// Find the image MIME type. This is guaranteed to exist since we only create this object if
 		// there is an image, but check anyway to be safe.
@@ -33,5 +42,9 @@ export class StaticPlotClient extends Disposable {
 
 	get uri() {
 		return `data:${this.mimeType};base64,${this.data}`;
+	}
+
+	get id() {
+		return this.metadata.id;
 	}
 }
