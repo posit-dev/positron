@@ -18,11 +18,12 @@ import { ActionBarButton } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarFilter } from 'vs/platform/positronActionBar/browser/components/actionBarFilter';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { SortingMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/sortingMenuButton';
+import { GroupingMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/groupingMenuButton';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { showClearEnvironmentObjectsModalDialog } from 'vs/workbench/browser/positronModalDialogs/clearEnvironmentObjectsModalDialog';
 import { EnvironmentInstanceMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentInstanceMenuButton';
-import { GroupingMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/groupingMenuButton';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -117,6 +118,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<GroupingMenuButton />
+						<SortingMenuButton />
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} onClick={refreshWorkspaceObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>

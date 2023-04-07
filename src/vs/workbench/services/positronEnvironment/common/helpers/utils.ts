@@ -41,9 +41,9 @@ export const sortEnvironmentVariableItemsBySize = (
 	// Sort the environment variable items by size. Break ties by sorting by name.
 	environmentVariableItems.sort((a, b) => {
 		// Break ties by sorting by size;
-		if (a.size < b.size) {
+		if (a.size > b.size) {
 			return -1;
-		} else if (a.size > b.size) {
+		} else if (a.size < b.size) {
 			return 1;
 		} else {
 			return a.displayName.localeCompare(b.displayName, undefined, { numeric: true });
