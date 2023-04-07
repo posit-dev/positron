@@ -315,6 +315,8 @@ fn regular_binding_display_value(value: SEXP) -> BindingValue {
         BindingValue::empty()
     } else if rtype == LISTSXP {
         BindingValue::empty()
+    } else if rtype == SYMSXP && value == unsafe{ R_MissingArg } {
+        BindingValue::new(String::from("<missing>"), false)
     } else {
         format_display_value(value)
     }
