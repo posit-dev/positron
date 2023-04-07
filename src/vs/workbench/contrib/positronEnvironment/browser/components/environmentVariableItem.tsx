@@ -2,29 +2,30 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./environmentVariableItemComponent';
+import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
+import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
+import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 /**
- * EnvironmentVariableItemComponentProps interface.
+ * EnvironmentVariableItemProps interface.
  */
-export interface EnvironmentVariableItemComponentProps {
+export interface EnvironmentVariableItemProps {
 	nameColumnWidth: number;
 	detailsColumnWidth: number;
 	typeVisible: boolean;
-	indentLevel: number;
-	environmentVariableItem: EnvironmentVariableItem;
+	environmentVariableItem: IEnvironmentVariableItem;
+	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
 
 /**
- * EnvironmentVariableItemComponent component.
- * @param props A EnvironmentVariableItemComponentProps that contains the component properties.
+ * EnvironmentVariableItem component.
+ * @param props A EnvironmentVariableItemProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentVariableItemComponent = (props: EnvironmentVariableItemComponentProps) => {
+export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => {
 	// Hooks.
 	const [selected, _setSelected] = useState(false);
 	const [expanded, setExpanded] = useState(false);
@@ -52,7 +53,7 @@ export const EnvironmentVariableItemComponent = (props: EnvironmentVariableItemC
 	return (<>
 		<div className={classNames}>
 			<div className='name' style={{ width: props.nameColumnWidth }}>
-				<div style={{ display: 'flex', marginLeft: props.indentLevel * 20 }}>
+				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
 						{props.environmentVariableItem.hasChildren && (
 							<button className='expand-collapse-button' onClick={handleExpandCollapse}>

@@ -667,7 +667,12 @@
 		"--vscode-widget-border",
 		"--vscode-widget-shadow",
 		"--vscode-window-activeBorder",
-		"--vscode-window-inactiveBorder"
+		"--vscode-window-inactiveBorder",
+		"--vscode-positronEnvironment-headerBackground",
+		"--vscode-positronEnvironment-gridColor",
+		"--vscode-positronEnvironment-rowHoverBackground",
+		"--vscode-positronEnvironment-activeSelectionForegroundColor",
+		"--vscode-positronEnvironment-activeSelectionBackgroundColor"
 	],
 	"others": [
 		"--background-dark",

@@ -21,6 +21,11 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	private readonly _environmentVariable: EnvironmentVariable;
 
 	/**
+	 * Gets or sets the cached path.
+	 */
+	private _cachedPath: string | undefined;
+
+	/**
 	 * Gets or sets the child environment variable items.
 	 */
 	private _environmentVariableItems: EnvironmentVariableItem[] | undefined = undefined;
@@ -43,7 +48,20 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	 * Gets the path.
 	 */
 	get path() {
-		return this._environmentVariable.path;
+		// Cache the path.
+		if (!this._cachedPath) {
+			this._cachedPath = JSON.stringify(this._environmentVariable.path);
+		}
+
+		// Return the cached path.
+		return this._cachedPath;
+	}
+
+	/**
+	 * Gets the indent level.
+	 */
+	get indentLevel() {
+		return this._environmentVariable.parentKeys.length;
 	}
 
 	/**
@@ -161,22 +179,25 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	 * @returns The flattened environment variable item.
 	 */
 	flatten(isExpanded: (path: string) => boolean, sorting: PositronEnvironmentSorting): EnvironmentVariableItem[] {
-		// Create the flattened environment variable items with this item as the first entry.
+		// Create the flattened environment variable items with this environment variable item as
+		// the first entry.
 		const items: EnvironmentVariableItem[] = [this];
 
-		// Update the expanded state.
+		// If this environment variable item doesn't have children, return the flattened environment
+		// variable items
 		if (!this.hasChildren) {
 			return items;
 		}
 
+		// Update the expanded state of this environment variable item.
 		this.expanded = isExpanded(JSON.stringify(this._environmentVariable.path));
 
-		// If this environment variable isn't expanded or the children have not been loaded, return.
+		// If this environment variable item isn't expanded or the children have not been loaded, return.
 		if (!this.expanded || !this._environmentVariableItems) {
 			return items;
 		}
 
-		// Sort the children of this item in place.
+		// Sort the children of this environment variable item in place.
 		switch (sorting) {
 			// Name.
 			case PositronEnvironmentSorting.Name:
@@ -189,7 +210,7 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 				break;
 		}
 
-		// Recursively flatten the children.
+		// Recursively flatten the children of this environment variable item.
 		for (const item of this._environmentVariableItems) {
 			items.push(...item.flatten(isExpanded, sorting));
 		}

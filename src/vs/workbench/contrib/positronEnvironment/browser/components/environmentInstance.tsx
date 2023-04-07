@@ -6,11 +6,9 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
-import { EnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableGroup';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { EnvironmentVariableItemComponent } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItemComponent';
-import { EnvironmentVariableGroupComponent } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroupComponent';
+import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
+import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 
@@ -19,6 +17,24 @@ import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironm
  */
 const DEFAULT_NAME_COLUMN_WIDTH = 130;
 const TYPE_VISIBILITY_THRESHOLD = 400;
+
+/**
+ * isEnvironmentVariableGroup user-defined type guard.
+ * @param entry The entry.
+ * @returns Whether the entry is IEnvironmentVariableGroup.
+ */
+const isEnvironmentVariableGroup = (entry: IEnvironmentVariableGroup | IEnvironmentVariableItem): entry is IEnvironmentVariableGroup => {
+	return 'title' in entry;
+};
+
+/**
+ * isEnvironmentVariableItem user-defined type guard.
+ * @param entry The entry.
+ * @returns Whether the entry is IEnvironmentVariableItem.
+ */
+const isEnvironmentVariableItem = (entry: IEnvironmentVariableItem | IEnvironmentVariableItem): entry is IEnvironmentVariableItem => {
+	return 'path' in entry;
+};
 
 /**
  * EnvironmentInstanceProps interface.
@@ -95,22 +111,22 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 */
 	const renderEntries = () => {
 		return entries.map(entry => {
-			if (entry instanceof EnvironmentVariableGroup) {
+			if (isEnvironmentVariableGroup(entry)) {
 				return (
-					<EnvironmentVariableGroupComponent
+					<EnvironmentVariableGroup
 						key={entry.id}
 						environmentVariableGroup={entry}
 						positronEnvironmentInstance={props.positronEnvironmentInstance} />
 				);
-			} else if (entry instanceof EnvironmentVariableItem) {
+			} else if (isEnvironmentVariableItem(entry)) {
 				return (
-					<EnvironmentVariableItemComponent
+					<EnvironmentVariableItem
 						key={entry.id}
 						nameColumnWidth={nameColumnWidth}
 						detailsColumnWidth={detailsColumnWidth}
 						typeVisible={typeVisible}
-						indentLevel={0}
-						environmentVariableItem={entry} />
+						environmentVariableItem={entry}
+						positronEnvironmentInstance={props.positronEnvironmentInstance} />
 				);
 			} else {
 				// It's a bug to get here.

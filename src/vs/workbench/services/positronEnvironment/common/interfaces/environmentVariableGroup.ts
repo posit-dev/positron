@@ -9,15 +9,15 @@ export interface IEnvironmentVariableGroup {
 	/**
 	 * Gets the identifier.
 	 */
-	id: string;
+	readonly id: string;
 
 	/**
 	 * Gets the title.
 	 */
-	title: string;
+	readonly title: string;
 
 	/**
 	 * Gets a value which indicates whether the environment variable group is expanded.
 	 */
-	expanded: boolean;
+	readonly expanded: boolean;
 }
