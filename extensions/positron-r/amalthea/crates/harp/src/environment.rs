@@ -118,24 +118,68 @@ pub struct BindingType {
 }
 
 impl BindingType {
-    pub fn new(display_type: String, type_info: String) -> Self {
-        BindingType {
-            display_type,
-            type_info
-        }
-    }
 
     pub fn from(value: SEXP) -> Self {
-        regular_binding_type(value)
+        let rtype = r_typeof(value);
+        if is_simple_vector(value) {
+            vec_type_info(value)
+        } else if rtype == LISTSXP {
+            match pairlist_size(value) {
+                Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
+                Err(_) => Self::simple(String::from("pairlist [?]"))
+            }
+        } else if rtype == VECSXP {
+            unsafe {
+                if r_inherits(value, "data.frame") {
+                    let dfclass = first_class(value).unwrap();
+
+                    let dim = RFunction::new("base", "dim.data.frame")
+                        .add(value)
+                        .call()
+                        .unwrap();
+
+                    let dim = IntegerVector::new(dim).unwrap();
+                    let shape = dim.format(",", 0).1;
+
+                    Self::simple(
+                        format!("{} [{}]", dfclass, shape)
+                    )
+                } else {
+                    Self::from_class(value, String::from("list"))
+                }
+            }
+        } else if rtype == SYMSXP {
+            Self::simple(String::from("symbol"))
+        } else if rtype == CLOSXP {
+            Self::simple(String::from("function"))
+        } else if rtype == ENVSXP {
+            Self::simple(String::from("environment"))
+        } else {
+            Self::from_class(value, String::from("???"))
+        }
     }
 
     pub fn simple(display_type: String) -> Self {
-        let type_info = display_type.clone();
-        BindingType {
+        Self {
+            display_type,
+            type_info: String::from("")
+        }
+    }
+
+    fn from_class(value: SEXP, default: String) -> Self {
+        match first_class(value) {
+            None        => Self::simple(default),
+            Some(class) => Self::new(class, all_classes(value))
+        }
+    }
+
+    fn new(display_type: String, type_info: String) -> Self {
+        Self {
             display_type,
             type_info
         }
     }
+
 }
 
 impl Binding {
@@ -179,11 +223,11 @@ impl Binding {
 
     pub fn get_type(&self) -> BindingType {
         match self.kind {
-            BindingKind::Active => BindingType::new(String::from("active binding"), String::from("")),
-            BindingKind::Promise(false) => BindingType::new(String::from("promise"), String::from("")),
+            BindingKind::Active => BindingType::simple(String::from("active binding")),
+            BindingKind::Promise(false) => BindingType::simple(String::from("promise")),
 
-            BindingKind::Regular => regular_binding_type(self.value),
-            BindingKind::Promise(true) => regular_binding_type(unsafe{PRVALUE(self.value)})
+            BindingKind::Regular => BindingType::from(self.value),
+            BindingKind::Promise(true) => BindingType::from(unsafe{PRVALUE(self.value)})
         }
     }
 
@@ -303,57 +347,6 @@ fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
         }
     }
     Ok(n)
-}
-
-fn regular_binding_type(value: SEXP) -> BindingType {
-    let rtype = r_typeof(value);
-    if is_simple_vector(value) {
-        vec_type_info(value)
-    } else if rtype == LISTSXP {
-        match pairlist_size(value) {
-            Ok(n)  => BindingType::simple(format!("pairlist [{}]", n)),
-            Err(_) => BindingType::simple(String::from("pairlist [?]"))
-        }
-    } else if rtype == VECSXP {
-        unsafe {
-            if r_inherits(value, "data.frame") {
-                let dfclass = first_class(value).unwrap();
-
-                let dim = RFunction::new("base", "dim.data.frame")
-                    .add(value)
-                    .call()
-                    .unwrap();
-
-                let dim = IntegerVector::new(dim).unwrap();
-                let shape = dim.format(",", 0).1;
-
-                BindingType::simple(
-                    format!("{} [{}]", dfclass, shape)
-                )
-            } else {
-                match first_class(value) {
-                    None => BindingType::simple(String::from("list")),
-                    Some(class) => {
-                        BindingType::new(class, all_classes(value))
-                    }
-                }
-                // TODO: should type_info be different ?
-                // TODO: deal with record types, e.g. POSIXlt
-            }
-        }
-    } else if rtype == SYMSXP {
-        BindingType::simple(String::from("symbol"))
-    } else if rtype == CLOSXP {
-        BindingType::simple(String::from("function"))
-    } else if rtype == ENVSXP {
-        BindingType::simple(String::from("environment"))
-    } else {
-        let class = first_class(value);
-        match class {
-            Some(class) => BindingType::new(class, all_classes(value)),
-            None        => BindingType::simple(String::from("???"))
-        }
-    }
 }
 
 fn vec_type(value: SEXP) -> String {
