@@ -14,7 +14,7 @@ export interface IEnvironmentVariableItem {
 	/**
 	 * Gets the path.
 	 */
-	path: string;
+	path: string[];
 
 	/**
 	 * Gets a value which indicates whether the environment variable has children.

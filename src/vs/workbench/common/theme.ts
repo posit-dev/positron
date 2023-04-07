@@ -1581,9 +1581,7 @@ export const POSITRON_ENVIRONMENT_ROW_HOVER_FOREGROUND_COLOR = registerColor('po
 	hcLight: listHoverForeground
 }, localize('positronEnvironment.rowHoverForeground', "Positron Environment row hover foreground color."));
 
-
-
-
+// The Positron Environment active selection background color.
 export const POSITRON_ENVIRONMENT_ACTIVE_SELECTION_BACKGROUND_COLOR = registerColor('positronEnvironment.activeSelectionBackgroundColor', {
 	dark: listActiveSelectionBackground,
 	light: listActiveSelectionBackground,
@@ -1591,24 +1589,12 @@ export const POSITRON_ENVIRONMENT_ACTIVE_SELECTION_BACKGROUND_COLOR = registerCo
 	hcLight: listActiveSelectionBackground
 }, localize('positronEnvironment.activeSelectionBackgroundColor', "Positron Environment active selection background color."));
 
-
+// The Positron Environment active selection foreground color.
 export const POSITRON_ENVIRONMENT_ACTIVE_SELECTION_FOREGROUND_COLOR = registerColor('positronEnvironment.activeSelectionForegroundColor', {
 	dark: listActiveSelectionForeground,
 	light: listActiveSelectionForeground,
 	hcDark: listActiveSelectionForeground,
 	hcLight: listActiveSelectionForeground
 }, localize('positronEnvironment.activeSelectionForegroundColor', "Positron Environment active selection foreground color."));
-
-
-
-
-export const POSITRON_ENVIRONMENT_SELECTION_FOREGROUND_COLOR = registerColor('positronEnvironment.selectionForegroundColor', {
-	dark: '#ffffff',
-	light: '#4777ad',
-	hcDark: '#2d77ce',
-	hcLight: '#4777ad'
-}, localize('positronEnvironment.selectionForegroundColor', "Positron Environment selection foreground color."));
-
-//listActiveSelectionBackground, listActiveSelectionForeground
 
 // --- End Positron ---

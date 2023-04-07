@@ -25,21 +25,24 @@ export interface EnvironmentVariableItemProps {
  * @param props A EnvironmentVariableItemProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => {
+export const EnvironmentVariableItem = ({
+	nameColumnWidth,
+	detailsColumnWidth,
+	typeVisible,
+	environmentVariableItem,
+	positronEnvironmentInstance
+}: EnvironmentVariableItemProps) => {
 	// Hooks.
 	const [selected, _setSelected] = useState(false);
-	const [expanded, setExpanded] = useState(false);
 
 	/**
 	 * Handles expand / collapse.
 	 */
 	const handleExpandCollapse = async () => {
-		if (expanded) {
-			setExpanded(false);
-			// setChildren(undefined);
+		if (environmentVariableItem.expanded) {
+			positronEnvironmentInstance.collapseEnvironmentVariable(environmentVariableItem.path);
 		} else {
-			setExpanded(true);
-			// setChildren(await props.environmentVariableItem.loadChildren());
+			positronEnvironmentInstance.expandEnvironmentVariable(environmentVariableItem.path);
 		}
 	};
 
@@ -52,12 +55,12 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	// Render.
 	return (<>
 		<div className={classNames}>
-			<div className='name' style={{ width: props.nameColumnWidth }}>
-				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
+			<div className='name' style={{ width: nameColumnWidth }}>
+				<div style={{ display: 'flex', marginLeft: environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
-						{props.environmentVariableItem.hasChildren && (
+						{environmentVariableItem.hasChildren && (
 							<button className='expand-collapse-button' onClick={handleExpandCollapse}>
-								{!expanded ?
+								{!environmentVariableItem.expanded ?
 									<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
 									<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
 								}
@@ -65,15 +68,15 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 						)}
 					</div>
 					<div className='name-value'>
-						{props.environmentVariableItem.displayName}
+						{environmentVariableItem.displayName}
 					</div>
 				</div>
 			</div>
-			<div className='details' style={{ width: props.detailsColumnWidth }}>
-				<div className='value'>{props.environmentVariableItem.displayValue}</div>
-				{props.typeVisible && (
+			<div className='details' style={{ width: detailsColumnWidth }}>
+				<div className='value'>{environmentVariableItem.displayValue}</div>
+				{typeVisible && (
 					<div className='type'>
-						{props.environmentVariableItem.displayType}
+						{environmentVariableItem.displayType}
 					</div>
 				)}
 			</div>
