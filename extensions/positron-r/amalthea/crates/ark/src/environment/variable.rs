@@ -192,20 +192,31 @@ impl EnvironmentVariable {
             VECSXP  => Self::inspect_list(object),
             LISTSXP => Self::inspect_pairlist(object),
             ENVSXP  => Self::inspect_environment(object),
+            CLOSXP  => Self::inspect_function(object),
+
             _       => Ok(vec![])
         }
     }
 
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
         for path_element in path {
+            // TODO: handle attributes before doing any dispatch
+
             let rtype = r_typeof(*object);
             object = match rtype {
-                ENVSXP => {
-                    // TODO: active bindings and promises can't be inspected at the moment,
+                ENVSXP => unsafe {
+                    let symbol = r_symbol!(path_element);
+
+                    // TODO: active bindings can't be inspected at the moment,
                     //       so we can safely assume we can call Rf_findVarInFrame()
-                    //       without forcing them, but it might be something we want to relax in the future
-                    //       e.g. if we want to be able to expand a promise to show its code and/or env
-                    RObject::view(unsafe { Rf_findVarInFrame(*object, r_symbol!(path_element)) } )
+                    let mut value = Rf_findVarInFrame(*object, symbol);
+
+                    // we might get a forced promise, in that case, just use its value
+                    if r_typeof(value) == PROMSXP {
+                        value = PRVALUE(value);
+                    }
+
+                    RObject::view(value)
                 },
                 VECSXP => {
                     let index = path_element.parse::<isize>().unwrap();
@@ -219,6 +230,14 @@ impl EnvironmentVariable {
                         pairlist = CDR(pairlist);
                     }
                     RObject::view(CAR(pairlist))
+                },
+
+                CLOSXP => {
+                    if path_element == "formals" {
+                        RObject::view(FORMALS(*object))
+                    } else {
+                        RObject::view(CLOENV(*object))
+                    }
                 }
 
                 _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
@@ -285,6 +304,22 @@ impl EnvironmentVariable {
             a.display_name.cmp(&b.display_name)
         });
 
+        Ok(out)
+    }
+
+    fn inspect_function(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out : Vec<Self> = vec![];
+
+        unsafe {
+            let formals = FORMALS(*value);
+            if formals != R_NilValue {
+                out.push(Self::from(String::from("formals"), String::from("formals(.)"), formals));
+            }
+
+            let env = CLOENV(*value);
+            out.push(Self::from(String::from("env"), String::from("env(.)"), env));
+
+        }
         Ok(out)
     }
 

@@ -120,6 +120,10 @@ pub struct BindingType {
 impl BindingType {
 
     pub fn from(value: SEXP) -> Self {
+        if value == unsafe { R_NilValue } {
+            return Self::simple(String::from("NULL"));
+        }
+
         let rtype = r_typeof(value);
         if is_simple_vector(value) {
             vec_type_info(value)
@@ -149,7 +153,11 @@ impl BindingType {
                 }
             }
         } else if rtype == SYMSXP {
-            Self::simple(String::from("symbol"))
+            if value == unsafe { R_MissingArg } {
+                Self::simple(String::from("missing"))
+            } else {
+                Self::simple(String::from("symbol"))
+            }
         } else if rtype == CLOSXP {
             Self::simple(String::from("function"))
         } else if rtype == ENVSXP {
@@ -273,7 +281,6 @@ fn is_simple_vector(value: SEXP) -> bool {
             _       => false
         }
     }
-
 }
 
 fn first_class(value: SEXP) -> Option<String> {
@@ -305,6 +312,8 @@ fn regular_binding_display_value(value: SEXP) -> BindingValue {
         }).unwrap()
     } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
         // This includes data frames
+        BindingValue::empty()
+    } else if rtype == LISTSXP {
         BindingValue::empty()
     } else {
         format_display_value(value)
