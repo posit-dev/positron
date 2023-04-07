@@ -341,7 +341,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	/**
 	 * Gets or sets the entries that are being displayed.
 	 */
-	private _entries: (IEnvironmentVariableGroup | IEnvironmentVariableItem)[] = [];
+	private _entries: (EnvironmentVariableGroup | EnvironmentVariableItem)[] = [];
 
 	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
@@ -370,7 +370,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * The onDidChangeEntries event emitter.
 	 */
 	private readonly _onDidChangeEntriesEmitter =
-		this._register(new Emitter<(EnvironmentVariableGroup | IEnvironmentVariableItem)[]>);
+		this._register(new Emitter<(IEnvironmentVariableGroup | IEnvironmentVariableItem)[]>);
 
 	//#endregion Private Properties
 
@@ -535,9 +535,10 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param id The identifier of the environment variable group to expand.
 	 */
 	expandEnvironmentVariableGroup(id: string) {
+		// If the group is collapsed, expand it.
 		if (this._collapsedGroupIds.has(id)) {
 			this._collapsedGroupIds.delete(id);
-			this.foo();
+			this.entriesChanged();
 		}
 	}
 
@@ -546,9 +547,10 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param id The identifier of the environment variable group to collapse.
 	 */
 	collapseEnvironmentVariableGroup(id: string) {
+		// If the group is not collapsed, collapse it.
 		if (!this._collapsedGroupIds.has(id)) {
 			this._collapsedGroupIds.add(id);
-			this.foo();
+			this.entriesChanged();
 		}
 	}
 
@@ -556,11 +558,11 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Expands an environment variable.
 	 * @param path The path of the environment variable to expand.
 	 */
-	expandEnvironmentVariable(path: string[]) {
-		const pathString = JSON.stringify(path);
-		if (!this._expandedPaths.has(pathString)) {
-			this._expandedPaths.add(pathString);
-			this.foo();
+	expandEnvironmentVariable(path: string) {
+		// If the envirionment variable item is not expanded, expand it.
+		if (!this._expandedPaths.has(path)) {
+			this._expandedPaths.add(path);
+			this.entriesChanged();
 		}
 	}
 
@@ -568,11 +570,11 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Collapses an environment variable.
 	 * @param path The path of the environment variable to collapse.
 	 */
-	collapseEnvironmentVariable(path: string[]) {
-		const pathString = JSON.stringify(path);
-		if (this._expandedPaths.has(pathString)) {
-			this._expandedPaths.delete(pathString);
-			this.foo();
+	collapseEnvironmentVariable(path: string) {
+		// If the envirionment variable item is expanded, collapse it.
+		if (this._expandedPaths.has(path)) {
+			this._expandedPaths.delete(path);
+			this.entriesChanged();
 		}
 	}
 
@@ -806,7 +808,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 				break;
 		}
 
-		this.foo();
+		//
+		this.entriesChanged();
 	}
 
 	/**
@@ -973,7 +976,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	/**
 	 *
 	 */
-	private foo() {
+	private entriesChanged() {
 		const d = this._entries.flatMap(entry => {
 			if (entry instanceof EnvironmentVariableGroup) {
 				entry.expanded = !this._collapsedGroupIds.has(entry.id);
@@ -983,8 +986,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 					return [entry];
 				}
 			} else if (entry instanceof EnvironmentVariableItem) {
-				entry.expanded = false;
-				return this.flattenEnvironmentVariableItems([]);
+				return this.flattenEnvironmentVariableItems([entry]);
 			} else {
 				return [];
 			}

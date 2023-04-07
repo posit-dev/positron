@@ -151,11 +151,11 @@ export interface IPositronEnvironmentInstance {
 	 * Expands an environment variable.
 	 * @param path The path of the environment variable to expand.
 	 */
-	expandEnvironmentVariable(path: string[]): void;
+	expandEnvironmentVariable(path: string): void;
 
 	/**
 	 * Collapses an environment variable.
 	 * @param path The path of the environment variable to collapse.
 	 */
-	collapseEnvironmentVariable(path: string[]): void;
+	collapseEnvironmentVariable(path: string): void;
 }
