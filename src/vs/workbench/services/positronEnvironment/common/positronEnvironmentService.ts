@@ -558,22 +558,49 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Expands an environment variable.
 	 * @param path The path of the environment variable to expand.
 	 */
-	expandEnvironmentVariable(path: string) {
+	async expandEnvironmentVariable(path: string[]): Promise<void> {
 		// If the envirionment variable item is not expanded, expand it.
-		if (!this._expandedPaths.has(path)) {
-			this._expandedPaths.add(path);
+		const pathString = JSON.stringify(path);
+		if (!this._expandedPaths.has(pathString)) {
+			// Locate the environment variable item. If it was found, expand it.
+			const environmentVariableItem = this.findEnvironmentVariableItem(path);
+			if (environmentVariableItem) {
+				this._expandedPaths.add(pathString);
+				if (environmentVariableItem) {
+					await environmentVariableItem.loadChildren();
+				}
+			}
+
+			// The entries changed.
 			this.entriesChanged();
 		}
+	}
+
+	/**
+	 * Finds an environment variable item by its path.
+	 * @param path The path of the environment variable item.
+	 * @returns The environment variable item, if found; otherwise, undefined.
+	 */
+	private findEnvironmentVariableItem(path: string[]): EnvironmentVariableItem | undefined {
+		// Find the root environment variable item.
+		const environmentVariableItem = this._environmentVariableItems.get(path[0]);
+		if (!environmentVariableItem) {
+			return undefined;
+		}
+
+		// Find the environment variable item.
+		return environmentVariableItem.locateChildEntry(path.slice(1));
 	}
 
 	/**
 	 * Collapses an environment variable.
 	 * @param path The path of the environment variable to collapse.
 	 */
-	collapseEnvironmentVariable(path: string) {
+	collapseEnvironmentVariable(path: string[]) {
 		// If the envirionment variable item is expanded, collapse it.
-		if (this._expandedPaths.has(path)) {
-			this._expandedPaths.delete(path);
+		const pathString = JSON.stringify(path);
+		if (this._expandedPaths.has(pathString)) {
+			this._expandedPaths.delete(pathString);
 			this.entriesChanged();
 		}
 	}

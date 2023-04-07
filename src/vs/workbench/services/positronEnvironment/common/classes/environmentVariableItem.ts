@@ -21,14 +21,9 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	private readonly _environmentVariable: EnvironmentVariable;
 
 	/**
-	 * Gets or sets the cached path.
-	 */
-	private _cachedPath: string | undefined;
-
-	/**
 	 * Gets or sets the child environment variable items.
 	 */
-	private _environmentVariableItems: EnvironmentVariableItem[] | undefined = undefined;
+	private _environmentVariableItems: Map<string, EnvironmentVariableItem> | undefined = undefined;
 
 	/**
 	 * Gets or sets a value which indicates whether the environment variable item is expanded.
@@ -48,13 +43,7 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	 * Gets the path.
 	 */
 	get path() {
-		// Cache the path.
-		if (!this._cachedPath) {
-			this._cachedPath = JSON.stringify(this._environmentVariable.path);
-		}
-
-		// Return the cached path.
-		return this._cachedPath;
+		return this._environmentVariable.path;
 	}
 
 	/**
@@ -158,6 +147,23 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	//#region Public Methods
 
 	/**
+	 * Locates a child entry.
+	 * @param path The path of the child entry to locate.
+	 */
+	locateChildEntry(path: string[]): EnvironmentVariableItem | undefined {
+		if (!path.length) {
+			return this;
+		}
+
+		const environmentVariableItem = this._environmentVariableItems?.get(path[0]);
+		if (!environmentVariableItem) {
+			return undefined;
+		}
+
+		return environmentVariableItem.locateChildEntry(path.slice(1));
+	}
+
+	/**
 	 * Loads the children.
 	 */
 	async loadChildren(): Promise<void> {
@@ -168,9 +174,11 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 
 		// Asynchronously load the children.
 		const environmentClientList = await this._environmentVariable.getChildren();
-		this._environmentVariableItems = environmentClientList.variables.map(environmentVariable =>
-			new EnvironmentVariableItem(environmentVariable)
-		);
+		this._environmentVariableItems = new Map<string, EnvironmentVariableItem>();
+		for (const environmentVariable of environmentClientList.variables) {
+			const environmentVariableItem = new EnvironmentVariableItem(environmentVariable);
+			this._environmentVariableItems.set(environmentVariable.data.access_key, environmentVariableItem);
+		}
 	}
 
 	/**
@@ -197,22 +205,25 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 			return items;
 		}
 
+		// Get the environment variable items.
+		const environmentVariableItems = Array.from(this._environmentVariableItems.values());
+
 		// Sort the children of this environment variable item in place.
 		switch (sorting) {
 			// Name.
 			case PositronEnvironmentSorting.Name:
-				sortEnvironmentVariableItemsByName(this._environmentVariableItems);
+				sortEnvironmentVariableItemsByName(environmentVariableItems);
 				break;
 
 			// Size.
 			case PositronEnvironmentSorting.Size:
-				sortEnvironmentVariableItemsBySize(this._environmentVariableItems);
+				sortEnvironmentVariableItemsBySize(environmentVariableItems);
 				break;
 		}
 
 		// Recursively flatten the children of this environment variable item.
-		for (const item of this._environmentVariableItems) {
-			items.push(...item.flatten(isExpanded, sorting));
+		for (const environmentVariableItem of environmentVariableItems) {
+			items.push(...environmentVariableItem.flatten(isExpanded, sorting));
 		}
 
 		// Done.
