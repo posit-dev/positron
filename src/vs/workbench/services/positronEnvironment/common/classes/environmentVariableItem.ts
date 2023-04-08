@@ -166,18 +166,34 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	/**
 	 * Loads the children.
 	 */
-	async loadChildren(): Promise<void> {
-		// If the environment variable has no children, return.
+	async loadChildren(isExpanded: (path: string[]) => boolean): Promise<void> {
+		// If this environment variable item has no children, return. (It may have had children and
+		// been expanded in the past, so this can happen from time to time.)
 		if (!this.hasChildren) {
 			return;
 		}
 
-		// Asynchronously load the children.
+		// Asynchronously load the children of this this environment variable item.
 		const environmentClientList = await this._environmentVariable.getChildren();
+
+		// Add the children environment variables, recursively loading each one that is expanded.
 		this._environmentVariableItems = new Map<string, EnvironmentVariableItem>();
+		const promises: Promise<void>[] = [];
 		for (const environmentVariable of environmentClientList.variables) {
+			// Create and add the child environment variable item.
 			const environmentVariableItem = new EnvironmentVariableItem(environmentVariable);
 			this._environmentVariableItems.set(environmentVariable.data.access_key, environmentVariableItem);
+
+			// If the child environment variable item has children and is expanded, recursively load
+			// its children.
+			if (environmentVariableItem.hasChildren && isExpanded(environmentVariableItem.path)) {
+				promises.push(environmentVariableItem.loadChildren(isExpanded));
+			}
+		}
+
+		// Wait for all the child environment variables to load.
+		if (promises.length) {
+			await Promise.all(promises);
 		}
 	}
 
@@ -186,7 +202,7 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	 * @param sorting The sorting.
 	 * @returns The flattened environment variable item.
 	 */
-	flatten(isExpanded: (path: string) => boolean, sorting: PositronEnvironmentSorting): EnvironmentVariableItem[] {
+	flatten(isExpanded: (path: string[]) => boolean, sorting: PositronEnvironmentSorting): EnvironmentVariableItem[] {
 		// Create the flattened environment variable items with this environment variable item as
 		// the first entry.
 		const items: EnvironmentVariableItem[] = [this];
@@ -198,7 +214,7 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 		}
 
 		// Update the expanded state of this environment variable item.
-		this.expanded = isExpanded(JSON.stringify(this._environmentVariable.path));
+		this.expanded = isExpanded(this._environmentVariable.path);
 
 		// If this environment variable item isn't expanded or the children have not been loaded, return.
 		if (!this.expanded || !this._environmentVariableItems) {
