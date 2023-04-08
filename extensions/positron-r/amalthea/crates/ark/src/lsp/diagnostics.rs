@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use stdext::unwrap;
 use tower_lsp::lsp_types::Diagnostic;
+use tower_lsp::lsp_types::DiagnosticSeverity;
 use tower_lsp::lsp_types::Url;
 use tree_sitter::Node;
 
@@ -61,6 +62,8 @@ async fn enqueue_diagnostics_impl(backend: Backend, uri: Url) {
         let mut cursor = root.walk();
         cursor.recurse(|node| {
             check_unmatched_bracket(node, &source, &mut diagnostics);
+            check_invalid_na_comparison(node, &source, &mut diagnostics);
+            check_unexpected_assignment_in_if_conditional(node, &source, &mut diagnostics);
             true
         });
     }
@@ -115,6 +118,71 @@ fn check_unmatched_bracket(node: Node, _source: &str, diagnostics: &mut Vec<Diag
         range.into(),
         format!("unmatched opening bracket '{}'", node.kind()),
     );
+    diagnostics.push(diagnostic);
+
+    true
+}
+
+fn check_invalid_na_comparison(
+    node: Node,
+    source: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let n = node.child_count();
+    if n == 0 {
+        return false;
+    }
+
+    if node.kind() != "==" {
+        return false;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        let contents = child.utf8_text(source.as_bytes()).unwrap();
+        if matches!(contents, "NA" | "NaN" | "NULL") {
+            let message = match contents {
+                "NA" => "consider using `is.na()` to check NA values",
+                "NaN" => "consider using `is.nan()` to check NaN values",
+                "NULL" => "consider using `is.null()` to check NULL values",
+                _ => continue,
+            };
+            let range: Range = child.range().into();
+            let mut diagnostic = Diagnostic::new_simple(range.into(), message.into());
+            diagnostic.severity = Some(DiagnosticSeverity::INFORMATION);
+            diagnostics.push(diagnostic);
+        }
+    }
+
+    true
+}
+
+fn check_unexpected_assignment_in_if_conditional(
+    node: Node,
+    _source: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let n = node.child_count();
+    if n == 0 {
+        return false;
+    }
+
+    let kind = node.kind();
+    if kind != "if" {
+        return false;
+    }
+
+    let condition = unwrap!(node.child_by_field_name("condition"), None => {
+        return false;
+    });
+
+    if !matches!(condition.kind(), "=") {
+        return false;
+    }
+
+    let range: Range = condition.range().into();
+    let message = "unexpected '='; use '==' to compare values for equality";
+    let diagnostic = Diagnostic::new_simple(range.into(), message.into());
     diagnostics.push(diagnostic);
 
     true
