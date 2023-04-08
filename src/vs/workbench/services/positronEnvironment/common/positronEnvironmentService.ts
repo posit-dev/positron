@@ -559,6 +559,13 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * @param path The path of the environment variable to expand.
 	 */
 	async expandEnvironmentVariable(path: string[]): Promise<void> {
+		/**
+		 * Returns a value which indicates whether the path is expanded.
+		 * @param path The path.
+		 * @returns true, if the path is expanded; otherwise, false.
+		 */
+		const isExpanded = (path: string[]) => this._expandedPaths.has(JSON.stringify(path));
+
 		// If the envirionment variable item is not expanded, expand it.
 		const pathString = JSON.stringify(path);
 		if (!this._expandedPaths.has(pathString)) {
@@ -567,7 +574,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 			if (environmentVariableItem) {
 				this._expandedPaths.add(pathString);
 				if (environmentVariableItem) {
-					await environmentVariableItem.loadChildren();
+
+					await environmentVariableItem.loadChildren(isExpanded);
 				}
 			}
 
@@ -1001,10 +1009,11 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
-	 *
+	 * Handles a change in entries.
 	 */
 	private entriesChanged() {
-		const d = this._entries.flatMap(entry => {
+		// Flatten the entries.
+		const entries = this._entries.flatMap(entry => {
 			if (entry instanceof EnvironmentVariableGroup) {
 				entry.expanded = !this._collapsedGroupIds.has(entry.id);
 				if (entry.expanded) {
@@ -1020,7 +1029,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		});
 
 		// Fire the onDidChangeEntries event.
-		this._onDidChangeEntriesEmitter.fire(d);
+		this._onDidChangeEntriesEmitter.fire(entries);
 	}
 
 	/**
@@ -1036,7 +1045,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		 * @param path The path.
 		 * @returns true, if the path is expanded; otherwise, false.
 		 */
-		const isExpanded = (path: string): boolean => this._expandedPaths.has(path);
+		const isExpanded = (path: string[]) => this._expandedPaths.has(JSON.stringify(path));
 
 		// Flatten the array of environment variable items.
 		return environmentVariableItems.flatMap(environmentVariableItem =>
