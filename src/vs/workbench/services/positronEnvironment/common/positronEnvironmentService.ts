@@ -496,8 +496,9 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 */
 	async requestRefresh() {
 		if (this._environmentClient) {
+			this._expandedPaths.clear();
 			const list = await this._environmentClient.requestRefresh();
-			this.processList(list);
+			await this.processList(list);
 		} else {
 			console.error('Ignoring refresh request; environment client is not available.');
 		}
@@ -523,7 +524,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	async requestDelete(names: string[]) {
 		if (this._environmentClient) {
 			const update = await this._environmentClient.requestDelete(names);
-			this.processUpdate(update);
+			await this.processUpdate(update);
 		}
 		else {
 			console.error('Ignoring delete request; environment client is not available.');
@@ -558,7 +559,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Expands an environment variable.
 	 * @param path The path of the environment variable to expand.
 	 */
-	async expandEnvironmentVariable(path: string[]): Promise<void> {
+	async expandEnvironmentVariable(path: string[]) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -574,7 +575,6 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 			if (environmentVariableItem) {
 				this._expandedPaths.add(pathString);
 				if (environmentVariableItem) {
-
 					await environmentVariableItem.loadChildren(isExpanded);
 				}
 			}
@@ -740,9 +740,9 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 			// Add the onDidReceiveUpdate event handler.
 			this._runtimeDisposableStore.add(
-				this._environmentClient.onDidReceiveUpdate(environmentClientMessageUpdate => {
-					this.processUpdate(environmentClientMessageUpdate);
-				})
+				this._environmentClient.onDidReceiveUpdate(async environmentClientMessageUpdate =>
+					await this.processUpdate(environmentClientMessageUpdate)
+				)
 			);
 
 			// Add the onDidReceiveError event handler.
@@ -764,19 +764,35 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Processes an IEnvironmentClientMessageList.
 	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
 	 */
-	private processList(environmentClientMessageList: EnvironmentClientList) {
+	private async processList(environmentClientMessageList: EnvironmentClientList) {
+		/**
+		 * Returns a value which indicates whether the path is expanded.
+		 * @param path The path.
+		 * @returns true, if the path is expanded; otherwise, false.
+		 */
+		const isExpanded = (path: string[]) => this._expandedPaths.has(JSON.stringify(path));
+
 		// Build the new environment variable items.
 		const environmentVariableItems = new Map<string, EnvironmentVariableItem>();
-		environmentClientMessageList.variables.forEach(environmentVariable => {
+		const promises: Promise<void>[] = [];
+		for (const environmentVariable of environmentClientMessageList.variables) {
+			// Create the environment variable item.
+			const environmentVariableItem = new EnvironmentVariableItem(environmentVariable);
+
 			// Add the environment variable item.
-			environmentVariableItems.set(
-				environmentVariable.data.access_key,
-				new EnvironmentVariableItem(environmentVariable)
-			);
-		});
+			environmentVariableItems.set(environmentVariableItem.accessKey, environmentVariableItem);
+
+			// If the environment variable item is expanded, load its children.
+			if (isExpanded(environmentVariableItem.path)) {
+				promises.push(environmentVariableItem.loadChildren(isExpanded));
+			}
+		}
 
 		// Set the environment variable items.
 		this._environmentVariableItems = environmentVariableItems;
+
+		// Await loading.
+		await Promise.all(promises);
 
 		// Update entries.
 		this.updateEntries();
@@ -786,17 +802,32 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private processUpdate(environmentClientMessageUpdate: EnvironmentClientUpdate) {
-		// Add assigned environment variable items.
+	private async processUpdate(environmentClientMessageUpdate: EnvironmentClientUpdate) {
+		/**
+		 * Returns a value which indicates whether the path is expanded.
+		 * @param path The path.
+		 * @returns true, if the path is expanded; otherwise, false.
+		 */
+		const isExpanded = (path: string[]) => this._expandedPaths.has(JSON.stringify(path));
+
+		// Add / replace assigned environment variable items.
+		const promises: Promise<void>[] = [];
 		for (let i = 0; i < environmentClientMessageUpdate.assigned.length; i++) {
 			// Get the environment variable.
 			const environmentVariable = environmentClientMessageUpdate.assigned[i];
 
+			// Create the environment variable item.
+			const environmentVariableItem = new EnvironmentVariableItem(environmentVariable);
+
 			// Add the environment variable item.
 			this._environmentVariableItems.set(
-				environmentVariable.data.access_key,
-				new EnvironmentVariableItem(environmentVariable)
+				environmentVariableItem.accessKey,
+				environmentVariableItem
 			);
+
+			if (isExpanded(environmentVariableItem.path)) {
+				promises.push(environmentVariableItem.loadChildren(isExpanded));
+			}
 		}
 
 		// Remove removed environment variable items.
@@ -804,6 +835,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 			// Add the environment variable item.
 			this._environmentVariableItems.delete(environmentClientMessageUpdate.removed[i]);
 		}
+
+		await Promise.all(promises);
 
 		// Update entries.
 		this.updateEntries();
