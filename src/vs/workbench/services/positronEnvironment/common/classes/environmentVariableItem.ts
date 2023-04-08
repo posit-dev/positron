@@ -40,6 +40,13 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	readonly id = generateUuid();
 
 	/**
+	 * Gets the access key.
+	 */
+	get accessKey() {
+		return this._environmentVariable.data.access_key;
+	}
+
+	/**
 	 * Gets the path.
 	 */
 	get path() {
@@ -182,7 +189,10 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 		for (const environmentVariable of environmentClientList.variables) {
 			// Create and add the child environment variable item.
 			const environmentVariableItem = new EnvironmentVariableItem(environmentVariable);
-			this._environmentVariableItems.set(environmentVariable.data.access_key, environmentVariableItem);
+			this._environmentVariableItems.set(
+				environmentVariableItem.accessKey,
+				environmentVariableItem
+			);
 
 			// If the child environment variable item has children and is expanded, recursively load
 			// its children.
