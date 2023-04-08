@@ -38,6 +38,7 @@ use crate::lsp::completions::completion_context;
 use crate::lsp::completions::resolve_completion_item;
 use crate::lsp::completions::CompletionData;
 use crate::lsp::definitions::goto_definition;
+use crate::lsp::diagnostics;
 use crate::lsp::documents::Document;
 use crate::lsp::documents::DOCUMENT_INDEX;
 use crate::lsp::globals;
@@ -71,7 +72,7 @@ impl Default for Workspace {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Backend {
     pub client: Client,
     pub documents: Arc<DashMap<Url, Document>>,
@@ -301,6 +302,10 @@ impl LanguageServer for Backend {
                 error!("{:?}", error);
             }
         }
+
+        // publish diagnostics
+        let version = params.text_document.version;
+        diagnostics::enqueue_diagnostics(self.clone(), uri.clone(), version).await;
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
