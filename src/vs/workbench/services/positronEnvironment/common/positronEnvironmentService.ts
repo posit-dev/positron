@@ -825,6 +825,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 				environmentVariableItem
 			);
 
+			// If the environment variable item is expanded, load its children.
 			if (isExpanded(environmentVariableItem.path)) {
 				promises.push(environmentVariableItem.loadChildren(isExpanded));
 			}
@@ -836,6 +837,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 			this._environmentVariableItems.delete(environmentClientMessageUpdate.removed[i]);
 		}
 
+		// Await loading.
 		await Promise.all(promises);
 
 		// Update entries.
