@@ -151,7 +151,7 @@ export interface IPositronEnvironmentInstance {
 	 * Expands an environment variable.
 	 * @param path The path of the environment variable to expand.
 	 */
-	expandEnvironmentVariable(path: string[]): void;
+	expandEnvironmentVariable(path: string[]): Promise<void>;
 
 	/**
 	 * Collapses an environment variable.

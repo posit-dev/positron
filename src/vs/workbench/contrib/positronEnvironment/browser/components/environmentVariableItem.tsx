@@ -38,11 +38,11 @@ export const EnvironmentVariableItem = ({
 	/**
 	 * Handles expand / collapse.
 	 */
-	const handleExpandCollapse = async () => {
+	const handleExpandCollapse = async (): Promise<void> => {
 		if (environmentVariableItem.expanded) {
 			positronEnvironmentInstance.collapseEnvironmentVariable(environmentVariableItem.path);
 		} else {
-			positronEnvironmentInstance.expandEnvironmentVariable(environmentVariableItem.path);
+			await positronEnvironmentInstance.expandEnvironmentVariable(environmentVariableItem.path);
 		}
 	};
 
