@@ -4,7 +4,6 @@
 
 .environment-variable {
 	display: flex;
-	cursor: pointer;
 	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 }
@@ -25,7 +24,6 @@
 	align-items: center;
 	white-space: nowrap;
 	text-overflow: ellipsis;
-	border-right: 1px solid var(--vscode-positronEnvironment-gridColor);
 }
 
 .environment-variable .name .gutter {

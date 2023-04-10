@@ -158,15 +158,18 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	 * @param path The path of the child entry to locate.
 	 */
 	locateChildEntry(path: string[]): EnvironmentVariableItem | undefined {
+		// When the path is empty, return this.
 		if (!path.length) {
 			return this;
 		}
 
+		// Find the matching child environment variable item.
 		const environmentVariableItem = this._environmentVariableItems?.get(path[0]);
 		if (!environmentVariableItem) {
 			return undefined;
 		}
 
+		// Recursively find the child entry.
 		return environmentVariableItem.locateChildEntry(path.slice(1));
 	}
 

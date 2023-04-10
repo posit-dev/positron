@@ -12,6 +12,7 @@ import { ZedEnvironment } from './positronZedEnvironment';
 import path = require('path');
 import fs = require('fs');
 import { ZedPlot } from './positronZedPlot';
+import { LanguageRuntimeState } from 'positron';
 
 /**
  * Constants.
@@ -47,6 +48,7 @@ const HelpLines = [
 	'ansi el 2    - Clears an entire line using EL',
 	'ansi hidden  - Displays hidden text',
 	'ansi rgb     - Displays RGB ANSI colors as foreground and background colors',
+	'busy X       - Simulates an interuptible busy state for X seconds, or 5 seconds if X is not specified',
 	'code X Y     - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'env clear    - Clears all variables from the environment',
 	'env def X    - Defines X variables (randomly typed)',
@@ -123,6 +125,21 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	private readonly _pendingRpcs: Array<string> = [];
 
+	/**
+	 * A timer for the busy state.
+	 */
+	private _busyTimer: NodeJS.Timer | undefined;
+
+	/**
+	 * The ID of the currently executing busy operation.
+	 */
+	private _busyOperationId: string | undefined;
+
+	/**
+	 * The current state of the runtime.
+	 */
+	private _state: positron.RuntimeState;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -137,6 +154,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		private readonly context: vscode.ExtensionContext,
 		runtimeId: string,
 		version: string) {
+		this._state = positron.RuntimeState.Uninitialized;
 		this.metadata = {
 			runtimeId,
 			languageId: 'zed',
@@ -147,6 +165,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			runtimeVersion: '0.0.1',
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
+
+		// Listen to our own state changes and update the state.
+		this._onDidChangeRuntimeState.event((state) => {
+			this._state = state;
+		});
 	}
 
 	//#endregion Constructor
@@ -275,6 +298,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			// letter "Z" is used.
 			const letter = (match.length > 1 && match[1]) ? match[1].trim().toUpperCase() : 'Z';
 			this.simulateDynamicPlot(id, letter, code);
+			return;
+		} else if (match = code.match(/^busy( [0-9]+)?/)) {
+			// Simulate a busy state.
+			const duration = (match.length > 1 && match[1]) ? match[1].trim() : '5';
+			const durationSeconds = parseInt(duration, 10);
+			this.simulateBusyOperation(id, durationSeconds, code);
 			return;
 		}
 
@@ -863,7 +892,33 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Interrupts the runtime.
 	 */
 	interrupt(): void {
-		throw new Error('Method not implemented.');
+		if (this._busyTimer && this._state === positron.RuntimeState.Busy) {
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Interrupting);
+			if (this._busyOperationId) {
+				// Return to idle state.
+				this.simulateOutputMessage(this._busyOperationId, 'Interrupting...');
+
+				// It takes 1 second to interrupt a busy operation in Zed; this helps us
+				// see the interrupting state in the UI.
+				setTimeout(() => {
+					// It's not likely, but it's possible that the runtime could have gone
+					// idle before the interrupting state was reached. In that case, the
+					// interruption is a no-op.
+					if (this._state === positron.RuntimeState.Interrupting) {
+						// Consider: what is the parent of the idle state message? Is it the operation
+						// we canceled, or is it the interrupt operation?
+						this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
+						this.simulateIdleState(this._busyOperationId!);
+						this._busyOperationId = undefined;
+					}
+				}, 1000);
+			}
+
+			clearTimeout(this._busyTimer);
+			this._busyTimer = undefined;
+		} else {
+			throw new Error(`Can't interrupt; not busy or already interrupting`);
+		}
 	}
 
 	/**
@@ -1189,6 +1244,29 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				data: data
 			} as positron.LanguageRuntimeCommMessage);
 		});
+	}
+
+	/**
+	 * Simulates transitioning to the busy state.
+	 * @param parentId The parent identifier.
+	 */
+	private simulateBusyOperation(parentId: string, durationSeconds: number, code: string) {
+		// Enter the busy state and echo the code
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Acknowledge the command
+		this.simulateOutputMessage(parentId, `Entering busy state for ${durationSeconds} seconds.`);
+
+		// Exit the busy state after the specified duration. We save the timer to a
+		// private field so that we can cancel it if the user interrupts the kernel.
+		this._busyOperationId = parentId;
+		this._busyTimer = setTimeout(() => {
+			// All done. Exit the busy state.
+			this.simulateIdleState(parentId);
+			this.simulateOutputMessage(parentId, `Exiting busy state.`);
+			this._busyTimer = undefined;
+		}, durationSeconds * 1000);
 	}
 
 	//#endregion Private Methods

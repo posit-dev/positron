@@ -6,6 +6,7 @@ import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
@@ -18,6 +19,10 @@ export interface EnvironmentVariableItemProps {
 	typeVisible: boolean;
 	environmentVariableItem: IEnvironmentVariableItem;
 	positronEnvironmentInstance: IPositronEnvironmentInstance;
+
+	onStartResizeNameColumn: () => void;
+	onResizeNameColumn: (x: number, y: number) => void;
+	onStopResizeNameColumn: (x: number, y: number) => void;
 }
 
 /**
@@ -25,13 +30,7 @@ export interface EnvironmentVariableItemProps {
  * @param props A EnvironmentVariableItemProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentVariableItem = ({
-	nameColumnWidth,
-	detailsColumnWidth,
-	typeVisible,
-	environmentVariableItem,
-	positronEnvironmentInstance
-}: EnvironmentVariableItemProps) => {
+export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => {
 	// Hooks.
 	const [selected, _setSelected] = useState(false);
 
@@ -39,10 +38,14 @@ export const EnvironmentVariableItem = ({
 	 * Handles expand / collapse.
 	 */
 	const handleExpandCollapse = async (): Promise<void> => {
-		if (environmentVariableItem.expanded) {
-			positronEnvironmentInstance.collapseEnvironmentVariable(environmentVariableItem.path);
+		if (props.environmentVariableItem.expanded) {
+			props.positronEnvironmentInstance.collapseEnvironmentVariable(
+				props.environmentVariableItem.path
+			);
 		} else {
-			await positronEnvironmentInstance.expandEnvironmentVariable(environmentVariableItem.path);
+			await props.positronEnvironmentInstance.expandEnvironmentVariable(
+				props.environmentVariableItem.path
+			);
 		}
 	};
 
@@ -55,12 +58,12 @@ export const EnvironmentVariableItem = ({
 	// Render.
 	return (<>
 		<div className={classNames}>
-			<div className='name' style={{ width: nameColumnWidth }}>
-				<div style={{ display: 'flex', marginLeft: environmentVariableItem.indentLevel * 20 }}>
+			<div className='name' style={{ width: props.nameColumnWidth }}>
+				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
-						{environmentVariableItem.hasChildren && (
+						{props.environmentVariableItem.hasChildren && (
 							<button className='expand-collapse-button' onClick={handleExpandCollapse}>
-								{!environmentVariableItem.expanded ?
+								{!props.environmentVariableItem.expanded ?
 									<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
 									<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
 								}
@@ -68,15 +71,19 @@ export const EnvironmentVariableItem = ({
 						)}
 					</div>
 					<div className='name-value'>
-						{environmentVariableItem.displayName}
+						{props.environmentVariableItem.displayName}
 					</div>
 				</div>
 			</div>
-			<div className='details' style={{ width: detailsColumnWidth }}>
-				<div className='value'>{environmentVariableItem.displayValue}</div>
-				{typeVisible && (
+			<ColumnSplitter
+				onStartResize={props.onStartResizeNameColumn}
+				onResize={props.onResizeNameColumn}
+				onStopResize={props.onStopResizeNameColumn} />
+			<div className='details' style={{ width: props.detailsColumnWidth }}>
+				<div className='value'>{props.environmentVariableItem.displayValue}</div>
+				{props.typeVisible && (
 					<div className='type'>
-						{environmentVariableItem.displayType}
+						{props.environmentVariableItem.displayType}
 					</div>
 				)}
 			</div>

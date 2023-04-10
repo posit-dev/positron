@@ -17,7 +17,6 @@ import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
-import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 
 // Constants.
