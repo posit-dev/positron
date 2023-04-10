@@ -8,12 +8,19 @@
 pub mod all;
 pub mod any;
 pub mod case;
-pub mod local;
-pub mod join;
-pub mod push;
 pub mod event;
+pub mod join;
+pub mod local;
+pub mod ok;
+pub mod push;
 pub mod spawn;
 pub mod unwrap;
+
+pub use crate::join::Joined;
+pub use crate::ok::Ok;
+pub use crate::push::Push;
+pub use crate::unwrap::IntoOption;
+pub use crate::unwrap::IntoResult;
 
 #[macro_export]
 macro_rules! cargs {
@@ -24,16 +31,13 @@ macro_rules! cargs {
 
 }
 
-
 #[macro_export]
 macro_rules! cstr {
-
     ($value:literal) => {{
         use std::os::raw::c_char;
         let value = concat!($value, "\0");
         value.as_ptr() as *mut c_char
     }};
-
 }
 
 #[cfg(test)]
@@ -49,4 +53,3 @@ mod tests {
         assert_eq!(string, b"Hello\0".as_ptr() as *mut c_char);
     }
 }
-
