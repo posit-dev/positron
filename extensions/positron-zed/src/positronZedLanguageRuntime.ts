@@ -901,11 +901,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				// It takes 1 second to interrupt a busy operation in Zed; this helps us
 				// see the interrupting state in the UI.
 				setTimeout(() => {
-					// Consider: what is the parent of the idle state message? Is it the operation
-					// we canceled, or is it the interrupt operation?
-					this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
-					this.simulateIdleState(this._busyOperationId!);
-					this._busyOperationId = undefined;
+					// It's not likely, but it's possible that the runtime could have gone
+					// idle before the interrupting state was reached. In that case, the
+					// interruption is a no-op.
+					if (this._state === positron.RuntimeState.Interrupting) {
+						// Consider: what is the parent of the idle state message? Is it the operation
+						// we canceled, or is it the interrupt operation?
+						this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
+						this.simulateIdleState(this._busyOperationId!);
+						this._busyOperationId = undefined;
+					}
 				}, 1000);
 			}
 
