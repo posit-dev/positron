@@ -42,6 +42,9 @@ struct DiagnosticContext<'a> {
 
     // The set of packages that are currently installed.
     pub installed_packages: HashSet<String>,
+
+    // Whether or not we're inside of a formula.
+    pub in_formula: bool,
 }
 
 impl<'a> DiagnosticContext<'a> {
@@ -119,6 +122,7 @@ async fn enqueue_diagnostics_impl(
             document_symbols: Vec::new(),
             session_symbols: HashSet::new(),
             installed_packages: HashSet::new(),
+            in_formula: false,
         };
 
         // Add a 'root' context for the document.
@@ -184,11 +188,14 @@ fn recurse(
 ) -> Result<()> {
     match node.kind() {
         "function" => recurse_function(node, context, diagnostics),
+        "~" => recurse_formula(node, context, diagnostics),
+        "<<-" => recurse_superassignment(node, context, diagnostics),
         "<-" | "=" => recurse_assignment(node, context, diagnostics),
         "::" | ":::" => recurse_namespace(node, context, diagnostics),
         "{" => recurse_block(node, context, diagnostics),
         "(" => recurse_paren(node, context, diagnostics),
-        "call" | "[" | "[[" => recurse_call_or_subset(node, context, diagnostics),
+        "[" | "[[" => recurse_subset(node, context, diagnostics),
+        "call" => recurse_call(node, context, diagnostics),
         _ => recurse_default(node, context, diagnostics),
     }
 }
@@ -226,6 +233,34 @@ fn recurse_function(
     }
 
     Ok(())
+}
+
+fn recurse_formula(
+    node: Node,
+    context: &mut DiagnosticContext,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<()> {
+    // TODO: Are there any sensible diagnostics we can do in a formula?
+    // Beyond just checking for syntax errors, or things of that form?
+    let mut context = context.clone();
+    context.in_formula = true;
+    let context = &mut context;
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        recurse(child, context, diagnostics)?;
+    }
+
+    ().ok()
+}
+
+fn recurse_superassignment(
+    _node: Node,
+    _context: &mut DiagnosticContext,
+    _diagnostics: &mut Vec<Diagnostic>,
+) -> Result<()> {
+    // TODO: Check for a target within a parent scope.
+    ().ok()
 }
 
 fn recurse_assignment(
@@ -332,7 +367,48 @@ fn recurse_paren(
     ().ok()
 }
 
-fn recurse_call_or_subset(
+fn recurse_call(
+    node: Node,
+    context: &mut DiagnosticContext,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<()> {
+    // Run diagnostics on the call.
+    dispatch(node, context, diagnostics);
+
+    // Recurse into the callee.
+    if let Some(callee) = node.child(0) {
+        recurse(callee, context, diagnostics)?;
+    }
+
+    // TODO: Handle certain 'scope-generating' function calls, e.g.
+    // things like 'local({ ... })'.
+
+    // Recurse into arguments.
+    if let Some(arguments) = node.child_by_field_name("arguments") {
+        let mut cursor = arguments.walk();
+        let children = arguments.children_by_field_name("argument", &mut cursor);
+        for child in children {
+            // Warn if the next sibling is neither a comma nor a closing delimiter.
+            if let Some(next) = child.next_sibling() {
+                if !matches!(next.kind(), "comma" | ")") {
+                    let range: Range = child.range().into();
+                    let message = "expected ',' after expression";
+                    let diagnostic = Diagnostic::new_simple(range.into(), message.into());
+                    diagnostics.push(diagnostic);
+                }
+            }
+
+            // Recurse into values.
+            if let Some(value) = child.child_by_field_name("value") {
+                recurse(value, context, diagnostics)?;
+            }
+        }
+    }
+
+    ().ok()
+}
+
+fn recurse_subset(
     node: Node,
     context: &mut DiagnosticContext,
     diagnostics: &mut Vec<Diagnostic>,
@@ -352,21 +428,11 @@ fn recurse_call_or_subset(
         for child in children {
             // Warn if the next sibling is neither a comma nor a closing delimiter.
             if let Some(next) = child.next_sibling() {
-                if !matches!(next.kind(), "comma" | ")" | "]" | "]]") {
+                if !matches!(next.kind(), "comma" | "]" | "]]") {
                     let range: Range = child.range().into();
                     let message = "expected ',' after expression";
                     let diagnostic = Diagnostic::new_simple(range.into(), message.into());
                     diagnostics.push(diagnostic);
-                }
-            }
-
-            // Add names as values in scope.
-            if let Some(name) = child.child_by_field_name("name") {
-                if matches!(name.kind(), "identifier" | "string") {
-                    context.add_defined_variable(
-                        name.utf8_text(context.source.as_bytes())?,
-                        name.range().into(),
-                    );
                 }
             }
 
@@ -456,8 +522,6 @@ fn check_unmatched_opening_brace(
     let rhs = node.child(n - 1).unwrap();
 
     if lhs.kind() == "{" && rhs.kind() != "}" {
-        eprintln!("lhs: {} ['{}']", lhs.to_sexp(), lhs.kind());
-        eprintln!("rhs: {} ['{}']", rhs.to_sexp(), rhs.kind());
         let child = node.child(0).into_result()?;
         let range: Range = child.range().into();
         let message = "unmatched opening brace '{'";
@@ -589,8 +653,25 @@ fn check_symbol_in_scope(
     context: &mut DiagnosticContext,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<bool> {
+    // Skip if we're in a formula.
+    if context.in_formula {
+        return false.ok();
+    }
+
+    // Skip if this isn't an identifier.
     if node.kind() != "identifier" {
         return false.ok();
+    }
+
+    // Skip if this identifier belongs to a '$' node.
+    if let Some(parent) = node.parent() {
+        if parent.kind() == "$" {
+            if let Some(rhs) = parent.child_by_field_name("rhs") {
+                if rhs == node {
+                    return false.ok();
+                }
+            }
+        }
     }
 
     // Skip if a symbol with this name is in scope.
