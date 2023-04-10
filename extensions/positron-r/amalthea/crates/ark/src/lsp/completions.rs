@@ -31,9 +31,6 @@ use regex::Captures;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
-use stdext::join::joined;
-use stdext::unwrap::IntoOption;
-use stdext::unwrap::IntoResult;
 use stdext::*;
 use tower_lsp::lsp_types::Command;
 use tower_lsp::lsp_types::CompletionItem;
@@ -359,7 +356,7 @@ pub fn completion_item_from_function<T: AsRef<str>>(
 
     item.kind = Some(CompletionItemKind::FUNCTION);
 
-    let detail = format!("{}({})", name, joined(parameters, ", "));
+    let detail = format!("{}({})", name, parameters.joined(", "));
     item.detail = Some(detail);
 
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
