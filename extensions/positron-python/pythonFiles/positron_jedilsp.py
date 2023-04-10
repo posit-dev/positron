@@ -14,6 +14,7 @@ from jedi_language_server.server import (
     JediLanguageServerProtocol,
     code_action,
     completion_item_resolve,
+    did_change_configuration,
     did_close_diagnostics,
     did_change_diagnostics,
     did_open_diagnostics,
@@ -43,6 +44,7 @@ from lsprotocol.types import (
     CompletionList,
     CompletionOptions,
     CompletionParams,
+    DidChangeConfigurationParams,
     DidChangeTextDocumentParams,
     DidCloseTextDocumentParams,
     DidOpenTextDocumentParams,
@@ -74,6 +76,7 @@ from lsprotocol.types import (
     TEXT_DOCUMENT_RENAME,
     TEXT_DOCUMENT_SIGNATURE_HELP,
     TEXT_DOCUMENT_TYPE_DEFINITION,
+    WORKSPACE_DID_CHANGE_CONFIGURATION,
     WORKSPACE_SYMBOL
 )
 from pygls.capabilities import get_capability
@@ -324,6 +327,14 @@ def positron_code_action(
     server: PositronJediLanguageServer, params: CodeActionParams
 ) -> Optional[List[CodeAction]]:
     return code_action(server, params)
+
+
+@POSITRON.feature(WORKSPACE_DID_CHANGE_CONFIGURATION)
+def positron_did_change_configuration(
+    server: PositronJediLanguageServer,  # pylint: disable=unused-argument
+    params: DidChangeConfigurationParams,  # pylint: disable=unused-argument
+) -> None:
+    return did_change_configuration(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_SAVE)
