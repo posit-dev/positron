@@ -867,6 +867,7 @@ dependencies = [
  "log",
  "once_cell",
  "parking_lot",
+ "regex",
  "stdext",
 ]
 

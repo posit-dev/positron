@@ -13,7 +13,10 @@ use std::time::Duration;
 use anyhow::Result;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::protect::RProtect;
 use harp::r_lock;
+use harp::utils::r_symbol_quote_invalid;
+use harp::utils::r_symbol_valid;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
 use libR_sys::*;
@@ -24,6 +27,7 @@ use tower_lsp::lsp_types::Url;
 use tree_sitter::Node;
 
 use crate::lsp::backend::Backend;
+use crate::lsp::indexer;
 use crate::Range;
 
 static VERSION: AtomicI32 = AtomicI32::new(0);
@@ -39,6 +43,9 @@ struct DiagnosticContext<'a> {
     /// The symbols used within the document, as a 'stack' of symbols,
     /// mapping symbol names to the locations where they were defined.
     pub document_symbols: Vec<HashMap<String, Range>>,
+
+    /// The symbols defined in the workspace.
+    pub workspace_symbols: HashSet<String>,
 
     // The set of packages that are currently installed.
     pub installed_packages: HashSet<String>,
@@ -66,6 +73,11 @@ impl<'a> DiagnosticContext<'a> {
             if symbols.contains_key(name) {
                 return true;
             }
+        }
+
+        // Next, check workspace symbols.
+        if self.workspace_symbols.contains(name) {
+            return true;
         }
 
         // Finally, check session symbols.
@@ -121,6 +133,7 @@ async fn enqueue_diagnostics_impl(
             source: source.as_str(),
             document_symbols: Vec::new(),
             session_symbols: HashSet::new(),
+            workspace_symbols: HashSet::new(),
             installed_packages: HashSet::new(),
             in_formula: false,
         };
@@ -128,21 +141,33 @@ async fn enqueue_diagnostics_impl(
         // Add a 'root' context for the document.
         context.document_symbols.push(HashMap::new());
 
+        // Add the current workspace symbols.
+        indexer::map(|_path, _symbol, entry| match &entry.data {
+            indexer::IndexEntryData::Function { name, arguments: _ } => {
+                context.workspace_symbols.insert(name.to_string());
+            },
+            _ => {},
+        });
+
         r_lock! {
             // Get the set of symbols currently in scope.
             let mut envir = R_GlobalEnv;
             while envir != R_EmptyEnv {
 
-                let objects = RFunction::new("base", "objects")
-                    .param("envir", envir)
-                    .param("all.names", true)
-                    .call()
-                    .unwrap();
+                // List symbol names in this environment.
+                let mut protect = RProtect::new();
+                let objects = protect.add(R_lsInternal(envir, 1));
 
+                // Ensure that non-syntactic names are quoted.
                 let vector = CharacterVector::new(objects).unwrap();
                 for name in vector.iter() {
                     if let Some(name) = name {
-                        context.session_symbols.insert(name);
+                        if r_symbol_valid(name.as_str()) {
+                            context.session_symbols.insert(name);
+                        } else {
+                            let name = r_symbol_quote_invalid(name.as_str());
+                            context.session_symbols.insert(name);
+                        }
                     }
                 }
 
@@ -167,12 +192,8 @@ async fn enqueue_diagnostics_impl(
         let root = doc.ast.root_node();
         let result = recurse(root, &mut context, &mut diagnostics);
         if let Err(error) = result {
-            log::error!("{}", error);
+            log::error!("{:#?}", error.backtrace());
         }
-    }
-
-    if diagnostics.is_empty() {
-        return;
     }
 
     backend
@@ -188,9 +209,10 @@ fn recurse(
 ) -> Result<()> {
     match node.kind() {
         "function" => recurse_function(node, context, diagnostics),
+        "for" => recurse_for(node, context, diagnostics),
         "~" => recurse_formula(node, context, diagnostics),
         "<<-" => recurse_superassignment(node, context, diagnostics),
-        "<-" | "=" => recurse_assignment(node, context, diagnostics),
+        "<-" => recurse_assignment(node, context, diagnostics),
         "::" | ":::" => recurse_namespace(node, context, diagnostics),
         "{" => recurse_block(node, context, diagnostics),
         "(" => recurse_paren(node, context, diagnostics),
@@ -235,6 +257,33 @@ fn recurse_function(
     Ok(())
 }
 
+fn recurse_for(
+    node: Node,
+    context: &mut DiagnosticContext,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<()> {
+    // First, scan the 'sequence' node.
+    if let Some(sequence) = node.child_by_field_name("sequence") {
+        recurse(sequence, context, diagnostics)?;
+    }
+
+    // Now, check for an identifier, and put that in scope.
+    if let Some(identifier) = node.child_by_field_name("variable") {
+        if identifier.kind() == "identifier" {
+            let name = identifier.utf8_text(context.source.as_bytes())?;
+            let range: Range = identifier.range().into();
+            context.add_defined_variable(name.into(), range.into());
+        }
+    }
+
+    // Now, scan the body.
+    if let Some(body) = node.child_by_field_name("body") {
+        recurse(body, context, diagnostics)?;
+    }
+
+    ().ok()
+}
+
 fn recurse_formula(
     node: Node,
     context: &mut DiagnosticContext,
@@ -269,11 +318,12 @@ fn recurse_assignment(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<()> {
     // Check for newly-defined variable.
-    let lhs = node.child_by_field_name("lhs").into_result()?;
-    if matches!(lhs.kind(), "identifier" | "string") {
-        let name = lhs.utf8_text(context.source.as_bytes())?;
-        let range: Range = lhs.range().into();
-        context.add_defined_variable(name, range.into());
+    if let Some(lhs) = node.child_by_field_name("lhs") {
+        if matches!(lhs.kind(), "identifier" | "string") {
+            let name = lhs.utf8_text(context.source.as_bytes())?;
+            let range: Range = lhs.range().into();
+            context.add_defined_variable(name, range.into());
+        }
     }
 
     // Recurse into expression for assignment.
