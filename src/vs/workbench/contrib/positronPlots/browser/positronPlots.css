@@ -83,7 +83,22 @@
 	padding: 0;
 	opacity: 0.75;
 	transition: opacity 0.2s ease-in-out;
+}
+
+.plot-thumbnail button {
 	cursor: pointer;
+	overflow: hidden;
+}
+
+.plot-thumbnail button:active img,
+.plot-thumbnail button:focus img {
+	cursor: pointer;
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	border-radius: 3px;
+	opacity: 1;
 }
 
 .plot-thumbnail.selected {
@@ -98,7 +113,6 @@
 .plot-thumbnail.selected img {
 	border: 1px solid var(--vscode-editorWidget-border);
 }
-
 
 /**
  * Hover the plot thumbnail to make it opaque; fades out when not hovered.
