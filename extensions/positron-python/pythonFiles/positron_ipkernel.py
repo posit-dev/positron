@@ -110,7 +110,7 @@ class EnvironmentMessageList(EnvironmentMessage):
     Message 'list' type summarizes the variables in the user's environment.
     """
 
-    def __init__(self, variables: list[EnvironmentVariable], length: int = None):
+    def __init__(self, variables: list, length: int = None):
         super().__init__(EnvironmentMessageType.LIST)
         self['variables'] = variables
         if length is None:
@@ -136,7 +136,7 @@ class EnvironmentMessageDetails(EnvironmentMessage):
     Message 'details' type summarizes the variables in the user's environment.
     """
 
-    def __init__(self, path: str, children: list[EnvironmentVariable], length: int = None):
+    def __init__(self, path: str, children: list, length: int = None):
         super().__init__(EnvironmentMessageType.DETAILS)
         self['path'] = path
         self['children'] = children
@@ -151,7 +151,7 @@ class EnvironmentMessageUpdate(EnvironmentMessage):
     user's environment since the last execution.
     """
 
-    def __init__(self, assigned: list[EnvironmentVariable], removed: set[str]):
+    def __init__(self, assigned: list, removed: set):
         super().__init__(EnvironmentMessageType.UPDATE)
         self['assigned'] = assigned
         self['removed'] = removed
@@ -172,7 +172,7 @@ class CustomInspector:
     def get_kind(self, value) -> EnvironmentVariableKind:
         pass
 
-    def get_child_names(self, value) -> list[str]:
+    def get_child_names(self, value) -> list:
         pass
 
     def has_child(self, value, child_name) -> bool:
@@ -210,7 +210,7 @@ class PandasDataFrameInspector(CustomInspector):
         else:
             return EnvironmentVariableKind.EMPTY
 
-    def get_child_names(self, value) -> list[str]:
+    def get_child_names(self, value) -> list:
         try:
             return value.columns.values.tolist()
         except:
@@ -272,7 +272,7 @@ class PandasSeriesInspector(CustomInspector):
         else:
             return EnvironmentVariableKind.EMPTY
 
-    def get_child_names(self, value) -> list[str]:
+    def get_child_names(self, value) -> list:
         try:
             return map(str, list(range(value.size)))
         except:
@@ -325,7 +325,7 @@ class PolarsInspector(CustomInspector):
         else:
             return EnvironmentVariableKind.EMPTY
 
-    def get_child_names(self, value) -> list[str]:
+    def get_child_names(self, value) -> list:
         try:
             return value.columns
         except:
@@ -379,7 +379,7 @@ class NumpyNdarrayInspector(CustomInspector):
         else:
             return EnvironmentVariableKind.EMPTY
 
-    def get_child_names(self, value) -> list[str]:
+    def get_child_names(self, value) -> list:
         try:
             return map(str, list(range(len(value))))
         except:
@@ -555,7 +555,7 @@ class PositronIPyKernel(IPythonKernel):
         # after an operation or execution is performed
         hidden['__positron_cache'] = snapshot
 
-    def compare_user_ns(self) -> (dict, set[str]):
+    def compare_user_ns(self) -> (dict, set):
 
         after = self.get_user_ns()
         hidden = self.get_user_ns_hidden()
