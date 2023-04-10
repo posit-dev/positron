@@ -37,6 +37,17 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	const positronPlotsContext = usePositronPlotsContext();
 
+	// Show the plot history gallery along the shortest edge of the container.
+	// This gives the plot rendering area the most space and a gentler aspect
+	// ratio.
+	//
+	// Consider: We could make this configurable (let the user decide which edge
+	// to show the gallery on).
+	const historyBottom = props.height > props.width;
+	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
+	const plotHeight = historyBottom ? props.height - HistoryPx : props.height;
+	const plotWidth = historyBottom ? props.width : props.width - HistoryPx;
+
 	useEffect(() => {
 		// Empty for now.
 	});
@@ -53,8 +64,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotInstance
 				key={plotInstance.id}
-				width={props.width}
-				height={props.height - HistoryPx}
+				width={plotWidth}
+				height={plotHeight}
 				plotClient={plotInstance} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
@@ -92,11 +103,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
-	//
-	// In the future we will probably want to have a filmstrip history of plot
-	// instances here for easy navigation.
 	return (
-		<div className='plots-container'>
+		<div className={'plots-container ' + historyEdge}>
 			<div className='selected-plot'>
 				{positronPlotsContext.positronPlotInstances.length === 0 &&
 					<span>Plot container: {props.height} x {props.width}</span>}
@@ -105,11 +113,13 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 					render(plotInstance)
 				))}
 			</div>
-			<div className='plot-history'>
-				{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
-					renderThumbnail(plotInstance,
-						plotInstance.id === positronPlotsContext.selectedInstanceId)
-				))}
+			<div className='plot-history-scroller'>
+				<div className='plot-history'>
+					{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
+						renderThumbnail(plotInstance,
+							plotInstance.id === positronPlotsContext.selectedInstanceId)
+					))}
+				</div>
 			</div>
 		</div>
 	);

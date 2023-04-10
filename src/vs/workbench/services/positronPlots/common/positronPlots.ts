@@ -44,6 +44,15 @@ export interface IPositronPlotsService {
 	readonly onDidRemovePlot: Event<string>;
 
 	/**
+	 * Notifies subscribers when the list of Positron plot instances is replaced
+	 * with a new list. The new list of plots is the event paylod. This event is
+	 * fired when the set of plots needs to be completely refreshed, such as
+	 * when several plots are removed or a newly started language runtime has
+	 * plots to display.
+	 */
+	readonly onDidReplacePlots: Event<PositronPlotClient[]>;
+
+	/**
 	 * Selects the plot with the specified ID.
 	 *
 	 * @param id The ID of the plot to select.

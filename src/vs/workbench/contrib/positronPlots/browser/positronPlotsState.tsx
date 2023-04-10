@@ -41,7 +41,14 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 		// Listen for new plot instances.
 		disposableStore.add(services.positronPlotsService.onDidEmitPlot(plotInstance => {
 			// Add the plot instance to the list of plot instances
-			setPositronPlotInstances(positronPlotInstances => [plotInstance, ...positronPlotInstances]);
+			setPositronPlotInstances(positronPlotInstances => {
+				// This can be called multiple times for the same plot instance, so make sure
+				// we don't add it twice.
+				if (positronPlotInstances.some(p => p.id === plotInstance.id)) {
+					return positronPlotInstances;
+				}
+				return [plotInstance, ...positronPlotInstances];
+			});
 
 			// When the plot closes, remove it from the list of plot instances.
 			// (If the plot is not a plot client instance, then it doesn't have
@@ -62,6 +69,11 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 		// Listen for plot removal.
 		disposableStore.add(services.positronPlotsService.onDidRemovePlot(id => {
 			setPositronPlotInstances(positronPlotInstances => positronPlotInstances.filter(p => p.id !== id));
+		}));
+
+		// Listen for replacing all plots.
+		disposableStore.add(services.positronPlotsService.onDidReplacePlots((plots) => {
+			setPositronPlotInstances(plots);
 		}));
 
 		// Return the clean up for our event handlers.
