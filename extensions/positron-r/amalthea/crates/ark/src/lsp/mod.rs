@@ -10,6 +10,7 @@ pub mod browser;
 pub mod comm;
 pub mod completions;
 pub mod definitions;
+pub mod diagnostics;
 pub mod documents;
 pub mod editor;
 pub mod errors;

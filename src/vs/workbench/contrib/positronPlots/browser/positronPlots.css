@@ -5,14 +5,40 @@
 .plots-container {
 	height: 100%;
 	display: flex;
+}
+
+.plots-container.history-right {
+	flex-direction: row;
+}
+
+.plots-container.history-bottom {
 	flex-direction: column;
+}
+
+.plot-history-scroller {
+	overflow: auto;
 }
 
 .plot-history {
 	display: flex;
-	flex-direction: row;
+}
+
+.history-right .plot-history-scroller {
+	width: 100px;
+}
+
+.history-right .plot-history {
+	flex-direction: column;
+	height: fit-content;
+}
+
+.history-bottom .plot-history-scroller {
 	height: 100px;
-	overflow: auto;
+}
+
+.history-bottom .plot-history {
+	flex-direction: row;
+	width: fit-content;
 }
 
 .selected-plot {
