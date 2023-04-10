@@ -288,6 +288,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
+	 * Selects the next plot in the list, if there is one.
+	 */
+	selectNextPlot(): void {
+		// Get the index of the currently selected plot
+		const index = this._plots.findIndex(plot => plot.id === this._selectedPlotId);
+
+		// If we found a plot and it's not the last one in the list, select the
+		// next plot.
+		if (index >= 0 && index < (this._plots.length - 1)) {
+			this._onDidSelectPlot.fire(this._plots[index + 1].id);
+		}
+	}
+
+	/**
+	 * Selects the previous plot in the list, if there is one.
+	 */
+	selectPreviousPlot(): void {
+		// Get the index of the currently selected plot
+		const index = this._plots.findIndex(plot => plot.id === this._selectedPlotId);
+
+		// If we found a plot and it's not the first one in the list, select the
+		// previous plot.
+		if (index > 0) {
+			this._onDidSelectPlot.fire(this._plots[index - 1].id);
+		}
+	}
+
+	/**
 	 * Remove a plot by ID
 	 *
 	 * @param id The ID of the plot to remove
