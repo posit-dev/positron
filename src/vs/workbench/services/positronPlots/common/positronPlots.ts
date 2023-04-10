@@ -77,6 +77,11 @@ export interface IPositronPlotsService {
 	removePlot(id: string): void;
 
 	/**
+	 * Removes the selected plot.
+	 */
+	removeSelectedPlot(): void;
+
+	/**
 	 * Removes all the plots in the service.
 	 */
 	removeAllPlots(): void;

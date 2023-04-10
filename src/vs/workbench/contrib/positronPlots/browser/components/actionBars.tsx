@@ -65,14 +65,21 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		positronPlotsContext.positronPlotsService.selectNextPlot();
 	};
 
+	// Remove the selected plot from the service.
+	const removeSelectedPlotHandler = () => {
+		positronPlotsContext.positronPlotsService.removeSelectedPlot();
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<ActionBarButton iconId='arrow-small-left' tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
-						<ActionBarButton iconId='arrow-small-right' tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
+						<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
+						<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
+						<ActionBarSeparator />
+						<ActionBarButton iconId='positron-clear' tooltip={localize('positronRemoveSelectedPlot', "Remove selected plot")} onClick={removeSelectedPlotHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
 					</ActionBarRegion>

@@ -348,6 +348,18 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
+	 * Removes the currently selected plot from the service and fires an event
+	 * to update the the UI
+	 */
+	removeSelectedPlot(): void {
+		if (this._selectedPlotId) {
+			this.removePlot(this._selectedPlotId);
+		} else {
+			throw new Error('No plot is selected');
+		}
+	}
+
+	/**
 	 * Removes all the plots from the service and fires an event to
 	 * update the the UI
 	 */
