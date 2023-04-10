@@ -10,6 +10,8 @@ use std::ffi::CString;
 use std::os::raw::c_void;
 
 use libR_sys::*;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 use crate::error::Error;
 use crate::error::Result;
@@ -22,11 +24,22 @@ use crate::r_symbol;
 use crate::vector::CharacterVector;
 use crate::vector::Vector;
 
+// NOTE: Regex::new() is quite slow to compile, so it's much better to keep
+// a single singleton pattern and use that repeatedly for matches.
+static RE_SYNTACTIC_IDENTIFIER: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap());
+
 extern "C" {
-    fn R_removeVarFromFrame(symbol: SEXP, envir: SEXP) -> c_void;
+    fn R_removeVarFromFrame(
+        symbol: SEXP,
+        envir: SEXP,
+    ) -> c_void;
 }
 
-pub fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
+pub fn r_assert_type(
+    object: SEXP,
+    expected: &[u32],
+) -> Result<u32> {
     let actual = r_typeof(object);
 
     if !expected.contains(&actual) {
@@ -36,7 +49,10 @@ pub fn r_assert_type(object: SEXP, expected: &[u32]) -> Result<u32> {
     Ok(actual)
 }
 
-pub unsafe fn r_assert_capacity(object: SEXP, required: u32) -> Result<u32> {
+pub unsafe fn r_assert_capacity(
+    object: SEXP,
+    required: u32,
+) -> Result<u32> {
     let actual = Rf_length(object) as u32;
     if actual < required {
         return Err(Error::UnexpectedLength(actual, required));
@@ -45,7 +61,10 @@ pub unsafe fn r_assert_capacity(object: SEXP, required: u32) -> Result<u32> {
     Ok(actual)
 }
 
-pub unsafe fn r_assert_length(object: SEXP, expected: u32) -> Result<u32> {
+pub unsafe fn r_assert_length(
+    object: SEXP,
+    expected: u32,
+) -> Result<u32> {
     let actual = Rf_length(object) as u32;
     if actual != expected {
         return Err(Error::UnexpectedLength(actual, expected));
@@ -76,13 +95,15 @@ pub unsafe fn r_get_option<T: TryFrom<RObject, Error = Error>>(name: &str) -> Re
     return RObject::new(result).try_into();
 }
 
-pub unsafe fn r_inherits(object: SEXP, class: &str) -> bool {
+pub unsafe fn r_inherits(
+    object: SEXP,
+    class: &str,
+) -> bool {
     let class = CString::new(class).unwrap();
     return Rf_inherits(object, class.as_ptr()) != 0;
 }
 
 pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
-
     // convert primitive functions into equivalent closures
     let mut object = RObject::new(object);
     if r_typeof(*object) == BUILTINSXP || r_typeof(*object) == SPECIALSXP {
@@ -102,20 +123,16 @@ pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
     let mut arguments = Vec::new();
 
     while formals != R_NilValue {
-
         let name = RObject::from(TAG(formals)).to::<String>()?;
         let value = CAR(formals);
         arguments.push(RArgument::new(name.as_str(), RObject::new(value)));
         formals = CDR(formals);
-
     }
 
     Ok(arguments)
-
 }
 
 pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
-
     r_assert_type(envir, &[ENVSXP])?;
 
     if R_IsPackageEnv(envir) != 0 {
@@ -138,39 +155,46 @@ pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
     }
 
     Ok(format!("{:p}", envir))
-
 }
 
-pub unsafe fn r_envir_get(symbol: &str, envir: SEXP) -> Option<SEXP> {
-
+pub unsafe fn r_envir_get(
+    symbol: &str,
+    envir: SEXP,
+) -> Option<SEXP> {
     let value = Rf_findVar(r_symbol!(symbol), envir);
     if value == R_UnboundValue {
         return None;
     }
 
     Some(value)
-
 }
 
-pub unsafe fn r_envir_set(symbol: &str, value: SEXP, envir: SEXP) {
+pub unsafe fn r_envir_set(
+    symbol: &str,
+    value: SEXP,
+    envir: SEXP,
+) {
     Rf_defineVar(r_symbol!(symbol), value, envir);
 }
 
-pub unsafe fn r_envir_remove(symbol: &str, envir: SEXP) {
+pub unsafe fn r_envir_remove(
+    symbol: &str,
+    envir: SEXP,
+) {
     R_removeVarFromFrame(r_symbol!(symbol), envir);
 }
 
-pub unsafe fn r_stringify(object: SEXP, delimiter: &str) -> Result<String> {
-
+pub unsafe fn r_stringify(
+    object: SEXP,
+    delimiter: &str,
+) -> Result<String> {
     // handle SYMSXPs upfront
     if r_typeof(object) == SYMSXP {
         return RObject::view(object).to::<String>();
     }
 
     // call format on the object
-    let object = RFunction::new("base", "format")
-        .add(object)
-        .call()?;
+    let object = RFunction::new("base", "format").add(object).call()?;
 
     // paste into a single string
     let object = RFunction::new("base", "paste")
@@ -180,7 +204,6 @@ pub unsafe fn r_stringify(object: SEXP, delimiter: &str) -> Result<String> {
         .to::<String>()?;
 
     Ok(object)
-
 }
 
 pub unsafe fn r_inspect(object: SEXP) {
@@ -188,4 +211,16 @@ pub unsafe fn r_inspect(object: SEXP) {
     let inspect = protect.add(Rf_lang2(r_symbol!("inspect"), object));
     let internal = protect.add(Rf_lang2(r_symbol!(".Internal"), inspect));
     Rf_eval(internal, R_BaseEnv);
+}
+
+pub fn r_symbol_valid(name: &str) -> bool {
+    RE_SYNTACTIC_IDENTIFIER.is_match(name)
+}
+
+pub fn r_symbol_quote_invalid(name: &str) -> String {
+    if RE_SYNTACTIC_IDENTIFIER.is_match(name) {
+        name.to_string()
+    } else {
+        format!("`{}`", name.replace("`", "\\`"))
+    }
 }

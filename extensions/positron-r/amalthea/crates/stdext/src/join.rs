@@ -5,25 +5,45 @@
 //
 //
 
-pub fn joined<T: AsRef<str>>(values: &[T], delimiter: &str) -> String {
+pub trait Joined<T> {
+    fn joined(self, delimiter: impl AsRef<str>) -> String;
+}
 
-    let mut buffer = String::new();
+impl<T> Joined<T> for &[T]
+where
+    T: AsRef<str>,
+{
+    fn joined(self, delimiter: impl AsRef<str>) -> String {
+        let mut buffer = String::new();
 
-    let mut it = values.iter();
+        let mut it = self.iter();
+        match it.next() {
+            None => return buffer,
+            Some(el) => buffer.push_str(el.as_ref()),
+        }
 
-    // handle first element
-    match it.next() {
-        Some(value) => buffer.push_str(value.as_ref()),
-        None => return buffer,
+        let delimiter = delimiter.as_ref();
+        loop {
+            match it.next() {
+                None => break,
+                Some(el) => {
+                    buffer.push_str(delimiter);
+                    buffer.push_str(el.as_ref());
+                },
+            }
+        }
+
+        buffer
     }
+}
 
-    // handle rest
-    for value in it {
-        buffer.push_str(delimiter);
-        buffer.push_str(value.as_ref());
+impl<T> Joined<T> for Vec<T>
+where
+    T: AsRef<str>,
+{
+    fn joined(self, delimiter: impl AsRef<str>) -> String {
+        self.as_slice().joined(delimiter)
     }
-
-    buffer
 }
 
 #[macro_export]
@@ -52,6 +72,8 @@ macro_rules! join {
 
 #[cfg(test)]
 mod tests {
+    use crate::Joined;
+
     #[test]
     fn test_join() {
         assert_eq!(join!("abc"), "abc");
@@ -61,5 +83,7 @@ mod tests {
         let a = "a";
         let c = "c";
         assert_eq!(join!(a, "b", c, "d", "e", "f"), "abcdef");
+
+        assert_eq!(["a", "b", "c"].joined(", "), "a, b, c");
     }
 }

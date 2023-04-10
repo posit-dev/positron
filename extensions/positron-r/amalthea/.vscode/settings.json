@@ -13,5 +13,6 @@
     "rust-analyzer.check.extraArgs": [
         "--target-dir", "${workspaceFolder}/target/check"
     ],
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
+    "rust-analyzer.showUnlinkedFileNotification": false
 }

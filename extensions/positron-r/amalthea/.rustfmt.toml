@@ -2,6 +2,7 @@
 # These are speculative; we can update as appropriate.
 
 binop_separator = "Back"
+fn_args_layout = "Vertical"
 format_macro_matchers = true
 group_imports = "StdExternalCrate"
 imports_granularity = "Item"

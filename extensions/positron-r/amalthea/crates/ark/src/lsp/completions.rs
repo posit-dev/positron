@@ -23,17 +23,15 @@ use harp::r_symbol;
 use harp::string::r_string_decode;
 use harp::utils::r_envir_name;
 use harp::utils::r_formals;
+use harp::utils::r_symbol_quote_invalid;
+use harp::utils::r_symbol_valid;
 use harp::utils::r_typeof;
-use lazy_static::lazy_static;
 use libR_sys::*;
 use log::*;
 use regex::Captures;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
-use stdext::join::joined;
-use stdext::unwrap::IntoOption;
-use stdext::unwrap::IntoResult;
 use stdext::*;
 use tower_lsp::lsp_types::Command;
 use tower_lsp::lsp_types::CompletionItem;
@@ -59,13 +57,6 @@ use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::string::StringExt;
 use crate::lsp::traits::tree::TreeExt;
-
-lazy_static! {
-    // NOTE: Regex::new() is quite slow to compile, so it's much better to keep
-    // a single singleton pattern and use that repeatedly for matches.
-    static ref RE_SYNTACTIC_IDENTIFIER : Regex =
-        Regex::new(r"^[\p{L}\p{Nl}.][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}.]*$").unwrap();
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum CompletionData {
@@ -121,19 +112,10 @@ fn is_pipe_operator(node: &Node) -> bool {
     matches!(node.kind(), "%>%" | "|>")
 }
 
-fn is_syntactic(name: &str) -> bool {
-    return RE_SYNTACTIC_IDENTIFIER.is_match(name);
-}
-
-fn quote_if_non_syntactic(name: &str) -> String {
-    if RE_SYNTACTIC_IDENTIFIER.is_match(name) {
-        name.to_string()
-    } else {
-        format!("`{}`", name.replace("`", "\\`"))
-    }
-}
-
-fn call_uses_nse(node: &Node, context: &CompletionContext) -> bool {
+fn call_uses_nse(
+    node: &Node,
+    context: &CompletionContext,
+) -> bool {
     let result: Result<()> = local! {
 
         let lhs = node.child(0).into_result()?;
@@ -239,7 +221,10 @@ pub unsafe fn resolve_completion_item(
     }
 }
 
-fn completion_item(label: impl AsRef<str>, data: CompletionData) -> Result<CompletionItem> {
+fn completion_item(
+    label: impl AsRef<str>,
+    data: CompletionData,
+) -> Result<CompletionItem> {
     Ok(CompletionItem {
         label: label.as_ref().to_string(),
         data: Some(serde_json::to_value(data)?),
@@ -359,11 +344,11 @@ pub fn completion_item_from_function<T: AsRef<str>>(
 
     item.kind = Some(CompletionItemKind::FUNCTION);
 
-    let detail = format!("{}({})", name, joined(parameters, ", "));
+    let detail = format!("{}({})", name, parameters.joined(", "));
     item.detail = Some(detail);
 
     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-    item.insert_text = if is_syntactic(name) {
+    item.insert_text = if r_symbol_valid(name) {
         Some(format!("{}($0)", name))
     } else {
         Some(format!("`{}`($0)", name.replace("`", "\\`")))
@@ -444,7 +429,10 @@ unsafe fn completion_item_from_object(
     Ok(item)
 }
 
-unsafe fn completion_item_from_namespace(name: &str, namespace: SEXP) -> Result<CompletionItem> {
+unsafe fn completion_item_from_namespace(
+    name: &str,
+    namespace: SEXP,
+) -> Result<CompletionItem> {
     let symbol = r_symbol!(name);
 
     // First, look in the namespace itself.
@@ -467,7 +455,10 @@ unsafe fn completion_item_from_namespace(name: &str, namespace: SEXP) -> Result<
     );
 }
 
-unsafe fn completion_item_from_symbol(name: &str, envir: SEXP) -> Result<CompletionItem> {
+unsafe fn completion_item_from_symbol(
+    name: &str,
+    envir: SEXP,
+) -> Result<CompletionItem> {
     let symbol = r_symbol!(name);
     let object = Rf_findVarInFrame(envir, symbol);
     if object == R_UnboundValue {
@@ -491,8 +482,11 @@ fn completion_item_from_scope_parameter(
     Ok(item)
 }
 
-unsafe fn completion_item_from_parameter(parameter: &str, callee: &str) -> Result<CompletionItem> {
-    let label = quote_if_non_syntactic(parameter);
+unsafe fn completion_item_from_parameter(
+    parameter: &str,
+    callee: &str,
+) -> Result<CompletionItem> {
+    let label = r_symbol_quote_invalid(parameter);
     let mut item = completion_item(label, CompletionData::Parameter {
         name: parameter.to_string(),
         function: callee.to_string(),
@@ -1129,7 +1123,10 @@ unsafe fn append_roxygen_completions(
     return Ok(());
 }
 
-pub fn can_provide_completions(document: &mut Document, params: &CompletionParams) -> Result<bool> {
+pub fn can_provide_completions(
+    document: &mut Document,
+    params: &CompletionParams,
+) -> Result<bool> {
     // figure out the token / node at the cursor position. note that we use
     // the previous token here as the cursor itself will be located just past
     // the cursor / node providing the associated context
