@@ -6,7 +6,6 @@
 	display: flex;
 	border: none;
 	padding: 0 8px;
-	cursor: pointer;
 	align-items: center;
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);

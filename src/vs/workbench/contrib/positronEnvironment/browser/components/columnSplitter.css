@@ -1,0 +1,16 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.column-splitter {
+	width: 5px;
+	display: flex;
+	flex-shrink: 0;
+	cursor: col-resize;
+	justify-content: left;
+}
+
+.column-splitter .sizer {
+	width: 2px;
+	border-right: 1px solid var(--vscode-positronEnvironment-gridColor);
+}

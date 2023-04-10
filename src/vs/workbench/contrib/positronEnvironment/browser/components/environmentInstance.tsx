@@ -6,6 +6,7 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
@@ -16,7 +17,8 @@ import { EnvironmentEntry, IPositronEnvironmentInstance } from 'vs/workbench/ser
  * Constants.
  */
 const DEFAULT_NAME_COLUMN_WIDTH = 130;
-const TYPE_VISIBILITY_THRESHOLD = 400;
+const MINIMUM_NAME_COLUMN_WIDTH = 100;
+const TYPE_VISIBILITY_THRESHOLD = 250;
 
 /**
  * isEnvironmentVariableGroup user-defined type guard.
@@ -53,9 +55,10 @@ interface EnvironmentInstanceProps {
  */
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Hooks.
-	const [nameColumnWidth, _setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
+	const [resizingColumn, setResizingColumn] = useState(false);
+	const [nameColumnWidth, setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
 	const [detailsColumnWidth, setDetailsColumnWidth] =
-		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH - 1);
+		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
 	const [typeVisible, setTypeVisible] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_VISIBILITY_THRESHOLD);
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([]);
@@ -101,9 +104,63 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// Width use effect.
 	useEffect(() => {
-		setDetailsColumnWidth(props.width - nameColumnWidth - 1);
-		setTypeVisible(props.width > TYPE_VISIBILITY_THRESHOLD);
+		// Calculate the new details column width.
+		const newDetailsColumnWidth = Math.max(
+			props.width - nameColumnWidth,
+			Math.trunc(props.width / 3)
+		);
+
+		// Adjust the column widths.
+		setNameColumnWidth(props.width - newDetailsColumnWidth);
+		setDetailsColumnWidth(newDetailsColumnWidth);
+
+		// Set the type visibility.
+		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	}, [props.width]);
+
+	/**
+	 * startResizeNameColumn event handler.
+	 */
+	const startResizeNameColumnHandler = () => {
+		setResizingColumn(true);
+	};
+
+	/**
+	 * resizeNameColumn event handler.
+	 * @param x The X delta.
+	 */
+	const resizeNameColumnHandler = (x: number) => {
+		resizeNameColumn(x);
+	};
+
+	/**
+	 * stopResizeNameColumn event handler.
+	 * @param x The X delta.
+	 */
+	const stopResizeNameColumnHandler = (x: number) => {
+		resizeNameColumn(x);
+		setResizingColumn(false);
+	};
+
+	/**
+	 * Resizes the name column.
+	 * @param x The X delta.
+	 */
+	const resizeNameColumn = (x: number) => {
+		// Calculate the new column widths.
+		const newNameColumnWidth = Math.min(
+			Math.max(nameColumnWidth + x, MINIMUM_NAME_COLUMN_WIDTH),
+			Math.trunc(2 * props.width / 3)
+		);
+		const newDetailsColumnWidth = props.width - newNameColumnWidth;
+
+		// Adjust the column widths.
+		setNameColumnWidth(newNameColumnWidth);
+		setDetailsColumnWidth(newDetailsColumnWidth);
+
+		// Set the type visibility.
+		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
+	};
 
 	/**
 	 * Renders the entries.
@@ -123,10 +180,14 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					<EnvironmentVariableItem
 						key={entry.id}
 						nameColumnWidth={nameColumnWidth}
-						detailsColumnWidth={detailsColumnWidth}
+						detailsColumnWidth={detailsColumnWidth - 1}
 						typeVisible={typeVisible}
 						environmentVariableItem={entry}
-						positronEnvironmentInstance={props.positronEnvironmentInstance} />
+						positronEnvironmentInstance={props.positronEnvironmentInstance}
+						onStartResizeNameColumn={startResizeNameColumnHandler}
+						onResizeNameColumn={resizeNameColumnHandler}
+						onStopResizeNameColumn={stopResizeNameColumnHandler}
+					/>
 				);
 			} else {
 				// It's a bug to get here.
@@ -135,9 +196,15 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		});
 	};
 
+	// Create the class names.
+	const classNames = positronClassNames(
+		'environment-instance',
+		{ 'resizing': resizingColumn }
+	);
+
 	// Render.
 	return (
-		<div className='environment-instance' hidden={props.hidden}>
+		<div className={classNames} hidden={props.hidden}>
 			{renderEntries()}
 		</div>
 	);
