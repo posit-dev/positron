@@ -43,10 +43,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	//
 	// Consider: We could make this configurable (let the user decide which edge
 	// to show the gallery on).
+	const historyPx = positronPlotsContext.positronPlotInstances.length > 1 ? HistoryPx : 0;
 	const historyBottom = props.height > props.width;
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
-	const plotHeight = historyBottom ? props.height - HistoryPx : props.height;
-	const plotWidth = historyBottom ? props.width : props.width - HistoryPx;
+	const plotHeight = historyBottom ? props.height - historyPx : props.height;
+	const plotWidth = historyBottom ? props.width : props.width - historyPx;
 
 	useEffect(() => {
 		// Empty for now.
@@ -101,26 +102,31 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		return null;
 	};
 
+	// Render the plot history gallery.
+	const renderHistory = () => {
+		return <div className='plot-history-scroller'>
+			<div className='plot-history'>
+				{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
+					renderThumbnail(plotInstance,
+						plotInstance.id === positronPlotsContext.selectedInstanceId)
+				))}
+			</div>
+		</div>;
+	};
+
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
 		<div className={'plots-container ' + historyEdge}>
 			<div className='selected-plot'>
 				{positronPlotsContext.positronPlotInstances.length === 0 &&
-					<span>Plot container: {props.height} x {props.width}</span>}
+					<div className='plot-placeholder'></div>}
 				{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
 					plotInstance.id === positronPlotsContext.selectedInstanceId &&
 					render(plotInstance)
 				))}
 			</div>
-			<div className='plot-history-scroller'>
-				<div className='plot-history'>
-					{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
-						renderThumbnail(plotInstance,
-							plotInstance.id === positronPlotsContext.selectedInstanceId)
-					))}
-				</div>
-			</div>
+			{positronPlotsContext.positronPlotInstances.length > 1 && renderHistory()}
 		</div>
 	);
 };

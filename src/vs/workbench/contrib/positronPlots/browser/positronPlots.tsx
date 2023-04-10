@@ -66,7 +66,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			<ActionBars {...props} />
 			<PlotsContainer
 				width={width}
-				height={height} />
+				height={height - 32} />
 		</PositronPlotsContextProvider>
 	);
 

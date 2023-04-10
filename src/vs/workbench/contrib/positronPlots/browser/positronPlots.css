@@ -24,6 +24,7 @@
 }
 
 .history-right .plot-history-scroller {
+	border-left: 1px solid var(--vscode-statusBar-border);
 	width: 100px;
 }
 
@@ -33,6 +34,7 @@
 }
 
 .history-bottom .plot-history-scroller {
+	border-top: 1px solid var(--vscode-statusBar-border);
 	height: 100px;
 }
 
