@@ -3,9 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 .environment-core .environment-instance {
+	cursor: pointer;
 	line-height: 200%;
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
 	user-select: none;
+}
+
+.environment-core .environment-instance.resizing {
+	cursor: col-resize;	/* The cursor will drift out of the column splitter every now and then. */
 }
