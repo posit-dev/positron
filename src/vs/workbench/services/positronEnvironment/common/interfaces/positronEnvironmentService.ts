@@ -42,6 +42,11 @@ export const enum PositronEnvironmentSorting {
 }
 
 /**
+ * The EnvironmentEntry type alias.
+ */
+export type EnvironmentEntry = IEnvironmentVariableGroup | IEnvironmentVariableItem;
+
+/**
  * IPositronEnvironmentService interface.
  */
 export interface IPositronEnvironmentService {
@@ -116,7 +121,7 @@ export interface IPositronEnvironmentInstance {
 	/**
 	 * The onDidChangeEntries event.
 	 */
-	readonly onDidChangeEntries: Event<(IEnvironmentVariableGroup | IEnvironmentVariableItem)[]>;
+	readonly onDidChangeEntries: Event<EnvironmentEntry[]>;
 
 	/**
 	 * Requests a refresh of the environment.
