@@ -17,6 +17,7 @@ import { PositronPlotsContextProvider } from 'vs/workbench/contrib/positronPlots
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PlotsContainer } from 'vs/workbench/contrib/positronPlots/browser/components/plotsContainer';
+import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
 
 /**
  * PositronPlotsProps interface.
@@ -62,6 +63,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	// Render.
 	return (
 		<PositronPlotsContextProvider {...props}>
+			<ActionBars {...props} />
 			<PlotsContainer
 				width={width}
 				height={height} />

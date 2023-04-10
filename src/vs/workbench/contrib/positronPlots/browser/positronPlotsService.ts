@@ -326,12 +326,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	removeAllPlots(): void {
 		// Dispose each plot in the set
 		const count = this._plots.length;
-		for (let i = count - 1; i >= 0; i++) {
+		for (let i = count - 1; i >= 0; i--) {
 			const plots = this._plots.splice(i, 1);
 			plots[0].dispose();
 		}
 
 		// Update the front end with the now-empty array of plots
+		this._onDidSelectPlot.fire('');
 		this._onDidReplacePlots.fire(this._plots);
 	}
 
