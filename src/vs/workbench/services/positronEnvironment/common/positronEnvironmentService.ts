@@ -9,12 +9,10 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { EnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/classes/environmentVariableGroup';
-import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
-import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/services/positronEnvironment/common/helpers/utils';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { EnvironmentClientInstance, EnvironmentClientList, EnvironmentClientUpdate, EnvironmentVariableValueKind, IEnvironmentClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
-import { IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentSorting, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { EnvironmentEntry, IPositronEnvironmentInstance, IPositronEnvironmentService, PositronEnvironmentGrouping, PositronEnvironmentSorting, PositronEnvironmentState } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 /**
  * Constants.
@@ -369,8 +367,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	/**
 	 * The onDidChangeEntries event emitter.
 	 */
-	private readonly _onDidChangeEntriesEmitter =
-		this._register(new Emitter<(IEnvironmentVariableGroup | IEnvironmentVariableItem)[]>);
+	private readonly _onDidChangeEntriesEmitter = this._register(new Emitter<EnvironmentEntry[]>);
 
 	//#endregion Private Properties
 
@@ -488,8 +485,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	/**
 	 * onDidChangeEntries event.
 	 */
-	readonly onDidChangeEntries: Event<(IEnvironmentVariableGroup | IEnvironmentVariableItem)[]> =
-		this._onDidChangeEntriesEmitter.event;
+	readonly onDidChangeEntries: Event<EnvironmentEntry[]> = this._onDidChangeEntriesEmitter.event;
 
 	/**
 	 * Requests a refresh of the environment.

@@ -6,11 +6,11 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
+import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
-import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
+import { EnvironmentEntry, IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 /**
  * Constants.
@@ -23,7 +23,7 @@ const TYPE_VISIBILITY_THRESHOLD = 400;
  * @param entry The entry.
  * @returns Whether the entry is IEnvironmentVariableGroup.
  */
-const isEnvironmentVariableGroup = (entry: IEnvironmentVariableGroup | IEnvironmentVariableItem): entry is IEnvironmentVariableGroup => {
+const isEnvironmentVariableGroup = (entry: EnvironmentEntry): entry is IEnvironmentVariableGroup => {
 	return 'title' in entry;
 };
 
@@ -58,7 +58,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH - 1);
 	const [typeVisible, setTypeVisible] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_VISIBILITY_THRESHOLD);
-	const [entries, setEntries] = useState<(IEnvironmentVariableGroup | IEnvironmentVariableItem)[]>([]);
+	const [entries, setEntries] = useState<EnvironmentEntry[]>([]);
 
 	// Main useEffect.
 	useEffect(() => {
