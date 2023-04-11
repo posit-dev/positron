@@ -17,13 +17,25 @@
 
 .plot-history-scroller {
 	overflow: auto;
+	display: flex;
+	align-items: center;
 }
 
 .plot-history {
 	display: flex;
 }
 
+/*
+ * The plot history is on the *right* side of the plot view. The plot thumbnails
+ * are displayed in a vertical column.
+ */
+
 .history-right .plot-history-scroller {
+	flex-direction: column;
+}
+
+.history-right .plot-history-scroller {
+	border-left: 1px solid var(--vscode-statusBar-border);
 	width: 100px;
 }
 
@@ -32,13 +44,31 @@
 	height: fit-content;
 }
 
+.history-right .plot-thumbnail {
+	margin-top: 10px;
+}
+
+/*
+ * The plot history is on the *bottom* side of the plot view. The plot thumbnails
+ * are displayed in a horizontal row.
+ */
+
 .history-bottom .plot-history-scroller {
+	flex-direction: row;
+}
+
+.history-bottom .plot-history-scroller {
+	border-top: 1px solid var(--vscode-statusBar-border);
 	height: 100px;
 }
 
 .history-bottom .plot-history {
 	flex-direction: row;
 	width: fit-content;
+}
+
+.history-bottom .plot-thumbnail {
+	margin-left: 10px;
 }
 
 .selected-plot {
@@ -50,20 +80,38 @@
 .plot-thumbnail {
 	height: 80px;
 	width: 80px;
-	border: 1px solid var(--vscode-editorWidget-border);
 	padding: 0;
-	margin-left: 5px;
-	margin-right: 5px;
-	margin-top: 5px;
 	opacity: 0.75;
 	transition: opacity 0.2s ease-in-out;
+}
+
+.plot-thumbnail button {
 	cursor: pointer;
+	overflow: hidden;
+}
+
+.plot-thumbnail button:active img,
+.plot-thumbnail button:focus img {
+	cursor: pointer;
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	border-radius: 3px;
+	opacity: 1;
 }
 
 .plot-thumbnail.selected {
-	border: 1px solid var(--vscode-editorWidget-border);
 	opacity: 1;
 	cursor: hand;
+}
+
+.plot-thumbnail img {
+	border: 1px dotted var(--vscode-editorWidget-border);
+}
+
+.plot-thumbnail.selected img {
+	border: 1px solid var(--vscode-editorWidget-border);
 }
 
 /**
