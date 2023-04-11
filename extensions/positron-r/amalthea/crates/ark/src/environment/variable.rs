@@ -21,12 +21,6 @@ use harp::vector::Vector;
 use libR_sys::*;
 use serde::Deserialize;
 use serde::Serialize;
-use lazy_static::lazy_static;
-use regex::Regex;
-
-lazy_static! {
-    static ref ATTR_REGEX: Regex = Regex::new("attr[(]\"(?P<name>.+)\"[)]").unwrap();
-}
 
 /// Represents the supported kinds of variable values.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -173,7 +167,7 @@ impl EnvironmentVariable {
 
                 for i in 0..attributes.len() {
                     let var = attributes.get_mut(i).unwrap();
-                    var.access_key   = format!("attr(\"{}\")", var.display_name);
+                    var.access_key   = format!("@{}", var.display_name);
                     var.display_name = format!("attr(\"{}\")", var.display_name);
                 }
 
@@ -187,12 +181,12 @@ impl EnvironmentVariable {
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
         for path_element in path {
 
-            if ATTR_REGEX.is_match(path_element) {
-                let name = ATTR_REGEX.replace_all(path_element, r"$name").to_string();
-                let mut attributes = ATTRIB(*object);
+            if path_element.starts_with("@") {
+                let (_, name) = path_element.split_at(1);
 
+                let mut attributes = ATTRIB(*object);
                 while attributes != R_NilValue {
-                    if name == String::from(RSymbol::new(TAG(attributes))) {
+                    if String::from(RSymbol::new(TAG(attributes))) == name {
                         object = RObject::view(CAR(attributes));
 
                         break;
