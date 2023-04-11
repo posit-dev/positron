@@ -55,12 +55,11 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	// will show the old URI until the new one is ready.
 	return (
 		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
-			{uri && <div className='image-wrapper'>
-				<img src={uri} alt={'Plot ' + props.plotClient.id}
-					onClick={selectPlot} />
-			</div>}
-			{!uri && <div className='plot-thumbnail-placeholder' onClick={selectPlot}></div>}
-			<div className='plot-close codicon codicon-close' onClick={removePlot}></div>
-		</div>
+			{uri && <button className='image-wrapper' onClick={selectPlot}>
+				<img src={uri} alt={'Plot ' + props.plotClient.id} />
+			</button>}
+			{!uri && <button className='plot-thumbnail-placeholder' onClick={selectPlot}></button>}
+			<button className='plot-close codicon codicon-close' onClick={removePlot}></button>
+		</div >
 	);
 };

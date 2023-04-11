@@ -1,0 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-plots-container .action-bars {
+	height: min-content;
+	border-bottom: 1px solid var(--vscode-statusBar-border);
+}

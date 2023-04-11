@@ -33,11 +33,11 @@ export const StaticPlotThumbnail = (props: StaticPlotThumbnailProps) => {
 
 	return (
 		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
-			<div className='image-wrapper'>
+			<button className='image-wrapper'>
 				<img src={props.plotClient.uri} alt={'Plot ' + props.plotClient.id}
 					onClick={selectPlot} />
-			</div>
-			<div className='plot-close codicon codicon-close' onClick={removePlot}></div>
+			</button>
+			<button className='plot-close codicon codicon-close' onClick={removePlot}></button>
 		</div>
 	);
 };
