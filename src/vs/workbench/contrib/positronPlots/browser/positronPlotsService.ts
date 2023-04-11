@@ -288,6 +288,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
+	 * Selects the next plot in the list, if there is one.
+	 */
+	selectNextPlot(): void {
+		// Get the index of the currently selected plot
+		const index = this._plots.findIndex(plot => plot.id === this._selectedPlotId);
+
+		// If we found a plot and it's not the last one in the list, select the
+		// next plot.
+		if (index >= 0 && index < (this._plots.length - 1)) {
+			this._onDidSelectPlot.fire(this._plots[index + 1].id);
+		}
+	}
+
+	/**
+	 * Selects the previous plot in the list, if there is one.
+	 */
+	selectPreviousPlot(): void {
+		// Get the index of the currently selected plot
+		const index = this._plots.findIndex(plot => plot.id === this._selectedPlotId);
+
+		// If we found a plot and it's not the first one in the list, select the
+		// previous plot.
+		if (index > 0) {
+			this._onDidSelectPlot.fire(this._plots[index - 1].id);
+		}
+	}
+
+	/**
 	 * Remove a plot by ID
 	 *
 	 * @param id The ID of the plot to remove
@@ -317,6 +345,35 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Fire the event notifying subscribers
 		this._onDidRemovePlot.fire(id);
+	}
+
+	/**
+	 * Removes the currently selected plot from the service and fires an event
+	 * to update the the UI
+	 */
+	removeSelectedPlot(): void {
+		if (this._selectedPlotId) {
+			this.removePlot(this._selectedPlotId);
+		} else {
+			throw new Error('No plot is selected');
+		}
+	}
+
+	/**
+	 * Removes all the plots from the service and fires an event to
+	 * update the the UI
+	 */
+	removeAllPlots(): void {
+		// Dispose each plot in the set
+		const count = this._plots.length;
+		for (let i = count - 1; i >= 0; i--) {
+			const plots = this._plots.splice(i, 1);
+			plots[0].dispose();
+		}
+
+		// Update the front end with the now-empty array of plots
+		this._onDidSelectPlot.fire('');
+		this._onDidReplacePlots.fire(this._plots);
 	}
 
 	/**
