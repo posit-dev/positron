@@ -93,6 +93,27 @@ impl Shell {
     pub fn request_tx(&self) -> Sender<Request> {
         self.shell_request_tx.clone()
     }
+
+    /// SAFETY: Requires the R runtime lock.
+    unsafe fn handle_is_complete_request_impl(
+        &self,
+        req: &IsCompleteRequest,
+    ) -> Result<IsCompleteReply, Exception> {
+        match r_parse_vector(req.code.as_str()) {
+            Ok(ParseResult::Complete(_)) => Ok(IsCompleteReply {
+                status: IsComplete::Complete,
+                indent: String::from(""),
+            }),
+            Ok(ParseResult::Incomplete()) => Ok(IsCompleteReply {
+                status: IsComplete::Incomplete,
+                indent: String::from("+"),
+            }),
+            Err(_) => Ok(IsCompleteReply {
+                status: IsComplete::Invalid,
+                indent: String::from(""),
+            }),
+        }
+    }
 }
 
 #[async_trait]
@@ -156,19 +177,8 @@ impl ShellHandler for Shell {
         &self,
         req: &IsCompleteRequest,
     ) -> Result<IsCompleteReply, Exception> {
-        match unsafe { r_parse_vector(req.code.as_str()) } {
-            Ok(ParseResult::Complete(_)) => Ok(IsCompleteReply {
-                status: IsComplete::Complete,
-                indent: String::from(""),
-            }),
-            Ok(ParseResult::Incomplete()) => Ok(IsCompleteReply {
-                status: IsComplete::Incomplete,
-                indent: String::from("+"),
-            }),
-            Err(_) => Ok(IsCompleteReply {
-                status: IsComplete::Invalid,
-                indent: String::from(""),
-            }),
+        r_lock! {
+            self.handle_is_complete_request_impl(req)
         }
     }
 
@@ -223,7 +233,11 @@ impl ShellHandler for Shell {
     }
 
     /// Handles a request to open a new comm channel
-    async fn handle_comm_open(&self, target: Comm, comm: CommSocket) -> Result<bool, Exception> {
+    async fn handle_comm_open(
+        &self,
+        target: Comm,
+        comm: CommSocket,
+    ) -> Result<bool, Exception> {
         match target {
             Comm::Environment => {
                 r_lock! {
@@ -237,7 +251,10 @@ impl ShellHandler for Shell {
     }
 
     /// Handles a reply to an input_request; forwarded from the Stdin channel
-    async fn handle_input_reply(&self, msg: &InputReply) -> Result<(), Exception> {
+    async fn handle_input_reply(
+        &self,
+        msg: &InputReply,
+    ) -> Result<(), Exception> {
         // Send the input reply to R in the form of an ordinary execution request.
         let req = ExecuteRequest {
             code: msg.value.clone(),
@@ -266,7 +283,10 @@ impl ShellHandler for Shell {
         Ok(())
     }
 
-    fn establish_input_handler(&mut self, handler: Sender<ShellInputRequest>) {
+    fn establish_input_handler(
+        &mut self,
+        handler: Sender<ShellInputRequest>,
+    ) {
         self.shell_request_tx
             .send(Request::EstablishInputChannel(handler))
             .unwrap();
