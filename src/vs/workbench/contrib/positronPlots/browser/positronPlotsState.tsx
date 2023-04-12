@@ -32,9 +32,19 @@ export interface PositronPlotsState extends PositronPlotsServices {
 export const usePositronPlotsState = (services: PositronPlotsServices): PositronPlotsState => {
 
 	// Hooks.
-	const [positronPlotInstances, setPositronPlotInstances] = useState<PositronPlotClient[]>([]);
-	const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
-	const [selectedInstanceIndex, setSelectedInstanceIndex] = useState<number>(-1);
+
+	// Initial set of plot instances.
+	const [positronPlotInstances, setPositronPlotInstances] = useState<PositronPlotClient[]>(
+		services.positronPlotsService.positronPlotInstances);
+
+	// Initial selected plot instance.
+	const initialSelectedId = services.positronPlotsService.selectedPlotId;
+	const [selectedInstanceId, setSelectedInstanceId] = useState<string>(initialSelectedId ?? '');
+
+	// Index of the selected plot instance.
+	const initialSelectedIndex = services.positronPlotsService.positronPlotInstances.findIndex
+		(p => p.id === initialSelectedId);
+	const [selectedInstanceIndex, setSelectedInstanceIndex] = useState<number>(initialSelectedIndex);
 
 	// Add event handlers.
 	useEffect(() => {
