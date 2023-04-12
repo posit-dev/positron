@@ -38,6 +38,11 @@ export interface IReactComponentContainer extends IFocusReceiver {
 	readonly height: number;
 
 	/**
+	 * Directs the React component container to take focus.
+	 */
+	takeFocus(): void;
+
+	/**
 	 * onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize>;
