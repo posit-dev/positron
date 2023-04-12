@@ -22,6 +22,7 @@ import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
@@ -78,6 +79,13 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	}
 
 	/**
+	 * Directs the React component container to take focus.
+	 */
+	takeFocus(): void {
+		this.focus();
+	}
+
+	/**
 	 * The onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
@@ -119,6 +127,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IClipboardService private readonly clipboardService: IClipboardService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -137,7 +146,17 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService
 	) {
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+		super(
+			options,
+			keybindingService,
+			contextMenuService,
+			configurationService,
+			contextKeyService,
+			viewDescriptorService,
+			instantiationService,
+			openerService,
+			themeService,
+			telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 
 		// Listen for focus events from ViewPane
@@ -176,7 +195,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 		// Append the Positron console container. Apply the font info to it.
 		this._positronConsoleContainer = DOM.$('.positron-console-container');
-		this._positronConsoleContainer.setAttribute('user-select', 'all');
 		container.appendChild(this._positronConsoleContainer);
 		applyFontInfo(this._positronConsoleContainer, fontInfo);
 
@@ -214,6 +232,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		this._positronReactRenderer = new PositronReactRenderer(this._positronConsoleContainer);
 		this._positronReactRenderer.render(
 			<PositronConsole
+				clipboardService={this.clipboardService}
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}

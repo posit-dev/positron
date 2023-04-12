@@ -69,6 +69,13 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	}
 
 	/**
+	 * Directs the React component container to take focus.
+	 */
+	takeFocus(): void {
+		this.focus();
+	}
+
+	/**
 	 * The onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
