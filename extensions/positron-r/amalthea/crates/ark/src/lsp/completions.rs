@@ -105,7 +105,6 @@ pub struct CompletionContext<'a> {
     pub node: Node<'a>,
     pub source: String,
     pub point: Point,
-    pub include_hidden: bool,
 }
 
 fn is_pipe_operator(node: &Node) -> bool {
@@ -520,17 +519,12 @@ pub fn completion_context<'a>(
     let node = ast.node_at_point(point);
     let source = document.contents.to_string();
 
-    // track whether we should include hidden completions
-    let text = node.utf8_text(source.as_bytes())?;
-    let include_hidden = text.starts_with(".");
-
     // build completion context
     Ok(CompletionContext {
         document,
         node,
         source,
         point,
-        include_hidden,
     })
 }
 

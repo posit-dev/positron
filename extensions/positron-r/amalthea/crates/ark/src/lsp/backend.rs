@@ -83,7 +83,11 @@ pub struct Backend {
 }
 
 impl Backend {
-    pub fn with_document<T, F>(&self, path: &Path, mut callback: F) -> anyhow::Result<T>
+    pub fn with_document<T, F>(
+        &self,
+        path: &Path,
+        mut callback: F,
+    ) -> anyhow::Result<T>
     where
         F: FnMut(&Document) -> anyhow::Result<T>,
     {
@@ -112,7 +116,10 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(
+        &self,
+        params: InitializeParams,
+    ) -> Result<InitializeResult> {
         backend_trace!(self, "initialize({:#?})", params);
 
         // Initialize our support functions if this is the first run of the LSP
@@ -201,7 +208,10 @@ impl LanguageServer for Backend {
         })
     }
 
-    async fn initialized(&self, params: InitializedParams) {
+    async fn initialized(
+        &self,
+        params: InitializedParams,
+    ) {
         backend_trace!(self, "initialized({:?})", params);
     }
 
@@ -210,17 +220,26 @@ impl LanguageServer for Backend {
         Ok(())
     }
 
-    async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
+    async fn did_change_workspace_folders(
+        &self,
+        params: DidChangeWorkspaceFoldersParams,
+    ) {
         backend_trace!(self, "did_change_workspace_folders({:?})", params);
 
         // TODO: Re-start indexer with new folders.
     }
 
-    async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
+    async fn did_change_configuration(
+        &self,
+        params: DidChangeConfigurationParams,
+    ) {
         backend_trace!(self, "did_change_configuration({:?})", params);
     }
 
-    async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
+    async fn did_change_watched_files(
+        &self,
+        params: DidChangeWatchedFilesParams,
+    ) {
         backend_trace!(self, "did_change_watched_files({:?})", params);
 
         // TODO: Re-index the changed files.
@@ -254,7 +273,10 @@ impl LanguageServer for Backend {
         Ok(Some(DocumentSymbolResponse::Nested(response)))
     }
 
-    async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
+    async fn execute_command(
+        &self,
+        params: ExecuteCommandParams,
+    ) -> Result<Option<Value>> {
         backend_trace!(self, "execute_command({:?})", params);
 
         match self.client.apply_edit(WorkspaceEdit::default()).await {
@@ -266,7 +288,10 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
-    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+    async fn did_open(
+        &self,
+        params: DidOpenTextDocumentParams,
+    ) {
         backend_trace!(self, "did_open({}", params.text_document.uri);
 
         self.documents.insert(
@@ -275,7 +300,10 @@ impl LanguageServer for Backend {
         );
     }
 
-    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+    async fn did_change(
+        &self,
+        params: DidChangeTextDocumentParams,
+    ) {
         backend_trace!(self, "did_change({:?})", params);
 
         // get reference to document
@@ -308,15 +336,24 @@ impl LanguageServer for Backend {
         diagnostics::enqueue_diagnostics(self.clone(), uri.clone(), version).await;
     }
 
-    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+    async fn did_save(
+        &self,
+        params: DidSaveTextDocumentParams,
+    ) {
         backend_trace!(self, "did_save({:?}", params);
     }
 
-    async fn did_close(&self, params: DidCloseTextDocumentParams) {
+    async fn did_close(
+        &self,
+        params: DidCloseTextDocumentParams,
+    ) {
         backend_trace!(self, "did_close({:?}", params);
     }
 
-    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+    async fn completion(
+        &self,
+        params: CompletionParams,
+    ) -> Result<Option<CompletionResponse>> {
         backend_trace!(self, "completion({:?})", params);
 
         // get reference to document
@@ -380,11 +417,6 @@ impl LanguageServer for Backend {
         let mut uniques = HashSet::new();
         completions.retain(|x| uniques.insert(x.label.clone()));
 
-        // remove 'hidden' completions if necessary
-        if !context.include_hidden {
-            completions.retain(|x| !x.label.starts_with("."));
-        }
-
         // sort completions by providing custom 'sort' text to be used when
         // ordering completion results. we use some placeholders at the front
         // to 'bin' different completion types differently; e.g. we place parameter
@@ -420,7 +452,10 @@ impl LanguageServer for Backend {
         }
     }
 
-    async fn completion_resolve(&self, mut item: CompletionItem) -> Result<CompletionItem> {
+    async fn completion_resolve(
+        &self,
+        mut item: CompletionItem,
+    ) -> Result<CompletionItem> {
         backend_trace!(self, "completion_resolve({:?})", item);
 
         let data = item.data.clone();
@@ -444,7 +479,10 @@ impl LanguageServer for Backend {
         Ok(item)
     }
 
-    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+    async fn hover(
+        &self,
+        params: HoverParams,
+    ) -> Result<Option<Hover>> {
         backend_trace!(self, "hover({:?})", params);
 
         // get document reference
@@ -482,7 +520,10 @@ impl LanguageServer for Backend {
         }))
     }
 
-    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+    async fn signature_help(
+        &self,
+        params: SignatureHelpParams,
+    ) -> Result<Option<SignatureHelp>> {
         // get document reference
         let uri = &params.text_document_position_params.text_document.uri;
         let document = unwrap!(self.documents.get_mut(uri), None => {
@@ -540,7 +581,10 @@ impl LanguageServer for Backend {
         return Ok(None);
     }
 
-    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+    async fn references(
+        &self,
+        params: ReferenceParams,
+    ) -> Result<Option<Vec<Location>>> {
         backend_trace!(self, "references({:?})", params);
 
         let locations = match self.find_references(params) {
@@ -574,12 +618,18 @@ impl LanguageServer for Backend {
 // https://github.com/Microsoft/vscode-languageserver-node/blob/18fad46b0e8085bb72e1b76f9ea23a379569231a/client/src/common/client.ts#L802-L838
 // https://github.com/Microsoft/vscode-languageserver-node/blob/18fad46b0e8085bb72e1b76f9ea23a379569231a/client/src/common/client.ts#L701-L752
 impl Backend {
-    async fn request(&self, params: Option<Value>) -> Result<i32> {
+    async fn request(
+        &self,
+        params: Option<Value>,
+    ) -> Result<i32> {
         info!("Received Positron request: {:?}", params);
         Ok(42)
     }
 
-    async fn notification(&self, params: Option<Value>) {
+    async fn notification(
+        &self,
+        params: Option<Value>,
+    ) {
         info!("Received Positron notification: {:?}", params);
     }
 }
