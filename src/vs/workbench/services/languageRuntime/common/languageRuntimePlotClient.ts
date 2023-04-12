@@ -138,6 +138,11 @@ export interface IPositronPlotMetadata {
 	runtime_id: string;
 }
 
+/**
+ * A deferred render request. Used to track the state of a render request that
+ * hasn't been fulfilled; mostly a thin wrapper over a `DeferredPromise` that
+ * includes the original render request.
+ */
 class DeferredRender {
 	private readonly deferred: DeferredPromise<IRenderedPlot>;
 
@@ -145,18 +150,31 @@ class DeferredRender {
 		this.deferred = new DeferredPromise<IRenderedPlot>();
 	}
 
+	/**
+	 * Whether the render request has been completed in some way (either by
+	 * completing successfully, or by being cancelled or errored).
+	 */
 	get isComplete(): boolean {
 		return this.deferred.isSettled;
 	}
 
+	/**
+	 * Cancel the render request.
+	 */
 	cancel(): void {
 		this.deferred.cancel();
 	}
 
+	/**
+	 * Report an error to the render request.
+	 */
 	error(err: Error): void {
 		this.deferred.error(err);
 	}
 
+	/**
+	 * Complete the render request.
+	 */
 	complete(plot: IRenderedPlot): void {
 		this.deferred.complete(plot);
 	}
@@ -249,7 +267,6 @@ export class PlotClientInstance extends Disposable {
 		// Listen to our own state changes
 		this.onDidChangeState((state) => {
 			this._state = state;
-			console.log(`*** ${this._client.getClientId()}: new state is '${this._state}'`);
 		});
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
@@ -287,8 +304,9 @@ export class PlotClientInstance extends Disposable {
 		};
 		const deferred = new DeferredRender(request);
 
-		// Check which render request is currently pending. If we are currently rendering, then
-		// it's the queued render request. Otherwise, it's the current render request.
+		// Check which render request is currently pending. If we are currently
+		// rendering, then it's the queued render request. Otherwise, it's the
+		// current render request.
 		const pending = this._state === PlotClientState.Rendering ?
 			this._queuedRender : this._currentRender;
 
@@ -300,14 +318,12 @@ export class PlotClientInstance extends Disposable {
 
 		if (this._state === PlotClientState.Rendering) {
 			// We are currently rendering; don't start another render until we're done.
-			console.log(`*** ${this._client.getClientId()}: Queuing render request at ${height}x${width}x${pixel_ratio} (${this._state})`);
 			this._queuedRender = deferred;
 		} else {
 			// We are not currently rendering; start a new render. Render
 			// immediately if we have never rendered before; otherwise, throttle
 			// (debounce) the render.
 			this._currentRender = deferred;
-			console.log(`*** ${this._client.getClientId()}: Scheduling render request at ${height}x${width}x${pixel_ratio} (${this._state})`);
 			this.scheduleRender(deferred, this._state === PlotClientState.Unrendered ? 0 : 500);
 		}
 
@@ -343,8 +359,9 @@ export class PlotClientInstance extends Disposable {
 	private performDebouncedRender(request: DeferredRender) {
 		this._stateEmitter.fire(PlotClientState.Rendering);
 
+		// Record the time that the render started so we can estimate the render time
 		const startedTime = Date.now();
-		console.log(`*** ${this._client.getClientId()}: Performing render request at ${request.renderRequest.height}x${request.renderRequest.width} (${this._state})`);
+
 		// Perform the RPC request and resolve the promise when the response is received
 		this._client.performRpc(request.renderRequest).then((response) => {
 
@@ -356,7 +373,6 @@ export class PlotClientInstance extends Disposable {
 					// for future renders.
 					const finishedTime = Date.now();
 					this._lastRenderTimeMs = finishedTime - startedTime;
-					console.log(`*** ${this._client.getClientId()}: Render request at ${request.renderRequest.height}x${request.renderRequest.width} complete (${this._state}); ${this._lastRenderTimeMs}ms}`);
 
 					// The server returned a rendered plot image; save it and resolve the promise
 					const image = response as IPlotClientMessageImage;
@@ -375,17 +391,16 @@ export class PlotClientInstance extends Disposable {
 					// TODO: Do we want to have a separate state for this case, or
 					// return to the unrendered state?
 				}
-			} else {
-				console.log(`*** ${this._client.getClientId()}: Ignoring render request at ${request.renderRequest.height}x${request.renderRequest.width} because it was already complete (${this._state})`);
 			}
 
-			// If there is a queued render request, perform it now. Queued renders don't have
-			// a delay, so they will be performed immediately.
+			// If there is a queued render request, promote it to the current
+			// request and perform it now. Queued renders don't have cooldown
+			// period; they are already deferred because they were requested
+			// while a render was in progress.
 			if (this._queuedRender) {
 				const queuedRender = this._queuedRender;
 				this._queuedRender = undefined;
 				this._currentRender = queuedRender;
-				console.log(`*** ${this._client.getClientId()}: There was a queued render request; performing it (${this._state})`);
 				this.scheduleRender(queuedRender, 0);
 			}
 		});

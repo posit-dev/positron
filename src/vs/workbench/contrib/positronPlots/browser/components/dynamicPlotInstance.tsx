@@ -34,6 +34,8 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	useEffect(() => {
 		const ratio = window.devicePixelRatio;
+
+		// Request a plot render at the current size.
 		props.plotClient.render(props.height, props.width, ratio).then((result) => {
 			setUri(result.uri);
 		});
@@ -41,34 +43,53 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		let progressBar: ProgressBar | undefined;
 		let progressTimer: number | undefined;
 
+		// Wait for the plot to render, and show a progress bar.
 		props.plotClient.onDidChangeState((state) => {
-			if (progressRef.current) {
-				if (state === PlotClientState.Rendering) {
-					progressBar = new ProgressBar(progressRef.current);
+
+			// No work to do if we don't have a progress bar.
+			if (!progressRef.current) {
+				return;
+			}
+
+			// If we're rendering, show a progress bar.
+			if (state === PlotClientState.Rendering) {
+				// Create the progress bar.
+				progressBar = new ProgressBar(progressRef.current);
+
+				if (props.plotClient.renderEstimateMs > 0) {
+					// If the plot has previously rendered, then it knows about
+					// how long it will take to render. Use that to set the
+					// progress bar; consider each millisecond to be one unit of work
+					// to be done.
 					const started = Date.now();
-					if (props.plotClient.renderEstimateMs > 0) {
-						progressBar.total(props.plotClient.renderEstimateMs);
-						progressTimer = window.setInterval(() => {
-							progressBar?.setWorked(Date.now() - started);
-						}, 50);
-					} else {
-						progressBar.infinite();
-					}
-				} else if (state === PlotClientState.Rendered) {
-					if (progressTimer) {
-						window.clearTimeout(progressTimer);
-						progressTimer = undefined;
-					}
-					if (progressBar) {
-						progressBar.stop();
-						progressBar.dispose();
-						progressBar = undefined;
-					}
+					progressBar.total(props.plotClient.renderEstimateMs);
+					progressTimer = window.setInterval(() => {
+						// Every 100ms, update the progress bar.
+						progressBar?.setWorked(Date.now() - started);
+					}, 100);
+				} else {
+					// If the plot has never rendered before, then it doesn't
+					// know how long it will take to render. Just show an
+					// infinite progress bar.
+					progressBar.infinite();
+				}
+			} else if (state === PlotClientState.Rendered || state === PlotClientState.Closed) {
+				// When the render completes, clean up the progress bar and
+				// timers if they exist.
+				if (progressTimer) {
+					window.clearTimeout(progressTimer);
+					progressTimer = undefined;
+				}
+				if (progressBar) {
+					progressBar.stop();
+					progressBar.dispose();
+					progressBar = undefined;
 				}
 			}
 		});
 	});
 
+	// Render method for the plot image.
 	const renderedImage = () => {
 		return <div className='image-wrapper'>
 			<img src={uri}
@@ -78,6 +99,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		</div>;
 	};
 
+	// Render method for the placeholder
 	const placeholderImage = () => {
 		const style = {
 			width: props.width + 'px',
@@ -92,9 +114,6 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered plot.
-	//
-	// Consider: we probably want a more explicit loading state; as written we
-	// will show the old URI until the new one is ready.
 	return (
 		<div className='plot-instance dynamic-plot-instance'>
 			<div ref={progressRef}></div>
