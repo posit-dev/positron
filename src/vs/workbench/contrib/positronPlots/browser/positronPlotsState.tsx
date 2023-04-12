@@ -22,6 +22,7 @@ export interface PositronPlotsServices {
 export interface PositronPlotsState extends PositronPlotsServices {
 	readonly positronPlotInstances: PositronPlotClient[];
 	selectedInstanceId: string;
+	selectedInstanceIndex: number;
 }
 
 /**
@@ -33,6 +34,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 	// Hooks.
 	const [positronPlotInstances, setPositronPlotInstances] = useState<PositronPlotClient[]>([]);
 	const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
+	const [selectedInstanceIndex, setSelectedInstanceIndex] = useState<number>(-1);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -63,7 +65,13 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 		// Listen for plot selection changes.
 		disposableStore.add(services.positronPlotsService.onDidSelectPlot(id => {
+			// Set the selected plot instance.
 			setSelectedInstanceId(id);
+
+			// Find the index of the selected plot instance.
+			const index = services.positronPlotsService.positronPlotInstances.findIndex(
+				p => p.id === id);
+			setSelectedInstanceIndex(index);
 		}));
 
 		// Listen for plot removal.
@@ -80,5 +88,5 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 		return () => disposableStore.dispose();
 	}, []);
 
-	return { ...services, positronPlotInstances, selectedInstanceId };
+	return { ...services, positronPlotInstances, selectedInstanceId, selectedInstanceIndex };
 };
