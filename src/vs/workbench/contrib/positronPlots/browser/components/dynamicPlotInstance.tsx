@@ -4,7 +4,8 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
+import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -29,11 +30,29 @@ interface DynamicPlotInstanceProps {
 export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
+	const progressRef = React.useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		const ratio = window.devicePixelRatio;
 		props.plotClient.render(props.height, props.width, ratio).then((result) => {
 			setUri(result.uri);
+		});
+
+		let progressBar: ProgressBar | undefined;
+
+		props.plotClient.onDidChangeState((state) => {
+			if (progressRef.current) {
+				if (state === PlotClientState.Rendering) {
+					progressBar = new ProgressBar(progressRef.current);
+					progressBar.infinite();
+				} else if (state === PlotClientState.Rendered) {
+					if (progressBar) {
+						progressBar.stop();
+						progressBar.dispose();
+						progressBar = undefined;
+					}
+				}
+			}
 		});
 	});
 
@@ -65,6 +84,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	// will show the old URI until the new one is ready.
 	return (
 		<div className='plot-instance dynamic-plot-instance'>
+			<div ref={progressRef}></div>
 			{uri && renderedImage()}
 			{!uri && placeholderImage()}
 		</div>
