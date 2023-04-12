@@ -1118,30 +1118,23 @@ unsafe fn append_roxygen_completions(
 }
 
 pub fn can_provide_completions(
-    document: &mut Document,
+    context: &CompletionContext,
     params: &CompletionParams,
 ) -> Result<bool> {
-    // figure out the token / node at the cursor position. note that we use
-    // the previous token here as the cursor itself will be located just past
-    // the cursor / node providing the associated context
-    let mut point = params.text_document_position.position.as_point();
-    if point.column > 1 {
-        point.column -= 1;
+    // If this completion was triggered by the user typing a ':', then only
+    // provide completions if the current node already has '::' or ':::'.
+    if let Some(ref completion_context) = params.context {
+        if let Some(ref trigger_character) = completion_context.trigger_character {
+            if trigger_character == ":" {
+                let text = context.node.utf8_text(context.source.as_bytes())?;
+                if !matches!(text, "::" | ":::") {
+                    return false.ok();
+                }
+            }
+        }
     }
 
-    let node = document.ast.node_at_point(point);
-    let source = document.contents.to_string();
-    let value = node.utf8_text(source.as_bytes())?;
-
-    // completions will be triggered as the user types ':', which implies that
-    // a completion request could be sent before the user has finished typing
-    // '::' or ':::'. detect this particular case and don't provide completions
-    // in that context
-    if value == ":" {
-        return Ok(false);
-    }
-
-    return Ok(true);
+    true.ok()
 }
 
 unsafe fn append_file_completions(

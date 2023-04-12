@@ -356,21 +356,34 @@ impl LanguageServer for Backend {
     ) -> Result<Option<CompletionResponse>> {
         backend_trace!(self, "completion({:?})", params);
 
-        // get reference to document
+        // Get reference to document.
         let uri = &params.text_document_position.text_document.uri;
         let mut document = unwrap!(self.documents.get_mut(uri), None => {
             backend_trace!(self, "completion(): No document associated with URI {}", uri);
             return Ok(None);
         });
 
-        // check whether we should be providing completions
-        let ok = can_provide_completions(document.value_mut(), &params).unwrap_or_else(|err| {
-            error!("{:?}", err);
-            return false;
-        });
+        // Build the completion context.
+        let document = document.value_mut();
+        let context = match completion_context(document, &params.text_document_position) {
+            Ok(context) => context,
+            Err(error) => {
+                error!("{:?}", error);
+                return Ok(None);
+            },
+        };
 
-        if !ok {
-            return Ok(None);
+        // Check whether we can provide completions in this context.
+        match can_provide_completions(&context, &params) {
+            Ok(proceed) => {
+                if !proceed {
+                    return Ok(None);
+                }
+            },
+            Err(error) => {
+                log::error!("{}", error);
+                return Ok(None);
+            },
         }
 
         // TODO: These probably shouldn't be separate methods, because we might get
@@ -382,13 +395,6 @@ impl LanguageServer for Backend {
         //
         // Really, what's relevant is which of the above should be considered
         // 'visible' to the user.
-
-        // build completion context
-        let context = completion_context(document.value_mut(), &params.text_document_position);
-        let context = unwrap!(context, Err(error) => {
-            error!("{:?}", error);
-            return Ok(None);
-        });
 
         // start building completions
         let mut completions: Vec<CompletionItem> = vec![];
