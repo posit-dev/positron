@@ -27,6 +27,11 @@ export interface IPositronPlotsService {
 	readonly positronPlotInstances: PositronPlotClient[];
 
 	/**
+	 * Gets the currently selected Positron plot instance.
+	 */
+	readonly selectedPlotId: string | undefined;
+
+	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
 	 */
 	readonly onDidEmitPlot: Event<PositronPlotClient>;
