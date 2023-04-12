@@ -81,7 +81,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					progressTimer = undefined;
 				}
 				if (progressBar) {
-					progressBar.stop();
+					progressBar.done();
 					progressBar.dispose();
 					progressBar = undefined;
 				}
