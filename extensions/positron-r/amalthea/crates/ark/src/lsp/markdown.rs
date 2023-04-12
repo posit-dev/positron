@@ -8,12 +8,15 @@
 #![allow(dead_code)]
 
 use ego_tree::NodeRef;
+use scraper::node::Text;
 use scraper::ElementRef;
 use scraper::Node;
-use scraper::node::Text;
 use stdext::join;
 
-pub fn md_codeblock(language: &str, code: &str) -> String {
+pub fn md_codeblock(
+    language: &str,
+    code: &str,
+) -> String {
     join!("``` ", language, "\n", code, "\n", "```", "\n")
 }
 
@@ -58,36 +61,30 @@ pub fn elt_text(node: ElementRef) -> String {
 }
 
 pub fn elt_prev(node: ElementRef) -> Option<ElementRef> {
-
     for sibling in node.prev_siblings() {
         if let Some(elt) = ElementRef::wrap(sibling) {
-            return Some(elt)
+            return Some(elt);
         }
     }
 
     None
-
 }
 
 pub fn elt_next(node: ElementRef) -> Option<ElementRef> {
-
     for sibling in node.next_siblings() {
         if let Some(elt) = ElementRef::wrap(sibling) {
-            return Some(elt)
+            return Some(elt);
         }
     }
 
     None
-
 }
-
 
 pub struct MarkdownConverter<'a> {
     node: NodeRef<'a, Node>,
 }
 
 impl<'a> MarkdownConverter<'a> {
-
     pub fn new(node: NodeRef<'a, Node>) -> Self {
         MarkdownConverter { node }
     }
@@ -98,7 +95,11 @@ impl<'a> MarkdownConverter<'a> {
         buffer
     }
 
-    fn convert_node(&self, node: NodeRef<'a, Node>, buffer: &mut String) {
+    fn convert_node(
+        &self,
+        node: NodeRef<'a, Node>,
+        buffer: &mut String,
+    ) {
         if node.value().is_element() {
             let element = ElementRef::wrap(node).unwrap();
             self.convert_element(element, buffer);
@@ -108,29 +109,35 @@ impl<'a> MarkdownConverter<'a> {
         }
     }
 
-    fn convert_element(&self, element: ElementRef<'a>, buffer: &mut String) {
-
+    fn convert_element(
+        &self,
+        element: ElementRef<'a>,
+        buffer: &mut String,
+    ) {
         let name = element.value().name();
         match name {
-
             "code" => {
                 buffer.push('`');
                 self.convert_children(element, buffer);
                 buffer.push('`');
-            }
+            },
 
             "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                 let count = name.chars().nth(1).unwrap_or('0').to_digit(10).unwrap_or(0);
                 buffer.push_str("#".repeat(count as usize).as_str());
                 buffer.push(' ');
                 self.convert_children(element, buffer);
-            }
+            },
 
-            "tr" => {
-                self.convert_row(element, buffer, |cell, buffer| {
-                    self.convert_node(*cell, buffer);
-                })
-            }
+            "p" => {
+                buffer.push('\n');
+                self.convert_children(element, buffer);
+                buffer.push('\n');
+            },
+
+            "tr" => self.convert_row(element, buffer, |cell, buffer| {
+                self.convert_node(*cell, buffer);
+            }),
 
             "ol" => {
                 for child in element.children() {
@@ -140,7 +147,7 @@ impl<'a> MarkdownConverter<'a> {
                         self.convert_element(child, buffer);
                     }
                 }
-            }
+            },
 
             "ul" => {
                 for child in element.children() {
@@ -150,35 +157,48 @@ impl<'a> MarkdownConverter<'a> {
                         self.convert_element(child, buffer);
                     }
                 }
-            }
+            },
 
             _ => {
                 self.convert_children(element, buffer);
-            }
-
+            },
         }
-
     }
 
-    fn convert_children(&self, node: ElementRef<'a>, buffer: &mut String) {
+    fn convert_children(
+        &self,
+        node: ElementRef<'a>,
+        buffer: &mut String,
+    ) {
         for child in node.children() {
             self.convert_node(child, buffer)
         }
     }
 
-    fn convert_text(&self, text: &Text, buffer: &mut String) {
+    fn convert_text(
+        &self,
+        text: &Text,
+        buffer: &mut String,
+    ) {
         buffer.push_str(text.to_string().as_str())
     }
 
-    fn convert_tr(&self, element: ElementRef<'a>, buffer: &mut String) {
-
+    fn convert_tr(
+        &self,
+        element: ElementRef<'a>,
+        buffer: &mut String,
+    ) {
         self.convert_row(element, buffer, |cell, buffer| {
             self.convert_node(*cell, buffer);
         })
     }
 
-    fn convert_row(&self, element: ElementRef<'a>, buffer: &mut String, mut callback: impl FnMut(ElementRef<'a>, &mut String)) {
-
+    fn convert_row(
+        &self,
+        element: ElementRef<'a>,
+        buffer: &mut String,
+        mut callback: impl FnMut(ElementRef<'a>, &mut String),
+    ) {
         buffer.push_str("| ");
         for child in element.children() {
             if child.value().is_element() {
@@ -191,7 +211,5 @@ impl<'a> MarkdownConverter<'a> {
             }
         }
         buffer.pop();
-
     }
-
 }
