@@ -37,21 +37,36 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		});
 	});
 
+	const renderedImage = () => {
+		return <div className='image-wrapper'>
+			<img src={uri}
+				alt={props.plotClient.metadata.code ?
+					props.plotClient.metadata.code :
+					'Plot ' + props.plotClient.id} />
+		</div>;
+	};
+
+	const placeholderImage = () => {
+		const style = {
+			width: props.width + 'px',
+			height: props.height + 'px'
+		};
+		return <div className='image-placeholder' style={style}>
+			<div className='image-placeholder-text'>
+				Rendering plot ({props.width} x {props.height})
+			</div>
+		</div>;
+	};
+
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered plot.
 	//
 	// Consider: we probably want a more explicit loading state; as written we
 	// will show the old URI until the new one is ready.
 	return (
-		<div className='dynamic-plot-instance'>
-			{uri &&
-				<img src={uri}
-					height={props.height}
-					width={props.width}
-					alt={props.plotClient.metadata.code ?
-						props.plotClient.metadata.code :
-						'Plot ' + props.plotClient.id} />}
-			{!uri && <span>Rendering plot {props.plotClient.id}: {props.height} x {props.width}</span>}
+		<div className='plot-instance dynamic-plot-instance'>
+			{uri && renderedImage()}
+			{!uri && placeholderImage()}
 		</div>
 	);
 };
