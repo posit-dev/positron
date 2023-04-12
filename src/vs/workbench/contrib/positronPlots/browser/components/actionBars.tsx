@@ -45,28 +45,43 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const positronPlotsContext = usePositronPlotsContext();
 
+	// Do we have any plots?
+	const noPlots = positronPlotsContext.positronPlotInstances.length === 0;
+	const hasPlots = !noPlots;
+	const disableLeft = noPlots || positronPlotsContext.selectedInstanceIndex <= 0;
+	const disableRight = noPlots || positronPlotsContext.selectedInstanceIndex >=
+		positronPlotsContext.positronPlotInstances.length - 1;
+
 	useEffect(() => {
 		// Empty for now.
 	});
 
 	// Clear all the plots from the service.
 	const clearAllPlotsHandler = () => {
-		positronPlotsContext.positronPlotsService.removeAllPlots();
+		if (hasPlots) {
+			positronPlotsContext.positronPlotsService.removeAllPlots();
+		}
 	};
 
 	// Navigate to the previous plot in the plot history.
 	const showPreviousPlotHandler = () => {
-		positronPlotsContext.positronPlotsService.selectPreviousPlot();
+		if (!disableLeft) {
+			positronPlotsContext.positronPlotsService.selectPreviousPlot();
+		}
 	};
 
 	// Navigate to the next plot in the plot history.
 	const showNextPlotHandler = () => {
-		positronPlotsContext.positronPlotsService.selectNextPlot();
+		if (!disableRight) {
+			positronPlotsContext.positronPlotsService.selectNextPlot();
+		}
 	};
 
 	// Remove the selected plot from the service.
 	const removeSelectedPlotHandler = () => {
-		positronPlotsContext.positronPlotsService.removeSelectedPlot();
+		if (hasPlots) {
+			positronPlotsContext.positronPlotsService.removeSelectedPlot();
+		}
 	};
 
 	// Render.
@@ -75,12 +90,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<div className='action-bars'>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
-						<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
+						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
+						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
 						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clear' tooltip={localize('positronRemoveSelectedPlot', "Remove selected plot")} onClick={removeSelectedPlotHandler} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
+						<ActionBarButton iconId='positron-clean' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
+					</ActionBarRegion>
+					<ActionBarRegion align='right'>
+						<ActionBarButton iconId='positron-clear' disabled={noPlots} tooltip={localize('positronRemoveSelectedPlot', "Remove selected plot")} onClick={removeSelectedPlotHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
