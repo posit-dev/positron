@@ -35,6 +35,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	useEffect(() => {
 		const ratio = window.devicePixelRatio;
 
+		// If the plot is already rendered, use the old image until the new one is ready.
+		if (props.plotClient.lastRender) {
+			setUri(props.plotClient.lastRender.uri);
+		}
+
 		// Request a plot render at the current size.
 		props.plotClient.render(props.height, props.width, ratio).then((result) => {
 			setUri(result.uri);
