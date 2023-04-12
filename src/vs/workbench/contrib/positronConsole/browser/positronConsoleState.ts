@@ -11,6 +11,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -22,6 +23,7 @@ import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.
  */
 export interface PositronConsoleServices {
+	readonly clipboardService: IClipboardService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;
