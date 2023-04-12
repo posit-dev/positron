@@ -278,6 +278,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return this._plots;
 	}
 
+	// Gets the ID of the currently selected plot.
+	get selectedPlotId(): string | undefined {
+		return this._selectedPlotId;
+	}
+
 	/**
 	 * Select a plot by ID
 	 *
