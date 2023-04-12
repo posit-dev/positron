@@ -39,13 +39,26 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		});
 
 		let progressBar: ProgressBar | undefined;
+		let progressTimer: number | undefined;
 
 		props.plotClient.onDidChangeState((state) => {
 			if (progressRef.current) {
 				if (state === PlotClientState.Rendering) {
 					progressBar = new ProgressBar(progressRef.current);
-					progressBar.infinite();
+					const started = Date.now();
+					if (props.plotClient.renderEstimateMs > 0) {
+						progressBar.total(props.plotClient.renderEstimateMs);
+						progressTimer = window.setInterval(() => {
+							progressBar?.setWorked(Date.now() - started);
+						}, 50);
+					} else {
+						progressBar.infinite();
+					}
 				} else if (state === PlotClientState.Rendered) {
+					if (progressTimer) {
+						window.clearTimeout(progressTimer);
+						progressTimer = undefined;
+					}
 					if (progressBar) {
 						progressBar.stop();
 						progressBar.dispose();

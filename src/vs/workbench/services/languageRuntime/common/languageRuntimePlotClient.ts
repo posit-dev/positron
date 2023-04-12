@@ -196,6 +196,10 @@ export class PlotClientInstance extends Disposable {
 	 */
 	private _state: PlotClientState = PlotClientState.Unrendered;
 
+	/**
+	 * The time it took to render the plot the last time it was rendered, in milliseconds.
+	 */
+	private _lastRenderTimeMs: number = 0;
 
 	/**
 	 * Event that fires when the plot is closed on the runtime side, typically
@@ -339,14 +343,21 @@ export class PlotClientInstance extends Disposable {
 	private performDebouncedRender(request: DeferredRender) {
 		this._stateEmitter.fire(PlotClientState.Rendering);
 
+		const startedTime = Date.now();
 		console.log(`*** ${this._client.getClientId()}: Performing render request at ${request.renderRequest.height}x${request.renderRequest.width} (${this._state})`);
 		// Perform the RPC request and resolve the promise when the response is received
 		this._client.performRpc(request.renderRequest).then((response) => {
-			console.log(`*** ${this._client.getClientId()}: Render request at ${request.renderRequest.height}x${request.renderRequest.width} complete (${this._state})`);
 
 			// Ignore if the request was cancelled or already fulfilled
 			if (!request.isComplete) {
 				if (response.msg_type === PlotClientMessageTypeOutput.Image) {
+
+					// The render was successful; record the render time so we can estimate it
+					// for future renders.
+					const finishedTime = Date.now();
+					this._lastRenderTimeMs = finishedTime - startedTime;
+					console.log(`*** ${this._client.getClientId()}: Render request at ${request.renderRequest.height}x${request.renderRequest.width} complete (${this._state}); ${this._lastRenderTimeMs}ms}`);
+
 					// The server returned a rendered plot image; save it and resolve the promise
 					const image = response as IPlotClientMessageImage;
 					const uri = `data:${image.mime_type};base64,${image.data}`;
@@ -392,5 +403,16 @@ export class PlotClientInstance extends Disposable {
 	 */
 	get id(): string {
 		return this.metadata.id;
+	}
+
+	/**
+	 * Returns an estimate for the time it will take to render the plot, in milliseconds.
+	 *
+	 * Currently, this is just the time it took for the last succesful render to
+	 * complete. In the future, we may want to use a more sophisticated
+	 * algorithm to estimate the render time.
+	 */
+	get renderEstimateMs(): number {
+		return this._lastRenderTimeMs;
 	}
 }
