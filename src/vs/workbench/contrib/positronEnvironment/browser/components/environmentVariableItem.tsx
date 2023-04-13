@@ -51,7 +51,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	// Render.
 	return (
 		<div ref={ref} className={classNames} onClick={handleClick} style={props.style}>
-			<div className='name-column' style={{ width: props.nameColumnWidth }}>
+			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
 						{props.environmentVariableItem.hasChildren && (
@@ -69,7 +69,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				onStartResize={props.onStartResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 				onStopResize={props.onStopResizeNameColumn} />
-			<div className='details-column' style={{ width: props.detailsColumnWidth }}>
+			<div className='details-column' style={{ width: props.detailsColumnWidth, minWidth: props.detailsColumnWidth }}>
 				<div className='value'>
 					{props.environmentVariableItem.displayValue}
 				</div>

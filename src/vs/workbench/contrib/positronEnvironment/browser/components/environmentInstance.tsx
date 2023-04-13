@@ -349,7 +349,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			return (
 				<EnvironmentVariableItem
 					nameColumnWidth={nameColumnWidth}
-					detailsColumnWidth={detailsColumnWidth - 5}
+					detailsColumnWidth={detailsColumnWidth}
 					typeVisible={typeVisible}
 					environmentVariableItem={entry}
 					style={style}
