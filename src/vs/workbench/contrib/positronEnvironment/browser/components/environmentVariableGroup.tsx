@@ -4,7 +4,7 @@
 
 import 'vs/css!./environmentVariableGroup';
 import * as React from 'react';
-import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
@@ -16,6 +16,7 @@ interface EnvironmentVariableGroupProps {
 	environmentVariableGroup: IEnvironmentVariableGroup;
 	focused: boolean;
 	selected: boolean;
+	style: CSSProperties;
 	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
 
@@ -40,15 +41,9 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 		{ 'selected': props.selected }
 	);
 
-	// if (props.selected && ref.current) {
-	// 	ref.current.scrollIntoView({ block: 'nearest' });
-	// }
-
-	console.log(`Rendering ${props.environmentVariableGroup.title}`);
-
 	// Render.
 	return (
-		<div ref={ref} className={classNames} onClick={handleClick}>
+		<div ref={ref} className={classNames} onClick={handleClick} style={props.style}>
 			{props.environmentVariableGroup.expanded ?
 				<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
 				<div className={`expand-collapse-icon codicon codicon-chevron-right`} />

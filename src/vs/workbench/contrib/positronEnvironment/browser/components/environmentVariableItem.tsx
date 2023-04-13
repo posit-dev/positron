@@ -4,7 +4,7 @@
 
 import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
-import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
@@ -20,6 +20,7 @@ export interface EnvironmentVariableItemProps {
 	environmentVariableItem: IEnvironmentVariableItem;
 	focused: boolean;
 	selected: boolean;
+	style: CSSProperties;
 	onStartResizeNameColumn: () => void;
 	onResizeNameColumn: (x: number, y: number) => void;
 	onStopResizeNameColumn: (x: number, y: number) => void;
@@ -47,17 +48,9 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		{ 'selected': props.selected }
 	);
 
-	// if (props.selected && ref.current) {
-	// 	ref.current.scrollIntoView({ block: 'nearest' });
-	// }
-
-	// console.log(`Rendering ${props.environmentVariableItem.displayName}`);
-	console.log(`Rendering ${props.environmentVariableItem.displayValue}`);
-
-
 	// Render.
 	return (
-		<div ref={ref} className={classNames} onClick={handleClick}>
+		<div ref={ref} className={classNames} onClick={handleClick} style={props.style}>
 			<div className='name-column' style={{ width: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
