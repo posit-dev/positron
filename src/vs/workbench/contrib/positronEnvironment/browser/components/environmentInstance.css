@@ -11,6 +11,21 @@
 	user-select: none;
 }
 
+/* Don't do it. */
+.environment-core .environment-instance:focus {
+	outline: none !important;
+}
+
+.expand-collapse-button:focus {
+	outline: none !important;
+}
+
+.expand-collapse-button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+
 .environment-core .environment-instance.resizing {
 	cursor: col-resize;	/* The cursor will drift out of the column splitter every now and then. */
 }

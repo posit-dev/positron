@@ -39,7 +39,7 @@ export interface PositronEnvironmentProps extends PositronEnvironmentServices {
  * @returns The rendered component.
  */
 export const PositronEnvironment = (props: PropsWithChildren<PositronEnvironmentProps>) => {
-	// Hooks.
+	// State hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
