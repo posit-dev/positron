@@ -13,7 +13,15 @@ import pprint
 import sys
 import types
 
-from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
+from collections.abc import (
+    Iterable,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+    Sequence,
+    Set
+)
 from ipykernel.ipkernel import IPythonKernel, _get_comm_manager
 from itertools import chain
 from typing import Any
@@ -213,7 +221,7 @@ class PandasDataFrameInspector(CustomInspector):
     def get_child_names(self, value) -> list:
         try:
             return value.columns.values.tolist()
-        except:
+        except Exception:
             return []
 
     def has_child(self, value, child_name) -> bool:
@@ -275,7 +283,7 @@ class PandasSeriesInspector(CustomInspector):
     def get_child_names(self, value) -> list:
         try:
             return map(str, list(range(value.size)))
-        except:
+        except Exception:
             return []
 
     def has_child(self, value, child_name) -> bool:
@@ -328,7 +336,7 @@ class PolarsInspector(CustomInspector):
     def get_child_names(self, value) -> list:
         try:
             return value.columns
-        except:
+        except Exception:
             return []
 
     def has_child(self, value, child_name) -> bool:
@@ -382,7 +390,7 @@ class NumpyNdarrayInspector(CustomInspector):
     def get_child_names(self, value) -> list:
         try:
             return map(str, list(range(len(value))))
-        except:
+        except Exception:
             return []
 
     def has_child(self, value, child_name) -> bool:
@@ -438,6 +446,7 @@ _OurDefault = object()
 
 POSITON_NS_HIDDEN = {'__warningregistry__': {}}
 """Additional variables to hide from the user's namespace."""
+
 
 class PositronIPyKernel(IPythonKernel):
     """
@@ -641,7 +650,7 @@ class PositronIPyKernel(IPythonKernel):
         for name in names:
             try:
                 self.del_var(name)
-            except:
+            except Exception:
                 logging.warning(f'Unable to delete variable \'{name}\'')
                 pass
 
@@ -1045,7 +1054,7 @@ class PositronIPyKernel(IPythonKernel):
         if hasattr(value, '__len__'):
             try:
                 length = len(value)
-            except:
+            except Exception:
                 pass
         return length
 

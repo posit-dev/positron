@@ -74,6 +74,9 @@ abstract class BaseInstaller implements IBaseInstaller {
         resource?: InterpreterUri,
         cancel?: CancellationToken,
         flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         // If this method gets called twice, while previous promise has not been resolved, then return that same promise.
         // E.g. previous promise is not resolved as a message has been displayed to the user, so no point displaying
@@ -84,7 +87,9 @@ abstract class BaseInstaller implements IBaseInstaller {
         if (BaseInstaller.PromptPromises.has(key)) {
             return BaseInstaller.PromptPromises.get(key)!;
         }
-        const promise = this.promptToInstallImplementation(product, resource, cancel, flags);
+        // --- Start Positron ---
+        const promise = this.promptToInstallImplementation(product, resource, cancel, flags, options);
+        // --- End Positron ---
         BaseInstaller.PromptPromises.set(key, promise);
         promise.then(() => BaseInstaller.PromptPromises.delete(key)).ignoreErrors();
         promise.catch(() => BaseInstaller.PromptPromises.delete(key)).ignoreErrors();
@@ -210,6 +215,9 @@ abstract class BaseInstaller implements IBaseInstaller {
         resource?: InterpreterUri,
         cancel?: CancellationToken,
         flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse>;
 
     protected getExecutableNameFromSettings(product: Product, resource?: Uri): string {
@@ -233,6 +241,9 @@ export class FormatterInstaller extends BaseInstaller {
         resource?: Uri,
         cancel?: CancellationToken,
         _flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        _options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         const neverShowAgain = this.persistentStateFactory.createGlobalPersistentState(
             doNotDisplayFormatterPromptStateKey,
@@ -296,6 +307,9 @@ export class LinterInstaller extends BaseInstaller {
         resource?: Uri,
         cancel?: CancellationToken,
         _flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        _options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         return this.oldPromptForInstallation(product, resource, cancel);
     }
@@ -383,6 +397,9 @@ export class TestFrameworkInstaller extends BaseInstaller {
         resource?: Uri,
         cancel?: CancellationToken,
         _flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        _options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         const productName = ProductNames.get(product)!;
 
@@ -407,6 +424,9 @@ export class DataScienceInstaller extends BaseInstaller {
         interpreterUri?: InterpreterUri,
         cancel?: CancellationToken,
         flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         // Precondition
         if (isResource(interpreterUri)) {
@@ -519,9 +539,11 @@ export class DataScienceInstaller extends BaseInstaller {
             return InstallerResponse.Ignore;
         }
 
+        // --- Start Positron ---
         await installerModule
-            .installModule(product, interpreter, cancel, flags)
+            .installModule(product, interpreter, cancel, flags, options)
             .catch((ex) => traceError(`Error in installing the module '${moduleName}', ${ex}`));
+        // --- End Positron ---
 
         return this.isInstalled(product, interpreter).then((isInstalled) => {
             sendTelemetryEvent(EventName.PYTHON_INSTALL_PACKAGE, undefined, {
@@ -545,15 +567,22 @@ export class DataScienceInstaller extends BaseInstaller {
         resource?: InterpreterUri,
         cancel?: CancellationToken,
         _flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         const productName = ProductNames.get(product)!;
-        const item = await this.appShell.showErrorMessage(
+        // --- Start Positron ---
+        const item = await this.appShell.showWarningMessage(
             l10n.t('Data Science library {0} is not installed. Install?', productName),
             Common.bannerLabelYes,
             Common.bannerLabelNo,
         );
+        // --- End Positron ---
         if (item === Common.bannerLabelYes) {
-            return this.install(product, resource, cancel);
+            // --- Start Positron ---
+            return this.install(product, resource, cancel, undefined, options);
+            // --- End Positron ---
         }
         return InstallerResponse.Ignore;
     }
@@ -612,6 +641,9 @@ export class PythonInstaller implements IBaseInstaller {
         _resource?: InterpreterUri,
         _cancel?: CancellationToken,
         _flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        _options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         // This package is installed directly without any prompt.
         return InstallerResponse.Ignore;
@@ -647,6 +679,9 @@ export class ProductInstaller implements IInstaller {
         resource?: InterpreterUri,
         cancel?: CancellationToken,
         flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse> {
         const currentInterpreter = isResource(resource)
             ? await this.interpreterService.getActiveInterpreter(resource)
@@ -654,7 +689,9 @@ export class ProductInstaller implements IInstaller {
         if (!currentInterpreter) {
             return InstallerResponse.Ignore;
         }
-        return this.createInstaller(product).promptToInstall(product, resource, cancel, flags);
+        // --- Start Positron ---
+        return this.createInstaller(product).promptToInstall(product, resource, cancel, flags, options);
+        // --- End Positron ---
     }
 
     public async isProductVersionCompatible(
