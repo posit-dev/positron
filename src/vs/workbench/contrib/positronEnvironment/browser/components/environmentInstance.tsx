@@ -6,7 +6,7 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { FixedSizeList, ListChildComponentProps } from 'react-window';
+import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
@@ -56,7 +56,7 @@ interface EnvironmentInstanceProps {
  */
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
+	const listRef = useRef<List>(undefined!);
 
 	// State hooks.
 	const [nameColumnWidth, setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
@@ -118,7 +118,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 		// Adjust the column widths.
 		setNameColumnWidth(props.width - newDetailsColumnWidth);
-		setDetailsColumnWidth(newDetailsColumnWidth);
+		setDetailsColumnWidth(newDetailsColumnWidth - 5);
 
 		// Set the type visibility.
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
@@ -154,6 +154,20 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
 		// Process the code.
 		switch (e.code) {
+			// Page up key.
+			case 'PageUp': {
+				fixedSizeListRef.current.scrollTo(
+					this.state.scrollOffset - listHeight
+				);
+
+				break;
+			}
+
+			// Page down key.
+			case 'PageDown': {
+				break;
+			}
+
 			// Up arrow key.
 			case 'ArrowUp': {
 				// Eat the event.
@@ -228,6 +242,10 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				}
 				break;
 			}
+
+			default:
+				console.log(`The user pressed ${e.code}`);
+				break;
 		}
 	};
 
@@ -275,50 +293,11 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 		// Adjust the column widths.
 		setNameColumnWidth(newNameColumnWidth);
-		setDetailsColumnWidth(newDetailsColumnWidth);
+		setDetailsColumnWidth(newDetailsColumnWidth - 5);
 
 		// Set the type visibility.
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	};
-
-	// /**
-	//  * Renders the entries.
-	//  * @returns The rendered entries.
-	//  */
-	// const renderEntries = () => {
-	// 	return entries.map(entry => {
-	// 		if (isEnvironmentVariableGroup(entry)) {
-	// 			return (
-	// 				<EnvironmentVariableGroup
-	// 					key={entry.id}
-	// 					environmentVariableGroup={entry}
-	// 					focused={focused}
-	// 					selected={selectedId === entry.id}
-	// 					positronEnvironmentInstance={props.positronEnvironmentInstance}
-	// 				/>
-	// 			);
-	// 		} else if (isEnvironmentVariableItem(entry)) {
-	// 			return (
-	// 				<EnvironmentVariableItem
-	// 					key={entry.id}
-	// 					nameColumnWidth={nameColumnWidth}
-	// 					detailsColumnWidth={detailsColumnWidth - 1}
-	// 					typeVisible={typeVisible}
-	// 					environmentVariableItem={entry}
-	// 					focused={focused}
-	// 					selected={selectedId === entry.id}
-	// 					onStartResizeNameColumn={startResizeNameColumnHandler}
-	// 					onResizeNameColumn={resizeNameColumnHandler}
-	// 					onStopResizeNameColumn={stopResizeNameColumnHandler}
-	// 					positronEnvironmentInstance={props.positronEnvironmentInstance}
-	// 				/>
-	// 			);
-	// 		} else {
-	// 			// It's a bug to get here.
-	// 			return null;
-	// 		}
-	// 	});
-	// };
 
 	// Create the class names.
 	const classNames = positronClassNames(
@@ -370,7 +349,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Render.
 	return (
 		<div
-			ref={ref}
 			className={classNames}
 			tabIndex={0}
 			hidden={props.hidden}
@@ -378,15 +356,17 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			onFocus={() => setFocused(true)}
 			onBlur={() => setFocused(false)}
 		>
-			<FixedSizeList
-				width={props.width}
-				height={props.height}
+			<List
+				ref={listRef}
 				itemCount={entries.length}
 				itemKey={index => entries[index].id}
+				width={props.width}
+				height={props.height}
 				itemSize={26}
+				overscanCount={5}
 			>
 				{EnvironmentEntry}
-			</FixedSizeList>
+			</List>
 		</div>
 	);
 };

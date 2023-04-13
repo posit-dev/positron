@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .environment-variable {
-	height: 26px;
 	display: flex;
 	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
@@ -73,7 +72,7 @@
 	flex-grow: 1;
 	flex-shrink: 1;
 	overflow: hidden;
-	margin-left: 8px;
+	margin: 0 10px 0 8px;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
@@ -81,5 +80,5 @@
 .environment-variable .details-column .type {
 	opacity: 0.75;
 	flex: 0 0 auto;
-	margin: 0 10px 0;
+	margin: 0 10px 0 0;
 }
