@@ -21,7 +21,7 @@ interface EnvironmentCoreProps extends PositronEnvironmentProps {
  * @returns The rendered component.
  */
 export const EnvironmentCore = (props: EnvironmentCoreProps) => {
-	// Hooks.
+	// Context hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	// If there are no environment instances, render nothing.

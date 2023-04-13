@@ -17,9 +17,18 @@
 	background: var(--vscode-positronEnvironment-rowHoverBackground)
 }
 
+.environment-variable-group.selected {
+	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
+	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
+}
+
 .environment-variable-group .expand-collapse-icon {
 	width: 20px;
 	text-align: left;
+}
+
+.environment-variable-group.selected .expand-collapse-icon {
+	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
 }
 
 .environment-variable-group .title {

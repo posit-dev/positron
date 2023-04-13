@@ -13,7 +13,7 @@ import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvi
  * @returns The rendered component.
  */
 export const EnvironmentInstanceMenuButton = () => {
-	// Hooks.
+	// Context hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	// Builds the actions.

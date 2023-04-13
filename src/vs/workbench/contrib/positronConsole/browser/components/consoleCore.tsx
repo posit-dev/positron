@@ -34,6 +34,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	/**
 	 * Click handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 * @param e The event.
 	 */
 	const onClickHandler = (e: MouseEvent<HTMLElement>) => {
@@ -45,7 +46,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	/**
 	 * MouseDown handler.
-	 * @param e The event.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		// Get the selection.
