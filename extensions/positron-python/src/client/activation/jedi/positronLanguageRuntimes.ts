@@ -10,8 +10,8 @@ import { Disposable, LanguageClient, LanguageClientOptions, ServerOptions, Strea
 
 import { compare } from 'semver';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
-import { IPythonExecutionFactory } from '../../common/process/types';
-import { Resource } from '../../common/types';
+import { IInstaller, InstallerResponse, Product, Resource } from '../../common/types';
+import { InstallOptions } from '../../common/installer/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { traceError, traceVerbose } from '../../logging';
@@ -32,6 +32,10 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     private readonly disposables: Disposable[] = [];
     private readonly languageClients: LanguageClient[] = [];
     private extensionVersion: string | undefined;
+    private readonly installer: IInstaller;
+    // Using a process to install modules avoids using the terminal service,
+    // which has issues waiting for the outcome of the install.
+    private readonly installOptions: InstallOptions = { installAsProcess: true };
 
     constructor(
         private readonly serviceContainer: IServiceContainer,
@@ -45,12 +49,14 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         } catch (e) {
             traceVerbose("Unable to read package.json to determine our extension version", e);
         }
+
+        this.installer = this.serviceContainer.get<IInstaller>(IInstaller);
     }
 
     // ILanguageServerProxy API
 
     public async start(
-        resource: Resource,
+        _resource: Resource,
         interpreter: PythonEnvironment | undefined,
         options: LanguageClientOptions,
     ): Promise<void> {
@@ -63,9 +69,19 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             return;
         }
 
+        // Offer to install the ipykernel module for the preferred interpreter, if it is missing
+        let hasKernel = await this.installer.isInstalled(Product.ipykernel, interpreter);
+        if (!hasKernel) {
+            let response = await this.installer.promptToInstall(Product.ipykernel,
+                interpreter, undefined, undefined, this.installOptions);
+            if (response === InstallerResponse.Installed) {
+                traceVerbose(`Successfully installed ipykernel for ${interpreter?.displayName}`);
+            }
+        }
+
         // Register available python interpreters as language runtimes with our Jupyter Adapter
         this.withActiveExtention(ext, async () => {
-            await this.registerLanguageRuntimes(ext, resource, interpreter, options);
+            await this.registerLanguageRuntimes(ext, interpreter, options);
         });
     }
 
@@ -101,18 +117,13 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
      */
     private async registerLanguageRuntimes(
         ext: vscode.Extension<any>,
-        defaultResource: Resource,
-        defaultInterpreter: PythonEnvironment | undefined,
+        preferredInterpreter: PythonEnvironment | undefined,
         options: LanguageClientOptions
     ): Promise<void> {
 
-        let interpreters: PythonEnvironment[] = this.interpreterService.getInterpreters();
-
         // Sort the available interpreters, favoring the active interpreter (if one is available)
-        const activeInterpreter = await this.interpreterService.getActiveInterpreter(defaultResource);
-        const preferredInterpreter = activeInterpreter ? activeInterpreter : defaultInterpreter;
+        let interpreters: PythonEnvironment[] = this.interpreterService.getInterpreters();
         interpreters = this.sortInterpreters(interpreters, preferredInterpreter);
-
 
         // Register each interpreter as a language runtime
         const portfinder = require('portfinder');
@@ -139,7 +150,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         options: LanguageClientOptions): Promise<Disposable> {
 
         // Determine if the ipykernel module is installed
-        const hasKernel = await this.hasIpyKernelModule(interpreter, this.serviceContainer);
+        const hasKernel = await this.installer.isInstalled(Product.ipykernel, interpreter);
         const startupBehavior = hasKernel ? positron.LanguageRuntimeStartupBehavior.Implicit : positron.LanguageRuntimeStartupBehavior.Explicit;
 
         // Customize Jedi LSP entrypoint that adds a resident IPyKernel
@@ -217,18 +228,6 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             return `${info.major}.${info.minor}`;
         }
         return `${info.major}.${info.minor}.${info.patch}`;
-    }
-
-    /**
-     * Checks if a given python environment has the ipykernel module installed.
-     */
-    private async hasIpyKernelModule(interpreter: PythonEnvironment | undefined, serviceContainer: IServiceContainer): Promise<boolean> {
-        if (!interpreter) {
-            return false;
-        }
-        const pythonFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
-        let pythonService = await pythonFactory.create({ pythonPath: interpreter.path });
-        return pythonService.isModuleInstalled('ipykernel');
     }
 
     /**

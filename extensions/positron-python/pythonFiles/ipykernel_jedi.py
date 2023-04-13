@@ -89,13 +89,16 @@ def start(lsp_host, lsp_port):
 
 if __name__ == "__main__":
 
+    exitStatus = 0
+
     try:
         lsp_host, lsp_port = initialize()
         exitStatus = start(lsp_host, lsp_port)
     except SystemExit as error:
-        # TODO: Remove this workaround once we can improve Jedi disconnection logic
+        # TODO: Remove this workaround once we can improve Jedi
+        # disconnection logic
         tb = ''.join(traceback.format_tb(error.__traceback__))
-        if tb.index('connection_lost') > 0:
+        if tb.find('connection_lost') > 0:
             logging.warning('Positron LSP client disconnected, exiting.')
             exitStatus = 0
         else:
