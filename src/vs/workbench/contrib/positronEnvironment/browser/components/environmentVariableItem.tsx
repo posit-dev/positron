@@ -47,11 +47,13 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		{ 'selected': props.selected }
 	);
 
-	if (props.selected && ref.current) {
-		ref.current.scrollIntoView({ block: 'nearest' });
-	}
+	// if (props.selected && ref.current) {
+	// 	ref.current.scrollIntoView({ block: 'nearest' });
+	// }
 
-	console.log(`Rendering ${props.environmentVariableItem.displayName}`);
+	// console.log(`Rendering ${props.environmentVariableItem.displayName}`);
+	console.log(`Rendering ${props.environmentVariableItem.displayValue}`);
+
 
 	// Render.
 	return (

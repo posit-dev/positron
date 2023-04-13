@@ -40,9 +40,11 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 		{ 'selected': props.selected }
 	);
 
-	if (props.selected && ref.current) {
-		ref.current.scrollIntoView({ block: 'nearest' });
-	}
+	// if (props.selected && ref.current) {
+	// 	ref.current.scrollIntoView({ block: 'nearest' });
+	// }
+
+	console.log(`Rendering ${props.environmentVariableGroup.title}`);
 
 	// Render.
 	return (

@@ -4,7 +4,7 @@
 
 .environment-core .environment-instance {
 	cursor: pointer;
-	line-height: 200%;
+	/* line-height: 200%; */
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;

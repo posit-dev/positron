@@ -4,6 +4,7 @@
 
 import 'vs/css!./environmentInstance';
 import * as React from 'react';
+import { FixedSizeListProps, FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
@@ -123,32 +124,28 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	}, [props.width]);
 
-	// Entries useEffect hook.
-	useEffect(() => {
-		/**
-		 * Helper to select the first entry, if there is one.
-		 */
-		const selectFirstEntry = () => {
-			if (entries.length) {
-				setSelectedId(entries[0].id);
-			}
-		};
+	// // Entries useEffect hook.
+	// useEffect(() => {
+	// 	/**
+	// 	 * Helper to select the first entry, if there is one.
+	// 	 */
+	// 	const selectFirstEntry = () => {
+	// 		if (entries.length) {
+	// 			setSelectedId(entries[0].id);
+	// 		}
+	// 	};
 
-		// If there isn't selected entry, select the first entry. Otherwise, ensure that the
-		// selected entry is still exists in the entries. If it doesn't, select the first entry.
-		if (!selectedId) {
-			selectFirstEntry();
-		} else {
-			const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
-			if (selectedEntryIndex === -1) {
-				selectFirstEntry();
-			}
-		}
-	}, [entries]);
-
-	useEffect(() => {
-
-	}, [selectedId]);
+	// 	// If there isn't selected entry, select the first entry. Otherwise, ensure that the
+	// 	// selected entry is still exists in the entries. If it doesn't, select the first entry.
+	// 	if (!selectedId) {
+	// 		selectFirstEntry();
+	// 	} else {
+	// 		const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+	// 		if (selectedEntryIndex === -1) {
+	// 			selectFirstEntry();
+	// 		}
+	// 	}
+	// }, [entries]);
 
 	/**
 	 * Handles onKeyDown events.
@@ -329,6 +326,45 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		{ 'resizing': resizingColumn }
 	);
 
+	const Row = ({ index, style }: ListChildComponentProps<EnvironmentEntry>) => {
+		const entry = entries[index];
+		if (isEnvironmentVariableGroup(entry)) {
+			return (
+				<div style={style}>
+					<EnvironmentVariableGroup
+						key={entry.id}
+						environmentVariableGroup={entry}
+						focused={focused}
+						selected={selectedId === entry.id}
+						positronEnvironmentInstance={props.positronEnvironmentInstance}
+					/>
+				</div>
+			);
+		} else if (isEnvironmentVariableItem(entry)) {
+			return (
+				<div style={style}>
+					<EnvironmentVariableItem
+						key={entry.id}
+						nameColumnWidth={nameColumnWidth}
+						detailsColumnWidth={detailsColumnWidth - 1}
+						typeVisible={typeVisible}
+						environmentVariableItem={entry}
+						focused={focused}
+						selected={selectedId === entry.id}
+						onStartResizeNameColumn={startResizeNameColumnHandler}
+						onResizeNameColumn={resizeNameColumnHandler}
+						onStopResizeNameColumn={stopResizeNameColumnHandler}
+						positronEnvironmentInstance={props.positronEnvironmentInstance}
+					/>
+				</div>
+			);
+		} else {
+			// It's a bug to get here.
+			return null;
+		}
+
+	};
+
 	// Render.
 	return (
 		<div
@@ -340,7 +376,14 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			onFocus={() => setFocused(true)}
 			onBlur={() => setFocused(false)}
 		>
-			{renderEntries()}
+			<List
+				width={props.width}
+				height={props.height}
+				itemCount={entries.length}
+				itemSize={26}
+			>
+				{Row}
+			</List>
 		</div>
 	);
 };
