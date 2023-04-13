@@ -48,6 +48,9 @@ export interface IBaseInstaller {
         resource?: InterpreterUri,
         cancel?: CancellationToken,
         flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse>;
     isProductVersionCompatible(
         product: Product,
