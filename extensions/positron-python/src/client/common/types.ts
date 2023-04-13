@@ -128,6 +128,9 @@ export interface IInstaller {
         resource?: InterpreterUri,
         cancel?: CancellationToken,
         flags?: ModuleInstallFlags,
+        // --- Start Positron ---
+        options?: InstallOptions
+        // --- End Positron ---
     ): Promise<InstallerResponse>;
     install(
         product: Product,
