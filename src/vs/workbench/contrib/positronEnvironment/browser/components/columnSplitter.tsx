@@ -26,7 +26,6 @@ type DocumentMouseEvent = globalThis.MouseEvent;
  * @returns The rendered component.
  */
 export const ColumnSplitter = (props: ColumnSplitterProps) => {
-
 	// Mouse down handler.
 	const mouseDownHandler = (e: MouseEvent) => {
 		// Eat the event.

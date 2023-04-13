@@ -15,7 +15,7 @@ const PositronEnvironmentContext = createContext<PositronEnvironmentState>(undef
  * Export the PositronEnvironmentContextProvider provider
  */
 export const PositronEnvironmentContextProvider = (props: PropsWithChildren<PositronEnvironmentServices>) => {
-	// Hooks.
+	// State hooks.
 	const positronEnvironmentState = usePositronEnvironmentState(props);
 
 	// Render.

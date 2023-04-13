@@ -14,7 +14,7 @@ import { PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvir
  * @returns The rendered component.
  */
 export const GroupingMenuButton = () => {
-	// Hooks.
+	// Context hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	// Builds the actions.

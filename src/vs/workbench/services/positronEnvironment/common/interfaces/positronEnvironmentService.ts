@@ -153,14 +153,14 @@ export interface IPositronEnvironmentInstance {
 	collapseEnvironmentVariableGroup(id: string): void;
 
 	/**
-	 * Expands an environment variable.
-	 * @param path The path of the environment variable to expand.
+	 * Expands an environment variable item.
+	 * @param path The path of the environment variable item to expand.
 	 */
-	expandEnvironmentVariable(path: string[]): Promise<void>;
+	expandEnvironmentVariableItem(path: string[]): Promise<void>;
 
 	/**
-	 * Collapses an environment variable.
-	 * @param path The path of the environment variable to collapse.
+	 * Collapses an environment variable item.
+	 * @param path The path of the environment variable item to collapse.
 	 */
-	collapseEnvironmentVariable(path: string[]): void;
+	collapseEnvironmentVariableItem(path: string[]): void;
 }

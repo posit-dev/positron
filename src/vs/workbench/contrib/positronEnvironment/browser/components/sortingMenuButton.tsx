@@ -14,7 +14,7 @@ import { PositronEnvironmentSorting } from 'vs/workbench/services/positronEnviro
  * @returns The rendered component.
  */
 export const SortingMenuButton = () => {
-	// Hooks.
+	// Context hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	// Builds the actions.

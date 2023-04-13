@@ -17,7 +17,7 @@
 	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
 }
 
-.environment-variable .name {
+.environment-variable .name-column {
 	display: flex;
 	flex-shrink: 0;
 	overflow: hidden;
@@ -26,12 +26,14 @@
 	text-overflow: ellipsis;
 }
 
-.environment-variable .name .gutter {
+.environment-variable .name-column .gutter {
 	width: 20px;
 	display: flex;
 	margin-left: 8px;
+	align-items: center;
 }
 
+/*
 .expand-collapse-button {
 	padding: 0;
 	border: none;
@@ -49,16 +51,26 @@
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
+*/
 
-.expand-collapse-button-icon {
+.environment-variable .expand-collapse-icon {
 	display: flex !important;
 }
 
-.environment-variable .details {
+
+.environment-variable.selected .expand-collapse-icon {
+	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
+}
+
+
+
+
+
+.environment-variable .details-column {
 	display: flex;
 }
 
-.environment-variable .details .value {
+.environment-variable .details-column .value {
 	flex: 1;
 	overflow: hidden;
 	margin-left: 8px;
@@ -67,7 +79,7 @@
 	text-overflow: ellipsis;
 }
 
-.environment-variable .details .type {
+.environment-variable .details-column .type {
 	opacity: 0.75;
 	margin-right: 8px;
 	margin-left: 10px;

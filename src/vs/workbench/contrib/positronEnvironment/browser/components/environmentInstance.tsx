@@ -4,7 +4,7 @@
 
 import 'vs/css!./environmentInstance';
 import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
@@ -22,20 +22,20 @@ const TYPE_VISIBILITY_THRESHOLD = 250;
 
 /**
  * isEnvironmentVariableGroup user-defined type guard.
- * @param entry The entry.
+ * @param _ The entry.
  * @returns Whether the entry is IEnvironmentVariableGroup.
  */
-const isEnvironmentVariableGroup = (entry: EnvironmentEntry): entry is IEnvironmentVariableGroup => {
-	return 'title' in entry;
+const isEnvironmentVariableGroup = (_: EnvironmentEntry): _ is IEnvironmentVariableGroup => {
+	return 'title' in _;
 };
 
 /**
  * isEnvironmentVariableItem user-defined type guard.
- * @param entry The entry.
+ * @param _ The entry.
  * @returns Whether the entry is IEnvironmentVariableItem.
  */
-const isEnvironmentVariableItem = (entry: IEnvironmentVariableItem | IEnvironmentVariableItem): entry is IEnvironmentVariableItem => {
-	return 'path' in entry;
+const isEnvironmentVariableItem = (_: EnvironmentEntry): _ is IEnvironmentVariableItem => {
+	return 'path' in _;
 };
 
 /**
@@ -54,16 +54,21 @@ interface EnvironmentInstanceProps {
  * @returns The rendered component.
  */
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
-	// Hooks.
-	const [resizingColumn, setResizingColumn] = useState(false);
+	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
+
+	// State hooks.
 	const [nameColumnWidth, setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
 	const [detailsColumnWidth, setDetailsColumnWidth] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
 	const [typeVisible, setTypeVisible] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_VISIBILITY_THRESHOLD);
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([]);
+	const [resizingColumn, setResizingColumn] = useState(false);
+	const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+	const [focused, setFocused] = useState(false);
 
-	// Main useEffect.
+	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -102,7 +107,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Width use effect.
+	// Width useEffect hook.
 	useEffect(() => {
 		// Calculate the new details column width.
 		const newDetailsColumnWidth = Math.max(
@@ -117,6 +122,123 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		// Set the type visibility.
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	}, [props.width]);
+
+	// Entries useEffect hook.
+	useEffect(() => {
+		/**
+		 * Helper to select the first entry, if there is one.
+		 */
+		const selectFirstEntry = () => {
+			if (entries.length) {
+				setSelectedId(entries[0].id);
+			}
+		};
+
+		// If there isn't selected entry, select the first entry. Otherwise, ensure that the
+		// selected entry is still exists in the entries. If it doesn't, select the first entry.
+		if (!selectedId) {
+			selectFirstEntry();
+		} else {
+			const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+			if (selectedEntryIndex === -1) {
+				selectFirstEntry();
+			}
+		}
+	}, [entries]);
+
+	useEffect(() => {
+
+	}, [selectedId]);
+
+	/**
+	 * Handles onKeyDown events.
+	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
+	 */
+	const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+		// Process the code.
+		switch (e.code) {
+			// Up arrow key.
+			case 'ArrowUp': {
+				// Eat the event.
+				e.preventDefault();
+				e.stopPropagation();
+
+				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+				if (selectedEntryIndex > 0) {
+					setSelectedId(entries[selectedEntryIndex - 1].id);
+				}
+				break;
+			}
+
+			// Down arrow key.
+			case 'ArrowDown': {
+				// Eat the event.
+				e.preventDefault();
+				e.stopPropagation();
+
+				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+				if (selectedEntryIndex < entries.length - 1) {
+					setSelectedId(entries[selectedEntryIndex + 1].id);
+				}
+
+				break;
+			}
+
+			// Left arrow key.
+			case 'ArrowLeft': {
+				// Eat the event.
+				e.preventDefault();
+				e.stopPropagation();
+
+				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+				const selectedEntry = entries[selectedEntryIndex];
+				if (isEnvironmentVariableGroup(selectedEntry)) {
+					if (selectedEntry.expanded) {
+						props.positronEnvironmentInstance.collapseEnvironmentVariableGroup(
+							selectedEntry.id
+						);
+					}
+				} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
+					if (selectedEntry.expanded) {
+						props.positronEnvironmentInstance.collapseEnvironmentVariableItem(
+							selectedEntry.path
+						);
+					}
+				}
+				break;
+			}
+
+			// Right arrow key.
+			case 'ArrowRight': {
+				// Eat the event.
+				e.preventDefault();
+				e.stopPropagation();
+
+				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+				const selectedEntry = entries[selectedEntryIndex];
+				if (isEnvironmentVariableGroup(selectedEntry)) {
+					if (!selectedEntry.expanded) {
+						props.positronEnvironmentInstance.expandEnvironmentVariableGroup(
+							selectedEntry.id
+						);
+					}
+				} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
+					if (!selectedEntry.expanded) {
+						props.positronEnvironmentInstance.expandEnvironmentVariableItem(
+							selectedEntry.path
+						);
+					}
+				}
+				break;
+			}
+		}
+	};
+
+	// /**
+	//  * Handles onClick events.
+	//  */
+	// const handleClick = () => {
+	// };
 
 	/**
 	 * startResizeNameColumn event handler.
@@ -173,7 +295,10 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					<EnvironmentVariableGroup
 						key={entry.id}
 						environmentVariableGroup={entry}
-						positronEnvironmentInstance={props.positronEnvironmentInstance} />
+						focused={focused}
+						selected={selectedId === entry.id}
+						positronEnvironmentInstance={props.positronEnvironmentInstance}
+					/>
 				);
 			} else if (isEnvironmentVariableItem(entry)) {
 				return (
@@ -183,10 +308,12 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 						detailsColumnWidth={detailsColumnWidth - 1}
 						typeVisible={typeVisible}
 						environmentVariableItem={entry}
-						positronEnvironmentInstance={props.positronEnvironmentInstance}
+						focused={focused}
+						selected={selectedId === entry.id}
 						onStartResizeNameColumn={startResizeNameColumnHandler}
 						onResizeNameColumn={resizeNameColumnHandler}
 						onStopResizeNameColumn={stopResizeNameColumnHandler}
+						positronEnvironmentInstance={props.positronEnvironmentInstance}
 					/>
 				);
 			} else {
@@ -204,7 +331,15 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// Render.
 	return (
-		<div className={classNames} hidden={props.hidden}>
+		<div
+			ref={ref}
+			className={classNames}
+			tabIndex={0}
+			hidden={props.hidden}
+			onKeyDown={handleKeyDown}
+			onFocus={() => setFocused(true)}
+			onBlur={() => setFocused(false)}
+		>
 			{renderEntries()}
 		</div>
 	);

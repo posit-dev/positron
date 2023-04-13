@@ -50,8 +50,10 @@ export interface ActionBarsProps extends PositronEnvironmentServices {
  * @returns The rendered component.
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
-	// Hooks.
+	// Context hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
+
+	// State hooks.
 	const [filterText, setFilterText] = useState('');
 
 	// Find text change handler.
