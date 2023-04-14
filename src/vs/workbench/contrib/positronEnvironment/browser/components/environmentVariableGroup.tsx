@@ -14,8 +14,8 @@ import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvi
  */
 interface EnvironmentVariableGroupProps {
 	environmentVariableGroup: IEnvironmentVariableGroup;
-	focused: boolean;
 	selected: boolean;
+	focused: boolean;
 	style: CSSProperties;
 	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
@@ -38,7 +38,12 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 	// Create the class names.
 	const classNames = positronClassNames(
 		'environment-variable-group',
-		{ 'selected': props.selected }
+		{
+			'selected': props.selected
+		},
+		{
+			'focused': props.focused
+		}
 	);
 
 	// Render.

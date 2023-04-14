@@ -24,6 +24,8 @@ import { // eslint-disable-line no-duplicate-imports
 	inputBackground,
 	listHoverBackground,
 	listHoverForeground,
+	listInactiveSelectionBackground,
+	listInactiveSelectionForeground,
 	tableColumnsBorder
 } from 'vs/platform/theme/common/colorRegistry';
 // --- End Positron ---
@@ -1596,5 +1598,21 @@ export const POSITRON_ENVIRONMENT_ACTIVE_SELECTION_FOREGROUND_COLOR = registerCo
 	hcDark: listActiveSelectionForeground,
 	hcLight: listActiveSelectionForeground
 }, localize('positronEnvironment.activeSelectionForegroundColor', "Positron Environment active selection foreground color."));
+
+// The Positron Environment inactive selection background color.
+export const POSITRON_ENVIRONMENT_INACTIVE_SELECTION_BACKGROUND_COLOR = registerColor('positronEnvironment.inactiveSelectionBackgroundColor', {
+	dark: listInactiveSelectionBackground,
+	light: listInactiveSelectionBackground,
+	hcDark: listInactiveSelectionBackground,
+	hcLight: listInactiveSelectionBackground
+}, localize('positronEnvironment.inactiveSelectionBackgroundColor', "Positron Environment inactive selection background color."));
+
+// The Positron Environment inactive selection foreground color.
+export const POSITRON_ENVIRONMENT_INACTIVE_SELECTION_FOREGROUND_COLOR = registerColor('positronEnvironment.inactiveSelectionForegroundColor', {
+	dark: listInactiveSelectionForeground,
+	light: listInactiveSelectionForeground,
+	hcDark: listInactiveSelectionForeground,
+	hcLight: listInactiveSelectionForeground
+}, localize('positronEnvironment.inactiveSelectionForegroundColor', "Positron Environmentinactive selection foreground color."));
 
 // --- End Positron ---
