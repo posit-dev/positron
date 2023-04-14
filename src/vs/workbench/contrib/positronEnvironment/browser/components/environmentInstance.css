@@ -4,11 +4,11 @@
 
 .environment-core .environment-instance {
 	cursor: pointer;
-	/* line-height: 200%; */
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
 	user-select: none;
+	overflow-x: hidden; /* Hide horizontal scrollbar */
 }
 
 /* Don't do it. */

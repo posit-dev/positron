@@ -6,7 +6,7 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import { FixedSizeList as List, ListChildComponentProps, ListOnScrollProps } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
@@ -17,6 +17,7 @@ import { EnvironmentEntry, IPositronEnvironmentInstance } from 'vs/workbench/ser
 /**
  * Constants.
  */
+const LINE_HEIGHT = 26;
 const DEFAULT_NAME_COLUMN_WIDTH = 130;
 const MINIMUM_NAME_COLUMN_WIDTH = 100;
 const TYPE_VISIBILITY_THRESHOLD = 250;
@@ -68,6 +69,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [resizingColumn, setResizingColumn] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 	const [focused, setFocused] = useState(false);
+	const [scrollOffset, setScrollOffset] = useState(0);
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -118,7 +120,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 		// Adjust the column widths.
 		setNameColumnWidth(props.width - newDetailsColumnWidth);
-		setDetailsColumnWidth(newDetailsColumnWidth - 5);
+		setDetailsColumnWidth(newDetailsColumnWidth);
 
 		// Set the type visibility.
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
@@ -152,28 +154,48 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
 	const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+		// Consumes the event.
+		const consumeEvent = () => {
+			e.preventDefault();
+			e.stopPropagation();
+		};
+
+		// Calculates the max scroll offset.
+		const maxScrollOffset = () => Math.max((entries.length * LINE_HEIGHT) - props.height, 0);
+
 		// Process the code.
 		switch (e.code) {
+			// Home key.
+			case 'Home': {
+				consumeEvent();
+				listRef.current.scrollTo(0);
+				break;
+			}
+
+			// End key.
+			case 'End': {
+				consumeEvent();
+				listRef.current.scrollTo(maxScrollOffset());
+				break;
+			}
+
 			// Page up key.
 			case 'PageUp': {
-				fixedSizeListRef.current.scrollTo(
-					this.state.scrollOffset - listHeight
-				);
-
+				consumeEvent();
+				listRef.current.scrollTo(Math.max(scrollOffset - props.height, 0));
 				break;
 			}
 
 			// Page down key.
 			case 'PageDown': {
+				consumeEvent();
+				listRef.current.scrollTo(Math.min(scrollOffset + props.height, maxScrollOffset()));
 				break;
 			}
 
 			// Up arrow key.
 			case 'ArrowUp': {
-				// Eat the event.
-				e.preventDefault();
-				e.stopPropagation();
-
+				consumeEvent();
 				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 				if (selectedEntryIndex > 0) {
 					setSelectedId(entries[selectedEntryIndex - 1].id);
@@ -183,24 +205,17 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 			// Down arrow key.
 			case 'ArrowDown': {
-				// Eat the event.
-				e.preventDefault();
-				e.stopPropagation();
-
+				consumeEvent();
 				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 				if (selectedEntryIndex < entries.length - 1) {
 					setSelectedId(entries[selectedEntryIndex + 1].id);
 				}
-
 				break;
 			}
 
 			// Left arrow key.
 			case 'ArrowLeft': {
-				// Eat the event.
-				e.preventDefault();
-				e.stopPropagation();
-
+				consumeEvent();
 				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 				const selectedEntry = entries[selectedEntryIndex];
 				if (isEnvironmentVariableGroup(selectedEntry)) {
@@ -221,10 +236,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 			// Right arrow key.
 			case 'ArrowRight': {
-				// Eat the event.
-				e.preventDefault();
-				e.stopPropagation();
-
+				consumeEvent();
 				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 				const selectedEntry = entries[selectedEntryIndex];
 				if (isEnvironmentVariableGroup(selectedEntry)) {
@@ -248,12 +260,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				break;
 		}
 	};
-
-	// /**
-	//  * Handles onClick events.
-	//  */
-	// const handleClick = () => {
-	// };
 
 	/**
 	 * startResizeNameColumn event handler.
@@ -293,17 +299,11 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 		// Adjust the column widths.
 		setNameColumnWidth(newNameColumnWidth);
-		setDetailsColumnWidth(newDetailsColumnWidth - 5);
+		setDetailsColumnWidth(newDetailsColumnWidth);
 
 		// Set the type visibility.
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	};
-
-	// Create the class names.
-	const classNames = positronClassNames(
-		'environment-instance',
-		{ 'resizing': resizingColumn }
-	);
 
 	/**
 	 * EnvironmentEntry component.
@@ -312,10 +312,15 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 * @returns The rendered environment entry.
 	 */
 	const EnvironmentEntry = ({ index, style }: ListChildComponentProps<EnvironmentEntry>) => {
+		// return (
+		// 	<div style={style}>Item</div>
+		// );
+
 		// Get the entry being rendered.
 		const entry = entries[index];
 		if (isEnvironmentVariableGroup(entry)) {
 			return (
+				// <div style={style}>Group</div>
 				<EnvironmentVariableGroup
 					environmentVariableGroup={entry}
 					style={style}
@@ -346,9 +351,16 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		}
 	};
 
+	// Create the class names.
+	const classNames = positronClassNames(
+		'environment-instance',
+		{ 'resizing': resizingColumn }
+	);
+
 	// Render.
 	return (
 		<div
+			style={{ width: props.width, height: props.height, maxHeight: props.height }}
 			className={classNames}
 			tabIndex={0}
 			hidden={props.hidden}
@@ -362,8 +374,12 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				itemKey={index => entries[index].id}
 				width={props.width}
 				height={props.height}
-				itemSize={26}
+				itemSize={LINE_HEIGHT}
 				overscanCount={5}
+				onScroll={({ scrollOffset }) => {
+					console.log(`scrollOffset is ${scrollOffset}`);
+					setScrollOffset(scrollOffset);
+				}}
 			>
 				{EnvironmentEntry}
 			</List>

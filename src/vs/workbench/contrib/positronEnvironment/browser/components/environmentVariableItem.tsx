@@ -69,7 +69,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				onStartResize={props.onStartResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 				onStopResize={props.onStopResizeNameColumn} />
-			<div className='details-column' style={{ width: props.detailsColumnWidth, minWidth: props.detailsColumnWidth }}>
+			<div className='details-column' style={{ width: props.detailsColumnWidth - 5, minWidth: props.detailsColumnWidth - 5 }}>
 				<div className='value'>
 					{props.environmentVariableItem.displayValue}
 				</div>
