@@ -80,6 +80,7 @@ export const SortingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-sorting'
+			tooltip={'Change how Environment entries are sorted.'}
 			actions={actions}
 		/>
 	);
