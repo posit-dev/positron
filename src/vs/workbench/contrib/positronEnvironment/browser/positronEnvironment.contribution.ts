@@ -30,7 +30,7 @@ const positronEnvironmentViewIcon = registerIcon(
 );
 
 // Register the Positron environment container.
-const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
+export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 	ViewContainerExtensions.ViewContainersRegistry
 ).registerViewContainer(
 	{
