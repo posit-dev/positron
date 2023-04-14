@@ -302,6 +302,19 @@ fn format_display_value(value: SEXP) -> BindingValue {
 }
 
 fn regular_binding_type(value: SEXP) -> BindingType {
+    if value == unsafe { R_NilValue } {
+        return BindingType::simple(String::from("NULL"))
+    }
+
+    let info = Sxpinfo::interpret(&value);
+    if info.is_s4() {
+        let class = first_class(value);
+        return match class {
+            Some(class) => BindingType::new(class, all_classes(value)),
+            None        => BindingType::simple(String::from("S4"))
+        };
+    }
+
     let rtype = r_typeof(value);
     if is_simple_vector(value) {
         vec_type_info(value)
@@ -353,6 +366,8 @@ fn regular_binding_type(value: SEXP) -> BindingType {
         BindingType::simple(String::from("function"))
     } else if rtype == ENVSXP {
         BindingType::simple(String::from("environment"))
+    } else if rtype == EXTPTRSXP {
+        BindingType::simple(String::from("external pointer"))
     } else {
         let class = first_class(value);
         match class {
