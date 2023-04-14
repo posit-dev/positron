@@ -4,7 +4,8 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
+import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -29,29 +30,100 @@ interface DynamicPlotInstanceProps {
 export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
+	const progressRef = React.useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		const ratio = window.devicePixelRatio;
+
+		// If the plot is already rendered, use the old image until the new one is ready.
+		if (props.plotClient.lastRender) {
+			setUri(props.plotClient.lastRender.uri);
+		}
+
+		// Request a plot render at the current size.
 		props.plotClient.render(props.height, props.width, ratio).then((result) => {
 			setUri(result.uri);
 		});
+
+		let progressBar: ProgressBar | undefined;
+		let progressTimer: number | undefined;
+
+		// Wait for the plot to render, and show a progress bar.
+		props.plotClient.onDidChangeState((state) => {
+
+			// No work to do if we don't have a progress bar.
+			if (!progressRef.current) {
+				return;
+			}
+
+			// If we're rendering, show a progress bar.
+			if (state === PlotClientState.Rendering) {
+				// Create the progress bar.
+				progressBar = new ProgressBar(progressRef.current);
+
+				if (props.plotClient.renderEstimateMs > 0) {
+					// If the plot has previously rendered, then it knows about
+					// how long it will take to render. Use that to set the
+					// progress bar; consider each millisecond to be one unit of work
+					// to be done.
+					const started = Date.now();
+					progressBar.total(props.plotClient.renderEstimateMs);
+					progressTimer = window.setInterval(() => {
+						// Every 100ms, update the progress bar.
+						progressBar?.setWorked(Date.now() - started);
+					}, 100);
+				} else {
+					// If the plot has never rendered before, then it doesn't
+					// know how long it will take to render. Just show an
+					// infinite progress bar.
+					progressBar.infinite();
+				}
+			} else if (state === PlotClientState.Rendered || state === PlotClientState.Closed) {
+				// When the render completes, clean up the progress bar and
+				// timers if they exist.
+				if (progressTimer) {
+					window.clearTimeout(progressTimer);
+					progressTimer = undefined;
+				}
+				if (progressBar) {
+					progressBar.done();
+					progressBar.dispose();
+					progressBar = undefined;
+				}
+			}
+		});
 	});
+
+	// Render method for the plot image.
+	const renderedImage = () => {
+		return <div className='image-wrapper'>
+			<img src={uri}
+				alt={props.plotClient.metadata.code ?
+					props.plotClient.metadata.code :
+					'Plot ' + props.plotClient.id} />
+		</div>;
+	};
+
+	// Render method for the placeholder
+	const placeholderImage = () => {
+		const style = {
+			width: props.width + 'px',
+			height: props.height + 'px'
+		};
+		return <div className='image-placeholder' style={style}>
+			<div className='image-placeholder-text'>
+				Rendering plot ({props.width} x {props.height})
+			</div>
+		</div>;
+	};
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered plot.
-	//
-	// Consider: we probably want a more explicit loading state; as written we
-	// will show the old URI until the new one is ready.
 	return (
-		<div className='dynamic-plot-instance'>
-			{uri &&
-				<img src={uri}
-					height={props.height}
-					width={props.width}
-					alt={props.plotClient.metadata.code ?
-						props.plotClient.metadata.code :
-						'Plot ' + props.plotClient.id} />}
-			{!uri && <span>Rendering plot {props.plotClient.id}: {props.height} x {props.width}</span>}
+		<div className='plot-instance dynamic-plot-instance'>
+			<div ref={progressRef}></div>
+			{uri && renderedImage()}
+			{!uri && placeholderImage()}
 		</div>
 	);
 };
