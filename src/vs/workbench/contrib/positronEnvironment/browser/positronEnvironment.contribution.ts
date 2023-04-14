@@ -23,35 +23,52 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 export const POSITRON_ENVIRONMENT_VIEW_ID = 'workbench.panel.positronEnvironment';
 
 // The Positron environment view icon.
-const positronEnvironmentViewIcon = registerIcon('positron-environment-view-icon', Codicon.positronEnvironmentView, nls.localize('positronEnvironmentViewIcon', 'View icon of the Positron environment view.'));
+const positronEnvironmentViewIcon = registerIcon(
+	'positron-environment-view-icon',
+	Codicon.positronEnvironmentView,
+	nls.localize('positronEnvironmentViewIcon', 'View icon of the Positron environment view.')
+);
 
 // Register the Positron environment container.
-const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
-	id: POSITRON_ENVIRONMENT_VIEW_ID,
-	title: nls.localize('positron.environment', "Environment"),
-	icon: positronEnvironmentViewIcon,
-	order: 1,
-	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_ENVIRONMENT_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
-	storageId: POSITRON_ENVIRONMENT_VIEW_ID,
-	hideIfEmpty: true,
-}, ViewContainerLocation.AuxiliaryBar, { doNotRegisterOpenCommand: true });
-
-Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
-	id: POSITRON_ENVIRONMENT_VIEW_ID,
-	name: nls.localize('positron.environment', "Environment"),
-	containerIcon: positronEnvironmentViewIcon,
-	canMoveView: true,
-	canToggleVisibility: false,
-	ctorDescriptor: new SyncDescriptor(PositronEnvironmentViewPane),
-	openCommandActionDescriptor: {
-		id: 'workbench.action.positron.toggleEnvironment',
-		mnemonicTitle: nls.localize({ key: 'miToggleEnvironment', comment: ['&& denotes a mnemonic'] }, "&&Environment"),
-		keybindings: {
-			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
-		},
+const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
+	ViewContainerExtensions.ViewContainersRegistry
+).registerViewContainer(
+	{
+		id: POSITRON_ENVIRONMENT_VIEW_ID,
+		title: nls.localize('positron.session', "Session"),
+		icon: positronEnvironmentViewIcon,
 		order: 1,
+		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_ENVIRONMENT_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
+		storageId: POSITRON_ENVIRONMENT_VIEW_ID,
+		hideIfEmpty: false,
+	},
+	ViewContainerLocation.AuxiliaryBar,
+	{
+		doNotRegisterOpenCommand: true
 	}
-}], VIEW_CONTAINER);
+);
+
+Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews(
+	[
+		{
+			id: POSITRON_ENVIRONMENT_VIEW_ID,
+			name: nls.localize('positron.environment', "Environment"),
+			ctorDescriptor: new SyncDescriptor(PositronEnvironmentViewPane),
+			canToggleVisibility: false,
+			canMoveView: true,
+			containerIcon: positronEnvironmentViewIcon,
+			openCommandActionDescriptor: {
+				id: 'workbench.action.positron.toggleEnvironment',
+				mnemonicTitle: nls.localize({ key: 'miToggleEnvironment', comment: ['&& denotes a mnemonic'] }, "&&Environment"),
+				keybindings: {
+					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
+				},
+				order: 1,
+			}
+		}
+	],
+	VIEW_CONTAINER
+);
 
 class PositronEnvironmentContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
