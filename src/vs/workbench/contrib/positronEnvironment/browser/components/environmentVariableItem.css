@@ -14,6 +14,11 @@
 }
 
 .environment-variable.selected {
+	color: var(--vscode-positronEnvironment-inactiveSelectionForegroundColor);
+	background: var(--vscode-positronEnvironment-inactiveSelectionBackgroundColor);
+}
+
+.environment-variable.focused.selected {
 	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
 	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
 }
@@ -38,7 +43,7 @@
 	display: flex !important;
 }
 
-.environment-variable.selected .expand-collapse-icon {
+.environment-variable.focused.selected .expand-collapse-icon {
 	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
 }
 

@@ -19,6 +19,11 @@
 }
 
 .environment-variable-group.selected {
+	color: var(--vscode-positronEnvironment-inactiveSelectionForegroundColor);
+	background: var(--vscode-positronEnvironment-inactiveSelectionBackgroundColor);
+}
+
+.environment-variable-group.focused.selected {
 	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
 	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
 }
@@ -28,7 +33,7 @@
 	text-align: left;
 }
 
-.environment-variable-group.selected .expand-collapse-icon {
+.environment-variable-group.focused.selected .expand-collapse-icon {
 	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
 }
 

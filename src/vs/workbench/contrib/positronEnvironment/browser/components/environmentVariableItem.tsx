@@ -18,8 +18,8 @@ export interface EnvironmentVariableItemProps {
 	detailsColumnWidth: number;
 	typeVisible: boolean;
 	environmentVariableItem: IEnvironmentVariableItem;
-	focused: boolean;
 	selected: boolean;
+	focused: boolean;
 	style: CSSProperties;
 	onStartResizeNameColumn: () => void;
 	onResizeNameColumn: (x: number, y: number) => void;
@@ -45,7 +45,12 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	// Create the class names.
 	const classNames = positronClassNames(
 		'environment-variable',
-		{ 'selected': props.selected }
+		{
+			'selected': props.selected
+		},
+		{
+			'focused': props.focused
+		}
 	);
 
 	// Render.
