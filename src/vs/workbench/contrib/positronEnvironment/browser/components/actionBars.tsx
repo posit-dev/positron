@@ -71,16 +71,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	}, [filterText]);
 
-	// Load workspace handler.
-	const loadWorkspaceHandler = () => {
-		console.log('loadWorkspaceHandler called');
-	};
-
-	// Save workspace handler.
-	const saveWorkspaceHandler = () => {
-		console.log('saveWorkspaceHandler called');
-	};
-
 	// Clear all environment objects handler.
 	const clearAllEnvironmentObjectsHandler = async () => {
 		// Show the clear environment objects modal dialog. If the user confirmed the operation, do it.
@@ -109,26 +99,20 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<div className='action-bars'>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<ActionBarButton iconId='positron-open' tooltip={localize('positronLoadWorkspace', "Load workspace")} onClick={() => loadWorkspaceHandler()} />
-						<ActionBarButton iconId='positron-save' tooltip={localize('positronSaveWorkspace', "Save workspace as")} onClick={() => saveWorkspaceHandler()} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-test' tooltip={localize('positronTestMode', "Enter test mode")} />
-					</ActionBarRegion>
-					<ActionBarRegion align='right'>
 						<GroupingMenuButton />
 						<SortingMenuButton />
+						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
+					</ActionBarRegion>
+					<ActionBarRegion align='right'>
+						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
+						<ActionBarSeparator />
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} onClick={refreshWorkspaceObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
 						<EnvironmentInstanceMenuButton />
-						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} />
+						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarFilter
