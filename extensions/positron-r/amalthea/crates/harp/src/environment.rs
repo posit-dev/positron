@@ -208,7 +208,11 @@ impl Binding {
 pub fn has_children(value: SEXP) -> bool {
     let info = Sxpinfo::interpret(&value);
     if info.is_s4() {
-        true
+        unsafe {
+            let names = RFunction::new("methods", ".slotNames").add(value).call().unwrap();
+            let names = CharacterVector::new_unchecked(names);
+            names.len() > 0
+        }
     } else {
         match r_typeof(value) {
             VECSXP  => unsafe { XLENGTH(value) != 0 } ,
