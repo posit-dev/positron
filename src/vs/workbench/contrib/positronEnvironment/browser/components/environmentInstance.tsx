@@ -57,6 +57,7 @@ interface EnvironmentInstanceProps {
  */
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Reference hooks.
+	const instanceRef = useRef<HTMLDivElement>(undefined!);
 	const listRef = useRef<List>(undefined!);
 
 	// State hooks.
@@ -309,6 +310,11 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	};
 
+	const onEntrySelected = (index: number) => {
+		setSelectedId(entries[index].id);
+		instanceRef.current.focus();
+	};
+
 	/**
 	 * EnvironmentEntry component.
 	 * @param index The index of the environment entry.
@@ -316,10 +322,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 * @returns The rendered environment entry.
 	 */
 	const EnvironmentEntry = ({ index, style }: ListChildComponentProps<EnvironmentEntry>) => {
-		// return (
-		// 	<div style={style}>Item</div>
-		// );
-
 		// Get the entry being rendered.
 		const entry = entries[index];
 		if (isEnvironmentVariableGroup(entry)) {
@@ -330,6 +332,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					style={style}
 					focused={focused}
 					selected={selectedId === entry.id}
+					onSelected={() => onEntrySelected(index)}
 					positronEnvironmentInstance={props.positronEnvironmentInstance}
 				/>
 			);
@@ -343,6 +346,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					style={style}
 					focused={focused}
 					selected={selectedId === entry.id}
+					onSelected={() => onEntrySelected(index)}
 					onStartResizeNameColumn={startResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
 					onStopResizeNameColumn={stopResizeNameColumnHandler}
@@ -364,6 +368,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Render.
 	return (
 		<div
+			ref={instanceRef}
 			style={{ width: props.width, height: props.height, maxHeight: props.height }}
 			className={classNames}
 			tabIndex={0}
@@ -380,10 +385,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				height={props.height}
 				itemSize={LINE_HEIGHT}
 				overscanCount={10}
-				onScroll={({ scrollOffset }) => {
-					console.log(`scrollOffset is ${scrollOffset}`);
-					setScrollOffset(scrollOffset);
-				}}
+				onScroll={({ scrollOffset }) => setScrollOffset(scrollOffset)}
 			>
 				{EnvironmentEntry}
 			</List>
