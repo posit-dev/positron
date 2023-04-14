@@ -472,7 +472,31 @@ declare module 'positron' {
 		shutdown(): void;
 	}
 
+
+	export type RuntimeClientHandlerCallback = (
+		client: RuntimeClientInstance,
+		params: Object,) => boolean;
+
+	export interface RuntimeClientHandler {
+		clientType: string;
+		callback: RuntimeClientHandlerCallback;
+	}
+
 	namespace runtime {
+		/**
+		 * Register a language runtime with Positron.
+		 *
+		 * @param runtime The language runtime to register
+		 */
 		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+
+		/**
+		 * Register a handler for runtime client instances. This handler will be called
+		 * whenever a new client instance is created by a language runtime of the given
+		 * type.
+		 *
+		 * @param handler A handler for runtime client instances
+		 */
+		export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
 	}
 }

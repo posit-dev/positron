@@ -15,6 +15,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
+	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
+
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
 	) {
@@ -103,6 +105,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot reply to prompt: language runtime handle '${handle}' not found or no longer valid.`);
 		}
 		this._runtimes[handle].replyToPrompt(id, response);
+	}
+
+	public registerClientHandler(handler: positron.RuntimeClientHandler): IDisposable {
+		this._clientHandlers.push(handler);
+		return new Disposable(() => {
+			const index = this._clientHandlers.indexOf(handler);
+			if (index >= 0) {
+				this._clientHandlers.splice(index, 1);
+			}
+		});
 	}
 
 	public registerLanguageRuntime(
