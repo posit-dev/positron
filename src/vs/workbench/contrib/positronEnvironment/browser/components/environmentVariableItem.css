@@ -4,7 +4,7 @@
 
 .environment-variable {
 	display: flex;
-	box-sizing: border-box;
+	box-sizing: border-box; /* Draw the borders inside the box. */
 	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 }
@@ -34,35 +34,13 @@
 	align-items: center;
 }
 
-/*
-.expand-collapse-button {
-	padding: 0;
-	border: none;
-	cursor: pointer;
-	overflow: visible;
-	background: transparent;
-	vertical-align: text-bottom;
-}
-
-.expand-collapse-button:focus {
-	outline: none !important;
-}
-
-.expand-collapse-button:focus-visible {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-focusBorder) !important;
-}
-*/
-
 .environment-variable .expand-collapse-icon {
 	display: flex !important;
 }
 
-
 .environment-variable.selected .expand-collapse-icon {
 	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
 }
-
 
 .environment-variable .details-column {
 	display: flex;

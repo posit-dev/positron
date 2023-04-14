@@ -371,7 +371,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			<List
 				ref={listRef}
 				itemCount={entries.length}
-				itemKey={index => entries[index].id}
+				itemKey={index => entries[index].id} // Use a custom item key instead of index.
 				width={props.width}
 				height={props.height}
 				itemSize={LINE_HEIGHT}
