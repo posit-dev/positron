@@ -8,6 +8,7 @@
 use std::cmp::Ordering;
 
 use c2rust_bitfields::BitfieldStruct;
+use itertools::Itertools;
 use libR_sys::*;
 
 use crate::exec::RFunction;
@@ -260,7 +261,6 @@ pub fn has_children(value: SEXP) -> bool {
         VECSXP  => !unsafe{ r_inherits(value, "POSIXlt") },
         LISTSXP => true,
         ENVSXP => true,
-        CLOSXP => true,
 
         _       => false
     }
@@ -317,6 +317,14 @@ fn regular_binding_display_value(value: SEXP) -> BindingValue {
         BindingValue::empty()
     } else if rtype == SYMSXP && value == unsafe{ R_MissingArg } {
         BindingValue::new(String::from("<missing>"), false)
+    } else if rtype == CLOSXP {
+        unsafe {
+            let args      = RFunction::from("args").add(value).call().unwrap();
+            let formatted = RFunction::from("format").add(*args).call().unwrap();
+            let formatted = CharacterVector::new_unchecked(formatted);
+            let out = formatted.iter().take(formatted.len() -1).map(|o|{ o.unwrap() }).join("");
+            BindingValue::new(out, false)
+        }
     } else {
         format_display_value(value)
     }

@@ -192,7 +192,6 @@ impl EnvironmentVariable {
             VECSXP  => Self::inspect_list(object),
             LISTSXP => Self::inspect_pairlist(object),
             ENVSXP  => Self::inspect_environment(object),
-            CLOSXP  => Self::inspect_function(object),
 
             _       => Ok(vec![])
         }
@@ -304,22 +303,6 @@ impl EnvironmentVariable {
             a.display_name.cmp(&b.display_name)
         });
 
-        Ok(out)
-    }
-
-    fn inspect_function(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
-        let mut out : Vec<Self> = vec![];
-
-        unsafe {
-            let formals = FORMALS(*value);
-            if formals != R_NilValue {
-                out.push(Self::from(String::from("formals"), String::from("formals(.)"), formals));
-            }
-
-            let env = CLOENV(*value);
-            out.push(Self::from(String::from("env"), String::from("env(.)"), env));
-
-        }
         Ok(out)
     }
 
