@@ -375,7 +375,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				width={props.width}
 				height={props.height}
 				itemSize={LINE_HEIGHT}
-				overscanCount={5}
+				overscanCount={10}
 				onScroll={({ scrollOffset }) => {
 					console.log(`scrollOffset is ${scrollOffset}`);
 					setScrollOffset(scrollOffset);
