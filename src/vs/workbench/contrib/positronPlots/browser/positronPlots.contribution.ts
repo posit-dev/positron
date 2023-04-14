@@ -26,20 +26,26 @@ registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType
 // The Positron plots view icon.
 const positronPlotsViewIcon = registerIcon('positron-plots-view-icon', Codicon.positronPlotsView, nls.localize('positronPlotsViewIcon', 'View icon of the Positron plots view.'));
 
-Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
-	id: POSITRON_PLOTS_VIEW_ID,
-	name: nls.localize('positron.plots', "Plots"),
-	containerIcon: positronPlotsViewIcon,
-	canMoveView: true,
-	canToggleVisibility: false,
-	ctorDescriptor: new SyncDescriptor(PositronPlotsViewPane),
-	openCommandActionDescriptor: {
-		id: 'workbench.action.positron.togglePlots',
-		mnemonicTitle: nls.localize({ key: 'miTogglePlots', comment: ['&& denotes a mnemonic'] }, "&&Plots"),
-		keybindings: {},
-		order: 1,
-	}
-}], VIEW_CONTAINER);
+Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews(
+	[
+		{
+			id: POSITRON_PLOTS_VIEW_ID,
+			name: nls.localize('positron.plots', "Plots"),
+			ctorDescriptor: new SyncDescriptor(PositronPlotsViewPane),
+			collapsed: true,
+			canToggleVisibility: false,
+			canMoveView: true,
+			containerIcon: positronPlotsViewIcon,
+			openCommandActionDescriptor: {
+				id: 'workbench.action.positron.togglePlots',
+				mnemonicTitle: nls.localize({ key: 'miTogglePlots', comment: ['&& denotes a mnemonic'] }, "&&Plots"),
+				keybindings: {},
+				order: 1,
+			}
+		}
+	],
+	VIEW_CONTAINER
+);
 
 class PositronPlotsContribution extends Disposable implements IWorkbenchContribution {
 	constructor(

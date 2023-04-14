@@ -129,23 +129,10 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// Entries useEffect hook.
 	useEffect(() => {
-		/**
-		 * Helper to select the first entry, if there is one.
-		 */
-		const selectFirstEntry = () => {
-			if (entries.length) {
-				setSelectedId(entries[0].id);
-			}
-		};
-
-		// If there isn't selected entry, select the first entry. Otherwise, ensure that the
-		// selected entry is still exists in the entries. If it doesn't, select the first entry.
-		if (!selectedId) {
-			selectFirstEntry();
-		} else {
+		if (selectedId) {
 			const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 			if (selectedEntryIndex === -1) {
-				selectFirstEntry();
+				setSelectedId(undefined);
 			}
 		}
 	}, [entries]);
