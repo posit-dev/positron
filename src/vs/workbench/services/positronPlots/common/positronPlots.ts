@@ -27,6 +27,11 @@ export interface IPositronPlotsService {
 	readonly positronPlotInstances: PositronPlotClient[];
 
 	/**
+	 * Gets the currently selected Positron plot instance.
+	 */
+	readonly selectedPlotId: string | undefined;
+
+	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
 	 */
 	readonly onDidEmitPlot: Event<PositronPlotClient>;
@@ -60,11 +65,31 @@ export interface IPositronPlotsService {
 	selectPlot(id: string): void;
 
 	/**
+	 * Selects the next plot in the list of plots.
+	 */
+	selectNextPlot(): void;
+
+	/**
+	 * Selects the previous plot in the list of plots.
+	 */
+	selectPreviousPlot(): void;
+
+	/**
 	 * Removes the plot with the specified ID.
 	 *
 	 * @param id The ID of the plot to remove.
 	 */
 	removePlot(id: string): void;
+
+	/**
+	 * Removes the selected plot.
+	 */
+	removeSelectedPlot(): void;
+
+	/**
+	 * Removes all the plots in the service.
+	 */
+	removeAllPlots(): void;
 
 	/**
 	 * Placeholder for service initialization.

@@ -17,13 +17,13 @@ import { EnvironmentEntry, IPositronEnvironmentInstance, IPositronEnvironmentSer
 /**
  * Constants.
  */
-const DATA_GROUP_ID = 'data';
-const VALUES_GROUP_ID = 'values';
-const FUNCTIONS_GROUP_ID = 'functions';
-const SMALL_GROUP_ID = 'small';
-const MEDIUM_GROUP_ID = 'medium';
-const LARGE_GROUP_ID = 'large';
-const VERY_LARGE_GROUP_ID = 'very-large';
+const DATA_GROUP_ID = 'group/data';
+const VALUES_GROUP_ID = 'group/values';
+const FUNCTIONS_GROUP_ID = 'group/functions';
+const SMALL_GROUP_ID = 'group/small';
+const MEDIUM_GROUP_ID = 'group/medium';
+const LARGE_GROUP_ID = 'group/large';
+const VERY_LARGE_GROUP_ID = 'group/very-large';
 
 /**
  * PositronEnvironmentService class.
@@ -552,10 +552,10 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
-	 * Expands an environment variable.
+	 * Expands an environment variable item.
 	 * @param path The path of the environment variable to expand.
 	 */
-	async expandEnvironmentVariable(path: string[]) {
+	async expandEnvironmentVariableItem(path: string[]) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -600,7 +600,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Collapses an environment variable.
 	 * @param path The path of the environment variable to collapse.
 	 */
-	collapseEnvironmentVariable(path: string[]) {
+	collapseEnvironmentVariableItem(path: string[]) {
 		// If the envirionment variable item is expanded, collapse it.
 		const pathString = JSON.stringify(path);
 		if (this._expandedPaths.has(pathString)) {

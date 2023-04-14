@@ -4,7 +4,7 @@
 
 import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
@@ -18,11 +18,14 @@ export interface EnvironmentVariableItemProps {
 	detailsColumnWidth: number;
 	typeVisible: boolean;
 	environmentVariableItem: IEnvironmentVariableItem;
-	positronEnvironmentInstance: IPositronEnvironmentInstance;
-
+	selected: boolean;
+	focused: boolean;
+	style: CSSProperties;
+	onSelected: () => void;
 	onStartResizeNameColumn: () => void;
 	onResizeNameColumn: (x: number, y: number) => void;
 	onStopResizeNameColumn: (x: number, y: number) => void;
+	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
 
 /**
@@ -31,43 +34,40 @@ export interface EnvironmentVariableItemProps {
  * @returns The rendered component.
  */
 export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => {
-	// Hooks.
-	const [selected, _setSelected] = useState(false);
-
-	/**
-	 * Handles expand / collapse.
-	 */
-	const handleExpandCollapse = async (): Promise<void> => {
-		if (props.environmentVariableItem.expanded) {
-			props.positronEnvironmentInstance.collapseEnvironmentVariable(
-				props.environmentVariableItem.path
-			);
-		} else {
-			await props.positronEnvironmentInstance.expandEnvironmentVariable(
-				props.environmentVariableItem.path
-			);
-		}
-	};
+	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
 
 	// Create the class names.
 	const classNames = positronClassNames(
 		'environment-variable',
-		{ 'selected': selected }
+		{
+			'selected': props.selected
+		},
+		{
+			'focused': props.focused
+		}
 	);
 
+	/**
+	 * MouseDown handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+		props.onSelected();
+	};
+
 	// Render.
-	return (<>
-		<div className={classNames}>
-			<div className='name' style={{ width: props.nameColumnWidth }}>
+	return (
+		<div ref={ref} className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
+			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
 						{props.environmentVariableItem.hasChildren && (
-							<button className='expand-collapse-button' onClick={handleExpandCollapse}>
-								{!props.environmentVariableItem.expanded ?
-									<div className={`expand-collapse-button-icon codicon codicon-chevron-right`}></div> :
-									<div className={`expand-collapse-button-icon codicon codicon-chevron-down`}></div>
-								}
-							</button>
+							props.environmentVariableItem.expanded ?
+								<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
+								<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
 						)}
 					</div>
 					<div className='name-value'>
@@ -79,8 +79,10 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				onStartResize={props.onStartResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 				onStopResize={props.onStopResizeNameColumn} />
-			<div className='details' style={{ width: props.detailsColumnWidth }}>
-				<div className='value'>{props.environmentVariableItem.displayValue}</div>
+			<div className='details-column' style={{ width: props.detailsColumnWidth - 5, minWidth: props.detailsColumnWidth - 5 }}>
+				<div className='value'>
+					{props.environmentVariableItem.displayValue}
+				</div>
 				{props.typeVisible && (
 					<div className='type'>
 						{props.environmentVariableItem.displayType}
@@ -88,5 +90,5 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				)}
 			</div>
 		</div>
-	</>);
+	);
 };

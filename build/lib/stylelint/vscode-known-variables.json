@@ -672,7 +672,9 @@
 		"--vscode-positronEnvironment-gridColor",
 		"--vscode-positronEnvironment-rowHoverBackground",
 		"--vscode-positronEnvironment-activeSelectionForegroundColor",
-		"--vscode-positronEnvironment-activeSelectionBackgroundColor"
+		"--vscode-positronEnvironment-activeSelectionBackgroundColor",
+		"--vscode-positronEnvironment-inactiveSelectionForegroundColor",
+		"--vscode-positronEnvironment-inactiveSelectionBackgroundColor"
 	],
 	"others": [
 		"--background-dark",

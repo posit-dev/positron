@@ -6,6 +6,7 @@
 //
 
 use harp::environment::Binding;
+use harp::environment::BindingKind;
 use harp::environment::BindingType;
 use harp::environment::BindingValue;
 use harp::environment::Sxpinfo;
@@ -17,6 +18,7 @@ use harp::object::RObject;
 use harp::r_symbol;
 use harp::symbol::RSymbol;
 use harp::utils::r_assert_type;
+use harp::utils::r_inherits;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
@@ -109,7 +111,12 @@ impl EnvironmentVariable {
             type_info,
         } = binding.get_type();
 
-        let kind = ValueKind::Other;
+        let kind = match binding.kind {
+            BindingKind::Active => ValueKind::Other,
+            BindingKind::Promise(false) => ValueKind::Other,
+            BindingKind::Promise(true) => Self::variable_kind(unsafe { PRVALUE(binding.value) }),
+            BindingKind::Regular => Self::variable_kind(binding.value),
+        };
         let has_children = binding.has_children();
 
         Self {
@@ -140,11 +147,41 @@ impl EnvironmentVariable {
             display_value,
             display_type,
             type_info,
-            kind: ValueKind::Other,
+            kind: Self::variable_kind(x),
             length: 0,
             size: 0,
             has_children,
             is_truncated
+        }
+    }
+
+    fn variable_kind(x: SEXP) -> ValueKind {
+        match r_typeof(x) {
+            CLOSXP => ValueKind::Function,
+            ENVSXP => ValueKind::Map,
+            VECSXP => {
+                if unsafe{ r_inherits(x, "data.frame") } {
+                    ValueKind::Table
+                } else {
+                    unsafe {
+                        let names = Rf_getAttrib(x, R_NamesSymbol) ;
+                        if names == R_NilValue {
+                            ValueKind::Collection
+                        } else {
+                            ValueKind::Map
+                        }
+                    }
+                }
+            },
+
+            LGLSXP  => ValueKind::Collection,
+            INTSXP  => ValueKind::Collection,
+            REALSXP => ValueKind::Collection,
+            CPLXSXP => ValueKind::Collection,
+            STRSXP  => ValueKind::Collection,
+            RAWSXP  => ValueKind::Collection,
+
+            _       => ValueKind::Other
         }
     }
 
@@ -168,7 +205,7 @@ impl EnvironmentVariable {
 
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
         for path_element in path {
-
+        
             if object.is_s4() {
                 let name = r_symbol!(path_element);
 
@@ -185,6 +222,7 @@ impl EnvironmentVariable {
                         //       e.g. if we want to be able to expand a promise to show its code and/or env
                         RObject::view(unsafe { Rf_findVarInFrame(*object, r_symbol!(path_element)) } )
                     },
+                    
                     VECSXP => {
                         let index = path_element.parse::<isize>().unwrap();
                         RObject::view(VECTOR_ELT(*object, index))
@@ -197,14 +235,21 @@ impl EnvironmentVariable {
                             pairlist = CDR(pairlist);
                         }
                         RObject::view(CAR(pairlist))
-                    }
-
+                    }, 
+                    
+                    CLOSXP => {
+                        if path_element == "formals" {
+                            RObject::view(FORMALS(*object))
+                        } else {
+                            RObject::view(CLOENV(*object))
+                        }, 
+                    
                     _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
-                };
-            }
-        }
-
-        Ok(object)
+                }
+           }
+       }
+           
+       Ok(object)
     }
 
     fn inspect_list(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {

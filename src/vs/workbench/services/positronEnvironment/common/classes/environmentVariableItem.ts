@@ -2,7 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
 import { EnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
@@ -14,6 +13,11 @@ import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize 
  */
 export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	//#region Private Properties
+
+	/**
+	 * Gets or sets the cached identifier.
+	 */
+	private _cachedId: string | undefined;
 
 	/**
 	 * Gets the environment variable.
@@ -37,7 +41,15 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	/**
 	 * Gets the identifier.
 	 */
-	readonly id = generateUuid();
+	get id() {
+		// If the cached identifier hasn't been set yet, set it.
+		if (!this._cachedId) {
+			this._cachedId = JSON.stringify(this._environmentVariable.path);
+		}
+
+		// Return the cached identifier.
+		return this._cachedId;
+	}
 
 	/**
 	 * Gets the access key.

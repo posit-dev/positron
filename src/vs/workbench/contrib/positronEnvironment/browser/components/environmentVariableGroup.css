@@ -7,6 +7,7 @@
 	border: none;
 	padding: 0 8px;
 	align-items: center;
+	box-sizing: border-box; /* Draw the borders inside the box. */
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);
 	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
@@ -17,9 +18,23 @@
 	background: var(--vscode-positronEnvironment-rowHoverBackground)
 }
 
+.environment-variable-group.selected {
+	color: var(--vscode-positronEnvironment-inactiveSelectionForegroundColor);
+	background: var(--vscode-positronEnvironment-inactiveSelectionBackgroundColor);
+}
+
+.environment-variable-group.focused.selected {
+	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
+	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
+}
+
 .environment-variable-group .expand-collapse-icon {
 	width: 20px;
 	text-align: left;
+}
+
+.environment-variable-group.focused.selected .expand-collapse-icon {
+	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
 }
 
 .environment-variable-group .title {

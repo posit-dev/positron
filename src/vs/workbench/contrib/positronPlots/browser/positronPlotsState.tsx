@@ -22,6 +22,7 @@ export interface PositronPlotsServices {
 export interface PositronPlotsState extends PositronPlotsServices {
 	readonly positronPlotInstances: PositronPlotClient[];
 	selectedInstanceId: string;
+	selectedInstanceIndex: number;
 }
 
 /**
@@ -31,8 +32,19 @@ export interface PositronPlotsState extends PositronPlotsServices {
 export const usePositronPlotsState = (services: PositronPlotsServices): PositronPlotsState => {
 
 	// Hooks.
-	const [positronPlotInstances, setPositronPlotInstances] = useState<PositronPlotClient[]>([]);
-	const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
+
+	// Initial set of plot instances.
+	const [positronPlotInstances, setPositronPlotInstances] = useState<PositronPlotClient[]>(
+		services.positronPlotsService.positronPlotInstances);
+
+	// Initial selected plot instance.
+	const initialSelectedId = services.positronPlotsService.selectedPlotId;
+	const [selectedInstanceId, setSelectedInstanceId] = useState<string>(initialSelectedId ?? '');
+
+	// Index of the selected plot instance.
+	const initialSelectedIndex = services.positronPlotsService.positronPlotInstances.findIndex
+		(p => p.id === initialSelectedId);
+	const [selectedInstanceIndex, setSelectedInstanceIndex] = useState<number>(initialSelectedIndex);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -63,7 +75,13 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 		// Listen for plot selection changes.
 		disposableStore.add(services.positronPlotsService.onDidSelectPlot(id => {
+			// Set the selected plot instance.
 			setSelectedInstanceId(id);
+
+			// Find the index of the selected plot instance.
+			const index = services.positronPlotsService.positronPlotInstances.findIndex(
+				p => p.id === id);
+			setSelectedInstanceIndex(index);
 		}));
 
 		// Listen for plot removal.
@@ -80,5 +98,5 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 		return () => disposableStore.dispose();
 	}, []);
 
-	return { ...services, positronPlotInstances, selectedInstanceId };
+	return { ...services, positronPlotInstances, selectedInstanceId, selectedInstanceIndex };
 };
