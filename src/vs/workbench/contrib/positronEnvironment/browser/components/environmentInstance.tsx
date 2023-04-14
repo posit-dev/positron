@@ -8,6 +8,7 @@ import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-di
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { EmptyEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/components/emptyEnvironment';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
@@ -351,6 +352,11 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		'environment-instance',
 		{ 'resizing': resizingColumn }
 	);
+
+	// If there are no environment entries, render the empty environment.
+	if (!entries.length) {
+		return <EmptyEnvironment />;
+	}
 
 	// Render.
 	return (
