@@ -169,14 +169,12 @@ impl EnvironmentVariable {
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
         for path_element in path {
 
-            if path_element.starts_with("@") {
-                let (_, name) = path_element.split_at(1);
-                let name = r_symbol!(name);
+            if object.is_s4() {
+                let name = r_symbol!(path_element);
 
                 object = r_try_catch_error(|| {
                     R_do_slot(*object, name)
                 })?;
-
             } else {
                 let rtype = r_typeof(*object);
                 object = match rtype {
@@ -286,7 +284,7 @@ impl EnvironmentVariable {
                 })?;
                 out.push(
                     EnvironmentVariable::from(
-                        format!("@{}", slot_name),
+                        slot_name.clone(),
                         format!("@{}", slot_name),
                         *slot
                     )
