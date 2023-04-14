@@ -178,3 +178,7 @@
 	cursor: pointer;
 	opacity: 0;
 }
+
+.monaco-pane-view .pane .plots-container .monaco-progress-container {
+	top: 0px;
+}
