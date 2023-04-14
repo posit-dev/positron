@@ -17,6 +17,12 @@ pub enum Comm {
     /// A wrapper for a Language Server Protocol server.
     Lsp,
 
+    /// A dynamic (resizable) plot.
+    Plot,
+
+    /// A data viewer.
+    DataViewer,
+
     /// Some other comm with a custom name.
     Other(String),
 }

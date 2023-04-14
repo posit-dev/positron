@@ -127,9 +127,9 @@ export enum RuntimeClientType {
 	Environment = 'positron.environment',
 	Lsp = 'positron.lsp',
 	Plot = 'positron.plot',
+	DataViewer = 'positron.dataViewer',
 
 	// Future client types may include:
-	// - Data viewer window
 	// - Watch window/variable explorer
 	// - Code inspector
 	// - etc.
