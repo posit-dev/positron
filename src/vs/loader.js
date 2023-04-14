@@ -1594,9 +1594,17 @@ var AMDLoader;
             let strModuleId = this._moduleIdProvider.getStrModuleId(moduleId);
             let paths = this._config.moduleIdToPaths(strModuleId);
             // --- Start Positron ---
-            const reactDomClient = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-            if (paths[0].endsWith(reactDomClient)) {
-                paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}out/react-dom/client.js`;
+            {
+                const reactDomClient = 'static/sources/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+                if (paths[0].endsWith(reactDomClient)) {
+                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}static/sources/out/react-dom/client.js`;
+                }
+            }
+            {
+                const reactDomClient = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+                if (paths[0].endsWith(reactDomClient)) {
+                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}out/react-dom/client.js`;
+                }
             }
             // --- End Positron ---
             let scopedPackageRegex = /^@[^\/]+\/[^\/]+$/; // matches @scope/package-name
