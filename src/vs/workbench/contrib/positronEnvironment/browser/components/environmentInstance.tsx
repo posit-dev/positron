@@ -6,7 +6,7 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { FixedSizeList as List, ListChildComponentProps, ListOnScrollProps } from 'react-window';
+import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
