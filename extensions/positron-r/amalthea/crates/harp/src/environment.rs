@@ -127,13 +127,20 @@ impl BindingType {
 
     pub fn from(value: SEXP) -> Self {
         if value == unsafe { R_NilValue } {
-            return Self::simple(String::from("NULL"));
+            return Self::simple(String::from("NULL"))
+        }
+
+        let info = Sxpinfo::interpret(&value);
+        if info.is_s4() {
+            return Self::from_class(value, String::from("S4"));
+        }
+
+        if is_simple_vector(value) {
+            return vec_type_info(value);
         }
 
         let rtype = r_typeof(value);
-        if is_simple_vector(value) {
-            vec_type_info(value)
-        } else if rtype == LISTSXP {
+        if rtype == LISTSXP {
             match pairlist_size(value) {
                 Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
                 Err(_) => Self::simple(String::from("pairlist [?]"))
@@ -155,7 +162,7 @@ impl BindingType {
                         format!("{} [{}]", dfclass, shape)
                     )
                 } else {
-                    Self::from_class(value, String::from("list"))
+                    Self::from_class(value, format!("list [{}]", XLENGTH(value)))
                 }
             }
         } else if rtype == SYMSXP {
@@ -362,82 +369,6 @@ fn format_display_value(value: SEXP) -> BindingValue {
             Err(_) => {
                 BindingValue::new(String::from("???"), false)
             }
-        }
-    }
-}
-
-fn regular_binding_type(value: SEXP) -> BindingType {
-    if value == unsafe { R_NilValue } {
-        return BindingType::simple(String::from("NULL"))
-    }
-
-    let info = Sxpinfo::interpret(&value);
-    if info.is_s4() {
-        let class = first_class(value);
-        return match class {
-            Some(class) => BindingType::new(class, all_classes(value)),
-            None        => BindingType::simple(String::from("S4"))
-        };
-    }
-
-    let rtype = r_typeof(value);
-    if is_simple_vector(value) {
-        vec_type_info(value)
-    } else if rtype == LISTSXP {
-
-        let mut n = 0;
-        let mut pairlist = value;
-        unsafe {
-            while pairlist != R_NilValue {
-                if r_typeof(pairlist) != LISTSXP {
-                    return BindingType::simple(String::from("pairlist [?]"));
-                }
-                pairlist = CDR(pairlist);
-                n = n + 1;
-            }
-        }
-
-        BindingType::simple(format!("pairlist [{}]", n))
-    } else if rtype == VECSXP {
-        unsafe {
-            if r_inherits(value, "data.frame") {
-                let dfclass = first_class(value).unwrap();
-
-                let dim = RFunction::new("base", "dim.data.frame")
-                    .add(value)
-                    .call()
-                    .unwrap();
-
-                let dim = IntegerVector::new(dim).unwrap();
-                let shape = dim.format(",", 0).1;
-
-                BindingType::simple(
-                    format!("{} [{}]", dfclass, shape)
-                )
-            } else {
-                match first_class(value) {
-                    None => BindingType::simple(format!("list [{}]", XLENGTH(value))),
-                    Some(class) => {
-                        BindingType::new(class, all_classes(value))
-                    }
-                }
-                // TODO: should type_info be different ?
-                // TODO: deal with record types, e.g. POSIXlt
-            }
-        }
-    } else if rtype == SYMSXP {
-        BindingType::simple(String::from("symbol"))
-    } else if rtype == CLOSXP {
-        BindingType::simple(String::from("function"))
-    } else if rtype == ENVSXP {
-        BindingType::simple(String::from("environment"))
-    } else if rtype == EXTPTRSXP {
-        BindingType::simple(String::from("external pointer"))
-    } else {
-        let class = first_class(value);
-        match class {
-            Some(class) => BindingType::new(class, all_classes(value)),
-            None        => BindingType::simple(String::from("???"))
         }
     }
 }

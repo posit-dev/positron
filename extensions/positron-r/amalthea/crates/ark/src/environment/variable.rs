@@ -205,7 +205,7 @@ impl EnvironmentVariable {
 
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
         for path_element in path {
-        
+
             if object.is_s4() {
                 let name = r_symbol!(path_element);
 
@@ -222,7 +222,7 @@ impl EnvironmentVariable {
                         //       e.g. if we want to be able to expand a promise to show its code and/or env
                         RObject::view(unsafe { Rf_findVarInFrame(*object, r_symbol!(path_element)) } )
                     },
-                    
+
                     VECSXP => {
                         let index = path_element.parse::<isize>().unwrap();
                         RObject::view(VECTOR_ELT(*object, index))
@@ -235,20 +235,13 @@ impl EnvironmentVariable {
                             pairlist = CDR(pairlist);
                         }
                         RObject::view(CAR(pairlist))
-                    }, 
-                    
-                    CLOSXP => {
-                        if path_element == "formals" {
-                            RObject::view(FORMALS(*object))
-                        } else {
-                            RObject::view(CLOENV(*object))
-                        }, 
-                    
+                    },
+
                     _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
                 }
            }
        }
-           
+
        Ok(object)
     }
 
