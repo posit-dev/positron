@@ -5,9 +5,9 @@
 .environment-variable-group {
 	display: flex;
 	border: none;
-	/* padding: 0 8px; */
+	padding: 0 8px;
 	align-items: center;
-	box-sizing: border-box;
+	box-sizing: border-box; /* Draw the borders inside the box. */
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);
 	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
