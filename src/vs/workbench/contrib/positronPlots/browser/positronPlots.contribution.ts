@@ -26,6 +26,7 @@ registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType
 // The Positron plots view icon.
 const positronPlotsViewIcon = registerIcon('positron-plots-view-icon', Codicon.positronPlotsView, nls.localize('positronPlotsViewIcon', 'View icon of the Positron plots view.'));
 
+// Register the Positron plots view.
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews(
 	[
 		{
@@ -61,4 +62,6 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 	}
 }
 
-Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronPlotsContribution, LifecyclePhase.Restored);
+Registry.
+	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
+	registerWorkbenchContribution(PositronPlotsContribution, LifecyclePhase.Restored);
