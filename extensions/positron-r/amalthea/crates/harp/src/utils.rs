@@ -135,6 +135,10 @@ pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
 pub unsafe fn r_envir_name(envir: SEXP) -> Result<String> {
     r_assert_type(envir, &[ENVSXP])?;
 
+    if envir == R_BaseNamespace || envir == R_BaseEnv {
+        return Ok("base".to_string());
+    }
+
     if R_IsPackageEnv(envir) != 0 {
         let name = RObject::from(R_PackageEnvName(envir));
         return name.to::<String>();

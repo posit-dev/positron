@@ -9,18 +9,20 @@ use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 
 use http::*;
-use hyper::Body;
 use hyper::client::conn::handshake;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
+use hyper::Body;
 use stdext::spawn;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 
 use crate::lsp::browser;
 
-async fn handle_request(request: Request<Body>, port: i32) -> anyhow::Result<Response<Body>> {
-
+async fn handle_request(
+    request: Request<Body>,
+    port: i32,
+) -> anyhow::Result<Response<Body>> {
     // connect to R help server
     let addr = format!("localhost:{}", port);
     let stream = TcpStream::connect(addr.as_str()).await?;
@@ -38,14 +40,10 @@ async fn handle_request(request: Request<Body>, port: i32) -> anyhow::Result<Res
 
     // forward the response
     Ok(response)
-
 }
 
 #[tokio::main]
 async fn task(port: i32) -> anyhow::Result<()> {
-
-    // TODO: Don't hard-code the port; use a port of 0 to ask for a random port
-    // and then communicate that port back to Positron
     let addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     let listener = TcpListener::bind(addr).await?;
 
@@ -58,19 +56,17 @@ async fn task(port: i32) -> anyhow::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;
         tokio::spawn(async move {
-
             let http = Http::new();
-            let status = http.serve_connection(stream, service_fn(|request| async move {
-                handle_request(request, port).await
-            }));
+            let status = http.serve_connection(
+                stream,
+                service_fn(|request| async move { handle_request(request, port).await }),
+            );
 
             if let Err(error) = status.await {
                 log::error!("HELP PROXY ERROR: {}", error);
             }
-
         });
     }
-
 }
 
 pub fn start(port: i32) {
@@ -81,4 +77,3 @@ pub fn start(port: i32) {
         }
     });
 }
-
