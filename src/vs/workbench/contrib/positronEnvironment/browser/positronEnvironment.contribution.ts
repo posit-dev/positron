@@ -29,7 +29,7 @@ const positronEnvironmentViewIcon = registerIcon(
 	nls.localize('positronEnvironmentViewIcon', 'View icon of the Positron environment view.')
 );
 
-// Register the Positron environment container.
+// Register the Positron environment view container.
 export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 	ViewContainerExtensions.ViewContainersRegistry
 ).registerViewContainer(
@@ -48,6 +48,7 @@ export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry
 	}
 );
 
+// Register the Positron environment view.
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews(
 	[
 		{
