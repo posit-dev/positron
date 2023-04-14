@@ -783,10 +783,8 @@ unsafe fn append_call_completions(
     completions: &mut Vec<CompletionItem>,
 ) -> Result<()> {
     // Get the caller text.
-    let callee = node
-        .child(0)
-        .into_result()?
-        .utf8_text(context.source.as_bytes())?;
+    let callee = node.child(0).into_result()?;
+    let callee = callee.utf8_text(context.source.as_bytes())?;
 
     // Get the first argument, if any (object used for dispatch).
     // TODO: We should have some way of matching calls, so we can
@@ -1249,10 +1247,16 @@ pub unsafe fn append_session_completions(
     loop {
         // Check for 'subset' completions.
         if matches!(node.kind(), "$" | "[" | "[[") {
+            use_search_path = false;
             let enquote = matches!(node.kind(), "[" | "[[");
             if let Some(child) = node.child(0) {
                 let text = child.utf8_text(context.source.as_bytes())?;
-                append_subset_completions(context, &text, enquote, completions)?;
+                unwrap!(
+                    append_subset_completions(context, &text, enquote, completions),
+                    Err(error) => {
+                        log::error!("{}", error);
+                    }
+                );
             }
         }
 
