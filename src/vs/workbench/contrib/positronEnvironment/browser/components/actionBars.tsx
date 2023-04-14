@@ -104,7 +104,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarButton iconId='positron-clean' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
+						<ActionBarButton align='right' iconId='trash' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} onClick={refreshWorkspaceObjectsHandler} />
 					</ActionBarRegion>
