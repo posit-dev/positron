@@ -128,14 +128,14 @@
 }
 
 .plot-thumbnail,
-.static-plot-instance {
+.plot-instance {
 	display: flex;
 	justify-content: center;
 	align-items: center;
 	position: relative;
 }
 
-.static-plot-instance .image-wrapper img,
+.plot-instance .image-wrapper img,
 .plot-thumbnail .image-wrapper img {
 	display: block;
 	max-width: 100%;
@@ -154,9 +154,20 @@
 	cursor: pointer;
 }
 
-.static-plot-instance {
+.plot-instance {
 	height: 100%;
 	width: 100%;
+}
+
+.image-placeholder {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.image-placeholder .image-placeholder-text {
+	font-size: 12px;
+	font-style: italic;
 }
 
 .plot-close {

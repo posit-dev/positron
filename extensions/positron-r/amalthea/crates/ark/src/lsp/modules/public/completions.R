@@ -111,6 +111,51 @@
 
 }
 
-.ps.completions.formalNames <- function(value) {
-    names(formals(args(value)))
+.ps.completions.formalNamesDefault <- function(callable) {
+
+    # NOTE: Some primitive R functions used for control flow
+    # are considered functions, but 'args()' returns `NULL`
+    # instead of an R function.
+    args <- args(callable)
+    if (!is.function(args))
+        return(character())
+
+    names(formals(args))
+
+}
+
+.ps.completions.formalNamesS3 <- function(generic, object) {
+
+    classes <- c(class(object), "default")
+    for (class in classes) {
+
+        # We use 'substitute()' and 'eval()' here just to ensure that
+        # the lookup for S3 methods happens in the global environment.
+        call <- substitute(
+            utils::getS3method(generic, class, optional = TRUE),
+            list(generic = generic, class = class)
+        )
+
+        method <- eval(call, envir = globalenv())
+        if (is.function(method))
+            return(.ps.completions.formalNamesDefault(method))
+
+    }
+
+}
+
+.ps.completions.formalNames <- function(callable, object) {
+
+    # If object is NULL, just use the formals from the callable as-is.
+    if (is.null(object))
+        return(.ps.completions.formalNamesDefault(callable))
+
+    # Otherwise, try and see if there's an S3 method we can use for dispatch.
+    generic <- .ps.s3.genericNameFromFunction(callable)
+    if (length(generic))
+        return(.ps.completions.formalNamesS3(generic, object))
+
+    # Fall back to default implementation.
+    .ps.completions.formalNamesDefault(callable)
+
 }

@@ -26,6 +26,8 @@ use harp::utils::r_formals;
 use harp::utils::r_symbol_quote_invalid;
 use harp::utils::r_symbol_valid;
 use harp::utils::r_typeof;
+use harp::vector::CharacterVector;
+use harp::vector::Vector;
 use libR_sys::*;
 use log::*;
 use regex::Captures;
@@ -57,6 +59,10 @@ use crate::lsp::traits::point::PointExt;
 use crate::lsp::traits::position::PositionExt;
 use crate::lsp::traits::string::StringExt;
 use crate::lsp::traits::tree::TreeExt;
+
+const R_CONTROL_FLOW_KEYWORDS: &[&str] = &[
+    "if", "else", "for", "in", "while", "repeat", "break", "next", "return", "function",
+];
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum CompletionData {
@@ -105,7 +111,6 @@ pub struct CompletionContext<'a> {
     pub node: Node<'a>,
     pub source: String,
     pub point: Point,
-    pub include_hidden: bool,
 }
 
 fn is_pipe_operator(node: &Node) -> bool {
@@ -520,17 +525,12 @@ pub fn completion_context<'a>(
     let node = ast.node_at_point(point);
     let source = document.contents.to_string();
 
-    // track whether we should include hidden completions
-    let text = node.utf8_text(source.as_bytes())?;
-    let include_hidden = text.starts_with(".");
-
     // build completion context
     Ok(CompletionContext {
         document,
         node,
         source,
         point,
-        include_hidden,
     })
 }
 
@@ -782,11 +782,31 @@ unsafe fn append_call_completions(
     node: &Node,
     completions: &mut Vec<CompletionItem>,
 ) -> Result<()> {
+    // Get the caller text.
     let callee = node
         .child(0)
         .into_result()?
         .utf8_text(context.source.as_bytes())?;
-    append_argument_completions(context, &callee, completions)
+
+    // Get the first argument, if any (object used for dispatch).
+    // TODO: We should have some way of matching calls, so we can
+    // take a function signature from R and see how the call matches
+    // to that object.
+    let mut object: Option<&str> = None;
+    if let Some(arguments) = node.child_by_field_name("arguments") {
+        let mut cursor = arguments.walk();
+        let mut children = arguments.children_by_field_name("argument", &mut cursor);
+        if let Some(argument) = children.next() {
+            if let None = argument.child_by_field_name("name") {
+                if let Some(value) = argument.child_by_field_name("value") {
+                    let text = value.utf8_text(context.source.as_bytes())?;
+                    object = Some(text);
+                }
+            }
+        }
+    }
+
+    append_argument_completions(context, &callee, object, completions)
 }
 
 fn find_pipe_root(mut node: Node) -> Option<Node> {
@@ -851,13 +871,14 @@ unsafe fn append_pipe_completions(
 
 unsafe fn append_argument_completions(
     _context: &CompletionContext,
-    callee: &str,
+    callable: &str,
+    object: Option<&str>,
     completions: &mut Vec<CompletionItem>,
 ) -> Result<()> {
-    info!("append_argument_completions({:?})", callee);
+    info!("append_argument_completions({:?})", callable);
 
     // Check for a function defined in the workspace that can provide parameters.
-    if let Some((_path, entry)) = indexer::find(callee) {
+    if let Some((_path, entry)) = indexer::find(callable) {
         #[allow(unused)]
         match entry.data {
             indexer::IndexEntryData::Function { name, arguments } => {
@@ -875,25 +896,30 @@ unsafe fn append_argument_completions(
         }
     }
 
-    // TODO: Given the callee, we should also try to find its definition within
-    // the document index of function definitions, since it may not be defined
-    // within the session.
-    let value = r_parse_eval(callee, RParseEvalOptions {
+    // Otherwise, try to retrieve completion names from the object itself.
+    let r_callable = r_parse_eval(callable, RParseEvalOptions {
         forbid_function_calls: true,
     })?;
 
-    if Rf_isFunction(*value) != 0 {
-        let strings = RFunction::from(".ps.completions.formalNames")
-            .add(*value)
-            .call()?
-            .to::<Vec<String>>()?;
+    let r_object = if let Some(object) = object {
+        r_parse_eval(object, RParseEvalOptions {
+            forbid_function_calls: true,
+        })?
+    } else {
+        RObject::null()
+    };
 
-        // Return the names of these formals.
-        for string in strings.iter() {
-            match completion_item_from_parameter(string, callee) {
-                Ok(item) => completions.push(item),
-                Err(error) => error!("{:?}", error),
-            }
+    let strings = RFunction::from(".ps.completions.formalNames")
+        .add(r_callable)
+        .add(r_object)
+        .call()?
+        .to::<Vec<String>>()?;
+
+    // Return the names of these formals.
+    for string in strings.iter() {
+        match completion_item_from_parameter(string, callable) {
+            Ok(item) => completions.push(item),
+            Err(error) => error!("{:?}", error),
         }
     }
 
@@ -994,7 +1020,7 @@ unsafe fn append_search_path_completions(
     _context: &CompletionContext,
     completions: &mut Vec<CompletionItem>,
 ) -> Result<()> {
-    // start with keywords
+    // Start with keyword completions.
     append_keyword_completions(completions)?;
 
     // Iterate through environments starting from the global environment.
@@ -1005,30 +1031,21 @@ unsafe fn append_search_path_completions(
         let symbols = R_lsInternal(envir, 1);
 
         // Create completion items for each.
-        let mut strings = RObject::new(symbols).to::<Vec<String>>()?;
+        let vector = CharacterVector::new(symbols)?;
+        for symbol in vector.iter() {
+            // Skip missing values.
+            let Some(symbol) = symbol else {
+                continue;
+            };
 
-        // If this is the base environment, we'll want to remove some
-        // completion items (mainly, control flow keywords which don't
-        // behave like "regular" functions.)
-        if envir == R_BaseEnv || envir == R_BaseNamespace {
-            strings.retain(|name| {
-                !matches!(
-                    name.as_str(),
-                    "if" | "else" |
-                        "for" |
-                        "in" |
-                        "while" |
-                        "repeat" |
-                        "break" |
-                        "next" |
-                        "return" |
-                        "function"
-                )
-            });
-        }
+            // Skip control flow keywords.
+            let symbol = symbol.as_str();
+            if R_CONTROL_FLOW_KEYWORDS.contains(&symbol) {
+                continue;
+            }
 
-        for string in strings.iter() {
-            match completion_item_from_symbol(string, envir) {
+            // Add the completion item.
+            match completion_item_from_symbol(symbol, envir) {
                 Ok(item) => completions.push(item),
                 Err(error) => error!("{:?}", error),
             }
@@ -1124,30 +1141,23 @@ unsafe fn append_roxygen_completions(
 }
 
 pub fn can_provide_completions(
-    document: &mut Document,
+    context: &CompletionContext,
     params: &CompletionParams,
 ) -> Result<bool> {
-    // figure out the token / node at the cursor position. note that we use
-    // the previous token here as the cursor itself will be located just past
-    // the cursor / node providing the associated context
-    let mut point = params.text_document_position.position.as_point();
-    if point.column > 1 {
-        point.column -= 1;
+    // If this completion was triggered by the user typing a ':', then only
+    // provide completions if the current node already has '::' or ':::'.
+    if let Some(ref completion_context) = params.context {
+        if let Some(ref trigger_character) = completion_context.trigger_character {
+            if trigger_character == ":" {
+                let text = context.node.utf8_text(context.source.as_bytes())?;
+                if !matches!(text, "::" | ":::") {
+                    return false.ok();
+                }
+            }
+        }
     }
 
-    let node = document.ast.node_at_point(point);
-    let source = document.contents.to_string();
-    let value = node.utf8_text(source.as_bytes())?;
-
-    // completions will be triggered as the user types ':', which implies that
-    // a completion request could be sent before the user has finished typing
-    // '::' or ':::'. detect this particular case and don't provide completions
-    // in that context
-    if value == ":" {
-        return Ok(false);
-    }
-
-    return Ok(true);
+    true.ok()
 }
 
 unsafe fn append_file_completions(
@@ -1262,10 +1272,14 @@ pub unsafe fn append_session_completions(
             }
 
             // Check for pipe completions.
-            append_pipe_completions(context, &node, completions)?;
+            if let Err(error) = append_pipe_completions(context, &node, completions) {
+                log::error!("{}", error);
+            }
 
             // Check for generic call completions.
-            append_call_completions(context, &cursor, &node, completions)?;
+            if let Err(error) = append_call_completions(context, &cursor, &node, completions) {
+                log::error!("{}", error);
+            }
         }
 
         // Handle the case with 'package::prefix', where the user has now
