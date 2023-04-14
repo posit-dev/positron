@@ -5,20 +5,15 @@
 import 'vs/css!./positronConsoleView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
-import { PixelRatio } from 'vs/base/browser/browser';
 import { Event, Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IModelService } from 'vs/editor/common/services/model';
-import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
-import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
@@ -187,46 +182,9 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Get the editor options and read the font info.
-		const editorOptions = this.configurationService.getValue<IEditorOptions>('editor');
-		const fontInfo = FontMeasurements.readFontInfo(
-			BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
-		);
-
-		// Append the Positron console container. Apply the font info to it.
+		// Append the Positron console container.
 		this._positronConsoleContainer = DOM.$('.positron-console-container');
 		container.appendChild(this._positronConsoleContainer);
-		applyFontInfo(this._positronConsoleContainer, fontInfo);
-
-		// Add the configuration change event handler so we can detect font-related changes in the
-		// editor configuration.
-		this._register(
-			this.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
-				// When something in the editor changes, determine whether it's font-related and, if it
-				// is, apply the new font info to the container.
-				if (configurationChangeEvent.affectsConfiguration('editor')) {
-					if (configurationChangeEvent.affectedKeys.has('editor.fontFamily') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontWeight') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontSize') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontLigatures') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontVariations') ||
-						configurationChangeEvent.affectedKeys.has('editor.lineHeight') ||
-						configurationChangeEvent.affectedKeys.has('editor.letterSpacing')
-					) {
-						// Get the editor options and read the font info.
-						const fontInfo = FontMeasurements.readFontInfo(
-							BareFontInfo.createFromRawSettings(
-								this.configurationService.getValue<IEditorOptions>('editor'),
-								PixelRatio.value
-							)
-						);
-
-						// Apply the font info to the Positron environment container.
-						applyFontInfo(this._positronConsoleContainer, fontInfo);
-					}
-				}
-			})
-		);
 
 		// Render the Positron console.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronConsoleContainer);
