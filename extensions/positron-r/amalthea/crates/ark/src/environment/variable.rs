@@ -151,31 +151,13 @@ impl EnvironmentVariable {
             Self::resolve_object_from_path(env, &path)?
         };
 
-        // expansions specific to the type
-        let mut out = match r_typeof(*object) {
+        match r_typeof(*object) {
             VECSXP  => Self::inspect_list(*object),
             LISTSXP => Self::inspect_pairlist(*object),
             ENVSXP  => Self::inspect_environment(*object),
             _       => Ok(vec![])
-        }? ;
-
-        // attributes
-        unsafe {
-            let attributes = ATTRIB(*object);
-            if attributes != R_NilValue {
-                let mut attributes = Self::inspect_pairlist(attributes)?;
-
-                for i in 0..attributes.len() {
-                    let var = attributes.get_mut(i).unwrap();
-                    var.access_key   = format!("@{}", var.display_name);
-                    var.display_name = format!("attr(\"{}\")", var.display_name);
-                }
-
-                out.append(&mut attributes);
-            }
         }
 
-        Ok(out)
     }
 
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
