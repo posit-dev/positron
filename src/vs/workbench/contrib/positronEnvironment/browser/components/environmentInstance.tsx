@@ -198,7 +198,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				consumeEvent();
 				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 				if (selectedEntryIndex > 0) {
-					setSelectedId(entries[selectedEntryIndex - 1].id);
+					const index = selectedEntryIndex - 1;
+					setSelectedId(entries[index].id);
+					listRef.current.scrollToItem(index);
 				}
 				break;
 			}
@@ -208,7 +210,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				consumeEvent();
 				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 				if (selectedEntryIndex < entries.length - 1) {
-					setSelectedId(entries[selectedEntryIndex + 1].id);
+					const index = selectedEntryIndex + 1;
+					setSelectedId(entries[index].id);
+					listRef.current.scrollToItem(index);
 				}
 				break;
 			}
