@@ -49,9 +49,9 @@ pub static mut S4_OBJECT_MASK: libc::c_uint = 1 << 4;
 
 impl Sxpinfo {
 
-    pub fn interpret(frame: &SEXP) -> &Self {
+    pub fn interpret(x: &SEXP) -> &Self {
         unsafe {
-            (*frame as *mut Sxpinfo).as_ref().unwrap()
+            (*x as *mut Sxpinfo).as_ref().unwrap()
         }
     }
 
@@ -193,7 +193,6 @@ impl Binding {
 
     pub fn has_children(&self) -> bool {
         match self.kind {
-            // TODO: for now only lists have children
             BindingKind::Regular => has_children(self.value),
             BindingKind::Promise(true) => has_children(unsafe{PRVALUE(self.value)}),
 
@@ -207,11 +206,12 @@ impl Binding {
 }
 
 pub fn has_children(value: SEXP) -> bool {
-    if unsafe {ATTRIB(value) != R_NilValue} {
+    let info = Sxpinfo::interpret(&value);
+    if info.is_s4() {
         true
     } else {
         match r_typeof(value) {
-            VECSXP  => !unsafe{ r_inherits(value, "POSIXlt") },
+            VECSXP  => unsafe { XLENGTH(value) != 0 } ,
             LISTSXP => true,
             ENVSXP => true,
 
@@ -338,7 +338,7 @@ fn regular_binding_type(value: SEXP) -> BindingType {
                 )
             } else {
                 match first_class(value) {
-                    None => BindingType::simple(String::from("list")),
+                    None => BindingType::simple(format!("list [{}]", XLENGTH(value))),
                     Some(class) => {
                         BindingType::new(class, all_classes(value))
                     }

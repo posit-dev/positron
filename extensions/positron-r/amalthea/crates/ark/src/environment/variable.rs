@@ -8,9 +8,11 @@
 use harp::environment::Binding;
 use harp::environment::BindingType;
 use harp::environment::BindingValue;
+use harp::environment::Sxpinfo;
 use harp::environment::env_bindings;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::exec::r_try_catch_error;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::symbol::RSymbol;
@@ -151,13 +153,17 @@ impl EnvironmentVariable {
             Self::resolve_object_from_path(env, &path)?
         };
 
-        match r_typeof(*object) {
-            VECSXP  => Self::inspect_list(*object),
-            LISTSXP => Self::inspect_pairlist(*object),
-            ENVSXP  => Self::inspect_environment(*object),
-            _       => Ok(vec![])
+        let info = Sxpinfo::interpret(&*object);
+        if info.is_s4() {
+            Self::inspect_s4(*object)
+        } else {
+            match r_typeof(*object) {
+                VECSXP  => Self::inspect_list(*object),
+                LISTSXP => Self::inspect_pairlist(*object),
+                ENVSXP  => Self::inspect_environment(*object),
+                _       => Ok(vec![])
+            }
         }
-
     }
 
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
@@ -165,16 +171,12 @@ impl EnvironmentVariable {
 
             if path_element.starts_with("@") {
                 let (_, name) = path_element.split_at(1);
+                let name = r_symbol!(name);
 
-                let mut attributes = ATTRIB(*object);
-                while attributes != R_NilValue {
-                    if String::from(RSymbol::new(TAG(attributes))) == name {
-                        object = RObject::view(CAR(attributes));
+                object = r_try_catch_error(|| {
+                    R_do_slot(*object, name)
+                })?;
 
-                        break;
-                    }
-                    attributes = CDR(attributes);
-                }
             } else {
                 let rtype = r_typeof(*object);
                 object = match rtype {
@@ -265,6 +267,34 @@ impl EnvironmentVariable {
         });
 
         Ok(out)
+    }
+
+    fn inspect_s4(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out: Vec<Self> = vec![];
+
+        unsafe {
+            let slot_names = RFunction::new("methods", ".slotNames")
+                .add(value)
+                .call()?;
+
+            let slot_names = CharacterVector::new_unchecked(*slot_names);
+            let mut iter = slot_names.iter();
+            while let Some(Some(slot_name)) = iter.next() {
+                let slot_symbol = r_symbol!(slot_name);
+                let slot = r_try_catch_error(|| {
+                    R_do_slot(value, slot_symbol)
+                })?;
+                out.push(
+                    EnvironmentVariable::from(
+                        format!("@{}", slot_name),
+                        format!("@{}", slot_name),
+                        *slot
+                    )
+                );
+            }
+
+            Ok(out)
+        }
     }
 
 }
