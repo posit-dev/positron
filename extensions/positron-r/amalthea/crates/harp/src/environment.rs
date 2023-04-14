@@ -45,6 +45,7 @@ pub struct Sxpinfo {
 }
 
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
+pub static mut S4_OBJECT_MASK: libc::c_uint = 1 << 4;
 
 impl Sxpinfo {
 
@@ -60,6 +61,10 @@ impl Sxpinfo {
 
     pub fn is_immediate(&self) -> bool {
         self.extra() != 0
+    }
+
+    pub fn is_s4(&self) -> bool {
+        self.gp() & unsafe {S4_OBJECT_MASK} != 0
     }
 }
 
