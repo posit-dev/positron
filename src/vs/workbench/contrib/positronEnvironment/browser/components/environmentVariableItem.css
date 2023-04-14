@@ -4,6 +4,7 @@
 
 .environment-variable {
 	display: flex;
+	box-sizing: border-box;
 	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
 }
