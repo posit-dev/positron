@@ -33,14 +33,17 @@
 }
 
 .environment-variable .name-column .gutter {
-	width: 20px;
 	display: flex;
-	margin-left: 8px;
 	align-items: center;
 }
 
-.environment-variable .expand-collapse-icon {
-	display: flex !important;
+.environment-variable .expand-collapse-area {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	margin-left: 4px;
+	padding-left: 4px;
+	align-items: center;
 }
 
 .environment-variable.focused.selected .expand-collapse-icon {
