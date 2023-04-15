@@ -38,16 +38,20 @@
 }
 
 .environment-variable .expand-collapse-area {
-	width: 20px;
-	height: 20px;
+	width: 26px;
+	height: 26px;
 	display: flex;
-	margin-left: 4px;
-	padding-left: 4px;
 	align-items: center;
+	justify-content: center;
 }
 
 .environment-variable.focused.selected .expand-collapse-icon {
 	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
+}
+
+.environment-variable .name-value {
+	display: flex;
+	align-items: center;
 }
 
 .environment-variable .details-column {
