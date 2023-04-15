@@ -268,6 +268,7 @@ export abstract class AbstractContextKeyService implements IContextKeyService {
 	declare _serviceBrand: undefined;
 
 	protected _isDisposed: boolean;
+	protected _contexts: Map<number, Context>;
 	protected _myContextId: number;
 
 	protected _onDidChangeContext = new PauseableEmitter<IContextKeyChangeEvent>({ merge: input => new CompositeContextKeyChangeEvent(input) });
@@ -275,6 +276,7 @@ export abstract class AbstractContextKeyService implements IContextKeyService {
 
 	constructor(myContextId: number) {
 		this._isDisposed = false;
+		this._contexts = new Map();
 		this._myContextId = myContextId;
 	}
 
@@ -332,6 +334,22 @@ export abstract class AbstractContextKeyService implements IContextKeyService {
 		return this.getContextValuesContainer(this._myContextId).getValue<T>(key);
 	}
 
+	public getAllContextKeyValues<T extends ContextKeyValue>(key: string): T[] {
+		const values: T[] = [];
+		if (this._isDisposed) {
+			return values;
+		}
+
+		for (const [_id, context] of this._contexts) {
+			const value = context.getValue<T>(key);
+			if (typeof value !== 'undefined') {
+				values.push(value);
+			}
+		}
+
+		return values;
+	}
+
 	public setContext(key: string, value: any): void {
 		if (this._isDisposed) {
 			return;
@@ -370,7 +388,6 @@ export abstract class AbstractContextKeyService implements IContextKeyService {
 export class ContextKeyService extends AbstractContextKeyService implements IContextKeyService {
 
 	private _lastContextId: number;
-	private readonly _contexts = new Map<number, Context>();
 
 	private readonly _toDispose = new DisposableStore();
 
@@ -567,6 +584,15 @@ class OverlayContextKeyService implements IContextKeyService {
 
 	getContextKeyValue<T>(key: string): T | undefined {
 		return this.overlay.has(key) ? this.overlay.get(key) : this.parent.getContextKeyValue(key);
+	}
+
+	getAllContextKeyValues<T extends ContextKeyValue>(key: string): T[] {
+		const values: T[] = [];
+		const value = this.getContextKeyValue<T>(key);
+		if (typeof value !== 'undefined') {
+			values.push(value);
+		}
+		return values;
 	}
 
 	createScoped(): IScopedContextKeyService {

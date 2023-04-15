@@ -75,7 +75,25 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 	};
 
 	// Memoize the key down event handler.
+	const contextKeyService = positronConsoleContext.contextKeyService;
 	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
+
+		// Don't handle the event if a suggest widget is visible.
+		//
+		// TODO: It seems like VSCode maintains a tree of contexts, and changes to
+		// the 'suggetstWidgetVisible' context key might not be visible via the
+		// existing APIs for querying a context, and I'm not sure how to get the
+		// context key service associated with any running editors. Ergo, the following
+		// hack where we just iterate through _any_ context and see which of them might
+		// report information about a suggest widget being visible.
+		//
+		// Surely there is a better way.
+		const values = contextKeyService.getAllContextKeyValues('suggestWidgetVisible');
+		for (const value of values) {
+			if (value) {
+				return;
+			}
+		}
 		/**
 		 * Eats the event.
 		 */
