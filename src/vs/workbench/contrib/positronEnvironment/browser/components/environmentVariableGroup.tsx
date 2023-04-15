@@ -4,7 +4,7 @@
 
 import 'vs/css!./environmentVariableGroup';
 import * as React from 'react';
-import { CSSProperties, MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
