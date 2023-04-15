@@ -6,8 +6,14 @@ import 'vs/css!./consoleInstance';
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { PixelRatio } from 'vs/base/browser/browser';
+import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
+import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
 import { LiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/liveInput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
@@ -25,20 +31,13 @@ import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common
 import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { PixelRatio } from 'vs/base/browser/browser';
-import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
-import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IDisposable } from 'xterm';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
