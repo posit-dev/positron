@@ -4,7 +4,7 @@
 
 import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
-import { CSSProperties, MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
@@ -35,9 +35,6 @@ export interface EnvironmentVariableItemProps {
  * @returns The rendered component.
  */
 export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => {
-	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
-
 	// Create the class names.
 	const classNames = positronClassNames(
 		'environment-variable',
@@ -80,7 +77,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 
 	// Render.
 	return (
-		<div ref={ref} className={classNames} onMouseDown={rowMouseDownHandler} style={props.style}>
+		<div className={classNames} onMouseDown={rowMouseDownHandler} style={props.style}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
