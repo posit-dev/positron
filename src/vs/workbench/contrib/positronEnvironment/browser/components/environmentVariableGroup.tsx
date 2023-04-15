@@ -71,10 +71,10 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 	// Render.
 	return (
 		<div className={classNames} onMouseDown={rowMouseDownHandler} style={props.style}>
-			<div className='expand-collapse-area'>
+			<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler}>
 				{props.environmentVariableGroup.expanded ?
-					<div className={`expand-collapse-icon codicon codicon-chevron-down`} onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} /> :
-					<div className={`expand-collapse-icon codicon codicon-chevron-right`} onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} />
+					<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
+					<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
 				}
 			</div>
 			<div className='title'>
