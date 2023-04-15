@@ -4,8 +4,6 @@
 
 import { EnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
-import { PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
-import { sortEnvironmentVariableItemsByName, sortEnvironmentVariableItemsBySize } from 'vs/workbench/services/positronEnvironment/common/helpers/utils';
 
 /**
  * EnvironmentVariableItem class. This is used to represent an EnvironmentVariable in a language
@@ -224,10 +222,9 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 
 	/**
 	 * Flattens this environment variable item.
-	 * @param sorting The sorting.
 	 * @returns The flattened environment variable item.
 	 */
-	flatten(isExpanded: (path: string[]) => boolean, sorting: PositronEnvironmentSorting): EnvironmentVariableItem[] {
+	flatten(isExpanded: (path: string[]) => boolean): EnvironmentVariableItem[] {
 		// Create the flattened environment variable items with this environment variable item as
 		// the first entry.
 		const items: EnvironmentVariableItem[] = [this];
@@ -235,36 +232,22 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 		// If this environment variable item doesn't have children, return the flattened environment
 		// variable items
 		if (!this.hasChildren) {
+			this.expanded = false;
 			return items;
 		}
 
 		// Update the expanded state of this environment variable item.
 		this.expanded = isExpanded(this._environmentVariable.path);
 
-		// If this environment variable item isn't expanded or the children have not been loaded, return.
+		// If this environment variable item isn't expanded or the children have not been loaded,
+		// return.
 		if (!this.expanded || !this._environmentVariableItems) {
 			return items;
 		}
 
-		// Get the environment variable items.
-		const environmentVariableItems = Array.from(this._environmentVariableItems.values());
-
-		// Sort the children of this environment variable item in place.
-		switch (sorting) {
-			// Name.
-			case PositronEnvironmentSorting.Name:
-				sortEnvironmentVariableItemsByName(environmentVariableItems);
-				break;
-
-			// Size.
-			case PositronEnvironmentSorting.Size:
-				sortEnvironmentVariableItemsBySize(environmentVariableItems);
-				break;
-		}
-
 		// Recursively flatten the children of this environment variable item.
-		for (const environmentVariableItem of environmentVariableItems) {
-			items.push(...environmentVariableItem.flatten(isExpanded, sorting));
+		for (const environmentVariableItem of this._environmentVariableItems.values()) {
+			items.push(...environmentVariableItem.flatten(isExpanded));
 		}
 
 		// Done.
