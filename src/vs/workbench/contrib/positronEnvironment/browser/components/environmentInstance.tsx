@@ -255,14 +255,14 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	};
 
 	/**
-	 * startResizeNameColumn event handler.
+	 * onStartResizeNameColumn event handler.
 	 */
 	const startResizeNameColumnHandler = () => {
 		setResizingColumn(true);
 	};
 
 	/**
-	 * resizeNameColumn event handler.
+	 * onResizeNameColumn event handler.
 	 * @param x The X delta.
 	 */
 	const resizeNameColumnHandler = (x: number) => {
@@ -270,12 +270,50 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	};
 
 	/**
-	 * stopResizeNameColumn event handler.
+	 * onStopResizeNameColumn event handler.
 	 * @param x The X delta.
 	 */
 	const stopResizeNameColumnHandler = (x: number) => {
 		resizeNameColumn(x);
 		setResizingColumn(false);
+	};
+
+	/**
+	 * onSelected event handler.
+	 * @param index The index of the entry that was selected.
+	 */
+	const selectedHandler = (index: number) => {
+		setSelectedId(entries[index].id);
+		instanceRef.current.focus();
+	};
+
+	/**
+	 * onToggleExpandCollapse event handler.
+	 * @param index The index of the entry that was selected.
+	 */
+	const toggleExpandCollapseHandler = (index: number) => {
+		const selectedEntry = entries[index];
+		if (isEnvironmentVariableGroup(selectedEntry)) {
+			if (selectedEntry.expanded) {
+				props.positronEnvironmentInstance.collapseEnvironmentVariableGroup(
+					selectedEntry.id
+				);
+			} else {
+				props.positronEnvironmentInstance.expandEnvironmentVariableGroup(
+					selectedEntry.id
+				);
+			}
+		} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
+			if (selectedEntry.expanded) {
+				props.positronEnvironmentInstance.collapseEnvironmentVariableItem(
+					selectedEntry.path
+				);
+			} else {
+				props.positronEnvironmentInstance.expandEnvironmentVariableItem(
+					selectedEntry.path
+				);
+			}
+		}
 	};
 
 	/**
@@ -298,11 +336,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	};
 
-	const onEntrySelected = (index: number) => {
-		setSelectedId(entries[index].id);
-		instanceRef.current.focus();
-	};
-
 	/**
 	 * EnvironmentEntry component.
 	 * @param index The index of the environment entry.
@@ -320,7 +353,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					style={style}
 					focused={focused}
 					selected={selectedId === entry.id}
-					onSelected={() => onEntrySelected(index)}
+					onSelected={() => selectedHandler(index)}
+					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 					positronEnvironmentInstance={props.positronEnvironmentInstance}
 				/>
 			);
@@ -334,7 +368,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					style={style}
 					focused={focused}
 					selected={selectedId === entry.id}
-					onSelected={() => onEntrySelected(index)}
+					onSelected={() => selectedHandler(index)}
+					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 					onStartResizeNameColumn={startResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
 					onStopResizeNameColumn={stopResizeNameColumnHandler}
