@@ -1080,7 +1080,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 		// Flatten the array of environment variable items.
 		return environmentVariableItems.flatMap(environmentVariableItem =>
-			environmentVariableItem.flatten(isExpanded, this._sorting)
+			environmentVariableItem.flatten(isExpanded)
 		);
 	}
 
