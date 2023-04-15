@@ -324,6 +324,11 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	private _sorting = PositronEnvironmentSorting.Name;
 
 	/**
+	 * Gets or sets the filter text.
+	 */
+	private _filterText = '';
+
+	/**
 	 * Gets the collapsed groups set, which is used to keep track of which groups the user has
 	 * collapsed. This is keyed by group ID. By default, all groups are expanded.
 	 */
@@ -534,7 +539,10 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	expandEnvironmentVariableGroup(id: string) {
 		// If the group is collapsed, expand it.
 		if (this._collapsedGroupIds.has(id)) {
+			// Expand the group.
 			this._collapsedGroupIds.delete(id);
+
+			// The entries changed.
 			this.entriesChanged();
 		}
 	}
@@ -546,7 +554,10 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	collapseEnvironmentVariableGroup(id: string) {
 		// If the group is not collapsed, collapse it.
 		if (!this._collapsedGroupIds.has(id)) {
+			// Collapse the group.
 			this._collapsedGroupIds.add(id);
+
+			// The entries changed.
 			this.entriesChanged();
 		}
 	}
@@ -581,22 +592,6 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
-	 * Finds an environment variable item by its path.
-	 * @param path The path of the environment variable item.
-	 * @returns The environment variable item, if found; otherwise, undefined.
-	 */
-	private findEnvironmentVariableItem(path: string[]): EnvironmentVariableItem | undefined {
-		// Find the root environment variable item.
-		const environmentVariableItem = this._environmentVariableItems.get(path[0]);
-		if (!environmentVariableItem) {
-			return undefined;
-		}
-
-		// Find the environment variable item.
-		return environmentVariableItem.locateChildEntry(path.slice(1));
-	}
-
-	/**
 	 * Collapses an environment variable.
 	 * @param path The path of the environment variable to collapse.
 	 */
@@ -604,8 +599,26 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 		// If the envirionment variable item is expanded, collapse it.
 		const pathString = JSON.stringify(path);
 		if (this._expandedPaths.has(pathString)) {
+			// Collapse the environment variable.
 			this._expandedPaths.delete(pathString);
+
+			// The entries changed.
 			this.entriesChanged();
+		}
+	}
+
+	/**
+	 * Sets the filter text.
+	 * @param filterText The filter text.
+	 */
+	setFilterText(filterText: string) {
+		// If the filter text has changed, set the filter text and update the entries.
+		if (filterText !== this._filterText) {
+			// Set the filter text.
+			this._filterText = filterText;
+
+			// Update entries.
+			this.updateEntries();
 		}
 	}
 
@@ -874,7 +887,7 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 				break;
 		}
 
-		//
+		// The entries changed.
 		this.entriesChanged();
 	}
 
@@ -882,8 +895,8 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Updates entries grouped by none.
 	 */
 	private updateEntriesGroupedByNone() {
-		// Get the environment variable items.
-		const items = Array.from(this._environmentVariableItems.values());
+		// Get the filtered items.
+		const items = this.filteredItems();
 
 		// Sort the environment variable items.
 		switch (this._sorting) {
@@ -906,19 +919,22 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Updates entries grouped by kind.
 	 */
 	private updateEntriesGroupedByKind() {
+		// Get the filtered items.
+		const items = this.filteredItems();
+
 		// Break the environment variable items into groups.
 		const dataItems: EnvironmentVariableItem[] = [];
 		const valueItems: EnvironmentVariableItem[] = [];
 		const functionItems: EnvironmentVariableItem[] = [];
-		for (const environmentVariableItem of this._environmentVariableItems.values()) {
-			if (environmentVariableItem.kind === EnvironmentVariableValueKind.Table) {
-				dataItems.push(environmentVariableItem);
-			} else if (environmentVariableItem.kind === EnvironmentVariableValueKind.Function) {
-				functionItems.push(environmentVariableItem);
+		items.forEach(item => {
+			if (item.kind === EnvironmentVariableValueKind.Table) {
+				dataItems.push(item);
+			} else if (item.kind === EnvironmentVariableValueKind.Function) {
+				functionItems.push(item);
 			} else {
-				valueItems.push(environmentVariableItem);
+				valueItems.push(item);
 			}
-		}
+		});
 
 		// Clear the entries.
 		this._entries = [];
@@ -958,12 +974,15 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	 * Updates entries grouped by size.
 	 */
 	private updateEntriesGroupedBySize() {
+		// Get the filtered items.
+		const items = this.filteredItems();
+
 		// Break the environment variable items into groups.
 		const smallItems: EnvironmentVariableItem[] = [];
 		const mediumItems: EnvironmentVariableItem[] = [];
 		const largeItems: EnvironmentVariableItem[] = [];
 		const veryLargeItems: EnvironmentVariableItem[] = [];
-		Array.from(this._environmentVariableItems.values()).forEach(item => {
+		items.forEach(item => {
 			if (item.size < 1000) {
 				smallItems.push(item);
 			} else if (item.size < 10 * 1000) {
@@ -1017,6 +1036,24 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 	}
 
 	/**
+	 * Returns the filtered items.
+	 * @returns The filtered items.
+	 */
+	private filteredItems() {
+		// Get the environment variable items.
+		let items = Array.from(this._environmentVariableItems.values());
+
+		// If there is filtering set, filter the items.
+		if (this._filterText !== '') {
+			const regex = new RegExp(this._filterText, 'i');
+			items = items.filter(item => item.displayName.search(regex) !== -1);
+		}
+
+		// Return the items.
+		return items;
+	}
+
+	/**
 	 * Sorts an array of environment variable items.
 	 * @param items The array of environment variable items.
 	 * @returns The array of environment variable items
@@ -1037,6 +1074,22 @@ class PositronEnvironmentInstance extends Disposable implements IPositronEnviron
 
 		// Done.
 		return items;
+	}
+
+	/**
+	 * Finds an environment variable item by its path.
+	 * @param path The path of the environment variable item.
+	 * @returns The environment variable item, if found; otherwise, undefined.
+	 */
+	private findEnvironmentVariableItem(path: string[]): EnvironmentVariableItem | undefined {
+		// Find the root environment variable item.
+		const environmentVariableItem = this._environmentVariableItems.get(path[0]);
+		if (!environmentVariableItem) {
+			return undefined;
+		}
+
+		// Find the environment variable item.
+		return environmentVariableItem.locateChildEntry(path.slice(1));
 	}
 
 	/**

@@ -14,7 +14,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 interface ActionBarFilterProps {
 	width: number;
 	initialFilterText?: string;
-	onFilterTextChanged: (findText: string) => void;
+	onFilterTextChanged: (filterText: string) => void;
 }
 
 /**
