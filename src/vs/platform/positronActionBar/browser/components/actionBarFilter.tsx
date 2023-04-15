@@ -23,10 +23,12 @@ interface ActionBarFilterProps {
  * @returns The rendered component.
  */
 export const ActionBarFilter = (props: ActionBarFilterProps) => {
-	// Hooks.
+	// Reference hooks.
+	const inputRef = useRef<HTMLInputElement>(undefined!);
+
+	// State hooks.
 	const [focused, setFocused] = useState(false);
 	const [filterText, setFilterText] = useState(props.initialFilterText ?? '');
-	const inputRef = useRef<HTMLInputElement>(undefined!);
 
 	// Change handler.
 	const changeHandler = (e: ChangeEvent<HTMLInputElement>) => {
