@@ -11,6 +11,6 @@ import * as React from 'react';
  */
 export const EmptyEnvironment = () => {
 	return <div className='empty-environment'>
-		<div className='title'>There are no objects</div>
+		<div className='title'>Environment is empty</div>
 	</div>;
 };

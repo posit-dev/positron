@@ -9,5 +9,7 @@
 }
 
 .empty-environment .title {
-	margin: 4px 8px 0 8px;
+	/* font-style: italic; */
+	text-align: center;
+	margin: 8px 8px 0 8px;
 }
