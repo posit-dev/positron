@@ -56,8 +56,8 @@
 	flex-grow: 1;
 	flex-shrink: 1;
 	overflow: hidden;
-	margin: 0 10px 0 8px;
 	white-space: nowrap;
+	margin: 0 10px 0 8px;
 	text-overflow: ellipsis;
 }
 
