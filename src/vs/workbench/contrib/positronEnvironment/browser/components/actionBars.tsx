@@ -59,11 +59,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Find text change handler.
 	useEffect(() => {
 		if (filterText === '') {
-			return setFilterText('');
+			positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText('');
+			return;
 		} else {
 			// Start the filter timeout.
 			const filterTimeout = setTimeout(() => {
-				console.log('Filter text changed - do filtering');
+				positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText(filterText);
 			}, kFilterTimeout);
 
 			// Clear the find timeout.
@@ -93,6 +94,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		return null;
 	}
 
+	const filterTextChangedHandler = (filterText: string) => {
+		setFilterText(filterText);
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -118,7 +123,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarFilter
 							width={150}
 							initialFilterText={filterText}
-							onFilterTextChanged={setFilterText} />
+							onFilterTextChanged={filterTextChangedHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>

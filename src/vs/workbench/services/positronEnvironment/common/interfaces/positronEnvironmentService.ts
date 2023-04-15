@@ -163,4 +163,10 @@ export interface IPositronEnvironmentInstance {
 	 * @param path The path of the environment variable item to collapse.
 	 */
 	collapseEnvironmentVariableItem(path: string[]): void;
+
+	/**
+	 * Sets the filter text.
+	 * @param filterText The filter text.
+	 */
+	setFilterText(filterText: string): void;
 }
