@@ -61,8 +61,10 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const chevronMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
-		e.preventDefault();
-		e.stopPropagation();
+		if (props.environmentVariableItem.hasChildren) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
 	};
 
 	/**
@@ -70,9 +72,11 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const chevronMouseUpHandler = (e: MouseEvent<HTMLElement>) => {
-		e.preventDefault();
-		e.stopPropagation();
-		props.onToggleExpandCollapse();
+		if (props.environmentVariableItem.hasChildren) {
+			e.preventDefault();
+			e.stopPropagation();
+			props.onToggleExpandCollapse();
+		}
 	};
 
 	// Render.
@@ -81,11 +85,11 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
-						<div className='expand-collapse-area'>
+						<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} >
 							{props.environmentVariableItem.hasChildren && (
 								props.environmentVariableItem.expanded ?
-									<div className={`expand-collapse-icon codicon codicon-chevron-down`} onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} /> :
-									<div className={`expand-collapse-icon codicon codicon-chevron-right`} onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} />
+									<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
+									<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
 							)}
 
 						</div>
