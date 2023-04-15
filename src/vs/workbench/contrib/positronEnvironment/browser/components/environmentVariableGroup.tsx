@@ -18,6 +18,7 @@ interface EnvironmentVariableGroupProps {
 	focused: boolean;
 	style: CSSProperties;
 	onSelected: () => void;
+	onToggleExpandCollapse: () => void;
 	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
 
@@ -27,19 +28,34 @@ interface EnvironmentVariableGroupProps {
  * @returns The rendered component.
  */
 export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) => {
-	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
-
 	/**
-	 * MouseDown handler.
+	 * MouseDown handler for the row.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
-	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
 		props.onSelected();
 	};
 
+	/**
+	 * MouseDown handler for the chevron.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const chevronMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+	};
+
+	/**
+	 * MouseUp handler for the chevron.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const chevronMouseUpHandler = (e: MouseEvent<HTMLElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+		props.onToggleExpandCollapse();
+	};
 
 	// Create the class names.
 	const classNames = positronClassNames(
@@ -54,11 +70,13 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 
 	// Render.
 	return (
-		<div ref={ref} className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
-			{props.environmentVariableGroup.expanded ?
-				<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-				<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
-			}
+		<div className={classNames} onMouseDown={rowMouseDownHandler} style={props.style}>
+			<div className='expand-collapse-area'>
+				{props.environmentVariableGroup.expanded ?
+					<div className={`expand-collapse-icon codicon codicon-chevron-down`} onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} /> :
+					<div className={`expand-collapse-icon codicon codicon-chevron-right`} onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} />
+				}
+			</div>
 			<div className='title'>
 				{props.environmentVariableGroup.title}
 			</div>
