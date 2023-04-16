@@ -76,6 +76,21 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 
 	// Memoize the key down event handler.
 	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
+
+		// Check for a suggest widget in the DOM. If one exists, then don't
+		// handle the key.
+		//
+		// TODO(Kevin): Ideally, we'd do this by checking the
+		// 'suggestWidgetVisible' context key, but the way VSCode handles
+		// 'scoped' contexts makes that challenging to access here, and I
+		// haven't figured out the 'right' way to get access to those contexts.
+		const suggestWidgets = document.getElementsByClassName('suggest-widget');
+		for (const suggestWidget of suggestWidgets) {
+			if (suggestWidget.classList.contains('visible')) {
+				return;
+			}
+		}
+
 		/**
 		 * Eats the event.
 		 */
