@@ -137,6 +137,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		// Push a separator.
 		actions.push(new Separator());
 
+		// Add the copy as text action.
 		actions.push({
 			id: POSITRON_ENVIRONMENT_COPY_AS_TEXT,
 			label: 'Copy as Text',
@@ -149,6 +150,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 			}
 		} as IAction);
 
+		// Add the copy as HTML action.
 		actions.push({
 			id: POSITRON_ENVIRONMENT_COPY_AS_HTML,
 			label: 'Copy as HTML',
