@@ -14,6 +14,7 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
@@ -99,6 +100,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
+	 * @param clipboardService The clipboard service.
 	 * @param _commandService The ICommandService.
 	 * @param configurationService The IConfigurationService.
 	 * @param contextKeyService The IContextKeyService.
@@ -113,6 +115,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IClipboardService private readonly clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -182,6 +185,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		this._positronReactRenderer = new PositronReactRenderer(this._positronEnvironmentContainer);
 		this._positronReactRenderer.render(
 			<PositronEnvironment
+				clipboardService={this.clipboardService}
 				commandService={this._commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
