@@ -102,6 +102,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	/**
 	 * Constructor.
 	 * @param options View pane options.
+	 * @param clipboardService The clipboard service.
 	 * @param commandService The command service.
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
