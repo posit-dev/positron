@@ -5,9 +5,14 @@
 import 'vs/css!./environmentVariableGroup';
 import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import * as nls from 'vs/nls';
+import { IAction } from 'vs/base/common/actions';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
+import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_EXPAND } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
 
 /**
  * EnvironmentVariableGroupProps interface.
@@ -28,14 +33,32 @@ interface EnvironmentVariableGroupProps {
  * @returns The rendered component.
  */
 export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) => {
+	// Context hooks.
+	const positronEnvironmentContext = usePositronEnvironmentContext();
+
 	/**
 	 * MouseDown handler for the row.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
-		props.onSelected();
+
+		// Handle the event.
+		switch (e.button) {
+			// Main button.
+			case 0:
+				// Call the selected callback.
+				props.onSelected();
+				break;
+
+			// Secondary button.
+			case 2:
+				// Show the context menu.
+				showContextMenu(e.clientX, e.clientY);
+				break;
+		}
 	};
 
 	/**
@@ -43,6 +66,7 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const chevronMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
 	};
@@ -52,9 +76,42 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const chevronMouseUpHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
+
+		// Call the toggle expand / collapse callback.
 		props.onToggleExpandCollapse();
+	};
+
+	/**
+	 * Shows the context menu.
+	 */
+	const showContextMenu = (x: number, y: number) => {
+		// Build the actions.
+		const actions: IAction[] = [];
+
+		// Add the toggle expand / collapse action.
+		actions.push({
+			id: props.environmentVariableGroup.expanded ?
+				POSITRON_ENVIRONMENT_COLLAPSE :
+				POSITRON_ENVIRONMENT_EXPAND,
+			label: props.environmentVariableGroup.expanded ?
+				nls.localize('positron.environment.collapse', "Collapse") :
+				nls.localize('positron.environment.expand', "Expand"),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => props.onToggleExpandCollapse()
+		});
+
+		// Show the context menu.
+		positronEnvironmentContext.contextMenuService.showContextMenu({
+			getActions: () => actions,
+			getAnchor: () => ({ x, y }),
+			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
+		});
 	};
 
 	// Create the class names.

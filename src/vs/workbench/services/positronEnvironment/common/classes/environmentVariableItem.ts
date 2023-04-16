@@ -254,5 +254,14 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 		return items;
 	}
 
+	/**
+	 * Formats the value of this variable in a format suitable for placing on the clipboard.
+	 * @param mime The desired MIME type of the format, such as 'text/plain' or 'text/html'.
+	 * @returns A promise that resolves to the formatted value of this variable.
+	 */
+	async formatForClipboard(mime: string): Promise<string> {
+		return await this._environmentVariable.formatForClipboard(mime);
+	}
+
 	//#endregion Public Methods
 }
