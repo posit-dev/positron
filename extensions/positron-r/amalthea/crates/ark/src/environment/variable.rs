@@ -323,15 +323,16 @@ impl EnvironmentVariable {
 
             let slot_names = CharacterVector::new_unchecked(*slot_names);
             let mut iter = slot_names.iter();
-            while let Some(Some(slot_name)) = iter.next() {
-                let slot_symbol = r_symbol!(slot_name);
+            while let Some(Some(display_name)) = iter.next() {
+                let slot_symbol = r_symbol!(display_name);
                 let slot = r_try_catch_error(|| {
                     R_do_slot(value, slot_symbol)
                 })?;
+                let access_key = display_name.clone();
                 out.push(
                     EnvironmentVariable::from(
-                        slot_name.clone(),
-                        format!("@{}", slot_name),
+                        access_key,
+                        display_name,
                         *slot
                     )
                 );
