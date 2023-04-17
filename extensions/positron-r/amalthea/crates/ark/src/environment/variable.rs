@@ -9,7 +9,6 @@ use harp::environment::Binding;
 use harp::environment::BindingKind;
 use harp::environment::BindingType;
 use harp::environment::BindingValue;
-use harp::environment::Sxpinfo;
 use harp::environment::env_bindings;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
