@@ -267,6 +267,10 @@ impl Binding {
         }
     }
 
+    pub fn is_hidden(&self) -> bool {
+        String::from(self.name).starts_with(".")
+    }
+
 }
 
 pub fn has_children(value: SEXP) -> bool {
@@ -445,28 +449,32 @@ fn altrep_class(object: SEXP) -> String {
     format!("{}::{}", pkg, klass)
 }
 
-pub fn env_bindings(env: SEXP) -> Vec<Binding> {
+pub fn env_bindings(env: SEXP, include_hidden: bool) -> Vec<Binding> {
     unsafe {
-        let mut bindings : Vec<Binding> = vec![];
-
         // 1: traverse the envinronment
         let hash  = HASHTAB(env);
         if hash == R_NilValue {
-            frame_bindings(env, FRAME(env), &mut bindings);
+            frame_bindings(env, FRAME(env), include_hidden)
         } else {
+            let mut bindings : Vec<Binding> = vec![];
+
             let n = XLENGTH(hash);
             for i in 0..n {
-                frame_bindings(env, VECTOR_ELT(hash, i), &mut bindings);
+                bindings.append(&mut frame_bindings(env, VECTOR_ELT(hash, i), include_hidden));
             }
+            bindings
         }
-
-        bindings
     }
 }
 
-unsafe fn frame_bindings(env: SEXP, mut frame: SEXP, bindings: &mut Vec<Binding> ) {
+unsafe fn frame_bindings(env: SEXP, mut frame: SEXP, include_hidden: bool) -> Vec<Binding> {
+    let mut bindings: Vec<Binding> = vec![];
     while frame != R_NilValue {
-        bindings.push(Binding::new(env, frame));
+        let binding = Binding::new(env, frame);
+        if include_hidden || !binding.is_hidden() {
+            bindings.push(binding);
+        }
         frame = CDR(frame);
     }
+    bindings
 }

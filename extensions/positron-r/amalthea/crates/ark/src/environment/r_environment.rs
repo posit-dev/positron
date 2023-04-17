@@ -421,7 +421,7 @@ impl REnvironment {
     }
 
     fn bindings(&self) -> Vec<Binding> {
-        let mut bindings = env_bindings(self.env.sexp);
+        let mut bindings = env_bindings(self.env.sexp, false);
         bindings.sort();
         bindings
     }

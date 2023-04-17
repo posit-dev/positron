@@ -301,7 +301,7 @@ impl EnvironmentVariable {
     fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
 
-        for binding in &env_bindings(value) {
+        for binding in &env_bindings(value, false) {
             out.push(Self::new(binding));
         }
 
