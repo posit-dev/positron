@@ -130,8 +130,7 @@ impl BindingType {
             return Self::simple(String::from("NULL"))
         }
 
-        let info = Sxpinfo::interpret(&value);
-        if info.is_s4() {
+        if RObject::view(value).is_s4() {
             return Self::from_class(value, String::from("S4"));
         }
 
@@ -267,8 +266,7 @@ impl Binding {
 }
 
 pub fn has_children(value: SEXP) -> bool {
-    let info = Sxpinfo::interpret(&value);
-    if info.is_s4() {
+    if RObject::view(value).is_s4() {
         unsafe {
             let names = RFunction::new("methods", ".slotNames").add(value).call().unwrap();
             let names = CharacterVector::new_unchecked(names);
