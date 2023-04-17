@@ -19,6 +19,8 @@ import { PositronEnvironmentViewPane } from 'vs/workbench/contrib/positronEnviro
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
+import { IKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
 
 // The Positron environment view identifier.
 export const POSITRON_ENVIRONMENT_VIEW_ID = 'workbench.panel.positronEnvironment';
