@@ -194,6 +194,7 @@ impl EnvironmentVariable {
         } else {
             match r_typeof(*object) {
                 VECSXP  => Self::inspect_list(*object),
+                EXPRSXP => Self::inspect_list(*object),
                 LISTSXP => Self::inspect_pairlist(*object),
                 ENVSXP  => Self::inspect_environment(*object),
                 _       => Ok(vec![])
@@ -229,7 +230,7 @@ impl EnvironmentVariable {
                         }
                     },
 
-                    VECSXP => {
+                    VECSXP | EXPRSXP => {
                         let index = path_element.parse::<isize>().unwrap();
                         RObject::view(VECTOR_ELT(*object, index))
                     },

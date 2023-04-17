@@ -139,13 +139,27 @@ impl BindingType {
         }
 
         let rtype = r_typeof(value);
-        if rtype == LISTSXP {
-            match pairlist_size(value) {
-                Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
-                Err(_) => Self::simple(String::from("pairlist [?]"))
-            }
-        } else if rtype == VECSXP {
-            unsafe {
+        match rtype {
+            EXPRSXP => Self::from_class(value, format!("expression [{}]", unsafe { XLENGTH(value) })),
+            LANGSXP => Self::from_class(value, String::from("language")),
+            CLOSXP  => Self::from_class(value, String::from("function")),
+            ENVSXP  => Self::from_class(value, String::from("environment")),
+            SYMSXP  => {
+                if value == unsafe { R_MissingArg } {
+                    Self::simple(String::from("missing"))
+                } else {
+                    Self::simple(String::from("symbol"))
+                }
+            },
+
+            LISTSXP => {
+                match pairlist_size(value) {
+                    Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
+                    Err(_) => Self::simple(String::from("pairlist [?]"))
+                }
+            },
+
+            VECSXP => unsafe {
                 if r_inherits(value, "data.frame") {
                     let dfclass = first_class(value).unwrap();
 
@@ -163,20 +177,10 @@ impl BindingType {
                 } else {
                     Self::from_class(value, format!("list [{}]", XLENGTH(value)))
                 }
-            }
-        } else if rtype == SYMSXP {
-            if value == unsafe { R_MissingArg } {
-                Self::simple(String::from("missing"))
-            } else {
-                Self::simple(String::from("symbol"))
-            }
-        } else if rtype == CLOSXP {
-            Self::simple(String::from("function"))
-        } else if rtype == ENVSXP {
-            Self::simple(String::from("environment"))
-        } else {
-            Self::from_class(value, String::from("???"))
+            },
+            _      => Self::from_class(value, String::from("???"))
         }
+
     }
 
     pub fn simple(display_type: String) -> Self {
@@ -274,10 +278,11 @@ pub fn has_children(value: SEXP) -> bool {
         }
     } else {
         match r_typeof(value) {
-            VECSXP  => unsafe { XLENGTH(value) != 0 } ,
-            LISTSXP => true,
-            ENVSXP  => true,
-            _       => false
+            VECSXP   => unsafe { XLENGTH(value) != 0 },
+            EXPRSXP  => unsafe { XLENGTH(value) != 0 },
+            LISTSXP  => true,
+            ENVSXP   => true,
+            _        => false
         }
     }
 }
