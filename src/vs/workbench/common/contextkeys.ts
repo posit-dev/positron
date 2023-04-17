@@ -96,6 +96,7 @@ export const StatusBarFocused = new RawContextKey<boolean>('statusBarFocused', f
 // --- Start Positron ---
 export const PositronTopActionBarFocused = new RawContextKey<boolean>('positronTopActionBarFocused', false, localize('positronTopActionBarFocused', "Whether the Positron top action bar has keyboard focus"));
 export const PositronTopActionBarVisibleContext = new RawContextKey<boolean>('positronTopActionBarVisible', true, localize('positronTopActionBarVisible', "Whether the Positron top action bar is visible"));
+export const PositronEnvironmentFocused = new RawContextKey<boolean>('positronEnvironmentFocused', false, localize('positronEnvironmentFocused', "Whether the Positron Environment has keyboard focus"));
 // --- End Positron ---
 
 //#region < --- Banner --- >
