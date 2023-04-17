@@ -216,11 +216,19 @@ impl EnvironmentVariable {
                 let rtype = r_typeof(*object);
                 object = match rtype {
                     ENVSXP => {
-                        // TODO: active bindings and promises can't be inspected at the moment,
-                        //       so we can safely assume we can call Rf_findVarInFrame()
-                        //       without forcing them, but it might be something we want to relax in the future
-                        //       e.g. if we want to be able to expand a promise to show its code and/or env
-                        RObject::view(unsafe { Rf_findVarInFrame(*object, r_symbol!(path_element)) } )
+                        unsafe {
+                            // TODO: consider the cases of :
+                            // - an unresolved promise
+                            // - active binding
+                            let symbol = r_symbol!(path_element);
+                            let mut x = Rf_findVarInFrame(*object, symbol);
+
+                            if r_typeof(x) == PROMSXP {
+                                x = PRVALUE(x);
+                            }
+
+                            RObject::view(x)
+                        }
                     },
 
                     VECSXP => {
@@ -239,7 +247,7 @@ impl EnvironmentVariable {
 
                     _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
                 }
-           }
+            }
        }
 
        Ok(object)
@@ -328,9 +336,9 @@ impl EnvironmentVariable {
                     )
                 );
             }
-
-            Ok(out)
         }
+
+        Ok(out)
     }
 
 }
