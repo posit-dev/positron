@@ -90,33 +90,33 @@ class PositronEnvironmentContribution extends Disposable implements IWorkbenchCo
 	}
 }
 
-// Register keybinding rule for expand.
-KeybindingsRegistry.registerKeybindingRule({
-	weight: KeybindingWeight.WorkbenchContrib,
-	primary: KeyCode.RightArrow,
-	id: POSITRON_ENVIRONMENT_EXPAND
-} satisfies IKeybindingRule);
+// // Register keybinding rule for expand.
+// KeybindingsRegistry.registerKeybindingRule({
+// 	weight: KeybindingWeight.WorkbenchContrib,
+// 	primary: KeyCode.RightArrow,
+// 	id: POSITRON_ENVIRONMENT_EXPAND
+// } satisfies IKeybindingRule);
 
-// Register keybinding rule for collapse.
-KeybindingsRegistry.registerKeybindingRule({
-	weight: KeybindingWeight.WorkbenchContrib,
-	primary: KeyCode.LeftArrow,
-	id: POSITRON_ENVIRONMENT_COLLAPSE
-} satisfies IKeybindingRule);
+// // Register keybinding rule for collapse.
+// KeybindingsRegistry.registerKeybindingRule({
+// 	weight: KeybindingWeight.WorkbenchContrib,
+// 	primary: KeyCode.LeftArrow,
+// 	id: POSITRON_ENVIRONMENT_COLLAPSE
+// } satisfies IKeybindingRule);
 
-// Register keybinding rule for copy as text.
-KeybindingsRegistry.registerKeybindingRule({
-	weight: KeybindingWeight.WorkbenchContrib,
-	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-	id: POSITRON_ENVIRONMENT_COPY_AS_TEXT
-} satisfies IKeybindingRule);
+// // Register keybinding rule for copy as text.
+// KeybindingsRegistry.registerKeybindingRule({
+// 	weight: KeybindingWeight.WorkbenchContrib,
+// 	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+// 	id: POSITRON_ENVIRONMENT_COPY_AS_TEXT
+// } satisfies IKeybindingRule);
 
-// Register keybinding rule for copy as HTML.
-KeybindingsRegistry.registerKeybindingRule({
-	weight: KeybindingWeight.WorkbenchContrib,
-	primary: KeyMod.Shift | KeyMod.CtrlCmd | KeyCode.KeyC,
-	id: POSITRON_ENVIRONMENT_COPY_AS_HTML
-} satisfies IKeybindingRule);
+// // Register keybinding rule for copy as HTML.
+// KeybindingsRegistry.registerKeybindingRule({
+// 	weight: KeybindingWeight.WorkbenchContrib,
+// 	primary: KeyMod.Shift | KeyMod.CtrlCmd | KeyCode.KeyC,
+// 	id: POSITRON_ENVIRONMENT_COPY_AS_HTML
+// } satisfies IKeybindingRule);
 
 // Register the contribution.
 Registry.
