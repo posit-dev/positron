@@ -12,6 +12,7 @@ use harp::environment::BindingValue;
 use harp::environment::env_bindings;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
+use harp::exec::r_try_catch_error;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::symbol::RSymbol;
@@ -188,87 +189,91 @@ impl EnvironmentVariable {
             Self::resolve_object_from_path(env, &path)?
         };
 
-        match r_typeof(*object) {
-            VECSXP  => Self::inspect_list(object),
-            LISTSXP => Self::inspect_pairlist(object),
-            ENVSXP  => Self::inspect_environment(object),
-
-            _       => Ok(vec![])
+        if object.is_s4() {
+            Self::inspect_s4(*object)
+        } else {
+            match r_typeof(*object) {
+                VECSXP  => Self::inspect_list(*object),
+                LISTSXP => Self::inspect_pairlist(*object),
+                ENVSXP  => Self::inspect_environment(*object),
+                _       => Ok(vec![])
+            }
         }
     }
 
     unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
         for path_element in path {
-            // TODO: handle attributes before doing any dispatch
 
-            let rtype = r_typeof(*object);
-            object = match rtype {
-                ENVSXP => unsafe {
-                    let symbol = r_symbol!(path_element);
+            if object.is_s4() {
+                let name = r_symbol!(path_element);
 
-                    // TODO: active bindings can't be inspected at the moment,
-                    //       so we can safely assume we can call Rf_findVarInFrame()
-                    let mut value = Rf_findVarInFrame(*object, symbol);
+                object = r_try_catch_error(|| {
+                    R_do_slot(*object, name)
+                })?;
+            } else {
+                let rtype = r_typeof(*object);
+                object = match rtype {
+                    ENVSXP => {
+                        unsafe {
+                            // TODO: consider the cases of :
+                            // - an unresolved promise
+                            // - active binding
+                            let symbol = r_symbol!(path_element);
+                            let mut x = Rf_findVarInFrame(*object, symbol);
 
-                    // we might get a forced promise, in that case, just use its value
-                    if r_typeof(value) == PROMSXP {
-                        value = PRVALUE(value);
-                    }
+                            if r_typeof(x) == PROMSXP {
+                                x = PRVALUE(x);
+                            }
 
-                    RObject::view(value)
-                },
-                VECSXP => {
-                    let index = path_element.parse::<isize>().unwrap();
-                    RObject::view(VECTOR_ELT(*object, index))
-                },
+                            RObject::view(x)
+                        }
+                    },
 
-                LISTSXP => {
-                    let mut pairlist = *object;
-                    let index = path_element.parse::<isize>().unwrap();
-                    for _i in 0..index {
-                        pairlist = CDR(pairlist);
-                    }
-                    RObject::view(CAR(pairlist))
-                },
+                    VECSXP => {
+                        let index = path_element.parse::<isize>().unwrap();
+                        RObject::view(VECTOR_ELT(*object, index))
+                    },
 
-                CLOSXP => {
-                    if path_element == "formals" {
-                        RObject::view(FORMALS(*object))
-                    } else {
-                        RObject::view(CLOENV(*object))
-                    }
+                    LISTSXP => {
+                        let mut pairlist = *object;
+                        let index = path_element.parse::<isize>().unwrap();
+                        for _i in 0..index {
+                            pairlist = CDR(pairlist);
+                        }
+                        RObject::view(CAR(pairlist))
+                    },
+
+                    _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
                 }
+            }
+       }
 
-                _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
-            };
-        }
-
-        Ok(object)
+       Ok(object)
     }
 
-    fn inspect_list(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+    fn inspect_list(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
-        let n = unsafe { XLENGTH(*value) };
+        let n = unsafe { XLENGTH(value) };
 
         let names = unsafe {
-            CharacterVector::new_unchecked(RFunction::from(".ps.environment.listDisplayNames").add(*value).call()?)
+            CharacterVector::new_unchecked(RFunction::from(".ps.environment.listDisplayNames").add(value).call()?)
         };
 
         for i in 0..n {
             out.push(Self::from(
                 i.to_string(),
                 names.get_unchecked(i).unwrap(),
-                unsafe{ VECTOR_ELT(*value, i)}
+                unsafe{ VECTOR_ELT(value, i)}
             ));
         }
 
         Ok(out)
     }
 
-    fn inspect_pairlist(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+    fn inspect_pairlist(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
 
-        let mut pairlist = *value;
+        let mut pairlist = value;
         unsafe {
             let mut i = 0;
             while pairlist != R_NilValue {
@@ -292,16 +297,45 @@ impl EnvironmentVariable {
         Ok(out)
     }
 
-    fn inspect_environment(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+    fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
 
-        for binding in &env_bindings(*value) {
+        for binding in &env_bindings(value) {
             out.push(Self::new(binding));
         }
 
         out.sort_by(|a, b| {
             a.display_name.cmp(&b.display_name)
         });
+
+        Ok(out)
+    }
+
+    fn inspect_s4(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out: Vec<Self> = vec![];
+
+        unsafe {
+            let slot_names = RFunction::new("methods", ".slotNames")
+                .add(value)
+                .call()?;
+
+            let slot_names = CharacterVector::new_unchecked(*slot_names);
+            let mut iter = slot_names.iter();
+            while let Some(Some(display_name)) = iter.next() {
+                let slot_symbol = r_symbol!(display_name);
+                let slot = r_try_catch_error(|| {
+                    R_do_slot(value, slot_symbol)
+                })?;
+                let access_key = display_name.clone();
+                out.push(
+                    EnvironmentVariable::from(
+                        access_key,
+                        display_name,
+                        *slot
+                    )
+                );
+            }
+        }
 
         Ok(out)
     }
